@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exospace 3D Gallery - Documentation</title>
+    <style>
+        :root { --primary: #3b82f6; --bg: #f8fafc; --text: #334155; --sidebar: #1e293b; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; display: flex; color: var(--text); background: var(--bg); }
+        
+        /* Sidebar */
+        aside { width: 280px; background: var(--sidebar); color: white; height: 100vh; position: fixed; overflow-y: auto; }
+        .logo { padding: 2rem; font-size: 1.5rem; font-weight: bold; letter-spacing: 2px; border-bottom: 1px solid #334155; }
+        .logo span { color: var(--primary); }
+        nav { padding: 1rem 0; }
+        nav a { display: block; padding: 0.8rem 2rem; color: #94a3b8; text-decoration: none; transition: 0.2s; }
+        nav a:hover, nav a.active { color: white; background: #334155; border-left: 4px solid var(--primary); }
+        
+        /* Main Content */
+        main { margin-left: 280px; padding: 4rem; max-width: 900px; width: 100%; }
+        h1 { font-size: 2.5rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; }
+        h2 { font-size: 1.8rem; color: #1e293b; margin-top: 3rem; margin-bottom: 1.5rem; }
+        h3 { font-size: 1.3rem; color: #334155; margin-top: 2rem; }
+        p { line-height: 1.7; margin-bottom: 1rem; }
+        
+        /* Code Blocks */
+        pre { background: #1e293b; color: #e2e8f0; padding: 1.5rem; border-radius: 8px; overflow-x: auto; font-family: 'Fira Code', monospace; }
+        code { background: #e2e8f0; color: #c026d3; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+        pre code { background: transparent; color: inherit; padding: 0; }
+        
+        /* Alerts */
+        .alert { padding: 1rem; border-radius: 8px; margin: 1.5rem 0; border-left: 4px solid; }
+        .alert-info { background: #eff6ff; border-color: var(--primary); color: #1e40af; }
+        .alert-warning { background: #fefce8; border-color: #eab308; color: #854d0e; }
+        
+        /* Steps */
+        .step { display: flex; margin-bottom: 2rem; }
+        .step-num { min-width: 40px; height: 40px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 1rem; }
+        
+        footer { margin-top: 5rem; padding-top: 2rem; border-top: 1px solid #e2e8f0; font-size: 0.9rem; color: #64748b; }
+        
+        @media (max-width: 768px) {
+            aside { display: none; }
+            main { margin-left: 0; padding: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <aside>
+        <div class="logo">EXO<span>SPACE</span></div>
+        <nav>
+            <a href="#intro" class="active">Introduction</a>
+            <a href="#requirements">Requirements</a>
+            <a href="#installation">Installation</a>
+            <a href="#usage">Creating Galleries</a>
+            <a href="#customization">Customization</a>
+            <a href="#support">Support</a>
+        </nav>
+    </aside>
+
+    <main>
+        <section id="intro">
+            <h1>Exospace 3D Gallery</h1>
+            <p>Thank you for purchasing Exospace 3D Gallery. This application allows you to create immersive, virtual 3D art exhibitions directly from your browser. No coding knowledge is required.</p>
+            <div class="alert alert-info">
+                <strong>Version:</strong> 1.0.0<br>
+                <strong>Release Date:</strong> January 2026
+            </div>
+        </section>
+
+        <section id="requirements">
+            <h2>Server Requirements</h2>
+            <p>Exospace requires a standard LAMP/LEMP stack. Most shared hosting providers (Namecheap, Bluehost, SiteGround) support this out of the box.</p>
+            <ul>
+                <li>PHP 8.2 or higher</li>
+                <li>MySQL 8.0+ or MariaDB 10.3+</li>
+                <li>Apache or Nginx Web Server</li>
+                <li>BCMath, Ctype, Fileinfo, JSON, Mbstring, OpenSSL, PDO, Tokenizer, XML, GD extensions</li>
+            </ul>
+        </section>
+
+        <section id="installation">
+            <h2>Installation Guide</h2>
+            <p>We have included an automated installer to make setup easy.</p>
+            
+            <div class="step">
+                <div class="step-num">1</div>
+                <div>
+                    <h3>Upload Files</h3>
+                    <p>Unzip the download package and upload all files inside the <code>exospace</code> folder to your server's <code>public_html</code> (or subdomain) folder.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">2</div>
+                <div>
+                    <h3>Set Permissions</h3>
+                    <p>Ensure the following folders are writable (775):</p>
+                    <ul>
+                        <li><code>storage/</code> (and all subfolders)</li>
+                        <li><code>bootstrap/cache/</code></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">3</div>
+                <div>
+                    <h3>Run Installer</h3>
+                    <p>Open your browser and navigate to your website URL (e.g., <code>https://yourdomain.com/install</code>).</p>
+                    <p>Follow the on-screen wizard:</p>
+                    <ol>
+                        <li>Check Requirements</li>
+                        <li>Enter Database Credentials</li>
+                        <li>Create Admin Account & Enter Purchase Code</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="alert alert-warning">
+                <strong>Important:</strong> The installer will automatically create the <code>.env</code> file and delete itself upon completion for security.
+            </div>
+        </section>
+
+        <section id="usage">
+            <h2>Creating Your First Gallery</h2>
+            <p>Once installed, log in to the Admin Panel.</p>
+            
+            <h3>1. Create Gallery</h3>
+            <p>Click <strong>+ New Gallery</strong> on the dashboard. Enter a title and choose your style settings (Wall Texture, Floor Material, Lighting).</p>
+            
+            <h3>2. Upload Images</h3>
+            <p>After creating the gallery, you will be redirected to the Edit page. Drag and drop your artwork images into the upload zone.</p>
+            <ul>
+                <li>Max file size: 5MB per image</li>
+                <li>Supported formats: JPG, PNG, WEBP</li>
+                <li>Recommended resolution: 1920px width</li>
+            </ul>
+
+            <h3>3. View & Share</h3>
+            <p>Click the <strong>View</strong> button on the gallery card to launch the 3D experience. Copy the URL to share it with the world.</p>
+        </section>
+
+        <section id="customization">
+            <h2>Advanced Customization</h2>
+            <p>Developers can customize the 3D engine by editing <code>resources/views/gallery/view.blade.php</code>.</p>
+            
+            <h3>Adding New Textures</h3>
+            <p>Upload seamless texture files to <code>public/assets/textures/walls/</code> and update the <code>TEXTURE_PATHS</code> constant in the JavaScript code.</p>
+        </section>
+
+        <section id="support">
+            <h2>Support</h2>
+            <p>If you encounter any issues not covered here, please contact us via our CodeCanyon profile page.</p>
+            <footer>
+                &copy; 2026 Exospace. All rights reserved.
+            </footer>
+        </section>
+    </main>
+
+    <script>
+        // Simple scroll spy
+        const links = document.querySelectorAll('nav a');
+        window.addEventListener('scroll', () => {
+            let current = '';
+            document.querySelectorAll('section').forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (scrollY >= sectionTop - 60) {
+                    current = section.getAttribute('id');
+                }
+            });
+            links.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').includes(current)) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
