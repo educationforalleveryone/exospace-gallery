@@ -810,8 +810,10 @@
                     this.scene.add(group);
                     this.artworks.push(group);
                     
-                    // FIX 1: Call optimized lighting method
-                    this.addArtworkLight(group, data.lighting_preset);
+                    // Add shared artwork light (1 per 3 artworks for performance)
+                    if (index % 3 === 0) {
+                        this.addArtworkLight(group, data.lighting_preset);
+                    }
                     
                     positionOnWall++;
                     if (positionOnWall >= imagesPerWall) {
