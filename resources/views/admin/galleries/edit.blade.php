@@ -110,9 +110,19 @@
 
             <!-- 3. Existing Images Grid -->
             <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                    Current Images ({{ $gallery->images->count() }})
-                </h3>
+                <!-- 3A: Updated Header with Bulk Action Button -->
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        Current Images ({{ $gallery->images->count() }})
+                    </h3>
+                    <button id="bulk-delete-btn" onclick="bulkDelete()" style="display: none;" 
+                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-lg flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete Selected (<span id="selected-count">0</span>)
+                    </button>
+                </div>
                 
                 @if($gallery->images->count() > 0)
                     <!-- CHANGED: Added specific width constraints and better gap -->
@@ -120,6 +130,13 @@
                         @foreach($gallery->images as $image)
                             <div class="relative group border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" id="image-{{ $image->id }}">
                                 
+                                <!-- 3B: Selection Checkbox -->
+                                <div class="absolute top-2 left-2 z-20">
+                                    <input type="checkbox" value="{{ $image->id }}" 
+                                           onchange="updateSelection()"
+                                           class="w-5 h-5 rounded border-gray-300 text-blue-600 shadow-lg focus:ring-2 focus:ring-blue-500 image-checkbox cursor-pointer">
+                                </div>
+
                                 <!-- Image: Enforced Aspect Ratio (Square) -->
                                 <div class="aspect-square w-full bg-gray-100 dark:bg-gray-900">
                                     <img src="{{ asset($image->path) }}" 
@@ -157,12 +174,16 @@
     <!-- Dropzone & Scripts -->
     <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
     <script>
+        // 3C: Updated Dropzone configuration
         Dropzone.options.imageUploadDropzone = {
             paramName: "file",
             maxFilesize: 5, // MB
+            maxFiles: 100, // 🔥 NEW: Allow up to 100 images
+            parallelUploads: 3, // Process 3 at a time for better performance
             acceptedFiles: ".jpeg,.jpg,.png,.webp",
-            dictDefaultMessage: "Drop images here or click to upload (Max 5MB per image)",
+            dictDefaultMessage: "Drop images here or click to upload (Max 5MB per image, 100 images total)",
             addRemoveLinks: true,
+            uploadMultiple: false,
             success: function(file, response) {
                 if(response.success) {
                     // Reload page to show new image
@@ -196,6 +217,77 @@
             .catch(err => {
                 console.error('Delete error:', err);
                 alert('Failed to delete image');
+            });
+        }
+
+        // ============================================
+        // 3D: BULK DELETE FUNCTIONS
+        // ============================================
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('.image-checkbox:checked');
+            const btn = document.getElementById('bulk-delete-btn');
+            const countSpan = document.getElementById('selected-count');
+            
+            if (checkboxes.length > 0) {
+                btn.style.display = 'flex';
+                countSpan.textContent = checkboxes.length;
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+
+        function bulkDelete() {
+            const checkboxes = document.querySelectorAll('.image-checkbox:checked');
+            const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            
+            if (ids.length === 0) {
+                alert('Please select images to delete');
+                return;
+            }
+            
+            if (!confirm(`⚠️ Delete ${ids.length} image${ids.length > 1 ? 's' : ''} permanently?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+            
+            // Disable button during deletion
+            const btn = document.getElementById('bulk-delete-btn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Deleting...';
+
+            fetch('{{ route("admin.images.bulk_destroy") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ ids: ids })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    alert(`✅ Successfully deleted ${data.deleted} image${data.deleted > 1 ? 's' : ''}`);
+                    
+                    // Show errors if any
+                    if (data.errors && data.errors.length > 0) {
+                        console.warn('Some images failed to delete:', data.errors);
+                    }
+                    
+                    // Reload page to update gallery
+                    location.reload();
+                } else {
+                    alert('❌ Failed to delete images. Please try again.');
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            })
+            .catch(err => {
+                console.error('Delete error:', err);
+                alert('❌ Network error. Please check your connection and try again.');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
             });
         }
     </script>

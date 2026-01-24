@@ -25,21 +25,28 @@ class ImageController extends Controller
             'file' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120', // Max 5MB
         ]);
 
+        // 2. Check gallery image limit (prevent performance issues)
+        if ($gallery->images()->count() >= 100) {
+            return response()->json([
+                'error' => 'Gallery limit reached. Maximum 100 images per gallery.'
+            ], 422);
+        }
+
         try {
-            // 2. Process Image via Service
+            // 3. Process Image via Service
             $file = $request->file('file');
             $data = $this->imageService->process($file, $gallery->id);
 
-            // 3. Calculate Orientation
+            // 4. Calculate Orientation
             $ratio = $data['width'] / $data['height'];
             $orientation = 'square';
             if ($ratio > 1.1) $orientation = 'landscape';
             if ($ratio < 0.9) $orientation = 'portrait';
 
-            // 4. Get next position order
+            // 5. Get next position order
             $nextPosition = $gallery->images()->max('position_order') + 1;
 
-            // 5. Save to Database
+            // 6. Save to Database
             $image = $gallery->images()->create([
                 'filename' => $data['filename'],
                 'original_name' => $file->getClientOriginalName(),
@@ -83,5 +90,48 @@ class ImageController extends Controller
             Log::error('Image Delete Error: ' . $e->getMessage());
             return response()->json(['error' => 'Delete failed'], 500);
         }
+    }
+
+    /**
+     * Bulk delete images
+     */
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'required|integer|exists:gallery_images,id'
+        ]);
+
+        $count = 0;
+        $errors = [];
+        
+        foreach ($request->ids as $id) {
+            try {
+                $image = GalleryImage::find($id);
+                
+                // Security: ensure user owns the gallery
+                if (!$image || $image->gallery->user_id !== auth()->id()) {
+                    $errors[] = "Image {$id}: Unauthorized";
+                    continue;
+                }
+                
+                // Delete file from disk
+                $this->imageService->delete($image->path);
+                
+                // Delete database record
+                $image->delete();
+                $count++;
+                
+            } catch (\Exception $e) {
+                $errors[] = "Image {$id}: " . $e->getMessage();
+                Log::error("Bulk delete error for image {$id}: " . $e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'success' => $count > 0,
+            'deleted' => $count,
+            'errors' => $errors
+        ]);
     }
 }

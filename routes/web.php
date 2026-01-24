@@ -52,6 +52,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         ->name('images.store');
     Route::delete('images/{image}', [\App\Http\Controllers\Admin\ImageController::class, 'destroy'])
         ->name('images.destroy');
+    Route::post('images/bulk-delete', [\App\Http\Controllers\Admin\ImageController::class, 'bulkDestroy'])
+        ->name('images.bulk_destroy');
 });
 
 // ============================================

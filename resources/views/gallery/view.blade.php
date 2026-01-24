@@ -562,6 +562,39 @@
                 ceiling.name = 'ceiling';
                 this.scene.add(ceiling);
 
+                // ============================================
+                // DYNAMIC DISTRIBUTED LIGHTING
+                // ============================================
+                const lightingConfig = CONFIG.lighting[data.lighting_preset] || CONFIG.lighting.bright;
+
+                // Calculate lighting density based on room size
+                // One light every 8 meters ensures even illumination
+                const lightSpacing = 8;
+                const numLightsX = Math.ceil((wallLength * 2) / lightSpacing);
+                const numLightsZ = Math.ceil((wallLength * 2) / lightSpacing);
+
+                const startX = -(wallLength) + (lightSpacing / 2);
+                const startZ = -(wallLength) + (lightSpacing / 2);
+
+                // Create grid of fill lights across ceiling
+                for (let i = 0; i < numLightsX; i++) {
+                    for (let j = 0; j < numLightsZ; j++) {
+                        const xPos = startX + (i * lightSpacing);
+                        const zPos = startZ + (j * lightSpacing);
+                        
+                        const fillLight = new THREE.PointLight(
+                            0xfff8e8, // Warm white
+                            lightingConfig.fillLight * 0.8, // Slightly reduced per light
+                            lightSpacing * 1.5 // Range covers adjacent lights
+                        );
+                        fillLight.position.set(xPos, CONFIG.room.wallHeight - 0.5, zPos);
+                        fillLight.castShadow = false; // Performance optimization
+                        this.scene.add(fillLight);
+                    }
+                }
+
+                console.log(`💡 Created ${numLightsX * numLightsZ} distributed ceiling lights for ${wallLength}m room`);
+
                 console.log(`📐 Room created: ${wallLength}m x ${wallLength}m x ${wallHeight}m`);
             }
 
@@ -668,15 +701,6 @@
                 hemi.position.set(0, CONFIG.room.wallHeight, 0);
                 this.scene.add(hemi);
                 
-                // ============================================
-                // 3. CENTER FILL LIGHT (NEW: Prevents dark walls)
-                // ============================================
-                // This is the KEY fix - illuminates all walls evenly
-                const centerLight = new THREE.PointLight(0xfff8e8, config.fillLight, 50);
-                centerLight.position.set(0, CONFIG.room.wallHeight - 0.5, 0);
-                centerLight.castShadow = false; // No shadows to keep it subtle
-                this.scene.add(centerLight);
-
                 // ============================================
                 // 4. DIRECTIONAL FILL (NEW: Subtle wall illumination)
                 // ============================================
