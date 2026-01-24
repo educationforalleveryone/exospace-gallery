@@ -59,6 +59,9 @@ class ImageController extends Controller
                 'position_order' => $nextPosition ?? 1,
             ]);
 
+            // Allow file system to complete writes
+            usleep(100000); // 100ms delay
+
             return response()->json([
                 'success' => true,
                 'id' => $image->id,

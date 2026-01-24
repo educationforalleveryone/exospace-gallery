@@ -174,25 +174,58 @@
     <!-- Dropzone & Scripts -->
     <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
     <script>
-        // 3C: Updated Dropzone configuration
+        // 3C: Updated Dropzone configuration - FIX FOR RACE CONDITION
         Dropzone.options.imageUploadDropzone = {
             paramName: "file",
             maxFilesize: 5, // MB
-            maxFiles: 100, // 🔥 NEW: Allow up to 100 images
-            parallelUploads: 3, // Process 3 at a time for better performance
+            maxFiles: 100,
+            parallelUploads: 2, // Reduced to 2 for stability
             acceptedFiles: ".jpeg,.jpg,.png,.webp",
-            dictDefaultMessage: "Drop images here or click to upload (Max 5MB per image, 100 images total)",
+            dictDefaultMessage: "📸 Drop images here or click to upload (Max 5MB per image, 100 images total)",
             addRemoveLinks: true,
             uploadMultiple: false,
-            success: function(file, response) {
-                if(response.success) {
-                    // Reload page to show new image
-                    setTimeout(() => location.reload(), 500);
-                }
-            },
-            error: function(file, response) {
-                console.error('Upload error:', response);
-                alert('Upload failed: ' + (response.error || 'Unknown error'));
+            autoProcessQueue: true,
+            
+            init: function() {
+                let uploadedCount = 0;
+                let totalFiles = 0;
+                let hasErrors = false;
+                
+                this.on("addedfiles", function(files) {
+                    totalFiles = files.length;
+                    uploadedCount = 0;
+                    hasErrors = false;
+                    console.log(`📤 Starting upload of ${totalFiles} images...`);
+                });
+                
+                this.on("success", function(file, response) {
+                    if(response.success) {
+                        uploadedCount++;
+                        console.log(`✅ Uploaded ${uploadedCount}/${totalFiles}`);
+                    }
+                });
+                
+                this.on("error", function(file, response) {
+                    hasErrors = true;
+                    console.error('❌ Upload error:', response);
+                    alert(`Upload failed for ${file.name}: ` + (response.error || 'Unknown error'));
+                });
+                
+                this.on("queuecomplete", function() {
+                    console.log(`🎉 Queue complete! Uploaded: ${uploadedCount}/${totalFiles}`);
+                    
+                    // Only reload after ALL uploads finish
+                    if (uploadedCount > 0) {
+                        setTimeout(() => {
+                            console.log('🔄 Reloading page...');
+                            location.reload();
+                        }, 1000); // Give server time to process
+                    }
+                    
+                    if (hasErrors) {
+                        alert(`⚠️ ${uploadedCount} of ${totalFiles} images uploaded successfully. Check console for errors.`);
+                    }
+                });
             }
         };
 

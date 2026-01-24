@@ -461,13 +461,13 @@
             buildGallery() {
                 const data = window.GALLERY_DATA;
                 
-                // Create room
-                this.createRoom(data);
-                
-                // Setup lighting
+                // SETUP 1: Setup lighting BEFORE creating room to ensure config is available
                 this.setupLighting(data.lighting_preset);
                 
-                // Place artworks
+                // SETUP 2: Create room
+                this.createRoom(data);
+                
+                // SETUP 3: Place artworks
                 this.placeArtworks(data);
                 
                 // Start render loop
@@ -479,6 +479,11 @@
                 const imageCount = data.imageCount;
                 const wallLength = Math.max(CONFIG.room.minWallLength, imageCount * 2);
                 const wallHeight = CONFIG.room.wallHeight;
+
+                // ============================================
+                // REUSE CONFIG FROM setupLighting
+                // ============================================
+                const lightingConfig = this.lightingConfig;
 
                 // ============================================
                 // FLOOR
@@ -542,8 +547,6 @@
                 // ============================================
                 // CEILING (ENHANCED: Preset-aware color)
                 // ============================================
-                const lightingConfig = CONFIG.lighting[data.lighting_preset] || CONFIG.lighting.bright;
-                
                 const ceilingMaterial = new THREE.MeshStandardMaterial({ 
                     color: lightingConfig.ceiling, // Dynamic color based on preset!
                     roughness: 0.5,
@@ -565,7 +568,6 @@
                 // ============================================
                 // DYNAMIC DISTRIBUTED LIGHTING
                 // ============================================
-                const lightingConfig = CONFIG.lighting[data.lighting_preset] || CONFIG.lighting.bright;
 
                 // Calculate lighting density based on room size
                 // One light every 8 meters ensures even illumination
@@ -681,7 +683,11 @@
 
             // UPDATE 2: Replace setupLighting() Method
             setupLighting(preset) {
-                const config = CONFIG.lighting[preset] || CONFIG.lighting.bright;
+                // ============================================
+                // STORE CONFIG TO CLASS PROPERTY
+                // ============================================
+                this.lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
+                const config = this.lightingConfig;
 
                 // ============================================
                 // 1. AMBIENT LIGHT (Base illumination)
@@ -856,7 +862,8 @@
 
             // UPDATE 4: Enhanced Artwork Spotlight
             addArtworkLight(artworkGroup, preset) {
-                const config = CONFIG.lighting[preset] || CONFIG.lighting.bright;
+                // Reuse config from class property
+                const config = this.lightingConfig;
                 
                 // ============================================
                 // MAIN SPOTLIGHT (Focused on artwork)
