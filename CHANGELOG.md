@@ -1,5 +1,25 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.2.0 - January 24, 2026 (Performance & UX Overhaul)
+
+### ⚡ Performance Breakthroughs
+- **Lighting Engine Overhaul**: Switched from expensive SpotLights to optimized PointLights. Drastically reduces GPU load.
+- **Shared Lighting Architecture**: Implemented a 1:3 light-to-artwork ratio. A single light now illuminates clustered artworks, preventing WebGL context crashes on low-end devices.
+- **Shadow Calculation**: Fully disabled shadow mapping on artwork lights to maximize FPS.
+
+### 🎮 Controls & Navigation
+- **Sprint Mode**: Added SHIFT key modifier for faster movement (2.5x speed).
+- **Updated UI**: Added "Sprint" instructions to the on-screen control guide.
+
+### 📐 Smart Architecture
+- **Dynamic Room Sizing**: Replaced linear room scaling with a smart algorithm. Room dimensions now calculate based on artwork density, eliminating empty walls in small-to-medium galleries.
+- **Compact Layouts**: Galleries now feel "cozy" and curated rather than empty and cavernous.
+
+### 🛠 Admin Quality of Life
+- **Bulk Management**: Added "Select All" functionality to the Gallery Edit page for rapid bulk deletion.
+
+---
+
 ## Version 1.1.0 - January 2026
 
 ### 🎨 New Features
