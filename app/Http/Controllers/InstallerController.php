@@ -228,8 +228,9 @@ class InstallerController extends Controller
         try {
             $purchaseCode = session('admin_config.purchase_code');
             
+            // Changed key from 'envato_purchase_code' to generic 'license_key'
             DB::table('settings')->insert([
-                'key' => 'envato_purchase_code',
+                'key' => 'license_key',
                 'value' => $purchaseCode,
                 'created_at' => now(),
                 'updated_at' => now(),

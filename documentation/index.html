@@ -74,7 +74,7 @@
             <p>Exospace requires a standard LAMP/LEMP stack. Most shared hosting providers (Namecheap, Bluehost, SiteGround) support this out of the box.</p>
             <ul>
                 <li>PHP 8.2 or higher</li>
-                <li>MySQL 8.0+ or MariaDB 10.3+</li>
+                <li>MySQL 8.0+ or MariaDB 10.3+ (or SQLite for local development)</li>
                 <li>Apache or Nginx Web Server</li>
                 <li>BCMath, Ctype, Fileinfo, JSON, Mbstring, OpenSSL, PDO, Tokenizer, XML, GD extensions</li>
             </ul>
@@ -100,6 +100,7 @@
                     <ul>
                         <li><code>storage/</code> (and all subfolders)</li>
                         <li><code>bootstrap/cache/</code></li>
+                        <li><code>database/</code> (for SQLite)</li>
                     </ul>
                 </div>
             </div>
@@ -108,12 +109,12 @@
                 <div class="step-num">3</div>
                 <div>
                     <h3>Run Installer</h3>
-                    <p>Open your browser and navigate to your website URL (e.g., <code>https://yourdomain.com/install</code>).</p>
+                    <p>Open your browser and navigate to your website URL with <code>/install</code> (e.g., <code>https://yourdomain.com/install</code>).</p>
                     <p>Follow the on-screen wizard:</p>
                     <ol>
                         <li>Check Requirements</li>
                         <li>Enter Database Credentials</li>
-                        <li>Create Admin Account & Enter Purchase Code</li>
+                        <li>Create Admin Account & Enter License Key</li>
                     </ol>
                 </div>
             </div>
@@ -156,12 +157,23 @@
             <p>Developers can customize the 3D engine by editing <code>resources/views/gallery/view.blade.php</code>.</p>
             
             <h3>Adding New Textures</h3>
-            <p>Upload seamless texture files to <code>public/assets/textures/walls/</code> and update the <code>TEXTURE_PATHS</code> constant in the JavaScript code.</p>
+            <p>Upload seamless texture files to <code>public/assets/textures/walls/</code> or <code>public/assets/textures/floors/</code> and update the <code>TEXTURE_PATHS</code> constant in the JavaScript code.</p>
+            
+            <h3>Customizing Lighting Presets</h3>
+            <p>Modify the <code>CONFIG.lighting</code> object in <code>view.blade.php</code> to adjust ambient light, spotlight intensity, and ceiling colors for each preset (bright, moody, dramatic).</p>
         </section>
 
         <section id="support">
             <h2>Support</h2>
-            <p>If you encounter any issues not covered here, please contact us via our CodeCanyon profile page.</p>
+            <p>If you encounter any issues not covered in this documentation, please contact us via the support page on the marketplace where you purchased this item.</p>
+            
+            <h3>Common Issues</h3>
+            <ul>
+                <li><strong>Black screen in gallery:</strong> Ensure you haven't exceeded 100 images per gallery</li>
+                <li><strong>Images not uploading:</strong> Check that <code>storage/</code> folder has write permissions (775)</li>
+                <li><strong>Installer not loading:</strong> Verify your server meets PHP 8.2+ requirements</li>
+            </ul>
+            
             <footer>
                 &copy; 2026 Exospace. All rights reserved.
             </footer>

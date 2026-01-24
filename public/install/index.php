@@ -1,8 +1,7 @@
 <?php
 /**
  * Exospace 3D Gallery - Web Installer
- * Version: 1.0.2 - Path & Session Fixed
- * Built for Envato Marketplace
+ * Version: 1.1.0 - Multi-Platform Release
  */
 session_start();
 // ============================================
@@ -36,9 +35,9 @@ if (file_exists(INSTALL_LOCK_FILE)) {
 // ============================================
 // INSTALLATION STEPS
 // ============================================
-$step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
-$errors = [];
-$success = '';
+ $step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
+ $errors = [];
+ $success = '';
 // ============================================
 // STEP 1: REQUIREMENTS CHECK
 // ============================================
@@ -168,8 +167,8 @@ if ($step === 3 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $adminPasswordConfirm = $_POST['admin_password_confirm'] ?? '';
     $installDemo = isset($_POST['install_demo']);
     // Validation
-    if (empty($purchaseCode) || strlen($purchaseCode) < 20) {
-        $errors[] = 'Valid Envato Purchase Code is required (min 20 characters).';
+    if (empty($purchaseCode) || strlen($purchaseCode) < 15) {
+        $errors[] = 'Valid license key is required (minimum 15 characters).';
     }
     if (empty($adminName)) {
         $errors[] = 'Admin name is required.';
@@ -465,10 +464,10 @@ if ($step === 4) {
                 
                 <form method="POST" class="space-y-4">
                     <div class="bg-blue-900/30 border border-blue-700 rounded p-4 mb-4">
-                        <h3 class="font-semibold mb-2">📝 Envato Purchase Code</h3>
-                        <p class="text-sm text-gray-300 mb-3">Enter your Envato purchase code. <a href="https://help.market.envato.com/hc/en-us/articles/202822600" target="_blank" class="text-blue-400 underline">Where do I find this?</a></p>
+                        <h3 class="font-semibold mb-2">📝 License Verification</h3>
+                        <p class="text-sm text-gray-300 mb-3">Enter your product purchase code or license key.</p>
                         <input type="text" name="purchase_code" value="<?php echo htmlspecialchars($_POST['purchase_code'] ?? ''); ?>" 
-                               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                               placeholder="Enter your license key here"
                                class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2 focus:outline-none focus:border-blue-500" required>
                     </div>
                     <div>
@@ -538,7 +537,7 @@ if ($step === 4) {
         </div>
         <!-- Footer -->
         <div class="text-center mt-8 text-sm text-gray-500">
-            <p>Exospace 3D Gallery v1.0 - Built for Envato</p>
+            <p>Exospace 3D Gallery v1.1</p>
         </div>
     </div>
 </body>
