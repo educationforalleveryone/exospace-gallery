@@ -347,7 +347,9 @@
                 });
             }
 
-            // UPDATE 2: Enhanced loadAssets Method
+            // ============================================
+            // STEP 1: REPLACED loadAssets METHOD
+            // ============================================
             async loadAssets() {
                 const textureLoader = new THREE.TextureLoader();
                 const data = window.GALLERY_DATA;
@@ -362,7 +364,7 @@
                     const configureTexture = (texture) => {
                         texture.colorSpace = THREE.SRGBColorSpace;
                         texture.generateMipmaps = true;
-                        texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy(); // Crisp textures
+                        texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
                         return texture;
                     };
 
@@ -381,7 +383,7 @@
                             undefined,
                             (err) => {
                                 console.warn(`Wall texture failed, using fallback color`);
-                                this.textures.wall = null; // Will trigger color fallback
+                                this.textures.wall = null;
                                 resolve();
                             }
                         );
@@ -408,44 +410,47 @@
                         );
                     }));
 
-                    // Wait for environment textures first
                     await Promise.all(promises);
-                    promises.length = 0; // Clear array
+                    promises.length = 0;
 
-                    // 3. Load Artworks
+                    // 3. Load Artworks (NEW: Store for atlas creation)
                     this.updateProgress(30, 'Loading artwork...');
+                    this.artworkImages = []; // Store loaded images
                     
                     const artworkPromises = data.images.map((img, index) => {
                         return new Promise((resolve) => {
-                            textureLoader.load(
-                                img.url,
-                                (texture) => {
-                                    this.textures[`artwork_${img.id}`] = configureTexture(texture);
-                                    loadedCount++;
-                                    
-                                    // Progressive progress update
-                                    const percent = 30 + ((index + 1) / data.images.length) * 60;
-                                    this.updateProgress(
-                                        percent, 
-                                        `Loading artwork ${index + 1}/${data.images.length}`
-                                    );
-                                    resolve();
-                                },
-                                undefined,
-                                (err) => {
-                                    console.error(`Failed to load artwork: ${img.url}`, err);
-                                    resolve(); // Don't block on failed images
-                                }
-                            );
+                            const image = new Image();
+                            image.crossOrigin = 'anonymous';
+                            image.onload = () => {
+                                this.artworkImages.push({
+                                    id: img.id,
+                                    image: image,
+                                    aspectRatio: img.aspectRatio,
+                                    title: img.title,
+                                    description: img.description
+                                });
+                                loadedCount++;
+                                
+                                const percent = 30 + ((index + 1) / data.images.length) * 60;
+                                this.updateProgress(
+                                    percent, 
+                                    `Loading artwork ${index + 1}/${data.images.length}`
+                                );
+                                resolve();
+                            };
+                            image.onerror = (err) => {
+                                console.error(`Failed to load artwork: ${img.url}`, err);
+                                resolve();
+                            };
+                            image.src = img.url;
                         });
                     });
 
                     await Promise.all(artworkPromises);
                     
                     this.updateProgress(95, 'Building gallery...');
-                    console.log(`✅ Loaded ${loadedCount} textures successfully`);
+                    console.log(`✅ Loaded ${loadedCount} assets successfully`);
                     
-                    // Build the scene
                     this.buildGallery();
                     
                     this.updateProgress(100, 'Complete!');
@@ -479,11 +484,6 @@
                 const imageCount = data.imageCount;
                 const wallLength = Math.max(CONFIG.room.minWallLength, imageCount * 2);
                 const wallHeight = CONFIG.room.wallHeight;
-
-                // ============================================
-                // REUSE CONFIG FROM setupLighting
-                // ============================================
-                const lightingConfig = this.lightingConfig;
 
                 // ============================================
                 // FLOOR
@@ -548,10 +548,10 @@
                 // CEILING (ENHANCED: Preset-aware color)
                 // ============================================
                 const ceilingMaterial = new THREE.MeshStandardMaterial({ 
-                    color: lightingConfig.ceiling, // Dynamic color based on preset!
+                    color: this.lightingConfig.ceiling, // Use stored config from setupLighting
                     roughness: 0.5,
                     metalness: 0.0,
-                    emissive: lightingConfig.ceiling,
+                    emissive: this.lightingConfig.ceiling,
                     emissiveIntensity: 0.1 // Slight glow for bright presets
                 });
 
@@ -566,36 +566,43 @@
                 this.scene.add(ceiling);
 
                 // ============================================
-                // DYNAMIC DISTRIBUTED LIGHTING
+                // DYNAMIC DISTRIBUTED LIGHTING (OPTIMIZED)
                 // ============================================
+                const roomLightingConfig = CONFIG.lighting[data.lighting_preset] || CONFIG.lighting.bright;
 
-                // Calculate lighting density based on room size
-                // One light every 8 meters ensures even illumination
-                const lightSpacing = 8;
-                const numLightsX = Math.ceil((wallLength * 2) / lightSpacing);
-                const numLightsZ = Math.ceil((wallLength * 2) / lightSpacing);
+                // STRATEGY: Use fewer, stronger lights with larger range
+                // Maximum 8 lights to stay well under texture limit
+                const maxLights = 8;
+                const roomArea = wallLength * wallLength;
+                const lightSpacing = Math.sqrt(roomArea / maxLights);
 
-                const startX = -(wallLength) + (lightSpacing / 2);
-                const startZ = -(wallLength) + (lightSpacing / 2);
+                // Calculate grid dimensions (max 3x3 = 9 lights)
+                const gridSize = Math.min(3, Math.ceil(Math.sqrt(maxLights)));
+                const numLights = gridSize * gridSize;
 
-                // Create grid of fill lights across ceiling
-                for (let i = 0; i < numLightsX; i++) {
-                    for (let j = 0; j < numLightsZ; j++) {
-                        const xPos = startX + (i * lightSpacing);
-                        const zPos = startZ + (j * lightSpacing);
+                const startX = -(wallLength / 2) + (wallLength / (gridSize + 1));
+                const startZ = -(wallLength / 2) + (wallLength / (gridSize + 1));
+                const stepX = wallLength / (gridSize + 1);
+                const stepZ = wallLength / (gridSize + 1);
+
+                // Create optimized light grid
+                for (let i = 0; i < gridSize; i++) {
+                    for (let j = 0; j < gridSize; j++) {
+                        const xPos = startX + (i * stepX);
+                        const zPos = startZ + (j * stepZ);
                         
                         const fillLight = new THREE.PointLight(
-                            0xfff8e8, // Warm white
-                            lightingConfig.fillLight * 0.8, // Slightly reduced per light
-                            lightSpacing * 1.5 // Range covers adjacent lights
+                            0xfff8e8,
+                            roomLightingConfig.fillLight * 1.5, // Stronger intensity
+                            wallLength * 0.8 // Larger range to cover more area
                         );
                         fillLight.position.set(xPos, CONFIG.room.wallHeight - 0.5, zPos);
-                        fillLight.castShadow = false; // Performance optimization
+                        fillLight.castShadow = false; // CRITICAL: No shadows
                         this.scene.add(fillLight);
                     }
                 }
 
-                console.log(`💡 Created ${numLightsX * numLightsZ} distributed ceiling lights for ${wallLength}m room`);
+                console.log(`💡 Created ${numLights} optimized ceiling lights for ${wallLength}m room`);
 
                 console.log(`📐 Room created: ${wallLength}m x ${wallLength}m x ${wallHeight}m`);
             }
@@ -721,13 +728,14 @@
                 console.log(`💡 Lighting setup: ${preset} (ambient: ${config.ambient}, fill: ${config.fillLight})`);
             }
 
+            // ============================================
+            // STEP 2: REPLACED placeArtworks METHOD
+            // ============================================
             placeArtworks(data) {
-                const images = data.images;
-                if (images.length === 0) return;
+                if (this.artworkImages.length === 0) return;
 
-                const wallLength = Math.max(CONFIG.room.minWallLength, images.length * 2);
+                const wallLength = Math.max(CONFIG.room.minWallLength, this.artworkImages.length * 2);
                 const spacing = CONFIG.room.artworkSpacing;
-                const wallHeight = CONFIG.room.wallHeight;
                 const eyeLevel = CONFIG.camera.height;
 
                 // Define wall positions
@@ -740,12 +748,9 @@
 
                 let wallIndex = 0;
                 let positionOnWall = 0;
-                const imagesPerWall = Math.ceil(images.length / walls.length);
+                const imagesPerWall = Math.ceil(this.artworkImages.length / walls.length);
 
-                images.forEach((img, index) => {
-                    const texture = this.textures[`artwork_${img.id}`];
-                    if (!texture) return;
-
+                this.artworkImages.forEach((img, index) => {
                     const wall = walls[wallIndex];
                     
                     // Calculate artwork size (maintain aspect ratio)
@@ -763,6 +768,19 @@
 
                     // Create frame
                     const frame = this.createFrame(width, height, data.frame_style);
+                    
+                    // Create canvas texture from image (avoids texture unit limit)
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.image.width;
+                    canvas.height = img.image.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img.image, 0, 0);
+                    
+                    const texture = new THREE.CanvasTexture(canvas);
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                    texture.generateMipmaps = true;
+                    texture.minFilter = THREE.LinearMipmapLinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
                     
                     // Create artwork plane
                     const artworkGeo = new THREE.PlaneGeometry(width * 0.95, height * 0.95);
@@ -815,6 +833,8 @@
                         wallIndex++;
                     }
                 });
+                
+                console.log(`🖼️ Placed ${this.artworkImages.length} artworks using CanvasTextures`);
             }
 
             createFrame(width, height, style) {
@@ -860,26 +880,19 @@
                 return frame;
             }
 
-            // UPDATE 4: Enhanced Artwork Spotlight
+            // UPDATE 4: Enhanced Artwork Spotlight (UPDATED)
             addArtworkLight(artworkGroup, preset) {
-                // Reuse config from class property
-                const config = this.lightingConfig;
+                const config = CONFIG.lighting[preset] || CONFIG.lighting.bright;
                 
                 // ============================================
                 // MAIN SPOTLIGHT (Focused on artwork)
                 // ============================================
-                const spotLight = new THREE.SpotLight(0xfff5e6, config.spot); // Warm white
-                spotLight.angle = Math.PI / 7;        // Slightly narrower beam
-                spotLight.penumbra = 0.4;             // Soft edges
+                const spotLight = new THREE.SpotLight(0xfff5e6, config.spot);
+                spotLight.angle = Math.PI / 7;
+                spotLight.penumbra = 0.4;
                 spotLight.decay = 2;
                 spotLight.distance = 10;
-                spotLight.castShadow = true;
-                
-                // Shadow quality
-                spotLight.shadow.mapSize.width = 1024;
-                spotLight.shadow.mapSize.height = 1024;
-                spotLight.shadow.camera.near = 0.5;
-                spotLight.shadow.camera.far = 10;
+                spotLight.castShadow = false; // DISABLED: Shadows cause texture unit overflow
                 
                 // Position light above and in front of artwork
                 const normal = new THREE.Vector3(0, 0, 1);
@@ -893,17 +906,6 @@
                 
                 this.scene.add(spotLight);
                 this.scene.add(spotLight.target);
-
-                // ============================================
-                // SUBTLE BACKLIGHT (NEW: Adds depth)
-                // ============================================
-                // Only add for bright preset
-                if (preset === 'bright') {
-                    const backLight = new THREE.PointLight(0xffffff, 0.15, 3);
-                    backLight.position.copy(artworkGroup.position);
-                    backLight.position.add(normal.multiplyScalar(-0.3)); // Behind artwork
-                    this.scene.add(backLight);
-                }
             }
 
             updateMovement() {
