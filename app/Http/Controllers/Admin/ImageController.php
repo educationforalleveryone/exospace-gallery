@@ -20,33 +20,77 @@ class ImageController extends Controller
 
     public function store(Request $request, Gallery $gallery)
     {
-        // 1. Validation
-        $request->validate([
-            'file' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120', // Max 5MB
-        ]);
-
-        // 2. Check gallery image limit (prevent performance issues)
-        if ($gallery->images()->count() >= 100) {
-            return response()->json([
-                'error' => 'Gallery limit reached. Maximum 100 images per gallery.'
-            ], 422);
-        }
-
         try {
-            // 3. Process Image via Service
+            // 1. Check gallery limit FIRST
+            $currentCount = $gallery->images()->count();
+            if ($currentCount >= 100) {
+                Log::warning("Gallery limit reached for gallery {$gallery->id}");
+                return response()->json([
+                    'error' => 'Gallery limit reached. Maximum 100 images per gallery.'
+                ], 422);
+            }
+
+            // 2. Validation with detailed error messages
+            $validator = \Validator::make($request->all(), [
+                'file' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:10240', // Increased to 10MB
+            ], [
+                'file.required' => 'No file was uploaded.',
+                'file.file' => 'The uploaded item is not a valid file.',
+                'file.image' => 'The file must be an image.',
+                'file.mimes' => 'Only JPEG, PNG, JPG, and WEBP images are allowed.',
+                'file.max' => 'Image size must not exceed 10MB.',
+            ]);
+
+            if ($validator->fails()) {
+                $errors = $validator->errors()->all();
+                Log::warning("Image validation failed: " . implode(', ', $errors));
+                return response()->json([
+                    'error' => $errors[0], // Return first error
+                    'details' => $errors
+                ], 422);
+            }
+
             $file = $request->file('file');
+            
+            // 3. Additional file checks
+            if (!$file->isValid()) {
+                Log::error("Invalid file upload: " . $file->getErrorMessage());
+                return response()->json([
+                    'error' => 'File upload failed: ' . $file->getErrorMessage()
+                ], 422);
+            }
+
+            // 4. Check actual file size (in case PHP limits are hit)
+            $fileSize = $file->getSize();
+            if ($fileSize === false || $fileSize === 0) {
+                Log::error("File size is 0 or cannot be determined");
+                return response()->json([
+                    'error' => 'File appears to be empty or corrupted.'
+                ], 422);
+            }
+
+            // Log file info for debugging
+            Log::info("Processing image upload", [
+                'filename' => $file->getClientOriginalName(),
+                'size' => round($fileSize / 1024 / 1024, 2) . 'MB',
+                'mime' => $file->getMimeType(),
+                'gallery_id' => $gallery->id,
+                'current_count' => $currentCount
+            ]);
+
+            // 5. Process Image via Service
             $data = $this->imageService->process($file, $gallery->id);
 
-            // 4. Calculate Orientation
+            // 6. Calculate Orientation
             $ratio = $data['width'] / $data['height'];
             $orientation = 'square';
             if ($ratio > 1.1) $orientation = 'landscape';
             if ($ratio < 0.9) $orientation = 'portrait';
 
-            // 5. Get next position order
+            // 7. Get next position order
             $nextPosition = $gallery->images()->max('position_order') + 1;
 
-            // 6. Save to Database
+            // 8. Save to Database
             $image = $gallery->images()->create([
                 'filename' => $data['filename'],
                 'original_name' => $file->getClientOriginalName(),
@@ -62,6 +106,8 @@ class ImageController extends Controller
             // Allow file system to complete writes
             usleep(100000); // 100ms delay
 
+            Log::info("Image uploaded successfully: {$image->id}");
+
             return response()->json([
                 'success' => true,
                 'id' => $image->id,
@@ -69,8 +115,14 @@ class ImageController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Image Upload Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Upload failed: ' . $e->getMessage()], 500);
+            Log::error('Image Upload Error: ' . $e->getMessage(), [
+                'file' => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : 'no file',
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Upload failed: ' . $e->getMessage()
+            ], 500);
         }
     }
 

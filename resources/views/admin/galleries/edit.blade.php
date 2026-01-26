@@ -183,14 +183,14 @@
     <!-- Dropzone & Scripts -->
     <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
     <script>
-        // 3C: Updated Dropzone configuration - FIX FOR RACE CONDITION
         Dropzone.options.imageUploadDropzone = {
             paramName: "file",
-            maxFilesize: 5, // MB
+            maxFilesize: 10, // 10MB
             maxFiles: 100,
-            parallelUploads: 2, // Reduced to 2 for stability
+            parallelUploads: 2,
+            timeout: 180000, // 3 minutes
             acceptedFiles: ".jpeg,.jpg,.png,.webp",
-            dictDefaultMessage: "📸 Drop images here or click to upload (Max 5MB per image, 100 images total)",
+            dictDefaultMessage: "📸 Drop images here or click to upload (Max 10MB per image)",
             addRemoveLinks: true,
             uploadMultiple: false,
             autoProcessQueue: true,
@@ -199,45 +199,73 @@
                 let uploadedCount = 0;
                 let totalFiles = 0;
                 let hasErrors = false;
+                let failedFiles = [];
                 
                 this.on("addedfiles", function(files) {
                     totalFiles = files.length;
                     uploadedCount = 0;
                     hasErrors = false;
+                    failedFiles = [];
                     console.log(`📤 Starting upload of ${totalFiles} images...`);
                 });
                 
                 this.on("success", function(file, response) {
                     if(response.success) {
                         uploadedCount++;
-                        console.log(`✅ Uploaded ${uploadedCount}/${totalFiles}`);
+                        console.log(`✅ Uploaded ${uploadedCount}/${totalFiles}: ${file.name}`);
                     }
                 });
                 
-                this.on("error", function(file, response) {
+                this.on("error", function(file, errorMessage, xhr) {
                     hasErrors = true;
-                    console.error('❌ Upload error:', response);
-                    alert(`Upload failed for ${file.name}: ` + (response.error || 'Unknown error'));
+                    
+                    // Extract clean error message
+                    let cleanError = 'Unknown error';
+                    
+                    if (typeof errorMessage === 'object' && errorMessage.error) {
+                        cleanError = errorMessage.error;
+                    } else if (typeof errorMessage === 'string') {
+                        // Avoid the recursive filename repetition
+                        cleanError = errorMessage.includes('failed to upload') 
+                            ? 'Upload failed - check file size/format' 
+                            : errorMessage;
+                    } else if (xhr) {
+                        if (xhr.status === 422) {
+                            cleanError = 'Validation failed (size/format issue)';
+                        } else if (xhr.status === 413) {
+                            cleanError = 'File too large (server limit)';
+                        } else if (xhr.status === 500) {
+                            cleanError = 'Server error during processing';
+                        }
+                    }
+                    
+                    failedFiles.push({
+                        name: file.name,
+                        error: cleanError
+                    });
+                    
+                    console.error(`❌ Upload failed for ${file.name}:`, cleanError);
                 });
                 
                 this.on("queuecomplete", function() {
                     console.log(`🎉 Queue complete! Uploaded: ${uploadedCount}/${totalFiles}`);
                     
-                    // Only reload after ALL uploads finish
+                    if (failedFiles.length > 0) {
+                        let errorList = failedFiles.map(f => `• ${f.name}: ${f.error}`).join('\n');
+                        alert(`⚠️ Upload Results:\n\n✅ Successful: ${uploadedCount}\n❌ Failed: ${failedFiles.length}\n\nFailed files:\n${errorList}\n\nCommon fixes:\n- Reduce image file size\n- Check PHP upload limits\n- Ensure valid JPG/PNG/WEBP format`);
+                    }
+                    
                     if (uploadedCount > 0) {
                         setTimeout(() => {
                             console.log('🔄 Reloading page...');
                             location.reload();
-                        }, 1000); // Give server time to process
-                    }
-                    
-                    if (hasErrors) {
-                        alert(`⚠️ ${uploadedCount} of ${totalFiles} images uploaded successfully. Check console for errors.`);
+                        }, 1500);
                     }
                 });
             }
         };
 
+        // Delete single image
         function deleteImage(id) {
             if(!confirm('Delete this image permanently?')) return;
 
@@ -252,7 +280,6 @@
             .then(data => {
                 if(data.success) {
                     document.getElementById(`image-${id}`).remove();
-                    // Update count
                     location.reload();
                 }
             })
@@ -262,13 +289,7 @@
             });
         }
 
-        // ============================================
-        // 3D: BULK DELETE FUNCTIONS
-        // ============================================
-        
-        // ============================================
-        // SELECT ALL FUNCTION
-        // ============================================
+        // Toggle select all checkboxes
         function toggleSelectAll() {
             const selectAllCheckbox = document.getElementById('select-all-checkbox');
             const imageCheckboxes = document.querySelectorAll('.image-checkbox');
@@ -280,6 +301,7 @@
             updateSelection();
         }
 
+        // Update selection count and button visibility
         function updateSelection() {
             const checkboxes = document.querySelectorAll('.image-checkbox:checked');
             const allCheckboxes = document.querySelectorAll('.image-checkbox');
@@ -287,7 +309,6 @@
             const btn = document.getElementById('bulk-delete-btn');
             const countSpan = document.getElementById('selected-count');
             
-            // Update select-all checkbox state
             if (selectAllCheckbox) {
                 selectAllCheckbox.checked = checkboxes.length === allCheckboxes.length && allCheckboxes.length > 0;
                 selectAllCheckbox.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
@@ -301,6 +322,7 @@
             }
         }
 
+        // Bulk delete function
         function bulkDelete() {
             const checkboxes = document.querySelectorAll('.image-checkbox:checked');
             const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
@@ -314,7 +336,6 @@
                 return;
             }
             
-            // Disable button during deletion
             const btn = document.getElementById('bulk-delete-btn');
             const originalText = btn.innerHTML;
             btn.disabled = true;
@@ -332,15 +353,10 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    // Show success message
                     alert(`✅ Successfully deleted ${data.deleted} image${data.deleted > 1 ? 's' : ''}`);
-                    
-                    // Show errors if any
                     if (data.errors && data.errors.length > 0) {
                         console.warn('Some images failed to delete:', data.errors);
                     }
-                    
-                    // Reload page to update gallery
                     location.reload();
                 } else {
                     alert('❌ Failed to delete images. Please try again.');
