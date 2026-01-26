@@ -301,7 +301,12 @@
                     CONFIG.camera.near,
                     CONFIG.camera.far
                 );
-                this.camera.position.set(0, CONFIG.camera.height, 8);
+                
+                // ============================================
+                // FIX 1A: FIX STARTING POSITION
+                // ============================================
+                // Start in center of room at eye level
+                this.camera.position.set(0, CONFIG.camera.height, 0);
 
                 // Renderer
                 this.renderer = new THREE.WebGLRenderer({ 
@@ -624,6 +629,16 @@
 
                 console.log(`💡 Created optimized ceiling lights for ${wallLength}m room`);
                 console.log(`📐 Room created: ${wallLength}m x ${wallLength}m x ${wallHeight}m`);
+
+                // ============================================
+                // FIX 1C: STORE ROOM BOUNDARIES FOR COLLISION
+                // ============================================
+                this.roomBounds = {
+                    minX: -wallLength / 2,
+                    maxX: wallLength / 2,
+                    minZ: -wallLength / 2,
+                    maxZ: wallLength / 2
+                };
             }
 
             getWallMaterial(type) {
@@ -895,10 +910,12 @@
                 this.scene.add(artworkLight);
             }
 
+            // ============================================
+            // FIX 1B: ADD BOUNDARY COLLISION
+            // ============================================
             updateMovement() {
                 if (!this.controls.isLocked) return;
 
-                // FIX 4C: Sprint logic (already in controls, updated config used here)
                 const speed = this.moveState.sprint 
                     ? CONFIG.movement.speed * CONFIG.movement.sprintMultiplier 
                     : CONFIG.movement.speed;
@@ -912,11 +929,38 @@
                 direction.y = 0;
                 direction.normalize();
 
+                // Store old position for collision detection
+                const oldPosition = this.camera.position.clone();
+
                 if (this.moveState.forward) this.camera.position.add(direction.multiplyScalar(speed));
                 if (this.moveState.backward) this.camera.position.add(direction.multiplyScalar(-speed));
                 if (this.moveState.left) this.camera.position.add(right.multiplyScalar(speed));
                 if (this.moveState.right) this.camera.position.add(right.multiplyScalar(-speed));
 
+                // ============================================
+                // COLLISION DETECTION: Keep player inside room
+                // ============================================
+                if (this.roomBounds) {
+                    const margin = 0.5; // 0.5m away from walls
+                    
+                    // Clamp X position (left/right walls)
+                    if (this.camera.position.x < this.roomBounds.minX + margin) {
+                        this.camera.position.x = this.roomBounds.minX + margin;
+                    }
+                    if (this.camera.position.x > this.roomBounds.maxX - margin) {
+                        this.camera.position.x = this.roomBounds.maxX - margin;
+                    }
+                    
+                    // Clamp Z position (front/back walls)
+                    if (this.camera.position.z < this.roomBounds.minZ + margin) {
+                        this.camera.position.z = this.roomBounds.minZ + margin;
+                    }
+                    if (this.camera.position.z > this.roomBounds.maxZ - margin) {
+                        this.camera.position.z = this.roomBounds.maxZ - margin;
+                    }
+                }
+
+                // Keep camera at eye level
                 this.camera.position.y = CONFIG.camera.height;
             }
 
