@@ -12,6 +12,11 @@
 - **Improved Sprint**: Refined SHIFT-sprint mechanics for smoother acceleration.
 - **Smart Collision**: Implemented robust boundary detection to keep high-speed players safely inside the gallery walls.
 
+### 📂 Media & Storage
+- **Increased Upload Limits**: Bumped maximum file size to **10MB per image** (previously 5MB) to support high-res artwork.
+- **Robust Error Handling**: Added detailed, user-friendly error messages for failed uploads (size limits, file types).
+- **Upload Stability**: Fixed filesystem race conditions to ensure images appear immediately in the grid after upload.
+
 ### 📐 Visual & Architecture Updates
 - **Dynamic Fill Lighting**: Solved "dark room" issues in large galleries by distributing fill lights evenly along the gallery length.
 - **Atmospheric Ceilings**: Ceiling color now dynamically adapts to the selected lighting preset (Bright/Moody/Dramatic).
