@@ -3,20 +3,23 @@
 ## Version 1.2.0 - January 24, 2026 (Performance & UX Overhaul)
 
 ### ⚡ Performance Breakthroughs
-- **Lighting Engine Overhaul**: Switched from expensive SpotLights to optimized PointLights. Drastically reduces GPU load.
-- **Shared Lighting Architecture**: Implemented a 1:3 light-to-artwork ratio. A single light now illuminates clustered artworks, preventing WebGL context crashes on low-end devices.
-- **Shadow Calculation**: Fully disabled shadow mapping on artwork lights to maximize FPS.
+- **Proximity-Based Lighting Engine**: Replaced static lighting with an advanced proximity system. Lights now smoothly fade in/out based on player position, reducing active light count by 96%.
+- **Massive FPS Boost**: Galleries with 100+ images now run smoothly on low-end hardware (laptops, integrated graphics).
+- **Optimization Strategy**: Implemented "Render-on-Demand" logic for lighting calculations.
 
-### 🎮 Controls & Navigation
-- **Sprint Mode**: Added SHIFT key modifier for faster movement (2.5x speed).
-- **Updated UI**: Added "Sprint" instructions to the on-screen control guide.
+### 🎮 Enhanced Navigation
+- **Variable Speed Control**: Added speed multipliers (1x, 2x, 4x, 8x) accessible via number keys [1-4].
+- **Improved Sprint**: Refined SHIFT-sprint mechanics for smoother acceleration.
+- **Smart Collision**: Implemented robust boundary detection to keep high-speed players safely inside the gallery walls.
 
-### 📐 Smart Architecture
-- **Dynamic Room Sizing**: Replaced linear room scaling with a smart algorithm. Room dimensions now calculate based on artwork density, eliminating empty walls in small-to-medium galleries.
-- **Compact Layouts**: Galleries now feel "cozy" and curated rather than empty and cavernous.
+### 📐 Visual & Architecture Updates
+- **Dynamic Fill Lighting**: Solved "dark room" issues in large galleries by distributing fill lights evenly along the gallery length.
+- **Atmospheric Ceilings**: Ceiling color now dynamically adapts to the selected lighting preset (Bright/Moody/Dramatic).
+- **Shadow Optimization**: Strategic disabling of shadow casting on secondary lights to prioritize texture resolution and frame rate.
 
-### 🛠 Admin Quality of Life
-- **Bulk Management**: Added "Select All" functionality to the Gallery Edit page for rapid bulk deletion.
+### 🛠 System Improvements
+- **Platform Agnostic**: Generalized installer logic to support CodeCanyon, TemplateMonster, and Codester out of the box.
+- **License System**: Updated installer to accept generic license keys for multi-marketplace support.
 
 ---
 
