@@ -143,13 +143,23 @@
             </p>
         </div>
 
+        <!-- Speed Indicator -->
+        <div class="absolute top-6 right-6">
+            <div class="bg-black/70 backdrop-blur-md px-4 py-2 rounded-lg border border-white/10" id="speed-indicator">
+                <p class="text-white/90 text-sm font-mono">
+                    Speed: <span class="text-blue-400 font-bold" id="speed-value">1x</span>
+                </p>
+            </div>
+        </div>
+
         <!-- Controls Info -->
         <div class="absolute bottom-6 left-6">
             <div class="bg-black/70 backdrop-blur-md px-4 py-3 rounded-lg border border-white/10">
-                <!-- FIX 4A: Updated UI with Sprint Info -->
+                <!-- SECTION 1: Add Speed UI -->
                 <div class="text-white/90 text-sm space-y-1 hidden md:block" id="desktop-controls">
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">WASD</span> Move</p>
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">SHIFT</span> Sprint</p>
+                    <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">1/2/3/4</span> Speed (1x/2x/4x/8x)</p>
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">MOUSE</span> Look Around</p>
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">CLICK</span> Lock/Unlock</p>
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">E</span> View Info</p>
@@ -194,7 +204,7 @@
             
             window.GALLERY_DATA = {
                 title: "Exospace Demo Gallery",
-                description: "A demo 3D gallery running in standalone mode. Sprinting and optimized lighting enabled.",
+                description: "A demo 3D gallery running in standalone mode. Variable speed and dynamic proximity lighting enabled.",
                 wall_texture: "white",
                 floor_material: "wood",
                 lighting_preset: "bright",
@@ -219,12 +229,14 @@
                 fov: 75,
                 near: 0.1,
                 far: 100,
-                height: 1.6 // Eye level
+                height: 1.6
             },
-            // FIX 4B: Updated Movement Config (Faster base + Sprint)
+            // SECTION 2: Updated Movement & Lighting Config
             movement: {
-                speed: 0.1,        // Increased base speed
-                sprintMultiplier: 2.5  // Increased sprint multiplier
+                baseSpeed: 0.1,
+                speedMultipliers: [1, 2, 4, 8], // 1x, 2x, 4x, 8x
+                currentSpeedIndex: 0,
+                sprintMultiplier: 1.5
             },
             room: {
                 wallHeight: 4,
@@ -232,8 +244,8 @@
                 minWallLength: 8,
                 wallDepth: 0.3
             },
-            // Enhanced Lighting Configuration
             lighting: {
+                proximityDistance: 5, // Distance to activate artwork light
                 bright: { 
                     ambient: 0.7,      
                     spot: 1.2,
@@ -252,6 +264,12 @@
                     ceiling: 0x2a2a2a, 
                     fillLight: 0.15
                 }
+            },
+            performance: {
+                autoDetectQuality: true,
+                lowEndThreshold: 30, // FPS threshold
+                textureMaxSize: 2048,
+                shadowsEnabled: false
             }
         };
 
@@ -302,9 +320,6 @@
                     CONFIG.camera.far
                 );
                 
-                // ============================================
-                // FIX 1A: FIX STARTING POSITION
-                // ============================================
                 // Start in center of room at eye level
                 this.camera.position.set(0, CONFIG.camera.height, 0);
 
@@ -326,6 +341,7 @@
                 this.loadAssets();
             }
 
+            // SECTION 3: Replace setupControls() method entirely
             setupControls() {
                 this.controls = new PointerLockControls(this.camera, document.body);
                 
@@ -338,6 +354,9 @@
                     sprint: false
                 };
 
+                // Speed control
+                this.currentSpeedMultiplier = CONFIG.movement.speedMultipliers[CONFIG.movement.currentSpeedIndex];
+
                 // Keyboard events
                 document.addEventListener('keydown', (e) => {
                     switch(e.code) {
@@ -347,6 +366,12 @@
                         case 'KeyD': this.moveState.right = true; break;
                         case 'ShiftLeft': this.moveState.sprint = true; break;
                         case 'KeyE': this.toggleArtworkInfo(); break;
+                        
+                        // Speed multipliers
+                        case 'Digit1': this.setSpeedMultiplier(0); break; // 1x
+                        case 'Digit2': this.setSpeedMultiplier(1); break; // 2x
+                        case 'Digit3': this.setSpeedMultiplier(2); break; // 4x
+                        case 'Digit4': this.setSpeedMultiplier(3); break; // 8x
                     }
                 });
 
@@ -380,6 +405,25 @@
                     this.camera.updateProjectionMatrix();
                     this.renderer.setSize(window.innerWidth, window.innerHeight);
                 });
+            }
+
+            setSpeedMultiplier(index) {
+                CONFIG.movement.currentSpeedIndex = index;
+                this.currentSpeedMultiplier = CONFIG.movement.speedMultipliers[index];
+                
+                // Update UI
+                const speedDisplay = document.getElementById('speed-value');
+                if (speedDisplay) {
+                    speedDisplay.textContent = `${this.currentSpeedMultiplier}x`;
+                    
+                    // Flash animation
+                    speedDisplay.parentElement.parentElement.style.transform = 'scale(1.1)';
+                    setTimeout(() => {
+                        speedDisplay.parentElement.parentElement.style.transform = 'scale(1)';
+                    }, 200);
+                }
+                
+                console.log(`🏃 Speed set to ${this.currentSpeedMultiplier}x`);
             }
 
             async loadAssets() {
@@ -496,6 +540,9 @@
             buildGallery() {
                 const data = window.GALLERY_DATA;
                 
+                // SECTION 9: Store lighting preset
+                this.lightingPreset = data.lighting_preset;
+                
                 // SETUP 1: Setup lighting
                 this.setupLighting(data.lighting_preset);
                 
@@ -510,14 +557,12 @@
             }
 
             // ============================================
-            // FIX 3: Smart Room Sizing Implementation
+            // SMART ROOM SIZING Implementation
             // ============================================
             createRoom(data) {
                 const imageCount = data.imageCount;
                 
-                // ============================================
                 // SMART ROOM SIZING (NO EMPTY SPACES)
-                // ============================================
                 const spacing = CONFIG.room.artworkSpacing;
                 const minWallLength = CONFIG.room.minWallLength;
                 
@@ -525,7 +570,6 @@
                 const imagesPerWall = Math.ceil(imageCount / 4);
                 
                 // Calculate minimum wall length to fit those images
-                // Formula: (imagesPerWall * spacing) + spacing (for padding on ends)
                 const calculatedWallLength = (imagesPerWall * spacing) + spacing;
                 
                 // Use the larger of calculated or minimum
@@ -630,9 +674,7 @@
                 console.log(`💡 Created optimized ceiling lights for ${wallLength}m room`);
                 console.log(`📐 Room created: ${wallLength}m x ${wallLength}m x ${wallHeight}m`);
 
-                // ============================================
-                // FIX 1C: STORE ROOM BOUNDARIES FOR COLLISION
-                // ============================================
+                // STORE ROOM BOUNDARIES FOR COLLISION
                 this.roomBounds = {
                     minX: -wallLength / 2,
                     maxX: wallLength / 2,
@@ -742,8 +784,7 @@
             placeArtworks(data) {
                 if (this.artworkImages.length === 0) return;
 
-                // Use calculated wallLength from this instance if needed, or recalculate logic here
-                // To be safe, we recalculate based on data to match createRoom logic exactly
+                // Recalculate wall dimensions to match createRoom logic
                 const imageCount = this.artworkImages.length;
                 const spacing = CONFIG.room.artworkSpacing;
                 const minWallLength = CONFIG.room.minWallLength;
@@ -825,10 +866,8 @@
                     this.scene.add(group);
                     this.artworks.push(group);
                     
-                    // Add shared artwork light (1 per 3 artworks for performance)
-                    if (index % 3 === 0) {
-                        this.addArtworkLight(group, data.lighting_preset);
-                    }
+                    // SECTION 8: Update placeArtworks() - Light for EVERY artwork
+                    this.addArtworkLight(group, data.lighting_preset);
                     
                     positionOnWall++;
                     if (positionOnWall >= imagesPerWall) {
@@ -837,7 +876,7 @@
                     }
                 });
                 
-                console.log(`🖼️ Placed ${this.artworkImages.length} artworks using optimized lighting`);
+                console.log(`🖼️ Placed ${this.artworkImages.length} artworks using proximity lighting`);
             }
 
             createFrame(width, height, style) {
@@ -882,19 +921,15 @@
                 return frame;
             }
 
-            // ============================================
-            // FIX 1: Optimized Lighting Method
-            // ============================================
+            // SECTION 4: Replace addArtworkLight() method
             addArtworkLight(artworkGroup, preset) {
                 const config = CONFIG.lighting[preset] || CONFIG.lighting.bright;
                 
-                // ============================================
-                // PERFORMANCE: Use simple PointLight instead of SpotLight
-                // ============================================
+                // Create PointLight for each artwork (initially OFF)
                 const artworkLight = new THREE.PointLight(
-                    0xfff5e6, // Warm white
-                    config.spot * 0.7, // Slightly reduced intensity
-                    4 // Range: 4 meters (enough to light the artwork)
+                    0xfff5e6,
+                    config.spot * 0.8,
+                    6 // Range increased for better coverage
                 );
                 
                 // Position light in front of artwork
@@ -902,23 +937,74 @@
                 normal.applyQuaternion(artworkGroup.quaternion);
                 
                 artworkLight.position.copy(artworkGroup.position);
-                artworkLight.position.y += 0.5; // Slightly above artwork center
-                artworkLight.position.add(normal.multiplyScalar(0.8)); // In front
+                artworkLight.position.y += 0.5;
+                artworkLight.position.add(normal.multiplyScalar(1.2));
                 
-                artworkLight.castShadow = false; // Critical for performance
+                artworkLight.castShadow = false;
+                artworkLight.visible = false; // Start OFF
                 
                 this.scene.add(artworkLight);
+                
+                // Store reference for proximity detection
+                artworkGroup.userData.light = artworkLight;
             }
 
-            // ============================================
-            // FIX 1B: ADD BOUNDARY COLLISION
-            // ============================================
+            // SECTION 5: Add new method after addArtworkLight()
+            updateProximityLighting() {
+                if (!this.artworks || this.artworks.length === 0) return;
+                
+                const playerPos = this.camera.position;
+                const proximityDist = CONFIG.lighting.proximityDistance;
+                const sqrProximityDist = proximityDist * proximityDist;
+                
+                let closestArtwork = null;
+                let closestDistSqr = Infinity;
+                
+                // Find closest artwork
+                for (const artwork of this.artworks) {
+                    const artPos = artwork.position;
+                    const dx = playerPos.x - artPos.x;
+                    const dz = playerPos.z - artPos.z;
+                    const distSqr = dx * dx + dz * dz;
+                    
+                    if (distSqr < closestDistSqr && distSqr < sqrProximityDist) {
+                        closestDistSqr = distSqr;
+                        closestArtwork = artwork;
+                    }
+                }
+                
+                // Update lights (only one active at a time)
+                for (const artwork of this.artworks) {
+                    const light = artwork.userData.light;
+                    if (!light) continue;
+                    
+                    if (artwork === closestArtwork) {
+                        if (!light.visible) {
+                            light.visible = true;
+                            light.intensity = 0;
+                        }
+                        // Smooth fade in
+                        light.intensity = Math.min(light.intensity + 0.1, (CONFIG.lighting[this.lightingPreset] || CONFIG.lighting.bright).spot * 0.8);
+                    } else {
+                        // Smooth fade out
+                        if (light.intensity > 0) {
+                            light.intensity = Math.max(0, light.intensity - 0.1);
+                        } else {
+                            light.visible = false;
+                        }
+                    }
+                }
+            }
+
+            // SECTION 6: Replace updateMovement() method
             updateMovement() {
                 if (!this.controls.isLocked) return;
 
-                const speed = this.moveState.sprint 
-                    ? CONFIG.movement.speed * CONFIG.movement.sprintMultiplier 
-                    : CONFIG.movement.speed;
+                const baseSpeed = CONFIG.movement.baseSpeed;
+                const speedMultiplier = this.currentSpeedMultiplier || 1;
+                const sprintMultiplier = this.moveState.sprint ? CONFIG.movement.sprintMultiplier : 1;
+                
+                const speed = baseSpeed * speedMultiplier * sprintMultiplier;
 
                 const direction = new THREE.Vector3();
                 const right = new THREE.Vector3();
@@ -929,29 +1015,21 @@
                 direction.y = 0;
                 direction.normalize();
 
-                // Store old position for collision detection
-                const oldPosition = this.camera.position.clone();
-
                 if (this.moveState.forward) this.camera.position.add(direction.multiplyScalar(speed));
                 if (this.moveState.backward) this.camera.position.add(direction.multiplyScalar(-speed));
                 if (this.moveState.left) this.camera.position.add(right.multiplyScalar(speed));
                 if (this.moveState.right) this.camera.position.add(right.multiplyScalar(-speed));
 
-                // ============================================
-                // COLLISION DETECTION: Keep player inside room
-                // ============================================
+                // Collision detection
                 if (this.roomBounds) {
-                    const margin = 0.5; // 0.5m away from walls
+                    const margin = 0.5;
                     
-                    // Clamp X position (left/right walls)
                     if (this.camera.position.x < this.roomBounds.minX + margin) {
                         this.camera.position.x = this.roomBounds.minX + margin;
                     }
                     if (this.camera.position.x > this.roomBounds.maxX - margin) {
                         this.camera.position.x = this.roomBounds.maxX - margin;
                     }
-                    
-                    // Clamp Z position (front/back walls)
                     if (this.camera.position.z < this.roomBounds.minZ + margin) {
                         this.camera.position.z = this.roomBounds.minZ + margin;
                     }
@@ -960,7 +1038,6 @@
                     }
                 }
 
-                // Keep camera at eye level
                 this.camera.position.y = CONFIG.camera.height;
             }
 
@@ -1001,10 +1078,12 @@
                 }
             }
 
+            // SECTION 7: Update animate() method
             animate() {
                 requestAnimationFrame(() => this.animate());
                 
                 this.updateMovement();
+                this.updateProximityLighting(); // NEW: Dynamic lighting
                 this.checkArtworkFocus();
                 this.renderer.render(this.scene, this.camera);
             }
