@@ -155,7 +155,6 @@
         <!-- Controls Info -->
         <div class="absolute bottom-6 left-6">
             <div class="bg-black/70 backdrop-blur-md px-4 py-3 rounded-lg border border-white/10">
-                <!-- SECTION 1: Add Speed UI -->
                 <div class="text-white/90 text-sm space-y-1 hidden md:block" id="desktop-controls">
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">WASD</span> Move</p>
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">SHIFT</span> Sprint</p>
@@ -207,7 +206,7 @@
                 description: "A demo 3D gallery running in standalone mode. Variable speed and dynamic proximity lighting enabled.",
                 wall_texture: "white",
                 floor_material: "wood",
-                lighting_preset: "bright",
+                lighting_preset: "bright", // Options: 'bright', 'moody', 'dramatic'
                 frame_style: "modern",
                 imageCount: mockImages.length,
                 images: mockImages
@@ -220,6 +219,7 @@
     <script type="module">
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
         // ===================================
         // CONFIGURATION
@@ -244,25 +244,39 @@
                 minWallLength: 8,
                 wallDepth: 0.3
             },
+            // ==========================================
+            // FIX 2: Drastically Reduce Bright & Dramatic (Keep Moody Perfect)
+            // ==========================================
             lighting: {
-                proximityDistance: 5, // Distance to activate artwork light
                 bright: { 
-                    ambient: 0.7,      
-                    spot: 1.2,
+                    ambient: 0.2,   // ✨ DRASTICALLY REDUCED (was 0.3)
+                    spot: 0.45,     // ✨ DRASTICALLY REDUCED (was 0.6)
                     ceiling: 0xffffff, 
-                    fillLight: 0.5     
+                    fillLight: 0.12, // ✨ DRASTICALLY REDUCED (was 0.2)
+                    proximityDistance: 5,
+                    hdri: '/assets/textures/env/studio.hdr',
+                    envIntensity: 0.25,  // ✨ DRASTICALLY REDUCED (was 0.4)
+                    toneMappingExposure: 0.5 // ✨ DRASTICALLY REDUCED (was 0.65)
                 },
                 moody: { 
-                    ambient: 0.4,      
-                    spot: 0.8,
+                    ambient: 0.18,   // ✨ KEEP AS IS (you like this)
+                    spot: 0.5,       // ✨ KEEP AS IS
                     ceiling: 0xe8e8e8, 
-                    fillLight: 0.3
+                    fillLight: 0.15, // ✨ KEEP AS IS
+                    proximityDistance: 5,
+                    hdri: '/assets/textures/env/rural_evening.hdr',
+                    envIntensity: 0.3,   // ✨ KEEP AS IS
+                    toneMappingExposure: 0.55 // ✨ KEEP AS IS
                 },
                 dramatic: { 
-                    ambient: 0.25,     
-                    spot: 1.5,
+                    ambient: 0.12,   // ✨ DRASTICALLY REDUCED (was 0.1, but increased slightly for visibility)
+                    spot: 0.6,       // ✨ REDUCED (was 0.8)
                     ceiling: 0x2a2a2a, 
-                    fillLight: 0.15
+                    fillLight: 0.06, // ✨ DRASTICALLY REDUCED (was 0.08)
+                    proximityDistance: 5,
+                    hdri: '/assets/textures/env/night.hdr',
+                    envIntensity: 0.3,   // ✨ REDUCED (was 0.4)
+                    toneMappingExposure: 0.5 // ✨ DRASTICALLY REDUCED (was 0.6)
                 }
             },
             performance: {
@@ -310,7 +324,11 @@
                 // Scene
                 this.scene = new THREE.Scene();
                 this.scene.background = new THREE.Color(0x0a0a0a);
-                this.scene.fog = new THREE.Fog(0x0a0a0a, 0, 50);
+                
+                // SECTION 7: Optional - Add Fog for Depth (Reduces Brightness Perception)
+                // ✨ NEW: Add subtle fog for depth and softer look
+                this.scene.fog = new THREE.Fog(0x0a0a0a, 10, 30); // (color, near, far)
+                // This adds atmospheric depth and softens the overall scene.
 
                 // Camera
                 this.camera = new THREE.PerspectiveCamera(
@@ -332,6 +350,17 @@
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 this.renderer.shadowMap.enabled = true;
                 this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+                // SECTION 4: Fine-Tune Tone Mapping (Fix Brightness/Contrast)
+                // ✨ Tone Mapping with balanced exposure
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 0.8; // ✨ Default lower exposure
+                this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+                // ✨ Optional: Reduce contrast if still too harsh
+                // Uncomment below if you want even softer contrast:
+                // this.renderer.toneMapping = THREE.LinearToneMapping;
+
                 this.container.appendChild(this.renderer.domElement);
 
                 // Controls
@@ -429,6 +458,13 @@
             async loadAssets() {
                 const textureLoader = new THREE.TextureLoader();
                 const data = window.GALLERY_DATA;
+
+                // We need the preset early to load the correct HDRI
+                const preset = data.lighting_preset || 'bright';
+                
+                // ✨ FIX: Store as instance variable so other methods can access it
+                this.lightingPreset = preset;
+                this.lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
                 
                 this.updateProgress(5, 'Initializing textures...');
 
@@ -442,6 +478,47 @@
                         texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
                         return texture;
                     };
+
+                    // SECTION 3: Update loadAssets() - Dynamic HDRI Loading
+                    this.updateProgress(8, 'Loading environment lighting...');
+
+                    // Get HDRI path from lighting preset config
+                    const lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
+                    const hdriPath = lightingConfig.hdri;
+
+                    if (hdriPath) {
+                        const rgbeLoader = new RGBELoader();
+                        promises.push(new Promise((resolve) => {
+                            rgbeLoader.load(
+                                hdriPath,
+                                (texture) => {
+                                    texture.mapping = THREE.EquirectangularReflectionMapping;
+                                    this.scene.environment = texture;
+                                    
+                                    // Apply environment intensity from preset
+                                    if (lightingConfig.envIntensity !== undefined) {
+                                        this.scene.environmentIntensity = lightingConfig.envIntensity;
+                                    }
+                                    
+                                    // Apply tone mapping exposure from preset
+                                    if (lightingConfig.toneMappingExposure !== undefined) {
+                                        this.renderer.toneMappingExposure = lightingConfig.toneMappingExposure;
+                                    }
+                                    
+                                    console.log(`✅ HDRI loaded: ${hdriPath} (Preset: ${preset})`);
+                                    resolve();
+                                },
+                                undefined,
+                                (error) => {
+                                    console.warn(`⚠️ HDRI loading failed (${hdriPath}), using fallback lighting:`, error);
+                                    // Fallback: No HDRI, just use the regular lights we already have
+                                    resolve();
+                                }
+                            );
+                        }));
+                    } else {
+                        console.log('ℹ️ No HDRI specified for this preset, using standard lighting');
+                    }
 
                     // 1. Load Wall Texture
                     this.updateProgress(10, 'Loading wall texture...');
@@ -646,7 +723,7 @@
                 this.scene.add(ceiling);
 
                 // DYNAMIC DISTRIBUTED LIGHTING
-                const roomLightingConfig = CONFIG.lighting[data.lighting_preset] || CONFIG.lighting.bright;
+                const roomLightingConfig = this.lightingConfig;
                 const maxLights = 8;
                 const gridSize = Math.min(3, Math.ceil(Math.sqrt(maxLights)));
                 
@@ -721,56 +798,71 @@
                 });
             }
 
+            // SECTION 4: Update Floor Materials (Support for environmentIntensity)
             getFloorMaterial(type) {
                 const fallbackColors = {
                     wood: 0x5c4033,
                     marble: 0xe8e8e8,
                     concrete: 0x6b6b6b
                 };
+                
+                // Get preset intensity (initialized in buildGallery -> setupLighting)
+                const lightingConfig = this.lightingConfig || CONFIG.lighting.bright;
+                const envIntensity = lightingConfig.envIntensity || 1.0;
 
-                if (!this.textures.floor) {
-                    return new THREE.MeshStandardMaterial({ 
-                        color: fallbackColors[type] || fallbackColors.wood,
-                        roughness: 0.6,
-                        metalness: 0.1
-                    });
-                }
-
-                const texture = this.textures.floor.clone();
-                texture.needsUpdate = true;
-                texture.wrapS = THREE.RepeatWrapping;
-                texture.wrapT = THREE.RepeatWrapping;
-
-                const properties = {
-                    wood: { roughness: 0.6, metalness: 0.1 },
-                    marble: { roughness: 0.2, metalness: 0.4 }, 
-                    concrete: { roughness: 0.8, metalness: 0.0 }
+                const materials = {
+                    wood: new THREE.MeshStandardMaterial({
+                        map: this.textures.floor || null,
+                        color: this.textures.floor ? 0xffffff : fallbackColors.wood,
+                        roughness: 0.7,
+                        metalness: 0.1,
+                        envMapIntensity: 0.6 * envIntensity, // ✨ Scaled by preset
+                    }),
+                    marble: new THREE.MeshStandardMaterial({
+                        map: this.textures.floor || null,
+                        color: this.textures.floor ? 0xffffff : fallbackColors.marble,
+                        roughness: 0.3,
+                        metalness: 0.2,
+                        envMapIntensity: 1.2 * envIntensity, // ✨ Scaled by preset
+                    }),
+                    concrete: new THREE.MeshStandardMaterial({
+                        map: this.textures.floor || null,
+                        color: this.textures.floor ? 0xffffff : fallbackColors.concrete,
+                        roughness: 0.9,
+                        metalness: 0.05,
+                        envMapIntensity: 0.3 * envIntensity // ✨ Scaled by preset
+                    })
                 };
 
-                const props = properties[type] || properties.wood;
+                // If texture exists, configure it
+                if (this.textures.floor) {
+                    const mat = materials[type] || materials.wood;
+                    mat.map = this.textures.floor.clone();
+                    mat.map.wrapS = THREE.RepeatWrapping;
+                    mat.map.wrapT = THREE.RepeatWrapping;
+                    mat.needsUpdate = true;
+                    return mat;
+                }
 
-                return new THREE.MeshStandardMaterial({ 
-                    map: texture,
-                    roughness: props.roughness,
-                    metalness: props.metalness
-                });
+                return materials[type] || materials.wood;
             }
 
+            // SECTION 6: Adjust Ambient Light (In setupLighting method)
             setupLighting(preset) {
                 this.lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
                 const config = this.lightingConfig;
 
-                const ambient = new THREE.AmbientLight(0xffffff, config.ambient);
-                this.scene.add(ambient);
+                const ambientLight = new THREE.AmbientLight(0xffffff, config.ambient);
+                this.scene.add(ambientLight);
 
-                const hemi = new THREE.HemisphereLight(
-                    0xffffff,  
-                    0x888888,  
-                    0.4
+                // ✨ NEW: Add subtle hemisphere light for more natural lighting
+                const hemisphereLight = new THREE.HemisphereLight(
+                    0xffffff,  // Sky color
+                    0x444444,  // Ground color
+                    0.3        // Intensity (subtle)
                 );
-                hemi.position.set(0, CONFIG.room.wallHeight, 0);
-                this.scene.add(hemi);
-                
+                this.scene.add(hemisphereLight);
+
                 const dirLight = new THREE.DirectionalLight(0xffffff, 0.3);
                 dirLight.position.set(0, 10, 5);
                 dirLight.target.position.set(0, 0, 0);
@@ -879,6 +971,7 @@
                 console.log(`🖼️ Placed ${this.artworkImages.length} artworks using proximity lighting`);
             }
 
+            // SECTION 5: Update Frame Material (Optional but Recommended)
             createFrame(width, height, style) {
                 const frameDepth = 0.08;
                 const frameWidth = 0.1;
@@ -889,10 +982,14 @@
                     minimal: 0xffffff
                 };
 
+                // Get preset intensity
+                const lightingConfig = this.lightingConfig || CONFIG.lighting.bright;
+
                 const frameMat = new THREE.MeshStandardMaterial({
                     color: colors[style] || colors.modern,
-                    roughness: 0.4,
-                    metalness: 0.6
+                    roughness: 0.3,
+                    metalness: 0.8,
+                    envMapIntensity: 1.5 * (lightingConfig.envIntensity || 1.0) // ✨ Frames gleam based on preset
                 });
 
                 const frame = new THREE.Group();
@@ -921,15 +1018,18 @@
                 return frame;
             }
 
-            // SECTION 4: Replace addArtworkLight() method
+            // ==========================================
+            // FIX 1: Make Proximity Lights Visible Again (UPDATED)
+            // ==========================================
             addArtworkLight(artworkGroup, preset) {
                 const config = CONFIG.lighting[preset] || CONFIG.lighting.bright;
                 
                 // Create PointLight for each artwork (initially OFF)
+                // ✨ DRAMATICALLY INCREASED: Much stronger intensity for visibility
                 const artworkLight = new THREE.PointLight(
                     0xfff5e6,
-                    config.spot * 0.8,
-                    6 // Range increased for better coverage
+                    config.spot * 3.5,  // ✨ INCREASED multiplier to 3.5 (5x stronger than original 0.7!)
+                    10                  // ✨ INCREASED range from 8 to 10
                 );
                 
                 // Position light in front of artwork
@@ -937,8 +1037,8 @@
                 normal.applyQuaternion(artworkGroup.quaternion);
                 
                 artworkLight.position.copy(artworkGroup.position);
-                artworkLight.position.y += 0.5;
-                artworkLight.position.add(normal.multiplyScalar(1.2));
+                artworkLight.position.y += 0.3;  // ✨ REDUCED from 0.5 (closer to artwork center)
+                artworkLight.position.add(normal.multiplyScalar(0.8));  // ✨ REDUCED from 1.2 (closer to artwork)
                 
                 artworkLight.castShadow = false;
                 artworkLight.visible = false; // Start OFF
@@ -949,12 +1049,15 @@
                 artworkGroup.userData.light = artworkLight;
             }
 
-            // SECTION 5: Add new method after addArtworkLight()
+            // SECTION 5 (Continued): Update Proximity Logic WITH DEBUG
             updateProximityLighting() {
                 if (!this.artworks || this.artworks.length === 0) return;
                 
                 const playerPos = this.camera.position;
-                const proximityDist = CONFIG.lighting.proximityDistance;
+                
+                // ✨ FIX: Get proximityDistance from the correct preset
+                const lightingConfig = this.lightingConfig || CONFIG.lighting[this.lightingPreset] || CONFIG.lighting.bright;
+                const proximityDist = lightingConfig.proximityDistance || 5; // Fallback to 5
                 const sqrProximityDist = proximityDist * proximityDist;
                 
                 let closestArtwork = null;
@@ -973,23 +1076,47 @@
                     }
                 }
                 
+                // ✨ DEBUG: Log detection status
+                if (closestArtwork) {
+                    const dist = Math.sqrt(closestDistSqr).toFixed(2);
+                    console.log(`🎯 Closest artwork at ${dist}m | Threshold: ${proximityDist}m`);
+                } else {
+                    console.log(`❌ No artwork within ${proximityDist}m range`);
+                }
+                
                 // Update lights (only one active at a time)
                 for (const artwork of this.artworks) {
                     const light = artwork.userData.light;
-                    if (!light) continue;
+                    
+                    // ✨ DEBUG: Check if light exists
+                    if (!light) {
+                        console.warn('⚠️ Artwork has no light attached!', artwork.userData);
+                        continue;
+                    }
                     
                     if (artwork === closestArtwork) {
                         if (!light.visible) {
                             light.visible = true;
                             light.intensity = 0;
+                            console.log('💡 Light turning ON for:', artwork.userData.title);
                         }
                         // Smooth fade in
-                        light.intensity = Math.min(light.intensity + 0.1, (CONFIG.lighting[this.lightingPreset] || CONFIG.lighting.bright).spot * 0.8);
+                        // ✨ UPDATED: Match the 3.5 multiplier for visibility
+                        const targetIntensity = (CONFIG.lighting[this.lightingPreset] || CONFIG.lighting.bright).spot * 3.5;
+                        light.intensity = Math.min(light.intensity + 0.2, targetIntensity);
+                        
+                        // ✨ DEBUG: Log intensity changes
+                        if (Math.random() < 0.1) { // Log only 10% of frames to avoid spam
+                            console.log(`💡 Light intensity: ${light.intensity.toFixed(2)} / ${targetIntensity.toFixed(2)}`);
+                        }
                     } else {
                         // Smooth fade out
                         if (light.intensity > 0) {
                             light.intensity = Math.max(0, light.intensity - 0.1);
                         } else {
+                            if (light.visible) {
+                                console.log('💡 Light turning OFF');
+                            }
                             light.visible = false;
                         }
                     }
