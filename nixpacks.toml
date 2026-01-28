@@ -12,4 +12,4 @@ cmds = [
 ]
 
 [start]
-cmd = "sed -i '/server {/a \    client_max_body_size 50M;' /assets/nginx.template.conf && node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf & nginx -c /nginx.conf)"
+cmd = "sed -i '/server {/a \\    client_max_body_size 50M;' /assets/nginx.template.conf && node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf & nginx -c /nginx.conf)"
