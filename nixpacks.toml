@@ -8,8 +8,9 @@ cmds = [
     "composer install --no-dev --optimize-autoloader",
     "php artisan config:cache",
     "php artisan route:cache",
-    "php artisan view:cache"
+    "php artisan view:cache",
+    "chmod +x docker-start.sh"
 ]
 
 [start]
-cmd = "sed -i '/server {/a \\    client_max_body_size 50M;' /assets/nginx.template.conf && node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf & nginx -c /nginx.conf)"
+cmd = "./docker-start.sh"
