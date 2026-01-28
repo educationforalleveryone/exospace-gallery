@@ -9,6 +9,7 @@ cmds = [
     "php artisan config:cache",
     "php artisan route:cache",
     "php artisan view:cache",
+    "dos2unix docker-start.sh || sed -i 's/\r$//' docker-start.sh",
     "chmod +x docker-start.sh"
 ]
 
