@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +20,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // This forces the site to use HTTPS when live, fixing the broken styles and login error.
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
     }
 }
