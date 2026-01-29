@@ -21,6 +21,7 @@
 11. [Design Decisions & Rationale](#design-decisions--rationale)
 12. [Use Cases](#use-cases)
 13. [File Structure Reference](#file-structure-reference)
+14. [Deployment & Cloud Hosting](#deployment--cloud-hosting)
 
 ---
 
@@ -765,6 +766,8 @@ exospace/
 ├── tests/
 ├── .env.example
 ├── composer.json
+├── docker-start.sh          # Cloud deployment startup script
+├── nixpacks.toml             # Nixpacks/Railway configuration
 ├── package.json
 ├── tailwind.config.js
 └── vite.config.js
@@ -804,6 +807,118 @@ composer run dev
 | `config/filesystems.php` | Storage disk configuration |
 | `tailwind.config.js` | CSS framework customization |
 | `vite.config.js` | Asset bundling configuration |
+| `nixpacks.toml` | Nixpacks/Railway deployment config |
+| `docker-start.sh` | Container startup script |
+
+---
+
+## Deployment & Cloud Hosting
+
+### Nixpacks Configuration
+
+The project includes first-class support for **Nixpacks**-based deployment platforms like [Railway](https://railway.app), [Render](https://render.com), and similar services.
+
+**File:** `nixpacks.toml`
+
+```toml
+[phases.setup]
+nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer"]
+
+[phases.build]
+cmds = [
+    "npm install",
+    "npm run build",
+    "composer install --no-dev --optimize-autoloader",
+    "php artisan config:cache",
+    "php artisan route:cache",
+    "php artisan view:cache"
+]
+
+[start]
+cmd = "bash docker-start.sh"
+```
+
+#### Build Phases Explained
+
+| Phase | Actions |
+|-------|---------|
+| **Setup** | Installs PHP, Nginx, Node.js, and Composer via Nix packages |
+| **Build** | Compiles frontend assets, installs PHP dependencies, caches Laravel config |
+| **Start** | Executes container startup script |
+
+### Container Startup Script
+
+**File:** `docker-start.sh`
+
+```bash
+#!/bin/bash
+
+# 1. Configure PHP upload limits
+cat > /assets/php-fpm-overrides.conf << 'EOF'
+upload_max_filesize = 50M
+post_max_size = 50M
+memory_limit = 512M
+max_execution_time = 300
+EOF
+
+# 2. Patch Nginx to allow 50MB uploads
+if grep -q "client_max_body_size" /assets/nginx.template.conf; then
+    sed -i 's/client_max_body_size [^;]*;/client_max_body_size 50M;/g' /assets/nginx.template.conf
+else
+    sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
+fi
+
+# 3. Start PHP-FPM and Nginx
+node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && \
+(php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=50M -d post_max_size=50M -d memory_limit=512M & nginx -c /nginx.conf)
+```
+
+#### PHP/Nginx Configuration
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `upload_max_filesize` | 50MB | Allow large artwork uploads |
+| `post_max_size` | 50MB | Match upload limit |
+| `memory_limit` | 512MB | Handle image processing |
+| `max_execution_time` | 300s | Long operations (batch uploads) |
+| `client_max_body_size` | 50MB | Nginx request body limit |
+
+### Deployment to Railway
+
+```bash
+# 1. Install Railway CLI
+npm install -g @railway/cli
+
+# 2. Login and initialize
+railway login
+railway init
+
+# 3. Set environment variables
+railway variables set APP_KEY=base64:...
+railway variables set APP_ENV=production
+railway variables set DB_CONNECTION=mysql
+# ... other env vars
+
+# 4. Deploy
+railway up
+```
+
+### Environment Variables for Production
+
+| Variable | Example | Required |
+|----------|---------|----------|
+| `APP_KEY` | `base64:xxxxx` | ✅ |
+| `APP_ENV` | `production` | ✅ |
+| `APP_DEBUG` | `false` | ✅ |
+| `DB_CONNECTION` | `mysql` | ✅ |
+| `DB_HOST` | `mysql.railway.internal` | ✅ |
+| `DB_DATABASE` | `railway` | ✅ |
+| `DB_USERNAME` | `root` | ✅ |
+| `DB_PASSWORD` | `***` | ✅ |
+| `FILESYSTEM_DISK` | `public` | ⚠️ |
+
+> [!WARNING]
+> For persistent file storage in production, configure an S3-compatible storage driver (AWS S3, DigitalOcean Spaces, etc.) instead of local filesystem.
 
 ---
 
