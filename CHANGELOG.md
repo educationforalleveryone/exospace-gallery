@@ -1,5 +1,35 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.3.1 - January 31, 2026 (2Checkout Compliance & Demo Gallery)
+
+### 💳 2Checkout Payment Integration
+- **Payment Processor Ready**: Full compliance with 2Checkout (Verifone) merchant requirements.
+- **Payment Security Page**: New `/payment-security` page detailing PCI DSS compliance, SSL encryption, and data handling policies.
+- **Refund Policy Page**: Added comprehensive refund policy at `/refund-policy` with 14-day money-back guarantee details.
+
+### 🔒 Security Enhancements
+- **Security Headers Middleware**: Added global middleware enforcing:
+  - `X-Frame-Options: DENY` (clickjacking protection)
+  - `Strict-Transport-Security` with 1-year max-age (HSTS)
+  - `X-Content-Type-Options: nosniff` (MIME-type sniffing prevention)
+  - `X-Permitted-Cross-Domain-Policies: none`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+
+### 🍪 Cookie Consent Banner
+- **GDPR Compliance**: Interactive cookie consent banner with Accept/Decline options.
+- **Persistent Consent**: Consent choice saved in browser for 365 days.
+- **Alpine.js Integration**: Smooth fade-in animation with modern styling.
+
+### 🏢 Company Pages
+- **About Us Page**: New `/about` page with company story, mission statement, and team profiles.
+- **Global Footer**: Reusable footer partial with navigation links, company info, and trust badges (SSL Secured, Powered by 2Checkout).
+
+### 🎮 Demo Gallery Redirect
+- **Smart Demo Link**: `/gallery/demo` now automatically redirects to the first active gallery.
+- **Graceful Fallback**: Returns to homepage with error message if no galleries exist.
+
+---
+
 ## Version 1.3.0 - January 31, 2026 (Dark Mode & Landing Page Update)
 
 ### 🌙 Dark Mode Implementation

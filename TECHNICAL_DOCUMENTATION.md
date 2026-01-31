@@ -1,6 +1,6 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 1.3.0  
+> **Version:** 1.3.1  
 > **Last Updated:** January 31, 2026  
 > **Document Type:** Comprehensive Technical Reference
 
@@ -272,12 +272,53 @@ This ensures:
 
 ### 8. Legal Pages
 
-**Capability**: Privacy Policy and Terms of Service for legal compliance.
+**Capability**: Comprehensive legal and compliance pages for regulatory adherence and payment processor requirements.
 
 | Page | Route | Description |
 |------|-------|-------------|
 | Privacy Policy | `/privacy` | Data collection, usage, and protection policies |
 | Terms of Service | `/terms` | User agreement, acceptable use, liability |
+| Refund Policy | `/refund-policy` | 14-day money-back guarantee, refund process via 2Checkout |
+| Payment Security | `/payment-security` | PCI DSS compliance, SSL encryption, payment data handling |
+| About Us | `/about` | Company story, mission, team profiles, contact info |
+
+### 9. Security Headers
+
+**Capability**: Server-side middleware enforcing security best practices on all HTTP responses.
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| `X-Frame-Options` | `DENY` | Prevents clickjacking by blocking iframe embedding |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Forces HTTPS for 1 year |
+| `X-Content-Type-Options` | `nosniff` | Blocks MIME type sniffing |
+| `X-Permitted-Cross-Domain-Policies` | `none` | Restricts Flash/PDF cross-domain access |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Controls referrer information sharing |
+
+**Implementation**: `app/Http/Middleware/SecurityHeaders.php` registered globally in `bootstrap/app.php`.
+
+### 10. Cookie Consent Banner
+
+**Capability**: GDPR-compliant cookie consent system with user preference persistence.
+
+| Feature | Implementation |
+|---------|-----------------|
+| Consent UI | Fixed bottom banner with Accept/Decline buttons |
+| Storage | Browser cookie `exospace_cookie_consent` (365-day expiry) |
+| Reactivity | Alpine.js component with fade-in animation |
+| Privacy Link | Links to `/privacy` policy page |
+
+**Location**: `resources/views/layouts/partials/cookie-banner.blade.php`
+
+### 11. Demo Gallery Redirect
+
+**Capability**: Smart demo link that automatically routes to the first available gallery.
+
+| Route | Behavior |
+|-------|----------|
+| `/gallery/demo` | Redirects to first active gallery's public view |
+| (No galleries) | Redirects to homepage with error flash message |
+
+**Use Case**: Provides a stable demo URL for marketing and documentation even as gallery slugs change.
 
 ---
 
@@ -802,6 +843,15 @@ exospace/
 │       ├── gallery/
 │       │   └── view.blade.php    # 3D Engine
 │       ├── layouts/
+│       │   └── partials/
+│       │       ├── cookie-banner.blade.php  # GDPR consent
+│       │       └── footer.blade.php         # Global footer
+│       ├── pages/
+│       │   ├── about.blade.php
+│       │   ├── privacy.blade.php
+│       │   ├── refund.blade.php
+│       │   ├── security.blade.php
+│       │   └── terms.blade.php
 │       └── profile/
 ├── routes/
 │   ├── web.php              # Main routes
@@ -993,10 +1043,14 @@ railway up
 |--------|----------|-------------|
 | GET | `/` | Welcome/Landing page |
 | GET | `/gallery/{slug}` | View 3D gallery |
+| GET | `/gallery/demo` | Smart redirect to first active gallery |
 | GET | `/dashboard` | User dashboard |
 | GET | `/privacy` | Privacy Policy page |
 | GET | `/terms` | Terms of Service page |
+| GET | `/refund-policy` | Refund Policy page |
+| GET | `/payment-security` | Payment Security page |
+| GET | `/about` | About Us page |
 
 ---
 
-*Document generated for Exospace 3D Gallery v1.3.0*
+*Document generated for Exospace 3D Gallery v1.3.1*
