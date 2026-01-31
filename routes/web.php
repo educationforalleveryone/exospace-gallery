@@ -19,6 +19,10 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Legal Pages (Required for 2Checkout)
+Route::view('/privacy', 'pages.privacy')->name('privacy');
+Route::view('/terms', 'pages.terms')->name('terms');
+
 // Public Gallery Route (No authentication required)
 Route::get('/gallery/{slug}', [App\Http\Controllers\GalleryViewController::class, 'show'])
     ->name('gallery.view');
