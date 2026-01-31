@@ -40,13 +40,22 @@
         </div>
 
         <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('login') }}">
+            <a class="underline text-sm text-gray-400 hover:text-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" href="{{ route('login') }}">
                 {{ __('Already registered?') }}
             </a>
 
             <x-primary-button class="ms-4">
                 {{ __('Register') }}
             </x-primary-button>
+        </div>
+        
+        <div class="mt-6 text-center">
+            <p class="text-xs text-gray-500">
+                By registering, you agree to our 
+                <a href="{{ route('terms') }}" class="text-purple-400 hover:text-purple-300">Terms of Service</a>
+                and 
+                <a href="{{ route('privacy') }}" class="text-purple-400 hover:text-purple-300">Privacy Policy</a>
+            </p>
         </div>
     </form>
 </x-guest-layout>
