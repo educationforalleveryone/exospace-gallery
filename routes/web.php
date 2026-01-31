@@ -26,6 +26,17 @@ Route::view('/refund-policy', 'pages.refund')->name('refund');
 Route::view('/about', 'pages.about')->name('about');
 Route::view('/payment-security', 'pages.security')->name('security');
 
+// Smart Demo Redirect: Finds the first active gallery and redirects to it
+Route::get('/gallery/demo', function () {
+    $gallery = \App\Models\Gallery::where('is_active', true)->first();
+    
+    if (!$gallery) {
+        return redirect('/')->with('error', 'No demo gallery available yet.');
+    }
+
+    return redirect()->route('gallery.view', $gallery->slug);
+});
+
 // Public Gallery Route (No authentication required)
 Route::get('/gallery/{slug}', [App\Http\Controllers\GalleryViewController::class, 'show'])
     ->name('gallery.view');
