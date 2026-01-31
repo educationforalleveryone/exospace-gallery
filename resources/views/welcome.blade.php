@@ -70,27 +70,57 @@
                 The easiest way for artists and galleries to create virtual museums.<br>
                 No coding required. Works on any device.
             </p>
+            
+            <!-- CHANGE A: Hero CTA buttons -->
             <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <a href="{{ route('register') }}" class="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition transform hover:scale-105">
                     Start Free Trial
                 </a>
-                <a href="#features" class="border border-gray-600 px-8 py-4 rounded-lg text-lg font-semibold hover:border-purple-500 hover:bg-gray-800 transition">
-                    See How It Works
+                <a href="/gallery/demo" class="border border-purple-500 bg-gray-800/60 px-8 py-4 rounded-lg text-lg font-semibold hover:border-purple-400 hover:bg-gray-800 transition transform hover:scale-105">
+                    🎨 View Live Demo
                 </a>
             </div>
             
-            <!-- Hero Image Placeholder -->
+            <!-- CHANGE B: Hero Demo Teaser -->
             <div class="mt-16 relative">
-                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-2xl p-8 border border-gray-700">
-                    <div class="aspect-video bg-gray-800 rounded-lg flex items-center justify-center">
-                        <div class="text-center">
-                            <svg class="w-24 h-24 mx-auto text-purple-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                            <p class="text-gray-400 text-lg">3D Gallery Preview</p>
+                <a href="/gallery/demo" class="block group">
+                    <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-2xl border border-gray-700 group-hover:border-purple-500 transition-colors duration-300 overflow-hidden">
+                        <!-- Simulated 3D Gallery Scene -->
+                        <div class="aspect-video relative bg-gradient-to-br from-gray-900 via-gray-800 to-[#1a1050] flex items-center justify-center overflow-hidden">
+                            <!-- Back Wall -->
+                            <div class="absolute inset-0 flex items-center justify-center gap-6 px-12">
+                                <!-- Frame 1 -->
+                                <div class="w-1/4 aspect-[3/4] border-2 border-gray-600 rounded bg-gradient-to-br from-[#3b2f5e] to-[#1a1050] flex items-end justify-center pb-2 shadow-lg">
+                                    <span class="text-xs text-gray-500">Abstract I</span>
+                                </div>
+                                <!-- Frame 2 (center, bigger) -->
+                                <div class="w-1/3 aspect-[3/4] border-2 border-purple-600 rounded bg-gradient-to-br from-[#4a3080] to-[#2d1b69] flex items-end justify-center pb-2 shadow-xl ring-2 ring-purple-600/30">
+                                    <span class="text-xs text-purple-300">The Void</span>
+                                </div>
+                                <!-- Frame 3 -->
+                                <div class="w-1/4 aspect-[3/4] border-2 border-gray-600 rounded bg-gradient-to-br from-[#1a3060] to-[#0f2040] flex items-end justify-center pb-2 shadow-lg">
+                                    <span class="text-xs text-gray-500">Cosmos</span>
+                                </div>
+                            </div>
+                            <!-- Floor line -->
+                            <div class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
+                            <!-- Overlay CTA -->
+                            <div class="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors duration-300">
+                                <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold shadow-lg">
+                                    Enter 3D Gallery →
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Caption -->
+                        <div class="px-6 py-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-200 font-medium">Live Demo Gallery</p>
+                                <p class="text-gray-500 text-sm">Walk through an interactive 3D exhibition — no account needed</p>
+                            </div>
+                            <span class="text-purple-400 text-sm font-medium group-hover:translate-x-1 transition-transform duration-200 inline-block">Try it now →</span>
                         </div>
                     </div>
-                </div>
+                </a>
             </div>
         </div>
     </section>
@@ -297,42 +327,12 @@
         </div>
     </section>
 
+    <!-- CHANGE C: Replace Footer with includes -->
+    <!-- Cookie Banner -->
+    @include('layouts.partials.cookie-banner')
+
     <!-- Footer -->
-    <footer class="bg-gray-950 border-t border-gray-800 py-12 px-4">
-        <div class="max-w-7xl mx-auto">
-            <div class="grid md:grid-cols-4 gap-8 mb-8">
-                <div>
-                    <h3 class="text-xl font-bold gradient-text mb-4">Exospace</h3>
-                    <p class="text-gray-400">Creating immersive 3D gallery experiences for the modern web.</p>
-                </div>
-                <div>
-                    <h4 class="font-semibold mb-4">Product</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="#features" class="hover:text-white transition">Features</a></li>
-                        <li><a href="#pricing" class="hover:text-white transition">Pricing</a></li>
-                        <li><a href="{{ route('register') }}" class="hover:text-white transition">Get Started</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-semibold mb-4">Company</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="#contact" class="hover:text-white transition">Contact</a></li>
-                        <li><a href="mailto:support@exospace.gallery" class="hover:text-white transition">Support</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-semibold mb-4">Legal</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="{{ route('privacy') }}" class="hover:text-white transition">Privacy Policy</a></li>
-                        <li><a href="{{ route('terms') }}" class="hover:text-white transition">Terms of Service</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="border-t border-gray-800 pt-8 text-center text-gray-500">
-                <p>&copy; {{ date('Y') }} Exospace Gallery. All rights reserved.</p>
-            </div>
-        </div>
-    </footer>
+    @include('layouts.partials.footer')
 
 </body>
 </html>

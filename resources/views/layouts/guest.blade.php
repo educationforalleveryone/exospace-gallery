@@ -32,5 +32,9 @@
                 </a>
             </div>
         </div>
+
+        <!-- Cookie Banner -->
+        @include('layouts.partials.cookie-banner')
+
     </body>
 </html>
