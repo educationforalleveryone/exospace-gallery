@@ -1,7 +1,7 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 1.1.0  
-> **Last Updated:** January 2026  
+> **Version:** 1.3.0  
+> **Last Updated:** January 31, 2026  
 > **Document Type:** Comprehensive Technical Reference
 
 ---
@@ -181,7 +181,30 @@ sequenceDiagram
 'floor_material' => ['wood', 'marble', 'concrete']
 ```
 
-### 2. Image Upload System
+### 2. Dark Mode Theme
+
+**Capability**: Complete dark color scheme across all authenticated and public pages.
+
+| Component | Implementation |
+|-----------|-----------------|
+| Dashboard | Dark gray cards with gradient accents |
+| Admin Panel | Consistent dark theme with purple/indigo highlights |
+| Auth Pages | Dark backgrounds with subtle glass effects |
+| Blade Components | All buttons, modals, inputs styled for dark mode |
+
+**Color Palette**:
+
+| Element | Color Code | Usage |
+|---------|------------|-------|
+| Background | `gray-900` | Main page background |
+| Cards | `gray-800` | Content containers |
+| Borders | `gray-700` | Dividers and card borders |
+| Text Primary | `gray-100` | Headings and primary text |
+| Text Secondary | `gray-400` | Descriptions and labels |
+| Accent Primary | `purple-600` | CTAs and highlights |
+| Accent Secondary | `indigo-600` | Gradients and secondary actions |
+
+### 3. Image Upload System
 
 **Capability**: Drag-and-drop batch upload with automatic processing.
 
@@ -194,7 +217,7 @@ sequenceDiagram
 | Thumbnail Generation | 400×400 for admin UI |
 | Orientation Detection | Portrait, Landscape, Square |
 
-### 3. 3D Gallery Viewer
+### 4. 3D Gallery Viewer
 
 **Capability**: Real-time WebGL-rendered virtual gallery with first-person navigation.
 
@@ -207,7 +230,7 @@ sequenceDiagram
 | Artwork Info | Press E to view details |
 | Collision Detection | Room boundary constraints |
 
-### 4. Dynamic Lighting System
+### 5. Dynamic Lighting System
 
 **Capability**: Proximity-based artwork illumination.
 
@@ -217,9 +240,9 @@ sequenceDiagram
 | **Moody** | 0.4 | 0.8 | 0.3 |
 | **Dramatic** | 0.25 | 1.5 | 0.15 |
 
-The system activates spotlights only for artworks within 5 meters of the player, with smooth fade-in/fade-out transitions.
+ The system activates spotlights only for artworks within 5 meters of the player, with smooth fade-in/fade-out transitions.
 
-### 5. Smart Room Sizing
+### 6. Smart Room Sizing
 
 **Capability**: Automatic room dimension calculation based on artwork count.
 
@@ -234,6 +257,27 @@ This ensures:
 - No empty wall space
 - Even distribution across 4 walls
 - Minimum room dimensions for small galleries
+
+### 7. Landing Page
+
+**Capability**: Professional marketing landing page for user acquisition.
+
+| Section | Content |
+|---------|---------|
+| Hero | Tagline, CTA buttons, preview placeholder |
+| Features | 3-column grid: Instant Setup, Customizable, Cross-device |
+| Pricing | Free Trial, Professional ($29/mo), Enterprise tiers |
+| Contact | CTA section with email support |
+| Footer | Product links, company info, legal pages |
+
+### 8. Legal Pages
+
+**Capability**: Privacy Policy and Terms of Service for legal compliance.
+
+| Page | Route | Description |
+|------|-------|-------------|
+| Privacy Policy | `/privacy` | Data collection, usage, and protection policies |
+| Terms of Service | `/terms` | User agreement, acceptable use, liability |
 
 ---
 
@@ -947,10 +991,12 @@ railway up
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/` | Welcome page |
+| GET | `/` | Welcome/Landing page |
 | GET | `/gallery/{slug}` | View 3D gallery |
 | GET | `/dashboard` | User dashboard |
+| GET | `/privacy` | Privacy Policy page |
+| GET | `/terms` | Terms of Service page |
 
 ---
 
-*Document generated for Exospace 3D Gallery v1.1.0*
+*Document generated for Exospace 3D Gallery v1.3.0*

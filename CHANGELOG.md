@@ -1,5 +1,33 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.3.0 - January 31, 2026 (Dark Mode & Landing Page Update)
+
+### 🌙 Dark Mode Implementation
+- **Complete Dark Theme**: Redesigned the entire admin panel, dashboard, and authentication pages with a cohesive dark color scheme.
+- **Dark UI Components**: Updated all Blade components (buttons, modals, inputs, dropdowns, navigation) with dark theme styling.
+- **Improved Readability**: Optimized text contrast and visual hierarchy for dark backgrounds.
+
+### 🏠 Welcome Page Redesign
+- **Modern Landing Page**: Complete overhaul with hero section, features grid, pricing tiers, and contact section.
+- **Responsive Navigation**: Fixed navigation with glassmorphism effect and authentication-aware links.
+- **Feature Showcase**: Three-column feature cards highlighting instant setup, customization, and cross-device support.
+- **Pricing Section**: Free, Professional ($29/mo), and Enterprise tier presentation.
+
+### 📜 Legal Pages
+- **Privacy Policy**: Added comprehensive privacy policy page at `/privacy`.
+- **Terms of Service**: Added terms of service page at `/terms`.
+- **Footer Links**: Integrated legal page links in the welcome page footer.
+
+### 🍎 Mac Compatibility
+- **AppServiceProvider Fix**: Updated application boot process for macOS compatibility.
+
+### 🎨 Enhanced Dashboard
+- **Statistics Cards**: Added visual stats grid showing total galleries, views, and images.
+- **Quick Actions**: Prominent call-to-action for creating new galleries.
+- **Recent Galleries List**: Shows latest 5 galleries with image count, view count, and quick edit links.
+
+---
+
 ## Version 1.2.0 - January 24, 2026 (Performance & UX Overhaul)
 
 ### ⚡ Performance Breakthroughs
