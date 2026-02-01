@@ -1,6 +1,3 @@
-@extends('layouts.guest')
-
-@section('content')
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -360,4 +357,3 @@ document.getElementById('contact-form').addEventListener('submit', function(e) {
 
 </body>
 </html>
-@endsection
