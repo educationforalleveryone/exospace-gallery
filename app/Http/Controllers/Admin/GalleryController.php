@@ -28,6 +28,11 @@ class GalleryController extends Controller
      */
     public function create(): View
     {
+        if (!Auth::user()->canCreateGallery()) {
+            return redirect()->route('admin.galleries.index')
+                ->with('upgrade', true);
+        }
+
         return view('admin.galleries.create');
     }
 
@@ -36,6 +41,12 @@ class GalleryController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        // ── PAYWALL: Hard limit enforcement ──
+        if (!Auth::user()->canCreateGallery()) {
+            return redirect()->route('admin.galleries.index')
+                ->with('upgrade', true);
+        }
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',

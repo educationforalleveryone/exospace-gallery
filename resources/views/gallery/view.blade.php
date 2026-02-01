@@ -180,6 +180,33 @@
 
         <!-- Crosshair -->
         <div id="crosshair"></div>
+
+        <!-- Watermark: Free plan only -->
+        @if (!$gallery->user->isPro())
+        <div class="ui-interactive" style="
+            position: absolute;
+            bottom: 28px;
+            right: 28px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 6px 14px 6px 10px;
+            text-decoration: none;
+            transition: background 0.2s ease;
+        " onmouseenter="this.style.background='rgba(0,0,0,0.65)'" onmouseleave="this.style.background='rgba(0,0,0,0.45)'" href="/pricing" target="_blank">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <span style="font-family: system-ui, sans-serif; font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,0.7); letter-spacing: 0.01em; white-space: nowrap;">
+                Created with <span style="color: #a78bfa; font-weight: 600;">Exospace</span> 3D
+            </span>
+        </div>
+        @endif
     </div>
 
     <!-- Gallery Data Injection -->

@@ -37,4 +37,15 @@ class User extends Authenticatable
     {
         return $this->hasMany(Gallery::class);
     }
+
+    // Plan helpers
+    public function isPro(): bool
+    {
+        return in_array($this->plan, ['pro', 'studio']);
+    }
+
+    public function canCreateGallery(): bool
+    {
+        return $this->galleries()->count() < $this->max_galleries;
+    }
 }

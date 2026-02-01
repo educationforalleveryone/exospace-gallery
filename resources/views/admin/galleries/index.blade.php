@@ -4,12 +4,22 @@
             <h2 class="font-semibold text-xl text-gray-100 leading-tight">
                 {{ __('My Galleries') }}
             </h2>
-            <a href="{{ route('admin.galleries.create') }}" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition inline-flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-                New Gallery
-            </a>
+            @if(auth()->user()->canCreateGallery())
+                <a href="{{ route('admin.galleries.create') }}" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition inline-flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    New Gallery
+                </a>
+            @else
+                <button onclick="document.getElementById('upgrade-modal').style.display='flex'" class="bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold py-2 px-6 rounded-lg transition inline-flex items-center cursor-pointer border border-gray-600">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    New Gallery
+                    <span class="ml-2 text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">Pro</span>
+                </button>
+            @endif
         </div>
     </x-slot>
 
@@ -20,6 +30,10 @@
                 <div class="mb-6 p-4 bg-green-900 border border-green-700 text-green-200 rounded-lg">
                     {{ session('status') }}
                 </div>
+            @endif
+
+            @if(session('upgrade'))
+                <script>document.addEventListener('DOMContentLoaded', () => document.getElementById('upgrade-modal').style.display='flex');</script>
             @endif
 
             @if($galleries->count() > 0)
@@ -83,4 +97,31 @@
 
         </div>
     </div>
+
+    <!-- Upgrade Modal -->
+    <div id="upgrade-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+        <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 max-w-md w-full mx-4 text-center">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center mx-auto mb-5">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-100 mb-2">Upgrade to Pro</h3>
+            <p class="text-gray-400 text-sm mb-1">
+                You've reached the gallery limit on your <span class="text-gray-300 font-semibold">Free</span> plan.
+            </p>
+            <p class="text-gray-500 text-sm mb-6">
+                Upgrade to <span class="text-purple-400 font-semibold">Pro ($29)</span> for unlimited galleries and watermark removal.
+            </p>
+            <div class="flex gap-3 justify-center">
+                <a href="/pricing" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition text-sm">
+                    See Plans
+                </a>
+                <button onclick="document.getElementById('upgrade-modal').style.display='none'" class="bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold py-2 px-5 rounded-lg transition text-sm">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
 </x-app-layout>
