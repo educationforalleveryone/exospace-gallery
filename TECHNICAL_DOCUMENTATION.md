@@ -268,9 +268,22 @@ This ensures:
 | Features | 3-column grid: Instant Setup, Customizable, Cross-device |
 | Pricing | Free Trial, Professional ($29/mo), Enterprise tiers |
 | Contact | CTA section with email support |
+| Pricing | Free Trial, Professional ($29/mo), Enterprise tiers |
+| Contact | CTA section with email support |
 | Footer | Product links, company info, legal pages |
 
-### 8. Legal Pages
+### 8. User Subscription System
+
+**Capability**: Tiered access control limiting galleries and image uploads.
+
+| Feature | Free | Pro | Studio |
+|---------|------|-----|--------|
+| Max Galleries | 1 | 5 | Unlimited |
+| Max Images/Gallery | 10 | 50 | 100 |
+| Analytics | Basic | Advanced | Advanced |
+| Support | Community | Email | Priority |
+
+### 9. Legal Pages
 
 **Capability**: Comprehensive legal and compliance pages for regulatory adherence and payment processor requirements.
 
@@ -280,9 +293,12 @@ This ensures:
 | Terms of Service | `/terms` | User agreement, acceptable use, liability |
 | Refund Policy | `/refund-policy` | 14-day money-back guarantee, refund process via 2Checkout |
 | Payment Security | `/payment-security` | PCI DSS compliance, SSL encryption, payment data handling |
+| Payment Security | `/payment-security` | PCI DSS compliance, SSL encryption, payment data handling |
 | About Us | `/about` | Company story, mission, team profiles, contact info |
+| Contact Us | `/contact` | Inquiry form for support and sales |
+| Pricing | `/pricing` | Detailed plan comparison and checkout |
 
-### 9. Security Headers
+### 10. Security Headers
 
 **Capability**: Server-side middleware enforcing security best practices on all HTTP responses.
 
@@ -296,7 +312,7 @@ This ensures:
 
 **Implementation**: `app/Http/Middleware/SecurityHeaders.php` registered globally in `bootstrap/app.php`.
 
-### 10. Cookie Consent Banner
+### 11. Cookie Consent Banner
 
 **Capability**: GDPR-compliant cookie consent system with user preference persistence.
 
@@ -309,7 +325,7 @@ This ensures:
 
 **Location**: `resources/views/layouts/partials/cookie-banner.blade.php`
 
-### 11. Demo Gallery Redirect
+### 12. Demo Gallery Redirect
 
 **Capability**: Smart demo link that automatically routes to the first available gallery.
 
@@ -339,7 +355,11 @@ erDiagram
         string password
         string remember_token
         timestamps created_at
+        timestamps created_at
         timestamps updated_at
+        enum plan
+        int max_galleries
+        int max_images
     }
     
     Gallery {
@@ -377,6 +397,20 @@ erDiagram
         timestamps updated_at
     }
 ```
+
+### Table: `users`
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | BIGINT | PK, AUTO | Primary key |
+| `name` | VARCHAR(255) | NOT NULL | User's full name |
+| `email` | VARCHAR(255) | UNIQUE | User's email address |
+| `password` | VARCHAR(255) | NOT NULL | Hashed password |
+| `plan` | ENUM | DEFAULT 'free' | free/pro/studio |
+| `max_galleries` | INT UNSIGNED | DEFAULT 1 | Gallery limit |
+| `max_images` | INT UNSIGNED | DEFAULT 10 | Images per gallery limit |
+| `created_at` | TIMESTAMP | NULLABLE | Creation time |
+| `updated_at` | TIMESTAMP | NULLABLE | Last update time |
 
 ### Table: `galleries`
 

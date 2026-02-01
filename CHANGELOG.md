@@ -1,5 +1,22 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.3.2 - February 1, 2026 (User Plans & Marketing Pages)
+
+### 💎 User Subscription System
+- **Tiered Access**: Implemented Free, Pro, and Studio plans.
+- **Resource Limits**: Enforced limits on total galleries and images per gallery based on user plan.
+- **Plan Helpers**: Added `isPro()` and `canCreateGallery()` helper methods to User model.
+
+### 💰 Pricing Page
+- **Plan Comparison**: Detailed pricing page at `/pricing` comparing features across tiers.
+- **Checkout Integration**: Direct links to payment processing for Pro and Studio upgrades.
+
+### 📞 Contact Page
+- **Support Portal**: New dedicated contact page at `/contact` with inquiry form.
+- **Direct Communication**: Streamlined channel for sales and support queries.
+
+---
+
 ## Version 1.3.1 - January 31, 2026 (2Checkout Compliance & Demo Gallery)
 
 ### 💳 2Checkout Payment Integration
