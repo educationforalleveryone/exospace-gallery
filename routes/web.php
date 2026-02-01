@@ -26,6 +26,17 @@ Route::view('/refund-policy', 'pages.refund')->name('refund');
 Route::view('/about', 'pages.about')->name('about');
 Route::view('/payment-security', 'pages.security')->name('security');
 
+// ============================================
+// COMMERCIAL & SUPPORT ROUTES (Add these!)
+// ============================================
+Route::view('/pricing', 'pages.pricing')->name('pricing');
+Route::view('/contact', 'pages.contact')->name('contact');
+
+// Handle Contact Form Submission (Mock success for the UI)
+Route::post('/contact', function () {
+    return response()->json(['message' => 'Message received']);
+});
+
 // Smart Demo Redirect: Finds the first active gallery and redirects to it
 Route::get('/gallery/demo', function () {
     $gallery = \App\Models\Gallery::where('is_active', true)->first();
