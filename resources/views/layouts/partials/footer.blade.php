@@ -17,25 +17,28 @@
                     </span>
                 </div>
             </div>
+
             <!-- Product -->
             <div>
                 <h4 class="font-semibold mb-4 text-gray-200">Product</h4>
                 <ul class="space-y-2 text-gray-400 text-sm">
-                    <li><a href="#features" class="hover:text-white transition">Features</a></li>
-                    <li><a href="#pricing" class="hover:text-white transition">Pricing</a></li>
+                    <li><a href="/#features" class="hover:text-white transition">Features</a></li>
+                    <li><a href="/pricing" class="hover:text-white transition">Pricing</a></li>
                     <li><a href="/gallery/demo" class="hover:text-white transition">Live Demo</a></li>
                     <li><a href="{{ route('register') }}" class="hover:text-white transition">Get Started</a></li>
                 </ul>
             </div>
+
             <!-- Company -->
             <div>
                 <h4 class="font-semibold mb-4 text-gray-200">Company</h4>
                 <ul class="space-y-2 text-gray-400 text-sm">
                     <li><a href="/about" class="hover:text-white transition">About Us</a></li>
-                    <li><a href="#contact" class="hover:text-white transition">Contact</a></li>
+                    <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
                     <li><a href="mailto:support@exospace.gallery" class="hover:text-white transition">Support</a></li>
                 </ul>
             </div>
+
             <!-- Legal -->
             <div>
                 <h4 class="font-semibold mb-4 text-gray-200">Legal</h4>

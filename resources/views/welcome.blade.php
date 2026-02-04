@@ -31,20 +31,23 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100">
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
 
     <!-- Navigation -->
     <nav class="fixed w-full bg-gray-900/95 backdrop-blur-sm z-50 border-b border-gray-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center">
-                    <span class="text-2xl font-bold gradient-text">Exospace</span>
+                    <a href="/" class="text-2xl font-bold gradient-text">Exospace</a>
                 </div>
+                
+                <!-- UPDATED LINKS HERE -->
                 <div class="hidden md:flex items-center space-x-8">
-                    <a href="#features" class="text-gray-300 hover:text-white transition">Features</a>
-                    <a href="#pricing" class="text-gray-300 hover:text-white transition">Pricing</a>
-                    <a href="#contact" class="text-gray-300 hover:text-white transition">Contact</a>
+                    <a href="/#features" class="text-gray-300 hover:text-white transition">Features</a>
+                    <a href="/pricing" class="text-gray-300 hover:text-white transition">Pricing</a>
+                    <a href="/contact" class="text-gray-300 hover:text-white transition">Contact</a>
                 </div>
+
                 <div class="flex items-center space-x-4">
                     @auth
                         <a href="{{ route('dashboard') }}" class="text-gray-300 hover:text-white transition">Dashboard</a>
@@ -71,7 +74,6 @@
                 No coding required. Works on any device.
             </p>
             
-            <!-- CHANGE A: Hero CTA buttons -->
             <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <a href="{{ route('register') }}" class="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition transform hover:scale-105">
                     Start Free Trial
@@ -81,37 +83,29 @@
                 </a>
             </div>
             
-            <!-- CHANGE B: Hero Demo Teaser -->
+            <!-- Hero Demo Teaser -->
             <div class="mt-16 relative">
                 <a href="/gallery/demo" class="block group">
                     <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-2xl border border-gray-700 group-hover:border-purple-500 transition-colors duration-300 overflow-hidden">
-                        <!-- Simulated 3D Gallery Scene -->
                         <div class="aspect-video relative bg-gradient-to-br from-gray-900 via-gray-800 to-[#1a1050] flex items-center justify-center overflow-hidden">
-                            <!-- Back Wall -->
                             <div class="absolute inset-0 flex items-center justify-center gap-6 px-12">
-                                <!-- Frame 1 -->
                                 <div class="w-1/4 aspect-[3/4] border-2 border-gray-600 rounded bg-gradient-to-br from-[#3b2f5e] to-[#1a1050] flex items-end justify-center pb-2 shadow-lg">
                                     <span class="text-xs text-gray-500">Abstract I</span>
                                 </div>
-                                <!-- Frame 2 (center, bigger) -->
                                 <div class="w-1/3 aspect-[3/4] border-2 border-purple-600 rounded bg-gradient-to-br from-[#4a3080] to-[#2d1b69] flex items-end justify-center pb-2 shadow-xl ring-2 ring-purple-600/30">
                                     <span class="text-xs text-purple-300">The Void</span>
                                 </div>
-                                <!-- Frame 3 -->
                                 <div class="w-1/4 aspect-[3/4] border-2 border-gray-600 rounded bg-gradient-to-br from-[#1a3060] to-[#0f2040] flex items-end justify-center pb-2 shadow-lg">
                                     <span class="text-xs text-gray-500">Cosmos</span>
                                 </div>
                             </div>
-                            <!-- Floor line -->
                             <div class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
-                            <!-- Overlay CTA -->
                             <div class="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors duration-300">
                                 <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold shadow-lg">
                                     Enter 3D Gallery →
                                 </div>
                             </div>
                         </div>
-                        <!-- Caption -->
                         <div class="px-6 py-4 flex items-center justify-between">
                             <div>
                                 <p class="text-gray-200 font-medium">Live Demo Gallery</p>
@@ -170,164 +164,27 @@
         </div>
     </section>
 
-    <!-- Pricing Section -->
-    <section id="pricing" class="py-20 px-4 bg-gray-800">
-        <div class="max-w-7xl mx-auto">
-            <div class="text-center mb-16">
-                <h2 class="text-4xl md:text-5xl font-bold mb-4">Simple, Transparent Pricing</h2>
-                <p class="text-xl text-gray-400">Choose the plan that works for you</p>
-            </div>
-            
-            <div class="grid md:grid-cols-3 gap-8">
-                <!-- Free Plan -->
-                <div class="bg-gray-900 p-8 rounded-xl border border-gray-700">
-                    <h3 class="text-2xl font-bold mb-2">Free Trial</h3>
-                    <div class="mb-6">
-                        <span class="text-5xl font-bold">$0</span>
-                        <span class="text-gray-400">/month</span>
-                    </div>
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>1 Gallery</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Up to 10 Images</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Basic Customization</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Public Gallery Link</span>
-                        </li>
-                    </ul>
-                    <a href="{{ route('register') }}" class="block w-full bg-gray-700 text-center px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition">
-                        Sign Up Free
-                    </a>
-                </div>
+    <!-- 
+      REMOVED: Pricing Section (Now on dedicated /pricing page)
+      REMOVED: Contact Section (Now on dedicated /contact page)
+    -->
 
-                <!-- Pro Plan -->
-                <div class="bg-gradient-to-br from-purple-900 to-indigo-900 p-8 rounded-xl border-2 border-purple-500 relative">
-                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <span class="bg-purple-500 px-4 py-1 rounded-full text-sm font-semibold pulse-glow">MOST POPULAR</span>
-                    </div>
-                    <h3 class="text-2xl font-bold mb-2">Professional</h3>
-                    <div class="mb-6">
-                        <span class="text-5xl font-bold">$29</span>
-                        <span class="text-gray-300">/month</span>
-                    </div>
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Unlimited Galleries</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Unlimited Images</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Custom Domain Support</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Advanced Analytics</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Priority Support</span>
-                        </li>
-                    </ul>
-                    <a href="{{ route('register') }}" class="block w-full bg-white text-purple-900 text-center px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition">
-                        Start 14-Day Trial
-                    </a>
-                </div>
-
-                <!-- Enterprise Plan -->
-                <div class="bg-gray-900 p-8 rounded-xl border border-gray-700">
-                    <h3 class="text-2xl font-bold mb-2">Enterprise</h3>
-                    <div class="mb-6">
-                        <span class="text-5xl font-bold">Custom</span>
-                    </div>
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>White-label Solution</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Self-hosted Options</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Custom Integrations</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>Dedicated Support</span>
-                        </li>
-                        <li class="flex items-start">
-                            <svg class="w-6 h-6 text-green-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span>SLA Guarantee</span>
-                        </li>
-                    </ul>
-                    <a href="#contact" class="block w-full bg-gray-700 text-center px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition">
-                        Contact Sales
-                    </a>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Contact Section -->
-    <section id="contact" class="py-20 px-4 bg-gray-900">
+    <!-- NEW: Bridge CTA Section -->
+    <section class="py-20 px-4 bg-gray-800 border-t border-gray-700">
         <div class="max-w-4xl mx-auto text-center">
-            <h2 class="text-4xl md:text-5xl font-bold mb-6">Ready to Get Started?</h2>
+            <h2 class="text-4xl md:text-5xl font-bold mb-4">Ready to Get Started?</h2>
             <p class="text-xl text-gray-400 mb-8">Join hundreds of artists and galleries already using Exospace</p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <a href="{{ route('register') }}" class="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition transform hover:scale-105">
                     Start Your Free Trial
                 </a>
-                <a href="mailto:support@exospace.gallery" class="border border-gray-600 px-8 py-4 rounded-lg text-lg font-semibold hover:border-purple-500 hover:bg-gray-800 transition">
-                    Contact Support
+                <a href="/pricing" class="border border-gray-600 px-8 py-4 rounded-lg text-lg font-semibold hover:border-purple-500 hover:bg-gray-800 transition">
+                    View Pricing Plans
                 </a>
             </div>
-            <p class="text-gray-500 mt-6">Questions? Email us at <a href="mailto:support@exospace.gallery" class="text-purple-400 hover:text-purple-300">support@exospace.gallery</a></p>
         </div>
     </section>
 
-    <!-- CHANGE C: Replace Footer with includes -->
     <!-- Cookie Banner -->
     @include('layouts.partials.cookie-banner')
 
