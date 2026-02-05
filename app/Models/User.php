@@ -17,6 +17,11 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'plan',
+        'max_galleries',
+        'max_images',
+        'plan_started_at',
+        'plan_expires_at',
     ];
 
     protected $hidden = [
@@ -47,5 +52,21 @@ class User extends Authenticatable
     public function canCreateGallery(): bool
     {
         return $this->galleries()->count() < $this->max_galleries;
+    }
+
+    /**
+     * Boot method to trigger events
+     */
+    protected static function booted(): void
+    {
+        static::created(function (User $user) {
+            // Send welcome email when user registers
+            try {
+                \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\WelcomeEmail($user));
+                \Illuminate\Support\Facades\Log::info("Welcome email sent to: {$user->email}");
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send welcome email: ' . $e->getMessage());
+            }
+        });
     }
 }

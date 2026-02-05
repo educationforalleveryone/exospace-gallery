@@ -21,16 +21,31 @@ class ImageController extends Controller
     public function store(Request $request, Gallery $gallery)
     {
         try {
-            // 1. Check gallery limit FIRST
+            // 1. SECURITY: Check Ownership
+            if ($gallery->user_id !== auth()->id()) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            // 2. LIMIT CHECK: Check User Plan Limits (BEFORE gallery limit)
+            $maxImages = auth()->user()->max_images ?? 10; // Fallback to 10 if column doesn't exist yet
             $currentCount = $gallery->images()->count();
-            if ($currentCount >= 100) {
-                Log::warning("Gallery limit reached for gallery {$gallery->id}");
+
+            if ($currentCount >= $maxImages) {
+                Log::info("Plan limit reached for User " . auth()->id() . " (Plan: " . (auth()->user()->plan ?? 'free') . ")");
                 return response()->json([
-                    'error' => 'Gallery limit reached. Maximum 100 images per gallery.'
+                    'error' => "Plan limit reached ({$maxImages} images). Upgrade to Pro to upload more."
                 ], 422);
             }
 
-            // 2. Validation with detailed error messages
+            // 3. HARD LIMIT: 100 Images Max (System Safety)
+            if ($currentCount >= 100) {
+                Log::warning("System limit reached for gallery {$gallery->id}");
+                return response()->json([
+                    'error' => 'System limit reached (100 images per gallery).'
+                ], 422);
+            }
+
+            // 4. Validation with detailed error messages
             $validator = \Validator::make($request->all(), [
                 'file' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:10240', // Increased to 10MB
             ], [
@@ -52,7 +67,7 @@ class ImageController extends Controller
 
             $file = $request->file('file');
             
-            // 3. Additional file checks
+            // 5. Additional file checks
             if (!$file->isValid()) {
                 Log::error("Invalid file upload: " . $file->getErrorMessage());
                 return response()->json([
@@ -60,7 +75,7 @@ class ImageController extends Controller
                 ], 422);
             }
 
-            // 4. Check actual file size (in case PHP limits are hit)
+            // 6. Check actual file size (in case PHP limits are hit)
             $fileSize = $file->getSize();
             if ($fileSize === false || $fileSize === 0) {
                 Log::error("File size is 0 or cannot be determined");
@@ -78,19 +93,19 @@ class ImageController extends Controller
                 'current_count' => $currentCount
             ]);
 
-            // 5. Process Image via Service
+            // 7. Process Image via Service
             $data = $this->imageService->process($file, $gallery->id);
 
-            // 6. Calculate Orientation
+            // 8. Calculate Orientation
             $ratio = $data['width'] / $data['height'];
             $orientation = 'square';
             if ($ratio > 1.1) $orientation = 'landscape';
             if ($ratio < 0.9) $orientation = 'portrait';
 
-            // 7. Get next position order
+            // 9. Get next position order
             $nextPosition = $gallery->images()->max('position_order') + 1;
 
-            // 8. Save to Database
+            // 10. Save to Database
             $image = $gallery->images()->create([
                 'filename' => $data['filename'],
                 'original_name' => $file->getClientOriginalName(),
