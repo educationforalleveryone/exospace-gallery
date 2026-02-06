@@ -1,5 +1,27 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.3.3 - February 6, 2026 (Email Queue System)
+
+### 📧 Email Infrastructure
+- **Resend API Integration**: Switched email provider to Resend (`resend/resend-laravel`) for improved deliverability and analytics.
+- **Queue-Based Emails**: All emails now processed via Laravel queues (`ShouldQueue`) for non-blocking user experience.
+- **Welcome Email Template**: Professional onboarding email sent to new users featuring:
+  - Personalized greeting with user's name
+  - Plan feature highlights (gallery limits, image limits)
+  - Direct CTA to create first gallery
+  - Consistent brand styling with gradient accents
+
+### 🐳 Docker & Deployment
+- **Background Queue Worker**: Updated `docker-start.sh` to automatically start queue worker (`php artisan queue:work --tries=3 --timeout=90`) alongside PHP-FPM and Nginx.
+- **Production-Ready Email**: Queue processing ensures email sending doesn't slow down user registration flow.
+
+### 🔧 Bug Fixes
+- Fixed welcome page navigation and footer alignment issues.
+- Corrected pricing and contact page layout inconsistencies.
+- Updated route definitions for commercial pages.
+
+---
+
 ## Version 1.3.2 - February 1, 2026 (User Plans & Marketing Pages)
 
 ### 💎 User Subscription System

@@ -1,7 +1,7 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 1.3.1  
-> **Last Updated:** January 31, 2026  
+> **Version:** 1.3.3  
+> **Last Updated:** February 6, 2026  
 > **Document Type:** Comprehensive Technical Reference
 
 ---
@@ -125,6 +125,7 @@ sequenceDiagram
 | **Laravel Breeze** | 2.3 | Authentication scaffolding |
 | **Intervention Image** | 3.11 | Image processing & manipulation |
 | **Spatie Media Library** | 11.17 | Media file management |
+| **Resend Laravel** | 1.1 | Transactional email API |
 
 ### Frontend Technologies
 
@@ -335,6 +336,32 @@ This ensures:
 | (No galleries) | Redirects to homepage with error flash message |
 
 **Use Case**: Provides a stable demo URL for marketing and documentation even as gallery slugs change.
+
+### 13. Email Queue System
+
+**Capability**: Asynchronous email delivery with professional templates via Resend API.
+
+| Component | Implementation |
+|-----------|----------------|
+| Provider | Resend API (`resend/resend-laravel`) |
+| Queue Backend | Laravel Queue (`database` or `redis` driver) |
+| Welcome Email | `App\Mail\WelcomeEmail` implements `ShouldQueue` |
+| Template | `resources/views/emails/welcome.blade.php` |
+
+**Welcome Email Features**:
+- Personalized greeting with user's name
+- Dynamic plan limits display (galleries, images)
+- Branded styling with gradient accents
+- Direct CTA link to dashboard
+
+**Queue Worker Configuration**:
+```bash
+# Production (docker-start.sh)
+php artisan queue:work --tries=3 --timeout=90 --sleep=3 &
+
+# Development (composer dev)
+php artisan queue:listen --tries=1
+```
 
 ---
 
@@ -844,6 +871,8 @@ exospace/
 │   │   ├── GalleryImage.php
 │   │   ├── Setting.php
 │   │   └── User.php
+│   ├── Mail/
+│   │   └── WelcomeEmail.php          # Queued welcome email
 │   ├── Providers/
 │   ├── Services/
 │   │   └── ImageProcessingService.php
@@ -874,6 +903,8 @@ exospace/
 │       │   └── galleries/
 │       ├── auth/
 │       ├── components/
+│       ├── emails/
+│       │   └── welcome.blade.php     # Welcome email template
 │       ├── gallery/
 │       │   └── view.blade.php    # 3D Engine
 │       ├── layouts/
@@ -882,6 +913,8 @@ exospace/
 │       │       └── footer.blade.php         # Global footer
 │       ├── pages/
 │       │   ├── about.blade.php
+│       │   ├── contact.blade.php
+│       │   ├── pricing.blade.php
 │       │   ├── privacy.blade.php
 │       │   ├── refund.blade.php
 │       │   ├── security.blade.php
@@ -1044,6 +1077,8 @@ railway up
 | `DB_USERNAME` | `root` | ✅ |
 | `DB_PASSWORD` | `***` | ✅ |
 | `FILESYSTEM_DISK` | `public` | ⚠️ |
+| `RESEND_API_KEY` | `re_xxxxx` | ✅ (for emails) |
+| `MAIL_MAILER` | `resend` | ✅ (for emails) |
 
 > [!WARNING]
 > For persistent file storage in production, configure an S3-compatible storage driver (AWS S3, DigitalOcean Spaces, etc.) instead of local filesystem.
@@ -1084,7 +1119,9 @@ railway up
 | GET | `/refund-policy` | Refund Policy page |
 | GET | `/payment-security` | Payment Security page |
 | GET | `/about` | About Us page |
+| GET | `/pricing` | Pricing page |
+| GET | `/contact` | Contact page |
 
 ---
 
-*Document generated for Exospace 3D Gallery v1.3.1*
+*Document generated for Exospace 3D Gallery v1.3.3*
