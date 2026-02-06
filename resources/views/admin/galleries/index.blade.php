@@ -118,17 +118,123 @@
                     {{ $galleries->links() }}
                 </div>
             @else
-                <div class="bg-gray-800 border border-gray-700 rounded-lg p-12 text-center">
-                    <div class="mb-6">
-                        <svg class="w-20 h-20 mx-auto text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                        </svg>
+                <!-- ✨ PREMIUM EMPTY STATE: First-Time User Onboarding -->
+                <div class="max-w-4xl mx-auto">
+                    <!-- Main Hero Card -->
+                    <div class="bg-gradient-to-br from-gray-800 via-gray-800 to-purple-900/20 border border-gray-700 rounded-2xl overflow-hidden shadow-2xl">
+                        
+                        <!-- Animated Header Section -->
+                        <div class="relative bg-gradient-to-r from-purple-600/10 to-indigo-600/10 p-12 text-center border-b border-gray-700/50">
+                            <!-- Floating 3D Cube Animation -->
+                            <div class="relative inline-block mb-6">
+                                <div class="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl blur-2xl opacity-20 animate-pulse"></div>
+                                <div class="relative bg-gradient-to-br from-purple-600 to-indigo-600 w-24 h-24 rounded-2xl flex items-center justify-center transform hover:rotate-12 transition-transform duration-500">
+                                    <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <h2 class="text-3xl md:text-4xl font-bold text-gray-100 mb-3">
+                                Create Your First <span class="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">3D Masterpiece</span>
+                            </h2>
+                            <p class="text-lg text-gray-400 max-w-2xl mx-auto">
+                                Transform your images into an immersive virtual gallery in under 60 seconds
+                            </p>
+                        </div>
+                        
+                        <!-- 3-Step Blueprint -->
+                        <div class="p-8 md:p-12">
+                            <div class="grid md:grid-cols-3 gap-6 mb-10">
+                                
+                                <!-- Step 1: Name Your Gallery -->
+                                <div class="relative group">
+                                    <div class="absolute inset-0 bg-gradient-to-br from-purple-600/5 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    <div class="relative bg-gray-900/50 border border-gray-700 rounded-xl p-6 text-center hover:border-purple-500/50 transition-all duration-300">
+                                        <div class="bg-purple-600/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
+                                            <span class="text-2xl font-bold text-purple-400">1</span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <svg class="w-10 h-10 mx-auto text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-100 mb-2">Name Your Exhibition</h3>
+                                        <p class="text-sm text-gray-400">Give your gallery a memorable title and description</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Step 2: Upload Images -->
+                                <div class="relative group">
+                                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-600/5 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    <div class="relative bg-gray-900/50 border border-gray-700 rounded-xl p-6 text-center hover:border-indigo-500/50 transition-all duration-300">
+                                        <div class="bg-indigo-600/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/30">
+                                            <span class="text-2xl font-bold text-indigo-400">2</span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <svg class="w-10 h-10 mx-auto text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                            </svg>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-100 mb-2">Upload Your Art</h3>
+                                        <p class="text-sm text-gray-400">Add up to {{ auth()->user()->max_images }} stunning images to your space</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Step 3: Enter 3D Space -->
+                                <div class="relative group">
+                                    <div class="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    <div class="relative bg-gray-900/50 border border-gray-700 rounded-xl p-6 text-center hover:border-blue-500/50 transition-all duration-300">
+                                        <div class="bg-blue-600/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
+                                            <span class="text-2xl font-bold text-blue-400">3</span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <svg class="w-10 h-10 mx-auto text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path>
+                                            </svg>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-100 mb-2">Experience in 3D</h3>
+                                        <p class="text-sm text-gray-400">Walk through your virtual gallery and share with the world</p>
+                                    </div>
+                                </div>
+                                
+                            </div>
+                            
+                            <!-- CTA Section -->
+                            <div class="text-center">
+                                <a href="{{ route('admin.galleries.create') }}" 
+                                   class="inline-flex items-center gap-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-4 px-10 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/50 text-lg group">
+                                    <svg class="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                    </svg>
+                                    <span>Start Building Now</span>
+                                    <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                                    </svg>
+                                </a>
+                                
+                                <p class="mt-6 text-sm text-gray-500">
+                                    🎨 Free plan includes {{ auth()->user()->max_galleries }} galleries with {{ auth()->user()->max_images }} images each
+                                </p>
+                            </div>
+                        </div>
+                        
                     </div>
-                    <h3 class="text-xl font-bold text-gray-300 mb-2">No galleries yet</h3>
-                    <p class="text-gray-500 mb-6">Create your first 3D gallery to get started</p>
-                    <a href="{{ route('admin.galleries.create') }}" class="inline-block bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-3 px-8 rounded-lg transition">
-                        Create Your First Gallery
-                    </a>
+                    
+                    <!-- Additional Tips Card -->
+                    <div class="mt-8 bg-blue-900/10 border border-blue-700/30 rounded-xl p-6">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0">
+                                <svg class="w-6 h-6 text-blue-400 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-base font-semibold text-blue-300 mb-2">💡 Pro Tip</h4>
+                                <p class="text-sm text-blue-200/80">For best results, use high-quality images (1920x1080 or larger) in JPG or PNG format. Each gallery can showcase your work in stunning 3D detail!</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             @endif
 

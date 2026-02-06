@@ -11,7 +11,13 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
+    <div class="py-12" x-data="{ 
+        showWelcome: !localStorage.getItem('exospace_onboarded'),
+        dismissWelcome() {
+            localStorage.setItem('exospace_onboarded', 'true');
+            this.showWelcome = false;
+        }
+    }">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             
             <!-- Welcome Message -->
@@ -19,6 +25,55 @@
                 <h3 class="text-2xl font-bold text-gray-100 mb-2">Welcome back, {{ Auth::user()->name }}! 👋</h3>
                 <p class="text-gray-400">Here's an overview of your galleries and activity.</p>
             </div>
+
+            <!-- ✨ NEW: Progress Tracker for First-Time Users -->
+            @if(Auth::user()->galleries()->count() === 0)
+            <div class="mb-8 bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30 rounded-xl p-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="bg-purple-600/20 w-10 h-10 rounded-lg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <h4 class="text-lg font-bold text-gray-100">Your Journey to Success</h4>
+                        </div>
+                        <p class="text-sm text-gray-300 mb-4">Complete these steps to unlock the full potential of Exospace</p>
+                        
+                        <!-- Progress Steps -->
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3 text-sm">
+                                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
+                                    <svg class="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <span class="text-gray-300 line-through">Create your account</span>
+                                <span class="text-green-400 text-xs font-semibold">✓ Done</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-sm">
+                                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 border-2 border-purple-400 flex items-center justify-center animate-pulse">
+                                    <span class="text-white text-xs font-bold">2</span>
+                                </div>
+                                <span class="text-gray-100 font-semibold">Create your first gallery</span>
+                                <span class="text-purple-400 text-xs font-semibold">← You are here</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-sm">
+                                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center">
+                                    <span class="text-gray-400 text-xs font-bold">3</span>
+                                </div>
+                                <span class="text-gray-400">Share your 3D exhibition</span>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="{{ route('admin.galleries.create') }}" 
+                       class="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-lg transition transform hover:scale-105 text-sm">
+                        Continue →
+                    </a>
+                </div>
+            </div>
+            @endif
 
             <!-- Stats Grid -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -190,6 +245,127 @@
             </div>
             @endif
 
+        </div>
+
+        <!-- ✨ NEW: ONE-TIME WELCOME MODAL -->
+        <div x-show="showWelcome" 
+             x-cloak
+             @click.self="dismissWelcome()"
+             class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+             style="display: none;"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0">
+            
+            <div @click.stop 
+                 class="bg-gradient-to-br from-gray-800 via-gray-900 to-purple-900/30 border border-purple-500/30 rounded-2xl max-w-2xl w-full shadow-2xl"
+                 x-transition:enter="transition ease-out duration-300 delay-100"
+                 x-transition:enter-start="opacity-0 scale-90"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-90">
+                
+                <!-- Header with animated gradient -->
+                <div class="relative overflow-hidden rounded-t-2xl bg-gradient-to-r from-purple-600 to-indigo-600 p-8 text-center">
+                    <div class="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-600 animate-pulse opacity-50"></div>
+                    <div class="relative">
+                        <div class="inline-block mb-4">
+                            <div class="bg-white/20 backdrop-blur-sm w-20 h-20 rounded-2xl flex items-center justify-center">
+                                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <h2 class="text-3xl font-bold text-white mb-3">Welcome to the Future of Art Exhibitions! 🎨</h2>
+                        <p class="text-purple-100 text-lg">Your journey to creating stunning 3D galleries starts now</p>
+                    </div>
+                </div>
+                
+                <!-- Content -->
+                <div class="p-8">
+                    <div class="mb-8">
+                        <h3 class="text-xl font-bold text-gray-100 mb-4">Here's what you get with your account:</h3>
+                        
+                        <div class="space-y-4">
+                            <div class="flex items-start gap-4">
+                                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-semibold text-gray-100 mb-1">{{ Auth::user()->max_galleries }} Free Galleries</h4>
+                                    <p class="text-sm text-gray-400">Create multiple exhibitions to showcase different collections</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start gap-4">
+                                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-semibold text-gray-100 mb-1">{{ Auth::user()->max_images }} Images per Gallery</h4>
+                                    <p class="text-sm text-gray-400">Plenty of space to showcase your best work in stunning detail</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start gap-4">
+                                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-semibold text-gray-100 mb-1">Immersive 3D Experience</h4>
+                                    <p class="text-sm text-gray-400">Walk through your galleries like a real museum</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Start -->
+                    <div class="bg-purple-900/20 border border-purple-500/20 rounded-xl p-5 mb-6">
+                        <h4 class="font-semibold text-purple-300 mb-3 flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            Quick Start Guide
+                        </h4>
+                        <ol class="text-sm text-purple-200/80 space-y-2 ml-7">
+                            <li class="list-decimal">Click "Create Gallery" to start your first exhibition</li>
+                            <li class="list-decimal">Give it a name and description that represents your art</li>
+                            <li class="list-decimal">Upload your images and watch them transform into 3D</li>
+                            <li class="list-decimal">Share your gallery link with the world!</li>
+                        </ol>
+                    </div>
+                    
+                    <!-- CTA Buttons -->
+                    <div class="flex gap-3">
+                        <a href="{{ route('admin.galleries.create') }}" 
+                           @click="dismissWelcome()"
+                           class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-105 text-center">
+                            Let's Go! 🚀
+                        </a>
+                        <button @click="dismissWelcome()" 
+                                class="px-6 bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold py-4 rounded-xl transition">
+                            I'll Explore First
+                        </button>
+                    </div>
+                    
+                    @if(Auth::user()->plan === 'free')
+                    <p class="mt-4 text-center text-xs text-gray-500">
+                        Want unlimited galleries? <a href="/pricing" class="text-purple-400 hover:text-purple-300 underline">Upgrade to Pro</a>
+                    </p>
+                    @endif
+                </div>
+                
+            </div>
         </div>
     </div>
 </x-app-layout>
