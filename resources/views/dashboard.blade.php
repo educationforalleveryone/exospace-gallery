@@ -58,20 +58,66 @@
                     </div>
                 </div>
 
-                <!-- Total Images -->
+                <!-- Usage Quota (Replaces Total Images) -->
                 <div class="bg-gray-800 overflow-hidden shadow-lg rounded-lg border border-gray-700 hover:border-blue-500 transition">
                     <div class="p-6">
                         <div class="flex items-center justify-between mb-4">
                             <div class="bg-blue-600 w-12 h-12 rounded-lg flex items-center justify-center">
                                 <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                                 </svg>
                             </div>
+                            @if(Auth::user()->plan === 'free')
+                                <span class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded-full">Free Plan</span>
+                            @else
+                                <span class="text-xs bg-purple-600 text-white px-2 py-1 rounded-full">Pro Plan</span>
+                            @endif
                         </div>
-                        <div class="text-3xl font-bold text-gray-100 mb-1">
-                            {{ Auth::user()->galleries()->withCount('images')->get()->sum('images_count') }}
+                        
+                        <div class="text-lg font-bold text-gray-100 mb-3">Your Usage</div>
+                        
+                        <!-- Gallery Quota -->
+                        <div class="mb-3">
+                            <div class="flex items-center justify-between text-sm mb-1">
+                                <span class="text-gray-400">Galleries</span>
+                                <span class="text-gray-300 font-medium">
+                                    {{ Auth::user()->galleries()->count() }} / {{ Auth::user()->max_galleries }}
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                                @php
+                                    $galleryPercent = Auth::user()->max_galleries > 0 
+                                        ? (Auth::user()->galleries()->count() / Auth::user()->max_galleries) * 100 
+                                        : 0;
+                                    $galleryPercent = min($galleryPercent, 100);
+                                @endphp
+                                <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-500" 
+                                     style="width: {{ $galleryPercent }}%"></div>
+                            </div>
                         </div>
-                        <div class="text-sm text-gray-400">Total Images</div>
+                        
+                        <!-- Image Quota -->
+                        <div class="mb-3">
+                            <div class="flex items-center justify-between text-sm mb-1">
+                                <span class="text-gray-400">Images Per Gallery</span>
+                                <span class="text-gray-300 font-medium">
+                                    Limit: {{ Auth::user()->max_images }}
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                                <div class="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full" 
+                                     style="width: 100%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Upgrade CTA (Free users only) -->
+                        @if(Auth::user()->plan === 'free')
+                            <div class="mt-4 pt-3 border-t border-gray-700">
+                                <a href="/pricing" class="block text-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-sm font-semibold py-2 rounded-lg transition">
+                                    Upgrade to Pro
+                                </a>
+                            </div>
+                        @endif
                     </div>
                 </div>
 

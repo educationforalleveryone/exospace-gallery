@@ -57,7 +57,7 @@
             <div class="bg-gray-800 border border-gray-700 shadow-lg sm:rounded-lg p-6">
                 <h3 class="text-lg font-medium text-gray-100 mb-4">Gallery Settings</h3>
                 
-                <form action="{{ route('admin.galleries.update', $gallery) }}" method="POST">
+                <form action="{{ route('admin.galleries.update', $gallery) }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
                     
@@ -122,6 +122,59 @@
                         </div>
                     </div>
 
+
+                    <!-- Background Music (Pro Feature) -->
+                    <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
+                        <label class="block text-sm font-medium text-gray-300 mb-3">
+                            🎵 Background Music
+                            @if(!auth()->user()->isPro())
+                                <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2">Pro Only</span>
+                            @endif
+                        </label>
+                        
+                        @if(auth()->user()->isPro())
+                            <!-- Show upload field for Pro users -->
+                            <div class="space-y-3">
+                                @if($gallery->audio_path)
+                                    <div class="bg-gray-700 rounded-lg p-3 flex items-center justify-between mb-3">
+                                        <div class="flex items-center">
+                                            <svg class="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                                            </svg>
+                                            <span class="text-sm text-gray-300">Current: {{ basename($gallery->audio_path) }}</span>
+                                        </div>
+                                        <audio controls class="h-8">
+                                            <source src="{{ asset('storage/' . $gallery->audio_path) }}" type="audio/mpeg">
+                                        </audio>
+                                    </div>
+                                @endif
+                                
+                                <input type="file" 
+                                       name="audio" 
+                                       accept=".mp3,.wav,.m4a"
+                                       class="block w-full text-sm text-gray-300
+                                              file:mr-4 file:py-2 file:px-4
+                                              file:rounded-lg file:border-0
+                                              file:text-sm file:font-semibold
+                                              file:bg-purple-600 file:text-white
+                                              hover:file:bg-purple-700
+                                              cursor-pointer">
+                                <p class="text-xs text-gray-400">Upload MP3, WAV, or M4A (Max 10MB). Music will loop in 3D gallery.</p>
+                            </div>
+                        @else
+                            <!-- Show locked state for Free users -->
+                            <div class="bg-gray-700/50 border border-gray-600 rounded-lg p-6 text-center">
+                                <svg class="w-12 h-12 text-gray-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                                <p class="text-gray-400 mb-4 text-sm">Background music is a <strong>Pro feature</strong></p>
+                                <p class="text-gray-500 text-xs mb-4">Add ambient soundtracks to create immersive 3D experiences</p>
+                                <a href="/pricing" class="inline-block bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition text-sm">
+                                    Upgrade to Pro - $29
+                                </a>
+                            </div>
+                        @endif
+                    </div>
                     <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
                         <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg transition-colors">
                             Cancel

@@ -11,7 +11,7 @@
         <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg p-6 border border-gray-700">
                 
-                <form action="{{ route('admin.galleries.store') }}" method="POST">
+                <form action="{{ route('admin.galleries.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     
                     <!-- Title -->
@@ -79,6 +79,45 @@
                                 <option value="dramatic" {{ old('lighting_preset') == 'dramatic' ? 'selected' : '' }}>Dramatic</option>
                             </select>
                         </div>
+                    </div>
+
+                    <!-- Background Music (Pro Feature) -->
+                    <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
+                        <label class="block text-sm font-medium text-gray-200 mb-3">
+                            🎵 Background Music
+                            @if(!auth()->user()->isPro())
+                                <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2">Pro Only</span>
+                            @endif
+                        </label>
+                        
+                        @if(auth()->user()->isPro())
+                            <!-- Show upload field for Pro users -->
+                            <div class="space-y-3">
+                                <input type="file" 
+                                       name="audio" 
+                                       accept=".mp3,.wav,.m4a"
+                                       class="block w-full text-sm text-gray-300
+                                              file:mr-4 file:py-2 file:px-4
+                                              file:rounded-lg file:border-0
+                                              file:text-sm file:font-semibold
+                                              file:bg-purple-600 file:text-white
+                                              hover:file:bg-purple-700
+                                              cursor-pointer">
+                                <p class="text-xs text-gray-400">Upload MP3, WAV, or M4A (Max 10MB). Music will loop in your 3D gallery.</p>
+                            </div>
+                        @else
+                            <!-- Show locked state for Free users -->
+                            <div class="bg-gray-700/50 border border-gray-600 rounded-lg p-6 text-center">
+                                <svg class="w-12 h-12 text-gray-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                                <p class="text-gray-400 mb-4 text-sm">Background music is a <strong>Pro feature</strong></p>
+                                <p class="text-gray-500 text-xs mb-4">Add ambient soundtracks to create immersive 3D experiences</p>
+                                <a href="/pricing" class="inline-block bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition text-sm">
+                                    Upgrade to Pro - $29
+                                </a>
+                            </div>
+                        @endif
                     </div>
 
                     <div class="mt-6 flex justify-end gap-3">

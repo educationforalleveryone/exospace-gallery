@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\InstallerController;
+use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================
@@ -11,6 +12,15 @@ use Illuminate\Support\Facades\Route;
 Route::get('/finalize-installation', [InstallerController::class, 'finalize'])
     ->name('installer.finalize')
     ->withoutMiddleware(['auth', 'verified']);
+
+// ============================================
+// WEBHOOK ROUTES (Must be public - 2Checkout needs access)
+// ============================================
+Route::post('/webhooks/2checkout', [WebhookController::class, 'handle2Checkout'])
+    ->name('webhooks.2checkout');
+
+Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund'])
+    ->name('webhooks.2checkout.refund');
 
 // ============================================
 // PUBLIC ROUTES

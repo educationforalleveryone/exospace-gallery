@@ -54,10 +54,26 @@ class GalleryController extends Controller
             'frame_style' => 'required|in:modern,classic,minimal',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
             'floor_material' => 'required|in:wood,marble,concrete',
+            'audio' => 'nullable|file|mimes:mp3,wav,m4a|max:10240', // Max 10MB
         ]);
 
+        // Handle audio upload (Pro feature only)
+        $audioPath = null;
+        if ($request->hasFile('audio') && Auth::user()->isPro()) {
+            $audioFile = $request->file('audio');
+            $audioPath = $audioFile->store('audio', 'public');
+        }
+
         // Create the gallery linked to the auth user
-        $gallery = $request->user()->galleries()->create($validated);
+        $gallery = $request->user()->galleries()->create([
+            'title' => $validated['title'],
+            'description' => $validated['description'],
+            'wall_texture' => $validated['wall_texture'],
+            'frame_style' => $validated['frame_style'],
+            'lighting_preset' => $validated['lighting_preset'],
+            'floor_material' => $validated['floor_material'],
+            'audio_path' => $audioPath,
+        ]);
 
         // Redirect to index
         return redirect()->route('admin.galleries.index')
@@ -105,7 +121,18 @@ class GalleryController extends Controller
             'frame_style' => 'required|in:modern,classic,minimal',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
             'floor_material' => 'required|in:wood,marble,concrete',
+            'audio' => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
         ]);
+
+        // Handle audio upload (Pro feature only)
+        if ($request->hasFile('audio') && Auth::user()->isPro()) {
+            // Delete old audio if exists
+            if ($gallery->audio_path) {
+                \Storage::disk('public')->delete($gallery->audio_path);
+            }
+            // Store new audio
+            $validated['audio_path'] = $request->file('audio')->store('audio', 'public');
+        }
 
         $gallery->update($validated);
 

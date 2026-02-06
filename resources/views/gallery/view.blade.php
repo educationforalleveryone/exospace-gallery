@@ -317,6 +317,7 @@
                 lighting_preset: "bright", // Options: 'bright', 'moody', 'dramatic'
                 frame_style: "modern",
                 imageCount: mockImages.length,
+                audioUrl: null, // Added for mock data consistency
                 images: mockImages
             };
         }
@@ -328,6 +329,10 @@
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+        import { AudioLoader } from 'three/addons/loaders/AudioLoader.js';
+
+        // Alias for global data access to match requested code snippets
+        const galleryData = window.GALLERY_DATA;
 
         // ===================================
         // CONFIGURATION
@@ -426,6 +431,7 @@
                 this.focusedArtwork = null;
                 
                 this.init();
+                this.initAudio();        // CHANGE 3: Call initAudio() in Constructor
             }
 
             init() {
@@ -719,6 +725,67 @@
                 } catch (error) {
                     console.error('Critical asset loading error:', error);
                     this.hideLoader();
+                }
+            }
+
+            // CHANGE 2: Add Audio Methods to GalleryScene Class
+            /**
+             * Initialize background music (Three.js Audio)
+             */
+            initAudio() {
+                if (!galleryData.audioUrl) {
+                    console.log('No audio configured for this gallery');
+                    return;
+                }
+                
+                console.log('Initializing audio:', galleryData.audioUrl);
+                
+                // Create audio listener and attach to camera
+                this.listener = new THREE.AudioListener();
+                this.camera.add(this.listener);
+                
+                // Create positional audio source
+                this.sound = new THREE.Audio(this.listener);
+                
+                // Load audio file
+                const audioLoader = new THREE.AudioLoader();
+                audioLoader.load(
+                    galleryData.audioUrl,
+                    (buffer) => {
+                        this.sound.setBuffer(buffer);
+                        this.sound.setLoop(true);
+                        this.sound.setVolume(0.5); // 50% volume
+                        this.audioReady = true;
+                        console.log('Audio loaded and ready');
+                    },
+                    (progress) => {
+                        console.log('Audio loading:', Math.round((progress.loaded / progress.total) * 100) + '%');
+                    },
+                    (error) => {
+                        console.error('Error loading audio:', error);
+                    }
+                );
+            }
+
+            /**
+             * Play background music (call after user interaction)
+             */
+            playAudio() {
+                if (!this.audioReady || !this.sound) {
+                    console.log('Audio not ready or not available');
+                    return;
+                }
+                
+                if (this.sound.isPlaying) {
+                    console.log('Audio already playing');
+                    return;
+                }
+                
+                try {
+                    this.sound.play();
+                    console.log('Audio playback started');
+                } catch (error) {
+                    console.error('Error playing audio:', error);
                 }
             }
 
@@ -1347,7 +1414,14 @@
                 loader.style.display = 'flex';
                 
                 // Initialize gallery after curtain is hidden
-                new GalleryScene();
+                const galleryScene = new GalleryScene();
+                
+                // Play audio after a short delay (browser autoplay policy compliant)
+                setTimeout(() => {
+                    if (galleryScene.playAudio) {
+                        galleryScene.playAudio();
+                    }
+                }, 1500); // Wait 1.5s for scene to load
             }, 800);
         });
     </script>

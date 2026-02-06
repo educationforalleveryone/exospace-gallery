@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    '2checkout' => [
+        'account_number' => env('TWOCHECKOUT_ACCOUNT_NUMBER'),
+        'secret_word' => env('TWOCHECKOUT_SECRET_WORD'),
+    ],
+
 ];
