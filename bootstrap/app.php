@@ -11,7 +11,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // 1. Existing Security Headers
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
+        // 2. TRUSTED PROXIES (Add this to fix 419 error)
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
