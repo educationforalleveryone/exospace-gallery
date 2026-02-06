@@ -1,4 +1,14 @@
 <x-app-layout>
+    
+    <!-- PHP Logic Block: Initialize variables required by the new changes -->
+    @php
+        $galleriesCount = Auth::user()->galleries()->count();
+        $totalViews = Auth::user()->galleries()->sum('view_count');
+        
+        // Determine onboarding status based on logic inferred from Change #1
+        $onboardingComplete = $galleriesCount > 0; 
+    @endphp
+
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-100 leading-tight">
@@ -12,7 +22,7 @@
     </x-slot>
 
     <div class="py-12" x-data="{ 
-        showWelcome: !localStorage.getItem('exospace_onboarded'),
+        showWelcome: !localStorage.getItem('exospace_onboarded') && {{ $galleriesCount }} === 0,
         dismissWelcome() {
             localStorage.setItem('exospace_onboarded', 'true');
             this.showWelcome = false;
@@ -26,8 +36,8 @@
                 <p class="text-gray-400">Here's an overview of your galleries and activity.</p>
             </div>
 
-            <!-- ✨ NEW: Progress Tracker for First-Time Users -->
-            @if(Auth::user()->galleries()->count() === 0)
+            <!-- ✨ UPDATED: Progress Tracker for First-Time Users -->
+            @if(!$onboardingComplete)
             <div class="mb-8 bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30 rounded-xl p-6">
                 <div class="flex items-start justify-between gap-4">
                     <div class="flex-1">
@@ -43,6 +53,7 @@
                         
                         <!-- Progress Steps -->
                         <div class="space-y-3">
+                            <!-- Step 1 (Account Creation - Always Done here) -->
                             <div class="flex items-center gap-3 text-sm">
                                 <div class="flex-shrink-0 w-6 h-6 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
                                     <svg class="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
@@ -52,25 +63,64 @@
                                 <span class="text-gray-300 line-through">Create your account</span>
                                 <span class="text-green-400 text-xs font-semibold">✓ Done</span>
                             </div>
+
+                            <!-- Step 2: Create Gallery (Dynamic) -->
                             <div class="flex items-center gap-3 text-sm">
-                                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 border-2 border-purple-400 flex items-center justify-center animate-pulse">
-                                    <span class="text-white text-xs font-bold">2</span>
-                                </div>
-                                <span class="text-gray-100 font-semibold">Create your first gallery</span>
-                                <span class="text-purple-400 text-xs font-semibold">← You are here</span>
+                                @if($galleriesCount > 0)
+                                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
+                                        <svg class="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-300 line-through">Create your first gallery</span>
+                                    <span class="text-green-400 text-xs font-semibold">✓ Done</span>
+                                @else
+                                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 border-2 border-purple-400 flex items-center justify-center animate-pulse">
+                                        <span class="text-white text-xs font-bold">2</span>
+                                    </div>
+                                    <span class="text-gray-100 font-semibold">Create your first gallery</span>
+                                    <span class="text-purple-400 text-xs font-semibold">← You are here</span>
+                                @endif
                             </div>
+
+                            <!-- Step 3: Share Gallery (Dynamic) -->
                             <div class="flex items-center gap-3 text-sm">
-                                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center">
-                                    <span class="text-gray-400 text-xs font-bold">3</span>
-                                </div>
-                                <span class="text-gray-400">Share your 3D exhibition</span>
+                                @if($totalViews > 0)
+                                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
+                                        <svg class="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-300 line-through">Share your 3D exhibition</span>
+                                    <span class="text-green-400 text-xs font-semibold">✓ Done</span>
+                                @elseif($galleriesCount > 0)
+                                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 border-2 border-purple-400 flex items-center justify-center animate-pulse">
+                                        <span class="text-white text-xs font-bold">3</span>
+                                    </div>
+                                    <span class="text-gray-100 font-semibold">Share your 3D exhibition</span>
+                                    <span class="text-purple-400 text-xs font-semibold">← You are here</span>
+                                @else
+                                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center">
+                                        <span class="text-gray-400 text-xs font-bold">3</span>
+                                    </div>
+                                    <span class="text-gray-400">Share your 3D exhibition</span>
+                                @endif
                             </div>
                         </div>
                     </div>
-                    <a href="{{ route('admin.galleries.create') }}" 
-                       class="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-lg transition transform hover:scale-105 text-sm">
-                        Continue →
-                    </a>
+
+                    <!-- Smart Button -->
+                    @if(auth()->user()->canCreateGallery())
+                        <a href="{{ route('admin.galleries.create') }}" 
+                           class="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-lg transition transform hover:scale-105 text-sm">
+                            Continue →
+                        </a>
+                    @else
+                        <button onclick="document.getElementById('upgrade-modal').style.display='flex'" 
+                                class="flex-shrink-0 bg-orange-600 hover:bg-orange-700 text-white font-semibold px-6 py-3 rounded-lg transition transform hover:scale-105 text-sm">
+                            Upgrade to Create More →
+                        </button>
+                    @endif
                 </div>
             </div>
             @endif
@@ -89,7 +139,7 @@
                             </div>
                         </div>
                         <div class="text-3xl font-bold text-gray-100 mb-1">
-                            {{ Auth::user()->galleries()->count() }}
+                            {{ $galleriesCount }}
                         </div>
                         <div class="text-sm text-gray-400">Total Galleries</div>
                     </div>
@@ -107,13 +157,13 @@
                             </div>
                         </div>
                         <div class="text-3xl font-bold text-gray-100 mb-1">
-                            {{ Auth::user()->galleries()->sum('view_count') }}
+                            {{ $totalViews }}
                         </div>
                         <div class="text-sm text-gray-400">Total Views</div>
                     </div>
                 </div>
 
-                <!-- Usage Quota (Replaces Total Images) -->
+                <!-- Usage Quota -->
                 <div class="bg-gray-800 overflow-hidden shadow-lg rounded-lg border border-gray-700 hover:border-blue-500 transition">
                     <div class="p-6">
                         <div class="flex items-center justify-between mb-4">
@@ -136,13 +186,13 @@
                             <div class="flex items-center justify-between text-sm mb-1">
                                 <span class="text-gray-400">Galleries</span>
                                 <span class="text-gray-300 font-medium">
-                                    {{ Auth::user()->galleries()->count() }} / {{ Auth::user()->max_galleries }}
+                                    {{ $galleriesCount }} / {{ Auth::user()->max_galleries }}
                                 </span>
                             </div>
                             <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
                                 @php
                                     $galleryPercent = Auth::user()->max_galleries > 0 
-                                        ? (Auth::user()->galleries()->count() / Auth::user()->max_galleries) * 100 
+                                        ? ($galleriesCount / Auth::user()->max_galleries) * 100 
                                         : 0;
                                     $galleryPercent = min($galleryPercent, 100);
                                 @endphp
@@ -198,7 +248,7 @@
             </div>
 
             <!-- Recent Galleries -->
-            @if(Auth::user()->galleries()->count() > 0)
+            @if($galleriesCount > 0)
             <div class="bg-gray-800 overflow-hidden shadow-lg rounded-lg border border-gray-700">
                 <div class="p-6 border-b border-gray-700">
                     <h3 class="text-xl font-bold text-gray-100">Recent Galleries</h3>
@@ -247,7 +297,7 @@
 
         </div>
 
-        <!-- ✨ NEW: ONE-TIME WELCOME MODAL -->
+        <!-- ONE-TIME WELCOME MODAL -->
         <div x-show="showWelcome" 
              x-cloak
              @click.self="dismissWelcome()"
@@ -367,5 +417,44 @@
                 
             </div>
         </div>
+
+        <!-- ✨ NEW: UPGRADE MODAL (For Change #4 functionality) -->
+        <div id="upgrade-modal" 
+             class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
+             style="display: none;">
+            
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 border border-orange-500/30 rounded-2xl max-w-md w-full shadow-2xl relative overflow-hidden">
+                <!-- Close Button -->
+                <button onclick="document.getElementById('upgrade-modal').style.display='none'" 
+                        class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+
+                <div class="p-8 text-center">
+                    <div class="bg-orange-600/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                    </div>
+                    
+                    <h3 class="text-2xl font-bold text-white mb-2">Upgrade Your Plan</h3>
+                    <p class="text-gray-400 mb-6">You've reached your gallery limit. Upgrade to Pro today to create unlimited 3D exhibitions.</p>
+                    
+                    <div class="space-y-3">
+                        <a href="/pricing" 
+                           class="block w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-3 rounded-xl transition">
+                            View Pricing Plans
+                        </a>
+                        <button onclick="document.getElementById('upgrade-modal').style.display='none'" 
+                                class="block w-full bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold py-3 rounded-xl transition">
+                            Maybe Later
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </x-app-layout>
