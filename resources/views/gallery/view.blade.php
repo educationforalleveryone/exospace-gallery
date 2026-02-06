@@ -18,6 +18,40 @@
         }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
         
+        /* Entrance Curtain */
+        #entrance-curtain {
+            position: fixed; inset: 0; z-index: 200;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            transition: opacity 0.8s ease;
+        }
+        .entrance-logo {
+            font-size: 2rem; font-weight: 800; letter-spacing: 0.3em;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 3rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .entrance-button {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 1.25rem 3rem;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none; border-radius: 9999px;
+            color: white; cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 40px rgba(59, 130, 246, 0.3);
+        }
+        .entrance-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 50px rgba(59, 130, 246, 0.4);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
         /* Loading Screen */
         #loader {
             position: fixed; inset: 0; z-index: 100;
@@ -118,8 +152,55 @@
 </head>
 <body>
 
-    <!-- Loading Screen -->
-    <div id="loader">
+    <!-- Entrance Curtain (Shown First) -->
+    <div id="entrance-curtain">
+        <div style="max-width: 800px; text-align: center; padding: 0 2rem;">
+            <!-- Logo -->
+            <div class="entrance-logo">EXOSPACE</div>
+            
+            <!-- Gallery Info -->
+            <h1 style="font-size: 3rem; font-weight: 800; color: white; margin-bottom: 1rem; line-height: 1.2;">
+                {{ $gallery->title }}
+            </h1>
+            
+            @if($gallery->description)
+            <p style="font-size: 1.125rem; color: rgba(255,255,255,0.7); margin-bottom: 3rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+                {{ $gallery->description }}
+            </p>
+            @endif
+            
+            <!-- Stats -->
+            <div style="display: flex; gap: 3rem; justify-content: center; margin-bottom: 3rem; font-size: 0.875rem; color: rgba(255,255,255,0.5);">
+                <div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: rgba(255,255,255,0.9); margin-bottom: 0.25rem;">{{ $gallery->images->count() }}</div>
+                    <div>Artworks</div>
+                </div>
+                <div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: rgba(255,255,255,0.9); margin-bottom: 0.25rem;">3D</div>
+                    <div>Experience</div>
+                </div>
+                <div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: rgba(255,255,255,0.9); margin-bottom: 0.25rem;">{{ number_format($gallery->view_count) }}</div>
+                    <div>Views</div>
+                </div>
+            </div>
+            
+            <!-- Enter Button -->
+            <button id="enter-btn" class="entrance-button">
+                <span style="font-size: 1.125rem; font-weight: 600; letter-spacing: 0.05em;">ENTER EXHIBITION</span>
+                <svg style="width: 1.5rem; height: 1.5rem; margin-left: 0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                </svg>
+            </button>
+            
+            <p style="margin-top: 2rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">
+                Use WASD to move • Mouse to look around • Click for full control
+            </p>
+        </div>
+    </div>
+
+    <!-- Loading Screen (Hidden Initially) -->
+    <div id="loader" style="display: none;">
         <div class="loader-logo">EXOSPACE</div>
         <div style="text-align: center;">
             <p class="text-gray-400 text-lg mb-2">{{ $gallery->title }}</p>
@@ -1254,8 +1335,21 @@
             }
         }
 
-        // Initialize
-        new GalleryScene();
+        // Entrance Curtain Handler
+        document.getElementById('enter-btn').addEventListener('click', () => {
+            const curtain = document.getElementById('entrance-curtain');
+            const loader = document.getElementById('loader');
+            
+            // Hide curtain, show loader
+            curtain.style.opacity = '0';
+            setTimeout(() => {
+                curtain.style.display = 'none';
+                loader.style.display = 'flex';
+                
+                // Initialize gallery after curtain is hidden
+                new GalleryScene();
+            }, 800);
+        });
     </script>
 </body>
 </html>
