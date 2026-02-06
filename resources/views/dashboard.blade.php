@@ -6,7 +6,7 @@
         $totalViews = Auth::user()->galleries()->sum('view_count');
         
         // Determine onboarding status based on logic inferred from Change #1
-        $onboardingComplete = $galleriesCount > 0; 
+        $onboardingComplete = ($galleriesCount > 0 && $totalViews > 0); 
     @endphp
 
     <x-slot name="header">
