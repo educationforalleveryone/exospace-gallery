@@ -329,7 +329,7 @@
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-        import { AudioLoader } from 'three/addons/loaders/AudioLoader.js';
+        // DO NOT import AudioLoader here. It is already inside the 'THREE' object above.
 
         // Alias for global data access to match requested code snippets
         const galleryData = window.GALLERY_DATA;
@@ -747,8 +747,8 @@
                 // Create positional audio source
                 this.sound = new THREE.Audio(this.listener);
                 
-                // Load audio file
-                const audioLoader = new THREE.AudioLoader();
+                // Load audio file using the core THREE object
+                const audioLoader = new THREE.AudioLoader(); 
                 audioLoader.load(
                     galleryData.audioUrl,
                     (buffer) => {
