@@ -1,6 +1,6 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 1.3.3  
+> **Version:** 1.3.4  
 > **Last Updated:** February 6, 2026  
 > **Document Type:** Comprehensive Technical Reference
 
@@ -231,6 +231,16 @@ sequenceDiagram
 | Artwork Info | Press E to view details |
 | Collision Detection | Room boundary constraints |
 
+**Entrance Curtain Screen**:
+
+Before entering the 3D experience, visitors see a cinematic landing screen featuring:
+- Gallery title and description
+- Artwork count and view statistics
+- "Enter Exhibition" button with smooth fade transition
+- WASD/mouse control hints
+
+This deferred loading approach improves perceived performance and gives users context before immersion.
+
 ### 5. Dynamic Lighting System
 
 **Capability**: Proximity-based artwork illumination.
@@ -362,6 +372,19 @@ php artisan queue:work --tries=3 --timeout=90 --sleep=3 &
 # Development (composer dev)
 php artisan queue:listen --tries=1
 ```
+
+### 14. Gallery Sharing
+
+**Capability**: One-click URL sharing for galleries with clipboard integration.
+
+| Feature | Implementation |
+|---------|----------------|
+| Share Modal | Modal overlay in admin gallery index |
+| Copy URL | Clipboard API with fallback for older browsers |
+| Visual Feedback | "Copied!" confirmation with 2-second reset |
+| Keyboard Support | ESC key dismisses modal |
+
+**Location**: `resources/views/admin/galleries/index.blade.php`
 
 ---
 
@@ -1124,4 +1147,4 @@ railway up
 
 ---
 
-*Document generated for Exospace 3D Gallery v1.3.3*
+*Document generated for Exospace 3D Gallery v1.3.4*

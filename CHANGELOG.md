@@ -1,5 +1,25 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.3.4 - February 6, 2026 (Gallery UX Overhaul)
+
+### 🎭 Entrance Curtain Screen
+- **Exhibition Landing Page**: New cinematic entrance screen shown before entering 3D galleries.
+- **Gallery Preview**: Displays title, description, artwork count, and view count before entering.
+- **One-Click Entry**: Prominent "Enter Exhibition" button with smooth fade transition to loading screen.
+- **Control Hints**: Displays WASD and mouse control instructions before entering.
+
+### 🔗 Gallery Sharing System
+- **Share Modal**: New share functionality in admin gallery list with copy-to-clipboard URL.
+- **Visual Feedback**: "Copied!" confirmation when URL is copied.
+- **Keyboard Support**: ESC key closes share and upgrade modals.
+
+### 🎨 Admin Gallery Cards Redesign
+- **Statistics Display**: Each gallery card now shows image count and view count with icons.
+- **Three-Column Actions**: Reorganized action buttons (View, Share, Edit) in a grid layout.
+- **Improved Layout**: Better visual hierarchy with bordered stat sections.
+
+---
+
 ## Version 1.3.3 - February 6, 2026 (Email Queue System)
 
 ### 📧 Email Infrastructure
