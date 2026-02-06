@@ -55,6 +55,7 @@ class GalleryController extends Controller
             'lighting_preset' => 'required|in:bright,moody,dramatic',
             'floor_material' => 'required|in:wood,marble,concrete',
             'audio' => 'nullable|file|mimes:mp3,wav,m4a|max:10240', // Max 10MB
+            'custom_logo' => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048', // Max 2MB
         ]);
 
         // Handle audio upload (Pro feature only)
@@ -62,6 +63,13 @@ class GalleryController extends Controller
         if ($request->hasFile('audio') && Auth::user()->isPro()) {
             $audioFile = $request->file('audio');
             $audioPath = $audioFile->store('audio', 'public');
+        }
+
+        // Handle custom logo upload (Studio feature only)
+        $logoPath = null;
+        if ($request->hasFile('custom_logo') && Auth::user()->plan === 'studio') {
+            $logoFile = $request->file('custom_logo');
+            $logoPath = $logoFile->store('branding', 'public');
         }
 
         // Create the gallery linked to the auth user
@@ -73,6 +81,7 @@ class GalleryController extends Controller
             'lighting_preset' => $validated['lighting_preset'],
             'floor_material' => $validated['floor_material'],
             'audio_path' => $audioPath,
+            'custom_logo_path' => $logoPath,
         ]);
 
         // Redirect to index
@@ -122,6 +131,7 @@ class GalleryController extends Controller
             'lighting_preset' => 'required|in:bright,moody,dramatic',
             'floor_material' => 'required|in:wood,marble,concrete',
             'audio' => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
+            'custom_logo' => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
         ]);
 
         // Handle audio upload (Pro feature only)
@@ -132,6 +142,16 @@ class GalleryController extends Controller
             }
             // Store new audio
             $validated['audio_path'] = $request->file('audio')->store('audio', 'public');
+        }
+
+        // Handle custom logo upload (Studio feature only)
+        if ($request->hasFile('custom_logo') && Auth::user()->plan === 'studio') {
+            // Delete old logo if exists
+            if ($gallery->custom_logo_path) {
+                \Storage::disk('public')->delete($gallery->custom_logo_path);
+            }
+            // Store new logo
+            $validated['custom_logo_path'] = $request->file('custom_logo')->store('branding', 'public');
         }
 
         $gallery->update($validated);

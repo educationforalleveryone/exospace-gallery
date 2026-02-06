@@ -175,6 +175,104 @@
                             </div>
                         @endif
                     </div>
+
+                    <!-- Custom Branding (Studio Feature) -->
+                    <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
+                        <label class="block text-sm font-medium text-gray-300 mb-3">
+                            🎨 Custom Gallery Logo
+                            @if(auth()->user()->plan !== 'studio')
+                                <span class="text-xs bg-gradient-to-r from-orange-600 to-red-600 text-white px-2 py-0.5 rounded-full ml-2">Studio Only</span>
+                            @endif
+                        </label>
+                        
+                        @if(auth()->user()->plan === 'studio')
+                            <!-- Show upload field for Studio users -->
+                            <div class="space-y-3">
+                                @if($gallery->custom_logo_path)
+                                    <div class="bg-gray-700 rounded-lg p-4 mb-3">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div class="flex items-center">
+                                                <svg class="w-5 h-5 text-orange-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                </svg>
+                                                <span class="text-sm text-gray-300 font-semibold">Current Logo</span>
+                                            </div>
+                                        </div>
+                                        <div class="bg-gray-800 rounded-lg p-4 flex items-center justify-center border border-gray-600">
+                                            <img src="{{ asset('storage/' . $gallery->custom_logo_path) }}" 
+                                                 alt="Gallery Logo Preview" 
+                                                 class="max-h-24 max-w-full object-contain">
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">{{ basename($gallery->custom_logo_path) }}</p>
+                                    </div>
+                                @endif
+                                
+                                <div class="bg-gray-800/50 border-2 border-dashed border-gray-600 hover:border-orange-500 rounded-lg p-4 transition-colors">
+                                    <label for="custom_logo" class="cursor-pointer block">
+                                        <div class="flex flex-col items-center justify-center">
+                                            <svg class="w-10 h-10 text-gray-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                            </svg>
+                                            <span class="text-sm font-medium text-gray-300">
+                                                {{ $gallery->custom_logo_path ? 'Replace Logo' : 'Upload Your Logo' }}
+                                            </span>
+                                            <span class="text-xs text-gray-500 mt-1">PNG, SVG, JPG (Max 2MB)</span>
+                                        </div>
+                                        <input type="file" 
+                                               id="custom_logo" 
+                                               name="custom_logo" 
+                                               accept=".png,.svg,.jpg,.jpeg" 
+                                               class="hidden">
+                                    </label>
+                                </div>
+                                
+                                <div class="bg-blue-900/20 border border-blue-700/30 rounded-lg p-3">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <div class="text-xs text-blue-300">
+                                            <p class="font-semibold mb-1">Your logo will appear in the 3D gallery</p>
+                                            <p class="text-blue-400/80">Best results: Transparent PNG or SVG, minimum 200x200px</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            <!-- Locked State for Free/Pro Users -->
+                            <div class="relative">
+                                <div class="bg-gray-800/30 rounded-lg p-6 border-2 border-dashed border-gray-700 text-center opacity-60">
+                                    <svg class="w-16 h-16 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                    <p class="text-gray-500 text-sm mb-4">Replace "Exospace" branding with your own logo</p>
+                                </div>
+                                
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <a href="/pricing" 
+                                       class="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold px-8 py-3 rounded-lg shadow-lg transform hover:scale-105 transition-all">
+                                        <div class="flex items-center gap-2">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                            </svg>
+                                            <span>Upgrade to Studio</span>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 bg-orange-900/20 border border-orange-700/30 rounded-lg p-4">
+                                <h4 class="text-orange-300 font-semibold text-sm mb-2">🌟 Studio Plan Benefits</h4>
+                                <ul class="text-xs text-orange-300/80 space-y-1 ml-4">
+                                    <li>• White-label your galleries with custom branding</li>
+                                    <li>• Remove "Exospace" watermark completely</li>
+                                    <li>• Professional presentation for clients</li>
+                                    <li>• Perfect for agencies and professional artists</li>
+                                </ul>
+                            </div>
+                        @endif
+                    </div>
+
                     <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
                         <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg transition-colors">
                             Cancel
