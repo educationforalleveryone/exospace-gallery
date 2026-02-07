@@ -122,7 +122,7 @@
                         </div>
                     </div>
 
-
+                    <!-- CHANGE #1: AJAX Audio Upload Section -->
                     <!-- Background Music (Pro Feature) -->
                     <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <label class="block text-sm font-medium text-gray-300 mb-3">
@@ -133,33 +133,64 @@
                         </label>
                         
                         @if(auth()->user()->isPro())
-                            <!-- Show upload field for Pro users -->
+                            <!-- ✅ AJAX Upload Container -->
                             <div class="space-y-3">
-                                @if($gallery->audio_path)
-                                    <div class="bg-gray-700 rounded-lg p-3 flex items-center justify-between mb-3">
-                                        <div class="flex items-center">
-                                            <svg class="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
-                                            </svg>
-                                            <span class="text-sm text-gray-300">Current: {{ basename($gallery->audio_path) }}</span>
-                                        </div>
-                                        <audio controls class="h-8">
-                                            <source src="{{ asset('storage/' . $gallery->audio_path) }}" type="audio/mpeg">
-                                        </audio>
+                                <!-- Current Audio Preview -->
+                                <div id="audio-preview-container" @if($gallery->audio_path) @else style="display:none;" @endif class="bg-gray-700 rounded-lg p-3 flex items-center justify-between mb-3">
+                                    <div class="flex items-center">
+                                        <svg class="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                                        </svg>
+                                        <span id="audio-filename" class="text-sm text-gray-300">
+                                            @if($gallery->audio_path)
+                                                {{ basename($gallery->audio_path) }}
+                                            @else
+                                                No audio uploaded
+                                            @endif
+                                        </span>
                                     </div>
-                                @endif
+                                    <audio id="audio-player" controls class="h-8">
+                                        @if($gallery->audio_path)
+                                            <source src="{{ asset('storage/' . $gallery->audio_path) }}" type="audio/mpeg">
+                                        @endif
+                                    </audio>
+                                </div>
                                 
-                                <input type="file" 
-                                       name="audio" 
-                                       accept=".mp3,.wav,.m4a"
-                                       class="block w-full text-sm text-gray-300
-                                              file:mr-4 file:py-2 file:px-4
-                                              file:rounded-lg file:border-0
-                                              file:text-sm file:font-semibold
-                                              file:bg-purple-600 file:text-white
-                                              hover:file:bg-purple-700
-                                              cursor-pointer">
-                                <p class="text-xs text-gray-400">Upload MP3, WAV, or M4A (Max 10MB). Music will loop in 3D gallery.</p>
+                                <!-- ✅ Upload Input -->
+                                <div class="relative">
+                                    <input type="file" id="audio-upload-input" accept=".mp3,.wav,.m4a"
+                                        onchange="uploadAudioFile(this)"
+                                        class="block w-full text-sm text-gray-300
+                                            file:mr-4 file:py-2 file:px-4
+                                            file:rounded-lg file:border-0
+                                            file:text-sm file:font-semibold
+                                            file:bg-purple-600 file:text-white
+                                            hover:file:bg-purple-700
+                                            cursor-pointer">
+                                    
+                                    <!-- ✅ Progress Bar (Hidden by default) -->
+                                    <div id="audio-upload-progress" style="display:none;" class="mt-2">
+                                        <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                            <span id="audio-progress-text">Uploading...</span>
+                                            <span id="audio-progress-percent">0%</span>
+                                        </div>
+                                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                            <div id="audio-progress-bar" class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- ✅ Success Message (Hidden by default) -->
+                                    <div id="audio-upload-success" style="display:none;" class="mt-2 p-2 bg-green-900/50 border border-green-700 rounded text-green-300 text-sm">
+                                        ✅ <span id="audio-success-message">Audio uploaded successfully!</span>
+                                    </div>
+                                    
+                                    <!-- ✅ Error Message (Hidden by default) -->
+                                    <div id="audio-upload-error" style="display:none;" class="mt-2 p-2 bg-red-900/50 border border-red-700 rounded text-red-300 text-sm">
+                                        ❌ <span id="audio-error-message">Upload failed</span>
+                                    </div>
+                                </div>
+                                
+                                <p class="text-xs text-gray-500 mt-2">MP3, WAV, or M4A • Max 10MB • Upload happens instantly</p>
                             </div>
                         @else
                             <!-- Show locked state for Free users -->
@@ -176,67 +207,62 @@
                         @endif
                     </div>
 
+                    <!-- CHANGE #2: AJAX Logo Upload Section -->
                     <!-- Custom Branding (Studio Feature) -->
                     <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <label class="block text-sm font-medium text-gray-300 mb-3">
-                            🎨 Custom Gallery Logo
+                            🎨 Custom Logo
                             @if(auth()->user()->plan !== 'studio')
-                                <span class="text-xs bg-gradient-to-r from-orange-600 to-red-600 text-white px-2 py-0.5 rounded-full ml-2">Studio Only</span>
+                                <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2">Studio Only</span>
                             @endif
                         </label>
                         
                         @if(auth()->user()->plan === 'studio')
-                            <!-- Show upload field for Studio users -->
+                            <!-- ✅ AJAX Upload Container -->
                             <div class="space-y-3">
-                                @if($gallery->custom_logo_path)
-                                    <div class="bg-gray-700 rounded-lg p-4 mb-3">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <div class="flex items-center">
-                                                <svg class="w-5 h-5 text-orange-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                                </svg>
-                                                <span class="text-sm text-gray-300 font-semibold">Current Logo</span>
-                                            </div>
-                                        </div>
-                                        <div class="bg-gray-800 rounded-lg p-4 flex items-center justify-center border border-gray-600">
-                                            <img src="{{ asset('storage/' . $gallery->custom_logo_path) }}" 
-                                                 alt="Gallery Logo Preview" 
-                                                 class="max-h-24 max-w-full object-contain">
-                                        </div>
-                                        <p class="text-xs text-gray-500 mt-2">{{ basename($gallery->custom_logo_path) }}</p>
-                                    </div>
-                                @endif
-                                
-                                <div class="bg-gray-800/50 border-2 border-dashed border-gray-600 hover:border-orange-500 rounded-lg p-4 transition-colors">
-                                    <label for="custom_logo" class="cursor-pointer block">
-                                        <div class="flex flex-col items-center justify-center">
-                                            <svg class="w-10 h-10 text-gray-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                                            </svg>
-                                            <span class="text-sm font-medium text-gray-300">
-                                                {{ $gallery->custom_logo_path ? 'Replace Logo' : 'Upload Your Logo' }}
-                                            </span>
-                                            <span class="text-xs text-gray-500 mt-1">PNG, SVG, JPG (Max 2MB)</span>
-                                        </div>
-                                        <input type="file" 
-                                               id="custom_logo" 
-                                               name="custom_logo" 
-                                               accept=".png,.svg,.jpg,.jpeg" 
-                                               class="hidden">
-                                    </label>
+                                <!-- Current Logo Preview -->
+                                <div id="logo-preview-container" @if($gallery->custom_logo_path) @else style="display:none;" @endif class="bg-gray-700 rounded-lg p-3 mb-3 flex items-center justify-center">
+                                    <img id="logo-preview-image" 
+                                         src="{{ $gallery->custom_logo_path ? asset('storage/' . $gallery->custom_logo_path) : '' }}" 
+                                         alt="Custom Logo" 
+                                         class="max-h-20 object-contain">
                                 </div>
                                 
-                                <div class="bg-blue-900/20 border border-blue-700/30 rounded-lg p-3">
-                                    <div class="flex items-start gap-2">
-                                        <svg class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <div class="text-xs text-blue-300">
-                                            <p class="font-semibold mb-1">Your logo will appear in the 3D gallery</p>
-                                            <p class="text-blue-400/80">Best results: Transparent PNG or SVG, minimum 200x200px</p>
+                                <!-- ✅ Upload Input -->
+                                <div class="relative">
+                                    <input type="file" id="logo-upload-input" accept=".png,.svg,.jpg,.jpeg"
+                                        onchange="uploadLogoFile(this)"
+                                        class="block w-full text-sm text-gray-300
+                                            file:mr-4 file:py-2 file:px-4
+                                            file:rounded-lg file:border-0
+                                            file:text-sm file:font-semibold
+                                            file:bg-purple-600 file:text-white
+                                            hover:file:bg-purple-700
+                                            cursor-pointer">
+                                    
+                                    <!-- ✅ Progress Bar (Hidden by default) -->
+                                    <div id="logo-upload-progress" style="display:none;" class="mt-2">
+                                        <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                            <span id="logo-progress-text">Uploading...</span>
+                                            <span id="logo-progress-percent">0%</span>
+                                        </div>
+                                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                            <div id="logo-progress-bar" class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300" style="width: 0%"></div>
                                         </div>
                                     </div>
+                                    
+                                    <!-- ✅ Success Message (Hidden by default) -->
+                                    <div id="logo-upload-success" style="display:none;" class="mt-2 p-2 bg-green-900/50 border border-green-700 rounded text-green-300 text-sm">
+                                        ✅ <span id="logo-success-message">Logo uploaded successfully!</span>
+                                    </div>
+                                    
+                                    <!-- ✅ Error Message (Hidden by default) -->
+                                    <div id="logo-upload-error" style="display:none;" class="mt-2 p-2 bg-red-900/50 border border-red-700 rounded text-red-300 text-sm">
+                                        ❌ <span id="logo-error-message">Upload failed</span>
+                                    </div>
                                 </div>
+                                
+                                <p class="text-xs text-gray-500 mt-2">PNG, SVG, JPG • Max 2MB • Transparent background recommended • Upload happens instantly</p>
                             </div>
                         @else
                             <!-- Locked State for Free/Pro Users -->
@@ -580,6 +606,176 @@
                 alert('❌ Network error. Please check your connection and try again.');
                 btn.disabled = false;
                 btn.innerHTML = originalText;
+            });
+        }
+
+        // CHANGE #3: New AJAX Functions
+
+        // ✅ AJAX: Upload Audio File
+        function uploadAudioFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            // Hide previous messages
+            document.getElementById('audio-upload-success').style.display = 'none';
+            document.getElementById('audio-upload-error').style.display = 'none';
+            
+            // Show progress bar
+            const progressDiv = document.getElementById('audio-upload-progress');
+            const progressBar = document.getElementById('audio-progress-bar');
+            const progressPercent = document.getElementById('audio-progress-percent');
+            const progressText = document.getElementById('audio-progress-text');
+            
+            progressDiv.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+            progressText.textContent = 'Uploading audio...';
+            
+            // Create FormData
+            const formData = new FormData();
+            formData.append('audio', file);
+            formData.append('_token', '{{ csrf_token() }}');
+            
+            // Upload via fetch
+            fetch('{{ route("admin.galleries.upload-audio", $gallery) }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Simulate progress (since we don't have real progress tracking)
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 10;
+                    progressBar.style.width = progress + '%';
+                    progressPercent.textContent = progress + '%';
+                    
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        
+                        if (data.success) {
+                            // Hide progress
+                            progressDiv.style.display = 'none';
+                            
+                            // Show success
+                            document.getElementById('audio-success-message').textContent = data.message;
+                            document.getElementById('audio-upload-success').style.display = 'block';
+                            
+                            // Update preview
+                            document.getElementById('audio-preview-container').style.display = 'flex';
+                            document.getElementById('audio-filename').textContent = data.filename;
+                            
+                            const audioPlayer = document.getElementById('audio-player');
+                            audioPlayer.innerHTML = `<source src="${data.audio_url}" type="audio/mpeg">`;
+                            audioPlayer.load();
+                            
+                            // Clear file input
+                            input.value = '';
+                            
+                            // Hide success after 5 seconds
+                            setTimeout(() => {
+                                document.getElementById('audio-upload-success').style.display = 'none';
+                            }, 5000);
+                        } else {
+                            // Show error
+                            progressDiv.style.display = 'none';
+                            document.getElementById('audio-error-message').textContent = data.message || 'Upload failed';
+                            document.getElementById('audio-upload-error').style.display = 'block';
+                        }
+                    }
+                }, 50);
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                progressDiv.style.display = 'none';
+                document.getElementById('audio-error-message').textContent = 'Network error. Please try again.';
+                document.getElementById('audio-upload-error').style.display = 'block';
+            });
+        }
+
+        // ✅ AJAX: Upload Logo File
+        function uploadLogoFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            // Hide previous messages
+            document.getElementById('logo-upload-success').style.display = 'none';
+            document.getElementById('logo-upload-error').style.display = 'none';
+            
+            // Show progress bar
+            const progressDiv = document.getElementById('logo-upload-progress');
+            const progressBar = document.getElementById('logo-progress-bar');
+            const progressPercent = document.getElementById('logo-progress-percent');
+            const progressText = document.getElementById('logo-progress-text');
+            
+            progressDiv.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+            progressText.textContent = 'Uploading logo...';
+            
+            // Create FormData
+            const formData = new FormData();
+            formData.append('custom_logo', file);
+            formData.append('_token', '{{ csrf_token() }}');
+            
+            // Upload via fetch
+            fetch('{{ route("admin.galleries.upload-logo", $gallery) }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Simulate progress
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 10;
+                    progressBar.style.width = progress + '%';
+                    progressPercent.textContent = progress + '%';
+                    
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        
+                        if (data.success) {
+                            // Hide progress
+                            progressDiv.style.display = 'none';
+                            
+                            // Show success
+                            document.getElementById('logo-success-message').textContent = data.message;
+                            document.getElementById('logo-upload-success').style.display = 'block';
+                            
+                            // Update preview
+                            document.getElementById('logo-preview-container').style.display = 'flex';
+                            document.getElementById('logo-preview-image').src = data.logo_url;
+                            
+                            // Clear file input
+                            input.value = '';
+                            
+                            // Hide success after 5 seconds
+                            setTimeout(() => {
+                                document.getElementById('logo-upload-success').style.display = 'none';
+                            }, 5000);
+                        } else {
+                            // Show error
+                            progressDiv.style.display = 'none';
+                            document.getElementById('logo-error-message').textContent = data.message || 'Upload failed';
+                            document.getElementById('logo-upload-error').style.display = 'block';
+                        }
+                    }
+                }, 50);
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                progressDiv.style.display = 'none';
+                document.getElementById('logo-error-message').textContent = 'Network error. Please try again.';
+                document.getElementById('logo-upload-error').style.display = 'block';
             });
         }
     </script>

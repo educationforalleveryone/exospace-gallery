@@ -67,7 +67,7 @@
                                 </div>
 
                                 <div class="mt-4 flex gap-2">
-                                    <a href="{{ route('gallery.show', $gallery->slug) }}" 
+                                    <a href="{{ route('gallery.view', $gallery->slug) }}" 
                                        target="_blank"
                                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition">
                                         👁️ View Gallery

@@ -52,37 +52,8 @@
             50% { opacity: 0.7; }
         }
         
-        /* Loading Screen */
-        #loader {
-            position: fixed; inset: 0; z-index: 100;
-            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            transition: opacity 0.8s ease;
-        }
-        .loader-logo { 
-            font-size: 3rem; 
-            font-weight: 800; 
-            letter-spacing: 0.3em;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 2rem;
-        }
-        .loader-bar { 
-            width: 300px; height: 4px; 
-            background: #2d2d2d; 
-            margin-top: 1rem; 
-            border-radius: 2px; 
-            overflow: hidden;
-        }
-        .loader-fill { 
-            height: 100%; 
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-            width: 0%; 
-            transition: width 0.3s ease;
-        }
-        
+        /* ❌ DELETED: Separate Loading Screen CSS */
+
         /* UI Overlay */
         #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
         .ui-interactive { pointer-events: auto; }
@@ -96,8 +67,8 @@
             backdrop-filter: blur(10px);
             padding: 1.5rem;
             border-radius: 12px;
-            width: 350px; /* Fixed width */
-            word-wrap: break-word; /* Prevent overflow */
+            width: 350px;
+            word-wrap: break-word;
             color: white;
             border: 1px solid rgba(255, 255, 255, 0.1);
             opacity: 0;
@@ -184,9 +155,20 @@
                     <div>Views</div>
                 </div>
             </div>
+
+            <!-- 🆕 Loading Progress Bar (Shows during silent preload) -->
+            <div id="curtain-progress" style="width: 300px; margin: 0 auto 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span id="curtain-progress-text" style="font-size: 0.875rem; color: rgba(255,255,255,0.6);">Preparing exhibition...</span>
+                    <span id="curtain-progress-percent" style="font-size: 0.875rem; color: rgba(255,255,255,0.8); font-weight: 600;">0%</span>
+                </div>
+                <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
+                    <div id="curtain-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); transition: width 0.3s ease;"></div>
+                </div>
+            </div>
             
             <!-- Enter Button -->
-            <button id="enter-btn" class="entrance-button">
+            <button id="enter-btn" class="entrance-button" style="opacity: 0.5; pointer-events: none;">
                 <span style="font-size: 1.125rem; font-weight: 600; letter-spacing: 0.05em;">ENTER EXHIBITION</span>
                 <svg style="width: 1.5rem; height: 1.5rem; margin-left: 0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
@@ -199,17 +181,7 @@
         </div>
     </div>
 
-    <!-- Loading Screen (Hidden Initially) -->
-    <div id="loader" style="display: none;">
-        <div class="loader-logo">EXOSPACE</div>
-        <div style="text-align: center;">
-            <p class="text-gray-400 text-lg mb-2">{{ $gallery->title }}</p>
-            <p class="text-gray-600 text-sm" id="loading-text">Initializing gallery...</p>
-        </div>
-        <div class="loader-bar">
-            <div class="loader-fill" id="progress-bar"></div>
-        </div>
-    </div>
+    <!-- ❌ DELETED: Separate Loading Screen Div -->
 
     <!-- 3D Canvas -->
     <div id="canvas-container"></div>
@@ -1413,39 +1385,78 @@
                 this.renderer.render(this.scene, this.camera);
             }
 
+            // ✅ UPDATED: Progress updates on curtain instead of separate loader
             updateProgress(percent, text) {
-                document.getElementById('progress-bar').style.width = `${percent}%`;
-                document.getElementById('loading-text').textContent = text;
+                const bar = document.getElementById('curtain-progress-bar');
+                const percentText = document.getElementById('curtain-progress-percent');
+                const statusText = document.getElementById('curtain-progress-text');
+                
+                if (bar) bar.style.width = `${percent}%`;
+                if (percentText) percentText.textContent = `${Math.round(percent)}%`;
+                if (statusText) statusText.textContent = text;
+                
+                // ✅ Enable "Enter" button when loading completes
+                if (percent >= 100) {
+                    const enterBtn = document.getElementById('enter-btn');
+                    enterBtn.style.opacity = '1';
+                    enterBtn.style.pointerEvents = 'auto';
+                    enterBtn.style.transition = 'all 0.3s ease';
+                    
+                    if (statusText) statusText.textContent = 'Ready to enter';
+                    
+                    // Add pulse animation to button
+                    enterBtn.style.animation = 'pulse 2s ease-in-out infinite';
+                }
             }
 
             hideLoader() {
-                const loader = document.getElementById('loader');
-                loader.style.opacity = '0';
-                setTimeout(() => loader.remove(), 800);
+                // ✅ No separate loader to hide - we fade the curtain instead
+                console.log('✅ Loading complete - gallery ready');
             }
         }
 
-        // Entrance Curtain Handler
+        // ✅ GLOBAL: Store scene instance so we can access it from button click
+        let galleryScene = null;
+
+        // ✅ SILENT PRELOAD: Start loading immediately when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🎬 Starting silent preload of 3D gallery...');
+            galleryScene = new GalleryScene();
+        });
+
+        // ✅ ENTRANCE BUTTON: Resume audio + fade to 3D
         document.getElementById('enter-btn').addEventListener('click', () => {
-            const curtain = document.getElementById('entrance-curtain');
-            const loader = document.getElementById('loader');
+            console.log('🎯 User clicked Enter Exhibition');
             
-            // Hide curtain, show loader
-            curtain.style.opacity = '0';
-            setTimeout(() => {
-                curtain.style.display = 'none';
-                loader.style.display = 'flex';
-                
-                // Initialize gallery after curtain is hidden
-                const galleryScene = new GalleryScene();
-                
-                // Play audio after a short delay (browser autoplay policy compliant)
-                setTimeout(() => {
+            // ✅ CRITICAL: Resume audio context (required by browsers)
+            if (galleryScene && galleryScene.listener && galleryScene.listener.context) {
+                if (galleryScene.listener.context.state === 'suspended') {
+                    console.log('🔊 Resuming audio context...');
+                    galleryScene.listener.context.resume().then(() => {
+                        console.log('✅ Audio context resumed - music should play');
+                        
+                        // Play the audio
+                        if (galleryScene.playAudio) {
+                            galleryScene.playAudio();
+                        }
+                    });
+                } else {
+                    console.log('🔊 Audio context already running');
                     if (galleryScene.playAudio) {
                         galleryScene.playAudio();
                     }
-                }, 1500); // Wait 1.5s for scene to load
-            }, 800);
+                }
+            }
+            
+            // ✅ Smooth fade transition
+            const curtain = document.getElementById('entrance-curtain');
+            curtain.style.opacity = '0';
+            curtain.style.transition = 'opacity 1s ease';
+            
+            setTimeout(() => {
+                curtain.remove();
+                console.log('✅ Entered 3D gallery');
+            }, 1000);
         });
     </script>
 </body>

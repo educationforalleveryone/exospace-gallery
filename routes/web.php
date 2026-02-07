@@ -87,6 +87,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Gallery Resource Routes
     Route::resource('galleries', \App\Http\Controllers\Admin\GalleryController::class);
     
+    // AJAX Upload Routes (NEW!)
+    Route::post('galleries/{gallery}/upload-audio', [\App\Http\Controllers\Admin\GalleryController::class, 'uploadAudio'])
+        ->name('galleries.upload-audio');
+    Route::post('galleries/{gallery}/upload-logo', [\App\Http\Controllers\Admin\GalleryController::class, 'uploadLogo'])
+        ->name('galleries.upload-logo');
+    
     // Image Routes
     Route::post('galleries/{gallery}/images', [\App\Http\Controllers\Admin\ImageController::class, 'store'])
         ->name('images.store');

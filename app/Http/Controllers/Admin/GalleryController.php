@@ -174,4 +174,94 @@ class GalleryController extends Controller
         return redirect()->route('admin.galleries.index')
             ->with('status', 'Gallery deleted.');
     }
+
+    /**
+     * AJAX: Upload audio file
+     */
+    public function uploadAudio(Request $request, Gallery $gallery)
+    {
+        // Security check
+        if ($gallery->user_id !== Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+        
+        // Pro feature only
+        if (!Auth::user()->isPro()) {
+            return response()->json(['success' => false, 'message' => 'Upgrade to Pro to use background music'], 403);
+        }
+        
+        // Validate
+        $request->validate([
+            'audio' => 'required|file|mimes:mp3,wav,m4a|max:10240', // Max 10MB
+        ]);
+        
+        try {
+            // Delete old audio if exists
+            if ($gallery->audio_path) {
+                \Storage::disk('public')->delete($gallery->audio_path);
+            }
+            
+            // Store new audio
+            $audioPath = $request->file('audio')->store('audio', 'public');
+            
+            // Update gallery
+            $gallery->update(['audio_path' => $audioPath]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Background music uploaded successfully!',
+                'audio_url' => asset('storage/' . $audioPath),
+                'filename' => basename($audioPath),
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Audio upload failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Upload failed. Please try again.'], 500);
+        }
+    }
+
+    /**
+     * AJAX: Upload custom logo
+     */
+    public function uploadLogo(Request $request, Gallery $gallery)
+    {
+        // Security check
+        if ($gallery->user_id !== Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+        
+        // Studio feature only
+        if (Auth::user()->plan !== 'studio') {
+            return response()->json(['success' => false, 'message' => 'Upgrade to Studio to use custom branding'], 403);
+        }
+        
+        // Validate
+        $request->validate([
+            'custom_logo' => 'required|file|mimes:png,svg,jpg,jpeg|max:2048', // Max 2MB
+        ]);
+        
+        try {
+            // Delete old logo if exists
+            if ($gallery->custom_logo_path) {
+                \Storage::disk('public')->delete($gallery->custom_logo_path);
+            }
+            
+            // Store new logo
+            $logoPath = $request->file('custom_logo')->store('branding', 'public');
+            
+            // Update gallery
+            $gallery->update(['custom_logo_path' => $logoPath]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Custom logo uploaded successfully!',
+                'logo_url' => asset('storage/' . $logoPath),
+                'filename' => basename($logoPath),
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Logo upload failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Upload failed. Please try again.'], 500);
+        }
+    }
 }
