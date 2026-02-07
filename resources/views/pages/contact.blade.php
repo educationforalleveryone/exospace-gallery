@@ -198,6 +198,7 @@
         .field.has-error textarea { border-color: #f87171; }
         .field.has-error .error-text { display: block; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
 <body>
 

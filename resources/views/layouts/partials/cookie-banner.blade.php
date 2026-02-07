@@ -1,6 +1,7 @@
 {{-- resources/views/layouts/partials/cookie-banner.blade.php --}}
 <div
     x-data="cookieBanner()"
+    x-init="init()"
     x-show="show"
     x-transition:enter="transition ease-out duration-300"
     x-transition:enter-start="opacity-0 translate-y-4"
