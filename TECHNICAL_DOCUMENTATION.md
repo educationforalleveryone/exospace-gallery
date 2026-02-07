@@ -1,7 +1,7 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 1.3.4  
-> **Last Updated:** February 6, 2026  
+> **Version:** 1.4.0  
+> **Last Updated:** February 7, 2026  
 > **Document Type:** Comprehensive Technical Reference
 
 ---
@@ -386,6 +386,75 @@ php artisan queue:listen --tries=1
 
 **Location**: `resources/views/admin/galleries/index.blade.php`
 
+### 15. Ambient Audio System
+
+**Capability**: Optional background music for immersive 3D gallery experiences.
+
+| Feature | Implementation |
+|---------|----------------|
+| Audio Upload | MP3/WAV files uploaded via gallery edit form |
+| Storage | `storage/galleries/{id}/audio/` directory |
+| Playback | HTML5 Audio API with loop enabled |
+| User Control | Mute/unmute button in gallery viewer UI |
+| Plan Requirement | Studio plan feature |
+
+**Database Column**: `galleries.audio_path` (nullable string)
+
+### 16. Studio Branding (Custom Logo)
+
+**Capability**: White-label branding for Studio plan users.
+
+| Feature | Implementation |
+|---------|----------------|
+| Logo Upload | PNG/JPG/SVG via gallery edit form |
+| Storage | `storage/galleries/{id}/logo/` directory |
+| Display Location | Gallery viewer header (replaces Exospace logo) |
+| Plan Requirement | Studio plan feature |
+
+**Database Column**: `galleries.custom_logo_path` (nullable string)
+
+### 17. Super Admin Panel
+
+**Capability**: Platform-wide administration for system operators.
+
+| Feature | Implementation |
+|---------|----------------|
+| Dashboard | `/super-admin` route with platform statistics |
+| User List | All users with gallery counts and plan info |
+| Plan Management | Upgrade/downgrade users between free/pro/studio |
+| User Deletion | Cascade delete with file cleanup |
+| Gallery Oversight | View any user's galleries, toggle active status |
+
+**Access Control**: `is_super_admin` boolean flag on users table, protected by `EnsureUserIsSuperAdmin` middleware.
+
+**Statistics Tracked**:
+- Total users (by plan breakdown)
+- Total galleries and images
+- Total view count across platform
+
+### 18. 2Checkout Webhook Integration
+
+**Capability**: Automated subscription management via payment processor webhooks.
+
+| Endpoint | Handler | Purpose |
+|----------|---------|---------|
+| `/webhooks/2checkout` | `WebhookController@handle2Checkout` | Process successful payments |
+| `/webhooks/2checkout/refund` | `WebhookController@handleRefund` | Handle refunds and cancellations |
+
+**Security Features**:
+- MD5 hash verification using configurable secret word
+- IP logging for audit trails
+- Comprehensive event logging
+
+**Workflow**:
+1. 2Checkout sends IPN to webhook endpoint
+2. Server verifies hash against secret word
+3. On ORDER_CREATED: Upgrade user to Pro plan
+4. On REFUND: Downgrade user to Free plan
+
+**Configuration**: Set `TWOCHECKOUT_SECRET_WORD` in `.env` file.
+
+
 ---
 
 ## Data Model & Database Schema
@@ -455,6 +524,7 @@ erDiagram
 | `id` | BIGINT | PK, AUTO | Primary key |
 | `name` | VARCHAR(255) | NOT NULL | User's full name |
 | `email` | VARCHAR(255) | UNIQUE | User's email address |
+| `is_super_admin` | BOOLEAN | DEFAULT false, INDEXED | Super admin access flag |
 | `password` | VARCHAR(255) | NOT NULL | Hashed password |
 | `plan` | ENUM | DEFAULT 'free' | free/pro/studio |
 | `max_galleries` | INT UNSIGNED | DEFAULT 1 | Gallery limit |
@@ -476,6 +546,8 @@ erDiagram
 | `frame_style` | ENUM | DEFAULT 'modern' | Frame appearance |
 | `lighting_preset` | ENUM | DEFAULT 'bright' | Light configuration |
 | `floor_material` | ENUM | DEFAULT 'wood' | Floor texture |
+| `audio_path` | VARCHAR(500) | NULLABLE | Path to ambient audio file |
+| `custom_logo_path` | VARCHAR(500) | NULLABLE | Path to custom branding logo |
 | `view_count` | INT UNSIGNED | DEFAULT 0 | Analytics counter |
 
 ### Table: `gallery_images`
@@ -884,10 +956,15 @@ exospace/
 │   │   │   │   ├── DashboardController.php
 │   │   │   │   ├── GalleryController.php
 │   │   │   │   └── ImageController.php
+│   │   │   ├── SuperAdmin/
+│   │   │   │   └── SystemController.php    # Platform administration
 │   │   │   ├── Auth/
 │   │   │   ├── GalleryViewController.php
 │   │   │   ├── InstallerController.php
+│   │   │   ├── WebhookController.php       # 2Checkout IPN handler
 │   │   │   └── ProfileController.php
+│   │   ├── Middleware/
+│   │   │   └── EnsureUserIsSuperAdmin.php  # Super admin gate
 │   │   └── Requests/
 │   ├── Models/
 │   │   ├── Gallery.php
@@ -1145,6 +1222,23 @@ railway up
 | GET | `/pricing` | Pricing page |
 | GET | `/contact` | Contact page |
 
+### Super Admin Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/super-admin` | Super admin dashboard |
+| PUT | `/super-admin/users/{id}/plan` | Update user's plan |
+| DELETE | `/super-admin/users/{id}` | Delete user and all data |
+| GET | `/super-admin/users/{id}/galleries` | View user's galleries |
+| POST | `/super-admin/galleries/{id}/toggle` | Toggle gallery active status |
+
+### Webhook Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/webhooks/2checkout` | 2Checkout IPN handler |
+| POST | `/webhooks/2checkout/refund` | 2Checkout refund handler |
+
 ---
 
-*Document generated for Exospace 3D Gallery v1.3.4*
+*Document generated for Exospace 3D Gallery v1.4.0*

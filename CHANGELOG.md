@@ -1,5 +1,56 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.4.0 - February 7, 2026 (Ambient Audio, Studio Branding & Super Admin)
+
+### 🎵 Ambient Audio for Galleries
+- **Background Music**: Galleries can now have optional ambient audio that plays during the 3D experience.
+- **Audio Upload**: Upload MP3/WAV files through the gallery edit page (Studio plan feature).
+- **Seamless Playback**: Audio loops continuously while visitors explore the gallery.
+- **User Control**: Visitors can mute/unmute audio from the gallery interface.
+
+### 🏷️ Studio Branding (Custom Logo)
+- **White-Label Support**: Studio plan users can upload a custom logo to replace the Exospace branding.
+- **Logo Display**: Custom logos appear in the gallery viewer header for branded experiences.
+- **Flexible Formats**: Supports PNG, JPG, and SVG logo uploads.
+
+### 👑 Super Admin Panel
+- **Platform Management**: New super admin dashboard for system-wide administration at `/super-admin`.
+- **User Management**: View all registered users with their gallery counts and plan details.
+- **Plan Management**: Upgrade or downgrade any user's plan directly from the admin panel.
+- **User Deletion**: Safely delete users with cascade cleanup of all galleries, images, audio, and logos.
+- **Gallery Oversight**: View and manage any user's galleries, toggle active status.
+- **Platform Statistics**: Dashboard showing total users, galleries, images, views, and plan distribution.
+
+### 💳 2Checkout Webhook Integration
+- **Automated Upgrades**: Webhook handler automatically upgrades users to Pro plan upon successful payment.
+- **Hash Verification**: Secure IPN validation using MD5 hash with configurable secret word.
+- **Refund Handling**: Automatic plan downgrade when refunds are processed.
+- **Comprehensive Logging**: All webhook events logged for debugging and auditing.
+
+### 🏠 Enhanced Onboarding Dashboard
+- **Plan Status Card**: Dashboard now shows current plan, upgrade prompts, and feature limits.
+- **Upgrade Awareness**: Visual indicators when users are on the free plan with prominent upgrade CTAs.
+- **Navigation Upgrade Link**: Persistent upgrade button in the main navigation for free users.
+- **Galleries Remaining**: Clear display of remaining gallery slots based on plan limits.
+
+### 🍪 Cookie Consent Improvements
+- **Comprehensive Coverage**: Cookie consent banner now appears consistently across all public pages.
+- **Gallery Viewer Support**: Cookie consent properly integrated into the 3D gallery viewer.
+- **Script Loading Control**: Cookie consent decision controls analytics and third-party script loading.
+
+### 🔧 Database Schema Updates
+- **New Column**: `galleries.audio_path` - Stores path to ambient audio file.
+- **New Column**: `galleries.custom_logo_path` - Stores path to custom branding logo.
+- **New Column**: `users.is_super_admin` - Boolean flag for super admin access (indexed).
+
+### 🐛 Bug Fixes
+- Fixed logout functionality for session consistency.
+- Corrected audio playback initialization in the 3D viewer.
+- Fixed dashboard blade template issues.
+- Resolved onboarding flow inconsistencies.
+
+---
+
 ## Version 1.3.4 - February 6, 2026 (Gallery UX Overhaul)
 
 ### 🎭 Entrance Curtain Screen
