@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\InstallerController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\SuperAdmin\SystemController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================
@@ -93,6 +94,17 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         ->name('images.destroy');
     Route::post('images/bulk-delete', [\App\Http\Controllers\Admin\ImageController::class, 'bulkDestroy'])
         ->name('images.bulk_destroy');
+});
+
+// ============================================================================
+// SUPER ADMIN ROUTES - GOD MODE (Only accessible to Super Admins)
+// ============================================================================
+Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')->group(function () {
+    Route::get('/', [SystemController::class, 'index'])->name('super.index');
+    Route::post('/users/{user}/plan', [SystemController::class, 'updatePlan'])->name('super.updatePlan');
+    Route::delete('/users/{user}', [SystemController::class, 'deleteUser'])->name('super.deleteUser');
+    Route::get('/users/{user}/galleries', [SystemController::class, 'userGalleries'])->name('super.user-galleries');
+    Route::post('/galleries/{gallery}/toggle', [SystemController::class, 'toggleGallery'])->name('super.toggleGallery');
 });
 
 // ============================================

@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // 2. TRUSTED PROXIES (Add this to fix 419 error)
         $middleware->trustProxies(at: '*');
+        
+        // 3. SUPER ADMIN MIDDLEWARE ALIAS
+        $middleware->alias([
+            'super_admin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

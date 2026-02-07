@@ -12,7 +12,8 @@ class Gallery extends Model
     protected $fillable = [
         'user_id', 'title', 'slug', 'description',
         'wall_texture', 'frame_style', 'lighting_preset',
-        'floor_material', 'is_active', 'view_count'
+        'floor_material', 'audio_path', 'custom_logo_path',  // ← ADDED THESE TWO
+        'is_active', 'view_count'
     ];
 
     protected $casts = [

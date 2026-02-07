@@ -17,6 +17,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'is_super_admin',  // ← ADD THIS LINE
         'plan',
         'max_galleries',
         'max_images',
@@ -52,6 +53,14 @@ class User extends Authenticatable
     public function canCreateGallery(): bool
     {
         return $this->galleries()->count() < $this->max_galleries;
+    }
+
+    /**
+     * Check if user is a super admin
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->is_super_admin === true;
     }
 
     /**
