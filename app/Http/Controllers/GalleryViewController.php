@@ -48,6 +48,10 @@ class GalleryViewController extends Controller
             
             // Metadata
             'imageCount' => $gallery->images->count(),
+            
+            // 🎵 CRITICAL FIX: Audio Configuration
+            // This sends the audio URL to the 3D viewer so music can play
+            'audioUrl' => $gallery->audio_path ? asset('storage/' . $gallery->audio_path) : null,
         ];
 
         return view('gallery.view', compact('gallery', 'galleryData'));

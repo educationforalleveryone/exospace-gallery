@@ -99,7 +99,7 @@
                                 <div class="grid grid-cols-6 gap-2">
                                     @foreach($gallery->images->take(12) as $image)
                                         <div class="aspect-square bg-gray-800 rounded overflow-hidden">
-                                            <img src="{{ Storage::url($image->path) }}" 
+                                            <img src="{{ asset($image->path) }}" 
                                                  alt="{{ $image->title }}"
                                                  class="w-full h-full object-cover">
                                         </div>
