@@ -138,7 +138,6 @@
             content: '';
             position: absolute;
             background: rgba(255, 255, 255, 0.8);
-            transition: background 0.3s ease, box-shadow 0.3s ease;
         }
         #crosshair::before {
             width: 2px;
@@ -153,7 +152,6 @@
             transform: translateY(-50%);
         }
         #crosshair.active { opacity: 1; }
-
         /* Crosshair Purple State (when focused on artwork) */
         #crosshair.focused::before,
         #crosshair.focused::after {
@@ -171,8 +169,8 @@
     }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="{{ asset('js/gsap.min.js') }}"></script>
 </head>
+<script src="{{ asset('js/gsap.min.js') }}"></script>
 <body>
 
     <!-- Entrance Curtain (Shown First) -->
@@ -208,7 +206,7 @@
                 </div>
             </div>
 
-            <!-- Loading Progress Bar -->
+            <!-- 🆕 Loading Progress Bar (Shows during silent preload) -->
             <div id="curtain-progress" style="width: 300px; margin: 0 auto 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                     <span id="curtain-progress-text" style="font-size: 0.875rem; color: rgba(255,255,255,0.6);">Preparing exhibition...</span>
@@ -281,29 +279,6 @@
             </div>
         </div>
 
-        <!-- Focus Mode Indicator -->
-        <div id="focus-indicator" style="
-            position: absolute;
-            top: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(139, 92, 246, 0.15);
-            backdrop-filter: blur(10px);
-            padding: 0.75rem 1.5rem;
-            border-radius: 20px;
-            border: 1px solid rgba(139, 92, 246, 0.4);
-            color: rgba(139, 92, 246, 1);
-            font-size: 0.875rem;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
-            z-index: 50;
-        ">
-            🎯 FOCUS MODE • Press E to Exit
-        </div>
-
         <!-- Crosshair -->
         <div id="crosshair"></div>
 
@@ -353,6 +328,29 @@
             </div>
         @endif
         <!-- Pro: Clean view (no branding) -->
+
+        <!-- Focus Mode Indicator -->
+        <div id="focus-indicator" style="
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(139, 92, 246, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 0.75rem 1.5rem;
+            border-radius: 20px;
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: rgba(139, 92, 246, 1);
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 50;
+        ">
+            🎯 FOCUS MODE • Press E to Exit
+        </div>
     </div>
 
     <!-- Gallery Data Injection -->
@@ -494,6 +492,11 @@
                 this.loadingProgress = 0;
                 this.textures = {};
                 this.artworks = [];
+                // 🎬 CINEMATIC FOCUS SYSTEM - State Management
+                this.isInspecting = false;
+                this.originalCameraPos = new THREE.Vector3();
+                this.originalCameraQuat = new THREE.Quaternion();
+                this.focusTween = null;
                 this.raycaster = new THREE.Raycaster();
                 this.mouse = new THREE.Vector2();
                 this.focusedArtwork = null;
