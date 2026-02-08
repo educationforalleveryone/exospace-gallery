@@ -52,32 +52,74 @@
             50% { opacity: 0.7; }
         }
         
-        /* ❌ DELETED: Separate Loading Screen CSS */
-
         /* UI Overlay */
         #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
         .ui-interactive { pointer-events: auto; }
         
-        /* Info Panel */
+        /* Info Panel - Enhanced Glassmorphism */
         #info-panel {
             position: absolute;
-            bottom: 100px;
-            right: 30px;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            padding: 1.5rem;
-            border-radius: 12px;
-            width: 350px;
+            top: 50%;
+            right: 40px;
+            transform: translateY(-50%);
+            background: rgba(10, 10, 20, 0.75);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            padding: 2rem;
+            border-radius: 16px;
+            width: 380px;
+            max-height: 70vh;
+            overflow-y: auto;
             word-wrap: break-word;
             color: white;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
             opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.3s ease;
+            transform: translateY(-50%) translateX(30px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            z-index: 100;
         }
+
         #info-panel.show {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(-50%) translateX(0);
+            pointer-events: auto;
+        }
+
+        #info-panel h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.3;
+        }
+
+        #info-panel p {
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        #info-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #info-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        #info-panel::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.5);
+            border-radius: 3px;
+        }
+
+        #info-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(139, 92, 246, 0.7);
         }
         
         /* Crosshair */
@@ -96,6 +138,7 @@
             content: '';
             position: absolute;
             background: rgba(255, 255, 255, 0.8);
+            transition: background 0.3s ease, box-shadow 0.3s ease;
         }
         #crosshair::before {
             width: 2px;
@@ -110,6 +153,13 @@
             transform: translateY(-50%);
         }
         #crosshair.active { opacity: 1; }
+
+        /* Crosshair Purple State (when focused on artwork) */
+        #crosshair.focused::before,
+        #crosshair.focused::after {
+            background: rgba(139, 92, 246, 0.95);
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
+        }
     </style>
 
     <script type="importmap">
@@ -121,6 +171,7 @@
     }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 </head>
 <body>
 
@@ -157,7 +208,7 @@
                 </div>
             </div>
 
-            <!-- 🆕 Loading Progress Bar (Shows during silent preload) -->
+            <!-- Loading Progress Bar -->
             <div id="curtain-progress" style="width: 300px; margin: 0 auto 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                     <span id="curtain-progress-text" style="font-size: 0.875rem; color: rgba(255,255,255,0.6);">Preparing exhibition...</span>
@@ -181,8 +232,6 @@
             </p>
         </div>
     </div>
-
-    <!-- ❌ DELETED: Separate Loading Screen Div -->
 
     <!-- 3D Canvas -->
     <div id="canvas-container"></div>
@@ -230,6 +279,29 @@
             <div class="mt-3 pt-3 border-t border-white/10">
                 <p class="text-xs text-gray-500">Press E to close</p>
             </div>
+        </div>
+
+        <!-- Focus Mode Indicator -->
+        <div id="focus-indicator" style="
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(139, 92, 246, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 0.75rem 1.5rem;
+            border-radius: 20px;
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: rgba(139, 92, 246, 1);
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 50;
+        ">
+            🎯 FOCUS MODE • Press E to Exit
         </div>
 
         <!-- Crosshair -->
@@ -1296,7 +1368,7 @@
 
             // SECTION 6: Replace updateMovement() method
             updateMovement() {
-                if (!this.controls.isLocked) return;
+                if (!this.controls.isLocked || this.isInspecting) return;
 
                 const baseSpeed = CONFIG.movement.baseSpeed;
                 const speedMultiplier = this.currentSpeedMultiplier || 1;
@@ -1345,34 +1417,135 @@
                 this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
                 const intersects = this.raycaster.intersectObjects(this.artworks, true);
 
+                const crosshair = document.getElementById('crosshair');
+                
                 if (intersects.length > 0) {
                     const artwork = intersects[0].object.parent;
                     if (artwork.userData.type === 'artwork' && artwork !== this.focusedArtwork) {
                         this.focusedArtwork = artwork;
+                        if (crosshair && !this.isInspecting) {
+                            crosshair.classList.add('focused');
+                        }
                     }
                 } else {
                     this.focusedArtwork = null;
+                    if (crosshair && !this.isInspecting) {
+                        crosshair.classList.remove('focused');
+                    }
                 }
             }
 
             toggleArtworkInfo() {
                 const panel = document.getElementById('info-panel');
+                const crosshair = document.getElementById('crosshair');
+                const focusIndicator = document.getElementById('focus-indicator');
                 
-                if (panel.classList.contains('show')) {
-                    panel.classList.remove('show');
-                } else if (this.focusedArtwork) {
-                    const data = this.focusedArtwork.userData;
+                // ═══════════════════════════════════════════════
+                // CASE 1: EXIT FOCUS MODE
+                // ═══════════════════════════════════════════════
+                if (this.isInspecting) {
+                    console.log('🎬 Exiting Focus Mode');
                     
-                    let displayTitle = data.title || 'Untitled';
-                    
-                    if (displayTitle.includes('.')) {
-                        displayTitle = displayTitle.split('.').slice(0, -1).join('.');
-                        displayTitle = displayTitle.replace(/[_-]/g, ' ');
+                    if (this.focusTween) {
+                        this.focusTween.kill();
+                        this.focusTween = null;
                     }
                     
-                    document.getElementById('artwork-title').textContent = displayTitle;
-                    document.getElementById('artwork-description').textContent = data.description || 'No description available.';
-                    panel.classList.add('show');
+                    panel.classList.remove('show');
+                    if (focusIndicator) focusIndicator.style.opacity = '0';
+                    if (crosshair) crosshair.classList.remove('focused');
+                    
+                    gsap.to(this.camera.position, {
+                        x: this.originalCameraPos.x,
+                        y: this.originalCameraPos.y,
+                        z: this.originalCameraPos.z,
+                        duration: 1.2,
+                        ease: "power2.inOut",
+                        onUpdate: () => {
+                            this.camera.quaternion.slerp(this.originalCameraQuat, 0.1);
+                        },
+                        onComplete: () => {
+                            console.log('✅ Returned to original position');
+                            this.isInspecting = false;
+                            if (!this.controls.isLocked) {
+                                this.controls.lock();
+                            }
+                        }
+                    });
+                    
+                    return;
+                }
+                
+                // ═══════════════════════════════════════════════
+                // CASE 2: ENTER FOCUS MODE
+                // ═══════════════════════════════════════════════
+                if (this.focusedArtwork) {
+                    console.log('🎬 Entering Focus Mode for:', this.focusedArtwork.userData.title);
+                    
+                    this.originalCameraPos.copy(this.camera.position);
+                    this.originalCameraQuat.copy(this.camera.quaternion);
+                    this.isInspecting = true;
+                    
+                    if (this.controls.isLocked) {
+                        this.controls.unlock();
+                    }
+                    
+                    if (focusIndicator) {
+                        focusIndicator.style.opacity = '1';
+                    }
+                    
+                    if (crosshair) {
+                        crosshair.classList.add('focused');
+                    }
+                    
+                    const artwork = this.focusedArtwork;
+                    const artworkWorldPos = new THREE.Vector3();
+                    artwork.getWorldPosition(artworkWorldPos);
+                    
+                    const artworkDirection = new THREE.Vector3(0, 0, 1);
+                    artwork.getWorldDirection(artworkDirection);
+                    
+                    const focusDistance = 1.8;
+                    const targetPos = artworkWorldPos.clone().add(
+                        artworkDirection.multiplyScalar(focusDistance)
+                    );
+                    targetPos.y = CONFIG.camera.height;
+                    
+                    console.log('📍 Target Position:', targetPos);
+                    console.log('🎯 Artwork Position:', artworkWorldPos);
+                    
+                    this.focusTween = gsap.to(this.camera.position, {
+                        x: targetPos.x,
+                        y: targetPos.y,
+                        z: targetPos.z,
+                        duration: 1.5,
+                        ease: "power2.inOut",
+                        
+                        onUpdate: () => {
+                            this.camera.lookAt(artworkWorldPos);
+                        },
+                        
+                        onComplete: () => {
+                            console.log('✅ Focus animation complete');
+                            this.camera.lookAt(artworkWorldPos);
+                            
+                            setTimeout(() => {
+                                const data = artwork.userData;
+                                let displayTitle = data.title || 'Untitled';
+                                if (displayTitle.includes('.')) {
+                                    displayTitle = displayTitle.split('.').slice(0, -1).join('.');
+                                    displayTitle = displayTitle.replace(/[_-]/g, ' ');
+                                }
+                                
+                                document.getElementById('artwork-title').textContent = displayTitle;
+                                document.getElementById('artwork-description').textContent = 
+                                    data.description || 'No description available.';
+                                panel.classList.add('show');
+                                
+                                console.log('📋 Info panel displayed');
+                            }, 400);
+                        }
+                    });
                 }
             }
 
