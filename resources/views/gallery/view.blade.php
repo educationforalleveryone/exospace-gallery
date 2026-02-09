@@ -1455,7 +1455,7 @@
                 // ═══════════════════════════════════════════════════════════════
                 // STEP 4: Apply Velocity to Camera Position
                 // ═══════════════════════════════════════════════════════════════
-                this.controls.moveRight(-this.velocity.x * delta);
+                this.controls.moveRight(this.velocity.x * delta);
                 this.controls.moveForward(-this.velocity.z * delta);
                 
                 // ═══════════════════════════════════════════════════════════════
@@ -1655,6 +1655,17 @@
             // SECTION 7: Update animate() method
             animate() {
                 requestAnimationFrame(() => this.animate());
+                
+                // ✨ FIX: Clamp camera pitch to prevent flipping upside down
+                // Get the camera's pitch rotation (around X axis)
+                const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
+                
+                // Clamp pitch between -89 and +89 degrees (in radians)
+                const maxPitch = Math.PI / 2 - 0.01; // Just under 90 degrees
+                euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
+                
+                // Apply the clamped rotation back to the camera
+                this.camera.quaternion.setFromEuler(euler);
                 
                 this.updateMovement();
                 this.updateProximityLighting(); // NEW: Dynamic lighting
