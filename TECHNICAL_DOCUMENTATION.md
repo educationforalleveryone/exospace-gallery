@@ -1,7 +1,7 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 1.4.0  
-> **Last Updated:** February 7, 2026  
+> **Version:** 1.4.1  
+> **Last Updated:** February 9, 2026  
 > **Document Type:** Comprehensive Technical Reference
 
 ---
@@ -454,6 +454,30 @@ php artisan queue:listen --tries=1
 
 **Configuration**: Set `TWOCHECKOUT_SECRET_WORD` in `.env` file.
 
+### 19. Artwork Focus Mode
+
+**Capability**: Cinematic zoom-in experience for detailed artwork viewing.
+
+| Feature | Implementation |
+|---------|----------------|
+| Activation | Press E while looking at artwork |
+| Animation | GSAP-powered smooth camera transition |
+| Duration | 1.5s zoom-in, 1.2s zoom-out |
+| Movement Lock | Player movement disabled during focus |
+| Exit Methods | Press E again or ESC key |
+
+**Technical Details**:
+- Camera position and quaternion saved before focus
+- Target position calculated at 1.8m from artwork surface
+- Quaternion slerp used for smooth rotation restoration
+- Focus tween properly killed when interrupted
+
+**Visual Indicators**:
+- Dynamic crosshair styling when hovering artworks
+- Focus indicator overlay during inspection mode
+- Info panel displayed after camera animation completes
+
+**Dependencies**: GSAP animation library (served locally from `/js/gsap.min.js`)
 
 ---
 

@@ -1,5 +1,24 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.4.1 - February 9, 2026 (Artwork Focus Zoom)
+
+### 🔍 Artwork Focus Mode
+- **Immersive Zoom**: Press E while looking at an artwork to smoothly zoom in and center the view on it.
+- **Cinematic Animation**: GSAP-powered camera transitions with easing for a polished experience.
+- **Exit Focus**: Press E again or ESC to smoothly return to the previous position.
+- **Movement Lock**: Player movement is disabled during focus mode to prevent accidental repositioning.
+
+### 🎯 Crosshair Visual Feedback
+- **Dynamic Crosshair**: Crosshair changes appearance when hovering over an artwork.
+- **Focus Indicator**: Visual indicator shown when entering focus mode.
+
+### 🔧 Technical Improvements
+- **Local GSAP Library**: GSAP animation library now served from local assets (`/js/gsap.min.js`) for improved reliability.
+- **Animation Stability**: Fixed GSAP animation cleanup and tween management.
+- **Camera Quaternion Restoration**: Proper camera rotation restoration when exiting focus mode.
+
+---
+
 ## Version 1.4.0 - February 7, 2026 (Ambient Audio, Studio Branding & Super Admin)
 
 ### 🎵 Ambient Audio for Galleries
