@@ -1,5 +1,25 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.5.0 - February 9, 2026 (Realism Update)
+
+### 🎥 Momentum Camera System
+- **Physics-Based Movement**: Implemented a new camera system with weight, friction (`damping`), and acceleration for a premium feel.
+- **Cinematic Lean**: Camera now subtly tilts (banks) into turns, adding a dynamic, high-end motion effect.
+- **Heavy Stop**: Removed the "slippery" feeling; camera now slides to a precise, weighted stop.
+- **Smooth Acceleration**: Movement ramps up smoothly instead of instant start/stop.
+
+### 🎨 Tactile Art System
+- **Canvas Texture Simulation**: All artworks now feature a realistic woven canvas texture using normal mapping.
+- **Smart Grain Scaling**: Texture grain automatically scales based on artwork dimensions to ensure consistent detail density.
+- **Lighting Interaction**: Canvas bumps catch dynamic lights, adding depth and realism to flat images.
+
+### 💡 Visual Overhaul
+- **Lighting Rebalance**: Drastically reduced intensity of "Bright" and "Dramatic" presets to prevent washout and improve contrast.
+- **Atmospheric Fog**: Added subtle depth fog (`0x0a0a0a`) to soften distant geometry.
+- **Tone Mapping**: Switched to `ACESFilmicToneMapping` with optimized exposure (0.8) for more cinematic color reproduction.
+
+---
+
 ## Version 1.4.1 - February 9, 2026 (Artwork Focus Zoom)
 
 ### 🔍 Artwork Focus Mode

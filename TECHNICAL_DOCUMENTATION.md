@@ -1,6 +1,6 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 1.4.1  
+> **Version:** 1.5.0  
 > **Last Updated:** February 9, 2026  
 > **Document Type:** Comprehensive Technical Reference
 
@@ -481,6 +481,37 @@ php artisan queue:listen --tries=1
 
 ---
 
+### 20. Momentum Camera System
+
+**Capability**: Physics-based camera movement with weight, friction, and cinematic banking.
+
+| Feature | Implementation |
+|---------|----------------|
+| **Friction/Damping** | Camera has "weight" and slides to a stop rather than stopping instantly |
+| **Acceleration** | Smooth ramp-up to top speed instead of instant velocity |
+| **Cinematic Lean** | Camera subtly tilts (banks) into turns based on sideways velocity |
+| **Frame-Independent** | Uses `clock.getDelta()` to ensure consistent physics across different frame rates |
+
+**Configuration**:
+- `damping`: 10.0 (Higher = heavier stop)
+- `acceleration`: 40.0 (m/s²)
+- `maxLean`: 0.02 radians
+
+### 21. Tactile Art System
+
+**Capability**: Realistic canvas texture simulation using normal mapping.
+
+| Feature | Implementation |
+|---------|----------------|
+| **Normal Mapping** | Applies a woven canvas texture bump map to all artwork surfaces |
+| **Smart Scaling** | Automatically adjusts texture repeat based on artwork grain to maintain consistent detail |
+| **Material** | `MeshStandardMaterial` with roughness 0.75 for a realistic matte canvas finish |
+| **Lighting Interaction** | Canvas grain catches light from the dynamic lighting system |
+
+**Asset**: `/assets/textures/shared/canvas_normal.jpg`
+
+---
+
 ## Data Model & Database Schema
 
 ### Entity Relationship Diagram
@@ -708,7 +739,12 @@ const CONFIG = {
         fov: 75,           // Field of view
         near: 0.1,         // Near clipping plane
         far: 100,          // Far clipping plane
-        height: 1.6        // Eye level (meters)
+        height: 1.6,       // Eye level (meters)
+        // Physics
+        damping: 10.0,     // Friction
+        acceleration: 40.0,// Speed pickup
+        maxSpeed: 3.0,     // Max velocity
+        maxLean: 0.02      // Screen tilt
     },
     movement: {
         baseSpeed: 0.1,
