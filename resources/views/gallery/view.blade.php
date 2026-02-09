@@ -1656,16 +1656,28 @@
             animate() {
                 requestAnimationFrame(() => this.animate());
                 
-                // ✨ FIX: Clamp camera pitch to prevent flipping upside down
-                // Get the camera's pitch rotation (around X axis)
-                const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
-                
-                // Clamp pitch between -89 and +89 degrees (in radians)
-                const maxPitch = Math.PI / 2 - 0.01; // Just under 90 degrees
-                euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
-                
-                // Apply the clamped rotation back to the camera
-                this.camera.quaternion.setFromEuler(euler);
+                // ✨ FIX: Prevent camera from flipping upside down
+                // PointerLockControls stores rotation in an internal Euler object
+                // We need to clamp the pitch (vertical look) to prevent flipping
+                if (this.controls && this.controls.getObject) {
+                    const camera = this.controls.getObject();
+                    
+                    // Get current rotation
+                    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                    euler.setFromQuaternion(camera.quaternion);
+                    
+                    // Clamp pitch (X rotation) to prevent looking past vertical
+                    const maxPitch = Math.PI / 2 - 0.01; // ~89 degrees
+                    euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
+                    
+                    // Ensure roll stays at our cinematic lean value only (no additional roll)
+                    // The roll should only come from our updateMovement lean calculation
+                    const currentLean = this.currentLean || 0;
+                    euler.z = currentLean; // Keep only our intentional lean, remove any accidental roll
+                    
+                    // Apply clamped rotation
+                    camera.quaternion.setFromEuler(euler);
+                }
                 
                 this.updateMovement();
                 this.updateProximityLighting(); // NEW: Dynamic lighting
