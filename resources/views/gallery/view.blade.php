@@ -1499,8 +1499,7 @@
                 // Smoothly interpolate (lerp) current lean toward target
                 this.currentLean += (targetLean - this.currentLean) * CONFIG.camera.leanSpeed;
                 
-                // Apply the lean to camera rotation (roll axis)
-                this.camera.rotation.z = this.currentLean;
+                // NOTE: Lean is applied in animate() after camera rotation is clamped
             }
 
             checkArtworkFocus() {
@@ -1656,28 +1655,37 @@
             animate() {
                 requestAnimationFrame(() => this.animate());
                 
-                // ✨ FIX: Prevent camera from flipping upside down
-                // PointerLockControls stores rotation in an internal Euler object
-                // We need to clamp the pitch (vertical look) to prevent flipping
-                if (this.controls && this.controls.getObject) {
-                    const camera = this.controls.getObject();
-                    
-                    // Get current rotation
-                    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-                    euler.setFromQuaternion(camera.quaternion);
-                    
-                    // Clamp pitch (X rotation) to prevent looking past vertical
-                    const maxPitch = Math.PI / 2 - 0.01; // ~89 degrees
-                    euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
-                    
-                    // Ensure roll stays at our cinematic lean value only (no additional roll)
-                    // The roll should only come from our updateMovement lean calculation
-                    const currentLean = this.currentLean || 0;
-                    euler.z = currentLean; // Keep only our intentional lean, remove any accidental roll
-                    
-                    // Apply clamped rotation
-                    camera.quaternion.setFromEuler(euler);
+                // ✨ CRITICAL FIX: Prevent gimbal lock / camera flip
+                
+                // Get the camera's current rotation as Euler angles
+                const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                euler.setFromQuaternion(this.camera.quaternion);
+                
+                // Store original values for debugging
+                const originalPitch = euler.x;
+                const originalRoll = euler.z;
+                
+                // CRITICAL: Aggressively clamp pitch to prevent gimbal lock
+                // The closer to ±90° we get, the more likely gimbal lock occurs
+                const maxPitch = 1.4; // ~80 degrees (conservative to avoid gimbal lock entirely)
+                const wasClampedPitch = euler.x < -maxPitch || euler.x > maxPitch;
+                euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
+                
+                // Force roll to ONLY our cinematic lean (remove any drift)
+                const currentLean = this.currentLean || 0;
+                const wasClampedRoll = Math.abs(euler.z - currentLean) > 0.01;
+                euler.z = currentLean;
+                
+                // Debug logging when clamping occurs
+                if (wasClampedPitch || wasClampedRoll) {
+                    console.log('🔒 Clamping:', {
+                        pitch: `${(originalPitch * 180 / Math.PI).toFixed(1)}° → ${(euler.x * 180 / Math.PI).toFixed(1)}°`,
+                        roll: `${(originalRoll * 180 / Math.PI).toFixed(1)}° → ${(euler.z * 180 / Math.PI).toFixed(1)}°`
+                    });
                 }
+                
+                // Apply the corrected rotation back to camera
+                this.camera.quaternion.setFromEuler(euler);
                 
                 this.updateMovement();
                 this.updateProximityLighting(); // NEW: Dynamic lighting
