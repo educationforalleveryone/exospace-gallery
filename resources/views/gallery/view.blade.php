@@ -763,6 +763,27 @@
                     await Promise.all(promises);
                     promises.length = 0;
 
+                    // 🎨 NEW: Load canvas normal map for tactile art effect
+                    promises.push(new Promise(resolve => {
+                        textureLoader.load('/assets/textures/shared/canvas_normal.jpg', (tex) => {
+                            // Enable seamless tiling across artwork surfaces
+                            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                            
+                            // Store in textures collection
+                            this.textures.canvasNormal = tex;
+                            
+                            console.log('✅ Canvas normal map loaded');
+                            resolve();
+                        }, undefined, (error) => {
+                            console.error('❌ Failed to load canvas normal map:', error);
+                            // Continue without normal map if it fails
+                            resolve();
+                        });
+                    }));
+
+                    await Promise.all(promises);
+                    promises.length = 0;
+
                     // 3. Load Artworks
                     this.updateProgress(30, 'Loading artwork...');
                     this.artworkImages = []; 
@@ -1182,11 +1203,32 @@
                     texture.colorSpace = THREE.SRGBColorSpace;
                     
                     const artworkGeo = new THREE.PlaneGeometry(width * 0.95, height * 0.95);
-                    const artworkMat = new THREE.MeshStandardMaterial({ 
+                    
+                    // 🎨 ENHANCED: Canvas material with normal mapping for realistic texture
+                    const artworkMat = new THREE.MeshStandardMaterial({
                         map: texture,
-                        roughness: 0.5,
-                        metalness: 0.1
+                        
+                        // Physical canvas properties
+                        normalMap: this.textures.canvasNormal,          // Apply woven texture
+                        normalScale: new THREE.Vector2(0.35, 0.35),     // Subtle depth (adjust 0.2-0.5 for taste)
+                        roughness: 0.75,                                 // Matte finish like real canvas
+                        metalness: 0.0,                                  // Non-reflective cloth surface
                     });
+
+                    // Scale canvas grain based on artwork physical size
+                    // This prevents the texture from stretching on large paintings
+                    if (artworkMat.normalMap) {
+                        // Calculate appropriate tiling:
+                        // Larger artworks need more repetitions to keep grain size consistent
+                        const tilingFactor = 2.5; // Adjust this to make grain finer (higher) or coarser (lower)
+                        artworkMat.normalMap.repeat.set(
+                            width * tilingFactor, 
+                            height * tilingFactor
+                        );
+                        
+                        console.log(`🎨 Canvas texture applied to artwork ${index + 1} (${width.toFixed(2)}m × ${height.toFixed(2)}m)`);
+                    }
+                    
                     const artwork = new THREE.Mesh(artworkGeo, artworkMat);
                     artwork.position.z = 0.05;
                     
