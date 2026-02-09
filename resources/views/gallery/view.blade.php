@@ -408,7 +408,13 @@
                 fov: 75,
                 near: 0.1,
                 far: 100,
-                height: 1.6
+                height: 1.6,
+                // ✨ NEW: Physics-based movement parameters
+                damping: 10.0,           // Higher = heavier stop feel (friction)
+                acceleration: 40.0,      // How fast you reach top speed
+                maxSpeed: 3.0,          // Maximum velocity cap
+                maxLean: 0.02,          // Maximum camera roll angle (radians) for cinematic tilt
+                leanSpeed: 0.1          // How fast the camera tilts into turns
             },
             // SECTION 2: Updated Movement & Lighting Config
             movement: {
@@ -500,6 +506,13 @@
                 this.raycaster = new THREE.Raycaster();
                 this.mouse = new THREE.Vector2();
                 this.focusedArtwork = null;
+                
+                // ✨ NEW: Physics-based movement system
+                this.velocity = new THREE.Vector3();              // Current velocity
+                this.direction = new THREE.Vector3();             // Movement direction
+                this.lookDirection = new THREE.Vector3();         // Camera look direction
+                this.clock = new THREE.Clock();                   // Delta time tracker
+                this.currentLean = 0;                             // Current camera roll angle
                 
                 this.init();
                 this.initAudio();        // CHANGE 3: Call initAudio() in Constructor
@@ -1372,30 +1385,86 @@
             // SECTION 6: Replace updateMovement() method
             updateMovement() {
                 if (!this.controls.isLocked || this.isInspecting) return;
-
-                const baseSpeed = CONFIG.movement.baseSpeed;
+                
+                // ✨ Get delta time for frame-independent movement
+                const delta = Math.min(this.clock.getDelta(), 0.1); // Cap at 100ms to prevent huge jumps
+                
+                // ═══════════════════════════════════════════════════════════════
+                // STEP 1: Apply Damping (Friction) - The "Heavy Stop" Effect
+                // ═══════════════════════════════════════════════════════════════
+                const dampingFactor = Math.pow(1 / CONFIG.camera.damping, delta);
+                this.velocity.multiplyScalar(dampingFactor);
+                
+                // Stop completely when velocity is very small (prevents eternal drifting)
+                if (this.velocity.length() < 0.001) {
+                    this.velocity.set(0, 0, 0);
+                }
+                
+                // ═══════════════════════════════════════════════════════════════
+                // STEP 2: Process Input & Apply Acceleration
+                // ═══════════════════════════════════════════════════════════════
+                this.direction.set(0, 0, 0);
+                let isMoving = false;
+                
+                // Gather input direction
+                if (this.moveState.forward) {
+                    this.direction.z -= 1;
+                    isMoving = true;
+                }
+                if (this.moveState.backward) {
+                    this.direction.z += 1;
+                    isMoving = true;
+                }
+                if (this.moveState.left) {
+                    this.direction.x -= 1;
+                    isMoving = true;
+                }
+                if (this.moveState.right) {
+                    this.direction.x += 1;
+                    isMoving = true;
+                }
+                
+                // Apply acceleration in the input direction
+                if (this.direction.length() > 0) {
+                    this.direction.normalize();
+                    
+                    // Consider speed multiplier and sprint
+                    const speedMultiplier = this.currentSpeedMultiplier || 1;
+                    const sprintMultiplier = this.moveState.sprint ? CONFIG.movement.sprintMultiplier : 1;
+                    const totalMultiplier = speedMultiplier * sprintMultiplier;
+                    
+                    // Add acceleration to velocity
+                    this.velocity.x += this.direction.x * CONFIG.camera.acceleration * delta * totalMultiplier;
+                    this.velocity.z += this.direction.z * CONFIG.camera.acceleration * delta * totalMultiplier;
+                }
+                
+                // ═══════════════════════════════════════════════════════════════
+                // STEP 3: Clamp to Maximum Speed
+                // ═══════════════════════════════════════════════════════════════
                 const speedMultiplier = this.currentSpeedMultiplier || 1;
                 const sprintMultiplier = this.moveState.sprint ? CONFIG.movement.sprintMultiplier : 1;
+                const maxSpeed = CONFIG.camera.maxSpeed * speedMultiplier * sprintMultiplier;
                 
-                const speed = baseSpeed * speedMultiplier * sprintMultiplier;
-
-                const direction = new THREE.Vector3();
-                const right = new THREE.Vector3();
-
-                this.camera.getWorldDirection(direction);
-                right.crossVectors(this.camera.up, direction).normalize();
-
-                direction.y = 0;
-                direction.normalize();
-
-                if (this.moveState.forward) this.camera.position.add(direction.multiplyScalar(speed));
-                if (this.moveState.backward) this.camera.position.add(direction.multiplyScalar(-speed));
-                if (this.moveState.left) this.camera.position.add(right.multiplyScalar(speed));
-                if (this.moveState.right) this.camera.position.add(right.multiplyScalar(-speed));
-
-                // Collision detection
+                const currentSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z);
+                if (currentSpeed > maxSpeed) {
+                    const scale = maxSpeed / currentSpeed;
+                    this.velocity.x *= scale;
+                    this.velocity.z *= scale;
+                }
+                
+                // ═══════════════════════════════════════════════════════════════
+                // STEP 4: Apply Velocity to Camera Position
+                // ═══════════════════════════════════════════════════════════════
+                this.controls.moveRight(-this.velocity.x * delta);
+                this.controls.moveForward(-this.velocity.z * delta);
+                
+                // ═══════════════════════════════════════════════════════════════
+                // STEP 5: Room Boundaries (Collision)
+                // ═══════════════════════════════════════════════════════════════
                 if (this.roomBounds) {
                     const margin = 0.5;
+                    const prevX = this.camera.position.x;
+                    const prevZ = this.camera.position.z;
                     
                     if (this.camera.position.x < this.roomBounds.minX + margin) {
                         this.camera.position.x = this.roomBounds.minX + margin;
@@ -1409,9 +1478,29 @@
                     if (this.camera.position.z > this.roomBounds.maxZ - margin) {
                         this.camera.position.z = this.roomBounds.maxZ - margin;
                     }
+                    
+                    // If we hit a wall, zero out velocity in that direction
+                    if (this.camera.position.x !== prevX) {
+                        this.velocity.x = 0;
+                    }
+                    if (this.camera.position.z !== prevZ) {
+                        this.velocity.z = 0;
+                    }
                 }
 
                 this.camera.position.y = CONFIG.camera.height;
+                
+                // ═══════════════════════════════════════════════════════════════
+                // STEP 6: Cinematic Lean (Banking) Effect
+                // ═══════════════════════════════════════════════════════════════
+                // Calculate target lean based on sideways velocity
+                const targetLean = -this.velocity.x * CONFIG.camera.maxLean;
+                
+                // Smoothly interpolate (lerp) current lean toward target
+                this.currentLean += (targetLean - this.currentLean) * CONFIG.camera.leanSpeed;
+                
+                // Apply the lean to camera rotation (roll axis)
+                this.camera.rotation.z = this.currentLean;
             }
 
             checkArtworkFocus() {
@@ -1470,6 +1559,12 @@
                         onComplete: () => {
                             console.log('✅ Returned to original position');
                             this.isInspecting = false;
+                            
+                            // ✨ NEW: Reset velocity and lean
+                            this.velocity.set(0, 0, 0);
+                            this.currentLean = 0;
+                            this.camera.rotation.z = 0;
+                            
                             if (!this.controls.isLocked) {
                                 this.controls.lock();
                             }
@@ -1488,6 +1583,11 @@
                     this.originalCameraPos.copy(this.camera.position);
                     this.originalCameraQuat.copy(this.camera.quaternion);
                     this.isInspecting = true;
+                    
+                    // ✨ NEW: Zero out velocity to prevent sliding during focus mode
+                    this.velocity.set(0, 0, 0);
+                    this.currentLean = 0;
+                    this.camera.rotation.z = 0; // Reset camera roll
                     
                     if (this.controls.isLocked) {
                         this.controls.unlock();
