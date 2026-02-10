@@ -514,6 +514,14 @@
                 this.clock = new THREE.Clock();                   // Delta time tracker
                 this.currentLean = 0;                             // Current camera roll angle
                 
+                // ✨ NEW: SFX System Properties
+                this.sfx = {}; // Stores all sound effect audio objects
+                this.footstepTimer = 0; // Tracks time since last footstep
+                this.lastStepTime = 0; // Timestamp of last footstep played
+                this.sfxEnabled = true; // Global SFX toggle (can be controlled later)
+                this.isSprinting = false; // Track sprint state for footsteps
+                this.speedMultiplier = 1; // Track speed multiplier for footsteps
+                
                 this.init();
                 this.initAudio();        // CHANGE 3: Call initAudio() in Constructor
             }
@@ -838,16 +846,45 @@
              * Initialize background music (Three.js Audio)
              */
             initAudio() {
-                if (!galleryData.audioUrl) {
-                    console.log('No audio configured for this gallery');
-                    return;
-                }
-                
-                console.log('Initializing audio:', galleryData.audioUrl);
+                console.log('🔊 Initializing audio system...');
                 
                 // Create audio listener and attach to camera
                 this.listener = new THREE.AudioListener();
                 this.camera.add(this.listener);
+                
+                // ✨ NEW: Load SFX Buffers
+                console.log('🎧 Loading sound effects...');
+                
+                const sfxLoader = new THREE.AudioLoader();
+                
+                // Load footstep sound
+                sfxLoader.load('/assets/audio/sfx/footstep.mp3', (buffer) => {
+                    this.sfx.footstep = new THREE.Audio(this.listener);
+                    this.sfx.footstep.setBuffer(buffer);
+                    this.sfx.footstep.setVolume(0.25); // Subtle footsteps
+                    this.sfx.footstep.setPlaybackRate(1.0);
+                    console.log('✅ Footstep SFX loaded');
+                }, undefined, (error) => {
+                    console.warn('⚠️ Failed to load footstep.mp3:', error);
+                });
+                
+                // Load interaction click sound
+                sfxLoader.load('/assets/audio/sfx/interaction_click.mp3', (buffer) => {
+                    this.sfx.click = new THREE.Audio(this.listener);
+                    this.sfx.click.setBuffer(buffer);
+                    this.sfx.click.setVolume(0.4); // Crisp and clear
+                    console.log('✅ Interaction click SFX loaded');
+                }, undefined, (error) => {
+                    console.warn('⚠️ Failed to load interaction_click.mp3:', error);
+                });
+                
+                // Load background music if configured
+                if (!galleryData.audioUrl) {
+                    console.log('No background music configured for this gallery');
+                    return;
+                }
+                
+                console.log('🎵 Loading background music from:', galleryData.audioUrl);
                 
                 // Create positional audio source
                 this.sound = new THREE.Audio(this.listener);
@@ -861,13 +898,13 @@
                         this.sound.setLoop(true);
                         this.sound.setVolume(0.5); // 50% volume
                         this.audioReady = true;
-                        console.log('Audio loaded and ready');
+                        console.log('✅ Background music loaded and ready');
                     },
                     (progress) => {
-                        console.log('Audio loading:', Math.round((progress.loaded / progress.total) * 100) + '%');
+                        console.log('🎵 Music loading:', Math.round((progress.loaded / progress.total) * 100) + '%');
                     },
                     (error) => {
-                        console.error('Error loading audio:', error);
+                        console.error('❌ Error loading background music:', error);
                     }
                 );
             }
@@ -1542,6 +1579,55 @@
                 this.currentLean += (targetLean - this.currentLean) * CONFIG.camera.leanSpeed;
                 
                 // NOTE: Lean is applied in animate() after camera rotation is clamped
+                
+                // ═══════════════════════════════════════════════════════════════
+                // ✨ NEW: STEP 7: Dynamic Footstep System
+                // ═══════════════════════════════════════════════════════════════
+                if (!this.isInspecting && this.sfxEnabled && this.sfx.footstep) {
+                    const currentSpeed = this.velocity.length();
+                    const isMovingNow = currentSpeed > 0.01; // Minimum threshold to consider "moving"
+                    
+                    // Store sprint state for reference
+                    this.isSprinting = this.moveState.sprint || false;
+                    this.speedMultiplier = this.currentSpeedMultiplier || 1.0;
+                    
+                    if (isMovingNow) {
+                        // Calculate step interval based on speed
+                        // Base interval: 0.5s walking, 0.3s sprinting
+                        const baseInterval = 0.5;
+                        const sprintMultiplier = this.isSprinting ? 0.6 : 1.0; // Faster steps when sprinting
+                        const speedMult = this.speedMultiplier || 1.0; // Account for 1x-8x speed
+                        
+                        // Faster movement = shorter interval between steps
+                        let stepInterval = (baseInterval * sprintMultiplier) / Math.sqrt(speedMult);
+                        stepInterval = Math.max(0.2, Math.min(0.6, stepInterval)); // Clamp between 0.2s - 0.6s
+                        
+                        // Increment footstep timer
+                        this.footstepTimer += delta;
+                        
+                        // Play footstep when timer exceeds interval
+                        if (this.footstepTimer >= stepInterval) {
+                            // Stop any currently playing footstep to allow rapid steps
+                            if (this.sfx.footstep.isPlaying) {
+                                this.sfx.footstep.stop();
+                            }
+                            
+                            // Vary footstep pitch slightly for realism (0.95 - 1.05)
+                            const pitchVariation = 0.95 + Math.random() * 0.1;
+                            this.sfx.footstep.setPlaybackRate(pitchVariation);
+                            
+                            // Play the footstep
+                            this.sfx.footstep.play();
+                            
+                            // Reset timer
+                            this.footstepTimer = 0;
+                            this.lastStepTime = Date.now();
+                        }
+                    } else {
+                        // Reset timer when not moving
+                        this.footstepTimer = 0;
+                    }
+                }
             }
 
             checkArtworkFocus() {
@@ -1585,6 +1671,12 @@
                     }
                     
                     panel.classList.remove('show');
+                    
+                    // ✨ NEW: Play exit click sound
+                    if (this.sfxEnabled && this.sfx.click && !this.sfx.click.isPlaying) {
+                        this.sfx.click.play();
+                    }
+                    
                     if (focusIndicator) focusIndicator.style.opacity = '0';
                     if (crosshair) crosshair.classList.remove('focused');
                     
@@ -1624,6 +1716,11 @@
                     this.originalCameraPos.copy(this.camera.position);
                     this.originalCameraQuat.copy(this.camera.quaternion);
                     this.isInspecting = true;
+                    
+                    // ✨ NEW: Play focus click sound
+                    if (this.sfxEnabled && this.sfx.click && !this.sfx.click.isPlaying) {
+                        this.sfx.click.play();
+                    }
                     
                     // ✨ NEW: Zero out velocity to prevent sliding during focus mode
                     this.velocity.set(0, 0, 0);
