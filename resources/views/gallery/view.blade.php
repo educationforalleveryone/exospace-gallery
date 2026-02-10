@@ -1584,8 +1584,12 @@
                 // ✨ NEW: STEP 7: Dynamic Footstep System
                 // ═══════════════════════════════════════════════════════════════
                 if (!this.isInspecting && this.sfxEnabled && this.sfx.footstep) {
+                    // Check if user is actively pressing movement keys (not just coasting from velocity)
+                    const hasMovementInput = this.moveState.forward || this.moveState.backward || 
+                                           this.moveState.left || this.moveState.right;
+                    
                     const currentSpeed = this.velocity.length();
-                    const isMovingNow = currentSpeed > 0.01; // Minimum threshold to consider "moving"
+                    const isMovingNow = hasMovementInput && currentSpeed > 0.05; // Higher threshold + require input
                     
                     // Store sprint state for reference
                     this.isSprinting = this.moveState.sprint || false;
@@ -1624,8 +1628,11 @@
                             this.lastStepTime = Date.now();
                         }
                     } else {
-                        // Reset timer when not moving
+                        // ✨ CRITICAL FIX: Immediately stop footstep when movement stops
                         this.footstepTimer = 0;
+                        if (this.sfx.footstep.isPlaying) {
+                            this.sfx.footstep.stop();
+                        }
                     }
                 }
             }
