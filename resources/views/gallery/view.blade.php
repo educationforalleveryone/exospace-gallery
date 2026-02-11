@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <meta name="description" content="{{ Str::limit($gallery->description, 150) }}">
     <title>{{ $gallery->title }} | Exospace 3D Gallery</title>
     
@@ -15,6 +15,10 @@
             overflow: hidden; 
             background-color: #000; 
             font-family: system-ui, -apple-system, sans-serif;
+            /* Prevent touch actions that interfere with controls */
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
         
@@ -157,6 +161,166 @@
         #crosshair.focused::after {
             background: rgba(139, 92, 246, 0.95);
             box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
+        }
+        
+        /* ============================================
+           MOBILE CONTROLS - PREMIUM DUAL-ZONE SYSTEM
+           ============================================ */
+        
+        #mobile-interface {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            pointer-events: none;
+            display: none;
+        }
+        
+        #mobile-interface.active {
+            display: block;
+        }
+        
+        .joystick-zone {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 50%;
+            height: 100%;
+            pointer-events: auto;
+        }
+        
+        .joystick-base {
+            position: absolute;
+            left: 40px;
+            bottom: 40px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.15));
+            border: 2px solid rgba(139, 92, 246, 0.4);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2),
+                        inset 0 0 20px rgba(139, 92, 246, 0.1);
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+        
+        .joystick-base.active {
+            opacity: 1;
+            box-shadow: 0 6px 30px rgba(139, 92, 246, 0.4),
+                        inset 0 0 30px rgba(139, 92, 246, 0.2);
+        }
+        
+        .joystick-stick {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 50px;
+            height: 50px;
+            margin-left: -25px;
+            margin-top: -25px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.5),
+                        inset 0 2px 10px rgba(255, 255, 255, 0.3);
+            transition: transform 0.1s ease-out;
+            pointer-events: none;
+        }
+        
+        .look-zone {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 50%;
+            height: 100%;
+            pointer-events: auto;
+        }
+        
+        .mobile-hints {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            pointer-events: none;
+            z-index: 60;
+        }
+        
+        .hint-text {
+            background: rgba(10, 10, 20, 0.75);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.875rem;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            animation: fadeInOut 4s ease-in-out;
+        }
+        
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            10%, 90% { opacity: 1; }
+        }
+        
+        .tap-indicator {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(139, 92, 246, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0);
+            animation: tapPulse 0.6s ease-out;
+        }
+        
+        @keyframes tapPulse {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(2);
+                opacity: 0;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .joystick-base {
+                left: 25px;
+                bottom: 25px;
+                width: 100px;
+                height: 100px;
+            }
+            
+            .joystick-stick {
+                width: 45px;
+                height: 45px;
+                margin-left: -22.5px;
+                margin-top: -22.5px;
+            }
+            
+            #crosshair {
+                display: none;
+            }
+            
+            #info-panel {
+                right: 20px;
+                left: 20px;
+                width: auto;
+                max-width: 90vw;
+                max-height: 60vh;
+                padding: 1.5rem;
+            }
+            
+            #info-panel h3 {
+                font-size: 1.25rem;
+            }
+            
+            #info-panel p {
+                font-size: 0.875rem;
+            }
         }
     </style>
 
@@ -352,6 +516,30 @@
             🎯 FOCUS MODE • Press E to Exit
         </div>
     </div>
+    
+    <!-- ============================================
+         MOBILE INTERFACE - DUAL-ZONE TOUCH CONTROLS
+         ============================================ -->
+    <div id="mobile-interface">
+        <!-- Left Zone: Virtual Joystick -->
+        <div class="joystick-zone">
+            <div class="joystick-base" id="joystick-base">
+                <div class="joystick-stick" id="joystick-stick"></div>
+            </div>
+        </div>
+        
+        <!-- Right Zone: Camera Look -->
+        <div class="look-zone" id="look-zone"></div>
+        
+        <!-- Mobile Hints -->
+        <div class="mobile-hints">
+            <div class="hint-text" id="mobile-hint">
+                <span style="color: #8b5cf6;">Left thumb:</span> Move • 
+                <span style="color: #8b5cf6;">Right thumb:</span> Look • 
+                <span style="color: #8b5cf6;">Double-tap:</span> Focus
+            </div>
+        </div>
+    </div>
 
     <!-- Gallery Data Injection -->
     <script>
@@ -469,6 +657,13 @@
                 lowEndThreshold: 30, // FPS threshold
                 textureMaxSize: 2048,
                 shadowsEnabled: false
+            },
+            mobile: {
+                joystickMaxRadius: 50,
+                lookSensitivity: 0.003,
+                moveSpeed: 0.018,
+                doubleTapDelay: 300,
+                hapticEnabled: true
             }
         };
 
@@ -498,6 +693,11 @@
                 this.loadingProgress = 0;
                 this.textures = {};
                 this.artworks = [];
+                
+                // Mobile detection
+                this.isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                console.log('📱 Mobile detected:', this.isMobile);
+                
                 // 🎬 CINEMATIC FOCUS SYSTEM - State Management
                 this.isInspecting = false;
                 this.originalCameraPos = new THREE.Vector3();
@@ -578,22 +778,24 @@
 
             // SECTION 3: Replace setupControls() method entirely
             setupControls() {
-                this.controls = new PointerLockControls(this.camera, document.body);
-                
-                // Movement state
-                this.moveState = {
-                    forward: false,
-                    backward: false,
-                    left: false,
-                    right: false,
-                    sprint: false
-                };
+                // Desktop controls
+                if (!this.isMobile) {
+                    this.controls = new PointerLockControls(this.camera, document.body);
+                    
+                    // Movement state
+                    this.moveState = {
+                        forward: false,
+                        backward: false,
+                        left: false,
+                        right: false,
+                        sprint: false
+                    };
 
-                // Speed control
-                this.currentSpeedMultiplier = CONFIG.movement.speedMultipliers[CONFIG.movement.currentSpeedIndex];
+                    // Speed control
+                    this.currentSpeedMultiplier = CONFIG.movement.speedMultipliers[CONFIG.movement.currentSpeedIndex];
 
-                // Keyboard events
-                document.addEventListener('keydown', (e) => {
+                    // Keyboard events
+                    document.addEventListener('keydown', (e) => {
                     switch(e.code) {
                         case 'KeyW': this.moveState.forward = true; break;
                         case 'KeyS': this.moveState.backward = true; break;
@@ -640,6 +842,249 @@
                     this.camera.updateProjectionMatrix();
                     this.renderer.setSize(window.innerWidth, window.innerHeight);
                 });
+                } else {
+                    // ================================================
+                    // MOBILE CONTROLS INITIALIZATION
+                    // ================================================
+                    this.controls = null;
+                    this.initMobileControls();
+                }
+            }
+            
+            // ================================================
+            // MOBILE CONTROLS METHODS
+            // ================================================
+            
+            initMobileControls() {
+                console.log('📱 Initializing mobile touch controls...');
+                
+                const mobileInterface = document.getElementById('mobile-interface');
+                mobileInterface.classList.add('active');
+                
+                this.mobileState = {
+                    joystickActive: false,
+                    joystickStartX: 0,
+                    joystickStartY: 0,
+                    joystickCurrentX: 0,
+                    joystickCurrentY: 0,
+                    joystickTouchId: null,
+                    lookActive: false,
+                    lookLastX: 0,
+                    lookLastY: 0,
+                    lookTouchId: null,
+                    lastTapTime: 0,
+                    lastTapX: 0,
+                    lastTapY: 0
+                };
+                
+                this.joystickBase = document.getElementById('joystick-base');
+                this.joystickStick = document.getElementById('joystick-stick');
+                this.lookZone = document.getElementById('look-zone');
+                
+                this.renderer.domElement.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
+                this.renderer.domElement.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+                this.renderer.domElement.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
+                this.renderer.domElement.addEventListener('touchcancel', (e) => this.onTouchCancel(e), { passive: false });
+                
+                setTimeout(() => {
+                    const hint = document.getElementById('mobile-hint');
+                    if (hint) {
+                        hint.style.animation = 'none';
+                        hint.style.opacity = '0';
+                    }
+                }, 5000);
+                
+                console.log('✅ Mobile controls initialized');
+            }
+            
+            onTouchStart(event) {
+                event.preventDefault();
+                
+                const touches = event.changedTouches;
+                const screenWidth = window.innerWidth;
+                
+                for (let i = 0; i < touches.length; i++) {
+                    const touch = touches[i];
+                    const touchX = touch.clientX;
+                    const touchY = touch.clientY;
+                    
+                    if (touchX < screenWidth / 2) {
+                        if (!this.mobileState.joystickActive) {
+                            this.mobileState.joystickActive = true;
+                            this.mobileState.joystickTouchId = touch.identifier;
+                            this.mobileState.joystickStartX = touchX;
+                            this.mobileState.joystickStartY = touchY;
+                            this.mobileState.joystickCurrentX = touchX;
+                            this.mobileState.joystickCurrentY = touchY;
+                            this.joystickBase.classList.add('active');
+                            this.triggerHaptic(10);
+                        }
+                    } else {
+                        if (!this.mobileState.lookActive) {
+                            this.mobileState.lookActive = true;
+                            this.mobileState.lookTouchId = touch.identifier;
+                            this.mobileState.lookLastX = touchX;
+                            this.mobileState.lookLastY = touchY;
+                            
+                            const currentTime = Date.now();
+                            const timeDiff = currentTime - this.mobileState.lastTapTime;
+                            const distX = Math.abs(touchX - this.mobileState.lastTapX);
+                            const distY = Math.abs(touchY - this.mobileState.lastTapY);
+                            
+                            if (timeDiff < CONFIG.mobile.doubleTapDelay && distX < 50 && distY < 50) {
+                                this.handleDoubleTap(touchX, touchY);
+                                this.mobileState.lastTapTime = 0;
+                            } else {
+                                this.mobileState.lastTapTime = currentTime;
+                                this.mobileState.lastTapX = touchX;
+                                this.mobileState.lastTapY = touchY;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            onTouchMove(event) {
+                event.preventDefault();
+                
+                const touches = event.changedTouches;
+                
+                for (let i = 0; i < touches.length; i++) {
+                    const touch = touches[i];
+                    
+                    if (this.mobileState.joystickActive && touch.identifier === this.mobileState.joystickTouchId) {
+                        this.mobileState.joystickCurrentX = touch.clientX;
+                        this.mobileState.joystickCurrentY = touch.clientY;
+                        this.updateJoystickVisual();
+                        this.updateMovementFromJoystick();
+                    }
+                    
+                    if (this.mobileState.lookActive && touch.identifier === this.mobileState.lookTouchId) {
+                        const deltaX = touch.clientX - this.mobileState.lookLastX;
+                        const deltaY = touch.clientY - this.mobileState.lookLastY;
+                        this.mobileState.lookLastX = touch.clientX;
+                        this.mobileState.lookLastY = touch.clientY;
+                        this.updateCameraLook(deltaX, deltaY);
+                    }
+                }
+            }
+            
+            onTouchEnd(event) {
+                event.preventDefault();
+                
+                const touches = event.changedTouches;
+                
+                for (let i = 0; i < touches.length; i++) {
+                    const touch = touches[i];
+                    
+                    if (this.mobileState.joystickActive && touch.identifier === this.mobileState.joystickTouchId) {
+                        this.mobileState.joystickActive = false;
+                        this.mobileState.joystickTouchId = null;
+                        this.joystickBase.classList.remove('active');
+                        this.joystickStick.style.transform = 'translate(0, 0)';
+                        this.direction.set(0, 0, 0);
+                    }
+                    
+                    if (this.mobileState.lookActive && touch.identifier === this.mobileState.lookTouchId) {
+                        this.mobileState.lookActive = false;
+                        this.mobileState.lookTouchId = null;
+                    }
+                }
+            }
+            
+            onTouchCancel(event) {
+                this.onTouchEnd(event);
+            }
+            
+            updateJoystickVisual() {
+                const deltaX = this.mobileState.joystickCurrentX - this.mobileState.joystickStartX;
+                const deltaY = this.mobileState.joystickCurrentY - this.mobileState.joystickStartY;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                const maxRadius = CONFIG.mobile.joystickMaxRadius;
+                
+                let visualX = deltaX;
+                let visualY = deltaY;
+                
+                if (distance > maxRadius) {
+                    const angle = Math.atan2(deltaY, deltaX);
+                    visualX = Math.cos(angle) * maxRadius;
+                    visualY = Math.sin(angle) * maxRadius;
+                }
+                
+                this.joystickStick.style.transform = `translate(${visualX}px, ${visualY}px)`;
+            }
+            
+            updateMovementFromJoystick() {
+                const deltaX = this.mobileState.joystickCurrentX - this.mobileState.joystickStartX;
+                const deltaY = this.mobileState.joystickCurrentY - this.mobileState.joystickStartY;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                const maxRadius = CONFIG.mobile.joystickMaxRadius;
+                
+                if (distance > 5) {
+                    const normalizedX = deltaX / maxRadius;
+                    const normalizedY = deltaY / maxRadius;
+                    this.direction.x = normalizedX;
+                    this.direction.z = -normalizedY;
+                    
+                    const magnitude = Math.sqrt(this.direction.x * this.direction.x + this.direction.z * this.direction.z);
+                    if (magnitude > 1) {
+                        this.direction.x /= magnitude;
+                        this.direction.z /= magnitude;
+                    }
+                } else {
+                    this.direction.set(0, 0, 0);
+                }
+            }
+            
+            updateCameraLook(deltaX, deltaY) {
+                if (this.isInspecting) return;
+                
+                const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                euler.setFromQuaternion(this.camera.quaternion);
+                euler.y -= deltaX * CONFIG.mobile.lookSensitivity;
+                euler.x -= deltaY * CONFIG.mobile.lookSensitivity;
+                const maxPitch = 1.4;
+                euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
+                this.camera.quaternion.setFromEuler(euler);
+            }
+            
+            handleDoubleTap(x, y) {
+                console.log('👆 Double-tap detected at', x, y);
+                this.showTapIndicator(x, y);
+                this.triggerHaptic(20);
+                
+                this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+                const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+                
+                let artworkHit = null;
+                for (const intersect of intersects) {
+                    if (intersect.object.userData && intersect.object.userData.isArtwork) {
+                        artworkHit = intersect.object;
+                        break;
+                    }
+                }
+                
+                if (artworkHit) {
+                    console.log('🎯 Artwork hit:', artworkHit.userData.title);
+                    this.toggleArtworkInfo();
+                } else {
+                    console.log('❌ No artwork in focus');
+                }
+            }
+            
+            showTapIndicator(x, y) {
+                const indicator = document.createElement('div');
+                indicator.className = 'tap-indicator';
+                indicator.style.left = x + 'px';
+                indicator.style.top = y + 'px';
+                document.body.appendChild(indicator);
+                setTimeout(() => indicator.remove(), 600);
+            }
+            
+            triggerHaptic(duration = 10) {
+                if (CONFIG.mobile.hapticEnabled && navigator.vibrate) {
+                    navigator.vibrate(duration);
+                }
             }
 
             setSpeedMultiplier(index) {
@@ -1463,6 +1908,61 @@
 
             // SECTION 6: Replace updateMovement() method
             updateMovement() {
+                // Mobile check - different logic
+                if (this.isMobile) {
+                    if (this.isInspecting) {
+                        this.velocity.multiplyScalar(0.85);
+                        return;
+                    }
+                    
+                    const delta = Math.min(this.clock.getDelta(), 0.1);
+                    const dampingFactor = Math.pow(1 / CONFIG.camera.damping, delta);
+                    this.velocity.multiplyScalar(dampingFactor);
+                    
+                    if (this.velocity.length() < 0.001) {
+                        this.velocity.set(0, 0, 0);
+                    }
+                    
+                    // Mobile uses this.direction set by joystick
+                    if (this.direction.length() > 0) {
+                        const forward = new THREE.Vector3();
+                        const right = new THREE.Vector3();
+                        this.camera.getWorldDirection(forward);
+                        forward.y = 0;
+                        forward.normalize();
+                        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+                        
+                        this.velocity.x += (right.x * this.direction.x + forward.x * this.direction.z) * CONFIG.mobile.moveSpeed;
+                        this.velocity.z += (right.z * this.direction.x + forward.z * this.direction.z) * CONFIG.mobile.moveSpeed;
+                    }
+                    
+                    const maxSpeed = 0.15;
+                    const currentSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z);
+                    if (currentSpeed > maxSpeed) {
+                        const scale = maxSpeed / currentSpeed;
+                        this.velocity.x *= scale;
+                        this.velocity.z *= scale;
+                    }
+                    
+                    this.camera.position.x += this.velocity.x * delta;
+                    this.camera.position.z += this.velocity.z * delta;
+                    
+                    if (this.roomBounds) {
+                        const margin = 0.5;
+                        const prevX = this.camera.position.x;
+                        const prevZ = this.camera.position.z;
+                        
+                        this.camera.position.x = Math.max(this.roomBounds.minX + margin, Math.min(this.roomBounds.maxX - margin, this.camera.position.x));
+                        this.camera.position.z = Math.max(this.roomBounds.minZ + margin, Math.min(this.roomBounds.maxZ - margin, this.camera.position.z));
+                        
+                        if (this.camera.position.x !== prevX) this.velocity.x = 0;
+                        if (this.camera.position.z !== prevZ) this.velocity.z = 0;
+                    }
+                    
+                    return;
+                }
+                
+                // Desktop controls (original)
                 if (!this.controls.isLocked || this.isInspecting) return;
                 
                 // ✨ Get delta time for frame-independent movement
@@ -1705,7 +2205,7 @@
                             this.currentLean = 0;
                             this.camera.rotation.z = 0;
                             
-                            if (!this.controls.isLocked) {
+                            if (!this.isMobile && !this.controls.isLocked) {
                                 this.controls.lock();
                             }
                         }
@@ -1734,7 +2234,7 @@
                     this.currentLean = 0;
                     this.camera.rotation.z = 0; // Reset camera roll
                     
-                    if (this.controls.isLocked) {
+                    if (!this.isMobile && this.controls.isLocked) {
                         this.controls.unlock();
                     }
                     
