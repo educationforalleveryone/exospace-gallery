@@ -174,13 +174,21 @@
         #mobile-overlay {
             position: fixed;
             inset: 0;
-            pointer-events: none;
+            pointer-events: none; /* Allow clicks to pass through to canvas where no UI exists */
             z-index: 50;
             display: none; /* Shown via JS on mobile detection */
         }
 
         #mobile-overlay.active {
             display: block;
+        }
+
+        /* Ensure interactive elements within overlay receive pointer events */
+        #mobile-overlay #speed-dial,
+        #mobile-overlay #sprint-btn,
+        #mobile-overlay #joystick-zone,
+        #mobile-overlay #look-zone {
+            pointer-events: auto;
         }
 
         /* Virtual Joystick Zone (Left 40% of screen) */
@@ -285,12 +293,13 @@
         /* ==========================================
            ISSUE 1B: Modified Speed Toggle (Single Button)
            ========================================== */
-        /* Speed Toggle (Bottom Right) - Single Button */
+        /* Speed Toggle (Top Right) - Repositioned */
         #speed-dial {
             position: absolute;
             right: 20px;
-            bottom: 80px;
+            top: 100px; /* Moved to top, below speed indicator */
             pointer-events: auto;
+            z-index: 100; /* Ensure it's above other elements */
         }
 
         .speed-btn {
@@ -2425,7 +2434,7 @@
                 }, { passive: false });
             }
             
-            // ISSUE 1C: Modified initSpeedDial - Cycle through speeds
+            // ISSUE 1C: Modified initSpeedDial - Cycle through speeds with both touch and click
             initSpeedDial() {
                 const btn = document.getElementById('speed-toggle-btn');
                 if (!btn) return;
@@ -2434,8 +2443,9 @@
                 const speedLabels = ['1x', '2x', '4x', '8x'];
                 let currentIndex = 0;
                 
-                btn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
+                // Handle speed change logic
+                const handleSpeedChange = (e) => {
+                    if (e) e.preventDefault();
                     
                     // Cycle to next speed
                     currentIndex = (currentIndex + 1) % speedLabels.length;
@@ -2456,6 +2466,17 @@
                         btn.style.transform = 'scale(1.05)';
                     }, 100);
                     
+                    console.log(`🚀 Speed changed to ${speedLabels[currentIndex]}`);
+                };
+                
+                // Bind both touch and click events for maximum compatibility
+                btn.addEventListener('touchstart', handleSpeedChange, { passive: false });
+                btn.addEventListener('click', handleSpeedChange);
+                
+                // Prevent double-firing on some devices
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                 }, { passive: false });
             }
             
