@@ -158,111 +158,223 @@
             background: rgba(139, 92, 246, 0.95);
             box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
         }
-        
-        /* ==================== MOBILE CONTROLS ==================== */
-        #mobile-interface {
+
+        /* ==========================================
+           MOBILE IMMERSION SPRINT - UI STYLES
+           ========================================== */
+
+        /* Hide desktop controls on mobile */
+        @media (pointer: coarse), (hover: none) {
+            #desktop-controls {
+                display: none !important;
+            }
+        }
+
+        /* Mobile Overlay Container */
+        #mobile-overlay {
             position: fixed;
             inset: 0;
             pointer-events: none;
             z-index: 50;
-            display: none; /* Hidden by default, shown only on mobile */
+            display: none; /* Shown via JS on mobile detection */
         }
 
-        #mobile-interface.active {
+        #mobile-overlay.active {
             display: block;
         }
 
-        /* Left Joystick Container */
-        .joystick-zone {
+        /* Virtual Joystick Zone (Left 40% of screen) */
+        #joystick-zone {
             position: absolute;
-            bottom: 40px;
-            left: 40px;
-            width: 140px;
-            height: 140px;
+            left: 0;
+            bottom: 0;
+            width: 45%;
+            height: 50%;
+            pointer-events: auto;
+            touch-action: none;
+        }
+
+        /* Joystick Base */
+        #joystick-base {
+            position: absolute;
+            left: 60px;
+            bottom: 80px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            backdrop-filter: blur(10px);
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        #joystick-base.active {
+            opacity: 1;
+        }
+
+        #joystick-base.inactive {
+            opacity: 0.3;
+        }
+
+        /* Joystick Thumb/Handle */
+        #joystick-thumb {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+            pointer-events: none;
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Sprint Button (Floating above joystick) */
+        #sprint-btn {
+            position: absolute;
+            left: 90px;
+            bottom: 220px;
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            touch-action: none;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        #sprint-btn:active {
+            background: rgba(139, 92, 246, 0.4);
+            transform: scale(0.95);
+            border-color: rgba(139, 92, 246, 0.8);
+        }
+
+        #sprint-btn.active {
+            background: rgba(139, 92, 246, 0.6);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+        }
+
+        #sprint-btn svg {
+            width: 28px;
+            height: 28px;
+            color: white;
+            opacity: 0.9;
+        }
+
+        /* Look Zone (Right 55% of screen) */
+        #look-zone {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 55%;
+            height: 100%;
+            pointer-events: auto;
+            touch-action: none;
+            z-index: 49;
+        }
+
+        /* Speed Dial (Bottom Right) */
+        #speed-dial {
+            position: absolute;
+            right: 20px;
+            bottom: 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             pointer-events: auto;
         }
 
-        .joystick-outer {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.1));
-            border: 2px solid rgba(139, 92, 246, 0.4);
-            border-radius: 50%;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2);
-        }
-
-        .joystick-inner {
-            position: absolute;
+        .speed-btn {
             width: 50px;
             height: 50px;
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.8), rgba(59, 130, 246, 0.8));
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 700;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s ease;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .speed-btn.active {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .speed-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Mobile Interaction Hint */
+        #mobile-hint {
+            position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            transition: all 0.1s ease-out;
-            box-shadow: 0 2px 10px rgba(139, 92, 246, 0.5);
-        }
-
-        /* Mobile Instructions */
-        .mobile-hint {
-            position: absolute;
-            top: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(10, 10, 20, 0.75);
-            backdrop-filter: blur(20px);
-            padding: 12px 24px;
-            border-radius: 20px;
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 0.875rem;
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            pointer-events: none;
             opacity: 0;
-            animation: fadeInHint 0.5s ease 1s forwards;
-            text-align: center;
+            transition: opacity 0.5s ease;
+            z-index: 100;
         }
 
-        @keyframes fadeInHint {
-            to { opacity: 1; }
+        #mobile-hint.show {
+            opacity: 1;
         }
 
-        /* Responsive adjustments */
-        @media (max-width: 640px) {
-            .joystick-zone {
-                bottom: 30px;
-                left: 30px;
-                width: 120px;
-                height: 120px;
-            }
-            
-            .joystick-inner {
-                width: 45px;
-                height: 45px;
-            }
-            
-            #info-panel {
-                width: calc(100vw - 40px);
-                right: 20px;
-                left: 20px;
-                max-height: 60vh;
-            }
+        /* Double-tap visual feedback */
+        #tap-feedback {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(139, 92, 246, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            pointer-events: none;
+            z-index: 60;
         }
 
-        @media (max-height: 700px) {
-            .joystick-zone {
-                bottom: 20px;
-                left: 20px;
-                width: 100px;
-                height: 100px;
-            }
-            
-            .joystick-inner {
-                width: 40px;
-                height: 40px;
+        #tap-feedback.animate {
+            animation: tapRipple 0.6s ease-out forwards;
+        }
+
+        @keyframes tapRipple {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+
+        /* Prevent text selection on mobile UI */
+        #mobile-overlay * {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* iOS specific: Prevent callout menu */
+        @supports (-webkit-touch-callout: none) {
+            #mobile-overlay {
+                -webkit-touch-callout: none;
             }
         }
     </style>
@@ -335,21 +447,6 @@
             <p style="margin-top: 2rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">
                 Use WASD to move • Mouse to look around • Click for full control
             </p>
-        </div>
-    </div>
-
-    <!-- ==================== MOBILE INTERFACE ==================== -->
-    <div id="mobile-interface">
-        <!-- Left Zone: Virtual Joystick -->
-        <div class="joystick-zone">
-            <div class="joystick-outer"></div>
-            <div class="joystick-inner" id="joystick-nub"></div>
-        </div>
-        
-        <!-- Top Hint -->
-        <div class="mobile-hint">
-            👆 Drag right side to look around<br>
-            Double-tap artwork to focus
         </div>
     </div>
 
@@ -472,6 +569,44 @@
             z-index: 50;
         ">
             🎯 FOCUS MODE • Press E to Exit
+        </div>
+
+        <!-- ==========================================
+             MOBILE IMMERSION SPRINT - TOUCH CONTROLS
+             ========================================== -->
+        <div id="mobile-overlay">
+            <!-- Left Zone: Joystick -->
+            <div id="joystick-zone">
+                <div id="joystick-base" class="inactive">
+                    <div id="joystick-thumb"></div>
+                </div>
+            </div>
+            
+            <!-- Sprint Button -->
+            <div id="sprint-btn" role="button" aria-label="Sprint">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            
+            <!-- Right Zone: Look Pad -->
+            <div id="look-zone"></div>
+            
+            <!-- Speed Dial -->
+            <div id="speed-dial">
+                <button class="speed-btn active" data-speed="0">1x</button>
+                <button class="speed-btn" data-speed="1">2x</button>
+                <button class="speed-btn" data-speed="2">4x</button>
+                <button class="speed-btn" data-speed="3">8x</button>
+            </div>
+            
+            <!-- Mobile Hint -->
+            <div id="mobile-hint">
+                <p>👆 Double-tap artwork to focus</p>
+            </div>
+            
+            <!-- Tap Feedback Animation -->
+            <div id="tap-feedback"></div>
         </div>
     </div>
 
@@ -617,11 +752,6 @@
         class GalleryScene {
             constructor() {
                 this.container = document.getElementById('canvas-container');
-                
-                // ✅ MOBILE DETECTION
-                this.isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                console.log('📱 Mobile Device:', this.isMobile);
-                
                 this.loadingProgress = 0;
                 this.textures = {};
                 this.artworks = [];
@@ -719,36 +849,33 @@
                 // Speed control
                 this.currentSpeedMultiplier = CONFIG.movement.speedMultipliers[CONFIG.movement.currentSpeedIndex];
 
-                // ✅ Only enable keyboard controls on desktop
-                if (!this.isMobile) {
-                    // Keyboard events
-                    document.addEventListener('keydown', (e) => {
-                        switch(e.code) {
-                            case 'KeyW': this.moveState.forward = true; break;
-                            case 'KeyS': this.moveState.backward = true; break;
-                            case 'KeyA': this.moveState.left = true; break;
-                            case 'KeyD': this.moveState.right = true; break;
-                            case 'ShiftLeft': this.moveState.sprint = true; break;
-                            case 'KeyE': this.toggleArtworkInfo(); break;
-                            
-                            // Speed multipliers
-                            case 'Digit1': this.setSpeedMultiplier(0); break; // 1x
-                            case 'Digit2': this.setSpeedMultiplier(1); break; // 2x
-                            case 'Digit3': this.setSpeedMultiplier(2); break; // 4x
-                            case 'Digit4': this.setSpeedMultiplier(3); break; // 8x
-                        }
-                    });
+                // Keyboard events
+                document.addEventListener('keydown', (e) => {
+                    switch(e.code) {
+                        case 'KeyW': this.moveState.forward = true; break;
+                        case 'KeyS': this.moveState.backward = true; break;
+                        case 'KeyA': this.moveState.left = true; break;
+                        case 'KeyD': this.moveState.right = true; break;
+                        case 'ShiftLeft': this.moveState.sprint = true; break;
+                        case 'KeyE': this.toggleArtworkInfo(); break;
+                        
+                        // Speed multipliers
+                        case 'Digit1': this.setSpeedMultiplier(0); break; // 1x
+                        case 'Digit2': this.setSpeedMultiplier(1); break; // 2x
+                        case 'Digit3': this.setSpeedMultiplier(2); break; // 4x
+                        case 'Digit4': this.setSpeedMultiplier(3); break; // 8x
+                    }
+                });
 
-                    document.addEventListener('keyup', (e) => {
-                        switch(e.code) {
-                            case 'KeyW': this.moveState.forward = false; break;
-                            case 'KeyS': this.moveState.backward = false; break;
-                            case 'KeyA': this.moveState.left = false; break;
-                            case 'KeyD': this.moveState.right = false; break;
-                            case 'ShiftLeft': this.moveState.sprint = false; break;
-                        }
-                    });
-                } // ✅ End of desktop-only keyboard controls
+                document.addEventListener('keyup', (e) => {
+                    switch(e.code) {
+                        case 'KeyW': this.moveState.forward = false; break;
+                        case 'KeyS': this.moveState.backward = false; break;
+                        case 'KeyA': this.moveState.left = false; break;
+                        case 'KeyD': this.moveState.right = false; break;
+                        case 'ShiftLeft': this.moveState.sprint = false; break;
+                    }
+                });
 
                 // Pointer lock events
                 this.controls.addEventListener('lock', () => {
@@ -759,13 +886,10 @@
                     document.getElementById('crosshair').classList.remove('active');
                 });
 
-                // ✅ Only enable pointer lock on desktop
-                if (!this.isMobile) {
-                    // Click to lock
-                    this.container.addEventListener('click', () => {
-                        this.controls.lock();
-                    });
-                }
+                // Click to lock
+                this.container.addEventListener('click', () => {
+                    this.controls.lock();
+                });
 
                 // Window resize
                 window.addEventListener('resize', () => {
@@ -773,6 +897,9 @@
                     this.camera.updateProjectionMatrix();
                     this.renderer.setSize(window.innerWidth, window.innerHeight);
                 });
+                
+                // Initialize mobile controls if detected
+                this.setupMobileControls();
             }
 
             setSpeedMultiplier(index) {
@@ -1081,11 +1208,6 @@
                 
                 // Start render loop
                 this.animate();
-                
-                // ✅ Initialize mobile controls if on mobile device
-                if (this.isMobile) {
-                    this.initMobileControls();
-                }
             }
 
             // ============================================
@@ -1843,7 +1965,8 @@
                             this.currentLean = 0;
                             this.camera.rotation.z = 0;
                             
-                            if (!this.controls.isLocked) {
+                            // Only re-lock on desktop (mobile doesn't use PointerLock)
+                            if (!this.isMobile && !this.controls.isLocked) {
                                 this.controls.lock();
                             }
                         }
@@ -1935,238 +2058,6 @@
                 }
             }
 
-            // ==================== MOBILE CONTROLS SYSTEM ====================
-            initMobileControls() {
-                console.log('📱 Initializing mobile touch controls...');
-                
-                // Show mobile UI
-                const mobileInterface = document.getElementById('mobile-interface');
-                if (mobileInterface) {
-                    mobileInterface.classList.add('active');
-                }
-                
-                // Mobile-specific state
-                this.touches = {
-                    movement: null,  // Left thumb (joystick)
-                    camera: null,    // Right thumb (look around)
-                };
-                
-                this.joystick = {
-                    active: false,
-                    startX: 0,
-                    startY: 0,
-                    currentX: 0,
-                    currentY: 0,
-                    maxDistance: 45, // Max displacement in pixels
-                };
-                
-                this.lastTapTime = 0;
-                this.doubleTapDelay = 300; // ms
-                
-                // Get joystick elements
-                this.joystickNub = document.getElementById('joystick-nub');
-                
-                // Touch event listeners
-                const container = this.renderer.domElement;
-                
-                container.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-                container.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-                container.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
-                container.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
-                
-                console.log('✅ Mobile controls initialized');
-            }
-            
-            handleTouchStart(event) {
-                event.preventDefault();
-                
-                const screenWidth = window.innerWidth;
-                const screenHeight = window.innerHeight;
-                
-                for (let i = 0; i < event.changedTouches.length; i++) {
-                    const touch = event.changedTouches[i];
-                    const touchX = touch.clientX;
-                    const touchY = touch.clientY;
-                    
-                    // LEFT SIDE: Movement Joystick
-                    if (touchX < screenWidth / 2) {
-                        if (!this.touches.movement) {
-                            this.touches.movement = touch.identifier;
-                            this.joystick.active = true;
-                            this.joystick.startX = touchX;
-                            this.joystick.startY = touchY;
-                            this.joystick.currentX = touchX;
-                            this.joystick.currentY = touchY;
-                            
-                            console.log('🕹️ Joystick activated');
-                        }
-                    }
-                    // RIGHT SIDE: Camera Look
-                    else {
-                        if (!this.touches.camera) {
-                            this.touches.camera = touch.identifier;
-                            this.lastTouchX = touchX;
-                            this.lastTouchY = touchY;
-                            
-                            // Double-tap detection
-                            const currentTime = Date.now();
-                            if (currentTime - this.lastTapTime < this.doubleTapDelay) {
-                                console.log('👆 Double-tap detected');
-                                this.handleDoubleTap();
-                                this.lastTapTime = 0; // Reset
-                            } else {
-                                this.lastTapTime = currentTime;
-                            }
-                            
-                            console.log('📷 Camera look activated');
-                        }
-                    }
-                }
-            }
-            
-            handleTouchMove(event) {
-                event.preventDefault();
-                
-                const screenWidth = window.innerWidth;
-                
-                for (let i = 0; i < event.changedTouches.length; i++) {
-                    const touch = event.changedTouches[i];
-                    
-                    // Handle MOVEMENT (left side)
-                    if (touch.identifier === this.touches.movement) {
-                        this.joystick.currentX = touch.clientX;
-                        this.joystick.currentY = touch.clientY;
-                        
-                        // Calculate displacement from start
-                        const deltaX = this.joystick.currentX - this.joystick.startX;
-                        const deltaY = this.joystick.currentY - this.joystick.startY;
-                        
-                        // Clamp to max distance (circular boundary)
-                        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                        let clampedX = deltaX;
-                        let clampedY = deltaY;
-                        
-                        if (distance > this.joystick.maxDistance) {
-                            clampedX = (deltaX / distance) * this.joystick.maxDistance;
-                            clampedY = (deltaY / distance) * this.joystick.maxDistance;
-                        }
-                        
-                        // Update joystick nub visual position
-                        if (this.joystickNub) {
-                            this.joystickNub.style.transform = `translate(calc(-50% + ${clampedX}px), calc(-50% + ${clampedY}px))`;
-                        }
-                        
-                        // Convert to movement direction (normalized -1 to 1)
-                        const normalizedX = clampedX / this.joystick.maxDistance;
-                        const normalizedY = clampedY / this.joystick.maxDistance;
-                        
-                        // Map to WASD-style movement (camera-relative)
-                        // Y is inverted (down = forward)
-                        this.direction.z = -normalizedY; // Forward/Backward
-                        this.direction.x = normalizedX;  // Left/Right
-                        
-                        // Normalize the direction vector
-                        const length = Math.sqrt(this.direction.x ** 2 + this.direction.z ** 2);
-                        if (length > 0) {
-                            this.direction.x /= length;
-                            this.direction.z /= length;
-                        }
-                    }
-                    
-                    // Handle CAMERA LOOK (right side)
-                    if (touch.identifier === this.touches.camera && !this.isInspecting) {
-                        const touchX = touch.clientX;
-                        const touchY = touch.clientY;
-                        
-                        const deltaX = touchX - this.lastTouchX;
-                        const deltaY = touchY - this.lastTouchY;
-                        
-                        this.lastTouchX = touchX;
-                        this.lastTouchY = touchY;
-                        
-                        // Sensitivity for mobile (adjust as needed)
-                        const sensitivity = 0.003;
-                        
-                        // Get current rotation
-                        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-                        euler.setFromQuaternion(this.camera.quaternion);
-                        
-                        // Update yaw (left/right)
-                        euler.y -= deltaX * sensitivity;
-                        
-                        // Update pitch (up/down)
-                        euler.x -= deltaY * sensitivity;
-                        
-                        // CRITICAL: Clamp pitch to prevent gimbal lock
-                        const maxPitch = 1.4; // ~80 degrees
-                        euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
-                        
-                        // Apply back to camera
-                        this.camera.quaternion.setFromEuler(euler);
-                    }
-                }
-            }
-            
-            handleTouchEnd(event) {
-                event.preventDefault();
-                
-                for (let i = 0; i < event.changedTouches.length; i++) {
-                    const touch = event.changedTouches[i];
-                    
-                    // Release movement joystick
-                    if (touch.identifier === this.touches.movement) {
-                        this.touches.movement = null;
-                        this.joystick.active = false;
-                        this.direction.set(0, 0, 0);
-                        
-                        // Reset joystick nub to center
-                        if (this.joystickNub) {
-                            this.joystickNub.style.transform = 'translate(-50%, -50%)';
-                        }
-                        
-                        console.log('🕹️ Joystick released');
-                    }
-                    
-                    // Release camera look
-                    if (touch.identifier === this.touches.camera) {
-                        this.touches.camera = null;
-                        console.log('📷 Camera look released');
-                    }
-                }
-            }
-            
-            handleDoubleTap() {
-                // Only trigger if not already inspecting
-                if (this.isInspecting) {
-                    console.log('⚠️ Already inspecting, ignoring double-tap');
-                    return;
-                }
-                
-                // Perform raycast from screen center
-                const raycaster = new THREE.Raycaster();
-                const centerPoint = new THREE.Vector2(0, 0); // NDC center
-                
-                raycaster.setFromCamera(centerPoint, this.camera);
-                
-                // Check intersection with artworks
-                const artworks = this.scene.children.filter(obj => 
-                    obj.userData && obj.userData.isArtwork
-                );
-                
-                const intersects = raycaster.intersectObjects(artworks, false);
-                
-                if (intersects.length > 0) {
-                    const artwork = intersects[0].object;
-                    console.log('🎯 Double-tap focus on:', artwork.userData.title);
-                    
-                    // Trigger the existing focus method
-                    this.focusedArtwork = artwork;
-                    this.toggleArtworkInfo();
-                } else {
-                    console.log('❌ No artwork in center of screen');
-                }
-            }
-
             // SECTION 7: Update animate() method
             animate() {
                 requestAnimationFrame(() => this.animate());
@@ -2203,10 +2094,507 @@
                 // Apply the corrected rotation back to camera
                 this.camera.quaternion.setFromEuler(euler);
                 
-                this.updateMovement();
+                // Mobile uses modified movement system
+                if (this.isMobile) {
+                    this.updateMovementMobile();
+                } else {
+                    this.updateMovement();
+                }
+
                 this.updateProximityLighting(); // NEW: Dynamic lighting
                 this.checkArtworkFocus();
                 this.renderer.render(this.scene, this.camera);
+            }
+
+            // ==========================================
+            // MOBILE IMMERSION SPRINT - TOUCH CONTROLS
+            // ==========================================
+            
+            setupMobileControls() {
+                // Detection: Check for touch device
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+                    || (navigator.maxTouchPoints > 0 && 'ontouchstart' in window);
+                
+                if (!isMobile) {
+                    console.log('📱 Mobile controls skipped: Desktop detected');
+                    return;
+                }
+                
+                console.log('📱 Mobile device detected - Initializing touch controls');
+                
+                this.isMobile = true;
+                this.mobileState = {
+                    joystick: { active: false, touchId: null, originX: 0, originY: 0, deltaX: 0, deltaY: 0 },
+                    look: { active: false, touchId: null, lastX: 0, lastY: 0, deltaX: 0, deltaY: 0 },
+                    sprint: false,
+                    lastTap: 0,
+                    tapTimeout: null
+                };
+                
+                // Show mobile overlay
+                const overlay = document.getElementById('mobile-overlay');
+                if (overlay) overlay.classList.add('active');
+                
+                // Disable PointerLockControls for mobile (we use direct Euler control)
+                this.controls.enabled = false;
+                
+                // Hide crosshair on mobile (not needed)
+                const crosshair = document.getElementById('crosshair');
+                if (crosshair) crosshair.style.display = 'none';
+                
+                // Initialize touch handlers
+                this.initJoystick();
+                this.initLookPad();
+                this.initSprintButton();
+                this.initSpeedDial();
+                this.initDoubleTap();
+                
+                // Show hint briefly
+                setTimeout(() => {
+                    const hint = document.getElementById('mobile-hint');
+                    if (hint) {
+                        hint.classList.add('show');
+                        setTimeout(() => hint.classList.remove('show'), 4000);
+                    }
+                }, 2000);
+                
+                // Prevent default touch behaviors (scrolling, zooming)
+                document.addEventListener('touchmove', (e) => {
+                    if (e.target.closest('#mobile-overlay')) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+                
+                // Prevent zoom on double tap
+                let lastTouchEnd = 0;
+                document.addEventListener('touchend', (e) => {
+                    const now = Date.now();
+                    if (now - lastTouchEnd <= 300) {
+                        e.preventDefault();
+                    }
+                    lastTouchEnd = now;
+                }, { passive: false });
+            }
+            
+            initJoystick() {
+                const zone = document.getElementById('joystick-zone');
+                const base = document.getElementById('joystick-base');
+                const thumb = document.getElementById('joystick-thumb');
+                
+                if (!zone || !base || !thumb) return;
+                
+                const maxDistance = 35; // Max thumb movement in pixels
+                
+                zone.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    
+                    // Only accept first touch in left zone
+                    if (this.mobileState.joystick.active) return;
+                    
+                    const touch = e.changedTouches[0];
+                    this.mobileState.joystick.active = true;
+                    this.mobileState.joystick.touchId = touch.identifier;
+                    
+                    // Position joystick base at touch point
+                    const rect = zone.getBoundingClientRect();
+                    this.mobileState.joystick.originX = touch.clientX;
+                    this.mobileState.joystick.originY = touch.clientY;
+                    
+                    // Visual feedback
+                    base.style.left = `${touch.clientX - 60}px`;
+                    base.style.bottom = `${window.innerHeight - touch.clientY - 60}px`;
+                    base.classList.remove('inactive');
+                    base.classList.add('active');
+                    
+                }, { passive: false });
+                
+                zone.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    
+                    if (!this.mobileState.joystick.active) return;
+                    
+                    const touch = this.findTouch(e.changedTouches, this.mobileState.joystick.touchId);
+                    if (!touch) return;
+                    
+                    // Calculate delta from origin
+                    let deltaX = touch.clientX - this.mobileState.joystick.originX;
+                    let deltaY = touch.clientY - this.mobileState.joystick.originY;
+                    
+                    // Clamp to max distance
+                    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    if (distance > maxDistance) {
+                        const ratio = maxDistance / distance;
+                        deltaX *= ratio;
+                        deltaY *= ratio;
+                    }
+                    
+                    this.mobileState.joystick.deltaX = deltaX;
+                    this.mobileState.joystick.deltaY = deltaY;
+                    
+                    // Move thumb visually
+                    thumb.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
+                    
+                    // Map to movement state (normalized -1 to 1)
+                    const normalize = (val) => Math.max(-1, Math.min(1, val / maxDistance));
+                    this.moveState.forward = deltaY < -5;
+                    this.moveState.backward = deltaY > 5;
+                    this.moveState.left = deltaX < -5;
+                    this.moveState.right = deltaX > 5;
+                    
+                    // Store intensity for analog movement feel
+                    this.mobileState.joystick.intensity = {
+                        x: normalize(deltaX),
+                        y: normalize(-deltaY) // Invert Y (up is forward)
+                    };
+                    
+                }, { passive: false });
+                
+                const endJoystick = (e) => {
+                    if (!this.mobileState.joystick.active) return;
+                    
+                    const touch = this.findTouch(e.changedTouches, this.mobileState.joystick.touchId);
+                    if (!touch) return;
+                    
+                    // Reset state
+                    this.mobileState.joystick.active = false;
+                    this.mobileState.joystick.touchId = null;
+                    this.mobileState.joystick.deltaX = 0;
+                    this.mobileState.joystick.deltaY = 0;
+                    this.mobileState.joystick.intensity = { x: 0, y: 0 };
+                    
+                    // Reset movement
+                    this.moveState.forward = false;
+                    this.moveState.backward = false;
+                    this.moveState.left = false;
+                    this.moveState.right = false;
+                    
+                    // Visual reset
+                    thumb.style.transform = 'translate(-50%, -50%)';
+                    base.classList.remove('active');
+                    base.classList.add('inactive');
+                };
+                
+                zone.addEventListener('touchend', endJoystick, { passive: false });
+                zone.addEventListener('touchcancel', endJoystick, { passive: false });
+            }
+            
+            initLookPad() {
+                const zone = document.getElementById('look-zone');
+                if (!zone) return;
+                
+                // Sensitivity settings (tune these based on testing)
+                const sensitivity = {
+                    yaw: 0.003,   // Horizontal look
+                    pitch: 0.003  // Vertical look
+                };
+                
+                zone.addEventListener('touchstart', (e) => {
+                    // Only accept if not already looking and not in joystick zone
+                    if (this.mobileState.look.active) return;
+                    
+                    // Don't steal joystick touches
+                    const touch = e.changedTouches[0];
+                    if (touch.clientX < window.innerWidth * 0.45) return;
+                    
+                    e.preventDefault();
+                    
+                    this.mobileState.look.active = true;
+                    this.mobileState.look.touchId = touch.identifier;
+                    this.mobileState.look.lastX = touch.clientX;
+                    this.mobileState.look.lastY = touch.clientY;
+                    
+                }, { passive: false });
+                
+                zone.addEventListener('touchmove', (e) => {
+                    if (!this.mobileState.look.active) return;
+                    
+                    const touch = this.findTouch(e.changedTouches, this.mobileState.look.touchId);
+                    if (!touch) return;
+                    
+                    e.preventDefault();
+                    
+                    // Calculate delta
+                    const deltaX = touch.clientX - this.mobileState.look.lastX;
+                    const deltaY = touch.clientY - this.mobileState.look.lastY;
+                    
+                    this.mobileState.look.lastX = touch.clientX;
+                    this.mobileState.look.lastY = touch.clientY;
+                    
+                    // Apply rotation directly to camera Euler angles
+                    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                    euler.setFromQuaternion(this.camera.quaternion);
+                    
+                    // Yaw (Y-axis) - unlimited rotation
+                    euler.y -= deltaX * sensitivity.yaw;
+                    
+                    // Pitch (X-axis) - clamped to prevent flip
+                    euler.x -= deltaY * sensitivity.pitch;
+                    euler.x = Math.max(-1.4, Math.min(1.4, euler.x));
+                    
+                    // Apply back to camera
+                    this.camera.quaternion.setFromEuler(euler);
+                    
+                }, { passive: false });
+                
+                const endLook = (e) => {
+                    if (!this.mobileState.look.active) return;
+                    
+                    const touch = this.findTouch(e.changedTouches, this.mobileState.look.touchId);
+                    if (!touch) return;
+                    
+                    this.mobileState.look.active = false;
+                    this.mobileState.look.touchId = null;
+                };
+                
+                zone.addEventListener('touchend', endLook, { passive: false });
+                zone.addEventListener('touchcancel', endLook, { passive: false });
+            }
+            
+            initSprintButton() {
+                const btn = document.getElementById('sprint-btn');
+                if (!btn) return;
+                
+                const startSprint = (e) => {
+                    e.preventDefault();
+                    this.mobileState.sprint = true;
+                    this.moveState.sprint = true;
+                    btn.classList.add('active');
+                };
+                
+                const endSprint = (e) => {
+                    e.preventDefault();
+                    this.mobileState.sprint = false;
+                    this.moveState.sprint = false;
+                    btn.classList.remove('active');
+                };
+                
+                btn.addEventListener('touchstart', startSprint, { passive: false });
+                btn.addEventListener('touchend', endSprint, { passive: false });
+                btn.addEventListener('touchcancel', endSprint, { passive: false });
+            }
+            
+            initSpeedDial() {
+                const buttons = document.querySelectorAll('.speed-btn');
+                
+                buttons.forEach(btn => {
+                    btn.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        
+                        // Update UI
+                        buttons.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        
+                        // Set speed
+                        const speedIndex = parseInt(btn.dataset.speed);
+                        this.setSpeedMultiplier(speedIndex);
+                        
+                    }, { passive: false });
+                });
+            }
+            
+            initDoubleTap() {
+                const zone = document.getElementById('look-zone');
+                if (!zone) return;
+                
+                zone.addEventListener('touchstart', (e) => {
+                    // Only track single touches in look zone
+                    if (e.touches.length !== 1) return;
+                    const touch = e.changedTouches[0];
+                    if (touch.clientX < window.innerWidth * 0.45) return;
+                    
+                    const now = Date.now();
+                    const timeSinceLastTap = now - this.mobileState.lastTap;
+                    
+                    if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
+                        // Double tap detected!
+                        this.handleDoubleTap(touch.clientX, touch.clientY);
+                    }
+                    
+                    this.mobileState.lastTap = now;
+                    
+                }, { passive: false });
+            }
+            
+            handleDoubleTap(x, y) {
+                console.log('👆 Double-tap detected at:', x, y);
+                
+                // Visual feedback
+                const feedback = document.getElementById('tap-feedback');
+                if (feedback) {
+                    feedback.style.left = `${x}px`;
+                    feedback.style.top = `${y}px`;
+                    feedback.classList.remove('animate');
+                    void feedback.offsetWidth; // Trigger reflow
+                    feedback.classList.add('animate');
+                }
+                
+                // Raycast from center of screen (not tap point - more reliable)
+                // Or use tap point converted to normalized device coordinates
+                const mouse = new THREE.Vector2(
+                    (x / window.innerWidth) * 2 - 1,
+                    -(y / window.innerHeight) * 2 + 1
+                );
+                
+                this.raycaster.setFromCamera(mouse, this.camera);
+                const intersects = this.raycaster.intersectObjects(this.artworks, true);
+                
+                if (intersects.length > 0) {
+                    const artwork = intersects[0].object.parent;
+                    if (artwork.userData.type === 'artwork') {
+                        console.log('🎯 Double-tap hit artwork:', artwork.userData.title);
+                        this.focusedArtwork = artwork;
+                        
+                        // Play click sound
+                        if (this.sfxEnabled && this.sfx.click && !this.sfx.click.isPlaying) {
+                            this.sfx.click.play();
+                        }
+                        
+                        // Trigger focus mode
+                        this.toggleArtworkInfo();
+                    }
+                }
+            }
+            
+            findTouch(touchList, identifier) {
+                for (let i = 0; i < touchList.length; i++) {
+                    if (touchList[i].identifier === identifier) {
+                        return touchList[i];
+                    }
+                }
+                return null;
+            }
+            
+            // Override updateMovement for mobile analog support
+            updateMovementMobile() {
+                if (this.isInspecting) return;
+                
+                const delta = Math.min(this.clock.getDelta(), 0.1);
+                const dampingFactor = Math.pow(1 / CONFIG.camera.damping, delta);
+                
+                // Apply damping
+                this.velocity.multiplyScalar(dampingFactor);
+                
+                if (this.velocity.length() < 0.001) {
+                    this.velocity.set(0, 0, 0);
+                }
+                
+                // Mobile analog movement (if joystick is active with intensity)
+                if (this.isMobile && this.mobileState.joystick.active && this.mobileState.joystick.intensity) {
+                    const intensity = this.mobileState.joystick.intensity;
+                    const speedMultiplier = this.currentSpeedMultiplier || 1;
+                    const sprintMult = this.moveState.sprint ? CONFIG.movement.sprintMultiplier : 1;
+                    
+                    // Get camera direction for movement
+                    const direction = new THREE.Vector3();
+                    this.camera.getWorldDirection(direction);
+                    direction.y = 0;
+                    direction.normalize();
+                    
+                    // Calculate right vector
+                    const right = new THREE.Vector3();
+                    right.crossVectors(direction, new THREE.Vector3(0, 1, 0)).normalize();
+                    
+                    // Apply movement based on joystick intensity
+                    const moveSpeed = CONFIG.camera.acceleration * delta * speedMultiplier * sprintMult;
+                    
+                    this.velocity.x += (direction.x * intensity.y + right.x * intensity.x) * moveSpeed;
+                    this.velocity.z += (direction.z * intensity.y + right.z * intensity.x) * moveSpeed;
+                }
+                // Fallback to digital movement (desktop style)
+                else if (!this.isMobile) {
+                    this.direction.set(0, 0, 0);
+                    let isMoving = false;
+                    
+                    if (this.moveState.forward) { this.direction.z -= 1; isMoving = true; }
+                    if (this.moveState.backward) { this.direction.z += 1; isMoving = true; }
+                    if (this.moveState.left) { this.direction.x -= 1; isMoving = true; }
+                    if (this.moveState.right) { this.direction.x += 1; isMoving = true; }
+                    
+                    if (isMoving && this.direction.length() > 0) {
+                        this.direction.normalize();
+                        const speedMultiplier = this.currentSpeedMultiplier || 1;
+                        const sprintMult = this.moveState.sprint ? CONFIG.movement.sprintMultiplier : 1;
+                        const totalMult = speedMultiplier * sprintMult;
+                        
+                        this.velocity.x += this.direction.x * CONFIG.camera.acceleration * delta * totalMult;
+                        this.velocity.z += this.direction.z * CONFIG.camera.acceleration * delta * totalMult;
+                    }
+                }
+                
+                // Clamp speed
+                const speedMultiplier = this.currentSpeedMultiplier || 1;
+                const sprintMult = this.moveState.sprint ? CONFIG.movement.sprintMultiplier : 1;
+                const maxSpeed = CONFIG.camera.maxSpeed * speedMultiplier * sprintMult;
+                
+                const currentSpeed = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2);
+                if (currentSpeed > maxSpeed) {
+                    const scale = maxSpeed / currentSpeed;
+                    this.velocity.x *= scale;
+                    this.velocity.z *= scale;
+                }
+                
+                // Apply velocity
+                if (!this.isMobile || !this.mobileState.joystick.active) {
+                    // Desktop: use controls.moveRight/Forward
+                    if (this.controls.isLocked) {
+                        this.controls.moveRight(this.velocity.x * delta);
+                        this.controls.moveForward(-this.velocity.z * delta);
+                    }
+                } else {
+                    // Mobile: direct position update (no PointerLock)
+                    this.camera.position.x += this.velocity.x * delta;
+                    this.camera.position.z += this.velocity.z * delta;
+                }
+                
+                // Room boundaries
+                if (this.roomBounds) {
+                    const margin = 0.5;
+                    this.camera.position.x = Math.max(
+                        this.roomBounds.minX + margin,
+                        Math.min(this.roomBounds.maxX - margin, this.camera.position.x)
+                    );
+                    this.camera.position.z = Math.max(
+                        this.roomBounds.minZ + margin,
+                        Math.min(this.roomBounds.maxZ - margin, this.camera.position.z)
+                    );
+                }
+                
+                this.camera.position.y = CONFIG.camera.height;
+                
+                // Cinematic lean
+                const targetLean = -this.velocity.x * CONFIG.camera.maxLean;
+                this.currentLean += (targetLean - this.currentLean) * CONFIG.camera.leanSpeed;
+                
+                // Footsteps
+                if (this.sfxEnabled && this.sfx.footstep) {
+                    const hasInput = this.isMobile 
+                        ? this.mobileState.joystick.active 
+                        : (this.moveState.forward || this.moveState.backward || this.moveState.left || this.moveState.right);
+                    
+                    const currentSpeed = this.velocity.length();
+                    const isMovingNow = hasInput && currentSpeed > 0.05;
+                    
+                    if (isMovingNow) {
+                        const baseInterval = 0.5;
+                        const sprintMult = this.moveState.sprint ? 0.6 : 1.0;
+                        const speedMult = this.currentSpeedMultiplier || 1.0;
+                        let stepInterval = (baseInterval * sprintMult) / Math.sqrt(speedMult);
+                        stepInterval = Math.max(0.2, Math.min(0.6, stepInterval));
+                        
+                        this.footstepTimer += delta;
+                        
+                        if (this.footstepTimer >= stepInterval) {
+                            if (this.sfx.footstep.isPlaying) this.sfx.footstep.stop();
+                            const pitchVariation = 0.95 + Math.random() * 0.1;
+                            this.sfx.footstep.setPlaybackRate(pitchVariation);
+                            this.sfx.footstep.play();
+                            this.footstepTimer = 0;
+                        }
+                    } else {
+                        this.footstepTimer = 0;
+                        if (this.sfx.footstep.isPlaying) this.sfx.footstep.stop();
+                    }
+                }
             }
 
             // ✅ UPDATED: Progress updates on curtain instead of separate loader
@@ -2270,6 +2658,14 @@
                         galleryScene.playAudio();
                     }
                 }
+            }
+            
+            // ✅ MOBILE: Initialize controls immediately on enter
+            if (galleryScene && galleryScene.isMobile) {
+                console.log('📱 Mobile mode: Controls active');
+                // Ensure mobile overlay is visible
+                const overlay = document.getElementById('mobile-overlay');
+                if (overlay) overlay.classList.add('active');
             }
             
             // ✅ Smooth fade transition
