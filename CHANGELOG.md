@@ -1,5 +1,30 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 1.6.0 - February 11, 2026 (Immersive Mobile & Audio Update)
+
+### 📱 Mobile & Touch Support
+- **Touch Controls**: Full mobile support with virtual joystick for movement and touch-pad for looking around.
+- **Adaptive UI**: Automatically detects mobile devices and switches to touch-optimized interface.
+- **Visual Feedback**: Dynamic joystick UI that follows thumb position.
+- **Proximity Interaction**: "Double-tap" replaced with proximity-based interaction hints for better usability.
+
+### 🔊 Audio Immersion System
+- **Footstep SFX**: Dynamic footstep sounds that react to movement speed (walking vs sprinting).
+- **Interactive UI**: Crisp sound effects for UI interactions (clicks, focus mode).
+- **Pitch Variation**: Subtle pitch randomization for footsteps to prevent audio fatigue.
+- **Smart Audio Engine**: System automatically manages audio buffers and playback rates.
+
+### 🌫️ Visual Enhancements
+- **Atmospheric Fog**: Added subtle depth fog (`0x0a0a0a`) to soften distant geometry and reduce visual harshness.
+- **Cinematic Tone Mapping**: Switched to `ACESFilmicToneMapping` for more realistic light handling and contrast.
+- **Exposure Balancing**: Optimized exposure settings (0.8) to prevent highlight blowout in bright scenes.
+
+### 💡 Lighting & Performance
+- **Proximity Light Boost**: Significantly increased intensity of artwork proximity lights (3.5x) for better visibility.
+- **Optimized loops**: Refined the animation loop to handle audio and physics updates efficiently.
+
+---
+
 ## Version 1.5.0 - February 9, 2026 (Realism Update)
 
 ### 🎥 Momentum Camera System

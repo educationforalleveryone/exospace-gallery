@@ -1,7 +1,7 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 1.5.0  
-> **Last Updated:** February 9, 2026  
+> **Version:** 1.6.0  
+> **Last Updated:** February 11, 2026  
 > **Document Type:** Comprehensive Technical Reference
 
 ---
@@ -512,6 +512,40 @@ php artisan queue:listen --tries=1
 
 ---
 
+### 22. Mobile & Touch Input System
+
+**Capability**: Full mobile compatibility with touch-optimized controls (No app required).
+
+| Component | Implementation |
+|-----------|----------------|
+| **Virtual Joystick** | Dynamic on-screen joystick for movement (Left thumb) |
+| **Look Pad** | dedicated screen area for camera rotation (Right thumb) |
+| **Adaptive UI** | Auto-detection of mobile devices hides keyboard hints and shows touch overlays |
+| **Smart Interaction** | Replaces "Press E" prompts with context-aware touch interactions |
+
+**Technical Implementation**:
+- **Detection**: Checks `navigator.maxTouchPoints` and User-Agent strings
+- **Control Scheme**: Disables `PointerLockControls` in favor of direct Euler angle manipulation
+- **Touch Handling**: proper `passive: false` event listeners to prevent browser scrolling/zooming
+
+### 23. Interactive SFX Engine
+
+**Capability**: Dynamic sound effects system enhancing immersion and feedback.
+
+| Feature | Details |
+|---------|---------|
+| **Footsteps** | Proximity-based sounds triggered by movement velocity |
+| **Adaptive Cadence** | Step interval adjusts automatically based on walking vs sprinting speed |
+| **Pitch Variance** | Subtle randomization (0.95x - 1.05x) to prevent audio repetition fatigue |
+| **UI Acoustics** | Crisp feedback sounds for interactions (Focus Mode enter/exit, clicks) |
+
+**Architecture**:
+- **Audio Listener**: Attached to camera for 3D spatial positioning
+- **Asset Preloading**: SFX buffers loaded asynchronously during gallery initialization
+- **Frame-Independence**: Footstep timing uses `clock.getDelta()` to remain consistent at any FPS
+
+---
+
 ## Data Model & Database Schema
 
 ### Entity Relationship Diagram
@@ -728,7 +762,21 @@ class GalleryScene {
    ├── updateMovement()        # WASD controls + collision
    ├── updateProximityLighting()  # Dynamic spotlight activation
    ├── checkArtworkFocus()     # Raycasting for E key info
+   ├── updateAudio()           # Footstep and SFX logic
    └── renderer.render()       # Draw frame
+
+### Visual Atmosphere & Post-Processing
+
+**Fog & Depth**:
+To enhance realism and soften distant geometry, the engine uses exponential fog:
+```javascript
+this.scene.fog = new THREE.Fog(0x0a0a0a, 10, 30); // Color, Near, Far
+```
+
+**Tone Mapping**:
+Switched to `ACESFilmicToneMapping` for cinematic light handling, preventing texture blowout in bright areas.
+- **Exposure**: 0.8 (Optimized for balance between art visibility and mood)
+- **Color Space**: SRGBColorSpace for accurate texture reproduction
 ```
 
 ### Configuration Constants
