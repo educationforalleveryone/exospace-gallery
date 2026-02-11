@@ -282,26 +282,26 @@
             z-index: 49;
         }
 
-        /* Speed Dial (Bottom Right) */
+        /* ==========================================
+           ISSUE 1B: Modified Speed Toggle (Single Button)
+           ========================================== */
+        /* Speed Toggle (Bottom Right) - Single Button */
         #speed-dial {
             position: absolute;
             right: 20px;
             bottom: 80px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
             pointer-events: auto;
         }
 
         .speed-btn {
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             background: rgba(0, 0, 0, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
-            color: rgba(255, 255, 255, 0.7);
-            font-weight: 700;
-            font-size: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 800;
+            font-size: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -309,17 +309,19 @@
             transition: all 0.2s ease;
             user-select: none;
             touch-action: manipulation;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
 
         .speed-btn.active {
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
             color: white;
-            border-color: transparent;
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+            border-color: rgba(139, 92, 246, 0.6);
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.5);
+            transform: scale(1.05);
         }
 
         .speed-btn:active {
-            transform: scale(0.95);
+            transform: scale(0.9);
         }
 
         /* Mobile Interaction Hint */
@@ -375,6 +377,33 @@
         @supports (-webkit-touch-callout: none) {
             #mobile-overlay {
                 -webkit-touch-callout: none;
+            }
+        }
+
+        /* ==========================================
+           ISSUE 2B & 2D: Contextual Hint Visibility Styles
+           ========================================== */
+        
+        /* Show/hide hints based on device */
+        @media (pointer: coarse), (hover: none) {
+            #info-panel .desktop-hint {
+                display: none;
+            }
+            #info-panel .mobile-hint {
+                display: block !important;
+            }
+        }
+
+        #focus-indicator .mobile-text {
+            display: none;
+        }
+
+        @media (pointer: coarse), (hover: none) {
+            #focus-indicator .desktop-text {
+                display: none;
+            }
+            #focus-indicator .mobile-text {
+                display: inline !important;
             }
         }
     </style>
@@ -493,8 +522,11 @@
         <div id="info-panel">
             <h3 class="text-xl font-bold mb-2" id="artwork-title">Artwork Title</h3>
             <p class="text-gray-400 text-sm" id="artwork-description">Description will appear here</p>
-            <div class="mt-3 pt-3 border-t border-white/10">
-                <p class="text-xs text-gray-500">Press E to close</p>
+            
+            <!-- ISSUE 2A: Modified HTML for Close Instructions -->
+            <div class="mt-3 pt-3 border-t border-white/10" id="info-panel-close-hint">
+                <p class="text-xs text-gray-500 desktop-hint">Press E to close</p>
+                <p class="text-xs text-gray-500 mobile-hint hidden">Double-tap to close</p>
             </div>
         </div>
 
@@ -568,7 +600,9 @@
             pointer-events: none;
             z-index: 50;
         ">
-            🎯 FOCUS MODE • Press E to Exit
+            <!-- ISSUE 2C: Modified HTML for Focus Indicator -->
+            <span class="desktop-text">🎯 FOCUS MODE • Press E to Exit</span>
+            <span class="mobile-text hidden">🎯 FOCUS MODE • Double-tap to Exit</span>
         </div>
 
         <!-- ==========================================
@@ -592,17 +626,16 @@
             <!-- Right Zone: Look Pad -->
             <div id="look-zone"></div>
             
-            <!-- Speed Dial -->
+            <!-- ISSUE 1A: Modified HTML (Speed Toggle Single Button) -->
+            <!-- Speed Toggle (Single Button) -->
             <div id="speed-dial">
-                <button class="speed-btn active" data-speed="0">1x</button>
-                <button class="speed-btn" data-speed="1">2x</button>
-                <button class="speed-btn" data-speed="2">4x</button>
-                <button class="speed-btn" data-speed="3">8x</button>
+                <button class="speed-btn active" id="speed-toggle-btn" data-speed="0">1x</button>
             </div>
             
-            <!-- Mobile Hint -->
+            <!-- BONUS FIX: Updated Mobile Hint Text -->
+            <!-- Mobile Hint (Contextual) -->
             <div id="mobile-hint">
-                <p>👆 Double-tap artwork to focus</p>
+                <p>👆 Double-tap artwork to view details</p>
             </div>
             
             <!-- Tap Feedback Animation -->
@@ -2145,8 +2178,14 @@
                 // Initialize touch handlers
                 this.initJoystick();
                 this.initLookPad();
+                
+                // ISSUE 3: Replaced initSprintButton with toggle logic
                 this.initSprintButton();
+                
+                // ISSUE 1C: Replaced initSpeedDial with cycling single button logic
                 this.initSpeedDial();
+                
+                // ISSUE 2F: Replaced initDoubleTap with proximity hint system
                 this.initDoubleTap();
                 
                 // Show hint briefly
@@ -2350,51 +2389,116 @@
                 zone.addEventListener('touchcancel', endLook, { passive: false });
             }
             
+            // ISSUE 3: Modified initSprintButton - Toggle on click
             initSprintButton() {
                 const btn = document.getElementById('sprint-btn');
                 if (!btn) return;
                 
-                const startSprint = (e) => {
+                // Toggle sprint mode on touch
+                btn.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    this.mobileState.sprint = true;
-                    this.moveState.sprint = true;
-                    btn.classList.add('active');
-                };
-                
-                const endSprint = (e) => {
-                    e.preventDefault();
-                    this.mobileState.sprint = false;
-                    this.moveState.sprint = false;
-                    btn.classList.remove('active');
-                };
-                
-                btn.addEventListener('touchstart', startSprint, { passive: false });
-                btn.addEventListener('touchend', endSprint, { passive: false });
-                btn.addEventListener('touchcancel', endSprint, { passive: false });
-            }
-            
-            initSpeedDial() {
-                const buttons = document.querySelectorAll('.speed-btn');
-                
-                buttons.forEach(btn => {
-                    btn.addEventListener('touchstart', (e) => {
-                        e.preventDefault();
-                        
-                        // Update UI
-                        buttons.forEach(b => b.classList.remove('active'));
+                    
+                    // Toggle state
+                    this.mobileState.sprint = !this.mobileState.sprint;
+                    this.moveState.sprint = this.mobileState.sprint;
+                    
+                    // Update visual state
+                    if (this.mobileState.sprint) {
                         btn.classList.add('active');
-                        
-                        // Set speed
-                        const speedIndex = parseInt(btn.dataset.speed);
-                        this.setSpeedMultiplier(speedIndex);
-                        
-                    }, { passive: false });
-                });
+                        console.log('🏃 Sprint ON');
+                    } else {
+                        btn.classList.remove('active');
+                        console.log('🚶 Sprint OFF');
+                    }
+                    
+                    // Visual feedback
+                    btn.style.transform = 'scale(0.9)';
+                    setTimeout(() => {
+                        btn.style.transform = this.mobileState.sprint ? 'scale(1.1)' : 'scale(1)';
+                    }, 100);
+                    
+                }, { passive: false });
+                
+                // Prevent default touch behaviors
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                }, { passive: false });
             }
             
+            // ISSUE 1C: Modified initSpeedDial - Cycle through speeds
+            initSpeedDial() {
+                const btn = document.getElementById('speed-toggle-btn');
+                if (!btn) return;
+                
+                // Speed labels cycle: 1x -> 2x -> 4x -> 8x -> 1x
+                const speedLabels = ['1x', '2x', '4x', '8x'];
+                let currentIndex = 0;
+                
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    
+                    // Cycle to next speed
+                    currentIndex = (currentIndex + 1) % speedLabels.length;
+                    
+                    // Update button text and data attribute
+                    btn.textContent = speedLabels[currentIndex];
+                    btn.dataset.speed = currentIndex;
+                    
+                    // Keep active styling
+                    btn.classList.add('active');
+                    
+                    // Apply speed multiplier
+                    this.setSpeedMultiplier(currentIndex);
+                    
+                    // Visual feedback - brief scale animation
+                    btn.style.transform = 'scale(0.85)';
+                    setTimeout(() => {
+                        btn.style.transform = 'scale(1.05)';
+                    }, 100);
+                    
+                }, { passive: false });
+            }
+            
+            // ISSUE 2F: Modified initDoubleTap - Distance check and proximity hint
             initDoubleTap() {
                 const zone = document.getElementById('look-zone');
+                const hint = document.getElementById('mobile-hint');
                 if (!zone) return;
+                
+                // ✅ PROXIMITY HINT SYSTEM: Show hint when near artwork
+                this.proximityHintInterval = setInterval(() => {
+                    if (!this.isMobile || this.isInspecting) {
+                        if (hint) hint.classList.remove('show');
+                        return;
+                    }
+                    
+                    const playerPos = this.camera.position;
+                    let nearestArtwork = null;
+                    let nearestDist = Infinity;
+                    
+                    // Find nearest artwork
+                    for (const artwork of this.artworks) {
+                        const dist = playerPos.distanceTo(artwork.position);
+                        if (dist < nearestDist) {
+                            nearestDist = dist;
+                            nearestArtwork = artwork;
+                        }
+                    }
+                    
+                    // Show hint if within optimal viewing distance (3-6 meters)
+                    const optimalMin = 2.0;
+                    const optimalMax = 6.0;
+                    
+                    if (nearestArtwork && nearestDist >= optimalMin && nearestDist <= optimalMax) {
+                        if (hint && !hint.classList.contains('show')) {
+                            hint.classList.add('show');
+                        }
+                    } else {
+                        if (hint && hint.classList.contains('show')) {
+                            hint.classList.remove('show');
+                        }
+                    }
+                }, 500); // Check every 500ms
                 
                 zone.addEventListener('touchstart', (e) => {
                     // Only track single touches in look zone
@@ -2415,21 +2519,11 @@
                 }, { passive: false });
             }
             
+            // ISSUE 2E: Modified handleDoubleTap - Distance constraint
             handleDoubleTap(x, y) {
                 console.log('👆 Double-tap detected at:', x, y);
                 
-                // Visual feedback
-                const feedback = document.getElementById('tap-feedback');
-                if (feedback) {
-                    feedback.style.left = `${x}px`;
-                    feedback.style.top = `${y}px`;
-                    feedback.classList.remove('animate');
-                    void feedback.offsetWidth; // Trigger reflow
-                    feedback.classList.add('animate');
-                }
-                
-                // Raycast from center of screen (not tap point - more reliable)
-                // Or use tap point converted to normalized device coordinates
+                // Raycast to find what was tapped
                 const mouse = new THREE.Vector2(
                     (x / window.innerWidth) * 2 - 1,
                     -(y / window.innerHeight) * 2 + 1
@@ -2441,8 +2535,30 @@
                 if (intersects.length > 0) {
                     const artwork = intersects[0].object.parent;
                     if (artwork.userData.type === 'artwork') {
-                        console.log('🎯 Double-tap hit artwork:', artwork.userData.title);
+                        
+                        // ✅ DISTANCE CHECK: Only allow double-tap within optimal range
+                        const playerPos = this.camera.position;
+                        const artPos = artwork.position;
+                        const distance = playerPos.distanceTo(artPos);
+                        const maxDoubleTapDistance = 6.0; // meters - adjust as needed
+                        
+                        if (distance > maxDoubleTapDistance) {
+                            console.log(`❌ Double-tap too far (${distance.toFixed(1)}m), ignoring`);
+                            return; // Too far away, ignore double-tap
+                        }
+                        
+                        console.log(`🎯 Double-tap hit artwork: ${artwork.userData.title} (${distance.toFixed(1)}m)`);
                         this.focusedArtwork = artwork;
+                        
+                        // Visual feedback (only show if close enough)
+                        const feedback = document.getElementById('tap-feedback');
+                        if (feedback) {
+                            feedback.style.left = `${x}px`;
+                            feedback.style.top = `${y}px`;
+                            feedback.classList.remove('animate');
+                            void feedback.offsetWidth;
+                            feedback.classList.add('animate');
+                        }
                         
                         // Play click sound
                         if (this.sfxEnabled && this.sfx.click && !this.sfx.click.isPlaying) {
