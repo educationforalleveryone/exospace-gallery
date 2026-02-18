@@ -122,6 +122,13 @@
             background: rgba(139, 92, 246, 0.7);
         }
         
+        /* ✨ PERF: Low-end device overrides */
+        .low-end-device #info-panel {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            background: rgba(0, 0, 0, 0.92);
+        }
+        
         /* Crosshair */
         #crosshair {
             position: absolute;
@@ -813,6 +820,11 @@
                 this.clock = new THREE.Clock();                   // Delta time tracker
                 this.currentLean = 0;                             // Current camera roll angle
                 
+                // ✨ PERF: Pre-allocated reusable objects (avoid GC pressure every frame)
+                this._reusableEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+                this._reusableVector = new THREE.Vector2(0, 0);
+                this._lightingFrameCount = 0;
+                
                 // ✨ NEW: SFX System Properties
                 this.sfx = {}; // Stores all sound effect audio objects
                 this.footstepTimer = 0; // Tracks time since last footstep
@@ -867,12 +879,56 @@
                 // this.renderer.toneMapping = THREE.LinearToneMapping;
 
                 this.container.appendChild(this.renderer.domElement);
+                // ✨ PERF: Run hardware tier detection immediately after renderer is ready
+                this.detectLowEnd();
 
                 // Controls
                 this.setupControls();
                 
                 // Load assets then build
                 this.loadAssets();
+            }
+
+            // ✨ PERF: Detect low-end devices and adapt quality accordingly
+            detectLowEnd() {
+                let isLowEnd = false;
+                
+                // Check CPU core count
+                if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
+                    console.log('⚡ Low-end detected: CPU cores < 4');
+                    isLowEnd = true;
+                }
+                
+                // Check GPU renderer string via WebGL
+                try {
+                    const gl = this.renderer.getContext();
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugInfo) {
+                        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                        console.log('🎮 GPU:', renderer);
+                        if (/Mali-[34]|Adreno 3|PowerVR|Mali-T/i.test(renderer)) {
+                            console.log('⚡ Low-end detected: budget GPU (' + renderer + ')');
+                            isLowEnd = true;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not read GPU info:', e);
+                }
+                
+                this.isLowEnd = isLowEnd;
+                
+                if (isLowEnd) {
+                    console.log('📱 Low-end mode ACTIVE: reducing quality for smooth performance');
+                    this.renderer.setPixelRatio(1);
+                    // Disable antialias note: antialias is set at construction time,
+                    // so we compensate by capping pixel ratio and reducing shadow resolution.
+                    this.renderer.shadowMap.enabled = false;
+                    document.body.classList.add('low-end-device');
+                } else {
+                    console.log('🚀 High-end mode: full quality enabled');
+                }
+                
+                return isLowEnd;
             }
 
             // SECTION 3: Replace setupControls() method entirely
@@ -1309,9 +1365,12 @@
                     { name: 'right', pos: [wallLength/2, wallHeight/2, 0], rot: [0, -Math.PI/2, 0] }
                 ];
 
+                // ✨ PERF: Single shared geometry for all 4 walls (saves GPU memory + upload time)
+                const sharedWallGeometry = new THREE.BoxGeometry(wallLength, wallHeight, CONFIG.room.wallDepth);
+
                 wallConfigs.forEach(config => {
                     const wallMesh = new THREE.Mesh(
-                        new THREE.BoxGeometry(wallLength, wallHeight, CONFIG.room.wallDepth),
+                        sharedWallGeometry,
                         wallMaterial
                     );
                     wallMesh.position.set(...config.pos);
@@ -1942,7 +2001,8 @@
             checkArtworkFocus() {
                 if (!this.controls.isLocked) return;
 
-                this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+                this._reusableVector.set(0, 0);
+                this.raycaster.setFromCamera(this._reusableVector, this.camera);
                 const intersects = this.raycaster.intersectObjects(this.artworks, true);
 
                 const crosshair = document.getElementById('crosshair');
@@ -2104,10 +2164,11 @@
             animate() {
                 requestAnimationFrame(() => this.animate());
                 
-                // ✨ CRITICAL FIX: Prevent gimbal lock / camera flip
+                // ✨ PERF: Increment frame counter for throttling
+                this._lightingFrameCount++;
                 
-                // Get the camera's current rotation as Euler angles
-                const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                // ✨ PERF: Reuse pre-allocated Euler (no GC pressure)
+                const euler = this._reusableEuler;
                 euler.setFromQuaternion(this.camera.quaternion);
                 
                 // Store original values for debugging
@@ -2115,7 +2176,6 @@
                 const originalRoll = euler.z;
                 
                 // CRITICAL: Aggressively clamp pitch to prevent gimbal lock
-                // The closer to ±90° we get, the more likely gimbal lock occurs
                 const maxPitch = 1.4; // ~80 degrees (conservative to avoid gimbal lock entirely)
                 const wasClampedPitch = euler.x < -maxPitch || euler.x > maxPitch;
                 euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
@@ -2143,8 +2203,16 @@
                     this.updateMovement();
                 }
 
-                this.updateProximityLighting(); // NEW: Dynamic lighting
-                this.checkArtworkFocus();
+                // ✨ PERF: Throttle — proximity lighting every 2nd frame (~30fps for this system)
+                if (this._lightingFrameCount % 2 === 0) {
+                    this.updateProximityLighting();
+                }
+                
+                // ✨ PERF: Throttle — focus/raycasting every 3rd frame (~20fps for this system)
+                if (this._lightingFrameCount % 3 === 0) {
+                    this.checkArtworkFocus();
+                }
+                
                 this.renderer.render(this.scene, this.camera);
             }
 
