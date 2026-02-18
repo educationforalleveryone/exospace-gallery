@@ -6,7 +6,7 @@
     <meta name="description" content="{{ Str::limit($gallery->description, 150) }}">
     <title>{{ $gallery->title }} | Exospace 3D Gallery</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css'])
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -865,7 +865,8 @@
                 });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
                 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                this.renderer.shadowMap.enabled = true;
+                // ✨ CHANGE 2: Shadow map sync to CONFIG
+                this.renderer.shadowMap.enabled = CONFIG.performance.shadowsEnabled;
                 this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
                 // SECTION 4: Fine-Tune Tone Mapping (Fix Brightness/Contrast)
@@ -879,6 +880,13 @@
                 // this.renderer.toneMapping = THREE.LinearToneMapping;
 
                 this.container.appendChild(this.renderer.domElement);
+                
+                // ✨ CHANGE 3: PERF: Stop render loop when tab is hidden (saves battery + CPU)
+                this._isVisible = true;
+                document.addEventListener('visibilitychange', () => {
+                    this._isVisible = !document.hidden;
+                });
+                
                 // ✨ PERF: Run hardware tier detection immediately after renderer is ready
                 this.detectLowEnd();
 
@@ -1043,46 +1051,8 @@
                         return texture;
                     };
 
-                    // SECTION 3: Update loadAssets() - Dynamic HDRI Loading
-                    this.updateProgress(8, 'Loading environment lighting...');
-
-                    // Get HDRI path from lighting preset config
-                    const lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
-                    const hdriPath = lightingConfig.hdri;
-
-                    if (hdriPath) {
-                        const rgbeLoader = new RGBELoader();
-                        promises.push(new Promise((resolve) => {
-                            rgbeLoader.load(
-                                hdriPath,
-                                (texture) => {
-                                    texture.mapping = THREE.EquirectangularReflectionMapping;
-                                    this.scene.environment = texture;
-                                    
-                                    // Apply environment intensity from preset
-                                    if (lightingConfig.envIntensity !== undefined) {
-                                        this.scene.environmentIntensity = lightingConfig.envIntensity;
-                                    }
-                                    
-                                    // Apply tone mapping exposure from preset
-                                    if (lightingConfig.toneMappingExposure !== undefined) {
-                                        this.renderer.toneMappingExposure = lightingConfig.toneMappingExposure;
-                                    }
-                                    
-                                    console.log(`✅ HDRI loaded: ${hdriPath} (Preset: ${preset})`);
-                                    resolve();
-                                },
-                                undefined,
-                                (error) => {
-                                    console.warn(`⚠️ HDRI loading failed (${hdriPath}), using fallback lighting:`, error);
-                                    // Fallback: No HDRI, just use the regular lights we already have
-                                    resolve();
-                                }
-                            );
-                        }));
-                    } else {
-                        console.log('ℹ️ No HDRI specified for this preset, using standard lighting');
-                    }
+                    // ✨ CHANGE 5: PERF: HDRI loads async in background — doesn't block gallery build
+                    // loadEnvironmentMap() is called after buildGallery() completes
 
                     // 1. Load Wall Texture
                     this.updateProgress(10, 'Loading wall texture...');
@@ -1150,36 +1120,44 @@
                     await Promise.all(promises);
                     promises.length = 0;
 
-                    // 3. Load Artworks
+                    // ✨ CHANGE 6: 3. Load Artworks — directly as THREE.Texture (no canvas intermediate)
                     this.updateProgress(30, 'Loading artwork...');
-                    this.artworkImages = []; 
+                    this.artworkImages = [];
                     
                     const artworkPromises = data.images.map((img, index) => {
                         return new Promise((resolve) => {
-                            const image = new Image();
-                            image.crossOrigin = 'anonymous';
-                            image.onload = () => {
-                                this.artworkImages.push({
-                                    id: img.id,
-                                    image: image,
-                                    aspectRatio: img.aspectRatio,
-                                    title: img.title,
-                                    description: img.description
-                                });
-                                loadedCount++;
-                                
-                                const percent = 30 + ((index + 1) / data.images.length) * 60;
-                                this.updateProgress(
-                                    percent, 
-                                    `Loading artwork ${index + 1}/${data.images.length}`
-                                );
-                                resolve();
-                            };
-                            image.onerror = (err) => {
-                                console.error(`Failed to load artwork: ${img.url}`, err);
-                                resolve();
-                            };
-                            image.src = img.url;
+                            textureLoader.load(
+                                img.url,
+                                (texture) => {
+                                    texture.colorSpace = THREE.SRGBColorSpace;
+                                    texture.generateMipmaps = true;
+                                    texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+                                    
+                                    // Derive aspect ratio from texture image
+                                    const aspectRatio = img.aspectRatio || 
+                                        (texture.image.width / texture.image.height) || 1;
+                                    
+                                    this.artworkImages.push({
+                                        id: img.id,
+                                        texture: texture,      // ✨ Store texture directly
+                                        aspectRatio: aspectRatio,
+                                        title: img.title,
+                                        description: img.description
+                                    });
+                                    loadedCount++;
+                                    
+                                    const percent = 30 + ((index + 1) / data.images.length) * 60;
+                                    this.updateProgress(
+                                        percent,
+                                        `Loading artwork ${index + 1}/${data.images.length}`
+                                    );
+                                    resolve();
+                                },
+                                undefined,
+                                (err) => {
+                                    resolve(); // Skip failed images silently
+                                }
+                            );
                         });
                     });
 
@@ -1304,8 +1282,41 @@
                 // SETUP 3: Place artworks
                 this.placeArtworks(data);
                 
-                // Start render loop
+                // Start render loop immediately — gallery is usable now
                 this.animate();
+                
+                // ✨ CHANGE 5: PERF: Load HDRI in background after gallery is visible
+                // Reflections/sky fade in once the 10MB file arrives
+                this.loadEnvironmentMap();
+            }
+
+            // ✨ CHANGE 5: PERF: Non-blocking HDRI loader — gallery renders first, env fades in after
+            loadEnvironmentMap() {
+                const preset = this.lightingPreset || 'bright';
+                const lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
+                const hdriPath = lightingConfig.hdri;
+                
+                if (!hdriPath) return;
+                
+                const rgbeLoader = new RGBELoader();
+                rgbeLoader.load(
+                    hdriPath,
+                    (texture) => {
+                        texture.mapping = THREE.EquirectangularReflectionMapping;
+                        this.scene.environment = texture;
+                        
+                        if (lightingConfig.envIntensity !== undefined) {
+                            this.scene.environmentIntensity = lightingConfig.envIntensity;
+                        }
+                        if (lightingConfig.toneMappingExposure !== undefined) {
+                            this.renderer.toneMappingExposure = lightingConfig.toneMappingExposure;
+                        }
+                    },
+                    undefined,
+                    (error) => {
+                        // Silent fail — standard lights already cover this
+                    }
+                );
             }
 
             // ============================================
@@ -1547,8 +1558,6 @@
                 dirLight.castShadow = false;
                 this.scene.add(dirLight);
                 this.scene.add(dirLight.target);
-
-                console.log(`💡 Lighting setup: ${preset} (ambient: ${config.ambient}, fill: ${config.fillLight})`);
             }
 
             placeArtworks(data) {
@@ -1591,14 +1600,8 @@
 
                     const frame = this.createFrame(width, height, data.frame_style);
                     
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.image.width;
-                    canvas.height = img.image.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img.image, 0, 0);
-                    
-                    const texture = new THREE.CanvasTexture(canvas);
-                    texture.colorSpace = THREE.SRGBColorSpace;
+                    // ✨ CHANGE 6: PERF: Use pre-loaded texture directly — no canvas/CPU copy
+                    const texture = img.texture;
                     
                     const artworkGeo = new THREE.PlaneGeometry(width * 0.95, height * 0.95);
                     
@@ -1623,8 +1626,6 @@
                             width * tilingFactor, 
                             height * tilingFactor
                         );
-                        
-                        console.log(`🎨 Canvas texture applied to artwork ${index + 1} (${width.toFixed(2)}m × ${height.toFixed(2)}m)`);
                     }
                     
                     const artwork = new THREE.Mesh(artworkGeo, artworkMat);
@@ -1666,8 +1667,6 @@
                         wallIndex++;
                     }
                 });
-                
-                console.log(`🖼️ Placed ${this.artworkImages.length} artworks using proximity lighting`);
             }
 
             // SECTION 5: Update Frame Material (Optional but Recommended)
@@ -1748,7 +1747,7 @@
                 artworkGroup.userData.light = artworkLight;
             }
 
-            // SECTION 5 (Continued): Update Proximity Logic WITH DEBUG
+            // SECTION 5 (Continued): Update Proximity Logic (CHANGE 7: Removed noisy console.logs)
             updateProximityLighting() {
                 if (!this.artworks || this.artworks.length === 0) return;
                 
@@ -1775,47 +1774,27 @@
                     }
                 }
                 
-                // ✨ DEBUG: Log detection status
-                if (closestArtwork) {
-                    const dist = Math.sqrt(closestDistSqr).toFixed(2);
-                    console.log(`🎯 Closest artwork at ${dist}m | Threshold: ${proximityDist}m`);
-                } else {
-                    console.log(`❌ No artwork within ${proximityDist}m range`);
-                }
-                
                 // Update lights (only one active at a time)
                 for (const artwork of this.artworks) {
                     const light = artwork.userData.light;
                     
-                    // ✨ DEBUG: Check if light exists
-                    if (!light) {
-                        console.warn('⚠️ Artwork has no light attached!', artwork.userData);
-                        continue;
-                    }
+                    // ✨ CHANGE 7: Removed console.warn, just continue
+                    if (!light) continue;
                     
                     if (artwork === closestArtwork) {
                         if (!light.visible) {
                             light.visible = true;
                             light.intensity = 0;
-                            console.log('💡 Light turning ON for:', artwork.userData.title);
                         }
                         // Smooth fade in
                         // ✨ UPDATED: Match the 3.5 multiplier for visibility
                         const targetIntensity = (CONFIG.lighting[this.lightingPreset] || CONFIG.lighting.bright).spot * 3.5;
                         light.intensity = Math.min(light.intensity + 0.2, targetIntensity);
-                        
-                        // ✨ DEBUG: Log intensity changes
-                        if (Math.random() < 0.1) { // Log only 10% of frames to avoid spam
-                            console.log(`💡 Light intensity: ${light.intensity.toFixed(2)} / ${targetIntensity.toFixed(2)}`);
-                        }
                     } else {
                         // Smooth fade out
                         if (light.intensity > 0) {
                             light.intensity = Math.max(0, light.intensity - 0.1);
                         } else {
-                            if (light.visible) {
-                                console.log('💡 Light turning OFF');
-                            }
                             light.visible = false;
                         }
                     }
@@ -2164,6 +2143,9 @@
             animate() {
                 requestAnimationFrame(() => this.animate());
                 
+                // ✨ CHANGE 4: PERF: Skip rendering entirely when tab is not visible
+                if (!this._isVisible) return;
+                
                 // ✨ PERF: Increment frame counter for throttling
                 this._lightingFrameCount++;
                 
@@ -2424,7 +2406,7 @@
                 zone.addEventListener('touchmove', (e) => {
                     if (!this.mobileState.look.active) return;
                     
-                    const touch = this.findTouch(e.changedTouches, this.mobileState.look.touchId);
+                    const touch = this.findTouch(e.changedTouches, this.mobileState.joystick.touchId);
                     if (!touch) return;
                     
                     e.preventDefault();
@@ -2455,7 +2437,7 @@
                 const endLook = (e) => {
                     if (!this.mobileState.look.active) return;
                     
-                    const touch = this.findTouch(e.changedTouches, this.mobileState.look.touchId);
+                    const touch = this.findTouch(e.changedTouches, this.mobileState.joystick.touchId);
                     if (!touch) return;
                     
                     this.mobileState.look.active = false;
