@@ -900,43 +900,125 @@
             // ✨ PERF: Detect low-end devices and adapt quality accordingly
             detectLowEnd() {
                 let isLowEnd = false;
-                
-                // Check CPU core count
+                const reasons = [];
+
+                // --- CHECK 1: CPU core count ---
                 if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
-                    console.log('⚡ Low-end detected: CPU cores < 4');
                     isLowEnd = true;
+                    reasons.push(`CPU cores: ${navigator.hardwareConcurrency}`);
                 }
-                
-                // Check GPU renderer string via WebGL
+
+                // --- CHECK 2: GPU string analysis ---
                 try {
                     const gl = this.renderer.getContext();
                     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
                     if (debugInfo) {
-                        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-                        console.log('🎮 GPU:', renderer);
-                        if (/Mali-[34]|Adreno 3|PowerVR|Mali-T/i.test(renderer)) {
-                            console.log('⚡ Low-end detected: budget GPU (' + renderer + ')');
+                        const rendererStr = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+                        const vendorStr   = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)   || '';
+                        console.log('🎮 GPU:', rendererStr, '|', vendorStr);
+
+                        // Software / fallback renderers (no real GPU)
+                        const isSoftware = /Microsoft Basic Render|SwiftShader|llvmpipe|softpipe|ANGLE.*Basic/i.test(rendererStr);
+
+                        // Budget mobile GPUs
+                        const isBudgetMobile = /Mali-[34567]|Mali-T|Adreno [23]|Adreno [45]0[0-5]|PowerVR SGX|PowerVR G6|VideoCore/i.test(rendererStr);
+
+                        // Intel integrated (older gen — HD 3000/4000/5xx series)
+                        const isOldIntel = /Intel.*HD Graphics [234]\d{3}|Intel.*HD Graphics 5[0-4]\d|Intel.*GMA/i.test(rendererStr);
+
+                        if (isSoftware) {
                             isLowEnd = true;
+                            reasons.push(`Software renderer: ${rendererStr}`);
+                        }
+                        if (isBudgetMobile) {
+                            isLowEnd = true;
+                            reasons.push(`Budget mobile GPU: ${rendererStr}`);
+                        }
+                        if (isOldIntel) {
+                            isLowEnd = true;
+                            reasons.push(`Old Intel iGPU: ${rendererStr}`);
                         }
                     }
                 } catch (e) {
-                    console.warn('Could not read GPU info:', e);
+                    // Can't read GPU info — be conservative on unknown hardware
+                    reasons.push('GPU info unavailable');
+                    // Don't force low-end just because the extension is missing
                 }
-                
+
+                // --- CHECK 3: Device memory (if available) ---
+                if (navigator.deviceMemory && navigator.deviceMemory < 4) {
+                    isLowEnd = true;
+                    reasons.push(`RAM: ${navigator.deviceMemory}GB`);
+                }
+
+                // --- CHECK 4: Runtime FPS benchmark ---
+                // We do a quick 30-frame FPS sample 2 seconds after load.
+                // If the real FPS is below threshold, downgrade mid-session.
+                this._scheduleFpsBenchmark();
+
                 this.isLowEnd = isLowEnd;
-                
+
                 if (isLowEnd) {
-                    console.log('📱 Low-end mode ACTIVE: reducing quality for smooth performance');
-                    this.renderer.setPixelRatio(1);
-                    // Disable antialias note: antialias is set at construction time,
-                    // so we compensate by capping pixel ratio and reducing shadow resolution.
-                    this.renderer.shadowMap.enabled = false;
-                    document.body.classList.add('low-end-device');
+                    console.log('⚡ Low-end mode:', reasons.join(', '));
+                    this._applyLowEndSettings();
                 } else {
                     console.log('🚀 High-end mode: full quality enabled');
                 }
-                
+
                 return isLowEnd;
+            }
+
+            // Apply all low-end quality reductions in one place
+            _applyLowEndSettings() {
+                this.renderer.setPixelRatio(1);
+                this.renderer.shadowMap.enabled = false;
+                // Reduce fog distance to draw fewer objects
+                if (this.scene.fog) {
+                    this.scene.fog.near = 8;
+                    this.scene.fog.far = 20;
+                }
+                document.body.classList.add('low-end-device');
+                this.isLowEnd = true;
+            }
+
+            // FPS benchmark: sample real frame rate after warmup, auto-downgrade if needed
+            _scheduleFpsBenchmark() {
+                let frameCount = 0;
+                let startTime = null;
+                const SAMPLE_FRAMES = 60;
+                const FPS_THRESHOLD = 35;
+                const WARMUP_MS = 3000; // Wait 3s for scene to fully load before sampling
+
+                const measureFrame = (timestamp) => {
+                    if (!startTime) {
+                        startTime = timestamp;
+                    }
+
+                    const elapsed = timestamp - startTime;
+
+                    // Wait for warmup period before starting measurement
+                    if (elapsed < WARMUP_MS) {
+                        requestAnimationFrame(measureFrame);
+                        return;
+                    }
+
+                    frameCount++;
+
+                    if (frameCount >= SAMPLE_FRAMES) {
+                        const measuredFps = (frameCount / ((timestamp - startTime - WARMUP_MS) / 1000));
+                        console.log(`📊 FPS benchmark: ${measuredFps.toFixed(1)} FPS`);
+
+                        if (measuredFps < FPS_THRESHOLD && !this.isLowEnd) {
+                            console.log(`⚡ Auto-downgrade triggered (${measuredFps.toFixed(1)} FPS < ${FPS_THRESHOLD} threshold)`);
+                            this._applyLowEndSettings();
+                        }
+                        return; // Stop sampling
+                    }
+
+                    requestAnimationFrame(measureFrame);
+                };
+
+                requestAnimationFrame(measureFrame);
             }
 
             // SECTION 3: Replace setupControls() method entirely
