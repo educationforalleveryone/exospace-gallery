@@ -683,13 +683,13 @@
                 description: "A demo 3D gallery running in standalone mode. Variable speed and dynamic proximity lighting enabled.",
                 wall_texture: "white",
                 floor_material: "wood",
-                lighting_preset: "bright", // Options: 'bright', 'moody', 'dramatic'
+                lighting_preset: "bright",
                 frame_style: "modern",
+                room_layout: "square", // Options: 'square', 'corridor', 'l-shape', 'rotunda'
                 imageCount: mockImages.length,
-                audioUrl: null, // Added for mock data consistency
-                // CHANGE #1: Added these fields to Mock Data to support the new Branding UI logic
-                'userPlan': 'studio', // Options: 'studio', 'pro', 'free'
-                'customLogoUrl': 'https://via.placeholder.com/200x50.png?text=Studio+Logo', // Placeholder for testing
+                audioUrl: null,
+                'userPlan': 'studio',
+                'customLogoUrl': 'https://via.placeholder.com/200x50.png?text=Studio+Logo',
                 images: mockImages
             };
         }
@@ -1371,24 +1371,19 @@
 
             buildGallery() {
                 const data = window.GALLERY_DATA;
-                
-                // SECTION 9: Store lighting preset
+
                 this.lightingPreset = data.lighting_preset;
-                
-                // SETUP 1: Setup lighting
                 this.setupLighting(data.lighting_preset);
-                
-                // SETUP 2: Create room
-                this.createRoom(data);
-                
-                // SETUP 3: Place artworks
+
+                // Dispatch to the correct room builder based on layout
+                const layout = data.room_layout || 'square';
+                if      (layout === 'corridor') this.createRoomCorridor(data);
+                else if (layout === 'l-shape')  this.createRoomLShape(data);
+                else if (layout === 'rotunda')  this.createRoomRotunda(data);
+                else                            this.createRoom(data); // square (default)
+
                 this.placeArtworks(data);
-                
-                // Start render loop immediately — gallery is usable now
                 this.animate();
-                
-                // ✨ CHANGE 5: PERF: Load HDRI in background after gallery is visible
-                // Reflections/sky fade in once the 10MB file arrives
                 this.loadEnvironmentMap();
             }
 
@@ -1559,7 +1554,199 @@
                     minZ: -wallLength / 2,
                     maxZ: wallLength / 2
                 };
+                this._layoutMeta = { type: 'square' };
             }
+
+            // ─────────────────────────────────────────────
+            // LAYOUT: CORRIDOR  (wide rectangle, 3:1 ratio)
+            // ─────────────────────────────────────────────
+            createRoomCorridor(data) {
+                const imageCount  = data.imageCount;
+                const spacing     = CONFIG.room.artworkSpacing;
+                const wallHeight  = CONFIG.room.wallHeight;
+                const imagesPerLongWall = Math.ceil(imageCount / 2);
+                const length = Math.max(16, (imagesPerLongWall * spacing) + spacing);
+                const width  = 6;
+
+                const wallMat  = this.getWallMaterial(data.wall_texture);
+                const floorMat = this.getFloorMaterial(data.floor_material);
+                if (wallMat.map)  { wallMat.map.repeat.set(length / 2.5, wallHeight / 2.5); wallMat.map.needsUpdate = true; }
+                if (floorMat.map) { floorMat.map.repeat.set(length / 2, width / 2); floorMat.map.needsUpdate = true; }
+
+                const sharedWallGeo = new THREE.BoxGeometry(1, wallHeight, CONFIG.room.wallDepth);
+
+                const floor = new THREE.Mesh(new THREE.PlaneGeometry(length, width), floorMat);
+                floor.rotation.x = -Math.PI / 2;
+                floor.receiveShadow = !this.isLowEnd;
+                this.scene.add(floor);
+
+                const ceilMat = this.isLowEnd
+                    ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling })
+                    : new THREE.MeshStandardMaterial({ color: this.lightingConfig.ceiling, roughness: 0.5, metalness: 0.0, emissive: this.lightingConfig.ceiling, emissiveIntensity: 0.1 });
+                const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(length, width), ceilMat);
+                ceiling.rotation.x = Math.PI / 2;
+                ceiling.position.y = wallHeight;
+                this.scene.add(ceiling);
+
+                [
+                    { pos: [0, wallHeight/2, -width/2],  ry: 0,            sx: length },
+                    { pos: [0, wallHeight/2,  width/2],  ry: Math.PI,      sx: length },
+                    { pos: [-length/2, wallHeight/2, 0], ry: Math.PI/2,    sx: width  },
+                    { pos: [ length/2, wallHeight/2, 0], ry: -Math.PI/2,   sx: width  },
+                ].forEach(cfg => {
+                    const m = new THREE.Mesh(sharedWallGeo, wallMat);
+                    m.scale.set(cfg.sx, 1, 1);
+                    m.position.set(...cfg.pos);
+                    m.rotation.y = cfg.ry;
+                    m.receiveShadow = !this.isLowEnd;
+                    m.castShadow    = !this.isLowEnd;
+                    this.scene.add(m);
+                });
+
+                if (!this.isLowEnd) {
+                    [-length / 4, length / 4].forEach(xp => {
+                        const l = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 2.5, length * 0.7);
+                        l.position.set(xp, wallHeight - 0.3, 0);
+                        l.castShadow = false;
+                        this.scene.add(l);
+                    });
+                }
+
+                this.camera.position.set(-length / 2 + 1.5, CONFIG.camera.height, 0);
+                this.roomBounds = { minX: -length/2+0.5, maxX: length/2-0.5, minZ: -width/2+0.5, maxZ: width/2-0.5 };
+                this._layoutMeta = { type: 'corridor', length, width };
+            }
+
+            // ─────────────────────────────────────────────
+            // LAYOUT: L-SHAPE
+            // Wing A (vertical) + Wing B (horizontal) joined at top-left corner.
+            // ─────────────────────────────────────────────
+            createRoomLShape(data) {
+                const imageCount = data.imageCount;
+                const spacing    = CONFIG.room.artworkSpacing;
+                const wallHeight = CONFIG.room.wallHeight;
+                const wingW      = 6;
+
+                const countA = Math.ceil(imageCount * 0.6);
+                const countB = imageCount - countA;
+                const lenA   = Math.max(10, (Math.ceil(countA / 2) * spacing) + spacing);
+                const lenB   = Math.max(10, (Math.ceil(countB / 2) * spacing) + spacing);
+
+                const wallMat  = this.getWallMaterial(data.wall_texture);
+                const floorMat = this.getFloorMaterial(data.floor_material);
+                if (wallMat.map) { wallMat.map.repeat.set(lenA / 2.5, wallHeight / 2.5); wallMat.map.needsUpdate = true; }
+
+                // Wing A: vertical strip centred at x = -(lenB/2)
+                const aX = -(lenB / 2);
+                // Wing B: horizontal strip at the bottom of wing A
+                const bZ = lenA / 2 - wingW / 2;
+
+                const addFloor = (cx, cz, w, d) => {
+                    const f = new THREE.Mesh(new THREE.PlaneGeometry(w, d), floorMat);
+                    f.rotation.x = -Math.PI / 2;
+                    f.position.set(cx, 0, cz);
+                    f.receiveShadow = !this.isLowEnd;
+                    this.scene.add(f);
+
+                    const cm2 = this.isLowEnd
+                        ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling })
+                        : new THREE.MeshStandardMaterial({ color: this.lightingConfig.ceiling, roughness: 0.5, metalness: 0.0 });
+                    const c2 = new THREE.Mesh(new THREE.PlaneGeometry(w, d), cm2);
+                    c2.rotation.x = Math.PI / 2;
+                    c2.position.set(cx, wallHeight, cz);
+                    this.scene.add(c2);
+                };
+                addFloor(aX, 0,  wingW, lenA);        // Wing A floor
+                addFloor(lenB / 2 - wingW / 2, bZ, lenB, wingW); // Wing B floor — starts at aX + wingW
+
+                const sharedWallGeo = new THREE.BoxGeometry(1, wallHeight, CONFIG.room.wallDepth);
+                const addWall = (px, pz, ry, scale) => {
+                    const m = new THREE.Mesh(sharedWallGeo, wallMat);
+                    m.scale.set(scale, 1, 1);
+                    m.position.set(px, wallHeight / 2, pz);
+                    m.rotation.y = ry;
+                    m.receiveShadow = !this.isLowEnd;
+                    m.castShadow    = !this.isLowEnd;
+                    this.scene.add(m);
+                };
+
+                // Wing A perimeter
+                addWall(aX - wingW/2, 0,          Math.PI/2,  lenA);      // left wall
+                addWall(aX,          -lenA/2,      0,          wingW);     // top wall
+                addWall(aX + wingW/2, -lenA/2 + (lenA - wingW)/2, Math.PI/2, lenA - wingW); // right wall (upper half)
+                // Wing B perimeter
+                addWall(lenB - wingW/2, bZ,         Math.PI/2,  wingW);    // right end wall
+                addWall(lenB/2 - wingW/2, bZ + wingW/2, Math.PI, lenB);   // bottom wall
+                addWall(aX + wingW/2, bZ,          Math.PI/2,  wingW);    // left end of wing B
+                // Inner corner — top of Wing B (shares with Wing A right wall)
+                addWall((aX + wingW/2 + lenB/2) / 2, bZ - wingW/2, 0, lenB - wingW/2); // top of wing B
+
+                if (!this.isLowEnd) {
+                    const l1 = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 2.5, lenA * 0.8);
+                    l1.position.set(aX, wallHeight - 0.3, 0);
+                    l1.castShadow = false;
+                    this.scene.add(l1);
+                    const l2 = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 2.5, lenB * 0.8);
+                    l2.position.set(lenB/2, wallHeight - 0.3, bZ);
+                    l2.castShadow = false;
+                    this.scene.add(l2);
+                }
+
+                this.camera.position.set(aX, CONFIG.camera.height, -lenA * 0.2);
+                this.roomBounds = { minX: aX - wingW/2 + 0.5, maxX: lenB - wingW/2 - 0.5, minZ: -lenA/2 + 0.5, maxZ: bZ + wingW - 0.5 };
+                this._layoutMeta = { type: 'l-shape', aX, bZ, wingW, lenA, lenB, countA, countB };
+            }
+
+            // ─────────────────────────────────────────────
+            // LAYOUT: ROTUNDA  (circular cylinder room)
+            // ─────────────────────────────────────────────
+            createRoomRotunda(data) {
+                const imageCount = data.imageCount;
+                const wallHeight = CONFIG.room.wallHeight;
+                const spacing    = CONFIG.room.artworkSpacing;
+                const circumference = imageCount * spacing;
+                const radius = Math.max(7, circumference / (2 * Math.PI));
+
+                const wallMat = this.getWallMaterial(data.wall_texture);
+                if (wallMat.map) {
+                    wallMat.map.wrapS = THREE.RepeatWrapping;
+                    wallMat.map.repeat.set(Math.max(4, imageCount / 2), wallHeight / 2.5);
+                    wallMat.map.needsUpdate = true;
+                }
+                wallMat.side = THREE.BackSide;
+
+                const cylinderGeo = new THREE.CylinderGeometry(radius, radius, wallHeight, Math.max(32, imageCount * 2), 1, true);
+                const cylinder = new THREE.Mesh(cylinderGeo, wallMat);
+                cylinder.position.y = wallHeight / 2;
+                this.scene.add(cylinder);
+
+                const floorMat = this.getFloorMaterial(data.floor_material);
+                if (floorMat.map) { floorMat.map.repeat.set(radius * 2 / 2, radius * 2 / 2); floorMat.map.needsUpdate = true; }
+                const floor = new THREE.Mesh(new THREE.CircleGeometry(radius, 64), floorMat);
+                floor.rotation.x = -Math.PI / 2;
+                floor.receiveShadow = !this.isLowEnd;
+                this.scene.add(floor);
+
+                const ceilMat = this.isLowEnd
+                    ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling, side: THREE.BackSide })
+                    : new THREE.MeshStandardMaterial({ color: this.lightingConfig.ceiling, roughness: 0.5, metalness: 0.0, emissive: this.lightingConfig.ceiling, emissiveIntensity: 0.1, side: THREE.BackSide });
+                const ceil = new THREE.Mesh(new THREE.CircleGeometry(radius, 64), ceilMat);
+                ceil.rotation.x = -Math.PI / 2;
+                ceil.position.y = wallHeight;
+                this.scene.add(ceil);
+
+                if (!this.isLowEnd) {
+                    const cl = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 3.0, radius * 2.5);
+                    cl.position.set(0, wallHeight - 0.4, 0);
+                    cl.castShadow = false;
+                    this.scene.add(cl);
+                }
+
+                this._rotundaRadius = radius;
+                this.roomBounds = { minX: -(radius - 1), maxX: radius - 1, minZ: -(radius - 1), maxZ: radius - 1 };
+                this._layoutMeta = { type: 'rotunda', radius };
+            }
+
 
             getWallMaterial(type) {
                 const fallbackColors = {
@@ -1674,111 +1861,149 @@
                 }
             }
 
+            // ─── shared artwork factory ───────────────────────────────────
+            _makeArtworkGroup(img, data) {
+                const maxWidth = 2.0, maxHeight = 2.5;
+                let width, height;
+                if (img.aspectRatio > 1) { width = maxWidth; height = width / img.aspectRatio; }
+                else                     { height = maxHeight; width = height * img.aspectRatio; }
+
+                const frame = this.createFrame(width, height, data.frame_style);
+                if (!this._sharedPlaneGeo) this._sharedPlaneGeo = new THREE.PlaneGeometry(1, 1);
+
+                let artworkMat;
+                if (this.isLowEnd) {
+                    artworkMat = new THREE.MeshLambertMaterial({ map: img.texture });
+                } else {
+                    artworkMat = new THREE.MeshStandardMaterial({
+                        map: img.texture,
+                        normalMap: this.textures.canvasNormal || null,
+                        normalScale: new THREE.Vector2(0.35, 0.35),
+                        roughness: 0.75, metalness: 0.0,
+                    });
+                    if (artworkMat.normalMap) artworkMat.normalMap.repeat.set(width * 2.5, height * 2.5);
+                }
+
+                const artwork = new THREE.Mesh(this._sharedPlaneGeo, artworkMat);
+                artwork.scale.set(width * 0.95, height * 0.95, 1);
+                artwork.position.z = 0.05;
+
+                const group = new THREE.Group();
+                group.add(frame);
+                group.add(artwork);
+                group.userData = { type: 'artwork', id: img.id, title: img.title, description: img.description };
+                return { group, width, height };
+            }
+
+            _placeAndRegister(group, data) {
+                this.scene.add(group);
+                this.artworks.push(group);
+                this.addArtworkLight(group, data.lighting_preset);
+            }
+
             placeArtworks(data) {
                 if (this.artworkImages.length === 0) return;
+                const layout = (this._layoutMeta || {}).type || 'square';
+                if      (layout === 'corridor') { this._placeArtworksCorridor(data); return; }
+                else if (layout === 'l-shape')  { this._placeArtworksLShape(data);   return; }
+                else if (layout === 'rotunda')  { this._placeArtworksRotunda(data);  return; }
 
-                // Recalculate wall dimensions to match createRoom logic
+                // ── SQUARE ────────────────────────────────────────────────────
                 const imageCount = this.artworkImages.length;
                 const spacing = CONFIG.room.artworkSpacing;
-                const minWallLength = CONFIG.room.minWallLength;
+                const wallLength = Math.max(CONFIG.room.minWallLength,
+                    (Math.ceil(imageCount / 4) * spacing) + spacing);
                 const imagesPerWall = Math.ceil(imageCount / 4);
-                const calculatedWallLength = (imagesPerWall * spacing) + spacing;
-                const wallLength = Math.max(minWallLength, calculatedWallLength);
-                
                 const eyeLevel = CONFIG.camera.height;
-
                 const walls = [
-                    { name: 'front', start: [-wallLength/2 + spacing, eyeLevel, -wallLength/2 + 0.2], direction: [1, 0, 0], normal: [0, 0, 1] },
-                    { name: 'back', start: [wallLength/2 - spacing, eyeLevel, wallLength/2 - 0.2], direction: [-1, 0, 0], normal: [0, 0, -1] },
-                    { name: 'left', start: [-wallLength/2 + 0.2, eyeLevel, wallLength/2 - spacing], direction: [0, 0, -1], normal: [1, 0, 0] },
-                    { name: 'right', start: [wallLength/2 - 0.2, eyeLevel, -wallLength/2 + spacing], direction: [0, 0, 1], normal: [-1, 0, 0] }
+                    { start: [-wallLength/2+spacing, eyeLevel, -wallLength/2+0.2], dir:[1,0,0],  normal:[0,0,1]  },
+                    { start: [ wallLength/2-spacing, eyeLevel,  wallLength/2-0.2], dir:[-1,0,0], normal:[0,0,-1] },
+                    { start: [-wallLength/2+0.2,     eyeLevel,  wallLength/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
+                    { start: [ wallLength/2-0.2,     eyeLevel, -wallLength/2+spacing], dir:[0,0,1],  normal:[-1,0,0] },
                 ];
+                let wi = 0, pos = 0;
+                this.artworkImages.forEach(img => {
+                    const wall = walls[wi];
+                    const { group } = this._makeArtworkGroup(img, data);
+                    const off = pos * spacing;
+                    group.position.set(wall.start[0]+wall.dir[0]*off, wall.start[1], wall.start[2]+wall.dir[2]*off);
+                    group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
+                    this._placeAndRegister(group, data);
+                    pos++;
+                    if (pos >= imagesPerWall) { pos = 0; wi = Math.min(wi+1, walls.length-1); }
+                });
+            }
 
-                let wallIndex = 0;
-                let positionOnWall = 0;
+            _placeArtworksCorridor(data) {
+                const { length, width } = this._layoutMeta;
+                const spacing = CONFIG.room.artworkSpacing;
+                const eyeLevel = CONFIG.camera.height;
+                const half = Math.ceil(this.artworkImages.length / 2);
+                const longWalls = [
+                    { start: [-length/2+spacing, eyeLevel, -width/2+0.2], dir:[1,0,0],  normal:[0,0,1]  },
+                    { start: [ length/2-spacing, eyeLevel,  width/2-0.2], dir:[-1,0,0], normal:[0,0,-1] },
+                ];
+                let wi = 0, pos = 0;
+                this.artworkImages.forEach(img => {
+                    const wall = longWalls[wi];
+                    const { group } = this._makeArtworkGroup(img, data);
+                    const off = pos * spacing;
+                    group.position.set(wall.start[0]+wall.dir[0]*off, wall.start[1], wall.start[2]+wall.dir[2]*off);
+                    group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
+                    this._placeAndRegister(group, data);
+                    pos++;
+                    if (pos >= half) { pos = 0; wi = Math.min(wi+1, 1); }
+                });
+            }
 
-                this.artworkImages.forEach((img, index) => {
-                    const wall = walls[wallIndex];
-                    
-                    const maxWidth = 2.0;
-                    const maxHeight = 2.5;
-                    let width, height;
-                    
-                    if (img.aspectRatio > 1) {
-                        width = maxWidth;
-                        height = width / img.aspectRatio;
-                    } else {
-                        height = maxHeight;
-                        width = height * img.aspectRatio;
-                    }
+            _placeArtworksLShape(data) {
+                const { aX, bZ, wingW, lenA, lenB, countA, countB } = this._layoutMeta;
+                const spacing  = CONFIG.room.artworkSpacing;
+                const eyeLevel = CONFIG.camera.height;
+                const imgsA    = this.artworkImages.slice(0, countA);
+                const imgsB    = this.artworkImages.slice(countA);
+                const perSideA = Math.ceil(imgsA.length / 2);
+                const perSideB = Math.ceil(imgsB.length / 2);
 
-                    const frame = this.createFrame(width, height, data.frame_style);
-                    const texture = img.texture;
+                const wallsA = [
+                    { start:[aX-wingW/2+0.2, eyeLevel,  lenA/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
+                    { start:[aX+wingW/2-0.2, eyeLevel, -lenA/2+spacing], dir:[0,0, 1], normal:[-1,0,0] },
+                ];
+                let wi=0, pos=0;
+                imgsA.forEach(img => {
+                    const wall = wallsA[wi];
+                    const { group } = this._makeArtworkGroup(img, data);
+                    group.position.set(wall.start[0]+wall.dir[0]*pos*spacing, wall.start[1], wall.start[2]+wall.dir[2]*pos*spacing);
+                    group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
+                    this._placeAndRegister(group, data);
+                    pos++; if (pos >= perSideA) { pos=0; wi=Math.min(wi+1,1); }
+                });
 
-                    // ⚡ FIX D: Shared unit PlaneGeometry scaled per artwork (saves N geometry uploads)
-                    if (!this._sharedPlaneGeo) {
-                        this._sharedPlaneGeo = new THREE.PlaneGeometry(1, 1);
-                    }
+                const wallsB = [
+                    { start:[aX+wingW/2+spacing,   eyeLevel, bZ+wingW/2-0.2], dir:[1,0,0],  normal:[0,0,-1] },
+                    { start:[lenB/2-spacing,        eyeLevel, bZ-wingW/2+0.2], dir:[-1,0,0], normal:[0,0,1]  },
+                ];
+                wi=0; pos=0;
+                imgsB.forEach(img => {
+                    const wall = wallsB[wi];
+                    const { group } = this._makeArtworkGroup(img, data);
+                    group.position.set(wall.start[0]+wall.dir[0]*pos*spacing, wall.start[1], wall.start[2]+wall.dir[2]*pos*spacing);
+                    group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
+                    this._placeAndRegister(group, data);
+                    pos++; if (pos >= perSideB) { pos=0; wi=Math.min(wi+1,1); }
+                });
+            }
 
-                    let artworkMat;
-                    if (this.isLowEnd) {
-                        // ⚡ FIX D (low-end): MeshLambertMaterial — no PBR, no normal map
-                        artworkMat = new THREE.MeshLambertMaterial({ map: texture });
-                    } else {
-                        // High-end: full PBR canvas material
-                        artworkMat = new THREE.MeshStandardMaterial({
-                            map: texture,
-                            normalMap: this.textures.canvasNormal || null,
-                            normalScale: new THREE.Vector2(0.35, 0.35),
-                            roughness: 0.75,
-                            metalness: 0.0,
-                        });
-                        if (artworkMat.normalMap) {
-                            const tilingFactor = 2.5;
-                            artworkMat.normalMap.repeat.set(width * tilingFactor, height * tilingFactor);
-                        }
-                    }
-
-                    const artwork = new THREE.Mesh(this._sharedPlaneGeo, artworkMat);
-                    // Scale the shared unit plane to this artwork's dimensions
-                    artwork.scale.set(width * 0.95, height * 0.95, 1);
-                    artwork.position.z = 0.05;
-                    
-                    const group = new THREE.Group();
-                    group.add(frame);
-                    group.add(artwork);
-                    
-                    const offset = positionOnWall * spacing;
-                    group.position.set(
-                        wall.start[0] + wall.direction[0] * offset,
-                        wall.start[1],
-                        wall.start[2] + wall.direction[2] * offset
-                    );
-                    
-                    group.lookAt(
-                        group.position.x + wall.normal[0],
-                        group.position.y + wall.normal[1],
-                        group.position.z + wall.normal[2]
-                    );
-                    
-                    group.userData = {
-                        type: 'artwork',
-                        id: img.id,
-                        title: img.title,
-                        description: img.description
-                    };
-                    
-                    this.scene.add(group);
-                    this.artworks.push(group);
-                    
-                    // SECTION 8: Update placeArtworks() - Light for EVERY artwork
-                    this.addArtworkLight(group, data.lighting_preset);
-                    
-                    positionOnWall++;
-                    if (positionOnWall >= imagesPerWall) {
-                        positionOnWall = 0;
-                        wallIndex++;
-                    }
+            _placeArtworksRotunda(data) {
+                const radius   = this._rotundaRadius;
+                const n        = this.artworkImages.length;
+                const eyeLevel = CONFIG.camera.height;
+                this.artworkImages.forEach((img, i) => {
+                    const angle = (i / n) * Math.PI * 2;
+                    const { group } = this._makeArtworkGroup(img, data);
+                    group.position.set(Math.sin(angle)*(radius-0.3), eyeLevel, Math.cos(angle)*(radius-0.3));
+                    group.lookAt(0, eyeLevel, 0);
+                    this._placeAndRegister(group, data);
                 });
             }
 

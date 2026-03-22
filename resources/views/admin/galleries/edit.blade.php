@@ -122,6 +122,50 @@
                         </div>
                     </div>
 
+                        <!-- Room Layout -->
+                        <div class="mb-4 md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-400 mb-3">Room Layout</label>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+                                <label class="layout-card cursor-pointer">
+                                    <input type="radio" name="room_layout" value="square" class="sr-only layout-radio" {{ old('room_layout', $gallery->room_layout ?? 'square') == 'square' ? 'checked' : '' }}>
+                                    <div class="layout-card-inner border-2 border-gray-600 rounded-lg p-3 text-center transition-all hover:border-purple-500">
+                                        <svg viewBox="0 0 60 60" class="w-12 h-12 mx-auto mb-2"><rect x="8" y="8" width="44" height="44" rx="2" fill="none" stroke="#9ca3af" stroke-width="2.5"/><circle cx="14" cy="18" r="2" fill="#a78bfa"/><circle cx="14" cy="30" r="2" fill="#a78bfa"/><circle cx="14" cy="42" r="2" fill="#a78bfa"/><circle cx="46" cy="18" r="2" fill="#a78bfa"/><circle cx="46" cy="30" r="2" fill="#a78bfa"/><circle cx="46" cy="42" r="2" fill="#a78bfa"/><circle cx="26" cy="10" r="2" fill="#a78bfa"/><circle cx="34" cy="10" r="2" fill="#a78bfa"/></svg>
+                                        <div class="text-sm font-medium text-gray-200">Square</div>
+                                        <div class="text-xs text-gray-500 mt-1">Classic room</div>
+                                    </div>
+                                </label>
+
+                                <label class="layout-card cursor-pointer">
+                                    <input type="radio" name="room_layout" value="corridor" class="sr-only layout-radio" {{ old('room_layout', $gallery->room_layout ?? 'square') == 'corridor' ? 'checked' : '' }}>
+                                    <div class="layout-card-inner border-2 border-gray-600 rounded-lg p-3 text-center transition-all hover:border-purple-500">
+                                        <svg viewBox="0 0 60 60" class="w-12 h-12 mx-auto mb-2"><rect x="4" y="20" width="52" height="20" rx="2" fill="none" stroke="#9ca3af" stroke-width="2.5"/><circle cx="10" cy="25" r="2" fill="#a78bfa"/><circle cx="10" cy="35" r="2" fill="#a78bfa"/><circle cx="50" cy="25" r="2" fill="#a78bfa"/><circle cx="50" cy="35" r="2" fill="#a78bfa"/><circle cx="22" cy="22" r="2" fill="#a78bfa"/><circle cx="30" cy="22" r="2" fill="#a78bfa"/><circle cx="38" cy="22" r="2" fill="#a78bfa"/><circle cx="22" cy="38" r="2" fill="#a78bfa"/><circle cx="30" cy="38" r="2" fill="#a78bfa"/><circle cx="38" cy="38" r="2" fill="#a78bfa"/></svg>
+                                        <div class="text-sm font-medium text-gray-200">Corridor</div>
+                                        <div class="text-xs text-gray-500 mt-1">Long hallway</div>
+                                    </div>
+                                </label>
+
+                                <label class="layout-card cursor-pointer">
+                                    <input type="radio" name="room_layout" value="l-shape" class="sr-only layout-radio" {{ old('room_layout', $gallery->room_layout ?? 'square') == 'l-shape' ? 'checked' : '' }}>
+                                    <div class="layout-card-inner border-2 border-gray-600 rounded-lg p-3 text-center transition-all hover:border-purple-500">
+                                        <svg viewBox="0 0 60 60" class="w-12 h-12 mx-auto mb-2"><polygon points="8,8 28,8 28,32 52,32 52,52 8,52" fill="none" stroke="#9ca3af" stroke-width="2.5" stroke-linejoin="round"/><circle cx="13" cy="15" r="2" fill="#a78bfa"/><circle cx="13" cy="25" r="2" fill="#a78bfa"/><circle cx="13" cy="42" r="2" fill="#a78bfa"/><circle cx="30" cy="48" r="2" fill="#a78bfa"/><circle cx="42" cy="48" r="2" fill="#a78bfa"/><circle cx="38" cy="34" r="2" fill="#a78bfa"/><circle cx="48" cy="34" r="2" fill="#a78bfa"/><circle cx="18" cy="10" r="2" fill="#a78bfa"/></svg>
+                                        <div class="text-sm font-medium text-gray-200">L-Shape</div>
+                                        <div class="text-xs text-gray-500 mt-1">Around a corner</div>
+                                    </div>
+                                </label>
+
+                                <label class="layout-card cursor-pointer">
+                                    <input type="radio" name="room_layout" value="rotunda" class="sr-only layout-radio" {{ old('room_layout', $gallery->room_layout ?? 'square') == 'rotunda' ? 'checked' : '' }}>
+                                    <div class="layout-card-inner border-2 border-gray-600 rounded-lg p-3 text-center transition-all hover:border-purple-500">
+                                        <svg viewBox="0 0 60 60" class="w-12 h-12 mx-auto mb-2"><circle cx="30" cy="30" r="22" fill="none" stroke="#9ca3af" stroke-width="2.5"/><circle cx="30" cy="10" r="2" fill="#a78bfa"/><circle cx="47" cy="19" r="2" fill="#a78bfa"/><circle cx="47" cy="41" r="2" fill="#a78bfa"/><circle cx="30" cy="50" r="2" fill="#a78bfa"/><circle cx="13" cy="41" r="2" fill="#a78bfa"/><circle cx="13" cy="19" r="2" fill="#a78bfa"/></svg>
+                                        <div class="text-sm font-medium text-gray-200">Rotunda</div>
+                                        <div class="text-xs text-gray-500 mt-1">Circular room</div>
+                                    </div>
+                                </label>
+
+                            </div>
+                        </div>
+
                     <!-- CHANGE #1: AJAX Audio Upload Section -->
                     <!-- Background Music (Pro Feature) -->
                     <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
@@ -779,4 +823,26 @@
             });
         }
     </script>
+
+<script>
+document.querySelectorAll('.layout-radio').forEach(radio => {
+    radio.addEventListener('change', () => {
+        document.querySelectorAll('.layout-card-inner').forEach(c => {
+            c.classList.remove('border-purple-500', 'bg-purple-900/20');
+            c.classList.add('border-gray-600');
+        });
+        if (radio.checked) {
+            const inner = radio.closest('.layout-card').querySelector('.layout-card-inner');
+            inner.classList.remove('border-gray-600');
+            inner.classList.add('border-purple-500', 'bg-purple-900/20');
+        }
+    });
+    if (radio.checked) {
+        const inner = radio.closest('.layout-card').querySelector('.layout-card-inner');
+        inner.classList.remove('border-gray-600');
+        inner.classList.add('border-purple-500', 'bg-purple-900/20');
+    }
+});
+</script>
+
 </x-app-layout>

@@ -12,16 +12,16 @@ class Gallery extends Model
     protected $fillable = [
         'user_id', 'title', 'slug', 'description',
         'wall_texture', 'frame_style', 'lighting_preset',
-        'floor_material', 'audio_path', 'custom_logo_path',  // ← ADDED THESE TWO
+        'floor_material', 'audio_path', 'custom_logo_path',
+        'room_layout',   // ← NEW
         'is_active', 'view_count'
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_active'  => 'boolean',
         'view_count' => 'integer',
     ];
 
-    // Auto-generate slug on creation
     protected static function boot()
     {
         parent::boot();
@@ -42,8 +42,7 @@ class Gallery extends Model
     {
         return $this->hasMany(GalleryImage::class)->orderBy('position_order');
     }
-    
-    // Helper to get public URL
+
     public function getPublicUrlAttribute(): string
     {
         return url("/gallery/{$this->slug}");

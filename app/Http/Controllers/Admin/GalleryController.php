@@ -11,9 +11,6 @@ use Illuminate\Support\Facades\Auth;
 
 class GalleryController extends Controller
 {
-    /**
-     * Display a listing of galleries.
-     */
     public function index(): View
     {
         $galleries = Gallery::where('user_id', Auth::id())
@@ -23,9 +20,6 @@ class GalleryController extends Controller
         return view('admin.galleries.index', compact('galleries'));
     }
 
-    /**
-     * Show the form for creating a new gallery.
-     */
     public function create(): View
     {
         if (!Auth::user()->canCreateGallery()) {
@@ -36,87 +30,67 @@ class GalleryController extends Controller
         return view('admin.galleries.create');
     }
 
-    /**
-     * Store a newly created gallery in storage.
-     */
     public function store(Request $request): RedirectResponse
     {
-        // ── PAYWALL: Hard limit enforcement ──
         if (!Auth::user()->canCreateGallery()) {
             return redirect()->route('admin.galleries.index')
                 ->with('upgrade', true);
         }
 
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'wall_texture' => 'required|in:white,concrete,brick,wood',
-            'frame_style' => 'required|in:modern,classic,minimal',
+            'title'           => 'required|string|max:255',
+            'description'     => 'nullable|string|max:1000',
+            'wall_texture'    => 'required|in:white,concrete,brick,wood',
+            'frame_style'     => 'required|in:modern,classic,minimal',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
-            'floor_material' => 'required|in:wood,marble,concrete',
-            'audio' => 'nullable|file|mimes:mp3,wav,m4a|max:10240', // Max 10MB
-            'custom_logo' => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048', // Max 2MB
+            'floor_material'  => 'required|in:wood,marble,concrete',
+            'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',  // ← NEW
+            'audio'           => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
+            'custom_logo'     => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
         ]);
 
-        // Handle audio upload (Pro feature only)
         $audioPath = null;
         if ($request->hasFile('audio') && Auth::user()->isPro()) {
-            $audioFile = $request->file('audio');
-            $audioPath = $audioFile->store('audio', 'public');
+            $audioPath = $request->file('audio')->store('audio', 'public');
         }
 
-        // Handle custom logo upload (Studio feature only)
         $logoPath = null;
         if ($request->hasFile('custom_logo') && Auth::user()->plan === 'studio') {
-            $logoFile = $request->file('custom_logo');
-            $logoPath = $logoFile->store('branding', 'public');
+            $logoPath = $request->file('custom_logo')->store('branding', 'public');
         }
 
-        // Create the gallery linked to the auth user
-        $gallery = $request->user()->galleries()->create([
-            'title' => $validated['title'],
-            'description' => $validated['description'],
-            'wall_texture' => $validated['wall_texture'],
-            'frame_style' => $validated['frame_style'],
-            'lighting_preset' => $validated['lighting_preset'],
-            'floor_material' => $validated['floor_material'],
-            'audio_path' => $audioPath,
+        $request->user()->galleries()->create([
+            'title'            => $validated['title'],
+            'description'      => $validated['description'],
+            'wall_texture'     => $validated['wall_texture'],
+            'frame_style'      => $validated['frame_style'],
+            'lighting_preset'  => $validated['lighting_preset'],
+            'floor_material'   => $validated['floor_material'],
+            'room_layout'      => $validated['room_layout'],   // ← NEW
+            'audio_path'       => $audioPath,
             'custom_logo_path' => $logoPath,
         ]);
 
-        // Redirect to index
         return redirect()->route('admin.galleries.index')
             ->with('status', 'Gallery created! You can now upload images.');
     }
 
-    /**
-     * Display the specified gallery.
-     */
     public function show(Gallery $gallery)
     {
-        // Redirect to edit for now
         return redirect()->route('admin.galleries.edit', $gallery);
     }
 
-    /**
-     * Show the form for editing the specified gallery.
-     */
     public function edit(Gallery $gallery): View
     {
-        // Security check
         if ($gallery->user_id !== Auth::id()) {
             abort(403);
         }
-        
-        // Eager load images
+
         $gallery->load('images');
-        
+
         return view('admin.galleries.edit', compact('gallery'));
     }
 
-    /**
-     * Update the specified gallery in storage.
-     */
     public function update(Request $request, Gallery $gallery): RedirectResponse
     {
         if ($gallery->user_id !== Auth::id()) {
@@ -124,33 +98,28 @@ class GalleryController extends Controller
         }
 
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'wall_texture' => 'required|in:white,concrete,brick,wood',
-            'frame_style' => 'required|in:modern,classic,minimal',
+            'title'           => 'required|string|max:255',
+            'description'     => 'nullable|string|max:1000',
+            'wall_texture'    => 'required|in:white,concrete,brick,wood',
+            'frame_style'     => 'required|in:modern,classic,minimal',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
-            'floor_material' => 'required|in:wood,marble,concrete',
-            'audio' => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
-            'custom_logo' => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
+            'floor_material'  => 'required|in:wood,marble,concrete',
+            'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',  // ← NEW
+            'audio'           => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
+            'custom_logo'     => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
         ]);
 
-        // Handle audio upload (Pro feature only)
         if ($request->hasFile('audio') && Auth::user()->isPro()) {
-            // Delete old audio if exists
             if ($gallery->audio_path) {
                 \Storage::disk('public')->delete($gallery->audio_path);
             }
-            // Store new audio
             $validated['audio_path'] = $request->file('audio')->store('audio', 'public');
         }
 
-        // Handle custom logo upload (Studio feature only)
         if ($request->hasFile('custom_logo') && Auth::user()->plan === 'studio') {
-            // Delete old logo if exists
             if ($gallery->custom_logo_path) {
                 \Storage::disk('public')->delete($gallery->custom_logo_path);
             }
-            // Store new logo
             $validated['custom_logo_path'] = $request->file('custom_logo')->store('branding', 'public');
         }
 
@@ -159,106 +128,76 @@ class GalleryController extends Controller
         return back()->with('status', 'Gallery settings updated!');
     }
 
-    /**
-     * Remove the specified gallery from storage.
-     */
     public function destroy(Gallery $gallery): RedirectResponse
     {
         if ($gallery->user_id !== Auth::id()) {
             abort(403);
         }
-        
-        // TODO: Cleanup files via ImageProcessingService
+
         $gallery->delete();
-        
+
         return redirect()->route('admin.galleries.index')
             ->with('status', 'Gallery deleted.');
     }
 
-    /**
-     * AJAX: Upload audio file
-     */
     public function uploadAudio(Request $request, Gallery $gallery)
     {
-        // Security check
         if ($gallery->user_id !== Auth::id()) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
-        
-        // Pro feature only
+
         if (!Auth::user()->isPro()) {
             return response()->json(['success' => false, 'message' => 'Upgrade to Pro to use background music'], 403);
         }
-        
-        // Validate
-        $request->validate([
-            'audio' => 'required|file|mimes:mp3,wav,m4a|max:10240', // Max 10MB
-        ]);
-        
+
+        $request->validate(['audio' => 'required|file|mimes:mp3,wav,m4a|max:10240']);
+
         try {
-            // Delete old audio if exists
             if ($gallery->audio_path) {
                 \Storage::disk('public')->delete($gallery->audio_path);
             }
-            
-            // Store new audio
+
             $audioPath = $request->file('audio')->store('audio', 'public');
-            
-            // Update gallery
             $gallery->update(['audio_path' => $audioPath]);
-            
+
             return response()->json([
-                'success' => true,
-                'message' => 'Background music uploaded successfully!',
+                'success'   => true,
+                'message'   => 'Background music uploaded successfully!',
                 'audio_url' => asset('storage/' . $audioPath),
-                'filename' => basename($audioPath),
+                'filename'  => basename($audioPath),
             ]);
-            
         } catch (\Exception $e) {
             \Log::error('Audio upload failed: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Upload failed. Please try again.'], 500);
         }
     }
 
-    /**
-     * AJAX: Upload custom logo
-     */
     public function uploadLogo(Request $request, Gallery $gallery)
     {
-        // Security check
         if ($gallery->user_id !== Auth::id()) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
-        
-        // Studio feature only
+
         if (Auth::user()->plan !== 'studio') {
             return response()->json(['success' => false, 'message' => 'Upgrade to Studio to use custom branding'], 403);
         }
-        
-        // Validate
-        $request->validate([
-            'custom_logo' => 'required|file|mimes:png,svg,jpg,jpeg|max:2048', // Max 2MB
-        ]);
-        
+
+        $request->validate(['custom_logo' => 'required|file|mimes:png,svg,jpg,jpeg|max:2048']);
+
         try {
-            // Delete old logo if exists
             if ($gallery->custom_logo_path) {
                 \Storage::disk('public')->delete($gallery->custom_logo_path);
             }
-            
-            // Store new logo
+
             $logoPath = $request->file('custom_logo')->store('branding', 'public');
-            
-            // Update gallery
             $gallery->update(['custom_logo_path' => $logoPath]);
-            
+
             return response()->json([
-                'success' => true,
-                'message' => 'Custom logo uploaded successfully!',
+                'success'  => true,
+                'message'  => 'Custom logo uploaded successfully!',
                 'logo_url' => asset('storage/' . $logoPath),
                 'filename' => basename($logoPath),
             ]);
-            
         } catch (\Exception $e) {
             \Log::error('Logo upload failed: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Upload failed. Please try again.'], 500);
