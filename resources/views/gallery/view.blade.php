@@ -517,29 +517,6 @@
             transition: stroke-dashoffset 0.1s linear;
         }
 
-        /* Tour badge on entrance curtain */
-        #curtain-tour-btn {
-            display: inline-flex; align-items: center; gap: 10px;
-            padding: 0.9rem 2.2rem;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 9999px;
-            color: rgba(255,255,255,0.8);
-            background: rgba(255,255,255,0.06);
-            cursor: pointer;
-            font-size: 1rem; font-weight: 500; letter-spacing: 0.04em;
-            transition: all 0.25s ease;
-            margin-top: 1rem;
-            opacity: 0.5; pointer-events: none;
-        }
-        #curtain-tour-btn.ready {
-            opacity: 1; pointer-events: auto;
-        }
-        #curtain-tour-btn:hover {
-            background: rgba(139,92,246,0.18);
-            border-color: rgba(139,92,246,0.5);
-            color: white;
-        }
-
         /* In-gallery T key hint */
         #tour-trigger-btn {
             position: absolute; bottom: 6px; left: 50%;
@@ -623,16 +600,8 @@
                 </svg>
             </button>
             
-            <!-- Guided Tour button -->
-            <button id="curtain-tour-btn">
-                <svg style="width:1.1rem;height:1.1rem;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-                GUIDED TOUR
-            </button>
-
-            <p style="margin-top: 1.5rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">
-                Use WASD to move • Mouse to look around • Click for full control
+            <p style="margin-top: 2rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">
+                Use WASD to move • Mouse to look around • Press T for guided tour
             </p>
         </div>
     </div>
@@ -700,8 +669,18 @@
             </p>
         </div>
 
-        <!-- Speed Indicator -->
-        <div class="absolute top-6 right-6">
+        <!-- Speed Indicator + Tour Button -->
+        <div class="absolute top-6 right-6 flex items-center gap-3">
+            <button id="in-gallery-tour-btn"
+                onclick="startGuidedTour()"
+                style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:rgba(255,255,255,0.75);font-size:0.8rem;font-weight:500;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);"
+                onmouseenter="this.style.borderColor='rgba(139,92,246,0.6)';this.style.color='white'"
+                onmouseleave="this.style.borderColor='rgba(255,255,255,0.15)';this.style.color='rgba(255,255,255,0.75)'">
+                <svg style="width:13px;height:13px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                TOUR
+            </button>
             <div class="bg-black/70 backdrop-blur-md px-4 py-2 rounded-lg border border-white/10" id="speed-indicator">
                 <p class="text-white/90 text-sm font-mono">
                     Speed: <span class="text-blue-400 font-bold" id="speed-value">1x</span>
@@ -2230,66 +2209,62 @@
             }
 
             _placeArtworksLShape(data) {
-                // Wing A: X∈[0..wingW], Z∈[-lenA/2..lenA/2]  (full vertical strip)
-                // Wing B: X∈[wingW..wingW+lenB], Z∈[jZ..lenA/2]  (jZ = lenA/2 - wingW)
-                //
-                // Wing A artwork walls:
-                //   Left wall  (X=0)    — artworks face inward (+X), run top→bottom (Z: -lenA/2 → jZ-spacing)
-                //   Right wall (X=wingW)— artworks face inward (-X), run top→bottom (Z: -lenA/2 → jZ-spacing)
-                //   BOTH walls stop before jZ so no artwork floats in the open corner passage.
-                //
-                // Wing B artwork walls:
-                //   Top wall    (Z=jZ)      — artworks face inward (+Z), run left→right (X: wingW → end)
-                //   Bottom wall (Z=lenA/2)  — artworks face inward (-Z), run left→right (X: wingW → end)
-
-                const { wingW, lenA, lenB, jZ, countA, countB } = this._layoutMeta;
+                // Strategy: fill Wing A walls slot-by-slot alternating left/right.
+                // Once a slot Z would land in the open passage (>= jZ), spill ALL
+                // remaining artworks to Wing B. This guarantees zero dropped artworks
+                // regardless of image count.
+                const { wingW, lenA, lenB, jZ } = this._layoutMeta;
                 const spacing  = CONFIG.room.artworkSpacing;
                 const eyeLevel = CONFIG.camera.height;
-                const imgsA    = this.artworkImages.slice(0, countA);
-                const imgsB    = this.artworkImages.slice(countA);
-                const perSideA = Math.ceil(imgsA.length / 2);
-                const perSideB = Math.ceil(imgsB.length / 2);
+                const all      = this.artworkImages;
 
-                // Wing A walls — both run from top of Wing A downward, stopping at jZ
-                const wallsA = [
-                    // Left wall: X=0.2, starts at Z=-lenA/2+spacing, goes toward +Z (down)
-                    { start:[0.2,       eyeLevel, -lenA/2 + spacing], dir:[0,0,1],  normal:[1,0,0]  },
-                    // Right wall: X=wingW-0.2, starts at Z=-lenA/2+spacing, goes toward +Z (down)
-                    { start:[wingW-0.2, eyeLevel, -lenA/2 + spacing], dir:[0,0,1],  normal:[-1,0,0] },
+                // Wing A: two walls (left X=0.2, right X=wingW-0.2), alternating
+                // Both run top→bottom (Z increases). Stop before the open passage at jZ.
+                const wA = [
+                    { x: 0.2,       normal: [1,0,0]  },
+                    { x: wingW-0.2, normal: [-1,0,0] },
                 ];
-                let wi = 0, pos = 0;
-                imgsA.forEach(img => {
-                    const wall = wallsA[wi];
-                    const candidateZ = wall.start[2] + pos * spacing;
-                    // Skip any artwork that would land in the open corner passage (past jZ - spacing)
-                    if (candidateZ < jZ - spacing / 2) {
-                        const { group } = this._makeArtworkGroup(img, data);
-                        group.position.set(wall.start[0], wall.start[1], candidateZ);
-                        group.lookAt(group.position.x + wall.normal[0], group.position.y, group.position.z + wall.normal[2]);
-                        this._placeAndRegister(group, data);
+                const zStart   = -lenA / 2 + spacing;
+                const zLimit   = jZ - spacing / 2; // last safe Z before passage
+
+                let spillFrom = all.length; // index where Wing B starts (default = all in A)
+                let sideA = 0, rowA = 0;
+                for (let i = 0; i < all.length; i++) {
+                    const candidateZ = zStart + rowA * spacing;
+                    if (candidateZ >= zLimit) {
+                        spillFrom = i;
+                        break;
                     }
-                    pos++;
-                    if (pos >= perSideA) { pos = 0; wi = Math.min(wi + 1, 1); }
-                });
-
-                // Wing B walls — run from left (X=wingW+spacing) rightward along Z=jZ and Z=lenA/2
-                const wallsB = [
-                    { start:[wingW + spacing, eyeLevel, jZ + 0.2],      dir:[1,0,0], normal:[0,0,1]  },
-                    { start:[wingW + spacing, eyeLevel, lenA/2 - 0.2],  dir:[1,0,0], normal:[0,0,-1] },
-                ];
-                wi = 0; pos = 0;
-                imgsB.forEach(img => {
-                    const wall = wallsB[wi];
-                    const { group } = this._makeArtworkGroup(img, data);
-                    group.position.set(
-                        wall.start[0] + pos * spacing,
-                        wall.start[1],
-                        wall.start[2]
-                    );
-                    group.lookAt(group.position.x + wall.normal[0], group.position.y, group.position.z + wall.normal[2]);
+                    const w = wA[sideA];
+                    const { group } = this._makeArtworkGroup(all[i], data);
+                    group.position.set(w.x, eyeLevel, candidateZ);
+                    group.lookAt(w.x + w.normal[0], eyeLevel, candidateZ + w.normal[2]);
                     this._placeAndRegister(group, data);
-                    pos++;
-                    if (pos >= perSideB) { pos = 0; wi = Math.min(wi + 1, 1); }
+
+                    sideA = 1 - sideA; // alternate left/right
+                    if (sideA === 0) rowA++; // advance row after both sides done
+                }
+
+                // Wing B: all remaining artworks (spillover from Wing A + pre-allocated countB)
+                const remainingImgs = all.slice(spillFrom);
+                if (remainingImgs.length === 0) return;
+
+                const wB = [
+                    { z: jZ + 0.2,      normal: [0,0,1]  }, // top wall, faces +Z (inward)
+                    { z: lenA/2 - 0.2,  normal: [0,0,-1] }, // bottom wall, faces -Z (inward)
+                ];
+                const xStart = wingW + spacing;
+                let sideB = 0, rowB = 0;
+                remainingImgs.forEach(img => {
+                    const w = wB[sideB];
+                    const candidateX = xStart + rowB * spacing;
+                    const { group } = this._makeArtworkGroup(img, data);
+                    group.position.set(candidateX, eyeLevel, w.z);
+                    group.lookAt(candidateX + w.normal[0], eyeLevel, w.z + w.normal[2]);
+                    this._placeAndRegister(group, data);
+
+                    sideB = 1 - sideB;
+                    if (sideB === 0) rowB++;
                 });
             }
 
@@ -3440,9 +3415,7 @@
                     // Add pulse animation to button
                     enterBtn.style.animation = 'pulse 2s ease-in-out infinite';
 
-                    // Enable curtain guided tour button
-                    const tourBtn = document.getElementById('curtain-tour-btn');
-                    if (tourBtn) tourBtn.classList.add('ready');
+
                 }
             }
 
@@ -3459,11 +3432,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             console.log('🎬 Starting silent preload of 3D gallery...');
             galleryScene = new GalleryScene();
-        });
-
-        // Curtain Guided Tour button
-        document.getElementById('curtain-tour-btn').addEventListener('click', () => {
-            startGuidedTour();
         });
 
         // ✅ ENTRANCE BUTTON: Resume audio + fade to 3D
@@ -3787,7 +3755,7 @@
             guidedTour.start(0);
         }
 
-        // T key — start/stop tour while inside gallery
+        // Tour keyboard controls
         document.addEventListener('keydown', (e) => {
             if (e.code === 'KeyT') {
                 if (guidedTour && guidedTour.active) {
@@ -3795,8 +3763,36 @@
                 } else {
                     startGuidedTour();
                 }
+                return;
+            }
+            // Arrow keys — only active during guided tour
+            if (guidedTour && guidedTour.active) {
+                if (e.code === 'ArrowRight' || e.code === 'ArrowDown') {
+                    e.preventDefault();
+                    guidedTour.next();
+                } else if (e.code === 'ArrowLeft' || e.code === 'ArrowUp') {
+                    e.preventDefault();
+                    guidedTour.prev();
+                } else if (e.code === 'Space') {
+                    e.preventDefault();
+                    guidedTour.togglePause();
+                }
             }
         });
+
+        // Hide in-gallery tour button while tour is active, show when stopped
+        const _origTourStart = GuidedTour.prototype._enterTourMode;
+        GuidedTour.prototype._enterTourMode = function() {
+            _origTourStart.call(this);
+            const btn = document.getElementById('in-gallery-tour-btn');
+            if (btn) btn.style.display = 'none';
+        };
+        const _origTourStop = GuidedTour.prototype.stop;
+        GuidedTour.prototype.stop = function() {
+            _origTourStop.call(this);
+            const btn = document.getElementById('in-gallery-tour-btn');
+            if (btn) btn.style.display = 'flex';
+        };
 
     </script>
 </body>
