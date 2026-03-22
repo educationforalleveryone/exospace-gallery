@@ -829,6 +829,7 @@
                 this._skipHdri = false;
                 this._maxAnisotropy = undefined; // undefined = auto (high-end); 1 = low-end
                 this._lowEndFrameSkip = false;   // toggled each frame for 30fps cap
+                this._lShapeBounds = null;       // set only for l-shape layout
                 
                 // ✨ NEW: SFX System Properties
                 this.sfx = {}; // Stores all sound effect audio objects
@@ -1619,82 +1620,142 @@
 
             // ─────────────────────────────────────────────
             // LAYOUT: L-SHAPE
-            // Wing A (vertical) + Wing B (horizontal) joined at top-left corner.
+            //
+            // Top-down (X/Z plane):
+            //
+            //  Z=-lenA/2 ┌──────┐
+            //             │      │  Wing A (vertical)
+            //             │      │  X: 0..wingW
+            //  Z=jZ      ─┤      ├──────────────────┐
+            //             │      │                   │  Wing B (horizontal)
+            //  Z=lenA/2  └──────┴──────────────────┘  X: wingW..wingW+lenB
+            //             X=0   X=wingW            X=wingW+lenB
+            //
+            // jZ = lenA/2 - wingW  (junction Z — where wings meet)
             // ─────────────────────────────────────────────
             createRoomLShape(data) {
                 const imageCount = data.imageCount;
                 const spacing    = CONFIG.room.artworkSpacing;
                 const wallHeight = CONFIG.room.wallHeight;
-                const wingW      = 6;
+                const wd         = CONFIG.room.wallDepth;
+                const wingW      = 6;  // width of each wing (corridor width)
 
+                // Split images 60/40 across the two wings
                 const countA = Math.ceil(imageCount * 0.6);
                 const countB = imageCount - countA;
-                const lenA   = Math.max(10, (Math.ceil(countA / 2) * spacing) + spacing);
-                const lenB   = Math.max(10, (Math.ceil(countB / 2) * spacing) + spacing);
+
+                // Wing lengths — enough wall space for their share of images
+                const lenA = Math.max(12, (Math.ceil(countA / 2) * spacing) + spacing);
+                const lenB = Math.max(12, (Math.ceil(countB / 2) * spacing) + spacing);
+
+                // Junction Z coordinate (bottom of Wing A = top of Wing B)
+                const jZ = lenA / 2 - wingW;
+
+                // Wing centres (for floor/ceiling panels and lights)
+                const aCX = wingW / 2,          aCZ = 0;
+                const bCX = wingW + lenB / 2,   bCZ = lenA / 2 - wingW / 2;
 
                 const wallMat  = this.getWallMaterial(data.wall_texture);
                 const floorMat = this.getFloorMaterial(data.floor_material);
-                if (wallMat.map) { wallMat.map.repeat.set(lenA / 2.5, wallHeight / 2.5); wallMat.map.needsUpdate = true; }
+                if (wallMat.map) {
+                    wallMat.map.wrapS = wallMat.map.wrapT = THREE.RepeatWrapping;
+                    wallMat.map.repeat.set(lenA / 2.5, wallHeight / 2.5);
+                    wallMat.map.needsUpdate = true;
+                }
+                if (floorMat.map) {
+                    floorMat.map.wrapS = floorMat.map.wrapT = THREE.RepeatWrapping;
+                    floorMat.map.needsUpdate = true;
+                }
 
-                // Wing A: vertical strip centred at x = -(lenB/2)
-                const aX = -(lenB / 2);
-                // Wing B: horizontal strip at the bottom of wing A
-                const bZ = lenA / 2 - wingW / 2;
+                const ceilMatA = this.isLowEnd
+                    ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling })
+                    : new THREE.MeshStandardMaterial({ color: this.lightingConfig.ceiling, roughness: 0.5, metalness: 0.0 });
+                const ceilMatB = ceilMatA.clone ? ceilMatA.clone() : ceilMatA;
 
-                const addFloor = (cx, cz, w, d) => {
-                    const f = new THREE.Mesh(new THREE.PlaneGeometry(w, d), floorMat);
-                    f.rotation.x = -Math.PI / 2;
-                    f.position.set(cx, 0, cz);
-                    f.receiveShadow = !this.isLowEnd;
-                    this.scene.add(f);
-
-                    const cm2 = this.isLowEnd
-                        ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling })
-                        : new THREE.MeshStandardMaterial({ color: this.lightingConfig.ceiling, roughness: 0.5, metalness: 0.0 });
-                    const c2 = new THREE.Mesh(new THREE.PlaneGeometry(w, d), cm2);
-                    c2.rotation.x = Math.PI / 2;
-                    c2.position.set(cx, wallHeight, cz);
-                    this.scene.add(c2);
+                // ── Floor + Ceiling panels ──────────────────────────────────
+                const addPanel = (cx, cz, w, d, mat, isFloor) => {
+                    if (floorMat.map && isFloor) {
+                        floorMat.map.repeat.set(w / 2, d / 2);
+                        floorMat.map.needsUpdate = true;
+                    }
+                    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+                    mesh.rotation.x = isFloor ? -Math.PI / 2 : Math.PI / 2;
+                    mesh.position.set(cx, isFloor ? 0 : wallHeight, cz);
+                    mesh.receiveShadow = !this.isLowEnd;
+                    this.scene.add(mesh);
                 };
-                addFloor(aX, 0,  wingW, lenA);        // Wing A floor
-                addFloor(lenB / 2 - wingW / 2, bZ, lenB, wingW); // Wing B floor — starts at aX + wingW
+                addPanel(aCX, aCZ, wingW, lenA, floorMat, true);   // Wing A floor
+                addPanel(bCX, bCZ, lenB,  wingW, floorMat, true);  // Wing B floor
+                addPanel(aCX, aCZ, wingW, lenA, ceilMatA, false);  // Wing A ceiling
+                addPanel(bCX, bCZ, lenB,  wingW, ceilMatB, false); // Wing B ceiling
 
-                const sharedWallGeo = new THREE.BoxGeometry(1, wallHeight, CONFIG.room.wallDepth);
-                const addWall = (px, pz, ry, scale) => {
-                    const m = new THREE.Mesh(sharedWallGeo, wallMat);
-                    m.scale.set(scale, 1, 1);
-                    m.position.set(px, wallHeight / 2, pz);
+                // ── Walls ───────────────────────────────────────────────────
+                // addWall(centreX, centreZ, rotationY, length)
+                // All walls are BoxGeometry(length, wallHeight, wallDepth).
+                const wallGeo = new THREE.BoxGeometry(1, wallHeight, wd);
+                const addWall = (cx, cz, ry, len) => {
+                    const m = new THREE.Mesh(wallGeo, wallMat);
+                    m.scale.set(len, 1, 1);
+                    m.position.set(cx, wallHeight / 2, cz);
                     m.rotation.y = ry;
                     m.receiveShadow = !this.isLowEnd;
                     m.castShadow    = !this.isLowEnd;
                     this.scene.add(m);
                 };
 
-                // Wing A perimeter
-                addWall(aX - wingW/2, 0,          Math.PI/2,  lenA);      // left wall
-                addWall(aX,          -lenA/2,      0,          wingW);     // top wall
-                addWall(aX + wingW/2, -lenA/2 + (lenA - wingW)/2, Math.PI/2, lenA - wingW); // right wall (upper half)
-                // Wing B perimeter
-                addWall(lenB - wingW/2, bZ,         Math.PI/2,  wingW);    // right end wall
-                addWall(lenB/2 - wingW/2, bZ + wingW/2, Math.PI, lenB);   // bottom wall
-                addWall(aX + wingW/2, bZ,          Math.PI/2,  wingW);    // left end of wing B
-                // Inner corner — top of Wing B (shares with Wing A right wall)
-                addWall((aX + wingW/2 + lenB/2) / 2, bZ - wingW/2, 0, lenB - wingW/2); // top of wing B
+                const H  = Math.PI / 2;
+                const PI = Math.PI;
 
+                // Wing A — left outer wall  (X=0, full length)
+                addWall(0,            aCZ,           H,  lenA);
+                // Wing A — top wall         (Z=-lenA/2, full width)
+                addWall(aCX,         -lenA / 2,      0,  wingW);
+                // Wing A — right wall upper (X=wingW, from top to junction)
+                //   centre Z = midpoint of [-lenA/2 .. jZ]
+                const upperH = lenA - wingW; // height above the junction
+                addWall(wingW,        -lenA/2 + upperH/2,  H,  upperH);
+                // Wing B — top wall         (Z=jZ, from junction to right end)
+                //   centre X = wingW + lenB/2
+                addWall(wingW + lenB / 2,  jZ,         0,  lenB);
+                // Wing B — right end wall   (X=wingW+lenB, full wing width)
+                addWall(wingW + lenB,      bCZ,         H,  wingW);
+                // Wing B — bottom wall      (Z=lenA/2, full width A+B)
+                addWall((wingW + lenB) / 2, lenA / 2,  PI, wingW + lenB);
+                // NOTE: No wall at the inner corner (X=wingW, Z∈[jZ..lenA/2]) — that is the open passage.
+
+                // ── Lighting ────────────────────────────────────────────────
                 if (!this.isLowEnd) {
-                    const l1 = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 2.5, lenA * 0.8);
-                    l1.position.set(aX, wallHeight - 0.3, 0);
-                    l1.castShadow = false;
-                    this.scene.add(l1);
-                    const l2 = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 2.5, lenB * 0.8);
-                    l2.position.set(lenB/2, wallHeight - 0.3, bZ);
-                    l2.castShadow = false;
-                    this.scene.add(l2);
+                    const mkLight = (cx, cz) => {
+                        const l = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 2.5, 14);
+                        l.position.set(cx, wallHeight - 0.3, cz);
+                        l.castShadow = false;
+                        this.scene.add(l);
+                    };
+                    mkLight(aCX, -lenA / 4);   // upper half of Wing A
+                    mkLight(aCX,  lenA / 4);   // lower half of Wing A
+                    mkLight(bCX,  bCZ);        // Wing B
                 }
 
-                this.camera.position.set(aX, CONFIG.camera.height, -lenA * 0.2);
-                this.roomBounds = { minX: aX - wingW/2 + 0.5, maxX: lenB - wingW/2 - 0.5, minZ: -lenA/2 + 0.5, maxZ: bZ + wingW - 0.5 };
-                this._layoutMeta = { type: 'l-shape', aX, bZ, wingW, lenA, lenB, countA, countB };
+                // ── Camera start ─────────────────────────────────────────────
+                // Start near the top of Wing A, looking down
+                this.camera.position.set(aCX, CONFIG.camera.height, -lenA / 2 + 1.5);
+
+                // ── L-shaped collision ───────────────────────────────────────
+                // Store both wing bounding boxes; collision checked with isInLShape()
+                const margin = 0.5;
+                this._lShapeBounds = {
+                    // Wing A
+                    a: { minX: 0 + margin, maxX: wingW - margin, minZ: -lenA/2 + margin, maxZ: lenA/2 - margin },
+                    // Wing B
+                    b: { minX: wingW + margin, maxX: wingW + lenB - margin, minZ: jZ + margin, maxZ: lenA/2 - margin }
+                };
+                // Also keep a loose outer box for roomBounds (used by raycaster etc.)
+                this.roomBounds = {
+                    minX: 0, maxX: wingW + lenB,
+                    minZ: -lenA / 2, maxZ: lenA / 2
+                };
+
+                this._layoutMeta = { type: 'l-shape', wingW, lenA, lenB, jZ, aCX, aCZ, bCX, bCZ, countA, countB };
             }
 
             // ─────────────────────────────────────────────
@@ -1957,7 +2018,10 @@
             }
 
             _placeArtworksLShape(data) {
-                const { aX, bZ, wingW, lenA, lenB, countA, countB } = this._layoutMeta;
+                // Coordinates match createRoomLShape:
+                //   Wing A: X∈[0..wingW], Z∈[-lenA/2..lenA/2]
+                //   Wing B: X∈[wingW..wingW+lenB], Z∈[jZ..lenA/2]  where jZ = lenA/2 - wingW
+                const { wingW, lenA, lenB, jZ, aCX, bCX, bCZ, countA, countB } = this._layoutMeta;
                 const spacing  = CONFIG.room.artworkSpacing;
                 const eyeLevel = CONFIG.camera.height;
                 const imgsA    = this.artworkImages.slice(0, countA);
@@ -1965,32 +2029,46 @@
                 const perSideA = Math.ceil(imgsA.length / 2);
                 const perSideB = Math.ceil(imgsB.length / 2);
 
+                // Wing A: left wall (X=0+0.2, facing +X) and right wall (X=wingW-0.2, facing -X)
+                // Artworks run along Z from top to bottom
                 const wallsA = [
-                    { start:[aX-wingW/2+0.2, eyeLevel,  lenA/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
-                    { start:[aX+wingW/2-0.2, eyeLevel, -lenA/2+spacing], dir:[0,0, 1], normal:[-1,0,0] },
+                    { start:[0.2,         eyeLevel,  lenA/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
+                    { start:[wingW-0.2,   eyeLevel, -lenA/2+spacing], dir:[0,0, 1], normal:[-1,0,0] },
                 ];
-                let wi=0, pos=0;
+                let wi = 0, pos = 0;
                 imgsA.forEach(img => {
                     const wall = wallsA[wi];
                     const { group } = this._makeArtworkGroup(img, data);
-                    group.position.set(wall.start[0]+wall.dir[0]*pos*spacing, wall.start[1], wall.start[2]+wall.dir[2]*pos*spacing);
-                    group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
+                    group.position.set(
+                        wall.start[0] + wall.dir[0] * pos * spacing,
+                        wall.start[1],
+                        wall.start[2] + wall.dir[2] * pos * spacing
+                    );
+                    group.lookAt(group.position.x + wall.normal[0], group.position.y, group.position.z + wall.normal[2]);
                     this._placeAndRegister(group, data);
-                    pos++; if (pos >= perSideA) { pos=0; wi=Math.min(wi+1,1); }
+                    pos++;
+                    if (pos >= perSideA) { pos = 0; wi = Math.min(wi + 1, 1); }
                 });
 
+                // Wing B: top wall (Z=jZ+0.2, facing +Z) and bottom wall (Z=lenA/2-0.2, facing -Z)
+                // Artworks run along X from junction to right end
                 const wallsB = [
-                    { start:[aX+wingW/2+spacing,   eyeLevel, bZ+wingW/2-0.2], dir:[1,0,0],  normal:[0,0,-1] },
-                    { start:[lenB/2-spacing,        eyeLevel, bZ-wingW/2+0.2], dir:[-1,0,0], normal:[0,0,1]  },
+                    { start:[wingW+spacing, eyeLevel, jZ+0.2],       dir:[1,0,0],  normal:[0,0,1]  },
+                    { start:[wingW+spacing, eyeLevel, lenA/2-0.2],   dir:[1,0,0],  normal:[0,0,-1] },
                 ];
-                wi=0; pos=0;
+                wi = 0; pos = 0;
                 imgsB.forEach(img => {
                     const wall = wallsB[wi];
                     const { group } = this._makeArtworkGroup(img, data);
-                    group.position.set(wall.start[0]+wall.dir[0]*pos*spacing, wall.start[1], wall.start[2]+wall.dir[2]*pos*spacing);
-                    group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
+                    group.position.set(
+                        wall.start[0] + wall.dir[0] * pos * spacing,
+                        wall.start[1],
+                        wall.start[2] + wall.dir[2] * pos * spacing
+                    );
+                    group.lookAt(group.position.x + wall.normal[0], group.position.y, group.position.z + wall.normal[2]);
                     this._placeAndRegister(group, data);
-                    pos++; if (pos >= perSideB) { pos=0; wi=Math.min(wi+1,1); }
+                    pos++;
+                    if (pos >= perSideB) { pos = 0; wi = Math.min(wi + 1, 1); }
                 });
             }
 
@@ -2133,6 +2211,48 @@
                 }
             }
 
+            // ─── Unified collision enforcement for all room shapes ────────────
+            _enforceRoomBounds() {
+                const pos = this.camera.position;
+                const prevX = pos.x, prevZ = pos.z;
+
+                if (this._lShapeBounds) {
+                    // L-shape: player must be inside Wing A OR Wing B
+                    const { a, b } = this._lShapeBounds;
+                    const inA = pos.x >= a.minX && pos.x <= a.maxX && pos.z >= a.minZ && pos.z <= a.maxZ;
+                    const inB = pos.x >= b.minX && pos.x <= b.maxX && pos.z >= b.minZ && pos.z <= b.maxZ;
+
+                    if (!inA && !inB) {
+                        // Outside both wings — push back to the nearest valid point
+                        // Find closest point in A
+                        const cAx = Math.max(a.minX, Math.min(a.maxX, pos.x));
+                        const cAz = Math.max(a.minZ, Math.min(a.maxZ, pos.z));
+                        const dA  = (pos.x - cAx) ** 2 + (pos.z - cAz) ** 2;
+                        // Find closest point in B
+                        const cBx = Math.max(b.minX, Math.min(b.maxX, pos.x));
+                        const cBz = Math.max(b.minZ, Math.min(b.maxZ, pos.z));
+                        const dB  = (pos.x - cBx) ** 2 + (pos.z - cBz) ** 2;
+                        // Push to whichever wing is closer
+                        if (dA <= dB) { pos.x = cAx; pos.z = cAz; }
+                        else          { pos.x = cBx; pos.z = cBz; }
+                    }
+                } else if (this._rotundaRadius) {
+                    // Rotunda: keep inside the circle
+                    const r = this._rotundaRadius - 0.5;
+                    const d = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+                    if (d > r) { pos.x = (pos.x / d) * r; pos.z = (pos.z / d) * r; }
+                } else if (this.roomBounds) {
+                    // Rectangle (square, corridor): axis-aligned clamp
+                    const b = this.roomBounds;
+                    pos.x = Math.max(b.minX, Math.min(b.maxX, pos.x));
+                    pos.z = Math.max(b.minZ, Math.min(b.maxZ, pos.z));
+                }
+
+                // Zero velocity on axes where we were pushed back
+                if (pos.x !== prevX) this.velocity.x = 0;
+                if (pos.z !== prevZ) this.velocity.z = 0;
+            }
+
             // SECTION 6: Replace updateMovement() method
             updateMovement() {
                 if (!this.controls.isLocked || this.isInspecting) return;
@@ -2212,32 +2332,7 @@
                 // ═══════════════════════════════════════════════════════════════
                 // STEP 5: Room Boundaries (Collision)
                 // ═══════════════════════════════════════════════════════════════
-                if (this.roomBounds) {
-                    const margin = 0.5;
-                    const prevX = this.camera.position.x;
-                    const prevZ = this.camera.position.z;
-                    
-                    if (this.camera.position.x < this.roomBounds.minX + margin) {
-                        this.camera.position.x = this.roomBounds.minX + margin;
-                    }
-                    if (this.camera.position.x > this.roomBounds.maxX - margin) {
-                        this.camera.position.x = this.roomBounds.maxX - margin;
-                    }
-                    if (this.camera.position.z < this.roomBounds.minZ + margin) {
-                        this.camera.position.z = this.roomBounds.minZ + margin;
-                    }
-                    if (this.camera.position.z > this.roomBounds.maxZ - margin) {
-                        this.camera.position.z = this.roomBounds.maxZ - margin;
-                    }
-                    
-                    // If we hit a wall, zero out velocity in that direction
-                    if (this.camera.position.x !== prevX) {
-                        this.velocity.x = 0;
-                    }
-                    if (this.camera.position.z !== prevZ) {
-                        this.velocity.z = 0;
-                    }
-                }
+                this._enforceRoomBounds();
 
                 this.camera.position.y = CONFIG.camera.height;
                 
@@ -3062,17 +3157,7 @@
                 }
                 
                 // Room boundaries
-                if (this.roomBounds) {
-                    const margin = 0.5;
-                    this.camera.position.x = Math.max(
-                        this.roomBounds.minX + margin,
-                        Math.min(this.roomBounds.maxX - margin, this.camera.position.x)
-                    );
-                    this.camera.position.z = Math.max(
-                        this.roomBounds.minZ + margin,
-                        Math.min(this.roomBounds.maxZ - margin, this.camera.position.z)
-                    );
-                }
+                this._enforceRoomBounds();
                 
                 this.camera.position.y = CONFIG.camera.height;
                 
