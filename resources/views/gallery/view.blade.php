@@ -1684,10 +1684,12 @@
                     mesh.receiveShadow = !this.isLowEnd;
                     this.scene.add(mesh);
                 };
-                addPanel(aCX, aCZ, wingW, lenA, floorMat, true);   // Wing A floor
-                addPanel(bCX, bCZ, lenB,  wingW, floorMat, true);  // Wing B floor
-                addPanel(aCX, aCZ, wingW, lenA, ceilMatA, false);  // Wing A ceiling
-                addPanel(bCX, bCZ, lenB,  wingW, ceilMatB, false); // Wing B ceiling
+                addPanel(aCX, aCZ,  wingW, lenA,  floorMat, true);   // Wing A floor
+                addPanel(bCX, bCZ,  lenB,  wingW, floorMat, true);  // Wing B floor
+                addPanel(aCX, aCZ,  wingW, lenA,  ceilMatA, false);  // Wing A ceiling (full length — covers corner)
+                // FIX 3: Wing B ceiling starts at X=wingW+lenB/2 (its own rect only).
+                // Wing A ceiling already covers the inner corner square, so no gap.
+                addPanel(bCX, bCZ,  lenB,  wingW, ceilMatB, false); // Wing B ceiling
 
                 // ── Walls ───────────────────────────────────────────────────
                 // addWall(centreX, centreZ, rotationY, length)
@@ -1706,22 +1708,29 @@
                 const H  = Math.PI / 2;
                 const PI = Math.PI;
 
+                // FIX 1: right wall of Wing A only runs from -lenA/2 to jZ (NOT to lenA/2).
+                // The passage is at Z∈[jZ..lenA/2] — no wall there.
+                const upperH = jZ - (-lenA / 2);           // = lenA/2 - wingW
+                const upperMidZ = -lenA / 2 + upperH / 2; // midpoint of the upper segment
+
                 // Wing A — left outer wall  (X=0, full length)
-                addWall(0,            aCZ,           H,  lenA);
+                addWall(0,              aCZ,          H,  lenA);
                 // Wing A — top wall         (Z=-lenA/2, full width)
-                addWall(aCX,         -lenA / 2,      0,  wingW);
-                // Wing A — right wall upper (X=wingW, from top to junction)
-                //   centre Z = midpoint of [-lenA/2 .. jZ]
-                const upperH = lenA - wingW; // height above the junction
-                addWall(wingW,        -lenA/2 + upperH/2,  H,  upperH);
-                // Wing B — top wall         (Z=jZ, from junction to right end)
-                //   centre X = wingW + lenB/2
-                addWall(wingW + lenB / 2,  jZ,         0,  lenB);
-                // Wing B — right end wall   (X=wingW+lenB, full wing width)
-                addWall(wingW + lenB,      bCZ,         H,  wingW);
-                // Wing B — bottom wall      (Z=lenA/2, full width A+B)
-                addWall((wingW + lenB) / 2, lenA / 2,  PI, wingW + lenB);
-                // NOTE: No wall at the inner corner (X=wingW, Z∈[jZ..lenA/2]) — that is the open passage.
+                addWall(aCX,           -lenA / 2,     0,  wingW);
+                // Wing A — right wall (X=wingW, top to junction ONLY — passage below junction stays open)
+                addWall(wingW,          upperMidZ,    H,  upperH);
+
+                // Wing B — top wall  (Z=jZ, runs from junction rightward to end of Wing B)
+                //   FIX 2 (partial): starts at X=wingW, length=lenB, so centre = wingW + lenB/2
+                addWall(wingW + lenB / 2,  jZ,        0,  lenB);
+                // Wing B — right end wall   (X=wingW+lenB)
+                addWall(wingW + lenB,      bCZ,        H,  wingW);
+                // FIX 2: bottom wall covers Wing B only (X: wingW → wingW+lenB).
+                // Previously "(wingW+lenB)/2, length=wingW+lenB" covered X=0..wingW+lenB, sealing Wing A's base.
+                addWall(wingW + lenB / 2,  lenA / 2,  PI, lenB);
+                // Wing A — bottom wall (Z=lenA/2, only the Wing A width, closing that face)
+                addWall(aCX,               lenA / 2,  PI, wingW);
+                // NOTE: inner corner (X=wingW, Z∈[jZ..lenA/2]) is intentionally open — the L-shaped passage.
 
                 // ── Lighting ────────────────────────────────────────────────
                 if (!this.isLowEnd) {
@@ -1744,11 +1753,15 @@
                 // Store both wing bounding boxes; collision checked with isInLShape()
                 const margin = 0.5;
                 this._lShapeBounds = {
-                    // Wing A
+                    // Wing A: full vertical strip including the junction square
                     a: { minX: 0 + margin, maxX: wingW - margin, minZ: -lenA/2 + margin, maxZ: lenA/2 - margin },
-                    // Wing B
+                    // Wing B: horizontal strip (to the right of Wing A)
+                    // minX starts just past Wing A so there is no overlap — the junction square belongs to Wing A
                     b: { minX: wingW + margin, maxX: wingW + lenB - margin, minZ: jZ + margin, maxZ: lenA/2 - margin }
                 };
+                // The _enforceRoomBounds helper checks inA || inB so the player
+                // can be anywhere in Wing A (including the junction square) OR Wing B.
+                // This gives a natural L-shaped walkable area with no invisible walls.
                 // Also keep a loose outer box for roomBounds (used by raycaster etc.)
                 this.roomBounds = {
                     minX: 0, maxX: wingW + lenB,
@@ -2018,10 +2031,19 @@
             }
 
             _placeArtworksLShape(data) {
-                // Coordinates match createRoomLShape:
-                //   Wing A: X∈[0..wingW], Z∈[-lenA/2..lenA/2]
-                //   Wing B: X∈[wingW..wingW+lenB], Z∈[jZ..lenA/2]  where jZ = lenA/2 - wingW
-                const { wingW, lenA, lenB, jZ, aCX, bCX, bCZ, countA, countB } = this._layoutMeta;
+                // Wing A: X∈[0..wingW], Z∈[-lenA/2..lenA/2]  (full vertical strip)
+                // Wing B: X∈[wingW..wingW+lenB], Z∈[jZ..lenA/2]  (jZ = lenA/2 - wingW)
+                //
+                // Wing A artwork walls:
+                //   Left wall  (X=0)    — artworks face inward (+X), run top→bottom (Z: -lenA/2 → jZ-spacing)
+                //   Right wall (X=wingW)— artworks face inward (-X), run top→bottom (Z: -lenA/2 → jZ-spacing)
+                //   BOTH walls stop before jZ so no artwork floats in the open corner passage.
+                //
+                // Wing B artwork walls:
+                //   Top wall    (Z=jZ)      — artworks face inward (+Z), run left→right (X: wingW → end)
+                //   Bottom wall (Z=lenA/2)  — artworks face inward (-Z), run left→right (X: wingW → end)
+
+                const { wingW, lenA, lenB, jZ, countA, countB } = this._layoutMeta;
                 const spacing  = CONFIG.room.artworkSpacing;
                 const eyeLevel = CONFIG.camera.height;
                 const imgsA    = this.artworkImages.slice(0, countA);
@@ -2029,41 +2051,41 @@
                 const perSideA = Math.ceil(imgsA.length / 2);
                 const perSideB = Math.ceil(imgsB.length / 2);
 
-                // Wing A: left wall (X=0+0.2, facing +X) and right wall (X=wingW-0.2, facing -X)
-                // Artworks run along Z from top to bottom
+                // Wing A walls — both run from top of Wing A downward, stopping at jZ
                 const wallsA = [
-                    { start:[0.2,         eyeLevel,  lenA/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
-                    { start:[wingW-0.2,   eyeLevel, -lenA/2+spacing], dir:[0,0, 1], normal:[-1,0,0] },
+                    // Left wall: X=0.2, starts at Z=-lenA/2+spacing, goes toward +Z (down)
+                    { start:[0.2,       eyeLevel, -lenA/2 + spacing], dir:[0,0,1],  normal:[1,0,0]  },
+                    // Right wall: X=wingW-0.2, starts at Z=-lenA/2+spacing, goes toward +Z (down)
+                    { start:[wingW-0.2, eyeLevel, -lenA/2 + spacing], dir:[0,0,1],  normal:[-1,0,0] },
                 ];
                 let wi = 0, pos = 0;
                 imgsA.forEach(img => {
                     const wall = wallsA[wi];
-                    const { group } = this._makeArtworkGroup(img, data);
-                    group.position.set(
-                        wall.start[0] + wall.dir[0] * pos * spacing,
-                        wall.start[1],
-                        wall.start[2] + wall.dir[2] * pos * spacing
-                    );
-                    group.lookAt(group.position.x + wall.normal[0], group.position.y, group.position.z + wall.normal[2]);
-                    this._placeAndRegister(group, data);
+                    const candidateZ = wall.start[2] + pos * spacing;
+                    // Skip any artwork that would land in the open corner passage (past jZ - spacing)
+                    if (candidateZ < jZ - spacing / 2) {
+                        const { group } = this._makeArtworkGroup(img, data);
+                        group.position.set(wall.start[0], wall.start[1], candidateZ);
+                        group.lookAt(group.position.x + wall.normal[0], group.position.y, group.position.z + wall.normal[2]);
+                        this._placeAndRegister(group, data);
+                    }
                     pos++;
                     if (pos >= perSideA) { pos = 0; wi = Math.min(wi + 1, 1); }
                 });
 
-                // Wing B: top wall (Z=jZ+0.2, facing +Z) and bottom wall (Z=lenA/2-0.2, facing -Z)
-                // Artworks run along X from junction to right end
+                // Wing B walls — run from left (X=wingW+spacing) rightward along Z=jZ and Z=lenA/2
                 const wallsB = [
-                    { start:[wingW+spacing, eyeLevel, jZ+0.2],       dir:[1,0,0],  normal:[0,0,1]  },
-                    { start:[wingW+spacing, eyeLevel, lenA/2-0.2],   dir:[1,0,0],  normal:[0,0,-1] },
+                    { start:[wingW + spacing, eyeLevel, jZ + 0.2],      dir:[1,0,0], normal:[0,0,1]  },
+                    { start:[wingW + spacing, eyeLevel, lenA/2 - 0.2],  dir:[1,0,0], normal:[0,0,-1] },
                 ];
                 wi = 0; pos = 0;
                 imgsB.forEach(img => {
                     const wall = wallsB[wi];
                     const { group } = this._makeArtworkGroup(img, data);
                     group.position.set(
-                        wall.start[0] + wall.dir[0] * pos * spacing,
+                        wall.start[0] + pos * spacing,
                         wall.start[1],
-                        wall.start[2] + wall.dir[2] * pos * spacing
+                        wall.start[2]
                     );
                     group.lookAt(group.position.x + wall.normal[0], group.position.y, group.position.z + wall.normal[2]);
                     this._placeAndRegister(group, data);
