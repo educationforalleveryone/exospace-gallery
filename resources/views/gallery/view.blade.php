@@ -422,6 +422,140 @@
                 display: inline !important;
             }
         }
+
+        /* ==========================================
+           GUIDED TOUR — UI STYLES
+           ========================================== */
+        #tour-overlay {
+            position: fixed; inset: 0; z-index: 150;
+            pointer-events: none;
+            display: none;
+        }
+        #tour-overlay.active { display: block; }
+
+        /* Top progress bar */
+        #tour-progress-bar {
+            position: absolute; top: 0; left: 0; height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.6s ease;
+            width: 0%;
+        }
+
+        /* Tour HUD — bottom centre */
+        #tour-hud {
+            position: absolute;
+            bottom: 32px; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 12px;
+            background: rgba(0,0,0,0.72);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 999px;
+            padding: 10px 20px;
+            pointer-events: auto;
+            user-select: none;
+        }
+        .low-end-device #tour-hud {
+            backdrop-filter: none; -webkit-backdrop-filter: none;
+            background: rgba(0,0,0,0.90);
+        }
+
+        .tour-btn {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08);
+            color: white; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s, transform 0.15s;
+            flex-shrink: 0;
+        }
+        .tour-btn:hover { background: rgba(255,255,255,0.18); transform: scale(1.08); }
+        .tour-btn:active { transform: scale(0.93); }
+        .tour-btn svg { width: 16px; height: 16px; pointer-events: none; }
+
+        #tour-counter {
+            font-size: 0.8rem; color: rgba(255,255,255,0.55);
+            min-width: 48px; text-align: center; letter-spacing: 0.04em;
+        }
+        #tour-title-display {
+            font-size: 0.875rem; font-weight: 600; color: white;
+            max-width: 220px; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+
+        #tour-exit-btn {
+            background: rgba(239,68,68,0.15);
+            border-color: rgba(239,68,68,0.35);
+            color: rgba(239,68,68,0.9);
+        }
+        #tour-exit-btn:hover { background: rgba(239,68,68,0.3); }
+
+        /* Pause / play icon swap */
+        #tour-play-icon  { display: none; }
+        #tour-pause-icon { display: block; }
+        #tour-hud.paused #tour-play-icon  { display: block; }
+        #tour-hud.paused #tour-pause-icon { display: none; }
+
+        /* Auto-advance countdown ring */
+        #tour-countdown-ring {
+            position: relative; width: 36px; height: 36px; flex-shrink: 0;
+        }
+        #tour-countdown-ring svg {
+            width: 36px; height: 36px;
+            transform: rotate(-90deg);
+        }
+        #tour-countdown-ring circle {
+            fill: none; stroke-width: 2.5;
+        }
+        #tour-ring-bg  { stroke: rgba(255,255,255,0.12); }
+        #tour-ring-arc {
+            stroke: #8b5cf6;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.1s linear;
+        }
+
+        /* Tour badge on entrance curtain */
+        #curtain-tour-btn {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 0.9rem 2.2rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 9999px;
+            color: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.06);
+            cursor: pointer;
+            font-size: 1rem; font-weight: 500; letter-spacing: 0.04em;
+            transition: all 0.25s ease;
+            margin-top: 1rem;
+            opacity: 0.5; pointer-events: none;
+        }
+        #curtain-tour-btn.ready {
+            opacity: 1; pointer-events: auto;
+        }
+        #curtain-tour-btn:hover {
+            background: rgba(139,92,246,0.18);
+            border-color: rgba(139,92,246,0.5);
+            color: white;
+        }
+
+        /* In-gallery T key hint */
+        #tour-trigger-btn {
+            position: absolute; bottom: 6px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.65);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            padding: 4px 10px;
+            color: rgba(255,255,255,0.6);
+            font-size: 0.7rem; letter-spacing: 0.06em;
+            pointer-events: auto; cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.3s;
+        }
+        #tour-trigger-btn:hover { color: white; border-color: rgba(139,92,246,0.5); }
+
     </style>
 
     <script type="importmap">
@@ -489,7 +623,15 @@
                 </svg>
             </button>
             
-            <p style="margin-top: 2rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">
+            <!-- Guided Tour button -->
+            <button id="curtain-tour-btn">
+                <svg style="width:1.1rem;height:1.1rem;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                GUIDED TOUR
+            </button>
+
+            <p style="margin-top: 1.5rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">
                 Use WASD to move • Mouse to look around • Click for full control
             </p>
         </div>
@@ -497,6 +639,56 @@
 
     <!-- 3D Canvas -->
     <div id="canvas-container"></div>
+
+    <!-- Guided Tour Overlay -->
+    <div id="tour-overlay">
+        <div id="tour-progress-bar"></div>
+        <div id="tour-hud">
+            <!-- Prev -->
+            <button class="tour-btn" id="tour-prev-btn" title="Previous artwork">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </button>
+
+            <!-- Pause / Resume -->
+            <button class="tour-btn" id="tour-pause-btn" title="Pause / Resume">
+                <svg id="tour-pause-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                </svg>
+                <svg id="tour-play-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+            </button>
+
+            <!-- Countdown ring -->
+            <div id="tour-countdown-ring">
+                <svg viewBox="0 0 36 36">
+                    <circle class="" id="tour-ring-bg" cx="18" cy="18" r="15.9"/>
+                    <circle id="tour-ring-arc" cx="18" cy="18" r="15.9"
+                        style="stroke-dasharray: calc(2 * 3.14159 * 15.9); stroke-dashoffset: calc(2 * 3.14159 * 15.9);"/>
+                </svg>
+            </div>
+
+            <!-- Counter + title -->
+            <span id="tour-counter">1 / 1</span>
+            <span id="tour-title-display">—</span>
+
+            <!-- Next -->
+            <button class="tour-btn" id="tour-next-btn" title="Next artwork">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+
+            <!-- Exit tour -->
+            <button class="tour-btn tour-exit-btn" id="tour-exit-btn" title="Exit tour">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+    </div>
 
     <!-- UI Overlay -->
     <div id="ui-layer">
@@ -527,6 +719,7 @@
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">MOUSE</span> Look Around</p>
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">CLICK</span> Lock/Unlock</p>
                     <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">E</span> View Info</p>
+                    <p><span class="font-mono bg-white/10 px-2 py-0.5 rounded">T</span> Guided Tour</p>
                 </div>
                 <div class="text-white/90 text-sm md:hidden">
                     <p>Tap screen to start • Drag to look</p>
@@ -1060,6 +1253,9 @@
                         case 'KeyD': this.moveState.right = true; break;
                         case 'ShiftLeft': this.moveState.sprint = true; break;
                         case 'KeyE': this.toggleArtworkInfo(); break;
+                        case 'KeyT':
+                            // Handled globally outside class (see bottom of script)
+                            break;
                         
                         // Speed multipliers
                         case 'Digit1': this.setSpeedMultiplier(0); break; // 1x
@@ -3238,11 +3434,15 @@
                     enterBtn.style.opacity = '1';
                     enterBtn.style.pointerEvents = 'auto';
                     enterBtn.style.transition = 'all 0.3s ease';
-                    
+
                     if (statusText) statusText.textContent = 'Ready to enter';
-                    
+
                     // Add pulse animation to button
                     enterBtn.style.animation = 'pulse 2s ease-in-out infinite';
+
+                    // Enable curtain guided tour button
+                    const tourBtn = document.getElementById('curtain-tour-btn');
+                    if (tourBtn) tourBtn.classList.add('ready');
                 }
             }
 
@@ -3259,6 +3459,11 @@
         document.addEventListener('DOMContentLoaded', () => {
             console.log('🎬 Starting silent preload of 3D gallery...');
             galleryScene = new GalleryScene();
+        });
+
+        // Curtain Guided Tour button
+        document.getElementById('curtain-tour-btn').addEventListener('click', () => {
+            startGuidedTour();
         });
 
         // ✅ ENTRANCE BUTTON: Resume audio + fade to 3D
@@ -3303,6 +3508,296 @@
                 console.log('✅ Entered 3D gallery');
             }, 1000);
         });
+
+        // ================================================================
+        // GUIDED TOUR SYSTEM
+        // ================================================================
+        class GuidedTour {
+            constructor(scene) {
+                this.scene       = scene;            // GalleryScene instance
+                this.artworks    = [];               // populated after gallery builds
+                this.index       = 0;                // current artwork index
+                this.active      = false;
+                this.paused      = false;
+                this._dwellMs    = 5000;             // ms to dwell at each artwork
+                this._dwellTimer = null;
+                this._countdownRaf = null;
+                this._countdownStart = null;
+
+                // DOM refs
+                this._overlay    = document.getElementById('tour-overlay');
+                this._hud        = document.getElementById('tour-hud');
+                this._progressBar = document.getElementById('tour-progress-bar');
+                this._counter    = document.getElementById('tour-counter');
+                this._titleEl    = document.getElementById('tour-title-display');
+                this._ringArc    = document.getElementById('tour-ring-arc');
+                this._circumference = 2 * Math.PI * 15.9; // matches SVG r="15.9"
+
+                // Buttons
+                document.getElementById('tour-prev-btn').addEventListener('click',  () => this.prev());
+                document.getElementById('tour-next-btn').addEventListener('click',  () => this.next());
+                document.getElementById('tour-pause-btn').addEventListener('click', () => this.togglePause());
+                document.getElementById('tour-exit-btn').addEventListener('click',  () => this.stop());
+            }
+
+            // ── Public API ───────────────────────────────────────────────
+
+            start(fromIndex = 0) {
+                this.artworks = this.scene.artworks || [];
+                if (this.artworks.length === 0) return;
+
+                this.active  = false; // reset so _enterTourMode works cleanly
+                this.paused  = false;
+                this.index   = fromIndex;
+
+                this._enterTourMode();
+                this._goTo(this.index);
+            }
+
+            stop() {
+                if (!this.active) return;
+                this._clearDwell();
+                this._clearCountdown();
+                this.active = false;
+                this.paused = false;
+
+                // Hide overlay
+                this._overlay.classList.remove('active');
+                this._hud.classList.remove('paused');
+
+                // Hide info panel
+                const panel = document.getElementById('info-panel');
+                if (panel) panel.classList.remove('show');
+
+                // Kill any in-flight tween
+                if (this.scene.focusTween) {
+                    this.scene.focusTween.kill();
+                    this.scene.focusTween = null;
+                }
+
+                // Restore camera to pre-tour position smoothly
+                this.scene.isInspecting = false;
+                this.scene.velocity.set(0, 0, 0);
+
+                gsap.to(this.scene.camera.position, {
+                    x: this._preTourPos.x,
+                    y: this._preTourPos.y,
+                    z: this._preTourPos.z,
+                    duration: 1.4,
+                    ease: 'power2.inOut',
+                    onUpdate: () => {
+                        this.scene.camera.quaternion.slerp(this._preTourQuat, 0.08);
+                    },
+                    onComplete: () => {
+                        if (!this.scene.isMobile && !this.scene.controls.isLocked) {
+                            this.scene.controls.lock();
+                        }
+                    }
+                });
+            }
+
+            next() {
+                this._clearDwell();
+                this._clearCountdown();
+                this.index = (this.index + 1) % this.artworks.length;
+                if (this.index === 0) {
+                    // Finished — stop tour instead of looping
+                    this.stop();
+                    return;
+                }
+                this._goTo(this.index);
+            }
+
+            prev() {
+                this._clearDwell();
+                this._clearCountdown();
+                this.index = (this.index - 1 + this.artworks.length) % this.artworks.length;
+                this._goTo(this.index);
+            }
+
+            togglePause() {
+                this.paused = !this.paused;
+                this._hud.classList.toggle('paused', this.paused);
+
+                if (this.paused) {
+                    this._clearDwell();
+                    this._clearCountdown();
+                    // Freeze ring where it is
+                    if (this._ringArc) {
+                        const elapsed = performance.now() - (this._countdownStart || performance.now());
+                        const remaining = Math.max(0, 1 - elapsed / this._dwellMs);
+                        const offset = this._circumference * remaining;
+                        this._ringArc.style.transition = 'none';
+                        this._ringArc.style.strokeDashoffset = offset;
+                    }
+                } else {
+                    // Resume — restart dwell from now (full duration, not remaining)
+                    this._startDwell();
+                }
+            }
+
+            // ── Private ─────────────────────────────────────────────────
+
+            _enterTourMode() {
+                // Save pre-tour state
+                this._preTourPos  = this.scene.camera.position.clone();
+                this._preTourQuat = this.scene.camera.quaternion.clone();
+
+                // Lock out player controls
+                this.active = true;
+                this.scene.isInspecting = true;
+                this.scene.velocity.set(0, 0, 0);
+                this.scene.currentLean = 0;
+
+                if (this.scene.controls.isLocked) this.scene.controls.unlock();
+
+                // Show tour overlay
+                this._overlay.classList.add('active');
+            }
+
+            _goTo(idx) {
+                const artwork = this.artworks[idx];
+                if (!artwork) return;
+
+                // Close any open info panel first
+                const panel = document.getElementById('info-panel');
+                if (panel) panel.classList.remove('show');
+
+                // Update HUD
+                const n = this.artworks.length;
+                const raw = artwork.userData.title || 'Untitled';
+                const title = raw.includes('.')
+                    ? raw.split('.').slice(0, -1).join('.').replace(/[_-]/g, ' ')
+                    : raw;
+
+                this._counter.textContent    = `${idx + 1} / ${n}`;
+                this._titleEl.textContent    = title;
+                this._progressBar.style.width = `${((idx + 1) / n) * 100}%`;
+
+                // Fly camera to artwork
+                const artworkWorldPos = new THREE.Vector3();
+                artwork.getWorldPosition(artworkWorldPos);
+
+                const artDir = new THREE.Vector3(0, 0, 1);
+                artwork.getWorldDirection(artDir);
+
+                const focusDist = 1.8;
+                const targetPos = artworkWorldPos.clone().add(artDir.multiplyScalar(focusDist));
+                targetPos.y = CONFIG.camera.height;
+
+                // Kill any in-flight tween
+                if (this.scene.focusTween) {
+                    this.scene.focusTween.kill();
+                    this.scene.focusTween = null;
+                }
+
+                this.scene.focusTween = gsap.to(this.scene.camera.position, {
+                    x: targetPos.x,
+                    y: targetPos.y,
+                    z: targetPos.z,
+                    duration: 1.8,
+                    ease: 'power2.inOut',
+                    onUpdate: () => {
+                        this.scene.camera.lookAt(artworkWorldPos);
+                    },
+                    onComplete: () => {
+                        this.scene.camera.lookAt(artworkWorldPos);
+
+                        // Show info panel
+                        setTimeout(() => {
+                            if (!this.active) return;
+                            document.getElementById('artwork-title').textContent = title;
+                            document.getElementById('artwork-description').textContent =
+                                artwork.userData.description || 'No description available.';
+                            if (panel) panel.classList.add('show');
+
+                            // Play click SFX
+                            if (this.scene.sfxEnabled && this.scene.sfx.click && !this.scene.sfx.click.isPlaying) {
+                                this.scene.sfx.click.play();
+                            }
+
+                            // Start dwell timer (auto-advance)
+                            if (!this.paused) this._startDwell();
+                        }, 350);
+                    }
+                });
+            }
+
+            _startDwell() {
+                this._clearDwell();
+                this._clearCountdown();
+                this._countdownStart = performance.now();
+                this._animateCountdown();
+                this._dwellTimer = setTimeout(() => {
+                    if (!this.paused && this.active) this.next();
+                }, this._dwellMs);
+            }
+
+            _clearDwell() {
+                if (this._dwellTimer) { clearTimeout(this._dwellTimer); this._dwellTimer = null; }
+            }
+
+            _animateCountdown() {
+                this._clearCountdown();
+                const circumference = this._circumference;
+                const start = performance.now();
+                const duration = this._dwellMs;
+                const arc = this._ringArc;
+                if (!arc) return;
+
+                const tick = (now) => {
+                    if (!this.active || this.paused) return;
+                    const elapsed = now - start;
+                    const fraction = Math.min(elapsed / duration, 1);
+                    // Offset goes from circumference (empty) down to 0 (full)
+                    arc.style.strokeDashoffset = circumference * (1 - fraction);
+                    if (fraction < 1) {
+                        this._countdownRaf = requestAnimationFrame(tick);
+                    }
+                };
+                this._countdownRaf = requestAnimationFrame(tick);
+            }
+
+            _clearCountdown() {
+                if (this._countdownRaf) { cancelAnimationFrame(this._countdownRaf); this._countdownRaf = null; }
+                if (this._ringArc) this._ringArc.style.strokeDashoffset = this._circumference;
+            }
+        }
+
+        // ── Tour wiring ─────────────────────────────────────────────────
+        let guidedTour = null;
+
+        function startGuidedTour() {
+            if (!galleryScene) return;
+            if (!guidedTour) guidedTour = new GuidedTour(galleryScene);
+            // Resume audio context on first user gesture
+            if (galleryScene.listener && galleryScene.listener.context &&
+                galleryScene.listener.context.state === 'suspended') {
+                galleryScene.listener.context.resume().then(() => {
+                    if (galleryScene.playAudio) galleryScene.playAudio();
+                });
+            }
+            // Fade out curtain if still visible
+            const curtain = document.getElementById('entrance-curtain');
+            if (curtain) {
+                curtain.style.opacity = '0';
+                curtain.style.transition = 'opacity 0.8s ease';
+                setTimeout(() => { curtain.remove(); }, 800);
+            }
+            guidedTour.start(0);
+        }
+
+        // T key — start/stop tour while inside gallery
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyT') {
+                if (guidedTour && guidedTour.active) {
+                    guidedTour.stop();
+                } else {
+                    startGuidedTour();
+                }
+            }
+        });
+
     </script>
 </body>
 </html>
