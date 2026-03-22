@@ -824,6 +824,11 @@
                 this._reusableEuler = new THREE.Euler(0, 0, 0, 'YXZ');
                 this._reusableVector = new THREE.Vector2(0, 0);
                 this._lightingFrameCount = 0;
+                // ⚡ PERF: Low-end state flags (set properly in detectLowEnd / _applyLowEndSettings)
+                this.isLowEnd = false;
+                this._skipHdri = false;
+                this._maxAnisotropy = undefined; // undefined = auto (high-end); 1 = low-end
+                this._lowEndFrameSkip = false;   // toggled each frame for 30fps cap
                 
                 // ✨ NEW: SFX System Properties
                 this.sfx = {}; // Stores all sound effect audio objects
@@ -842,10 +847,8 @@
                 this.scene = new THREE.Scene();
                 this.scene.background = new THREE.Color(0x0a0a0a);
                 
-                // SECTION 7: Optional - Add Fog for Depth (Reduces Brightness Perception)
                 // ✨ NEW: Add subtle fog for depth and softer look
-                this.scene.fog = new THREE.Fog(0x0a0a0a, 10, 30); // (color, near, far)
-                // This adds atmospheric depth and softens the overall scene.
+                this.scene.fog = new THREE.Fog(0x0a0a0a, 10, 30);
 
                 // Camera
                 this.camera = new THREE.PerspectiveCamera(
@@ -858,36 +861,35 @@
                 // Start in center of room at eye level
                 this.camera.position.set(0, CONFIG.camera.height, 0);
 
-                // Renderer
+                // ⚡ PERF FIX 1: Pre-detect low-end hardware BEFORE creating renderer
+                // so we can set antialias=false early (can't change after creation).
+                // Uses CPU cores + RAM — no WebGL context needed at this stage.
+                const earlyLowEnd = this._earlyLowEndCheck();
+
+                // Renderer — antialias off on low-end saves 2–4x fill rate
                 this.renderer = new THREE.WebGLRenderer({ 
-                    antialias: true,
-                    powerPreference: 'high-performance'
+                    antialias: !earlyLowEnd,
+                    powerPreference: earlyLowEnd ? 'low-power' : 'high-performance'
                 });
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                // ✨ CHANGE 2: Shadow map sync to CONFIG
+                // ⚡ PERF FIX 2: Cap pixel ratio at 1 on low-end (biggest single win on mobile)
+                this.renderer.setPixelRatio(earlyLowEnd ? 1 : Math.min(window.devicePixelRatio, 2));
                 this.renderer.shadowMap.enabled = CONFIG.performance.shadowsEnabled;
                 this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-                // SECTION 4: Fine-Tune Tone Mapping (Fix Brightness/Contrast)
-                // ✨ Tone Mapping with balanced exposure
                 this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-                this.renderer.toneMappingExposure = 0.8; // ✨ Default lower exposure
+                this.renderer.toneMappingExposure = 0.8;
                 this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-                // ✨ Optional: Reduce contrast if still too harsh
-                // Uncomment below if you want even softer contrast:
-                // this.renderer.toneMapping = THREE.LinearToneMapping;
 
                 this.container.appendChild(this.renderer.domElement);
                 
-                // ✨ CHANGE 3: PERF: Stop render loop when tab is hidden (saves battery + CPU)
+                // ✨ PERF: Stop render loop when tab is hidden (saves battery + CPU)
                 this._isVisible = true;
                 document.addEventListener('visibilitychange', () => {
                     this._isVisible = !document.hidden;
                 });
                 
-                // ✨ PERF: Run hardware tier detection immediately after renderer is ready
+                // Full GPU-aware detection (now that renderer context exists)
                 this.detectLowEnd();
 
                 // Controls
@@ -897,9 +899,16 @@
                 this.loadAssets();
             }
 
-            // ✨ PERF: Detect low-end devices and adapt quality accordingly
+            // ⚡ PERF FIX 1 (part 2): CPU/RAM check that runs BEFORE renderer creation
+            _earlyLowEndCheck() {
+                if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) return true;
+                if (navigator.deviceMemory && navigator.deviceMemory < 4) return true;
+                return false;
+            }
+
+            // Full hardware tier detection (GPU string + FPS benchmark)
             detectLowEnd() {
-                let isLowEnd = false;
+                let isLowEnd = this._earlyLowEndCheck(); // start from pre-check result
                 const reasons = [];
 
                 // --- CHECK 1: CPU core count ---
@@ -979,6 +988,12 @@
                 }
                 document.body.classList.add('low-end-device');
                 this.isLowEnd = true;
+                // ⚡ PERF FIX 3: Skip HDRI on low-end — it's a 10MB file that burns
+                // GPU memory and bandwidth for a reflection benefit barely visible at low res.
+                this._skipHdri = true;
+                // ⚡ PERF FIX 4: Cap anisotropy at 1 — budget GPUs expose high values
+                // but paying for them tanks fillrate. 1 = nearest-mipmap, essentially free.
+                this._maxAnisotropy = 1;
             }
 
             // FPS benchmark: sample real frame rate after warmup, auto-downgrade if needed
@@ -1126,10 +1141,15 @@
                     const promises = [];
                     let loadedCount = 0;
 
+                    // ⚡ PERF FIX 4 (enforcement): anisotropy capped to 1 on low-end
+                    const safeAnisotropy = this._maxAnisotropy !== undefined
+                        ? this._maxAnisotropy
+                        : Math.min(this.renderer.capabilities.getMaxAnisotropy(), 4);
+
                     const configureTexture = (texture) => {
                         texture.colorSpace = THREE.SRGBColorSpace;
-                        texture.generateMipmaps = true;
-                        texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+                        texture.generateMipmaps = !this.isLowEnd; // ⚡ Skip mipmaps on low-end
+                        texture.anisotropy = safeAnisotropy;
                         return texture;
                     };
 
@@ -1181,8 +1201,10 @@
                     await Promise.all(promises);
                     promises.length = 0;
 
-                    // 🎨 NEW: Load canvas normal map for tactile art effect
+                    // 🎨 Load canvas normal map for tactile art effect
+                    // ⚡ PERF FIX 7: Skip normal map entirely on low-end — saves a texture sample per fragment
                     promises.push(new Promise(resolve => {
+                        if (this.isLowEnd) { resolve(); return; } // skip on budget hardware
                         textureLoader.load('/assets/textures/shared/canvas_normal.jpg', (tex) => {
                             // Enable seamless tiling across artwork surfaces
                             tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -1212,8 +1234,8 @@
                                 img.url,
                                 (texture) => {
                                     texture.colorSpace = THREE.SRGBColorSpace;
-                                    texture.generateMipmaps = true;
-                                    texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+                                    texture.generateMipmaps = !this.isLowEnd; // ⚡ skip on low-end
+                                    texture.anisotropy = safeAnisotropy;
                                     
                                     // Derive aspect ratio from texture image
                                     const aspectRatio = img.aspectRatio || 
@@ -1372,8 +1394,12 @@
                 this.loadEnvironmentMap();
             }
 
-            // ✨ CHANGE 5: PERF: Non-blocking HDRI loader — gallery renders first, env fades in after
+            // ✨ PERF: Non-blocking HDRI loader — gallery renders first, env fades in after
             loadEnvironmentMap() {
+                // ⚡ PERF FIX 3 (enforcement): Don't load the heavy HDRI on low-end hardware.
+                // Standard point lights already light the scene well without it.
+                if (this._skipHdri) return;
+
                 const preset = this.lightingPreset || 'bright';
                 const lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
                 const hdriPath = lightingConfig.hdri;
@@ -1751,7 +1777,17 @@
                 });
             }
 
-            // SECTION 5: Update Frame Material (Optional but Recommended)
+            // ⚡ PERF FIX 6: Shared frame geometries — one unit BoxGeometry per piece type,
+            // scaled per-artwork via mesh.scale. Saves (artworkCount * 4) geometry uploads.
+            _getFrameGeos() {
+                if (!this._frameGeoH) {
+                    // Unit geometries — we scale them per frame
+                    this._frameGeoH = new THREE.BoxGeometry(1, 1, 1); // horizontal bar (top/bottom)
+                    this._frameGeoV = new THREE.BoxGeometry(1, 1, 1); // vertical bar (left/right)
+                }
+                return { h: this._frameGeoH, v: this._frameGeoV };
+            }
+
             createFrame(width, height, style) {
                 const frameDepth = 0.08;
                 const frameWidth = 0.1;
@@ -1762,35 +1798,30 @@
                     minimal: 0xffffff
                 };
 
-                // Get preset intensity
                 const lightingConfig = this.lightingConfig || CONFIG.lighting.bright;
 
                 const frameMat = new THREE.MeshStandardMaterial({
                     color: colors[style] || colors.modern,
                     roughness: 0.3,
                     metalness: 0.8,
-                    envMapIntensity: 1.5 * (lightingConfig.envIntensity || 1.0) // ✨ Frames gleam based on preset
+                    envMapIntensity: 1.5 * (lightingConfig.envIntensity || 1.0)
                 });
 
                 const frame = new THREE.Group();
+                const { h: hGeo, v: vGeo } = this._getFrameGeos();
                 
-                const pieces = [
-                    new THREE.BoxGeometry(width + frameWidth * 2, frameWidth, frameDepth), 
-                    new THREE.BoxGeometry(width + frameWidth * 2, frameWidth, frameDepth), 
-                    new THREE.BoxGeometry(frameWidth, height, frameDepth), 
-                    new THREE.BoxGeometry(frameWidth, height, frameDepth)  
+                // ⚡ Use shared geometries, drive size via mesh.scale
+                const pieceConfigs = [
+                    { geo: hGeo, sx: width + frameWidth * 2, sy: frameWidth, sz: frameDepth, px: 0, py:  height/2 + frameWidth/2, pz: 0 },
+                    { geo: hGeo, sx: width + frameWidth * 2, sy: frameWidth, sz: frameDepth, px: 0, py: -height/2 - frameWidth/2, pz: 0 },
+                    { geo: vGeo, sx: frameWidth, sy: height, sz: frameDepth, px: -width/2 - frameWidth/2, py: 0, pz: 0 },
+                    { geo: vGeo, sx: frameWidth, sy: height, sz: frameDepth, px:  width/2 + frameWidth/2, py: 0, pz: 0 },
                 ];
 
-                const positions = [
-                    [0, height/2 + frameWidth/2, 0],
-                    [0, -height/2 - frameWidth/2, 0],
-                    [-width/2 - frameWidth/2, 0, 0],
-                    [width/2 + frameWidth/2, 0, 0]
-                ];
-
-                pieces.forEach((geo, i) => {
+                pieceConfigs.forEach(({ geo, sx, sy, sz, px, py, pz }) => {
                     const mesh = new THREE.Mesh(geo, frameMat);
-                    mesh.position.set(...positions[i]);
+                    mesh.scale.set(sx, sy, sz);
+                    mesh.position.set(px, py, pz);
                     mesh.castShadow = true;
                     frame.add(mesh);
                 });
@@ -2221,41 +2252,32 @@
                 }
             }
 
-            // SECTION 7: Update animate() method
             animate() {
                 requestAnimationFrame(() => this.animate());
                 
-                // ✨ CHANGE 4: PERF: Skip rendering entirely when tab is not visible
+                // Skip rendering entirely when tab is not visible
                 if (!this._isVisible) return;
+
+                // ⚡ PERF FIX 8: On low-end, cap render to ~30fps to halve GPU load.
+                // rAF fires at display refresh (60/120Hz) — we simply skip odd frames.
+                if (this.isLowEnd) {
+                    this._lowEndFrameSkip = !this._lowEndFrameSkip;
+                    if (this._lowEndFrameSkip) return;
+                }
                 
-                // ✨ PERF: Increment frame counter for throttling
+                // Increment frame counter for throttling
                 this._lightingFrameCount++;
                 
-                // ✨ PERF: Reuse pre-allocated Euler (no GC pressure)
+                // Reuse pre-allocated Euler (no GC pressure)
                 const euler = this._reusableEuler;
                 euler.setFromQuaternion(this.camera.quaternion);
                 
-                // Store original values for debugging
-                const originalPitch = euler.x;
-                const originalRoll = euler.z;
-                
-                // CRITICAL: Aggressively clamp pitch to prevent gimbal lock
-                const maxPitch = 1.4; // ~80 degrees (conservative to avoid gimbal lock entirely)
-                const wasClampedPitch = euler.x < -maxPitch || euler.x > maxPitch;
+                // CRITICAL: Clamp pitch to prevent gimbal lock
+                const maxPitch = 1.4; // ~80 degrees
                 euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
                 
                 // Force roll to ONLY our cinematic lean (remove any drift)
-                const currentLean = this.currentLean || 0;
-                const wasClampedRoll = Math.abs(euler.z - currentLean) > 0.01;
-                euler.z = currentLean;
-                
-                // Debug logging when clamping occurs
-                if (wasClampedPitch || wasClampedRoll) {
-                    console.log('🔒 Clamping:', {
-                        pitch: `${(originalPitch * 180 / Math.PI).toFixed(1)}° → ${(euler.x * 180 / Math.PI).toFixed(1)}°`,
-                        roll: `${(originalRoll * 180 / Math.PI).toFixed(1)}° → ${(euler.z * 180 / Math.PI).toFixed(1)}°`
-                    });
-                }
+                euler.z = this.currentLean || 0;
                 
                 // Apply the corrected rotation back to camera
                 this.camera.quaternion.setFromEuler(euler);
@@ -2267,13 +2289,16 @@
                     this.updateMovement();
                 }
 
-                // ✨ PERF: Throttle — proximity lighting every 2nd frame (~30fps for this system)
-                if (this._lightingFrameCount % 2 === 0) {
+                // ⚡ PERF FIX 9: Throttle intervals are doubled on low-end
+                // (already running at ~30fps, so every 4th/6th frame = ~7.5fps for these tasks — plenty)
+                const lightThrottle  = this.isLowEnd ? 4 : 2;
+                const focusThrottle  = this.isLowEnd ? 6 : 3;
+
+                if (this._lightingFrameCount % lightThrottle === 0) {
                     this.updateProximityLighting();
                 }
                 
-                // ✨ PERF: Throttle — focus/raycasting every 3rd frame (~20fps for this system)
-                if (this._lightingFrameCount % 3 === 0) {
+                if (this._lightingFrameCount % focusThrottle === 0) {
                     this.checkArtworkFocus();
                 }
                 
@@ -2501,7 +2526,9 @@
                     this.mobileState.look.lastY = touch.clientY;
                     
                     // Apply rotation directly to camera Euler angles
-                    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                    // ⚡ PERF FIX 5: Reuse pre-allocated Euler — avoids GC on every touch event
+                    const euler = this._reusableEuler;
+                    euler.set(0, 0, 0, 'YXZ');
                     euler.setFromQuaternion(this.camera.quaternion);
                     
                     // Yaw (Y-axis) - unlimited rotation
