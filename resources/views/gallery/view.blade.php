@@ -1753,15 +1753,18 @@
                 // Store both wing bounding boxes; collision checked with isInLShape()
                 const margin = 0.5;
                 this._lShapeBounds = {
-                    // Wing A: full vertical strip including the junction square
-                    a: { minX: 0 + margin, maxX: wingW - margin, minZ: -lenA/2 + margin, maxZ: lenA/2 - margin },
-                    // Wing B: horizontal strip (to the right of Wing A)
-                    // minX starts just past Wing A so there is no overlap — the junction square belongs to Wing A
-                    b: { minX: wingW + margin, maxX: wingW + lenB - margin, minZ: jZ + margin, maxZ: lenA/2 - margin }
+                    // Wing A: full vertical strip.
+                    // maxX extends PAST wingW into Wing B's space so the player
+                    // never falls into the gap between the two bounding boxes.
+                    a: { minX: 0 + margin, maxX: wingW + margin, minZ: -lenA/2 + margin, maxZ: lenA/2 - margin },
+                    // Wing B: horizontal strip.
+                    // minX overlaps into Wing A's right edge for the same reason.
+                    // minZ = jZ (not jZ+margin) so the player can enter from Wing A
+                    // the moment they reach the junction row.
+                    b: { minX: wingW - margin, maxX: wingW + lenB - margin, minZ: jZ, maxZ: lenA/2 - margin }
                 };
-                // The _enforceRoomBounds helper checks inA || inB so the player
-                // can be anywhere in Wing A (including the junction square) OR Wing B.
-                // This gives a natural L-shaped walkable area with no invisible walls.
+                // _enforceRoomBounds checks inA || inB. The overlapping bounds mean
+                // the player is always valid in at least one box as they cross the junction.
                 // Also keep a loose outer box for roomBounds (used by raycaster etc.)
                 this.roomBounds = {
                     minX: 0, maxX: wingW + lenB,
