@@ -847,15 +847,16 @@
                 this.scene = new THREE.Scene();
                 this.scene.background = new THREE.Color(0x0a0a0a);
                 
-                // ✨ NEW: Add subtle fog for depth and softer look
-                this.scene.fog = new THREE.Fog(0x0a0a0a, 10, 30);
+                // ⚡ FIX L: On low-end, tighter fog + camera far plane culls more geometry
+                const lowEndEarly = this._earlyLowEndCheck();
+                this.scene.fog = new THREE.Fog(0x0a0a0a, lowEndEarly ? 5 : 10, lowEndEarly ? 14 : 30);
 
-                // Camera
+                // Camera — tighter far plane on low-end matches the fog distance
                 this.camera = new THREE.PerspectiveCamera(
                     CONFIG.camera.fov,
                     window.innerWidth / window.innerHeight,
                     CONFIG.camera.near,
-                    CONFIG.camera.far
+                    lowEndEarly ? 20 : CONFIG.camera.far
                 );
                 
                 // Start in center of room at eye level
@@ -983,8 +984,8 @@
                 this.renderer.shadowMap.enabled = false;
                 // Reduce fog distance to draw fewer objects
                 if (this.scene.fog) {
-                    this.scene.fog.near = 8;
-                    this.scene.fog.far = 20;
+                    this.scene.fog.near = 5;
+                    this.scene.fog.far = 14;
                 }
                 document.body.classList.add('low-end-device');
                 this.isLowEnd = true;
@@ -998,20 +999,20 @@
 
             // FPS benchmark: sample real frame rate after warmup, auto-downgrade if needed
             _scheduleFpsBenchmark() {
+                // ⚡ FIX J: If already flagged low-end, skip the benchmark entirely.
+                // No point burning 3+ seconds of rAF budget to confirm what we already know.
+                if (this.isLowEnd) return;
+
                 let frameCount = 0;
                 let startTime = null;
-                const SAMPLE_FRAMES = 60;
+                const SAMPLE_FRAMES = 20;  // was 60 — 20 frames is plenty for a reliable average
                 const FPS_THRESHOLD = 35;
-                const WARMUP_MS = 3000; // Wait 3s for scene to fully load before sampling
+                const WARMUP_MS = 2000;    // was 3000 — scene is loaded well within 2s
 
                 const measureFrame = (timestamp) => {
-                    if (!startTime) {
-                        startTime = timestamp;
-                    }
+                    if (!startTime) startTime = timestamp;
 
                     const elapsed = timestamp - startTime;
-
-                    // Wait for warmup period before starting measurement
                     if (elapsed < WARMUP_MS) {
                         requestAnimationFrame(measureFrame);
                         return;
@@ -1020,14 +1021,11 @@
                     frameCount++;
 
                     if (frameCount >= SAMPLE_FRAMES) {
-                        const measuredFps = (frameCount / ((timestamp - startTime - WARMUP_MS) / 1000));
-                        console.log(`📊 FPS benchmark: ${measuredFps.toFixed(1)} FPS`);
-
+                        const measuredFps = frameCount / ((timestamp - startTime - WARMUP_MS) / 1000);
                         if (measuredFps < FPS_THRESHOLD && !this.isLowEnd) {
-                            console.log(`⚡ Auto-downgrade triggered (${measuredFps.toFixed(1)} FPS < ${FPS_THRESHOLD} threshold)`);
                             this._applyLowEndSettings();
                         }
-                        return; // Stop sampling
+                        return;
                     }
 
                     requestAnimationFrame(measureFrame);
@@ -1464,7 +1462,7 @@
                     floorMaterial
                 );
                 floor.rotation.x = -Math.PI / 2;
-                floor.receiveShadow = true;
+                floor.receiveShadow = !this.isLowEnd;
                 this.scene.add(floor);
 
                 // WALLS
@@ -1494,20 +1492,22 @@
                     );
                     wallMesh.position.set(...config.pos);
                     wallMesh.rotation.set(...config.rot);
-                    wallMesh.receiveShadow = true;
-                    wallMesh.castShadow = true;
+                    wallMesh.receiveShadow = !this.isLowEnd;
+                    wallMesh.castShadow = !this.isLowEnd;
                     wallMesh.name = `wall_${config.name}`;
                     this.scene.add(wallMesh);
                 });
 
-                // CEILING
-                const ceilingMaterial = new THREE.MeshStandardMaterial({ 
-                    color: this.lightingConfig.ceiling,
-                    roughness: 0.5,
-                    metalness: 0.0,
-                    emissive: this.lightingConfig.ceiling,
-                    emissiveIntensity: 0.1
-                });
+                // CEILING — ⚡ FIX F: Lambert on low-end, shared plane geo
+                const ceilingMaterial = this.isLowEnd
+                    ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling })
+                    : new THREE.MeshStandardMaterial({
+                        color: this.lightingConfig.ceiling,
+                        roughness: 0.5,
+                        metalness: 0.0,
+                        emissive: this.lightingConfig.ceiling,
+                        emissiveIntensity: 0.1
+                    });
 
                 const ceiling = new THREE.Mesh(
                     new THREE.PlaneGeometry(wallLength * 2, wallLength * 2),
@@ -1515,35 +1515,39 @@
                 );
                 ceiling.rotation.x = Math.PI / 2;
                 ceiling.position.y = wallHeight;
-                ceiling.receiveShadow = true;
+                ceiling.receiveShadow = !this.isLowEnd;
                 ceiling.name = 'ceiling';
                 this.scene.add(ceiling);
 
-                // DYNAMIC DISTRIBUTED LIGHTING
+                // ⚡ FIX A: Radically fewer PointLights on low-end.
+                // Each PointLight adds a full per-fragment lighting pass in WebGL.
+                // Low-end: 0 ceiling PointLights (ambient + hemisphere carry the scene)
+                // High-end: 2x2 = 4 ceiling lights (was 3x3 = 9)
                 const roomLightingConfig = this.lightingConfig;
-                const maxLights = 8;
-                const gridSize = Math.min(3, Math.ceil(Math.sqrt(maxLights)));
-                
-                const startX = -(wallLength / 2) + (wallLength / (gridSize + 1));
-                const startZ = -(wallLength / 2) + (wallLength / (gridSize + 1));
-                const stepX = wallLength / (gridSize + 1);
-                const stepZ = wallLength / (gridSize + 1);
-
-                for (let i = 0; i < gridSize; i++) {
-                    for (let j = 0; j < gridSize; j++) {
-                        const xPos = startX + (i * stepX);
-                        const zPos = startZ + (j * stepZ);
-                        
-                        const fillLight = new THREE.PointLight(
-                            0xfff8e8,
-                            roomLightingConfig.fillLight * 1.5, 
-                            wallLength * 0.8 
-                        );
-                        fillLight.position.set(xPos, CONFIG.room.wallHeight - 0.5, zPos);
-                        fillLight.castShadow = false; 
-                        this.scene.add(fillLight);
+                if (!this.isLowEnd) {
+                    const gridSize = 2;
+                    const startX = -(wallLength / 2) + (wallLength / (gridSize + 1));
+                    const startZ = -(wallLength / 2) + (wallLength / (gridSize + 1));
+                    const stepX = wallLength / (gridSize + 1);
+                    const stepZ = wallLength / (gridSize + 1);
+                    for (let i = 0; i < gridSize; i++) {
+                        for (let j = 0; j < gridSize; j++) {
+                            const fillLight = new THREE.PointLight(
+                                0xfff8e8,
+                                roomLightingConfig.fillLight * 2.0,
+                                wallLength * 1.2
+                            );
+                            fillLight.position.set(
+                                startX + i * stepX,
+                                CONFIG.room.wallHeight - 0.5,
+                                startZ + j * stepZ
+                            );
+                            fillLight.castShadow = false;
+                            this.scene.add(fillLight);
+                        }
                     }
                 }
+                // Low-end: ambient (intensity boosted in setupLighting) + hemisphere provide flat fill
 
                 console.log(`💡 Created optimized ceiling lights for ${wallLength}m room`);
                 console.log(`📐 Room created: ${wallLength}m x ${wallLength}m x ${wallHeight}m`);
@@ -1565,11 +1569,14 @@
                     wood: 0x8b6f47
                 };
 
+                // ⚡ FIX C: Lambert (diffuse-only) on low-end — ~4x cheaper than Standard (PBR)
+                const MatClass = this.isLowEnd ? THREE.MeshLambertMaterial : THREE.MeshStandardMaterial;
+                const stdProps = this.isLowEnd ? {} : { roughness: 0.8, metalness: 0.1 };
+
                 if (!this.textures.wall) {
-                    return new THREE.MeshStandardMaterial({ 
+                    return new MatClass({
                         color: fallbackColors[type] || fallbackColors.white,
-                        roughness: 0.8,
-                        metalness: 0.1
+                        ...stdProps
                     });
                 }
 
@@ -1577,95 +1584,94 @@
                 texture.needsUpdate = true;
                 texture.wrapS = THREE.RepeatWrapping;
                 texture.wrapT = THREE.RepeatWrapping;
-                
-                const properties = {
-                    white: { roughness: 0.8, metalness: 0.1 },
-                    concrete: { roughness: 0.9, metalness: 0.0 },
-                    brick: { roughness: 0.95, metalness: 0.0 },
-                    wood: { roughness: 0.7, metalness: 0.1 }
-                };
 
+                const properties = {
+                    white:    { roughness: 0.8, metalness: 0.1 },
+                    concrete: { roughness: 0.9, metalness: 0.0 },
+                    brick:    { roughness: 0.95, metalness: 0.0 },
+                    wood:     { roughness: 0.7, metalness: 0.1 }
+                };
                 const props = properties[type] || properties.white;
 
-                return new THREE.MeshStandardMaterial({ 
+                return new MatClass({
                     map: texture,
-                    roughness: props.roughness,
-                    metalness: props.metalness,
-                    side: THREE.FrontSide 
+                    ...(this.isLowEnd ? {} : props),
+                    side: THREE.FrontSide
                 });
             }
-
-            // SECTION 4: Update Floor Materials (Support for environmentIntensity)
+            // SECTION 4: Update Floor Materials
             getFloorMaterial(type) {
                 const fallbackColors = {
                     wood: 0x5c4033,
                     marble: 0xe8e8e8,
                     concrete: 0x6b6b6b
                 };
-                
-                // Get preset intensity (initialized in buildGallery -> setupLighting)
-                const lightingConfig = this.lightingConfig || CONFIG.lighting.bright;
-                const envIntensity = lightingConfig.envIntensity || 1.0;
 
-                const materials = {
-                    wood: new THREE.MeshStandardMaterial({
-                        map: this.textures.floor || null,
-                        color: this.textures.floor ? 0xffffff : fallbackColors.wood,
-                        roughness: 0.7,
-                        metalness: 0.1,
-                        envMapIntensity: 0.6 * envIntensity, // ✨ Scaled by preset
-                    }),
-                    marble: new THREE.MeshStandardMaterial({
-                        map: this.textures.floor || null,
-                        color: this.textures.floor ? 0xffffff : fallbackColors.marble,
-                        roughness: 0.3,
-                        metalness: 0.2,
-                        envMapIntensity: 1.2 * envIntensity, // ✨ Scaled by preset
-                    }),
-                    concrete: new THREE.MeshStandardMaterial({
-                        map: this.textures.floor || null,
-                        color: this.textures.floor ? 0xffffff : fallbackColors.concrete,
-                        roughness: 0.9,
-                        metalness: 0.05,
-                        envMapIntensity: 0.3 * envIntensity // ✨ Scaled by preset
-                    })
-                };
-
-                // If texture exists, configure it
-                if (this.textures.floor) {
-                    const mat = materials[type] || materials.wood;
-                    mat.map = this.textures.floor.clone();
-                    mat.map.wrapS = THREE.RepeatWrapping;
-                    mat.map.wrapT = THREE.RepeatWrapping;
-                    mat.needsUpdate = true;
+                // ⚡ FIX C (floor): Lambert on low-end
+                if (this.isLowEnd) {
+                    const mat = new THREE.MeshLambertMaterial({
+                        color: fallbackColors[type] || fallbackColors.wood
+                    });
+                    if (this.textures.floor) {
+                        const t = this.textures.floor.clone();
+                        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+                        mat.map = t;
+                        mat.color.set(0xffffff);
+                        mat.needsUpdate = true;
+                    }
                     return mat;
                 }
 
-                return materials[type] || materials.wood;
+                const lightingConfig = this.lightingConfig || CONFIG.lighting.bright;
+                const envIntensity = lightingConfig.envIntensity || 1.0;
+
+                const stdProps = {
+                    wood:     { roughness: 0.7, metalness: 0.1, envMapIntensity: 0.6 * envIntensity },
+                    marble:   { roughness: 0.3, metalness: 0.2, envMapIntensity: 1.2 * envIntensity },
+                    concrete: { roughness: 0.9, metalness: 0.05, envMapIntensity: 0.3 * envIntensity }
+                };
+                const props = stdProps[type] || stdProps.wood;
+                const mat = new THREE.MeshStandardMaterial({
+                    color: fallbackColors[type] || fallbackColors.wood,
+                    ...props
+                });
+                if (this.textures.floor) {
+                    const t = this.textures.floor.clone();
+                    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+                    mat.map = t;
+                    mat.color.set(0xffffff);
+                    mat.needsUpdate = true;
+                }
+                return mat;
             }
 
-            // SECTION 6: Adjust Ambient Light (In setupLighting method)
             setupLighting(preset) {
                 this.lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
                 const config = this.lightingConfig;
 
-                const ambientLight = new THREE.AmbientLight(0xffffff, config.ambient);
+                // ⚡ FIX B: On low-end boost ambient intensity to compensate for
+                // removed ceiling PointLights. Ambient is free — no per-fragment cost.
+                const ambientIntensity = this.isLowEnd ? config.ambient * 3.5 : config.ambient;
+                const ambientLight = new THREE.AmbientLight(0xffffff, ambientIntensity);
                 this.scene.add(ambientLight);
 
-                // ✨ NEW: Add subtle hemisphere light for more natural lighting
+                // Hemisphere light gives cheap sky/ground gradient — keep on all tiers
                 const hemisphereLight = new THREE.HemisphereLight(
-                    0xffffff,  // Sky color
-                    0x444444,  // Ground color
-                    0.3        // Intensity (subtle)
+                    0xffffff,
+                    0x444444,
+                    this.isLowEnd ? 0.8 : 0.3
                 );
                 this.scene.add(hemisphereLight);
 
-                const dirLight = new THREE.DirectionalLight(0xffffff, 0.3);
-                dirLight.position.set(0, 10, 5);
-                dirLight.target.position.set(0, 0, 0);
-                dirLight.castShadow = false;
-                this.scene.add(dirLight);
-                this.scene.add(dirLight.target);
+                // Directional light — skip on low-end (another per-fragment cost)
+                if (!this.isLowEnd) {
+                    const dirLight = new THREE.DirectionalLight(0xffffff, 0.3);
+                    dirLight.position.set(0, 10, 5);
+                    dirLight.target.position.set(0, 0, 0);
+                    dirLight.castShadow = false;
+                    this.scene.add(dirLight);
+                    this.scene.add(dirLight.target);
+                }
             }
 
             placeArtworks(data) {
@@ -1707,36 +1713,35 @@
                     }
 
                     const frame = this.createFrame(width, height, data.frame_style);
-                    
-                    // ✨ CHANGE 6: PERF: Use pre-loaded texture directly — no canvas/CPU copy
                     const texture = img.texture;
-                    
-                    const artworkGeo = new THREE.PlaneGeometry(width * 0.95, height * 0.95);
-                    
-                    // 🎨 ENHANCED: Canvas material with normal mapping for realistic texture
-                    const artworkMat = new THREE.MeshStandardMaterial({
-                        map: texture,
-                        
-                        // Physical canvas properties
-                        normalMap: this.textures.canvasNormal,          // Apply woven texture
-                        normalScale: new THREE.Vector2(0.35, 0.35),     // Subtle depth (adjust 0.2-0.5 for taste)
-                        roughness: 0.75,                                 // Matte finish like real canvas
-                        metalness: 0.0,                                  // Non-reflective cloth surface
-                    });
 
-                    // Scale canvas grain based on artwork physical size
-                    // This prevents the texture from stretching on large paintings
-                    if (artworkMat.normalMap) {
-                        // Calculate appropriate tiling:
-                        // Larger artworks need more repetitions to keep grain size consistent
-                        const tilingFactor = 2.5; // Adjust this to make grain finer (higher) or coarser (lower)
-                        artworkMat.normalMap.repeat.set(
-                            width * tilingFactor, 
-                            height * tilingFactor
-                        );
+                    // ⚡ FIX D: Shared unit PlaneGeometry scaled per artwork (saves N geometry uploads)
+                    if (!this._sharedPlaneGeo) {
+                        this._sharedPlaneGeo = new THREE.PlaneGeometry(1, 1);
                     }
-                    
-                    const artwork = new THREE.Mesh(artworkGeo, artworkMat);
+
+                    let artworkMat;
+                    if (this.isLowEnd) {
+                        // ⚡ FIX D (low-end): MeshLambertMaterial — no PBR, no normal map
+                        artworkMat = new THREE.MeshLambertMaterial({ map: texture });
+                    } else {
+                        // High-end: full PBR canvas material
+                        artworkMat = new THREE.MeshStandardMaterial({
+                            map: texture,
+                            normalMap: this.textures.canvasNormal || null,
+                            normalScale: new THREE.Vector2(0.35, 0.35),
+                            roughness: 0.75,
+                            metalness: 0.0,
+                        });
+                        if (artworkMat.normalMap) {
+                            const tilingFactor = 2.5;
+                            artworkMat.normalMap.repeat.set(width * tilingFactor, height * tilingFactor);
+                        }
+                    }
+
+                    const artwork = new THREE.Mesh(this._sharedPlaneGeo, artworkMat);
+                    // Scale the shared unit plane to this artwork's dimensions
+                    artwork.scale.set(width * 0.95, height * 0.95, 1);
                     artwork.position.z = 0.05;
                     
                     const group = new THREE.Group();
@@ -1800,12 +1805,15 @@
 
                 const lightingConfig = this.lightingConfig || CONFIG.lighting.bright;
 
-                const frameMat = new THREE.MeshStandardMaterial({
-                    color: colors[style] || colors.modern,
-                    roughness: 0.3,
-                    metalness: 0.8,
-                    envMapIntensity: 1.5 * (lightingConfig.envIntensity || 1.0)
-                });
+                // ⚡ FIX E: Lambert on low-end — frames don't need PBR metalness shine
+                const frameMat = this.isLowEnd
+                    ? new THREE.MeshLambertMaterial({ color: colors[style] || colors.modern })
+                    : new THREE.MeshStandardMaterial({
+                        color: colors[style] || colors.modern,
+                        roughness: 0.3,
+                        metalness: 0.8,
+                        envMapIntensity: 1.5 * (lightingConfig.envIntensity || 1.0)
+                    });
 
                 const frame = new THREE.Group();
                 const { h: hGeo, v: vGeo } = this._getFrameGeos();
@@ -1822,94 +1830,80 @@
                     const mesh = new THREE.Mesh(geo, frameMat);
                     mesh.scale.set(sx, sy, sz);
                     mesh.position.set(px, py, pz);
-                    mesh.castShadow = true;
+                    mesh.castShadow = !this.isLowEnd;
                     frame.add(mesh);
                 });
 
                 return frame;
             }
 
-            // ==========================================
-            // FIX 1: Make Proximity Lights Visible Again (UPDATED)
-            // ==========================================
             addArtworkLight(artworkGroup, preset) {
+                // ⚡ FIX H: On low-end, NO per-artwork PointLights.
+                // Boosted ambient + hemisphere already illuminate artworks adequately.
+                // Even one hidden PointLight costs GPU state — skip creating them entirely.
+                if (this.isLowEnd) return;
+
                 const config = CONFIG.lighting[preset] || CONFIG.lighting.bright;
-                
-                // Create PointLight for each artwork (initially OFF)
-                // ✨ DRAMATICALLY INCREASED: Much stronger intensity for visibility
                 const artworkLight = new THREE.PointLight(
                     0xfff5e6,
-                    config.spot * 3.5,  // ✨ INCREASED multiplier to 3.5 (5x stronger than original 0.7!)
-                    10                  // ✨ INCREASED range from 8 to 10
+                    config.spot * 3.5,
+                    10
                 );
-                
-                // Position light in front of artwork
+
                 const normal = new THREE.Vector3(0, 0, 1);
                 normal.applyQuaternion(artworkGroup.quaternion);
-                
+
                 artworkLight.position.copy(artworkGroup.position);
-                artworkLight.position.y += 0.3;  // ✨ REDUCED from 0.5 (closer to artwork center)
-                artworkLight.position.add(normal.multiplyScalar(0.8));  // ✨ REDUCED from 1.2 (closer to artwork)
-                
+                artworkLight.position.y += 0.3;
+                artworkLight.position.add(normal.multiplyScalar(0.8));
+
                 artworkLight.castShadow = false;
-                artworkLight.visible = false; // Start OFF
-                
+                artworkLight.visible = false;
+
                 this.scene.add(artworkLight);
-                
-                // Store reference for proximity detection
                 artworkGroup.userData.light = artworkLight;
             }
 
-            // SECTION 5 (Continued): Update Proximity Logic (CHANGE 7: Removed noisy console.logs)
             updateProximityLighting() {
                 if (!this.artworks || this.artworks.length === 0) return;
-                
+
+                // ⚡ FIX G: On low-end there are NO per-artwork PointLights (addArtworkLight
+                // is skipped below), so there is nothing to update here.
+                if (this.isLowEnd) return;
+
                 const playerPos = this.camera.position;
-                
-                // ✨ FIX: Get proximityDistance from the correct preset
                 const lightingConfig = this.lightingConfig || CONFIG.lighting[this.lightingPreset] || CONFIG.lighting.bright;
-                const proximityDist = lightingConfig.proximityDistance || 5; // Fallback to 5
+                const proximityDist = lightingConfig.proximityDistance || 5;
                 const sqrProximityDist = proximityDist * proximityDist;
-                
+
                 let closestArtwork = null;
                 let closestDistSqr = Infinity;
-                
-                // Find closest artwork
+
                 for (const artwork of this.artworks) {
                     const artPos = artwork.position;
                     const dx = playerPos.x - artPos.x;
                     const dz = playerPos.z - artPos.z;
                     const distSqr = dx * dx + dz * dz;
-                    
                     if (distSqr < closestDistSqr && distSqr < sqrProximityDist) {
                         closestDistSqr = distSqr;
                         closestArtwork = artwork;
                     }
                 }
-                
-                // Update lights (only one active at a time)
+
+                const targetIntensity = (CONFIG.lighting[this.lightingPreset] || CONFIG.lighting.bright).spot * 3.5;
+
                 for (const artwork of this.artworks) {
                     const light = artwork.userData.light;
-                    
-                    // ✨ CHANGE 7: Removed console.warn, just continue
                     if (!light) continue;
-                    
+
                     if (artwork === closestArtwork) {
-                        if (!light.visible) {
-                            light.visible = true;
-                            light.intensity = 0;
-                        }
-                        // Smooth fade in
-                        // ✨ UPDATED: Match the 3.5 multiplier for visibility
-                        const targetIntensity = (CONFIG.lighting[this.lightingPreset] || CONFIG.lighting.bright).spot * 3.5;
+                        if (!light.visible) { light.visible = true; light.intensity = 0; }
                         light.intensity = Math.min(light.intensity + 0.2, targetIntensity);
                     } else {
-                        // Smooth fade out
-                        if (light.intensity > 0) {
-                            light.intensity = Math.max(0, light.intensity - 0.1);
-                        } else {
-                            light.visible = false;
-                        }
+                        // ⚡ Early-exit: skip artworks already fully dark (saves 20+ iterations)
+                        if (light.intensity <= 0) continue;
+                        light.intensity = Math.max(0, light.intensity - 0.1);
+                        if (light.intensity === 0) light.visible = false;
                     }
                 }
             }
