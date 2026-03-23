@@ -1815,16 +1815,29 @@
                 const wd         = CONFIG.room.wallDepth;
                 const wingW      = 6;  // width of each wing (corridor width)
 
-                // Split images 60/40 across the two wings
-                const countA = Math.ceil(imageCount * 0.6);
-                const countB = imageCount - countA;
+                // ── Step 1: Calculate lenA conservatively ─────────────────
+                // Wing A holds images on 2 walls, stopping before the junction passage.
+                // We use 60% as the initial estimate for lenA sizing, but we cap it
+                // so the wing is never longer than needed.
+                const estCountA = Math.ceil(imageCount * 0.6);
+                const lenA = Math.max(12, (Math.ceil(estCountA / 2) * spacing) + spacing);
+                const jZ   = lenA / 2 - wingW;
 
-                // Wing lengths — enough wall space for their share of images
-                const lenA = Math.max(12, (Math.ceil(countA / 2) * spacing) + spacing);
-                const lenB = Math.max(12, (Math.ceil(countB / 2) * spacing) + spacing);
+                // ── Step 2: Simulate the spill to get the EXACT count for Wing B ─
+                // Mirror the logic in _placeArtworksLShape so lenB matches reality.
+                const zStart = -lenA / 2 + spacing;
+                const zLimit = jZ - spacing / 2;
+                let spillFrom = imageCount; // default: all fit in Wing A
+                let sideA = 0, rowA = 0;
+                for (let i = 0; i < imageCount; i++) {
+                    if (zStart + rowA * spacing >= zLimit) { spillFrom = i; break; }
+                    sideA = 1 - sideA;
+                    if (sideA === 0) rowA++;
+                }
+                const actualCountB = imageCount - spillFrom;
 
-                // Junction Z coordinate (bottom of Wing A = top of Wing B)
-                const jZ = lenA / 2 - wingW;
+                // ── Step 3: Size lenB from the ACTUAL Wing B count ────────
+                const lenB = Math.max(12, (Math.ceil(actualCountB / 2) * spacing) + spacing * 2);
 
                 // Wing centres (for floor/ceiling panels and lights)
                 const aCX = wingW / 2,          aCZ = 0;
@@ -1946,7 +1959,7 @@
                     minZ: -lenA / 2, maxZ: lenA / 2
                 };
 
-                this._layoutMeta = { type: 'l-shape', wingW, lenA, lenB, jZ, aCX, aCZ, bCX, bCZ, countA, countB };
+                this._layoutMeta = { type: 'l-shape', wingW, lenA, lenB, jZ, zStart, zLimit, aCX, aCZ, bCX, bCZ };
             }
 
             // ─────────────────────────────────────────────
@@ -2210,10 +2223,10 @@
 
             _placeArtworksLShape(data) {
                 // Strategy: fill Wing A walls slot-by-slot alternating left/right.
-                // Once a slot Z would land in the open passage (>= jZ), spill ALL
-                // remaining artworks to Wing B. This guarantees zero dropped artworks
-                // regardless of image count.
-                const { wingW, lenA, lenB, jZ } = this._layoutMeta;
+                // Once a slot Z would land in the open passage (>= zLimit), spill ALL
+                // remaining artworks to Wing B. zStart and zLimit are pre-computed
+                // in createRoomLShape so lenB is guaranteed big enough.
+                const { wingW, lenA, lenB, jZ, zStart, zLimit } = this._layoutMeta;
                 const spacing  = CONFIG.room.artworkSpacing;
                 const eyeLevel = CONFIG.camera.height;
                 const all      = this.artworkImages;
@@ -2224,8 +2237,6 @@
                     { x: 0.2,       normal: [1,0,0]  },
                     { x: wingW-0.2, normal: [-1,0,0] },
                 ];
-                const zStart   = -lenA / 2 + spacing;
-                const zLimit   = jZ - spacing / 2; // last safe Z before passage
 
                 let spillFrom = all.length; // index where Wing B starts (default = all in A)
                 let sideA = 0, rowA = 0;
