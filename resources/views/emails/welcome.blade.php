@@ -91,18 +91,22 @@
         </p>
 
         <div class="features">
-            <strong style="color: #1f2937;">Your Free Plan includes:</strong>
+            <strong style="color: #1f2937;">What you can do with Exospace:</strong>
             <ul>
-                <li>Create up to {{ $user->max_galleries ?? 3 }} stunning 3D galleries</li>
-                <li>Upload up to {{ $user->max_images ?? 10 }} images per gallery</li>
-                <li>Beautiful, professional gallery templates</li>
-                <li>Share your art with the world</li>
+                <li>Build immersive 3D galleries in minutes</li>
+                <li>Share your art with a single link</li>
+                <li>Beautiful templates, custom lighting & music</li>
+                <li>Real-time visitor analytics</li>
             </ul>
         </div>
 
         <div style="text-align: center;">
-            <a href="{{ config('app.url') }}/dashboard" class="btn">Create My First Gallery</a>
+            <a href="{{ config('app.url') }}/email/verify" class="btn">Verify My Email to Get Started</a>
         </div>
+
+        <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: -10px;">
+            You'll be redirected to your dashboard right after.
+        </p>
 
         <p style="margin-top: 30px;">
             <strong>What's next?</strong><br>
