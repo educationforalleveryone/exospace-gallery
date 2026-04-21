@@ -8,14 +8,17 @@ use Illuminate\View\View;
 
 class GalleryViewController extends Controller
 {
-    public function show(string $slug): View
+    public function show(string $slug): View|\Illuminate\Http\RedirectResponse
     {
         $gallery = Gallery::where('slug', $slug)
             ->where('is_active', true)
-            ->with(['images' => function ($query) {
-                $query->orderBy('position_order');
-            }])
+            ->with(['images' => fn($q) => $q->orderBy('position_order')])
             ->firstOrFail();
+
+        // PIN protection — redirect to PIN screen if not yet verified
+        if ($gallery->hasPinProtection() && !session("pin_verified_{$gallery->id}")) {
+            return redirect()->route('gallery.pin', $slug);
+        }
 
         $gallery->increment('view_count');
 
@@ -23,34 +26,23 @@ class GalleryViewController extends Controller
             'id'          => $gallery->id,
             'title'       => $gallery->title,
             'description' => $gallery->description,
-
-            // Material settings
             'wall_texture'    => $gallery->wall_texture,
             'floor_material'  => $gallery->floor_material,
             'frame_style'     => $gallery->frame_style,
             'lighting_preset' => $gallery->lighting_preset,
-
-            // Room layout — new field, default 'square' for existing galleries
-            'room_layout' => $gallery->room_layout ?? 'square',
-
-            // Images
-            'images' => $gallery->images->map(function ($img) {
-                return [
-                    'id'          => $img->id,
-                    'url'         => asset($img->path),
-                    'width'       => $img->width,
-                    'height'      => $img->height,
-                    'aspectRatio' => $img->width / max($img->height, 1),
-                    'orientation' => $img->orientation,
-                    'title'       => $img->title ?? $img->original_name,
-                    'description' => $img->description,
-                ];
-            })->values(),
-
+            'room_layout'     => $gallery->room_layout ?? 'square',
+            'images' => $gallery->images->map(fn($img) => [
+                'id'          => $img->id,
+                'url'         => asset($img->path),
+                'width'       => $img->width,
+                'height'      => $img->height,
+                'aspectRatio' => $img->width / max($img->height, 1),
+                'orientation' => $img->orientation,
+                'title'       => $img->title ?? $img->original_name,
+                'description' => $img->description,
+            ])->values(),
             'imageCount' => $gallery->images->count(),
-            'audioUrl'   => $gallery->audio_path
-                ? asset('storage/' . $gallery->audio_path)
-                : null,
+            'audioUrl'   => $gallery->audio_path ? asset('storage/' . $gallery->audio_path) : null,
         ];
 
         return view('gallery.view', compact('gallery', 'galleryData'));

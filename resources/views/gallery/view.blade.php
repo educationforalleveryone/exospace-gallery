@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{ Str::limit($gallery->description, 150) }}">
     <title>{{ $gallery->title }} | Exospace 3D Gallery</title>
@@ -865,7 +866,14 @@
                 images: mockImages
             };
         }
-        console.log('🎨 Gallery Loaded:', window.GALLERY_DATA);
+        // Analytics configuration
+        window.EXOSPACE_TRACK_URL = '{{ route("gallery.track", $gallery) }}';
+        window.EXOSPACE_SESSION   = (function() {
+            const k = 'exo_sid_{{ $gallery->id }}';
+            let s = sessionStorage.getItem(k);
+            if (!s) { s = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36); sessionStorage.setItem(k, s); }
+            return s;
+        })();
     </script>
 
     <!-- Main Application -->
@@ -2699,7 +2707,12 @@
                     this.originalCameraPos.copy(this.camera.position);
                     this.originalCameraQuat.copy(this.camera.quaternion);
                     this.isInspecting = true;
-                    
+
+                    // Analytics: track artwork focus
+                    if (typeof Analytics !== 'undefined' && this.focusedArtwork) {
+                        Analytics.trackFocus(this.focusedArtwork.userData.id);
+                    }
+
                     // ✨ NEW: Play focus click sound
                     if (this.sfxEnabled && this.sfx.click && !this.sfx.click.isPlaying) {
                         this.sfx.click.play();
@@ -3525,9 +3538,12 @@
                 this.artworks = this.scene.artworks || [];
                 if (this.artworks.length === 0) return;
 
-                this.active  = false; // reset so _enterTourMode works cleanly
+                this.active  = false;
                 this.paused  = false;
                 this.index   = fromIndex;
+
+                // Analytics
+                if (typeof Analytics !== 'undefined') Analytics.trackTourStart();
 
                 this._enterTourMode();
                 this._goTo(this.index);
@@ -3689,6 +3705,8 @@
                             document.getElementById('artwork-description').textContent =
                                 artwork.userData.description || 'No description available.';
                             if (panel) panel.classList.add('show');
+                            // Analytics: track focus from tour
+                            if (typeof Analytics !== 'undefined') Analytics.trackFocus(artwork.userData.id);
 
                             // Play click SFX
                             if (this.scene.sfxEnabled && this.scene.sfx.click && !this.scene.sfx.click.isPlaying) {
@@ -3804,6 +3822,71 @@
             const btn = document.getElementById('in-gallery-tour-btn');
             if (btn) btn.style.display = 'flex';
         };
+
+
+        // ================================================================
+        // ANALYTICS TRACKER
+        // ================================================================
+        const Analytics = {
+            _sent: new Set(),
+
+            send(event, extra = {}) {
+                const url = window.EXOSPACE_TRACK_URL;
+                if (!url) return;
+                const body = { event, session_token: window.EXOSPACE_SESSION, ...extra };
+                // Use sendBeacon for dwell (fires on page unload reliably)
+                if (event === 'dwell' && navigator.sendBeacon) {
+                    navigator.sendBeacon(url, JSON.stringify(body));
+                    return;
+                }
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+                    body: JSON.stringify(body),
+                    keepalive: true,
+                }).catch(() => {});
+            },
+
+            // Fire once per session
+            trackView() {
+                if (this._sent.has('view')) return;
+                this._sent.add('view');
+                this.send('view');
+                this._startDwell();
+            },
+
+            trackFocus(imageId) {
+                this.send('focus', { image_id: imageId });
+            },
+
+            trackTourStart() {
+                if (this._sent.has('tour_start')) return;
+                this._sent.add('tour_start');
+                this.send('tour_start');
+            },
+
+            trackTourComplete() {
+                this.send('tour_complete');
+            },
+
+            _startDwell() {
+                const entered = Date.now();
+                const flush = () => {
+                    const secs = Math.round((Date.now() - entered) / 1000);
+                    if (secs >= 3) this.send('dwell', { dwell_seconds: secs });
+                };
+                window.addEventListener('beforeunload', flush);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) flush();
+                });
+            }
+        };
+
+        // Fire view event when the user enters (clicks the Enter button)
+        const _origEnterClick = document.getElementById('enter-btn').onclick;
+        document.getElementById('enter-btn').addEventListener('click', () => {
+            Analytics.trackView();
+        }, { once: true });
 
     </script>
 </body>

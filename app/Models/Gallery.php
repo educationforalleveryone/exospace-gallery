@@ -13,8 +13,8 @@ class Gallery extends Model
         'user_id', 'title', 'slug', 'description',
         'wall_texture', 'frame_style', 'lighting_preset',
         'floor_material', 'audio_path', 'custom_logo_path',
-        'room_layout',   // ← NEW
-        'is_active', 'view_count'
+        'room_layout', 'pin_hash',
+        'is_active', 'view_count',
     ];
 
     protected $casts = [
@@ -25,7 +25,6 @@ class Gallery extends Model
     protected static function boot()
     {
         parent::boot();
-
         static::creating(function ($gallery) {
             if (empty($gallery->slug)) {
                 $gallery->slug = Str::slug($gallery->title) . '-' . uniqid();
@@ -43,8 +42,23 @@ class Gallery extends Model
         return $this->hasMany(GalleryImage::class)->orderBy('position_order');
     }
 
+    public function events(): HasMany
+    {
+        return $this->hasMany(GalleryEvent::class);
+    }
+
     public function getPublicUrlAttribute(): string
     {
         return url("/gallery/{$this->slug}");
+    }
+
+    public function hasPinProtection(): bool
+    {
+        return !empty($this->pin_hash);
+    }
+
+    public function verifyPin(string $pin): bool
+    {
+        return \Hash::check($pin, $this->pin_hash);
     }
 }
