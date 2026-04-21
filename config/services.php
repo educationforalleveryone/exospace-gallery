@@ -36,8 +36,10 @@ return [
     ],
 
     '2checkout' => [
-        'account_number' => env('TWOCHECKOUT_ACCOUNT_NUMBER'),
-        'secret_word' => env('TWOCHECKOUT_SECRET_WORD'),
+        'account_number'   => env('TWOCHECKOUT_ACCOUNT_NUMBER'),
+        'secret_word'      => env('TWOCHECKOUT_SECRET_WORD'),
+        'product_id_pro'   => env('TWOCHECKOUT_PRODUCT_ID_PRO'),
+        'product_id_studio'=> env('TWOCHECKOUT_PRODUCT_ID_STUDIO'),
     ],
 
 ];

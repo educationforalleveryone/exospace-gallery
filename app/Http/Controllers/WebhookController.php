@@ -84,39 +84,76 @@ class WebhookController extends Controller
         }
 
         // ================================
-        // STEP 3: Upgrade the User
+        // STEP 3: Map Product ID → Plan
         // ================================
-        
-        // Determine which plan based on product ID or price
-        // You can customize this based on your 2Checkout product setup
-        $plan = 'pro'; // Default to Pro for now
-        $maxGalleries = 999;
-        $maxImages = 100;
-        
-        // Update the user's plan
+
+        // Map your 2Checkout Product IDs to plans
+        // After creating products in 2Checkout, paste the numeric Product IDs here
+        $productMap = [
+            config('services.2checkout.product_id_pro')    => [
+                'plan'           => 'pro',
+                'max_galleries'  => 5,
+                'max_images'     => 50,
+            ],
+            config('services.2checkout.product_id_studio') => [
+                'plan'           => 'studio',
+                'max_galleries'  => 999,
+                'max_images'     => 999,
+            ],
+        ];
+
+        $planConfig = $productMap[$productId] ?? null;
+
+        if (!$planConfig) {
+            Log::warning('2Checkout: Unknown product ID received', [
+                'product_id' => $productId,
+                'email'      => $customerEmail,
+                'invoice_id' => $invoiceId,
+            ]);
+            // Still return 200 so 2Checkout doesn't keep retrying,
+            // but flag it for manual review
+            return response('Unknown product - flagged for review', 200);
+        }
+
+        // ================================
+        // STEP 4: Upgrade the User
+        // ================================
+
         $user->update([
-            'plan' => $plan,
-            'max_galleries' => $maxGalleries,
-            'max_images' => $maxImages,
+            'plan'            => $planConfig['plan'],
+            'max_galleries'   => $planConfig['max_galleries'],
+            'max_images'      => $planConfig['max_images'],
             'plan_started_at' => now(),
-            'plan_expires_at' => null, // Lifetime access
+            'plan_expires_at' => null, // Lifetime / one-time purchase
+        ]);
+
+        // ================================
+        // STEP 5: Store Transaction Record
+        // ================================
+
+        \DB::table('transactions')->insert([
+            'user_id'        => $user->id,
+            'invoice_id'     => $invoiceId,
+            'sale_id'        => $request->input('sale_id'),
+            'product_id'     => $productId,
+            'plan'           => $planConfig['plan'],
+            'amount'         => $request->input('item_list_amount_1', 0),
+            'currency'       => $request->input('list_currency', 'USD'),
+            'customer_email' => $customerEmail,
+            'customer_name'  => $customerName,
+            'status'         => 'completed',
+            'created_at'     => now(),
+            'updated_at'     => now(),
         ]);
 
         Log::info('2Checkout: User upgraded successfully', [
-            'user_id' => $user->id,
-            'email' => $user->email,
-            'plan' => $plan,
-            'invoice_id' => $invoiceId
+            'user_id'    => $user->id,
+            'email'      => $user->email,
+            'plan'       => $planConfig['plan'],
+            'invoice_id' => $invoiceId,
         ]);
 
-        // ================================
-        // STEP 4: Optional - Store Transaction
-        // ================================
-        
-        // If you want to track purchases, you can store them in a 'transactions' table
-        // For now, we'll just log it
-        
-        return response('Webhook processed successfully', 200);
+        return response('OK', 200);
     }
 
     /**
@@ -150,13 +187,19 @@ class WebhookController extends Controller
         $customerEmail = $request->input('customer_email');
         $user = User::where('email', $customerEmail)->first();
         
-        if ($user && $user->plan === 'pro') {
+        if ($user && in_array($user->plan, ['pro', 'studio'])) {
             $user->update([
-                'plan' => 'free',
-                'max_galleries' => 1,
-                'max_images' => 10,
+                'plan'            => 'free',
+                'max_galleries'   => 1,
+                'max_images'      => 10,
                 'plan_expires_at' => now(),
             ]);
+
+            \DB::table('transactions')
+                ->where('customer_email', $customerEmail)
+                ->latest('created_at')
+                ->limit(1)
+                ->update(['status' => 'refunded', 'updated_at' => now()]);
             
             Log::info('2Checkout: User downgraded after refund', [
                 'user_id' => $user->id,

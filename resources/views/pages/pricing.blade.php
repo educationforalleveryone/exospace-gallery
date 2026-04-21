@@ -351,7 +351,7 @@
                 Priority email support
             </li>
         </ul>
-        <a href="#" class="btn btn-primary" onclick="document.getElementById('upgrade-modal').style.display='flex'; return false;">Upgrade to Pro — $29</a>
+        <a href="#" class="btn btn-primary" onclick="document.getElementById('upgrade-modal-pro').style.display='flex'; return false;">Upgrade to Pro — $29</a>
     </div>
 
     <!-- STUDIO -->
@@ -393,7 +393,7 @@
                 <strong>Custom branding on gallery</strong>
             </li>
         </ul>
-        <a href="#" class="btn btn-outline" onclick="document.getElementById('upgrade-modal').style.display='flex'; return false;">Upgrade to Studio — $99</a>
+        <a href="#" class="btn btn-outline" onclick="document.getElementById('upgrade-modal-studio').style.display='flex'; return false;">Upgrade to Studio — $99</a>
     </div>
 </div>
 
@@ -430,16 +430,47 @@
     </details>
 </section>
 
-<!-- Upgrade Modal (placeholder for 2Checkout integration) -->
-<div id="upgrade-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
-    <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:420px; width:90%; text-align:center;">
-        <div style="width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,#3b82f6,#8b5cf6); display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        <h3 style="font-size:1.25rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">2Checkout Integration</h3>
-        <p style="font-size:0.82rem; color:#64748b; margin-bottom:1.5rem; line-height:1.6;">Payment processing via 2Checkout is currently being integrated. We'll be accepting payments shortly.</p>
-        <p style="font-size:0.78rem; color:#475569; margin-bottom:1.5rem;">In the meantime, <a href="/contact" style="color:#a78bfa; text-decoration:none;">contact us</a> to request early access or manual upgrade.</p>
-        <button onclick="document.getElementById('upgrade-modal').style.display='none'" style="background:#1e1e2e; border:1px solid #2e2e44; color:#cbd5e1; padding:0.6rem 1.5rem; border-radius:8px; font-size:0.85rem; cursor:pointer; font-family:inherit;">Close</button>
+<!-- Pro Upgrade Modal -->
+<div id="upgrade-modal-pro" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
+        <div style="font-size:2rem; margin-bottom:0.75rem;">🚀</div>
+        <h3 style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Pro — $29</h3>
+        <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
+        <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
+            <li>Up to 5 galleries</li>
+            <li>50 images per gallery</li>
+            <li>Analytics dashboard</li>
+            <li>No watermark</li>
+            <li>Priority support</li>
+        </ul>
+        <a href="https://www.2checkout.com/checkout/purchase?sid={{ config('services.2checkout.account_number') }}&product_id={{ config('services.2checkout.product_id_pro') }}&quantity=1" target="_blank"
+           style="display:block; background:linear-gradient(135deg,#3b82f6,#8b5cf6); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
+            Pay Securely with 2Checkout →
+        </a>
+        <p style="font-size:0.72rem; color:#475569;">After payment, log in with the same email to activate your plan.</p>
+        <button onclick="document.getElementById('upgrade-modal-pro').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
+    </div>
+</div>
+
+<!-- Studio Upgrade Modal -->
+<div id="upgrade-modal-studio" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
+        <div style="font-size:2rem; margin-bottom:0.75rem;">🏛️</div>
+        <h3 style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Studio — $99</h3>
+        <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
+        <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
+            <li>Unlimited galleries</li>
+            <li>Unlimited images</li>
+            <li>Advanced analytics</li>
+            <li>Custom branding & logo</li>
+            <li>Priority support</li>
+        </ul>
+        <a href="https://www.2checkout.com/checkout/purchase?sid={{ config('services.2checkout.account_number') }}&product_id={{ config('services.2checkout.product_id_studio') }}&quantity=1" target="_blank"
+           style="display:block; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
+            Pay Securely with 2Checkout →
+        </a>
+        <p style="font-size:0.72rem; color:#475569;">After payment, log in with the same email to activate your plan.</p>
+        <button onclick="document.getElementById('upgrade-modal-studio').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
     </div>
 </div>
 
