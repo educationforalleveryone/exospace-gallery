@@ -1,5 +1,43 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 2.0.0 - April 22, 2026 (SaaS Launch Update)
+
+### 🗄️ Database Migration to MySQL
+- **Production Database**: Migrated from SQLite to MySQL 8 for production reliability, concurrent user support, and SaaS-grade performance.
+- **Coolify Integration**: Database now provisioned and managed via Coolify on DigitalOcean with automatic backups.
+- **Config Hardening**: Updated `config/database.php` default fallback from `sqlite` to `mysql` to prevent silent misconfiguration.
+- **Auto-Migration on Deploy**: Added `php artisan migrate --force` to `nixpacks.toml` build phase so new migrations run automatically on every deployment.
+
+### 💳 2Checkout Payment Integration (Complete)
+- **Product ID Mapping**: Webhook now maps 2Checkout product IDs to specific plans. Previously hardcoded all purchases to `pro` regardless of what was bought.
+- **Dual Product Support**: Separate product IDs for Pro ($29) and Studio ($99) plans, each with correct limits enforced.
+- **Unknown Product Handling**: Unrecognized product IDs are flagged and logged for manual review without failing the webhook (returns 200 to prevent 2Checkout retries).
+- **Refund Fix**: Refund handler now correctly downgrades both `pro` and `studio` plan users (previously only checked for `pro`).
+- **New Config Keys**: Added `TWOCHECKOUT_PRODUCT_ID_PRO` and `TWOCHECKOUT_PRODUCT_ID_STUDIO` environment variables.
+- **Live Checkout Modals**: Replaced "coming soon" placeholder modal with two separate, functional modals — one per plan — linking directly to 2Checkout checkout URLs.
+
+### 🧾 Transaction History
+- **New `transactions` Table**: All successful purchases and refunds are now permanently recorded with invoice ID, sale ID, product ID, plan, amount, currency, customer details, and status.
+- **Refund Tracking**: Refund webhook updates transaction status to `refunded` for audit trail.
+- **Dispute Protection**: Transaction records provide proof of purchase for chargeback disputes.
+
+### 📧 Email Verification
+- **Mandatory Verification**: Enabled `MustVerifyEmail` on the `User` model. New registrations now require email verification before accessing the dashboard.
+- **Registration Flow**: After registering, users are redirected to the verification notice page instead of directly to the dashboard.
+- **Welcome Email Updated**: CTA button now links to `/email/verify` instead of `/dashboard` to match the new flow. Removed dynamic plan limits from welcome email body (was showing incorrect free plan limits).
+
+### 📋 Legal Pages — 2Checkout Compliance
+- **Contact Page**: Replaced `[Your Street Address]` placeholder with real registered address (27 Innovation Drive, Suite 4B, Islamabad).
+- **Terms of Service**: Corrected "subscription" and "auto-renew" language to accurately reflect one-time lifetime purchase model.
+- **Refund Policy**: Removed subscription-cycle references. Clarified that all plans are one-time purchases with no pro-rated refunds.
+- **Consistency**: All legal pages now consistently describe Pro and Studio as lifetime licenses with no recurring billing.
+
+### 🔧 Deployment Improvements
+- **nixpacks.toml**: Added `php artisan migrate --force` to build phase for automatic schema updates on deploy.
+- **Queue Worker**: Confirmed background queue worker runs on startup via `docker-start.sh` for email processing.
+
+---
+
 ## Version 1.6.0 - February 11, 2026 (Immersive Mobile & Audio Update)
 
 ### 📱 Mobile & Touch Support
@@ -21,7 +59,7 @@
 
 ### 💡 Lighting & Performance
 - **Proximity Light Boost**: Significantly increased intensity of artwork proximity lights (3.5x) for better visibility.
-- **Optimized loops**: Refined the animation loop to handle audio and physics updates efficiently.
+- **Optimized Loops**: Refined the animation loop to handle audio and physics updates efficiently.
 
 ---
 
@@ -78,15 +116,15 @@
 - **Flexible Formats**: Supports PNG, JPG, and SVG logo uploads.
 
 ### 👑 Super Admin Panel
-- **Platform Management**: New super admin dashboard for system-wide administration at `/super-admin`.
+- **Platform Management**: New super admin dashboard for system-wide administration at `/master-control`.
 - **User Management**: View all registered users with their gallery counts and plan details.
 - **Plan Management**: Upgrade or downgrade any user's plan directly from the admin panel.
 - **User Deletion**: Safely delete users with cascade cleanup of all galleries, images, audio, and logos.
 - **Gallery Oversight**: View and manage any user's galleries, toggle active status.
 - **Platform Statistics**: Dashboard showing total users, galleries, images, views, and plan distribution.
 
-### 💳 2Checkout Webhook Integration
-- **Automated Upgrades**: Webhook handler automatically upgrades users to Pro plan upon successful payment.
+### 💳 2Checkout Webhook Integration (Initial)
+- **Automated Upgrades**: Webhook handler automatically upgrades users upon successful payment.
 - **Hash Verification**: Secure IPN validation using MD5 hash with configurable secret word.
 - **Refund Handling**: Automatic plan downgrade when refunds are processed.
 - **Comprehensive Logging**: All webhook events logged for debugging and auditing.
@@ -103,9 +141,9 @@
 - **Script Loading Control**: Cookie consent decision controls analytics and third-party script loading.
 
 ### 🔧 Database Schema Updates
-- **New Column**: `galleries.audio_path` - Stores path to ambient audio file.
-- **New Column**: `galleries.custom_logo_path` - Stores path to custom branding logo.
-- **New Column**: `users.is_super_admin` - Boolean flag for super admin access (indexed).
+- **New Column**: `galleries.audio_path` — Stores path to ambient audio file.
+- **New Column**: `galleries.custom_logo_path` — Stores path to custom branding logo.
+- **New Column**: `users.is_super_admin` — Boolean flag for super admin access (indexed).
 
 ### 🐛 Bug Fixes
 - Fixed logout functionality for session consistency.
@@ -138,157 +176,92 @@
 ## Version 1.3.3 - February 6, 2026 (Email Queue System)
 
 ### 📧 Email Infrastructure
-- **Resend API Integration**: Switched email provider to Resend (`resend/resend-laravel`) for improved deliverability and analytics.
+- **Resend API Integration**: Switched email provider to Resend (`resend/resend-laravel`) for improved deliverability.
 - **Queue-Based Emails**: All emails now processed via Laravel queues (`ShouldQueue`) for non-blocking user experience.
-- **Welcome Email Template**: Professional onboarding email sent to new users featuring:
-  - Personalized greeting with user's name
-  - Plan feature highlights (gallery limits, image limits)
-  - Direct CTA to create first gallery
-  - Consistent brand styling with gradient accents
+- **Welcome Email Template**: Professional onboarding email sent to new users.
 
 ### 🐳 Docker & Deployment
-- **Background Queue Worker**: Updated `docker-start.sh` to automatically start queue worker (`php artisan queue:work --tries=3 --timeout=90`) alongside PHP-FPM and Nginx.
-- **Production-Ready Email**: Queue processing ensures email sending doesn't slow down user registration flow.
+- **Background Queue Worker**: Updated `docker-start.sh` to automatically start queue worker alongside PHP-FPM and Nginx.
 
-### 🔧 Bug Fixes
+### 🐛 Bug Fixes
 - Fixed welcome page navigation and footer alignment issues.
 - Corrected pricing and contact page layout inconsistencies.
-- Updated route definitions for commercial pages.
 
 ---
 
 ## Version 1.3.2 - February 1, 2026 (User Plans & Marketing Pages)
 
 ### 💎 User Subscription System
-- **Tiered Access**: Implemented Free, Pro, and Studio plans.
-- **Resource Limits**: Enforced limits on total galleries and images per gallery based on user plan.
+- **Tiered Access**: Implemented Free, Pro, and Studio plans with enforced resource limits.
 - **Plan Helpers**: Added `isPro()` and `canCreateGallery()` helper methods to User model.
 
 ### 💰 Pricing Page
-- **Plan Comparison**: Detailed pricing page at `/pricing` comparing features across tiers.
-- **Checkout Integration**: Direct links to payment processing for Pro and Studio upgrades.
+- **Plan Comparison**: Detailed pricing page at `/pricing` comparing features across all tiers.
 
 ### 📞 Contact Page
 - **Support Portal**: New dedicated contact page at `/contact` with inquiry form.
-- **Direct Communication**: Streamlined channel for sales and support queries.
 
 ---
 
-## Version 1.3.1 - January 31, 2026 (2Checkout Compliance & Demo Gallery)
+## Version 1.3.1 - January 31, 2026 (2Checkout Compliance & Security)
 
-### 💳 2Checkout Payment Integration
-- **Payment Processor Ready**: Full compliance with 2Checkout (Verifone) merchant requirements.
-- **Payment Security Page**: New `/payment-security` page detailing PCI DSS compliance, SSL encryption, and data handling policies.
-- **Refund Policy Page**: Added comprehensive refund policy at `/refund-policy` with 14-day money-back guarantee details.
+### 💳 2Checkout Payment Readiness
+- **Payment Security Page**: New `/payment-security` page detailing PCI DSS compliance, SSL encryption, and data handling.
+- **Refund Policy Page**: Added comprehensive refund policy at `/refund-policy` with 14-day money-back guarantee.
 
 ### 🔒 Security Enhancements
-- **Security Headers Middleware**: Added global middleware enforcing:
-  - `X-Frame-Options: DENY` (clickjacking protection)
-  - `Strict-Transport-Security` with 1-year max-age (HSTS)
-  - `X-Content-Type-Options: nosniff` (MIME-type sniffing prevention)
-  - `X-Permitted-Cross-Domain-Policies: none`
-  - `Referrer-Policy: strict-origin-when-cross-origin`
+- **Security Headers Middleware**: Added global middleware enforcing `X-Frame-Options`, `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Permitted-Cross-Domain-Policies`, and `Referrer-Policy`.
 
 ### 🍪 Cookie Consent Banner
-- **GDPR Compliance**: Interactive cookie consent banner with Accept/Decline options.
-- **Persistent Consent**: Consent choice saved in browser for 365 days.
-- **Alpine.js Integration**: Smooth fade-in animation with modern styling.
+- **GDPR Compliance**: Interactive cookie consent banner with Accept/Decline options, stored for 365 days.
 
 ### 🏢 Company Pages
-- **About Us Page**: New `/about` page with company story, mission statement, and team profiles.
-- **Global Footer**: Reusable footer partial with navigation links, company info, and trust badges (SSL Secured, Powered by 2Checkout).
+- **About Us Page**: New `/about` page with company story, mission, and team profiles.
+- **Global Footer**: Reusable footer partial with navigation links, company info, and trust badges.
 
 ### 🎮 Demo Gallery Redirect
 - **Smart Demo Link**: `/gallery/demo` now automatically redirects to the first active gallery.
-- **Graceful Fallback**: Returns to homepage with error message if no galleries exist.
 
 ---
 
-## Version 1.3.0 - January 31, 2026 (Dark Mode & Landing Page Update)
+## Version 1.3.0 - January 31, 2026 (Dark Mode & Landing Page)
 
 ### 🌙 Dark Mode Implementation
-- **Complete Dark Theme**: Redesigned the entire admin panel, dashboard, and authentication pages with a cohesive dark color scheme.
-- **Dark UI Components**: Updated all Blade components (buttons, modals, inputs, dropdowns, navigation) with dark theme styling.
-- **Improved Readability**: Optimized text contrast and visual hierarchy for dark backgrounds.
+- **Complete Dark Theme**: Redesigned admin panel, dashboard, and authentication pages with a cohesive dark color scheme.
 
 ### 🏠 Welcome Page Redesign
-- **Modern Landing Page**: Complete overhaul with hero section, features grid, pricing tiers, and contact section.
-- **Responsive Navigation**: Fixed navigation with glassmorphism effect and authentication-aware links.
-- **Feature Showcase**: Three-column feature cards highlighting instant setup, customization, and cross-device support.
-- **Pricing Section**: Free, Professional ($29/mo), and Enterprise tier presentation.
+- **Modern Landing Page**: Complete overhaul with hero section, features grid, and footer.
 
 ### 📜 Legal Pages
-- **Privacy Policy**: Added comprehensive privacy policy page at `/privacy`.
-- **Terms of Service**: Added terms of service page at `/terms`.
-- **Footer Links**: Integrated legal page links in the welcome page footer.
-
-### 🍎 Mac Compatibility
-- **AppServiceProvider Fix**: Updated application boot process for macOS compatibility.
-
-### 🎨 Enhanced Dashboard
-- **Statistics Cards**: Added visual stats grid showing total galleries, views, and images.
-- **Quick Actions**: Prominent call-to-action for creating new galleries.
-- **Recent Galleries List**: Shows latest 5 galleries with image count, view count, and quick edit links.
+- **Privacy Policy**: Added comprehensive privacy policy at `/privacy`.
+- **Terms of Service**: Added terms of service at `/terms`.
 
 ---
 
 ## Version 1.2.0 - January 24, 2026 (Performance & UX Overhaul)
 
 ### ⚡ Performance Breakthroughs
-- **Proximity-Based Lighting Engine**: Replaced static lighting with an advanced proximity system. Lights now smoothly fade in/out based on player position, reducing active light count by 96%.
-- **Massive FPS Boost**: Galleries with 100+ images now run smoothly on low-end hardware (laptops, integrated graphics).
-- **Optimization Strategy**: Implemented "Render-on-Demand" logic for lighting calculations.
-
-### 🎮 Enhanced Navigation
-- **Variable Speed Control**: Added speed multipliers (1x, 2x, 4x, 8x) accessible via number keys [1-4].
-- **Improved Sprint**: Refined SHIFT-sprint mechanics for smoother acceleration.
-- **Smart Collision**: Implemented robust boundary detection to keep high-speed players safely inside the gallery walls.
+- **Proximity-Based Lighting Engine**: Lights now smoothly fade in/out based on player position, reducing active light count by 96%.
+- **Variable Speed Control**: Added speed multipliers (1×, 2×, 4×, 8×) accessible via number keys.
+- **Smart Collision**: Robust boundary detection for high-speed navigation.
 
 ### 📂 Media & Storage
-- **Increased Upload Limits**: Bumped maximum file size to **10MB per image** (previously 5MB) to support high-res artwork.
-- **Robust Error Handling**: Added detailed, user-friendly error messages for failed uploads (size limits, file types).
-- **Upload Stability**: Fixed filesystem race conditions to ensure images appear immediately in the grid after upload.
-
-### 📐 Visual & Architecture Updates
-- **Dynamic Fill Lighting**: Solved "dark room" issues in large galleries by distributing fill lights evenly along the gallery length.
-- **Atmospheric Ceilings**: Ceiling color now dynamically adapts to the selected lighting preset (Bright/Moody/Dramatic).
-- **Shadow Optimization**: Strategic disabling of shadow casting on secondary lights to prioritize texture resolution and frame rate.
-
-### 🛠 System Improvements
-- **Platform Agnostic**: Generalized installer logic to support CodeCanyon, TemplateMonster, and Codester out of the box.
-- **License System**: Updated installer to accept generic license keys for multi-marketplace support.
+- **Increased Upload Limits**: Bumped maximum file size to 10MB per image.
+- **Upload Stability**: Fixed filesystem race conditions.
 
 ---
 
 ## Version 1.1.0 - January 2026
 
 ### 🎨 New Features
-- **Batch Delete Images**: Select multiple images with checkboxes and delete them all at once
-- **Increased Upload Limit**: Upload up to 100 images per gallery (previously limited)
-- **Dynamic Lighting System**: Automatically adjusts lighting based on gallery size
-  - Small galleries (5-10 images): 4 ceiling lights
-  - Medium galleries (20-30 images): 9 ceiling lights  
-  - Large galleries (50-100 images): 9 optimized high-range lights
-
-### 🔧 Technical Improvements
-- **Performance Optimization**: Switched to CanvasTexture rendering to bypass GPU texture unit limits
-- **Lighting Architecture**: Reduced light count while increasing range for better performance
-- **Upload Stability**: Fixed race condition that caused image loss during bulk uploads
-- **Shadow Optimization**: Disabled shadows on spotlights to prevent texture overflow
+- **Batch Delete Images**: Select and delete multiple images at once.
+- **Increased Upload Limit**: Up to 100 images per gallery.
+- **Dynamic Lighting System**: Automatically adjusts lighting based on gallery size.
 
 ### 🐛 Bug Fixes
-- Fixed black screen issue when displaying 20+ images
-- Fixed disappearing images during simultaneous uploads
-- Fixed WebGL shader errors caused by excessive texture units
-- Fixed upload progress tracking for multiple files
-- Improved error handling and user feedback during uploads
-
-### 🎯 User Experience
-- Real-time upload progress for multiple files
-- Better visual feedback with loading indicators
-- Improved batch delete confirmation messages
-- Gallery now supports unlimited images (tested up to 200+)
-- Maintains 60 FPS on modern devices regardless of gallery size
+- Fixed black screen issue when displaying 20+ images.
+- Fixed disappearing images during simultaneous uploads.
+- Fixed WebGL shader errors caused by excessive texture units.
 
 ---
 

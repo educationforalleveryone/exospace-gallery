@@ -1,7 +1,7 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 1.6.0  
-> **Last Updated:** February 11, 2026  
+> **Version:** 2.0.0
+> **Last Updated:** April 22, 2026
 > **Document Type:** Comprehensive Technical Reference
 
 ---
@@ -22,6 +22,7 @@
 12. [Use Cases](#use-cases)
 13. [File Structure Reference](#file-structure-reference)
 14. [Deployment & Cloud Hosting](#deployment--cloud-hosting)
+15. [API Reference](#api-reference)
 
 ---
 
@@ -29,7 +30,7 @@
 
 ### What is Exospace?
 
-**Exospace** is a web-based 3D virtual gallery platform that enables users to create immersive, first-person walkable exhibitions. Users upload their artwork images through an admin panel, and the system automatically generates a fully navigable 3D gallery room rendered in real-time using WebGL.
+**Exospace** is a SaaS web platform that enables users to create immersive, first-person walkable 3D virtual galleries. Users upload their artwork images through an admin panel, and the system automatically generates a fully navigable 3D gallery room rendered in real-time using WebGL. The platform operates on a freemium model with one-time lifetime plan upgrades processed via 2Checkout.
 
 ### Purpose & Vision
 
@@ -39,6 +40,7 @@ The platform solves the problem of digital art presentation by transforming stat
 - **Immersion**: First-person navigation with WASD controls mimics real gallery visits
 - **Customization**: Configurable wall textures, floor materials, lighting presets, and frame styles
 - **Performance**: Optimized for modern browsers without plugins
+- **Commerce**: Automated plan management via payment webhooks
 
 ### Target Users
 
@@ -81,7 +83,7 @@ The platform solves the problem of digital art presentation by transforming stat
 │                      DATA & STORAGE LAYER                            │
 ├─────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │
-│  │ SQLite/MySQL DB │  │  File Storage   │  │   Static Assets     │  │
+│  │   MySQL 8 DB    │  │  File Storage   │  │   Static Assets     │  │
 │  │  (Eloquent ORM) │  │  (public/disk)  │  │   (Textures, JS)    │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
@@ -142,19 +144,21 @@ sequenceDiagram
 
 | Component | Technology | Notes |
 |-----------|------------|-------|
-| **Primary Database** | SQLite (dev) / MySQL (prod) | Eloquent ORM |
+| **Primary Database** | MySQL 8 (production) | Coolify-managed on DigitalOcean |
 | **File Storage** | Laravel Filesystem | `public` disk |
-| **Caching** | Laravel Cache | File-based default |
+| **Queue Backend** | Database queue | Laravel Queue with `jobs` table |
+| **Caching** | File-based | Laravel Cache |
+| **Email** | Resend API | Via `resend/resend-laravel` |
 
-### Development Tools
+### Infrastructure
 
-| Tool | Purpose |
-|------|---------|
-| **PHPUnit** | Backend testing |
-| **Laravel Pint** | Code style fixer |
-| **Laravel Pail** | Real-time log viewer |
-| **Laravel Sail** | Docker environment |
-| **Concurrently** | Parallel dev processes |
+| Component | Technology | Notes |
+|-----------|------------|-------|
+| **Hosting** | DigitalOcean | VPS via Coolify |
+| **Platform** | Coolify | Self-hosted PaaS |
+| **Build System** | Nixpacks | `nixpacks.toml` |
+| **Web Server** | Nginx + PHP-FPM | Configured in `docker-start.sh` |
+| **Payment Processor** | 2Checkout (Verifone) | One-time purchases |
 
 ---
 
@@ -170,55 +174,157 @@ sequenceDiagram
 | Edit Gallery | Update settings and manage images |
 | Delete Gallery | Cascade deletion of images |
 | Toggle Active | Enable/disable public visibility |
-| View Analytics | Track view counts |
+| Analytics | Per-gallery visitor tracking |
+| PIN Protection | Optional PIN gate for private galleries |
 
 **Customization Options**:
 
 ```php
-// Available configurations from database schema
-'wall_texture' => ['white', 'concrete', 'brick', 'wood']
-'frame_style'  => ['modern', 'classic', 'minimal']
+'wall_texture'    => ['white', 'concrete', 'brick', 'wood']
+'frame_style'     => ['modern', 'classic', 'minimal']
 'lighting_preset' => ['bright', 'moody', 'dramatic']
-'floor_material' => ['wood', 'marble', 'concrete']
+'floor_material'  => ['wood', 'marble', 'concrete']
+'room_layout'     => configurable
 ```
 
-### 2. Dark Mode Theme
+### 2. User Subscription System
 
-**Capability**: Complete dark color scheme across all authenticated and public pages.
+**Capability**: Tiered access control with automated plan management via 2Checkout.
 
-| Component | Implementation |
-|-----------|-----------------|
-| Dashboard | Dark gray cards with gradient accents |
-| Admin Panel | Consistent dark theme with purple/indigo highlights |
-| Auth Pages | Dark backgrounds with subtle glass effects |
-| Blade Components | All buttons, modals, inputs styled for dark mode |
+| Feature | Free | Pro | Studio |
+|---------|------|-----|--------|
+| Max Galleries | 1 | 5 | Unlimited |
+| Max Images/Gallery | 10 | 50 | Unlimited |
+| Analytics | ❌ | ✅ | ✅ Advanced |
+| Ambient Audio | ❌ | ❌ | ✅ |
+| Custom Logo | ❌ | ❌ | ✅ |
+| Support | Community | Email | Priority |
+| Price | Free | $29 one-time | $99 one-time |
 
-**Color Palette**:
+**Plan helpers on `User` model**:
 
-| Element | Color Code | Usage |
-|---------|------------|-------|
-| Background | `gray-900` | Main page background |
-| Cards | `gray-800` | Content containers |
-| Borders | `gray-700` | Dividers and card borders |
-| Text Primary | `gray-100` | Headings and primary text |
-| Text Secondary | `gray-400` | Descriptions and labels |
-| Accent Primary | `purple-600` | CTAs and highlights |
-| Accent Secondary | `indigo-600` | Gradients and secondary actions |
+```php
+$user->isPro();           // true for pro and studio
+$user->canCreateGallery(); // checks against max_galleries
+$user->isSuperAdmin();    // checks is_super_admin flag
+```
 
-### 3. Image Upload System
+### 3. 2Checkout Payment Integration
 
-**Capability**: Drag-and-drop batch upload with automatic processing.
+**Capability**: Fully automated purchase-to-plan-upgrade pipeline with transaction history.
 
-| Feature | Specification |
-|---------|---------------|
-| Supported Formats | JPEG, PNG, JPG, WEBP |
-| Max File Size | 10MB per image |
-| Max Images/Gallery | 100 |
-| Auto-Resize | 2048×2048 max for WebGL compatibility |
-| Thumbnail Generation | 400×400 for admin UI |
-| Orientation Detection | Portrait, Landscape, Square |
+**Webhook Endpoints**:
 
-### 4. 3D Gallery Viewer
+| Endpoint | Handler | Events Handled |
+|----------|---------|----------------|
+| `POST /webhooks/2checkout` | `WebhookController@handle2Checkout` | `ORDER_CREATED` |
+| `POST /webhooks/2checkout/refund` | `WebhookController@handleRefund` | Refunds & cancellations |
+
+**Product ID Map** (configured via environment variables):
+
+```php
+$productMap = [
+    config('services.2checkout.product_id_pro')    => [
+        'plan'          => 'pro',
+        'max_galleries' => 5,
+        'max_images'    => 50,
+    ],
+    config('services.2checkout.product_id_studio') => [
+        'plan'          => 'studio',
+        'max_galleries' => 999,
+        'max_images'    => 999,
+    ],
+];
+```
+
+**Security**: Every IPN verified via MD5 hash using `TWOCHECKOUT_SECRET_WORD` before any processing occurs.
+
+**Transaction Storage**: All purchases and refunds written to `transactions` table with full audit trail.
+
+**Required `.env` variables**:
+
+```env
+TWOCHECKOUT_ACCOUNT_NUMBER=
+TWOCHECKOUT_SECRET_WORD=
+TWOCHECKOUT_PRODUCT_ID_PRO=
+TWOCHECKOUT_PRODUCT_ID_STUDIO=
+```
+
+### 4. Transaction History
+
+**Capability**: Permanent record of all purchases and refunds for accounting and dispute resolution.
+
+| Column | Description |
+|--------|-------------|
+| `invoice_id` | Unique 2Checkout invoice ID |
+| `sale_id` | 2Checkout sale reference |
+| `product_id` | 2Checkout product ID purchased |
+| `plan` | Plan activated (pro / studio) |
+| `amount` | Payment amount |
+| `currency` | Payment currency (default USD) |
+| `customer_email` | Purchaser email |
+| `status` | `completed` or `refunded` |
+
+### 5. Email Verification
+
+**Capability**: Mandatory email verification before dashboard access, with queued delivery via Resend.
+
+**Flow**:
+1. User registers → `Registered` event fires → verification email queued
+2. Welcome email sent separately via `User::booted()` hook
+3. User redirected to `/email/verify` notice page
+4. User clicks verification link in email → lands on dashboard
+5. All admin routes protected by `verified` middleware
+
+**Components**:
+
+| Component | Location |
+|-----------|----------|
+| `MustVerifyEmail` | `app/Models/User.php` |
+| Verification view | `resources/views/auth/verify-email.blade.php` |
+| Welcome email | `app/Mail/WelcomeEmail.php` (implements `ShouldQueue`) |
+| Email template | `resources/views/emails/welcome.blade.php` |
+
+### 6. Analytics Tracking
+
+**Capability**: Real-time visitor analytics per gallery with event-level granularity.
+
+| Event Type | Description |
+|------------|-------------|
+| `view` | Gallery opened by a visitor |
+| `focus` | Visitor inspected a specific artwork (pressed E) |
+| `tour_start` | Guided tour initiated |
+| `tour_complete` | Guided tour completed |
+
+**Data Captured per Event**:
+- `session_token` — Random UUID per visitor session (no auth required)
+- `dwell_seconds` — Time spent (view events)
+- `referrer` — Traffic source domain
+- `country` — Two-letter country code (via GeoIP, optional)
+- `image_id` — For focus events, which artwork was inspected
+
+**Analytics Dashboard** (`/admin/galleries/{gallery}/analytics`):
+- Total views and unique visitors (30-day chart)
+- Average dwell time
+- Top artworks by focus count
+- Referrer breakdown
+
+**Rate Limiting**: Analytics tracking endpoint throttled at 120 events per minute per IP.
+
+### 7. PIN-Protected Galleries
+
+**Capability**: Optional PIN gate for private or client-preview galleries.
+
+| Feature | Implementation |
+|---------|----------------|
+| PIN Setting | Hashed via `Hash::make()` on save |
+| PIN Verification | `Gallery::verifyPin()` using `Hash::check()` |
+| Session Gate | PIN verified once per session |
+| Public URL | Unaffected — PIN only gates entry |
+
+**Database Column**: `galleries.pin_hash` (nullable string)
+
+### 8. 3D Gallery Viewer
 
 **Capability**: Real-time WebGL-rendered virtual gallery with first-person navigation.
 
@@ -228,22 +334,13 @@ sequenceDiagram
 | Movement | WASD keys with variable speed (1×/2×/4×/8×) |
 | Sprint | Left Shift key |
 | Look Around | Mouse movement |
-| Artwork Info | Press E to view details |
+| Artwork Info | Press E to inspect / zoom |
 | Collision Detection | Room boundary constraints |
+| Mobile | Virtual joystick + look pad |
 
-**Entrance Curtain Screen**:
+### 9. Dynamic Lighting System
 
-Before entering the 3D experience, visitors see a cinematic landing screen featuring:
-- Gallery title and description
-- Artwork count and view statistics
-- "Enter Exhibition" button with smooth fade transition
-- WASD/mouse control hints
-
-This deferred loading approach improves perceived performance and gives users context before immersion.
-
-### 5. Dynamic Lighting System
-
-**Capability**: Proximity-based artwork illumination.
+**Capability**: Proximity-based artwork illumination with cinematic tone mapping.
 
 | Preset | Ambient | Spotlight | Fill Light |
 |--------|---------|-----------|------------|
@@ -251,298 +348,159 @@ This deferred loading approach improves perceived performance and gives users co
 | **Moody** | 0.4 | 0.8 | 0.3 |
 | **Dramatic** | 0.25 | 1.5 | 0.15 |
 
- The system activates spotlights only for artworks within 5 meters of the player, with smooth fade-in/fade-out transitions.
+Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmicToneMapping` at exposure 0.8.
 
-### 6. Smart Room Sizing
+### 10. Momentum Camera System
 
-**Capability**: Automatic room dimension calculation based on artwork count.
+**Capability**: Physics-based camera movement with weight, friction, and cinematic banking.
 
-```javascript
-// Algorithm from view.blade.php
-const imagesPerWall = Math.ceil(imageCount / 4);
-const calculatedWallLength = (imagesPerWall * spacing) + spacing;
-const wallLength = Math.max(minWallLength, calculatedWallLength);
-```
+| Parameter | Value | Effect |
+|-----------|-------|--------|
+| `damping` | 10.0 | Friction / weighted stop |
+| `acceleration` | 40.0 m/s² | Smooth ramp-up |
+| `maxSpeed` | 3.0 m/s | Top velocity |
+| `maxLean` | 0.02 rad | Cinematic tilt into turns |
 
-This ensures:
-- No empty wall space
-- Even distribution across 4 walls
-- Minimum room dimensions for small galleries
+### 11. Tactile Art System
 
-### 7. Landing Page
+**Capability**: Realistic canvas texture simulation using normal mapping on all artwork surfaces.
 
-**Capability**: Professional marketing landing page for user acquisition.
+- Normal map applied to `MeshStandardMaterial` (roughness 0.75)
+- Smart grain scaling based on artwork dimensions
+- Asset: `/assets/textures/shared/canvas_normal.jpg`
 
-| Section | Content |
-|---------|---------|
-| Hero | Tagline, CTA buttons, preview placeholder |
-| Features | 3-column grid: Instant Setup, Customizable, Cross-device |
-| Pricing | Free Trial, Professional ($29/mo), Enterprise tiers |
-| Contact | CTA section with email support |
-| Pricing | Free Trial, Professional ($29/mo), Enterprise tiers |
-| Contact | CTA section with email support |
-| Footer | Product links, company info, legal pages |
+### 12. Mobile & Touch Input System
 
-### 8. User Subscription System
-
-**Capability**: Tiered access control limiting galleries and image uploads.
-
-| Feature | Free | Pro | Studio |
-|---------|------|-----|--------|
-| Max Galleries | 1 | 5 | Unlimited |
-| Max Images/Gallery | 10 | 50 | 100 |
-| Analytics | Basic | Advanced | Advanced |
-| Support | Community | Email | Priority |
-
-### 9. Legal Pages
-
-**Capability**: Comprehensive legal and compliance pages for regulatory adherence and payment processor requirements.
-
-| Page | Route | Description |
-|------|-------|-------------|
-| Privacy Policy | `/privacy` | Data collection, usage, and protection policies |
-| Terms of Service | `/terms` | User agreement, acceptable use, liability |
-| Refund Policy | `/refund-policy` | 14-day money-back guarantee, refund process via 2Checkout |
-| Payment Security | `/payment-security` | PCI DSS compliance, SSL encryption, payment data handling |
-| Payment Security | `/payment-security` | PCI DSS compliance, SSL encryption, payment data handling |
-| About Us | `/about` | Company story, mission, team profiles, contact info |
-| Contact Us | `/contact` | Inquiry form for support and sales |
-| Pricing | `/pricing` | Detailed plan comparison and checkout |
-
-### 10. Security Headers
-
-**Capability**: Server-side middleware enforcing security best practices on all HTTP responses.
-
-| Header | Value | Purpose |
-|--------|-------|---------|
-| `X-Frame-Options` | `DENY` | Prevents clickjacking by blocking iframe embedding |
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Forces HTTPS for 1 year |
-| `X-Content-Type-Options` | `nosniff` | Blocks MIME type sniffing |
-| `X-Permitted-Cross-Domain-Policies` | `none` | Restricts Flash/PDF cross-domain access |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | Controls referrer information sharing |
-
-**Implementation**: `app/Http/Middleware/SecurityHeaders.php` registered globally in `bootstrap/app.php`.
-
-### 11. Cookie Consent Banner
-
-**Capability**: GDPR-compliant cookie consent system with user preference persistence.
-
-| Feature | Implementation |
-|---------|-----------------|
-| Consent UI | Fixed bottom banner with Accept/Decline buttons |
-| Storage | Browser cookie `exospace_cookie_consent` (365-day expiry) |
-| Reactivity | Alpine.js component with fade-in animation |
-| Privacy Link | Links to `/privacy` policy page |
-
-**Location**: `resources/views/layouts/partials/cookie-banner.blade.php`
-
-### 12. Demo Gallery Redirect
-
-**Capability**: Smart demo link that automatically routes to the first available gallery.
-
-| Route | Behavior |
-|-------|----------|
-| `/gallery/demo` | Redirects to first active gallery's public view |
-| (No galleries) | Redirects to homepage with error flash message |
-
-**Use Case**: Provides a stable demo URL for marketing and documentation even as gallery slugs change.
-
-### 13. Email Queue System
-
-**Capability**: Asynchronous email delivery with professional templates via Resend API.
+**Capability**: Full mobile compatibility with touch-optimized controls.
 
 | Component | Implementation |
 |-----------|----------------|
-| Provider | Resend API (`resend/resend-laravel`) |
-| Queue Backend | Laravel Queue (`database` or `redis` driver) |
-| Welcome Email | `App\Mail\WelcomeEmail` implements `ShouldQueue` |
-| Template | `resources/views/emails/welcome.blade.php` |
+| Virtual Joystick | On-screen joystick for movement (left thumb) |
+| Look Pad | Dedicated area for camera rotation (right thumb) |
+| Adaptive UI | Auto-detection disables keyboard hints, shows touch overlays |
+| Detection | `navigator.maxTouchPoints` + User-Agent |
 
-**Welcome Email Features**:
-- Personalized greeting with user's name
-- Dynamic plan limits display (galleries, images)
-- Branded styling with gradient accents
-- Direct CTA link to dashboard
+### 13. Interactive SFX Engine
 
-**Queue Worker Configuration**:
-```bash
-# Production (docker-start.sh)
-php artisan queue:work --tries=3 --timeout=90 --sleep=3 &
+**Capability**: Dynamic sound effects for immersion and interaction feedback.
 
-# Development (composer dev)
-php artisan queue:listen --tries=1
-```
+| Feature | Details |
+|---------|---------|
+| Footsteps | Velocity-based trigger with walk/sprint cadence |
+| Pitch Variance | 0.95×–1.05× randomization prevents fatigue |
+| UI Acoustics | Focus mode, click feedback |
+| Architecture | Audio Listener attached to camera for spatial positioning |
 
-### 14. Gallery Sharing
+### 14. Ambient Audio System
 
-**Capability**: One-click URL sharing for galleries with clipboard integration.
+**Capability**: Optional background music per gallery (Studio plan feature).
 
 | Feature | Implementation |
 |---------|----------------|
-| Share Modal | Modal overlay in admin gallery index |
-| Copy URL | Clipboard API with fallback for older browsers |
-| Visual Feedback | "Copied!" confirmation with 2-second reset |
-| Keyboard Support | ESC key dismisses modal |
+| Upload | MP3/WAV via gallery edit form |
+| Storage | `storage/galleries/{id}/audio/` |
+| Playback | HTML5 Audio API, looped |
+| Control | Mute/unmute button in viewer UI |
 
-**Location**: `resources/views/admin/galleries/index.blade.php`
-
-### 15. Ambient Audio System
-
-**Capability**: Optional background music for immersive 3D gallery experiences.
-
-| Feature | Implementation |
-|---------|----------------|
-| Audio Upload | MP3/WAV files uploaded via gallery edit form |
-| Storage | `storage/galleries/{id}/audio/` directory |
-| Playback | HTML5 Audio API with loop enabled |
-| User Control | Mute/unmute button in gallery viewer UI |
-| Plan Requirement | Studio plan feature |
-
-**Database Column**: `galleries.audio_path` (nullable string)
-
-### 16. Studio Branding (Custom Logo)
+### 15. Studio Branding (Custom Logo)
 
 **Capability**: White-label branding for Studio plan users.
 
 | Feature | Implementation |
 |---------|----------------|
-| Logo Upload | PNG/JPG/SVG via gallery edit form |
-| Storage | `storage/galleries/{id}/logo/` directory |
-| Display Location | Gallery viewer header (replaces Exospace logo) |
-| Plan Requirement | Studio plan feature |
+| Upload | PNG/JPG/SVG via gallery edit form |
+| Storage | `storage/galleries/{id}/logo/` |
+| Display | Replaces Exospace logo in gallery viewer header |
 
-**Database Column**: `galleries.custom_logo_path` (nullable string)
+### 16. Super Admin Panel
 
-### 17. Super Admin Panel
+**Capability**: Platform-wide administration accessible at `/master-control`.
 
-**Capability**: Platform-wide administration for system operators.
+| Feature | Description |
+|---------|-------------|
+| User List | All users with gallery counts and plan info |
+| Plan Management | Upgrade/downgrade any user's plan |
+| User Deletion | Cascade delete with full file cleanup |
+| Gallery Oversight | View and toggle any gallery's active status |
+| Platform Stats | Users by plan, total galleries, images, views |
+
+**Access Control**: `is_super_admin` boolean on `users` table, protected by `EnsureUserIsSuperAdmin` middleware.
+
+### 17. Security Headers
+
+**Capability**: Global middleware enforcing security best practices on all HTTP responses.
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| `X-Frame-Options` | `DENY` | Prevents clickjacking |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Forces HTTPS for 1 year |
+| `X-Content-Type-Options` | `nosniff` | Blocks MIME sniffing |
+| `X-Permitted-Cross-Domain-Policies` | `none` | Restricts cross-domain access |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Controls referrer sharing |
+
+**Implementation**: `app/Http/Middleware/SecurityHeaders.php` registered globally in `bootstrap/app.php`.
+
+### 18. Cookie Consent Banner
+
+**Capability**: GDPR-compliant cookie consent with user preference persistence.
 
 | Feature | Implementation |
 |---------|----------------|
-| Dashboard | `/super-admin` route with platform statistics |
-| User List | All users with gallery counts and plan info |
-| Plan Management | Upgrade/downgrade users between free/pro/studio |
-| User Deletion | Cascade delete with file cleanup |
-| Gallery Oversight | View any user's galleries, toggle active status |
+| UI | Fixed bottom banner with Accept/Decline |
+| Storage | Browser cookie `exospace_cookie_consent` (365-day expiry) |
+| Reactivity | Alpine.js with fade-in animation |
+| Location | `resources/views/layouts/partials/cookie-banner.blade.php` |
 
-**Access Control**: `is_super_admin` boolean flag on users table, protected by `EnsureUserIsSuperAdmin` middleware.
+### 19. Legal & Compliance Pages
 
-**Statistics Tracked**:
-- Total users (by plan breakdown)
-- Total galleries and images
-- Total view count across platform
+**Capability**: Full legal page suite required for 2Checkout merchant approval and regulatory compliance.
 
-### 18. 2Checkout Webhook Integration
+| Page | Route | Description |
+|------|-------|-------------|
+| Privacy Policy | `/privacy` | Data collection, usage, and protection |
+| Terms of Service | `/terms` | User agreement, one-time purchase terms |
+| Refund Policy | `/refund-policy` | 14-day money-back guarantee |
+| Payment Security | `/payment-security` | PCI DSS, SSL, 2Checkout data handling |
+| About Us | `/about` | Company story, mission, registered address |
+| Contact Us | `/contact` | Support and sales inquiry form |
+| Pricing | `/pricing` | Plan comparison with live checkout modals |
 
-**Capability**: Automated subscription management via payment processor webhooks.
+All pages reflect the one-time lifetime purchase model — no subscription or auto-renewal language.
 
-| Endpoint | Handler | Purpose |
-|----------|---------|---------|
-| `/webhooks/2checkout` | `WebhookController@handle2Checkout` | Process successful payments |
-| `/webhooks/2checkout/refund` | `WebhookController@handleRefund` | Handle refunds and cancellations |
+### 20. Email Queue System
 
-**Security Features**:
-- MD5 hash verification using configurable secret word
-- IP logging for audit trails
-- Comprehensive event logging
+**Capability**: Asynchronous email delivery via Resend API.
 
-**Workflow**:
-1. 2Checkout sends IPN to webhook endpoint
-2. Server verifies hash against secret word
-3. On ORDER_CREATED: Upgrade user to Pro plan
-4. On REFUND: Downgrade user to Free plan
+| Component | Implementation |
+|-----------|----------------|
+| Provider | Resend API (`resend/resend-laravel`) |
+| Queue Backend | `database` driver |
+| Welcome Email | `App\Mail\WelcomeEmail` (implements `ShouldQueue`) |
+| Template | `resources/views/emails/welcome.blade.php` |
 
-**Configuration**: Set `TWOCHECKOUT_SECRET_WORD` in `.env` file.
+**Queue Worker** (runs on startup via `docker-start.sh`):
+```bash
+php artisan queue:work --tries=3 --timeout=90 --sleep=3 &
+```
 
-### 19. Artwork Focus Mode
+### 21. Gallery Sharing & Demo
 
-**Capability**: Cinematic zoom-in experience for detailed artwork viewing.
+| Feature | Implementation |
+|---------|----------------|
+| Share Modal | Copy-to-clipboard URL in admin gallery list |
+| Demo URL | `/gallery/demo` redirects to first active gallery |
+| Fallback | Homepage with error if no galleries exist |
+
+### 22. Artwork Focus Mode
+
+**Capability**: Cinematic zoom-in for detailed artwork viewing.
 
 | Feature | Implementation |
 |---------|----------------|
 | Activation | Press E while looking at artwork |
-| Animation | GSAP-powered smooth camera transition |
-| Duration | 1.5s zoom-in, 1.2s zoom-out |
+| Animation | GSAP smooth camera transition (1.5s in, 1.2s out) |
 | Movement Lock | Player movement disabled during focus |
-| Exit Methods | Press E again or ESC key |
-
-**Technical Details**:
-- Camera position and quaternion saved before focus
-- Target position calculated at 1.8m from artwork surface
-- Quaternion slerp used for smooth rotation restoration
-- Focus tween properly killed when interrupted
-
-**Visual Indicators**:
-- Dynamic crosshair styling when hovering artworks
-- Focus indicator overlay during inspection mode
-- Info panel displayed after camera animation completes
-
-**Dependencies**: GSAP animation library (served locally from `/js/gsap.min.js`)
-
----
-
-### 20. Momentum Camera System
-
-**Capability**: Physics-based camera movement with weight, friction, and cinematic banking.
-
-| Feature | Implementation |
-|---------|----------------|
-| **Friction/Damping** | Camera has "weight" and slides to a stop rather than stopping instantly |
-| **Acceleration** | Smooth ramp-up to top speed instead of instant velocity |
-| **Cinematic Lean** | Camera subtly tilts (banks) into turns based on sideways velocity |
-| **Frame-Independent** | Uses `clock.getDelta()` to ensure consistent physics across different frame rates |
-
-**Configuration**:
-- `damping`: 10.0 (Higher = heavier stop)
-- `acceleration`: 40.0 (m/s²)
-- `maxLean`: 0.02 radians
-
-### 21. Tactile Art System
-
-**Capability**: Realistic canvas texture simulation using normal mapping.
-
-| Feature | Implementation |
-|---------|----------------|
-| **Normal Mapping** | Applies a woven canvas texture bump map to all artwork surfaces |
-| **Smart Scaling** | Automatically adjusts texture repeat based on artwork grain to maintain consistent detail |
-| **Material** | `MeshStandardMaterial` with roughness 0.75 for a realistic matte canvas finish |
-| **Lighting Interaction** | Canvas grain catches light from the dynamic lighting system |
-
-**Asset**: `/assets/textures/shared/canvas_normal.jpg`
-
----
-
-### 22. Mobile & Touch Input System
-
-**Capability**: Full mobile compatibility with touch-optimized controls (No app required).
-
-| Component | Implementation |
-|-----------|----------------|
-| **Virtual Joystick** | Dynamic on-screen joystick for movement (Left thumb) |
-| **Look Pad** | dedicated screen area for camera rotation (Right thumb) |
-| **Adaptive UI** | Auto-detection of mobile devices hides keyboard hints and shows touch overlays |
-| **Smart Interaction** | Replaces "Press E" prompts with context-aware touch interactions |
-
-**Technical Implementation**:
-- **Detection**: Checks `navigator.maxTouchPoints` and User-Agent strings
-- **Control Scheme**: Disables `PointerLockControls` in favor of direct Euler angle manipulation
-- **Touch Handling**: proper `passive: false` event listeners to prevent browser scrolling/zooming
-
-### 23. Interactive SFX Engine
-
-**Capability**: Dynamic sound effects system enhancing immersion and feedback.
-
-| Feature | Details |
-|---------|---------|
-| **Footsteps** | Proximity-based sounds triggered by movement velocity |
-| **Adaptive Cadence** | Step interval adjusts automatically based on walking vs sprinting speed |
-| **Pitch Variance** | Subtle randomization (0.95x - 1.05x) to prevent audio repetition fatigue |
-| **UI Acoustics** | Crisp feedback sounds for interactions (Focus Mode enter/exit, clicks) |
-
-**Architecture**:
-- **Audio Listener**: Attached to camera for 3D spatial positioning
-- **Asset Preloading**: SFX buffers loaded asynchronously during gallery initialization
-- **Frame-Independence**: Footstep timing uses `clock.getDelta()` to remain consistent at any FPS
+| Exit | Press E again or ESC |
 
 ---
 
@@ -553,23 +511,26 @@ php artisan queue:listen --tries=1
 ```mermaid
 erDiagram
     User ||--o{ Gallery : owns
+    User ||--o{ Transaction : has
     Gallery ||--o{ GalleryImage : contains
-    
+    Gallery ||--o{ GalleryEvent : tracks
+
     User {
         bigint id PK
         string name
         string email UK
         timestamp email_verified_at
         string password
-        string remember_token
-        timestamps created_at
-        timestamps created_at
-        timestamps updated_at
+        boolean is_super_admin
         enum plan
         int max_galleries
         int max_images
+        timestamp plan_started_at
+        timestamp plan_expires_at
+        timestamps created_at
+        timestamps updated_at
     }
-    
+
     Gallery {
         bigint id PK
         bigint user_id FK
@@ -581,11 +542,15 @@ erDiagram
         enum frame_style
         enum lighting_preset
         enum floor_material
+        string audio_path
+        string custom_logo_path
+        string pin_hash
+        string room_layout
         int view_count
         timestamps created_at
         timestamps updated_at
     }
-    
+
     GalleryImage {
         bigint id PK
         bigint gallery_id FK
@@ -598,9 +563,36 @@ erDiagram
         int height
         enum orientation
         int position_order
-        enum wall_position
         string title
         text description
+        timestamps created_at
+        timestamps updated_at
+    }
+
+    GalleryEvent {
+        bigint id PK
+        bigint gallery_id FK
+        bigint image_id FK
+        string event
+        string session_token
+        smallint dwell_seconds
+        string referrer
+        string country
+        timestamp created_at
+    }
+
+    Transaction {
+        bigint id PK
+        bigint user_id FK
+        string invoice_id UK
+        string sale_id
+        string product_id
+        string plan
+        decimal amount
+        string currency
+        string customer_email
+        string customer_name
+        string status
         timestamps created_at
         timestamps updated_at
     }
@@ -608,55 +600,88 @@ erDiagram
 
 ### Table: `users`
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | BIGINT | PK, AUTO | Primary key |
-| `name` | VARCHAR(255) | NOT NULL | User's full name |
-| `email` | VARCHAR(255) | UNIQUE | User's email address |
-| `is_super_admin` | BOOLEAN | DEFAULT false, INDEXED | Super admin access flag |
-| `password` | VARCHAR(255) | NOT NULL | Hashed password |
-| `plan` | ENUM | DEFAULT 'free' | free/pro/studio |
-| `max_galleries` | INT UNSIGNED | DEFAULT 1 | Gallery limit |
-| `max_images` | INT UNSIGNED | DEFAULT 10 | Images per gallery limit |
-| `created_at` | TIMESTAMP | NULLABLE | Creation time |
-| `updated_at` | TIMESTAMP | NULLABLE | Last update time |
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `id` | BIGINT PK | auto | Primary key |
+| `name` | VARCHAR(255) | — | User's full name |
+| `email` | VARCHAR(255) UNIQUE | — | Login email |
+| `email_verified_at` | TIMESTAMP | NULL | Verification timestamp |
+| `is_super_admin` | BOOLEAN INDEXED | false | Platform admin flag |
+| `password` | VARCHAR(255) | — | Bcrypt hash |
+| `plan` | ENUM | `free` | free / pro / studio |
+| `max_galleries` | INT UNSIGNED | 1 | Gallery creation limit |
+| `max_images` | INT UNSIGNED | 10 | Images per gallery limit |
+| `plan_started_at` | TIMESTAMP | NULL | Plan activation date |
+| `plan_expires_at` | TIMESTAMP | NULL | NULL = lifetime |
+| `created_at` / `updated_at` | TIMESTAMP | — | Eloquent timestamps |
 
 ### Table: `galleries`
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | BIGINT | PK, AUTO | Primary key |
-| `user_id` | BIGINT | FK → users | Owner reference |
-| `title` | VARCHAR(255) | NOT NULL | Gallery name |
-| `slug` | VARCHAR(255) | UNIQUE | URL-safe identifier |
-| `description` | TEXT | NULLABLE | Gallery description |
-| `is_active` | BOOLEAN | DEFAULT true | Public visibility |
-| `wall_texture` | ENUM | DEFAULT 'white' | Wall material |
-| `frame_style` | ENUM | DEFAULT 'modern' | Frame appearance |
-| `lighting_preset` | ENUM | DEFAULT 'bright' | Light configuration |
-| `floor_material` | ENUM | DEFAULT 'wood' | Floor texture |
-| `audio_path` | VARCHAR(500) | NULLABLE | Path to ambient audio file |
-| `custom_logo_path` | VARCHAR(500) | NULLABLE | Path to custom branding logo |
-| `view_count` | INT UNSIGNED | DEFAULT 0 | Analytics counter |
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `id` | BIGINT PK | auto | Primary key |
+| `user_id` | BIGINT FK | — | Owner reference |
+| `title` | VARCHAR(255) | — | Gallery name |
+| `slug` | VARCHAR(255) UNIQUE | — | URL-safe identifier (auto-generated) |
+| `description` | TEXT | NULL | Gallery description |
+| `is_active` | BOOLEAN | true | Public visibility toggle |
+| `wall_texture` | ENUM | `white` | Wall material |
+| `frame_style` | ENUM | `modern` | Frame appearance |
+| `lighting_preset` | ENUM | `bright` | Light configuration |
+| `floor_material` | ENUM | `wood` | Floor texture |
+| `audio_path` | VARCHAR(500) | NULL | Ambient audio file path |
+| `custom_logo_path` | VARCHAR(500) | NULL | Branding logo path |
+| `pin_hash` | VARCHAR(255) | NULL | Hashed PIN (nullable = open) |
+| `room_layout` | STRING | NULL | Room configuration |
+| `view_count` | INT UNSIGNED | 0 | Total view counter |
 
 ### Table: `gallery_images`
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | BIGINT | PK, AUTO | Primary key |
-| `gallery_id` | BIGINT | FK → galleries | Parent gallery |
-| `filename` | VARCHAR(255) | NOT NULL | Processed filename |
-| `original_name` | VARCHAR(255) | NOT NULL | Upload filename |
-| `path` | VARCHAR(500) | NOT NULL | Storage path |
-| `mime_type` | VARCHAR(100) | NOT NULL | File MIME type |
-| `size` | INT UNSIGNED | NOT NULL | File size (bytes) |
-| `width` | INT UNSIGNED | NOT NULL | Image width (px) |
-| `height` | INT UNSIGNED | NOT NULL | Image height (px) |
-| `orientation` | ENUM | NOT NULL | portrait/landscape/square |
-| `position_order` | INT UNSIGNED | DEFAULT 0 | Display order |
-| `wall_position` | ENUM | NULLABLE | Wall assignment |
-| `title` | VARCHAR(255) | NULLABLE | Artwork title |
-| `description` | TEXT | NULLABLE | Artwork description |
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `id` | BIGINT PK | auto | Primary key |
+| `gallery_id` | BIGINT FK | — | Parent gallery |
+| `filename` | VARCHAR(255) | — | Processed filename |
+| `original_name` | VARCHAR(255) | — | Original upload name |
+| `path` | VARCHAR(500) | — | Storage path |
+| `mime_type` | VARCHAR(100) | — | File MIME type |
+| `size` | INT UNSIGNED | — | File size in bytes |
+| `width` / `height` | INT UNSIGNED | — | Image dimensions (px) |
+| `orientation` | ENUM | — | portrait / landscape / square |
+| `position_order` | INT UNSIGNED | 0 | Display order |
+| `title` | VARCHAR(255) | NULL | Artwork title |
+| `description` | TEXT | NULL | Artwork description |
+
+### Table: `gallery_events`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | BIGINT PK | Primary key |
+| `gallery_id` | BIGINT FK | Parent gallery |
+| `image_id` | BIGINT FK NULL | Artwork (for focus events) |
+| `event` | VARCHAR(32) INDEXED | view / focus / tour_start / tour_complete |
+| `session_token` | VARCHAR(64) INDEXED | Anonymous visitor session UUID |
+| `dwell_seconds` | SMALLINT UNSIGNED NULL | Time on page |
+| `referrer` | VARCHAR(255) NULL | Traffic source domain |
+| `country` | VARCHAR(2) NULL | ISO country code |
+| `created_at` | TIMESTAMP INDEXED | Event time |
+
+### Table: `transactions`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | BIGINT PK | Primary key |
+| `user_id` | BIGINT FK INDEXED | Purchasing user |
+| `invoice_id` | VARCHAR UNIQUE | 2Checkout invoice ID |
+| `sale_id` | VARCHAR NULL | 2Checkout sale reference |
+| `product_id` | VARCHAR NULL | 2Checkout product ID |
+| `plan` | VARCHAR | Plan purchased (pro / studio) |
+| `amount` | DECIMAL(10,2) | Payment amount |
+| `currency` | VARCHAR(10) | Payment currency |
+| `customer_email` | VARCHAR INDEXED | Purchaser email |
+| `customer_name` | VARCHAR NULL | Purchaser name |
+| `status` | VARCHAR INDEXED | completed / refunded |
+| `created_at` / `updated_at` | TIMESTAMP | Eloquent timestamps |
 
 ---
 
@@ -667,34 +692,59 @@ erDiagram
 ```
 app/Http/Controllers/
 ├── Admin/
+│   ├── AnalyticsController.php    # Gallery analytics dashboard
 │   ├── DashboardController.php    # Admin home
-│   ├── GalleryController.php      # Gallery CRUD (Resource)
-│   └── ImageController.php        # Image upload/delete
+│   ├── GalleryController.php      # Gallery CRUD + audio/logo upload
+│   └── ImageController.php        # Image upload/delete/reorder
 ├── Auth/                          # Laravel Breeze controllers
+├── SuperAdmin/
+│   └── SystemController.php       # Platform-wide administration
+├── GalleryPinController.php       # PIN gate show + verify
 ├── GalleryViewController.php      # Public gallery display
 ├── InstallerController.php        # First-run setup
-└── ProfileController.php          # User profile management
+├── ProfileController.php          # User profile management
+└── WebhookController.php          # 2Checkout IPN + refund handler
 ```
 
 ### Route Definitions
 
 ```php
 // Public Routes
-Route::get('/gallery/{slug}', [GalleryViewController::class, 'show'])
-    ->name('gallery.view');
+Route::get('/gallery/{slug}', [GalleryViewController::class, 'show']);
+Route::get('/gallery/{slug}/pin', [GalleryPinController::class, 'show']);
+Route::post('/gallery/{slug}/pin', [GalleryPinController::class, 'verify']);
+Route::post('/gallery/{gallery}/track', [AnalyticsController::class, 'track'])
+    ->middleware('throttle:120,1');
 
-// Admin Routes (auth required)
+// Webhook Routes (no auth)
+Route::post('/webhooks/2checkout', [WebhookController::class, 'handle2Checkout']);
+Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund']);
+
+// Admin Routes (auth + verified required)
 Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::resource('galleries', GalleryController::class);
+    Route::post('galleries/{gallery}/upload-audio', ...);
+    Route::post('galleries/{gallery}/upload-logo', ...);
+    Route::post('galleries/{gallery}/reorder-images', ...);
+    Route::get('galleries/{gallery}/analytics', [AnalyticsController::class, 'show']);
     Route::post('galleries/{gallery}/images', [ImageController::class, 'store']);
     Route::delete('images/{image}', [ImageController::class, 'destroy']);
     Route::post('images/bulk-delete', [ImageController::class, 'bulkDestroy']);
+});
+
+// Super Admin Routes
+Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')->group(function () {
+    Route::get('/', [SystemController::class, 'index']);
+    Route::post('/users/{user}/plan', [SystemController::class, 'updatePlan']);
+    Route::delete('/users/{user}', [SystemController::class, 'deleteUser']);
+    Route::get('/users/{user}/galleries', [SystemController::class, 'userGalleries']);
+    Route::post('/galleries/{gallery}/toggle', [SystemController::class, 'toggleGallery']);
 });
 ```
 
 ### Service Layer
 
-**ImageProcessingService** handles all image manipulation:
+**`ImageProcessingService`** handles all image manipulation:
 
 ```php
 class ImageProcessingService
@@ -703,12 +753,12 @@ class ImageProcessingService
     {
         // 1. Generate unique filename
         // 2. Create storage directories
-        // 3. Resize to max 2048×2048 (WebGL limit)
+        // 3. Resize to max 2048×2048 (WebGL texture limit)
         // 4. Generate 400×400 thumbnail
         // 5. Save as JPEG (85% quality main, 80% thumbnail)
         // 6. Return metadata array
     }
-    
+
     public function delete(string $path): void
     {
         // Delete main image and associated thumbnail
@@ -727,12 +777,33 @@ The core 3D engine (`view.blade.php`) implements a complete WebGL gallery system
 ```javascript
 class GalleryScene {
     constructor() {
-        this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 100);
+        this.scene    = new THREE.Scene();
+        this.camera   = new THREE.PerspectiveCamera(75, aspect, 0.1, 100);
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.controls = new PointerLockControls(this.camera, document.body);
     }
 }
+```
+
+### Configuration Constants
+
+```javascript
+const CONFIG = {
+    camera: {
+        fov: 75, near: 0.1, far: 100, height: 1.6,
+        damping: 10.0, acceleration: 40.0, maxSpeed: 3.0, maxLean: 0.02
+    },
+    movement: {
+        baseSpeed: 0.1,
+        speedMultipliers: [1, 2, 4, 8],
+        sprintMultiplier: 1.5
+    },
+    room: {
+        wallHeight: 4, artworkSpacing: 3.5,
+        minWallLength: 8, wallDepth: 0.3
+    },
+    lighting: { proximityDistance: 5 }
+};
 ```
 
 ### Rendering Pipeline
@@ -744,89 +815,28 @@ class GalleryScene {
    └── Artwork Images (async parallel)
 
 2. Scene Construction
-   ├── Create Room Geometry
-   │   ├── Floor (PlaneGeometry)
-   │   ├── 4 Walls (BoxGeometry)
-   │   └── Ceiling (PlaneGeometry)
-   ├── Place Artworks
-   │   ├── Calculate positions per wall
-   │   ├── Create frames (BoxGeometry)
-   │   └── Apply artwork textures
-   └── Setup Lighting
-       ├── Ambient Light (global)
-       ├── Hemisphere Light (sky/ground)
-       ├── Directional Light (sun)
-       └── Point Lights (per artwork, proximity-based)
+   ├── Room Geometry (floor, 4 walls, ceiling)
+   ├── Artwork Placement (calculated per wall)
+   └── Lighting Setup (ambient, hemisphere, directional, proximity points)
 
-3. Animation Loop (60 FPS)
-   ├── updateMovement()        # WASD controls + collision
+3. Animation Loop (60 FPS target)
+   ├── updateMovement()           # WASD + collision + physics
    ├── updateProximityLighting()  # Dynamic spotlight activation
-   ├── checkArtworkFocus()     # Raycasting for E key info
-   ├── updateAudio()           # Footstep and SFX logic
-   └── renderer.render()       # Draw frame
-
-### Visual Atmosphere & Post-Processing
-
-**Fog & Depth**:
-To enhance realism and soften distant geometry, the engine uses exponential fog:
-```javascript
-this.scene.fog = new THREE.Fog(0x0a0a0a, 10, 30); // Color, Near, Far
+   ├── checkArtworkFocus()        # Raycasting for E key
+   ├── updateAudio()              # Footstep + SFX logic
+   └── renderer.render()          # Draw frame
 ```
 
-**Tone Mapping**:
-Switched to `ACESFilmicToneMapping` for cinematic light handling, preventing texture blowout in bright areas.
-- **Exposure**: 0.8 (Optimized for balance between art visibility and mood)
-- **Color Space**: SRGBColorSpace for accurate texture reproduction
-```
-
-### Configuration Constants
+### Visual Atmosphere
 
 ```javascript
-const CONFIG = {
-    camera: {
-        fov: 75,           // Field of view
-        near: 0.1,         // Near clipping plane
-        far: 100,          // Far clipping plane
-        height: 1.6,       // Eye level (meters)
-        // Physics
-        damping: 10.0,     // Friction
-        acceleration: 40.0,// Speed pickup
-        maxSpeed: 3.0,     // Max velocity
-        maxLean: 0.02      // Screen tilt
-    },
-    movement: {
-        baseSpeed: 0.1,
-        speedMultipliers: [1, 2, 4, 8],
-        sprintMultiplier: 1.5
-    },
-    room: {
-        wallHeight: 4,         // 4 meters
-        artworkSpacing: 3.5,   // Between artworks
-        minWallLength: 8,      // Minimum room size
-        wallDepth: 0.3         // Wall thickness
-    },
-    lighting: {
-        proximityDistance: 5   // Light activation radius
-    }
-};
-```
+// Depth fog
+this.scene.fog = new THREE.Fog(0x0a0a0a, 10, 30);
 
-### Texture Management
-
-```javascript
-const TEXTURE_PATHS = {
-    walls: {
-        white: '/assets/textures/walls/white.jpg',
-        concrete: '/assets/textures/walls/concrete.jpg',
-        brick: '/assets/textures/walls/brick.jpg',
-        wood: '/assets/textures/walls/wood.jpg'
-    },
-    floors: {
-        wood: '/assets/textures/floors/wood.jpg',
-        marble: '/assets/textures/floors/marble.jpg',
-        concrete: '/assets/textures/floors/concrete.jpg'
-    }
-};
+// Cinematic tone mapping
+this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+this.renderer.toneMappingExposure = 0.8;
+this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 ```
 
 ---
@@ -840,8 +850,8 @@ flowchart TD
     A[User Drops Image] --> B{Validate File}
     B -->|Invalid| C[Return Error 422]
     B -->|Valid| D{Check Gallery Limit}
-    D -->|≥100 images| E[Return Limit Error]
-    D -->|<100 images| F[ImageProcessingService.process]
+    D -->|At limit| E[Return Limit Error]
+    D -->|Under limit| F[ImageProcessingService.process]
     F --> G[Read with Intervention Image]
     G --> H{Dimensions > 2048?}
     H -->|Yes| I[Scale Down to 2048]
@@ -869,50 +879,9 @@ $validator = Validator::make($request->all(), [
 storage/app/public/
 └── galleries/
     └── {gallery_id}/
-        ├── abc123.jpg           # Main image (max 2048×2048)
+        ├── abc123.jpg           # Main image (max 2048×2048, JPEG 85%)
         └── thumbnails/
-            └── abc123.jpg       # Thumbnail (400×400)
-```
-
----
-
-## User Interface Components
-
-### Admin Panel Views
-
-| View | Path | Purpose |
-|------|------|---------|
-| Dashboard | `admin/dashboard.blade.php` | Overview & quick actions |
-| Gallery List | `admin/galleries/index.blade.php` | Paginated gallery list |
-| Create Gallery | `admin/galleries/create.blade.php` | New gallery form |
-| Edit Gallery | `admin/galleries/edit.blade.php` | Settings + image manager |
-
-### Blade Components
-
-| Component | Purpose |
-|-----------|---------|
-| `layouts/app.blade.php` | Main authenticated layout |
-| `layouts/guest.blade.php` | Unauthenticated layout |
-| `layouts/navigation.blade.php` | Top navigation bar |
-| `components/*.blade.php` | Reusable UI elements |
-
-### 3D Viewer UI Elements
-
-```html
-<!-- Loading Screen -->
-<div id="loader">...</div>
-
-<!-- UI Overlay -->
-<div id="ui-layer">
-    <!-- Header with title -->
-    <!-- Speed indicator (1x/2x/4x/8x) -->
-    <!-- Control instructions -->
-    <!-- Artwork info panel -->
-    <!-- Crosshair -->
-</div>
-
-<!-- 3D Canvas -->
-<div id="canvas-container"></div>
+            └── abc123.jpg       # Thumbnail (400×400, JPEG 80%)
 ```
 
 ---
@@ -924,17 +893,33 @@ storage/app/public/
 | Layer | Implementation |
 |-------|----------------|
 | Authentication | Laravel Breeze (session-based) |
-| Password Hashing | Bcrypt (Laravel default) |
+| Email Verification | `MustVerifyEmail` on `User` model |
+| Password Hashing | Bcrypt (12 rounds) |
 | CSRF Protection | Automatic via `@csrf` directive |
-| Route Protection | `auth` and `verified` middleware |
+| Route Protection | `auth` + `verified` middleware stack |
 
 ### Gallery Ownership Verification
 
+Every admin action verifies the authenticated user owns the gallery:
+
 ```php
-// Every admin action verifies ownership
 if ($gallery->user_id !== Auth::id()) {
     abort(403);
 }
+```
+
+### Webhook Security
+
+2Checkout IPN verified via MD5 hash before any user updates:
+
+```php
+$stringToHash = strlen($sale_id) . $sale_id .
+                strlen($vendor_id) . $vendor_id .
+                strlen($invoice_id) . $invoice_id .
+                strlen($secretWord) . $secretWord;
+
+$calculatedHash = strtoupper(md5($stringToHash));
+// Must match $receivedHash or request rejected with 403
 ```
 
 ### File Upload Security
@@ -943,61 +928,24 @@ if ($gallery->user_id !== Auth::id()) {
 |-------|----------------|
 | MIME Validation | `mimes:jpeg,png,jpg,webp` |
 | Size Limit | `max:10240` (10MB) |
-| Extension Validation | Whitelist approach |
-| File Storage | Outside web root (symbolic link) |
-
-### Public Gallery Access
-
-- Galleries must have `is_active = true` to be viewable
-- Slug-based URLs prevent ID enumeration
-- View count incremented securely via Eloquent
+| Extension Whitelist | Explicit allowlist only |
+| Storage | Outside web root via symbolic link |
 
 ---
 
 ## Design Decisions & Rationale
 
-### Why Laravel 12?
-
 | Decision | Rationale |
 |----------|-----------|
-| Modern PHP 8.2+ features | Type safety, performance optimizations |
-| Eloquent ORM | Rapid development, relationship management |
-| Blade templating | Server-side rendering with component support |
-| Built-in authentication | Security best practices out of the box |
-
-### Why Three.js (not Unity/Unreal)?
-
-| Decision | Rationale |
-|----------|-----------|
-| Browser-native | No plugins or downloads required |
-| Lightweight | ~600KB vs multi-MB game engines |
-| Mobile support | WebGL works on modern phones |
-| Easy integration | JavaScript ecosystem compatibility |
-| CDN delivery | Import maps for module loading |
-
-### Why SQLite for Development?
-
-| Decision | Rationale |
-|----------|-----------|
-| Zero configuration | Works immediately after clone |
-| Portable | Single file, easy to backup/reset |
-| Production flexibility | MySQL/PostgreSQL supported via config |
-
-### Why 2048×2048 Image Limit?
-
-| Decision | Rationale |
-|----------|-----------|
-| WebGL texture limits | Many devices cap at 2048 |
-| Memory efficiency | Prevents browser crashes |
-| Load time optimization | Faster gallery initialization |
-
-### Why Proximity Lighting?
-
-| Decision | Rationale |
-|----------|-----------|
-| Performance | Only 1 active spotlight at a time |
-| Immersion | Mimics museum spotlights |
-| Visual feedback | Indicates focus area to user |
+| **MySQL over SQLite** | SaaS requires concurrent writes, row locking, and managed backups — SQLite is single-writer only |
+| **One-time pricing** | Reduces churn, simplifies webhook logic, no subscription management overhead |
+| **2Checkout over Stripe** | Better global payment coverage, especially for markets without Stripe support |
+| **Coolify on DigitalOcean** | Full server control with PaaS convenience, no vendor lock-in |
+| **Database queue** | No Redis dependency required, simplifies infrastructure for current scale |
+| **Three.js over Unity/Unreal** | Browser-native, no plugins, ~600KB vs multi-MB game engines, mobile WebGL support |
+| **2048×2048 image limit** | WebGL texture limits on many devices; prevents browser crashes and speeds load |
+| **Proximity lighting** | Only 1 active spotlight at a time for performance; mimics museum spotlights |
+| **Resend over SMTP** | Superior deliverability, analytics, and developer experience over raw SMTP |
 
 ---
 
@@ -1005,51 +953,47 @@ if ($gallery->user_id !== Auth::id()) {
 
 ### Use Case 1: Artist Portfolio
 
-**Actor**: Independent Artist  
+**Actor**: Independent Artist
 **Goal**: Showcase artwork professionally online
 
-**Flow**:
-1. Register account
-2. Create new gallery with "Moody" lighting preset
+1. Register account → verify email
+2. Create gallery with "Moody" lighting preset
 3. Upload 20 high-resolution artwork images
 4. Share public URL on social media
-5. Monitor view count for engagement metrics
+5. Monitor analytics for engagement
 
 ### Use Case 2: Virtual Exhibition
 
-**Actor**: Gallery Owner  
+**Actor**: Gallery Owner
 **Goal**: Extend physical exhibition to remote viewers
 
-**Flow**:
-1. Create gallery matching physical space style
-2. Upload exhibition catalog images in order
-3. Set wall texture to match actual venue
-4. Embed gallery URL on museum website
-5. Track visitor analytics
+1. Purchase Studio plan for branding
+2. Upload custom logo for white-label experience
+3. Create gallery matching physical space aesthetic
+4. Set PIN for preview-only access before opening
+5. Remove PIN on opening day, share URL publicly
 
 ### Use Case 3: Educational Presentation
 
-**Actor**: Art History Teacher  
+**Actor**: Art History Teacher
 **Goal**: Create interactive learning material
 
-**Flow**:
 1. Create gallery titled "Renaissance Masters"
 2. Upload artworks with detailed descriptions
 3. Share URL with students
-4. Students navigate and press E for artwork info
+4. Students press E to inspect artwork details
 5. Class discusses observations in real-time
 
 ### Use Case 4: Photography Showcase
 
-**Actor**: Professional Photographer  
-**Goal**: Premium portfolio presentation
+**Actor**: Professional Photographer
+**Goal**: Premium portfolio presentation for clients
 
-**Flow**:
-1. Create gallery with "Dramatic" lighting
-2. Select "brick" wall texture for industrial aesthetic
+1. Purchase Pro plan for up to 5 galleries
+2. Create gallery per project with "Dramatic" lighting
 3. Upload curated photo collection
-4. Use 8× speed to give clients a virtual tour
-5. Client experiences immersive viewing
+4. Share private link with client via PIN protection
+5. Remove PIN after client approval
 
 ---
 
@@ -1061,131 +1005,102 @@ exospace/
 │   ├── Http/
 │   │   ├── Controllers/
 │   │   │   ├── Admin/
-│   │   │   │   ├── DashboardController.php
-│   │   │   │   ├── GalleryController.php
-│   │   │   │   └── ImageController.php
+│   │   │   │   ├── AnalyticsController.php    # Analytics dashboard
+│   │   │   │   ├── DashboardController.php    # Admin home
+│   │   │   │   ├── GalleryController.php      # Gallery CRUD
+│   │   │   │   └── ImageController.php        # Image management
 │   │   │   ├── SuperAdmin/
-│   │   │   │   └── SystemController.php    # Platform administration
-│   │   │   ├── Auth/
-│   │   │   ├── GalleryViewController.php
-│   │   │   ├── InstallerController.php
-│   │   │   ├── WebhookController.php       # 2Checkout IPN handler
-│   │   │   └── ProfileController.php
+│   │   │   │   └── SystemController.php       # Platform administration
+│   │   │   ├── Auth/                          # Breeze auth controllers
+│   │   │   ├── GalleryPinController.php       # PIN gate
+│   │   │   ├── GalleryViewController.php      # Public gallery view
+│   │   │   ├── InstallerController.php        # First-run setup
+│   │   │   ├── ProfileController.php          # User profile
+│   │   │   └── WebhookController.php          # 2Checkout IPN handler
 │   │   ├── Middleware/
-│   │   │   └── EnsureUserIsSuperAdmin.php  # Super admin gate
+│   │   │   ├── EnsureUserIsSuperAdmin.php     # Super admin gate
+│   │   │   └── SecurityHeaders.php            # HTTP security headers
 │   │   └── Requests/
+│   ├── Mail/
+│   │   └── WelcomeEmail.php                   # Queued welcome email
 │   ├── Models/
 │   │   ├── Gallery.php
+│   │   ├── GalleryEvent.php                   # Analytics events
 │   │   ├── GalleryImage.php
 │   │   ├── Setting.php
-│   │   └── User.php
-│   ├── Mail/
-│   │   └── WelcomeEmail.php          # Queued welcome email
+│   │   └── User.php                           # MustVerifyEmail, plan helpers
 │   ├── Providers/
-│   ├── Services/
-│   │   └── ImageProcessingService.php
-│   └── View/
-├── bootstrap/
+│   └── Services/
+│       └── ImageProcessingService.php
 ├── config/
+│   └── services.php                           # 2Checkout credentials config
 ├── database/
-│   ├── migrations/
-│   │   ├── create_users_table.php
-│   │   ├── create_galleries_table.php
-│   │   ├── create_gallery_images_table.php
-│   │   └── create_settings_table.php
-│   ├── factories/
-│   └── seeders/
-├── documentation/
-│   └── index.html           # User documentation
-├── public/
-│   └── assets/
-│       └── textures/
-│           ├── walls/
-│           └── floors/
+│   └── migrations/
+│       ├── create_users_table.php
+│       ├── create_galleries_table.php
+│       ├── create_gallery_images_table.php
+│       ├── create_settings_table.php
+│       ├── add_plans_to_users_table.php
+│       ├── add_audio_to_galleries_table.php
+│       ├── add_custom_logo_to_galleries_table.php
+│       ├── add_super_admin_flag_to_users_table.php
+│       ├── add_room_layout_to_galleries_table.php
+│       ├── create_gallery_analytics_table.php
+│       ├── add_pin_to_galleries_table.php
+│       └── create_transactions_table.php      # Purchase + refund history
 ├── resources/
-│   ├── css/
-│   ├── js/
 │   └── views/
 │       ├── admin/
 │       │   ├── dashboard.blade.php
 │       │   └── galleries/
 │       ├── auth/
-│       ├── components/
+│       │   └── verify-email.blade.php         # Email verification notice
 │       ├── emails/
-│       │   └── welcome.blade.php     # Welcome email template
+│       │   └── welcome.blade.php
 │       ├── gallery/
-│       │   └── view.blade.php    # 3D Engine
+│       │   └── view.blade.php                 # Three.js 3D engine
 │       ├── layouts/
 │       │   └── partials/
-│       │       ├── cookie-banner.blade.php  # GDPR consent
-│       │       └── footer.blade.php         # Global footer
+│       │       ├── cookie-banner.blade.php
+│       │       └── footer.blade.php
 │       ├── pages/
 │       │   ├── about.blade.php
-│       │   ├── contact.blade.php
-│       │   ├── pricing.blade.php
+│       │   ├── contact.blade.php              # Real address populated
+│       │   ├── pricing.blade.php              # Live 2Checkout modals
 │       │   ├── privacy.blade.php
-│       │   ├── refund.blade.php
+│       │   ├── refund.blade.php               # One-time purchase language
 │       │   ├── security.blade.php
-│       │   └── terms.blade.php
-│       └── profile/
+│       │   └── terms.blade.php                # One-time purchase language
+│       └── super-admin/
 ├── routes/
-│   ├── web.php              # Main routes
-│   └── auth.php             # Auth routes
-├── storage/
-├── tests/
+│   ├── web.php
+│   └── auth.php
 ├── .env.example
 ├── composer.json
-├── docker-start.sh          # Cloud deployment startup script
-├── nixpacks.toml             # Nixpacks/Railway configuration
-├── package.json
+├── docker-start.sh                            # Coolify startup script
+├── nixpacks.toml                              # Build config (includes migrate)
 ├── tailwind.config.js
 └── vite.config.js
 ```
 
 ---
 
-## Quick Start for Developers
-
-### Local Development Setup
-
-```bash
-# 1. Clone and install dependencies
-composer install
-npm install
-
-# 2. Environment setup
-cp .env.example .env
-php artisan key:generate
-
-# 3. Database
-php artisan migrate
-
-# 4. Storage link (for public file access)
-php artisan storage:link
-
-# 5. Run development servers
-composer run dev
-# This runs: php artisan serve + queue:listen + pail + npm run dev
-```
-
-### Key Configuration Points
-
-| File | Purpose |
-|------|---------|
-| `.env` | Environment variables (DB, app key) |
-| `config/filesystems.php` | Storage disk configuration |
-| `tailwind.config.js` | CSS framework customization |
-| `vite.config.js` | Asset bundling configuration |
-| `nixpacks.toml` | Nixpacks/Railway deployment config |
-| `docker-start.sh` | Container startup script |
-
----
-
 ## Deployment & Cloud Hosting
 
-### Nixpacks Configuration
+### Infrastructure Stack
 
-The project includes first-class support for **Nixpacks**-based deployment platforms like [Railway](https://railway.app), [Render](https://render.com), and similar services.
+| Layer | Service |
+|-------|---------|
+| VPS | DigitalOcean Droplet |
+| PaaS | Coolify (self-hosted) |
+| Database | MySQL 8 (Coolify-managed) |
+| Build | Nixpacks |
+| Web Server | Nginx + PHP-FPM |
+| Email | Resend API |
+| Payments | 2Checkout |
+| Domain | exospace.gallery (HTTPS) |
+
+### Nixpacks Configuration
 
 **File:** `nixpacks.toml`
 
@@ -1198,6 +1113,7 @@ cmds = [
     "npm install",
     "npm run build",
     "composer install --no-dev --optimize-autoloader",
+    "php artisan migrate --force",
     "php artisan config:cache",
     "php artisan route:cache",
     "php artisan view:cache"
@@ -1207,93 +1123,56 @@ cmds = [
 cmd = "bash docker-start.sh"
 ```
 
-#### Build Phases Explained
+### Build Phases
 
 | Phase | Actions |
 |-------|---------|
-| **Setup** | Installs PHP, Nginx, Node.js, and Composer via Nix packages |
-| **Build** | Compiles frontend assets, installs PHP dependencies, caches Laravel config |
+| **Setup** | Installs PHP, Nginx, Node.js, Composer via Nix |
+| **Build** | Compiles assets, installs PHP deps, runs migrations, caches Laravel config |
 | **Start** | Executes container startup script |
 
 ### Container Startup Script
 
 **File:** `docker-start.sh`
 
-```bash
-#!/bin/bash
-
-# 1. Configure PHP upload limits
-cat > /assets/php-fpm-overrides.conf << 'EOF'
-upload_max_filesize = 50M
-post_max_size = 50M
-memory_limit = 512M
-max_execution_time = 300
-EOF
-
-# 2. Patch Nginx to allow 50MB uploads
-if grep -q "client_max_body_size" /assets/nginx.template.conf; then
-    sed -i 's/client_max_body_size [^;]*;/client_max_body_size 50M;/g' /assets/nginx.template.conf
-else
-    sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
-fi
-
-# 3. Start PHP-FPM and Nginx
-node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && \
-(php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=50M -d post_max_size=50M -d memory_limit=512M & nginx -c /nginx.conf)
-```
-
-#### PHP/Nginx Configuration
+Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worker in background, then starts PHP-FPM and Nginx.
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
-| `upload_max_filesize` | 50MB | Allow large artwork uploads |
+| `upload_max_filesize` | 50MB | Large artwork uploads |
 | `post_max_size` | 50MB | Match upload limit |
-| `memory_limit` | 512MB | Handle image processing |
-| `max_execution_time` | 300s | Long operations (batch uploads) |
-| `client_max_body_size` | 50MB | Nginx request body limit |
+| `memory_limit` | 512MB | Image processing headroom |
+| `max_execution_time` | 300s | Batch upload operations |
+| `client_max_body_size` | 50MB | Nginx request body |
 
-### Deployment to Railway
+### Environment Variables Reference
 
-```bash
-# 1. Install Railway CLI
-npm install -g @railway/cli
-
-# 2. Login and initialize
-railway login
-railway init
-
-# 3. Set environment variables
-railway variables set APP_KEY=base64:...
-railway variables set APP_ENV=production
-railway variables set DB_CONNECTION=mysql
-# ... other env vars
-
-# 4. Deploy
-railway up
-```
-
-### Environment Variables for Production
-
-| Variable | Example | Required |
-|----------|---------|----------|
-| `APP_KEY` | `base64:xxxxx` | ✅ |
-| `APP_ENV` | `production` | ✅ |
-| `APP_DEBUG` | `false` | ✅ |
-| `DB_CONNECTION` | `mysql` | ✅ |
-| `DB_HOST` | `mysql.railway.internal` | ✅ |
-| `DB_DATABASE` | `railway` | ✅ |
-| `DB_USERNAME` | `root` | ✅ |
-| `DB_PASSWORD` | `***` | ✅ |
-| `FILESYSTEM_DISK` | `public` | ⚠️ |
-| `RESEND_API_KEY` | `re_xxxxx` | ✅ (for emails) |
-| `MAIL_MAILER` | `resend` | ✅ (for emails) |
-
-> [!WARNING]
-> For persistent file storage in production, configure an S3-compatible storage driver (AWS S3, DigitalOcean Spaces, etc.) instead of local filesystem.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `APP_KEY` | ✅ | Laravel encryption key |
+| `APP_ENV` | ✅ | `production` |
+| `APP_URL` | ✅ | `https://exospace.gallery` |
+| `DB_CONNECTION` | ✅ | `mysql` |
+| `DB_HOST` | ✅ | Coolify internal MySQL host |
+| `DB_DATABASE` | ✅ | `exospace` |
+| `DB_USERNAME` | ✅ | MySQL user |
+| `DB_PASSWORD` | ✅ | MySQL password |
+| `FILESYSTEM_DISK` | ✅ | `public` |
+| `QUEUE_CONNECTION` | ✅ | `database` |
+| `RESEND_API_KEY` | ✅ | Resend email API key |
+| `MAIL_MAILER` | ✅ | `resend` |
+| `MAIL_FROM_ADDRESS` | ✅ | `noreply@exospace.gallery` |
+| `TWOCHECKOUT_ACCOUNT_NUMBER` | ✅ | 2Checkout vendor account |
+| `TWOCHECKOUT_SECRET_WORD` | ✅ | IPN hash verification secret |
+| `TWOCHECKOUT_PRODUCT_ID_PRO` | ✅ | 2Checkout product ID for Pro plan |
+| `TWOCHECKOUT_PRODUCT_ID_STUDIO` | ✅ | 2Checkout product ID for Studio plan |
+| `SESSION_SECURE_COOKIE` | ✅ | `true` |
+| `SESSION_DOMAIN` | ✅ | `exospace.gallery` |
+| `TRUSTED_PROXIES` | ✅ | `*` (Coolify reverse proxy) |
 
 ---
 
-## Appendix: API Reference
+## API Reference
 
 ### Admin Gallery Endpoints
 
@@ -1305,6 +1184,10 @@ railway up
 | GET | `/admin/galleries/{id}/edit` | Edit form |
 | PUT | `/admin/galleries/{id}` | Update gallery |
 | DELETE | `/admin/galleries/{id}` | Delete gallery |
+| POST | `/admin/galleries/{id}/upload-audio` | Upload ambient audio |
+| POST | `/admin/galleries/{id}/upload-logo` | Upload custom logo |
+| POST | `/admin/galleries/{id}/reorder-images` | Reorder image positions |
+| GET | `/admin/galleries/{id}/analytics` | Analytics dashboard |
 
 ### Admin Image Endpoints
 
@@ -1318,35 +1201,38 @@ railway up
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/` | Welcome/Landing page |
-| GET | `/gallery/{slug}` | View 3D gallery |
-| GET | `/gallery/demo` | Smart redirect to first active gallery |
-| GET | `/dashboard` | User dashboard |
-| GET | `/privacy` | Privacy Policy page |
-| GET | `/terms` | Terms of Service page |
-| GET | `/refund-policy` | Refund Policy page |
-| GET | `/payment-security` | Payment Security page |
-| GET | `/about` | About Us page |
-| GET | `/pricing` | Pricing page |
-| GET | `/contact` | Contact page |
-
-### Super Admin Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/super-admin` | Super admin dashboard |
-| PUT | `/super-admin/users/{id}/plan` | Update user's plan |
-| DELETE | `/super-admin/users/{id}` | Delete user and all data |
-| GET | `/super-admin/users/{id}/galleries` | View user's galleries |
-| POST | `/super-admin/galleries/{id}/toggle` | Toggle gallery active status |
+| GET | `/` | Landing page |
+| GET | `/gallery/{slug}` | 3D gallery viewer |
+| GET | `/gallery/{slug}/pin` | PIN entry screen |
+| POST | `/gallery/{slug}/pin` | PIN verification |
+| POST | `/gallery/{gallery}/track` | Analytics event tracking |
+| GET | `/gallery/demo` | Redirect to first active gallery |
+| GET | `/pricing` | Plan comparison + checkout |
+| GET | `/privacy` | Privacy Policy |
+| GET | `/terms` | Terms of Service |
+| GET | `/refund-policy` | Refund Policy |
+| GET | `/payment-security` | Payment Security |
+| GET | `/about` | About Us |
+| GET | `/contact` | Contact |
 
 ### Webhook Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/webhooks/2checkout` | 2Checkout IPN handler |
+| POST | `/webhooks/2checkout` | 2Checkout IPN (ORDER_CREATED) |
 | POST | `/webhooks/2checkout/refund` | 2Checkout refund handler |
+
+### Super Admin Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/master-control` | Super admin dashboard |
+| POST | `/master-control/users/{id}/plan` | Update user's plan |
+| DELETE | `/master-control/users/{id}` | Delete user and all data |
+| GET | `/master-control/users/{id}/galleries` | View user's galleries |
+| POST | `/master-control/galleries/{id}/toggle` | Toggle gallery active status |
 
 ---
 
-*Document generated for Exospace 3D Gallery v1.4.0*
+*Exospace 3D Gallery — Technical Documentation v2.0.0*
+*Last updated: April 22, 2026*
