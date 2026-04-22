@@ -300,6 +300,70 @@
                         @endif
                     </div>
 
+                    <!-- Exhibition Scheduling (Pro & Studio) -->
+                    <div class="mb-6 pt-5 border-t border-gray-700">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <label class="block text-sm font-medium text-gray-300">Exhibition Schedule</label>
+                            <span class="text-xs bg-purple-900/50 text-purple-300 border border-purple-700/50 px-2 py-0.5 rounded-full">Pro</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-4">Set an opening date and optional closing date. Visitors will see a countdown before opening and a "Closed" page after. Leave blank for always-open.</p>
+
+                        @if(Auth::user()->isPro())
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
+                                    <input type="datetime-local" name="opens_at"
+                                        value="{{ $gallery->opens_at ? $gallery->opens_at->format('Y-m-d\TH:i') : old('opens_at') }}"
+                                        class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors text-sm">
+                                    <p class="text-xs text-gray-500 mt-1">Your local time. Leave blank to open immediately.</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
+                                    <input type="datetime-local" name="closes_at"
+                                        value="{{ $gallery->closes_at ? $gallery->closes_at->format('Y-m-d\TH:i') : old('closes_at') }}"
+                                        class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors text-sm">
+                                    <p class="text-xs text-gray-500 mt-1">Optional. Leave blank for no end date.</p>
+                                </div>
+                            </div>
+
+                            @if($gallery->isScheduled())
+                                <div class="mt-3 p-3 rounded-lg text-sm
+                                    {{ $gallery->hasNotOpenedYet() ? 'bg-blue-900/30 border border-blue-700/40 text-blue-300' : ($gallery->hasClosed() ? 'bg-red-900/30 border border-red-700/40 text-red-300' : 'bg-green-900/30 border border-green-700/40 text-green-300') }}">
+                                    @if($gallery->hasNotOpenedYet())
+                                        🕐 <strong>Scheduled</strong> — Opens {{ $gallery->opens_at->diffForHumans() }}
+                                        ({{ $gallery->opens_at->format('M j, Y \a\t g:i A') }})
+                                    @elseif($gallery->hasClosed())
+                                        🔒 <strong>Closed</strong> — Exhibition ended {{ $gallery->closes_at->diffForHumans() }}
+                                    @else
+                                        ✅ <strong>Open</strong> —
+                                        {{ $gallery->closes_at ? 'Closes ' . $gallery->closes_at->diffForHumans() . ' (' . $gallery->closes_at->format('M j, Y \a\t g:i A') . ')' : 'No closing date set' }}
+                                    @endif
+                                </div>
+                            @endif
+                        @else
+                            <div class="relative">
+                                <div class="bg-gray-800/30 rounded-lg p-5 border-2 border-dashed border-gray-700 opacity-50 pointer-events-none">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <div class="h-4 bg-gray-700 rounded w-20 mb-2"></div>
+                                            <div class="h-10 bg-gray-700 rounded w-full"></div>
+                                        </div>
+                                        <div>
+                                            <div class="h-4 bg-gray-700 rounded w-20 mb-2"></div>
+                                            <div class="h-10 bg-gray-700 rounded w-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <a href="/pricing" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold px-6 py-2.5 rounded-lg shadow-lg transform hover:scale-105 transition-all text-sm">
+                                        Upgrade to Pro to Schedule Exhibitions
+                                    </a>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+
                     <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
                         <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg transition-colors">
                             Cancel

@@ -164,6 +164,46 @@
                         @endif
                     </div>
 
+                    <!-- Exhibition Schedule (Pro Feature) -->
+                    <div class="mb-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <label class="block text-sm font-medium text-gray-200">Exhibition Schedule</label>
+                            @if(!auth()->user()->isPro())
+                                <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-1">Pro Only</span>
+                            @endif
+                        </div>
+                        <p class="text-xs text-gray-500 mb-4">Set when this gallery opens and closes to the public. Visitors see a live countdown before opening, and a closed page after. Leave blank for always-open.</p>
+
+                        @if(auth()->user()->isPro())
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
+                                    <input type="datetime-local" name="opens_at" value="{{ old('opens_at') }}"
+                                        class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm">
+                                    <p class="text-xs text-gray-500 mt-1">Your local time. Leave blank to open immediately.</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
+                                    <input type="datetime-local" name="closes_at" value="{{ old('closes_at') }}"
+                                        class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm">
+                                    <p class="text-xs text-gray-500 mt-1">Optional. Leave blank for no end date.</p>
+                                </div>
+                            </div>
+                        @else
+                            <div class="bg-gray-700/50 border border-gray-600 rounded-lg p-6 text-center">
+                                <svg class="w-12 h-12 text-gray-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                <p class="text-gray-400 mb-2 text-sm">Schedule your exhibition opening and closing dates</p>
+                                <p class="text-gray-500 text-xs mb-4">Visitors see a live countdown until opening. After closing, a stats page shows total visitors and days open.</p>
+                                <a href="/pricing" class="inline-block bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition text-sm">
+                                    Upgrade to Pro — $29
+                                </a>
+                            </div>
+                        @endif
+                    </div>
+
                     <div class="mt-6 flex justify-end gap-3">
                         <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-100 font-semibold py-2 px-6 rounded-lg transition">
                             Cancel

@@ -41,6 +41,8 @@ class GalleryController extends Controller
             'floor_material'  => 'required|in:wood,marble,concrete',
             'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',
             'gallery_pin'     => 'nullable|digits:4',
+            'opens_at'        => 'nullable|date',
+            'closes_at'       => 'nullable|date|after_or_equal:opens_at',
             'audio'           => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
             'custom_logo'     => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
         ]);
@@ -64,6 +66,8 @@ class GalleryController extends Controller
             'floor_material'   => $validated['floor_material'],
             'room_layout'      => $validated['room_layout'],
             'pin_hash'         => $validated['gallery_pin'] ? Hash::make($validated['gallery_pin']) : null,
+            'opens_at'         => $validated['opens_at'] ?? null,
+            'closes_at'        => $validated['closes_at'] ?? null,
             'audio_path'       => $audioPath,
             'custom_logo_path' => $logoPath,
         ]);
@@ -97,6 +101,8 @@ class GalleryController extends Controller
             'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',
             'gallery_pin'     => 'nullable|digits:4',
             'clear_pin'       => 'nullable|boolean',
+            'opens_at'        => 'nullable|date',
+            'closes_at'       => 'nullable|date|after_or_equal:opens_at',
             'audio'           => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
             'custom_logo'     => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
         ]);
@@ -117,7 +123,11 @@ class GalleryController extends Controller
         } elseif (!empty($validated['gallery_pin'])) {
             $validated['pin_hash'] = Hash::make($validated['gallery_pin']);
         }
-        unset($validated['gallery_pin'], $validated['clear_pin']);
+        unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo']);
+        
+        // Handle schedule clearing
+        if (empty($validated['opens_at'])) $validated['opens_at'] = null;
+        if (empty($validated['closes_at'])) $validated['closes_at'] = null;
 
         $gallery->update($validated);
         return back()->with('status', 'Gallery settings updated!');

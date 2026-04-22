@@ -15,6 +15,16 @@ class GalleryViewController extends Controller
             ->with(['images' => fn($q) => $q->orderBy('position_order')])
             ->firstOrFail();
 
+        // Time-gate: not open yet
+        if ($gallery->hasNotOpenedYet()) {
+            return view('gallery.coming-soon', compact('gallery'));
+        }
+
+        // Time-gate: exhibition has closed
+        if ($gallery->hasClosed()) {
+            return view('gallery.closed', compact('gallery'));
+        }
+
         // PIN protection — redirect to PIN screen if not yet verified
         if ($gallery->hasPinProtection() && !session("pin_verified_{$gallery->id}")) {
             return redirect()->route('gallery.pin', $slug);

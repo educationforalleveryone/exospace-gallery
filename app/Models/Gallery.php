@@ -15,11 +15,14 @@ class Gallery extends Model
         'floor_material', 'audio_path', 'custom_logo_path',
         'room_layout', 'pin_hash',
         'is_active', 'view_count',
+        'opens_at', 'closes_at',
     ];
 
     protected $casts = [
         'is_active'  => 'boolean',
         'view_count' => 'integer',
+        'opens_at'   => 'datetime',
+        'closes_at'  => 'datetime',
     ];
 
     protected static function boot()
@@ -55,6 +58,38 @@ class Gallery extends Model
     public function hasPinProtection(): bool
     {
         return !empty($this->pin_hash);
+    }
+
+    // --- Time-gate helpers ---
+
+    public function isScheduled(): bool
+    {
+        return !is_null($this->opens_at);
+    }
+
+    public function isOpen(): bool
+    {
+        $now = now();
+
+        if ($this->opens_at && $now->lt($this->opens_at)) {
+            return false; // Not open yet
+        }
+
+        if ($this->closes_at && $now->gt($this->closes_at)) {
+            return false; // Exhibition ended
+        }
+
+        return true;
+    }
+
+    public function hasNotOpenedYet(): bool
+    {
+        return $this->opens_at && now()->lt($this->opens_at);
+    }
+
+    public function hasClosed(): bool
+    {
+        return $this->closes_at && now()->gt($this->closes_at);
     }
 
     public function verifyPin(string $pin): bool
