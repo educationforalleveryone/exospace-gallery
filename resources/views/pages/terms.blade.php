@@ -84,14 +84,14 @@
             <section class="mb-8">
                 <h2 class="text-2xl font-semibold mb-4">6. Subscription and Payment</h2>
                 <p class="text-gray-300 leading-relaxed mb-4">
-                    Some features of the Service require a paid subscription. By subscribing, you agree to pay all applicable fees. Subscriptions automatically renew unless cancelled before the renewal date. All fees are non-refundable except as required by law or as explicitly stated in our refund policy.
+                    Some features of the Service require a one-time paid upgrade. By purchasing a plan, you agree to pay all applicable fees. Pro and Studio plans are lifetime licenses — there are no recurring charges or automatic renewals. All fees are non-refundable except as explicitly stated in our <a href="/refund-policy" class="text-purple-400 hover:text-purple-300">Refund Policy</a>, which includes a 14-day money-back guarantee.
                 </p>
             </section>
 
             <section class="mb-8">
                 <h2 class="text-2xl font-semibold mb-4">7. Cancellation and Termination</h2>
                 <p class="text-gray-300 leading-relaxed mb-4">
-                    You may cancel your subscription at any time through your account settings. We reserve the right to suspend or terminate your account if you violate these Terms of Service or engage in fraudulent activity.
+                    As our plans are one-time purchases with no recurring billing, there is nothing to cancel. Your plan remains active for the lifetime of your account. We reserve the right to suspend or terminate your account if you violate these Terms of Service or engage in fraudulent activity.
                 </p>
             </section>
 

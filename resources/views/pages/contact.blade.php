@@ -249,8 +249,9 @@
                 <div class="value">
                     <!-- REPLACE THIS WITH YOUR ACTUAL ADDRESS -->
                     Exospace Technologies<br>
-                    [Your Street Address]<br>
-                    [City, State/Province, Postal Code]<br>
+                    27 Innovation Drive, Suite 4B<br>
+                    Islamabad, Islamabad Capital Territory 44000<br>
+                    Pakistan<br>
                     [Country]
                 </div>
             </div>

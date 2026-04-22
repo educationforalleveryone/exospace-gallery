@@ -39,7 +39,7 @@
 
             <section>
                 <h2 class="text-xl font-semibold text-gray-100 mb-3">14-Day Money-Back Guarantee</h2>
-                <p>At Exospace Gallery Ltd., we want you to be completely satisfied with your purchase. If you are not satisfied with your subscription for any reason, you may request a full refund within <strong class="text-gray-100">14 calendar days</strong> of your initial payment or renewal date.</p>
+                <p>At Exospace Gallery Ltd., we want you to be completely satisfied with your purchase. If you are not satisfied for any reason, you may request a full refund within <strong class="text-gray-100">14 calendar days</strong> of your initial payment date.</p>
             </section>
 
             <section>
@@ -64,13 +64,13 @@
                 <ul class="list-disc list-inside mt-3 space-y-1 text-gray-400 ml-4">
                     <li>The refund request is made after the 14-day window has passed.</li>
                     <li>The account has been used in violation of our <a href="/terms" class="text-purple-400 hover:text-purple-300">Terms of Service</a>.</li>
-                    <li>The subscription has already been renewed and more than 14 days have elapsed since the renewal date.</li>
+                    <li>The refund request is submitted more than 14 days after the original purchase date.</li>
                 </ul>
             </section>
 
             <section>
                 <h2 class="text-xl font-semibold text-gray-100 mb-3">Annual Plans</h2>
-                <p>For annual subscription plans, refund requests made within 14 days of purchase are eligible for a <strong class="text-gray-100">full refund</strong>. Requests made after 14 days but before the end of the billing cycle are eligible for a <strong class="text-gray-100">pro-rated refund</strong> for the unused portion of the subscription, at our discretion.</p>
+                <p>All Exospace plans (Pro and Studio) are one-time lifetime purchases with no recurring billing. Refund requests made within 14 days of purchase are eligible for a <strong class="text-gray-100">full refund</strong>. No pro-rated refunds apply as there is no subscription cycle.</p>
             </section>
 
             <section>
