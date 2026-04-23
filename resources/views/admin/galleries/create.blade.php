@@ -4,6 +4,9 @@
             <h2 class="font-semibold text-xl text-gray-100 leading-tight">
                 {{ __('Create New Gallery') }}
             </h2>
+            @if(isset($team))
+                <p class="text-sm text-indigo-400 mt-1">Creating in team: <strong>{{ $team->name }}</strong></p>
+            @endif
         </div>
     </x-slot>
 
@@ -12,6 +15,9 @@
             <div class="bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg p-6 border border-gray-700">
                 
                 <form action="{{ route('admin.galleries.store') }}" method="POST" enctype="multipart/form-data">
+    @if(isset($team))
+        <input type="hidden" name="team_id" value="{{ $team->id }}">
+    @endif
                     @csrf
                     
                     <!-- Title -->

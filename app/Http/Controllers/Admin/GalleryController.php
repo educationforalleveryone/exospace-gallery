@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Gallery;
+use App\Models\Team;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -12,24 +13,97 @@ use Illuminate\Support\Facades\Hash;
 
 class GalleryController extends Controller
 {
-    public function index(): View
+    // ── Index: show personal OR team galleries ────────────────────────────
+
+    public function index(Request $request): View
     {
-        $galleries = Gallery::where('user_id', Auth::id())->latest()->paginate(10);
-        return view('admin.galleries.index', compact('galleries'));
+        $user    = Auth::user();
+        $team    = null;
+        $teamId  = $request->query('team') ?? $user->current_team_id;
+
+        if ($teamId) {
+            $team = Team::find($teamId);
+            // Validate the user actually belongs to this team
+            if ($team && $user->belongsToTeam($team)) {
+                $galleries = Gallery::where('team_id', $team->id)
+                                    ->latest()->paginate(10);
+            } else {
+                $team      = null;
+                $galleries = Gallery::where('user_id', $user->id)
+                                    ->whereNull('team_id')
+                                    ->latest()->paginate(10);
+            }
+        } else {
+            $galleries = Gallery::where('user_id', $user->id)
+                                ->whereNull('team_id')
+                                ->latest()->paginate(10);
+        }
+
+        // Pass along the list of teams user belongs to (for switcher)
+        $userTeams = $user->ownedTeams->merge($user->teams);
+
+        return view('admin.galleries.index', compact('galleries', 'team', 'userTeams'));
     }
 
-    public function create(): View
+    // ── Create ────────────────────────────────────────────────────────────
+
+    public function create(Request $request): View|RedirectResponse
     {
-        if (!Auth::user()->canCreateGallery()) {
+        $user   = Auth::user();
+        $team   = null;
+        $teamId = $request->query('team') ?? $user->current_team_id;
+
+        if ($teamId) {
+            $team = Team::find($teamId);
+            if (! $team || ! $team->canEdit($user)) {
+                $team = null;
+            }
+        }
+
+        // For personal galleries, check the user's own limit
+        if (! $team && ! $user->canCreateGallery()) {
             return redirect()->route('admin.galleries.index')->with('upgrade', true);
         }
-        return view('admin.galleries.create');
+
+        // For team galleries, check the team owner's limit
+        if ($team) {
+            $owner = $team->owner;
+            $teamGalleryCount = Gallery::where('team_id', $team->id)->count();
+            if ($teamGalleryCount >= $owner->max_galleries) {
+                return redirect()->route('admin.galleries.index', ['team' => $team->id])
+                                 ->with('upgrade', true);
+            }
+        }
+
+        return view('admin.galleries.create', compact('team'));
     }
+
+    // ── Store ─────────────────────────────────────────────────────────────
 
     public function store(Request $request): RedirectResponse
     {
-        if (!Auth::user()->canCreateGallery()) {
+        $user   = Auth::user();
+        $team   = null;
+        $teamId = $request->input('team_id') ?? $user->current_team_id;
+
+        if ($teamId) {
+            $team = Team::find($teamId);
+            if (! $team || ! $team->canEdit($user)) {
+                $team = null;
+            }
+        }
+
+        if (! $team && ! $user->canCreateGallery()) {
             return redirect()->route('admin.galleries.index')->with('upgrade', true);
+        }
+
+        if ($team) {
+            $owner = $team->owner;
+            $teamGalleryCount = Gallery::where('team_id', $team->id)->count();
+            if ($teamGalleryCount >= $owner->max_galleries) {
+                return redirect()->route('admin.galleries.index', ['team' => $team->id])
+                                 ->with('upgrade', true);
+            }
         }
 
         $validated = $request->validate([
@@ -47,17 +121,22 @@ class GalleryController extends Controller
             'custom_logo'     => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
         ]);
 
+        // For pro features, use the plan of the gallery creator (personal) or team owner
+        $planHolder = $team ? $team->owner : $user;
+
         $audioPath = null;
-        if ($request->hasFile('audio') && Auth::user()->isPro()) {
+        if ($request->hasFile('audio') && $planHolder->isPro()) {
             $audioPath = $request->file('audio')->store('audio', 'public');
         }
 
         $logoPath = null;
-        if ($request->hasFile('custom_logo') && Auth::user()->plan === 'studio') {
+        if ($request->hasFile('custom_logo') && $planHolder->plan === 'studio') {
             $logoPath = $request->file('custom_logo')->store('branding', 'public');
         }
 
-        $request->user()->galleries()->create([
+        Gallery::create([
+            'user_id'          => $user->id,
+            'team_id'          => $team?->id,
             'title'            => $validated['title'],
             'description'      => $validated['description'],
             'wall_texture'     => $validated['wall_texture'],
@@ -72,24 +151,32 @@ class GalleryController extends Controller
             'custom_logo_path' => $logoPath,
         ]);
 
-        return redirect()->route('admin.galleries.index')->with('status', 'Gallery created! You can now upload images.');
+        $redirectParams = $team ? ['team' => $team->id] : [];
+        return redirect()->route('admin.galleries.index', $redirectParams)
+                         ->with('status', 'Gallery created! You can now upload images.');
     }
+
+    // ── Show (redirects to edit) ──────────────────────────────────────────
 
     public function show(Gallery $gallery)
     {
         return redirect()->route('admin.galleries.edit', $gallery);
     }
 
+    // ── Edit ──────────────────────────────────────────────────────────────
+
     public function edit(Gallery $gallery): View
     {
-        if ($gallery->user_id !== Auth::id()) abort(403);
+        $this->authorizeGalleryAccess($gallery);
         $gallery->load('images');
         return view('admin.galleries.edit', compact('gallery'));
     }
 
+    // ── Update ────────────────────────────────────────────────────────────
+
     public function update(Request $request, Gallery $gallery): RedirectResponse
     {
-        if ($gallery->user_id !== Auth::id()) abort(403);
+        $this->authorizeGalleryAccess($gallery);
 
         $validated = $request->validate([
             'title'           => 'required|string|max:255',
@@ -107,25 +194,27 @@ class GalleryController extends Controller
             'custom_logo'     => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
         ]);
 
-        if ($request->hasFile('audio') && Auth::user()->isPro()) {
+        $planHolder = $gallery->team_id
+            ? $gallery->team->owner
+            : Auth::user();
+
+        if ($request->hasFile('audio') && $planHolder->isPro()) {
             if ($gallery->audio_path) \Storage::disk('public')->delete($gallery->audio_path);
             $validated['audio_path'] = $request->file('audio')->store('audio', 'public');
         }
 
-        if ($request->hasFile('custom_logo') && Auth::user()->plan === 'studio') {
+        if ($request->hasFile('custom_logo') && $planHolder->plan === 'studio') {
             if ($gallery->custom_logo_path) \Storage::disk('public')->delete($gallery->custom_logo_path);
             $validated['custom_logo_path'] = $request->file('custom_logo')->store('branding', 'public');
         }
 
-        // PIN handling
         if ($request->boolean('clear_pin')) {
             $validated['pin_hash'] = null;
         } elseif (!empty($validated['gallery_pin'])) {
             $validated['pin_hash'] = Hash::make($validated['gallery_pin']);
         }
         unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo']);
-        
-        // Handle schedule clearing
+
         if (empty($validated['opens_at'])) $validated['opens_at'] = null;
         if (empty($validated['closes_at'])) $validated['closes_at'] = null;
 
@@ -133,19 +222,23 @@ class GalleryController extends Controller
         return back()->with('status', 'Gallery settings updated!');
     }
 
+    // ── Destroy ───────────────────────────────────────────────────────────
+
     public function destroy(Gallery $gallery): RedirectResponse
     {
-        if ($gallery->user_id !== Auth::id()) abort(403);
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
+        $teamId = $gallery->team_id;
         $gallery->delete();
-        return redirect()->route('admin.galleries.index')->with('status', 'Gallery deleted.');
+        $redirectParams = $teamId ? ['team' => $teamId] : [];
+        return redirect()->route('admin.galleries.index', $redirectParams)
+                         ->with('status', 'Gallery deleted.');
     }
 
-    /** AJAX: reorder images — receives ordered array of image IDs */
+    // ── Image reorder ─────────────────────────────────────────────────────
+
     public function reorderImages(Request $request, Gallery $gallery)
     {
-        if ($gallery->user_id !== Auth::id()) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
+        $this->authorizeGalleryAccess($gallery);
 
         $request->validate(['order' => 'required|array', 'order.*' => 'integer']);
 
@@ -156,10 +249,17 @@ class GalleryController extends Controller
         return response()->json(['success' => true]);
     }
 
+    // ── Audio upload ──────────────────────────────────────────────────────
+
     public function uploadAudio(Request $request, Gallery $gallery)
     {
-        if ($gallery->user_id !== Auth::id()) return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        if (!Auth::user()->isPro()) return response()->json(['success' => false, 'message' => 'Upgrade to Pro to use background music'], 403);
+        $this->authorizeGalleryAccess($gallery);
+
+        $planHolder = $gallery->team_id ? $gallery->team->owner : Auth::user();
+        if (! $planHolder->isPro()) {
+            return response()->json(['success' => false, 'message' => 'Upgrade to Pro to use background music'], 403);
+        }
+
         $request->validate(['audio' => 'required|file|mimes:mp3,wav,m4a|max:10240']);
         try {
             if ($gallery->audio_path) \Storage::disk('public')->delete($gallery->audio_path);
@@ -172,10 +272,17 @@ class GalleryController extends Controller
         }
     }
 
+    // ── Logo upload ───────────────────────────────────────────────────────
+
     public function uploadLogo(Request $request, Gallery $gallery)
     {
-        if ($gallery->user_id !== Auth::id()) return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        if (Auth::user()->plan !== 'studio') return response()->json(['success' => false, 'message' => 'Upgrade to Studio to use custom branding'], 403);
+        $this->authorizeGalleryAccess($gallery);
+
+        $planHolder = $gallery->team_id ? $gallery->team->owner : Auth::user();
+        if ($planHolder->plan !== 'studio') {
+            return response()->json(['success' => false, 'message' => 'Upgrade to Studio to use custom branding'], 403);
+        }
+
         $request->validate(['custom_logo' => 'required|file|mimes:png,svg,jpg,jpeg|max:2048']);
         try {
             if ($gallery->custom_logo_path) \Storage::disk('public')->delete($gallery->custom_logo_path);
@@ -185,6 +292,26 @@ class GalleryController extends Controller
         } catch (\Exception $e) {
             \Log::error('Logo upload failed: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Upload failed. Please try again.'], 500);
+        }
+    }
+
+    // ── Authorization helper ──────────────────────────────────────────────
+
+    /**
+     * Gate check for gallery access.
+     * - Personal gallery: must be the owner.
+     * - Team gallery: must be a team member; if requireEdit=true, must be editor or owner.
+     */
+    private function authorizeGalleryAccess(Gallery $gallery, bool $requireEdit = false): void
+    {
+        $user = Auth::user();
+
+        if ($gallery->team_id) {
+            $team = $gallery->team;
+            if (! $user->belongsToTeam($team)) abort(403);
+            if ($requireEdit && ! $team->canEdit($user)) abort(403);
+        } else {
+            if ($gallery->user_id !== $user->id) abort(403);
         }
     }
 }

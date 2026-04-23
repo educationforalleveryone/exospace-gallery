@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\InstallerController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\SuperAdmin\SystemController;
+use App\Http\Controllers\TeamInvitationController;
 use Illuminate\Support\Facades\Route;
 
 // ── Installer ─────────────────────────────────────────────────────────────
@@ -42,7 +43,12 @@ Route::get('/gallery/{slug}', [\App\Http\Controllers\GalleryViewController::clas
 // ── Analytics tracking (public, no auth) ─────────────────────────────────
 Route::post('/gallery/{gallery}/track', [\App\Http\Controllers\Admin\AnalyticsController::class, 'track'])
     ->name('gallery.track')
-    ->middleware('throttle:120,1'); // 120 events per minute per IP
+    ->middleware('throttle:120,1');
+
+// ── Team Invitations (public — token-based, no auth required to VIEW) ─────
+Route::get('/team-invitations/{token}',          [TeamInvitationController::class, 'show'])->name('team-invitations.show');
+Route::post('/team-invitations/{token}/accept',  [TeamInvitationController::class, 'accept'])->name('team-invitations.accept')->middleware('auth');
+Route::post('/team-invitations/{token}/decline', [TeamInvitationController::class, 'decline'])->name('team-invitations.decline');
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 Route::get('/dashboard', fn() => view('dashboard'))->middleware(['auth', 'verified'])->name('dashboard');
@@ -56,28 +62,46 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // ── Galleries ──────────────────────────────────────────────────────────
     Route::resource('galleries', \App\Http\Controllers\Admin\GalleryController::class);
+    Route::post('galleries/{gallery}/upload-audio',   [\App\Http\Controllers\Admin\GalleryController::class, 'uploadAudio'])->name('galleries.upload-audio');
+    Route::post('galleries/{gallery}/upload-logo',    [\App\Http\Controllers\Admin\GalleryController::class, 'uploadLogo'])->name('galleries.upload-logo');
+    Route::post('galleries/{gallery}/reorder-images', [\App\Http\Controllers\Admin\GalleryController::class, 'reorderImages'])->name('galleries.reorder-images');
+    Route::get('galleries/{gallery}/analytics',       [\App\Http\Controllers\Admin\AnalyticsController::class, 'show'])->name('galleries.analytics');
 
-    Route::post('galleries/{gallery}/upload-audio',  [\App\Http\Controllers\Admin\GalleryController::class, 'uploadAudio'])->name('galleries.upload-audio');
-    Route::post('galleries/{gallery}/upload-logo',   [\App\Http\Controllers\Admin\GalleryController::class, 'uploadLogo'])->name('galleries.upload-logo');
-    Route::post('galleries/{gallery}/reorder-images',[\App\Http\Controllers\Admin\GalleryController::class, 'reorderImages'])->name('galleries.reorder-images');
-
-    // Analytics dashboard
-    Route::get('galleries/{gallery}/analytics', [\App\Http\Controllers\Admin\AnalyticsController::class, 'show'])->name('galleries.analytics');
-
-    // Images
+    // ── Images ─────────────────────────────────────────────────────────────
     Route::post('galleries/{gallery}/images', [\App\Http\Controllers\Admin\ImageController::class, 'store'])->name('images.store');
     Route::delete('images/{image}',           [\App\Http\Controllers\Admin\ImageController::class, 'destroy'])->name('images.destroy');
     Route::post('images/bulk-delete',         [\App\Http\Controllers\Admin\ImageController::class, 'bulkDestroy'])->name('images.bulk_destroy');
+
+    // ── Teams ──────────────────────────────────────────────────────────────
+    Route::get   ('teams',                             [\App\Http\Controllers\Admin\TeamController::class, 'index'])->name('teams.index');
+    Route::get   ('teams/create',                      [\App\Http\Controllers\Admin\TeamController::class, 'create'])->name('teams.create');
+    Route::post  ('teams',                             [\App\Http\Controllers\Admin\TeamController::class, 'store'])->name('teams.store');
+    Route::post  ('teams/switch-personal',             function () {
+        Auth::user()->forceFill(['current_team_id' => null])->save();
+        return redirect()->route('admin.galleries.index')
+                         ->with('status', 'Switched to personal workspace.');
+    })->name('teams.switch-personal');
+    Route::get   ('teams/{team}',                      [\App\Http\Controllers\Admin\TeamController::class, 'show'])->name('teams.show');
+    Route::patch ('teams/{team}',                      [\App\Http\Controllers\Admin\TeamController::class, 'update'])->name('teams.update');
+    Route::delete('teams/{team}',                      [\App\Http\Controllers\Admin\TeamController::class, 'destroy'])->name('teams.destroy');
+
+    Route::post  ('teams/{team}/invite',               [\App\Http\Controllers\Admin\TeamController::class, 'invite'])->name('teams.invite');
+    Route::delete('teams/{team}/invitations/{invitation}', [\App\Http\Controllers\Admin\TeamController::class, 'revokeInvitation'])->name('teams.revoke-invitation');
+    Route::delete('teams/{team}/members',              [\App\Http\Controllers\Admin\TeamController::class, 'removeMember'])->name('teams.remove-member');
+    Route::patch ('teams/{team}/members/role',         [\App\Http\Controllers\Admin\TeamController::class, 'updateMemberRole'])->name('teams.update-role');
+    Route::delete('teams/{team}/leave',                [\App\Http\Controllers\Admin\TeamController::class, 'leave'])->name('teams.leave');
+    Route::post  ('teams/{team}/switch',               [\App\Http\Controllers\Admin\TeamController::class, 'switchTeam'])->name('teams.switch');
 });
 
 // ── Super Admin ───────────────────────────────────────────────────────────
 Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')->group(function () {
-    Route::get('/',                           [SystemController::class, 'index'])->name('super.index');
-    Route::post('/users/{user}/plan',         [SystemController::class, 'updatePlan'])->name('super.updatePlan');
-    Route::delete('/users/{user}',            [SystemController::class, 'deleteUser'])->name('super.deleteUser');
-    Route::get('/users/{user}/galleries',     [SystemController::class, 'userGalleries'])->name('super.user-galleries');
-    Route::post('/galleries/{gallery}/toggle',[SystemController::class, 'toggleGallery'])->name('super.toggleGallery');
+    Route::get('/',                            [SystemController::class, 'index'])->name('super.index');
+    Route::post('/users/{user}/plan',          [SystemController::class, 'updatePlan'])->name('super.updatePlan');
+    Route::delete('/users/{user}',             [SystemController::class, 'deleteUser'])->name('super.deleteUser');
+    Route::get('/users/{user}/galleries',      [SystemController::class, 'userGalleries'])->name('super.user-galleries');
+    Route::post('/galleries/{gallery}/toggle', [SystemController::class, 'toggleGallery'])->name('super.toggleGallery');
 });
 
 require __DIR__.'/auth.php';
