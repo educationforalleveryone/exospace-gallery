@@ -87,18 +87,33 @@
                         </div>
                     @endif
                 @else
-                    {{-- Guest: prompt to log in or register --}}
-                    <p class="text-gray-400 text-sm text-center mb-4">You'll need an Exospace account to join.</p>
-                    <div class="space-y-3">
-                        <a href="{{ route('register') }}?invitation={{ $token }}"
-                           class="block w-full text-center py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition">
-                            Create Account &amp; Join
-                        </a>
+                    {{-- Guest: show login or register depending on whether account exists --}}
+                    @if($accountExists)
+                        {{-- Account already exists — only show login --}}
+                        <div class="p-3 bg-blue-900/40 border border-blue-700/50 rounded-lg mb-4">
+                            <p class="text-blue-300 text-sm text-center">
+                                An account already exists for <strong>{{ $invitation->email }}</strong>.<br>
+                                Log in to accept this invitation.
+                            </p>
+                        </div>
                         <a href="{{ route('login') }}?redirect={{ urlencode(route('team-invitations.show', $token)) }}"
-                           class="block w-full text-center py-3 border border-gray-600 hover:border-gray-500 text-gray-300 font-medium rounded-xl transition text-sm">
+                           class="block w-full text-center py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition">
                             Log In to Accept
                         </a>
-                    </div>
+                    @else
+                        {{-- No account yet — offer register or login --}}
+                        <p class="text-gray-400 text-sm text-center mb-4">You'll need an Exospace account to join.</p>
+                        <div class="space-y-3">
+                            <a href="{{ route('register') }}?invitation={{ $token }}"
+                               class="block w-full text-center py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition">
+                                Create Account &amp; Join
+                            </a>
+                            <a href="{{ route('login') }}?redirect={{ urlencode(route('team-invitations.show', $token)) }}"
+                               class="block w-full text-center py-3 border border-gray-600 hover:border-gray-500 text-gray-300 font-medium rounded-xl transition text-sm">
+                                Already have an account? Log In
+                            </a>
+                        </div>
+                    @endif
                 @endauth
 
                 <p class="text-gray-600 text-xs text-center mt-5">

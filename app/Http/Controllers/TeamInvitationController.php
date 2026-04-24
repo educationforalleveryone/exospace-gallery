@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\TeamInvitation;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,7 +12,6 @@ class TeamInvitationController extends Controller
 {
     /**
      * Show the invitation acceptance page.
-     * Guest users are redirected to register/login first, then back here.
      */
     public function show(string $token)
     {
@@ -23,13 +23,15 @@ class TeamInvitationController extends Controller
 
         $team = $invitation->team;
 
-        return view('teams.invitation', compact('invitation', 'team', 'token'));
+        // Check if an account already exists for the invited email.
+        // If yes, the view will show Login as the only option (no Register).
+        $accountExists = User::where('email', $invitation->email)->exists();
+
+        return view('teams.invitation', compact('invitation', 'team', 'token', 'accountExists'));
     }
 
     /**
      * Accept the invitation.
-     * Note: No auth middleware on this route — we redirect to login here
-     * rather than letting the middleware return a 405 or broken redirect.
      */
     public function accept(Request $request, string $token): RedirectResponse
     {
@@ -40,38 +42,35 @@ class TeamInvitationController extends Controller
                              ->withErrors(['invitation' => 'This invitation has expired.']);
         }
 
-        // Not logged in — redirect to login, then back to the show page
-        // (they'll click Accept again once authenticated)
         if (! Auth::check()) {
-            return redirect()->route('login')
-                             ->with('status', 'Please log in to accept the team invitation.')
-                             ->with('invitation', $token);
+            return redirect()
+                ->to(route('login') . '?redirect=' . urlencode(route('team-invitations.show', $token)))
+                ->with('status', 'Please log in to accept the team invitation.');
         }
 
         $user = Auth::user();
 
-        // Make sure the logged-in email matches the invited email
         if (strtolower($user->email) !== strtolower($invitation->email)) {
-            return redirect()->route('admin.teams.index')
-                             ->withErrors(['invitation' => "This invitation was sent to {$invitation->email}. Please log in with that account."]);
+            return redirect()->route('team-invitations.show', $token)
+                             ->withErrors(['email' => "This invitation was sent to {$invitation->email}. Please log in with that account."]);
         }
 
         $team = $invitation->team;
 
-        // Already a member? Just delete the invite and redirect
         if ($team->hasMember($user)) {
             $invitation->delete();
             return redirect()->route('admin.teams.show', $team)
                              ->with('status', "You're already a member of {$team->name}.");
         }
 
-        // Add to team
         $team->members()->attach($user->id, ['role' => $invitation->role]);
-
-        // Switch context to the new team
         $user->switchTeam($team);
 
-        // Clean up the invitation
+        // If their email isn't verified yet, verify it now — invitation proves ownership
+        if (! $user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+        }
+
         $invitation->delete();
 
         return redirect()->route('admin.teams.show', $team)
