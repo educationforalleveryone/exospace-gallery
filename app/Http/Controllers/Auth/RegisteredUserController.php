@@ -16,10 +16,17 @@ class RegisteredUserController extends Controller
 {
     /**
      * Display the registration view.
+     * If an invitation token is in the query string, resolve the email
+     * so we can pre-fill and lock the email field.
      */
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('auth.register');
+        $invitation = $this->resolveInvitation($request->query('invitation'));
+
+        return view('auth.register', [
+            'invitationToken' => $invitation?->token,
+            'invitationEmail' => $invitation?->email,
+        ]);
     }
 
     /**
@@ -29,22 +36,66 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $invitation = $this->resolveInvitation($request->input('invitation_token'));
+
+        // If registering via invitation, lock the email to the invited address
+        if ($invitation) {
+            $request->merge(['email' => $invitation->email]);
+        }
+
         $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'name'     => ['required', 'string', 'max:255'],
+            'email'    => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
+            'name'     => $request->name,
+            'email'    => $request->email,
             'password' => Hash::make($request->password),
         ]);
 
-        event(new Registered($user));
+        if ($invitation) {
+            // Mark email as verified — the invitation proved ownership.
+            // No verification email needed; skip the double-email flow entirely.
+            $user->forceFill(['email_verified_at' => now()])->save();
 
+            // Add user to the team
+            $team = $invitation->team;
+            $team->members()->attach($user->id, ['role' => $invitation->role]);
+            $user->switchTeam($team);
+
+            // Clean up the invitation
+            $invitation->delete();
+
+            // Fire Registered so the welcome email still sends
+            event(new Registered($user));
+            Auth::login($user);
+
+            return redirect()->route('admin.teams.show', $team)
+                             ->with('status', "Welcome to {$team->name}! Your account is ready.");
+        }
+
+        // Normal registration — send verification email
+        event(new Registered($user));
         Auth::login($user);
 
         return redirect(route('verification.notice'));
+    }
+
+    /**
+     * Look up a valid (non-expired) invitation by token.
+     */
+    private function resolveInvitation(?string $token): ?\App\Models\TeamInvitation
+    {
+        if (! $token) {
+            return null;
+        }
+
+        $invitation = \App\Models\TeamInvitation::with('team')
+                        ->where('token', $token)
+                        ->first();
+
+        return ($invitation && ! $invitation->isExpired()) ? $invitation : null;
     }
 }
