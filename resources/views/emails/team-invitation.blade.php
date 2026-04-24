@@ -46,12 +46,8 @@
         </p>
 
         <div class="actions">
-            <a href="{{ url('/team-invitations/' . $invitation->token . '/accept') }}" class="btn">
-                Accept Invitation
-            </a>
-            <br>
-            <a href="{{ url('/team-invitations/' . $invitation->token . '/decline') }}" class="btn btn-outline" style="margin-top: 8px;">
-                Decline
+            <a href="{{ url('/team-invitations/' . $invitation->token) }}" class="btn">
+                View &amp; Respond to Invitation
             </a>
         </div>
 
