@@ -47,7 +47,7 @@ Route::post('/gallery/{gallery}/track', [\App\Http\Controllers\Admin\AnalyticsCo
 
 // ── Team Invitations (public — token-based, no auth required to VIEW) ─────
 Route::get('/team-invitations/{token}',          [TeamInvitationController::class, 'show'])->name('team-invitations.show');
-Route::post('/team-invitations/{token}/accept',  [TeamInvitationController::class, 'accept'])->name('team-invitations.accept')->middleware('auth');
+Route::post('/team-invitations/{token}/accept',  [TeamInvitationController::class, 'accept'])->name('team-invitations.accept');
 Route::post('/team-invitations/{token}/decline', [TeamInvitationController::class, 'decline'])->name('team-invitations.decline');
 
 // ── Auth ──────────────────────────────────────────────────────────────────

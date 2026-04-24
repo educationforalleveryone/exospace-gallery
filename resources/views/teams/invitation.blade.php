@@ -64,9 +64,12 @@
                                 Please log in with the correct account.
                             </p>
                         </div>
-                        <a href="{{ route('logout') }}" class="block w-full text-center py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl font-medium transition">
-                            Switch Account
-                        </a>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="block w-full text-center py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl font-medium transition">
+                                Switch Account
+                            </button>
+                        </form>
                     @else
                         <div class="space-y-3">
                             <form action="{{ url('/team-invitations/' . $token . '/accept') }}" method="POST">
@@ -91,7 +94,7 @@
                            class="block w-full text-center py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition">
                             Create Account &amp; Join
                         </a>
-                        <a href="{{ route('login') }}?invitation={{ $token }}"
+                        <a href="{{ route('login') }}?redirect={{ urlencode(route('team-invitations.show', $token)) }}"
                            class="block w-full text-center py-3 border border-gray-600 hover:border-gray-500 text-gray-300 font-medium rounded-xl transition text-sm">
                             Log In to Accept
                         </a>

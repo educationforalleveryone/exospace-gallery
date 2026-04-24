@@ -28,6 +28,8 @@ class TeamInvitationController extends Controller
 
     /**
      * Accept the invitation.
+     * Note: No auth middleware on this route — we redirect to login here
+     * rather than letting the middleware return a 405 or broken redirect.
      */
     public function accept(Request $request, string $token): RedirectResponse
     {
@@ -36,6 +38,14 @@ class TeamInvitationController extends Controller
         if ($invitation->isExpired()) {
             return redirect()->route('admin.teams.index')
                              ->withErrors(['invitation' => 'This invitation has expired.']);
+        }
+
+        // Not logged in — redirect to login, then back to the show page
+        // (they'll click Accept again once authenticated)
+        if (! Auth::check()) {
+            return redirect()->route('login')
+                             ->with('status', 'Please log in to accept the team invitation.')
+                             ->with('invitation', $token);
         }
 
         $user = Auth::user();

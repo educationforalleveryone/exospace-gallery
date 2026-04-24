@@ -1,7 +1,7 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 2.0.0
-> **Last Updated:** April 22, 2026
+> **Version:** 2.1.0
+> **Last Updated:** April 23, 2026
 > **Document Type:** Comprehensive Technical Reference
 
 ---
@@ -30,7 +30,7 @@
 
 ### What is Exospace?
 
-**Exospace** is a SaaS web platform that enables users to create immersive, first-person walkable 3D virtual galleries. Users upload their artwork images through an admin panel, and the system automatically generates a fully navigable 3D gallery room rendered in real-time using WebGL. The platform operates on a freemium model with one-time lifetime plan upgrades processed via 2Checkout.
+**Exospace** is a SaaS web platform that enables users to create immersive, first-person walkable 3D virtual galleries. Users upload their artwork images through an admin panel, and the system automatically generates a fully navigable 3D gallery room rendered in real-time using WebGL. The platform operates on a freemium model with one-time lifetime plan upgrades processed via 2Checkout. Teams allow multiple collaborators to manage galleries together under a shared workspace.
 
 ### Purpose & Vision
 
@@ -41,6 +41,7 @@ The platform solves the problem of digital art presentation by transforming stat
 - **Customization**: Configurable wall textures, floor materials, lighting presets, and frame styles
 - **Performance**: Optimized for modern browsers without plugins
 - **Commerce**: Automated plan management via payment webhooks
+- **Collaboration**: Team workspaces for studios, galleries, and agencies
 
 ### Target Users
 
@@ -51,6 +52,7 @@ The platform solves the problem of digital art presentation by transforming stat
 | **Museums** | Digital extensions of physical collections |
 | **Educators** | Interactive art history presentations |
 | **Photographers** | Premium presentation of photography work |
+| **Studios & Agencies** | Collaborate on client galleries as a team |
 
 ---
 
@@ -74,7 +76,7 @@ The platform solves the problem of digital art presentation by transforming stat
 ├─────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │
 │  │   Controllers   │  │    Services     │  │      Models         │  │
-│  │  (Admin CRUD)   │  │ (ImageProcess)  │  │ (Gallery, User...)  │  │
+│  │  (Admin CRUD)   │  │ (ImageProcess)  │  │ Gallery,User,Team.. │  │
 │  └────────┬────────┘  └────────┬────────┘  └──────────┬──────────┘  │
 └───────────┼────────────────────┼─────────────────────┼──────────────┘
             │                    │                     │
@@ -176,6 +178,7 @@ sequenceDiagram
 | Toggle Active | Enable/disable public visibility |
 | Analytics | Per-gallery visitor tracking |
 | PIN Protection | Optional PIN gate for private galleries |
+| Team Assignment | Galleries optionally belong to a team |
 
 **Customization Options**:
 
@@ -187,7 +190,82 @@ sequenceDiagram
 'room_layout'     => configurable
 ```
 
-### 2. User Subscription System
+### 2. Multi-Tenancy & Team Collaboration
+
+**Capability**: Shared workspaces for collaborative gallery management with role-based access control.
+
+#### Team Structure
+
+```
+Team (owner: User)
+├── Members (pivot: team_user)
+│   ├── owner  — full control, invite/remove, delete team
+│   ├── editor — create/edit/delete galleries in the team
+│   └── viewer — read-only access to team galleries
+├── Galleries (team_id FK)
+└── Invitations (pending, token-based, 7-day expiry)
+```
+
+#### Team Context Switcher
+
+Users can switch between **Personal** workspace and any team they belong to from the navigation bar. The active context is stored as `current_team_id` on the user. When a team is active:
+- The gallery index shows only that team's galleries
+- New galleries are assigned to that team
+- The active team name is shown in the nav with a green dot indicator
+
+#### Role Permissions
+
+| Action | Owner | Editor | Viewer |
+|--------|-------|--------|--------|
+| View team galleries | ✅ | ✅ | ✅ |
+| Create gallery in team | ✅ | ✅ | ❌ |
+| Edit/delete gallery | ✅ | ✅ | ❌ |
+| Invite members | ✅ | ❌ | ❌ |
+| Change member roles | ✅ | ❌ | ❌ |
+| Remove members | ✅ | ❌ | ❌ |
+| Edit team settings | ✅ | ❌ | ❌ |
+| Delete team | ✅ | ❌ | ❌ |
+
+#### Plan Limits with Teams
+
+The **team owner's plan** governs all team gallery limits and Pro/Studio features. Editors use the owner's quota, not their own. Upgrading the owner to Pro or Studio benefits the entire team.
+
+#### Invitation Flow
+
+```
+Owner invites email
+    → TeamInvitation row created (token, role, 7-day expiry)
+    → TeamInvitationMail sent via Resend queue
+    → Invitee clicks /team-invitations/{token}
+        → Logged in + matching email → Accept/Decline buttons shown
+        → Logged in + wrong email   → Warning + Switch Account (POST logout)
+        → Guest                     → Register or Log In links
+    → On Accept: user added to team_user pivot, context switched, invite deleted
+    → On Decline: invite deleted
+    → On Expiry: invitation-expired.blade.php shown
+```
+
+**Key design**: No `auth` middleware on invitation POST routes. Auth is handled inside the controller with a proper `redirect()->route('login')` so guests see a redirect instead of a 405 error.
+
+#### Helper Methods
+
+```php
+// Team model
+$team->isOwner($user);       // bool
+$team->hasMember($user);     // bool
+$team->canEdit($user);       // owner or editor
+$team->memberRole($user);    // 'owner'|'editor'|'viewer'|null
+
+// User model
+$user->ownedTeams;           // HasMany
+$user->teams;                // BelongsToMany (with pivot role)
+$user->currentTeam();        // Team|null
+$user->switchTeam($team);    // bool — updates current_team_id
+$user->belongsToTeam($team); // bool
+$user->teamRole($team);      // 'owner'|'editor'|'viewer'|null
+```
+
+### 3. User Subscription System
 
 **Capability**: Tiered access control with automated plan management via 2Checkout.
 
@@ -198,6 +276,7 @@ sequenceDiagram
 | Analytics | ❌ | ✅ | ✅ Advanced |
 | Ambient Audio | ❌ | ❌ | ✅ |
 | Custom Logo | ❌ | ❌ | ✅ |
+| Teams | ✅ | ✅ | ✅ |
 | Support | Community | Email | Priority |
 | Price | Free | $29 one-time | $99 one-time |
 
@@ -209,7 +288,7 @@ $user->canCreateGallery(); // checks against max_galleries
 $user->isSuperAdmin();    // checks is_super_admin flag
 ```
 
-### 3. 2Checkout Payment Integration
+### 4. 2Checkout Payment Integration
 
 **Capability**: Fully automated purchase-to-plan-upgrade pipeline with transaction history.
 
@@ -250,7 +329,7 @@ TWOCHECKOUT_PRODUCT_ID_PRO=
 TWOCHECKOUT_PRODUCT_ID_STUDIO=
 ```
 
-### 4. Transaction History
+### 5. Transaction History
 
 **Capability**: Permanent record of all purchases and refunds for accounting and dispute resolution.
 
@@ -265,7 +344,7 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 | `customer_email` | Purchaser email |
 | `status` | `completed` or `refunded` |
 
-### 5. Email Verification
+### 6. Email Verification
 
 **Capability**: Mandatory email verification before dashboard access, with queued delivery via Resend.
 
@@ -285,7 +364,7 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 | Welcome email | `app/Mail/WelcomeEmail.php` (implements `ShouldQueue`) |
 | Email template | `resources/views/emails/welcome.blade.php` |
 
-### 6. Analytics Tracking
+### 7. Analytics Tracking
 
 **Capability**: Real-time visitor analytics per gallery with event-level granularity.
 
@@ -311,7 +390,7 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 
 **Rate Limiting**: Analytics tracking endpoint throttled at 120 events per minute per IP.
 
-### 7. PIN-Protected Galleries
+### 8. PIN-Protected Galleries
 
 **Capability**: Optional PIN gate for private or client-preview galleries.
 
@@ -324,7 +403,7 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 
 **Database Column**: `galleries.pin_hash` (nullable string)
 
-### 8. 3D Gallery Viewer
+### 9. 3D Gallery Viewer
 
 **Capability**: Real-time WebGL-rendered virtual gallery with first-person navigation.
 
@@ -338,7 +417,7 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 | Collision Detection | Room boundary constraints |
 | Mobile | Virtual joystick + look pad |
 
-### 9. Dynamic Lighting System
+### 10. Dynamic Lighting System
 
 **Capability**: Proximity-based artwork illumination with cinematic tone mapping.
 
@@ -350,7 +429,7 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 
 Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmicToneMapping` at exposure 0.8.
 
-### 10. Momentum Camera System
+### 11. Momentum Camera System
 
 **Capability**: Physics-based camera movement with weight, friction, and cinematic banking.
 
@@ -361,7 +440,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | `maxSpeed` | 3.0 m/s | Top velocity |
 | `maxLean` | 0.02 rad | Cinematic tilt into turns |
 
-### 11. Tactile Art System
+### 12. Tactile Art System
 
 **Capability**: Realistic canvas texture simulation using normal mapping on all artwork surfaces.
 
@@ -369,7 +448,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 - Smart grain scaling based on artwork dimensions
 - Asset: `/assets/textures/shared/canvas_normal.jpg`
 
-### 12. Mobile & Touch Input System
+### 13. Mobile & Touch Input System
 
 **Capability**: Full mobile compatibility with touch-optimized controls.
 
@@ -380,7 +459,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | Adaptive UI | Auto-detection disables keyboard hints, shows touch overlays |
 | Detection | `navigator.maxTouchPoints` + User-Agent |
 
-### 13. Interactive SFX Engine
+### 14. Interactive SFX Engine
 
 **Capability**: Dynamic sound effects for immersion and interaction feedback.
 
@@ -391,7 +470,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | UI Acoustics | Focus mode, click feedback |
 | Architecture | Audio Listener attached to camera for spatial positioning |
 
-### 14. Ambient Audio System
+### 15. Ambient Audio System
 
 **Capability**: Optional background music per gallery (Studio plan feature).
 
@@ -402,7 +481,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | Playback | HTML5 Audio API, looped |
 | Control | Mute/unmute button in viewer UI |
 
-### 15. Studio Branding (Custom Logo)
+### 16. Studio Branding (Custom Logo)
 
 **Capability**: White-label branding for Studio plan users.
 
@@ -412,7 +491,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | Storage | `storage/galleries/{id}/logo/` |
 | Display | Replaces Exospace logo in gallery viewer header |
 
-### 16. Super Admin Panel
+### 17. Super Admin Panel
 
 **Capability**: Platform-wide administration accessible at `/master-control`.
 
@@ -426,7 +505,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 
 **Access Control**: `is_super_admin` boolean on `users` table, protected by `EnsureUserIsSuperAdmin` middleware.
 
-### 17. Security Headers
+### 18. Security Headers
 
 **Capability**: Global middleware enforcing security best practices on all HTTP responses.
 
@@ -440,7 +519,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 
 **Implementation**: `app/Http/Middleware/SecurityHeaders.php` registered globally in `bootstrap/app.php`.
 
-### 18. Cookie Consent Banner
+### 19. Cookie Consent Banner
 
 **Capability**: GDPR-compliant cookie consent with user preference persistence.
 
@@ -451,7 +530,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | Reactivity | Alpine.js with fade-in animation |
 | Location | `resources/views/layouts/partials/cookie-banner.blade.php` |
 
-### 19. Legal & Compliance Pages
+### 20. Legal & Compliance Pages
 
 **Capability**: Full legal page suite required for 2Checkout merchant approval and regulatory compliance.
 
@@ -467,7 +546,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 
 All pages reflect the one-time lifetime purchase model — no subscription or auto-renewal language.
 
-### 20. Email Queue System
+### 21. Email Queue System
 
 **Capability**: Asynchronous email delivery via Resend API.
 
@@ -476,14 +555,16 @@ All pages reflect the one-time lifetime purchase model — no subscription or au
 | Provider | Resend API (`resend/resend-laravel`) |
 | Queue Backend | `database` driver |
 | Welcome Email | `App\Mail\WelcomeEmail` (implements `ShouldQueue`) |
+| Team Invitation Email | `App\Mail\TeamInvitationMail` (implements `Queueable`) |
 | Template | `resources/views/emails/welcome.blade.php` |
+| Template | `resources/views/emails/team-invitation.blade.php` |
 
 **Queue Worker** (runs on startup via `docker-start.sh`):
 ```bash
 php artisan queue:work --tries=3 --timeout=90 --sleep=3 &
 ```
 
-### 21. Gallery Sharing & Demo
+### 22. Gallery Sharing & Demo
 
 | Feature | Implementation |
 |---------|----------------|
@@ -491,7 +572,7 @@ php artisan queue:work --tries=3 --timeout=90 --sleep=3 &
 | Demo URL | `/gallery/demo` redirects to first active gallery |
 | Fallback | Homepage with error if no galleries exist |
 
-### 22. Artwork Focus Mode
+### 23. Artwork Focus Mode
 
 **Capability**: Cinematic zoom-in for detailed artwork viewing.
 
@@ -512,6 +593,10 @@ php artisan queue:work --tries=3 --timeout=90 --sleep=3 &
 erDiagram
     User ||--o{ Gallery : owns
     User ||--o{ Transaction : has
+    User ||--o{ Team : owns
+    User }o--o{ Team : "member of"
+    Team ||--o{ Gallery : contains
+    Team ||--o{ TeamInvitation : has
     Gallery ||--o{ GalleryImage : contains
     Gallery ||--o{ GalleryEvent : tracks
 
@@ -527,6 +612,37 @@ erDiagram
         int max_images
         timestamp plan_started_at
         timestamp plan_expires_at
+        bigint current_team_id
+        timestamps created_at
+        timestamps updated_at
+    }
+
+    Team {
+        bigint id PK
+        bigint owner_id FK
+        string name
+        string slug UK
+        text description
+        timestamps created_at
+        timestamps updated_at
+    }
+
+    team_user {
+        bigint id PK
+        bigint team_id FK
+        bigint user_id FK
+        enum role
+        timestamps created_at
+        timestamps updated_at
+    }
+
+    TeamInvitation {
+        bigint id PK
+        bigint team_id FK
+        string email
+        enum role
+        string token UK
+        timestamp expires_at
         timestamps created_at
         timestamps updated_at
     }
@@ -534,6 +650,7 @@ erDiagram
     Gallery {
         bigint id PK
         bigint user_id FK
+        bigint team_id FK
         string title
         string slug UK
         text description
@@ -613,14 +730,53 @@ erDiagram
 | `max_images` | INT UNSIGNED | 10 | Images per gallery limit |
 | `plan_started_at` | TIMESTAMP | NULL | Plan activation date |
 | `plan_expires_at` | TIMESTAMP | NULL | NULL = lifetime |
+| `current_team_id` | BIGINT UNSIGNED | NULL | Active team context |
 | `created_at` / `updated_at` | TIMESTAMP | — | Eloquent timestamps |
+
+### Table: `teams`
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `id` | BIGINT PK | auto | Primary key |
+| `owner_id` | BIGINT FK | — | References `users.id` (cascade delete) |
+| `name` | VARCHAR(100) | — | Team display name |
+| `slug` | VARCHAR(255) UNIQUE | — | Auto-generated URL-safe identifier |
+| `description` | TEXT | NULL | Optional team description |
+| `created_at` / `updated_at` | TIMESTAMP | — | Eloquent timestamps |
+
+### Table: `team_user` (pivot)
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `id` | BIGINT PK | auto | Primary key |
+| `team_id` | BIGINT FK | — | References `teams.id` (cascade delete) |
+| `user_id` | BIGINT FK | — | References `users.id` (cascade delete) |
+| `role` | ENUM | `viewer` | owner / editor / viewer |
+| `created_at` / `updated_at` | TIMESTAMP | — | Eloquent timestamps |
+
+**Unique constraint**: `(team_id, user_id)`
+
+### Table: `team_invitations`
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `id` | BIGINT PK | auto | Primary key |
+| `team_id` | BIGINT FK | — | References `teams.id` (cascade delete) |
+| `email` | VARCHAR(255) | — | Invited email address |
+| `role` | ENUM | `viewer` | editor / viewer |
+| `token` | VARCHAR(64) UNIQUE | — | Secure random token for email link |
+| `expires_at` | TIMESTAMP | — | Invitation expiry (7 days from creation) |
+| `created_at` / `updated_at` | TIMESTAMP | — | Eloquent timestamps |
+
+**Unique constraint**: `(team_id, email)` — prevents duplicate invites; re-inviting resets the token and expiry via `updateOrCreate`.
 
 ### Table: `galleries`
 
 | Column | Type | Default | Description |
 |--------|------|---------|-------------|
 | `id` | BIGINT PK | auto | Primary key |
-| `user_id` | BIGINT FK | — | Owner reference |
+| `user_id` | BIGINT FK | — | Creator (always set) |
+| `team_id` | BIGINT FK | NULL | Owning team (NULL = personal gallery) |
 | `title` | VARCHAR(255) | — | Gallery name |
 | `slug` | VARCHAR(255) UNIQUE | — | URL-safe identifier (auto-generated) |
 | `description` | TEXT | NULL | Gallery description |
@@ -694,8 +850,9 @@ app/Http/Controllers/
 ├── Admin/
 │   ├── AnalyticsController.php    # Gallery analytics dashboard
 │   ├── DashboardController.php    # Admin home
-│   ├── GalleryController.php      # Gallery CRUD + audio/logo upload
-│   └── ImageController.php        # Image upload/delete/reorder
+│   ├── GalleryController.php      # Gallery CRUD + team scoping + audio/logo upload
+│   ├── ImageController.php        # Image upload/delete/reorder
+│   └── TeamController.php         # Team CRUD, invite, member management
 ├── Auth/                          # Laravel Breeze controllers
 ├── SuperAdmin/
 │   └── SystemController.php       # Platform-wide administration
@@ -703,6 +860,7 @@ app/Http/Controllers/
 ├── GalleryViewController.php      # Public gallery display
 ├── InstallerController.php        # First-run setup
 ├── ProfileController.php          # User profile management
+├── TeamInvitationController.php   # Token-based invitation accept/decline
 └── WebhookController.php          # 2Checkout IPN + refund handler
 ```
 
@@ -720,6 +878,11 @@ Route::post('/gallery/{gallery}/track', [AnalyticsController::class, 'track'])
 Route::post('/webhooks/2checkout', [WebhookController::class, 'handle2Checkout']);
 Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund']);
 
+// Team Invitation Routes (no auth middleware — controller handles redirect)
+Route::get('/team-invitations/{token}', [TeamInvitationController::class, 'show']);
+Route::post('/team-invitations/{token}/accept', [TeamInvitationController::class, 'accept']);
+Route::post('/team-invitations/{token}/decline', [TeamInvitationController::class, 'decline']);
+
 // Admin Routes (auth + verified required)
 Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::resource('galleries', GalleryController::class);
@@ -730,6 +893,21 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::post('galleries/{gallery}/images', [ImageController::class, 'store']);
     Route::delete('images/{image}', [ImageController::class, 'destroy']);
     Route::post('images/bulk-delete', [ImageController::class, 'bulkDestroy']);
+
+    // Teams — switch-personal MUST be before {team} routes
+    Route::get('teams', [TeamController::class, 'index']);
+    Route::get('teams/create', [TeamController::class, 'create']);
+    Route::post('teams', [TeamController::class, 'store']);
+    Route::post('teams/switch-personal', fn() => ...)->name('teams.switch-personal');
+    Route::get('teams/{team}', [TeamController::class, 'show']);
+    Route::patch('teams/{team}', [TeamController::class, 'update']);
+    Route::delete('teams/{team}', [TeamController::class, 'destroy']);
+    Route::post('teams/{team}/invite', [TeamController::class, 'invite']);
+    Route::delete('teams/{team}/invitations/{invitation}', [TeamController::class, 'revokeInvitation']);
+    Route::delete('teams/{team}/members', [TeamController::class, 'removeMember']);
+    Route::patch('teams/{team}/members/role', [TeamController::class, 'updateMemberRole']);
+    Route::delete('teams/{team}/leave', [TeamController::class, 'leave']);
+    Route::post('teams/{team}/switch', [TeamController::class, 'switchTeam']);
 });
 
 // Super Admin Routes
@@ -741,6 +919,8 @@ Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')
     Route::post('/galleries/{gallery}/toggle', [SystemController::class, 'toggleGallery']);
 });
 ```
+
+> **Important**: `teams/switch-personal` must be declared before `teams/{team}` so Laravel doesn't interpret the literal string `switch-personal` as a `{team}` model binding ID.
 
 ### Service Layer
 
@@ -898,15 +1078,40 @@ storage/app/public/
 | CSRF Protection | Automatic via `@csrf` directive |
 | Route Protection | `auth` + `verified` middleware stack |
 
-### Gallery Ownership Verification
+### Gallery & Team Authorization
 
-Every admin action verifies the authenticated user owns the gallery:
-
+Personal galleries verify ownership directly:
 ```php
 if ($gallery->user_id !== Auth::id()) {
     abort(403);
 }
 ```
+
+Team galleries check membership and role:
+```php
+// In GalleryController::authorizeGalleryAccess()
+if ($gallery->team_id) {
+    if (! $user->belongsToTeam($gallery->team)) abort(403);
+    if ($requireEdit && ! $gallery->team->canEdit($user)) abort(403);
+} else {
+    if ($gallery->user_id !== $user->id) abort(403);
+}
+```
+
+Team management actions verify ownership:
+```php
+// Only owners can invite, remove members, change roles, delete team
+if (! $team->isOwner(Auth::user())) {
+    abort(403, 'Only the team owner can perform this action.');
+}
+```
+
+### Invitation Security
+
+- Tokens are 64-character cryptographically random strings (`Str::random(64)`)
+- Tokens expire after 7 days
+- Email matching enforced on accept — wrong-account warning shown
+- No `auth` middleware on invitation routes (prevents 405); auth checked inside controller
 
 ### Webhook Security
 
@@ -946,6 +1151,10 @@ $calculatedHash = strtoupper(md5($stringToHash));
 | **2048×2048 image limit** | WebGL texture limits on many devices; prevents browser crashes and speeds load |
 | **Proximity lighting** | Only 1 active spotlight at a time for performance; mimics museum spotlights |
 | **Resend over SMTP** | Superior deliverability, analytics, and developer experience over raw SMTP |
+| **Owner's plan governs teams** | Keeps billing simple — one upgrade benefits the whole team, no per-seat complexity |
+| **No auth middleware on invitation routes** | Putting `auth` on a POST route returns 405 to unauthenticated users; handling the redirect inside the controller gives a clean login redirect |
+| **`switch-personal` before `{team}` routes** | Laravel route matching is sequential; a literal path segment must precede wildcard segments to avoid being swallowed as a model ID |
+| **`updateOrCreate` for re-invites** | Re-inviting the same email resets the token and expiry cleanly without creating duplicates |
 
 ---
 
@@ -995,6 +1204,18 @@ $calculatedHash = strtoupper(md5($stringToHash));
 4. Share private link with client via PIN protection
 5. Remove PIN after client approval
 
+### Use Case 5: Studio Collaboration
+
+**Actor**: Creative Studio (owner + 2 editors)
+**Goal**: Multiple team members managing client galleries
+
+1. Owner creates a team "Studio Collective"
+2. Owner invites 2 designers as Editors
+3. Owner invites client as Viewer (read-only preview)
+4. Editors create and manage galleries under the team workspace
+5. Client views team galleries without editing ability
+6. All team galleries use the owner's Studio plan limits and branding
+
 ---
 
 ## File Structure Reference
@@ -1007,8 +1228,9 @@ exospace/
 │   │   │   ├── Admin/
 │   │   │   │   ├── AnalyticsController.php    # Analytics dashboard
 │   │   │   │   ├── DashboardController.php    # Admin home
-│   │   │   │   ├── GalleryController.php      # Gallery CRUD
-│   │   │   │   └── ImageController.php        # Image management
+│   │   │   │   ├── GalleryController.php      # Gallery CRUD + team scoping
+│   │   │   │   ├── ImageController.php        # Image management
+│   │   │   │   └── TeamController.php         # Team CRUD + member management
 │   │   │   ├── SuperAdmin/
 │   │   │   │   └── SystemController.php       # Platform administration
 │   │   │   ├── Auth/                          # Breeze auth controllers
@@ -1016,19 +1238,23 @@ exospace/
 │   │   │   ├── GalleryViewController.php      # Public gallery view
 │   │   │   ├── InstallerController.php        # First-run setup
 │   │   │   ├── ProfileController.php          # User profile
+│   │   │   ├── TeamInvitationController.php   # Token invitation accept/decline
 │   │   │   └── WebhookController.php          # 2Checkout IPN handler
 │   │   ├── Middleware/
 │   │   │   ├── EnsureUserIsSuperAdmin.php     # Super admin gate
 │   │   │   └── SecurityHeaders.php            # HTTP security headers
 │   │   └── Requests/
 │   ├── Mail/
+│   │   ├── TeamInvitationMail.php             # Team invitation email
 │   │   └── WelcomeEmail.php                   # Queued welcome email
 │   ├── Models/
 │   │   ├── Gallery.php
 │   │   ├── GalleryEvent.php                   # Analytics events
 │   │   ├── GalleryImage.php
 │   │   ├── Setting.php
-│   │   └── User.php                           # MustVerifyEmail, plan helpers
+│   │   ├── Team.php                           # Team + role helpers
+│   │   ├── TeamInvitation.php                 # Invitation + expiry
+│   │   └── User.php                           # MustVerifyEmail, plan + team helpers
 │   ├── Providers/
 │   └── Services/
 │       └── ImageProcessingService.php
@@ -1047,38 +1273,50 @@ exospace/
 │       ├── add_room_layout_to_galleries_table.php
 │       ├── create_gallery_analytics_table.php
 │       ├── add_pin_to_galleries_table.php
-│       └── create_transactions_table.php      # Purchase + refund history
+│       ├── create_transactions_table.php
+│       ├── add_schedule_to_galleries_table.php
+│       ├── 2026_04_22_200001_create_teams_table.php        # teams, team_user, team_invitations + galleries.team_id
+│       └── 2026_04_22_200002_add_current_team_id_to_users_table.php
 ├── resources/
 │   └── views/
 │       ├── admin/
 │       │   ├── dashboard.blade.php
-│       │   └── galleries/
+│       │   ├── galleries/
+│       │   └── teams/
+│       │       ├── index.blade.php            # Teams dashboard
+│       │       ├── create.blade.php           # Create team form
+│       │       └── show.blade.php             # Team detail + member management
 │       ├── auth/
-│       │   └── verify-email.blade.php         # Email verification notice
+│       │   └── verify-email.blade.php
 │       ├── emails/
+│       │   ├── team-invitation.blade.php      # Invitation HTML email
 │       │   └── welcome.blade.php
 │       ├── gallery/
 │       │   └── view.blade.php                 # Three.js 3D engine
 │       ├── layouts/
+│       │   ├── navigation.blade.php           # Nav with team switcher
 │       │   └── partials/
 │       │       ├── cookie-banner.blade.php
 │       │       └── footer.blade.php
 │       ├── pages/
 │       │   ├── about.blade.php
-│       │   ├── contact.blade.php              # Real address populated
-│       │   ├── pricing.blade.php              # Live 2Checkout modals
+│       │   ├── contact.blade.php
+│       │   ├── pricing.blade.php
 │       │   ├── privacy.blade.php
-│       │   ├── refund.blade.php               # One-time purchase language
+│       │   ├── refund.blade.php
 │       │   ├── security.blade.php
-│       │   └── terms.blade.php                # One-time purchase language
-│       └── super-admin/
+│       │   └── terms.blade.php
+│       ├── super-admin/
+│       └── teams/
+│           ├── invitation.blade.php           # Public accept/decline page
+│           └── invitation-expired.blade.php   # Expired token page
 ├── routes/
 │   ├── web.php
 │   └── auth.php
 ├── .env.example
 ├── composer.json
-├── docker-start.sh                            # Coolify startup script
-├── nixpacks.toml                              # Build config (includes migrate)
+├── docker-start.sh
+├── nixpacks.toml
 ├── tailwind.config.js
 └── vite.config.js
 ```
@@ -1178,7 +1416,7 @@ Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worke
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/admin/galleries` | List user's galleries |
+| GET | `/admin/galleries` | List galleries (personal or active team context) |
 | GET | `/admin/galleries/create` | Create form |
 | POST | `/admin/galleries` | Store new gallery |
 | GET | `/admin/galleries/{id}/edit` | Edit form |
@@ -1197,6 +1435,24 @@ Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worke
 | DELETE | `/admin/images/{id}` | Delete single image |
 | POST | `/admin/images/bulk-delete` | Bulk delete |
 
+### Admin Team Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/admin/teams` | List all teams user belongs to |
+| GET | `/admin/teams/create` | Create team form |
+| POST | `/admin/teams` | Create new team |
+| POST | `/admin/teams/switch-personal` | Clear active team, return to personal workspace |
+| GET | `/admin/teams/{team}` | Team detail + member management |
+| PATCH | `/admin/teams/{team}` | Update team settings (owner only) |
+| DELETE | `/admin/teams/{team}` | Delete team (owner only) |
+| POST | `/admin/teams/{team}/invite` | Send invitation email (owner only) |
+| DELETE | `/admin/teams/{team}/invitations/{inv}` | Revoke pending invitation (owner only) |
+| DELETE | `/admin/teams/{team}/members` | Remove a member (owner only) |
+| PATCH | `/admin/teams/{team}/members/role` | Change member role (owner only) |
+| DELETE | `/admin/teams/{team}/leave` | Leave team (non-owner members) |
+| POST | `/admin/teams/{team}/switch` | Switch active team context |
+
 ### Public Endpoints
 
 | Method | Endpoint | Description |
@@ -1207,6 +1463,9 @@ Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worke
 | POST | `/gallery/{slug}/pin` | PIN verification |
 | POST | `/gallery/{gallery}/track` | Analytics event tracking |
 | GET | `/gallery/demo` | Redirect to first active gallery |
+| GET | `/team-invitations/{token}` | Invitation accept/decline page |
+| POST | `/team-invitations/{token}/accept` | Accept team invitation |
+| POST | `/team-invitations/{token}/decline` | Decline team invitation |
 | GET | `/pricing` | Plan comparison + checkout |
 | GET | `/privacy` | Privacy Policy |
 | GET | `/terms` | Terms of Service |
@@ -1234,5 +1493,5 @@ Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worke
 
 ---
 
-*Exospace 3D Gallery — Technical Documentation v2.0.0*
-*Last updated: April 22, 2026*
+*Exospace 3D Gallery — Technical Documentation v2.1.0*
+*Last updated: April 23, 2026*

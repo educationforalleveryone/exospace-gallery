@@ -1,5 +1,72 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 2.1.0 - April 23, 2026 (Multi-Tenancy & Team Collaboration)
+
+### 👥 Teams System
+- **Create Teams**: Users can create named teams with an optional description. Each team gets a unique slug and is owned by the creating user.
+- **Team Switcher**: Navbar context switcher lets users toggle between Personal workspace and any team they belong to. Active context is persisted as `current_team_id` on the user.
+- **Personal Workspace Preserved**: All existing galleries (`team_id = null`) continue to work exactly as before — no migration of existing data required.
+
+### 🤝 Member Management
+- **Invite by Email**: Team owners can invite collaborators by email with a chosen role (Editor or Viewer). Invitations are valid for 7 days and re-inviting the same address resets the token and expiry.
+- **Role System**: Three roles — `owner` (full control), `editor` (create/manage galleries), `viewer` (read-only access).
+- **Role Updates**: Owners can change any member's role inline from the team management page via a select dropdown that auto-submits.
+- **Remove Members**: Owners can remove any non-owner member. Removed members lose access immediately and have their team context cleared.
+- **Leave Team**: Non-owner members can leave a team from the team detail page.
+- **Pending Invitations**: Owners see all pending (non-expired) invitations with the ability to revoke them before they're accepted.
+
+### 📧 Team Invitation Email
+- **Invitation Email**: Styled dark-theme HTML email sent via Resend when a member is invited, showing the team name, owner, invitee role, capabilities, and expiry.
+- **Accept/Decline Page**: Token-based landing page at `/team-invitations/{token}` shows full team details and role info. Works for both logged-in users and guests.
+- **Guest Handling**: Guests clicking an invitation link are shown the page and prompted to register (with the invite token preserved) or log in. After authenticating they return to the same page and click Accept.
+- **Wrong Account Detection**: If the logged-in user's email doesn't match the invitation email, a warning is shown with a "Switch Account" button (proper POST logout).
+- **Expired Invitation Page**: Dedicated expiry page shown when a token is past its 7-day window.
+
+### 🖼️ Team Galleries
+- **Galleries Scoped to Teams**: Galleries now have an optional `team_id`. When a team context is active, the gallery index shows only that team's galleries. Personal galleries (no team) are shown in Personal context.
+- **Team Gallery Creation**: When a team context is active, new galleries are automatically assigned to that team. Editors can create galleries in a team using the team owner's plan limits.
+- **Plan Enforcement**: The team **owner's plan** governs team gallery limits and Pro/Studio features (audio, branding). Upgrading the owner benefits the whole team.
+- **Authorization**: Personal galleries still require ownership. Team galleries check team membership and role — editors can create/edit, viewers are read-only, non-members get 403.
+
+### 🗄️ Database Schema Updates
+- **New Table `teams`**: `id`, `owner_id` (FK → users), `name`, `slug` (unique), `description`, timestamps.
+- **New Table `team_user`**: Pivot table with `team_id`, `user_id`, `role` (enum: owner/editor/viewer), timestamps. Unique constraint on `(team_id, user_id)`.
+- **New Table `team_invitations`**: `id`, `team_id`, `email`, `role`, `token` (64-char unique), `expires_at`, timestamps. Unique constraint on `(team_id, email)`.
+- **New Column `galleries.team_id`**: Nullable FK → teams, indexed. Existing galleries remain unaffected (NULL = personal).
+- **New Column `users.current_team_id`**: Nullable unsigned bigint storing the active team context.
+
+### 🔧 Bug Fixes
+- **405 on invitation accept/decline**: Removed `->middleware('auth')` from invitation POST routes. Auth is now handled inside `TeamInvitationController` with a proper redirect to login instead of Laravel's middleware returning 405 to unauthenticated users.
+- **Switch Account was a GET link**: Logout requires a POST request; fixed the "Switch Account" button on the invitation page to use a proper `<form method="POST">` with `@csrf`.
+- **Dead empty form in nav**: Removed the vestigial `<form action="...switch/0">` that did nothing; replaced the Personal context link with a real POST form to `teams.switch-personal`.
+
+### 📁 New Files
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_04_22_200001_create_teams_table.php` | Teams, team_user, team_invitations tables + galleries.team_id |
+| `database/migrations/2026_04_22_200002_add_current_team_id_to_users_table.php` | Adds current_team_id to users |
+| `app/Models/Team.php` | Team model with relationships and role helpers |
+| `app/Models/TeamInvitation.php` | Invitation model with expiry check and token generator |
+| `app/Mail/TeamInvitationMail.php` | Mailable for team invitation emails |
+| `app/Http/Controllers/Admin/TeamController.php` | Full team CRUD, invite, member management, role updates, leave, switch |
+| `app/Http/Controllers/TeamInvitationController.php` | Token-based invitation accept/decline with guest handling |
+| `resources/views/admin/teams/index.blade.php` | Teams dashboard — owned teams and member teams |
+| `resources/views/admin/teams/create.blade.php` | Team creation form |
+| `resources/views/admin/teams/show.blade.php` | Team detail — members, invite form, pending invitations, settings, danger zone |
+| `resources/views/teams/invitation.blade.php` | Public invitation accept/decline landing page |
+| `resources/views/teams/invitation-expired.blade.php` | Expired invitation error page |
+| `resources/views/emails/team-invitation.blade.php` | HTML invitation email template |
+
+### 📝 Modified Files
+| File | Changes |
+|------|---------|
+| `app/Models/User.php` | Added `ownedTeams`, `teams`, `currentTeam()`, `switchTeam()`, `belongsToTeam()`, `teamRole()`. Added `current_team_id` to `$fillable`. |
+| `app/Http/Controllers/Admin/GalleryController.php` | Gallery index/create/store scoped to active team context. Authorization updated to support team-based access. Plan limit checks use team owner's plan for team galleries. |
+| `routes/web.php` | Added all team routes, `switch-personal` route, and invitation routes. Removed `->middleware('auth')` from invitation accept/decline. |
+| `resources/views/layouts/navigation.blade.php` | Added Teams nav link, team context switcher dropdown, "My Teams" in user dropdown. |
+
+---
+
 ## Version 2.0.0 - April 22, 2026 (SaaS Launch Update)
 
 ### 🗄️ Database Migration to MySQL
