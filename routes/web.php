@@ -96,12 +96,19 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 });
 
 // ── Super Admin ───────────────────────────────────────────────────────────
-Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')->group(function () {
-    Route::get('/',                            [SystemController::class, 'index'])->name('super.index');
-    Route::post('/users/{user}/plan',          [SystemController::class, 'updatePlan'])->name('super.updatePlan');
-    Route::delete('/users/{user}',             [SystemController::class, 'deleteUser'])->name('super.deleteUser');
-    Route::get('/users/{user}/galleries',      [SystemController::class, 'userGalleries'])->name('super.user-galleries');
-    Route::post('/galleries/{gallery}/toggle', [SystemController::class, 'toggleGallery'])->name('super.toggleGallery');
+Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')->name('super.')->group(function () {
+    Route::get('/',                                    [SystemController::class, 'index'])->name('index');
+    Route::post('/users/{user}/plan',                  [SystemController::class, 'updatePlan'])->name('updatePlan');
+    Route::delete('/users/{user}',                     [SystemController::class, 'deleteUser'])->name('deleteUser');
+    Route::get('/users/{user}/galleries',              [SystemController::class, 'userGalleries'])->name('user-galleries');
+    Route::post('/galleries/{gallery}/toggle',         [SystemController::class, 'toggleGallery'])->name('toggleGallery');
+
+    // Account controls
+    Route::post('/users/{user}/ban',                   [SystemController::class, 'banUser'])->name('banUser');
+    Route::post('/users/{user}/unban',                 [SystemController::class, 'unbanUser'])->name('unbanUser');
+    Route::post('/users/{user}/verify-email',          [SystemController::class, 'verifyEmail'])->name('verifyEmail');
+    Route::post('/users/{user}/unverify-email',        [SystemController::class, 'unverifyEmail'])->name('unverifyEmail');
+    Route::post('/users/{user}/toggle-super-admin',    [SystemController::class, 'toggleSuperAdmin'])->name('toggleSuperAdmin');
 });
 
 require __DIR__.'/auth.php';

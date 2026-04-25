@@ -11,13 +11,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // 1. Existing Security Headers
+        // 1. Security Headers
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
-        // 2. TRUSTED PROXIES (Add this to fix 419 error)
+        // 2. Banned users check — runs on every authenticated request
+        $middleware->append(\App\Http\Middleware\CheckBanned::class);
+
+        // 3. Trusted proxies
         $middleware->trustProxies(at: '*');
-        
-        // 3. SUPER ADMIN MIDDLEWARE ALIAS
+
+        // 4. Middleware aliases
         $middleware->alias([
             'super_admin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
         ]);
