@@ -101,11 +101,11 @@
         </div>
 
         <div style="text-align: center;">
-            <a href="{{ config('app.url') }}/email/verify" class="btn">Verify My Email to Get Started</a>
+            <a href="{{ config('app.url') }}/admin/dashboard" class="btn">Go to My Dashboard</a>
         </div>
 
         <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: -10px;">
-            You'll be redirected to your dashboard right after.
+            Check your inbox for a separate email to verify your address.
         </p>
 
         <p style="margin-top: 30px;">

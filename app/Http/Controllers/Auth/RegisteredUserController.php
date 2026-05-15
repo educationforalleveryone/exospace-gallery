@@ -57,7 +57,6 @@ class RegisteredUserController extends Controller
 
         if ($invitation) {
             // Mark email as verified — the invitation proved ownership.
-            // No verification email needed; skip the double-email flow entirely.
             $user->forceFill(['email_verified_at' => now()])->save();
 
             // Add user to the team
@@ -68,8 +67,9 @@ class RegisteredUserController extends Controller
             // Clean up the invitation
             $invitation->delete();
 
-            // Fire Registered so the welcome email still sends
-            event(new Registered($user));
+            // Do NOT fire the Registered event here — it would trigger
+            // the verification email. The welcome email boot hook also
+            // skips invited users. Everything is intentionally silent.
             Auth::login($user);
 
             return redirect()->route('admin.teams.show', $team)

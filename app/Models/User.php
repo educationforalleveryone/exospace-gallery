@@ -116,6 +116,13 @@ class User extends Authenticatable implements MustVerifyEmail
     protected static function booted(): void
     {
         static::created(function (User $user) {
+            // Skip welcome email for invitation-created accounts.
+            // They already have email_verified_at set, meaning they came
+            // through the invite flow and will get a team-specific welcome instead.
+            if ($user->email_verified_at !== null) {
+                return;
+            }
+
             try {
                 \Illuminate\Support\Facades\Mail::to($user->email)
                     ->send(new \App\Mail\WelcomeEmail($user));
