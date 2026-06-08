@@ -3,18 +3,19 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('transactions', function (Blueprint $table) {
-            $sm = Schema::getConnection()->getDoctrineSchemaManager();
-            $indexes = $sm->listTableIndexes('transactions');
-            if (!array_key_exists('transactions_invoice_id_unique', $indexes)) {
+        $indexExists = collect(DB::select("SHOW INDEX FROM transactions WHERE Key_name = 'transactions_invoice_id_unique'"))->isNotEmpty();
+
+        if (!$indexExists) {
+            Schema::table('transactions', function (Blueprint $table) {
                 $table->string('invoice_id')->unique()->change();
-            }
-        });
+            });
+        }
     }
 
     public function down(): void
