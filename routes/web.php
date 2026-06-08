@@ -51,7 +51,7 @@ Route::post('/team-invitations/{token}/accept',  [TeamInvitationController::clas
 Route::post('/team-invitations/{token}/decline', [TeamInvitationController::class, 'decline'])->name('team-invitations.decline');
 
 // ── Auth ──────────────────────────────────────────────────────────────────
-Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', fn() => redirect()->route('admin.dashboard'))->middleware(['auth', 'verified'])->name('dashboard');
 Route::middleware('auth')->group(function () {
     Route::get('/profile',    [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile',  [ProfileController::class, 'update'])->name('profile.update');
@@ -61,7 +61,6 @@ Route::middleware('auth')->group(function () {
 // ── Admin ─────────────────────────────────────────────────────────────────
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    // /dashboard also maps here via its own named route above
 
     // ── Galleries ──────────────────────────────────────────────────────────
     Route::resource('galleries', \App\Http\Controllers\Admin\GalleryController::class);
