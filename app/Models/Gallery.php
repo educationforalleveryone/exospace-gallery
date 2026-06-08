@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 class Gallery extends Model
@@ -47,6 +48,12 @@ class Gallery extends Model
     public function images(): HasMany
     {
         return $this->hasMany(GalleryImage::class)->orderBy('position_order');
+    }
+
+    /** First image only — efficient thumbnail without loading full collection */
+    public function coverImage(): HasOne
+    {
+        return $this->hasOne(GalleryImage::class)->orderBy('position_order');
     }
 
     public function events(): HasMany
