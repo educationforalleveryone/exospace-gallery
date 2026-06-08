@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
+use App\Models\Team;
 use App\Services\ImageProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -21,16 +22,21 @@ class ImageController extends Controller
     public function store(Request $request, Gallery $gallery)
     {
         try {
-            // 1. SECURITY: Check Ownership
-            if ($gallery->user_id !== auth()->id()) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
+            // 1. SECURITY: Check Ownership (personal AND team galleries)
+            $this->authorizeGalleryAccess($gallery);
 
             // 2. LIMIT CHECK: Check User Plan Limits (BEFORE gallery limit)
-            $maxImages = auth()->user()->max_images ?? 10; // Fallback to 10 if column doesn't exist yet
+            $user = auth()->user();
+            $maxImages = $user->max_images ?? 10;
             $currentCount = $gallery->images()->count();
 
-            if ($currentCount >= $maxImages) {
+            // Cross-gallery limit: count ALL images the user owns across ALL personal galleries
+            $totalUserImages = \DB::table('gallery_images')
+                ->join('galleries', 'galleries.id', '=', 'gallery_images.gallery_id')
+                ->where('galleries.user_id', $user->id)
+                ->count();
+
+            if ($totalUserImages >= $maxImages || $currentCount >= $maxImages) {
                 Log::info("Plan limit reached for User " . auth()->id() . " (Plan: " . (auth()->user()->plan ?? 'free') . ")");
                 return response()->json([
                     'error' => "Plan limit reached ({$maxImages} images). Upgrade to Pro to upload more."
@@ -118,9 +124,6 @@ class ImageController extends Controller
                 'position_order' => $nextPosition ?? 1,
             ]);
 
-            // Allow file system to complete writes
-            usleep(100000); // 100ms delay
-
             Log::info("Image uploaded successfully: {$image->id}");
 
             return response()->json([
@@ -143,10 +146,8 @@ class ImageController extends Controller
 
     public function destroy(GalleryImage $image)
     {
-        // Security: Ensure user owns the gallery
-        if ($image->gallery->user_id !== auth()->id()) {
-            abort(403);
-        }
+        // Security: Ensure user owns or is a team member of this gallery
+        $this->authorizeGalleryAccess($image->gallery);
 
         try {
             // Delete file from disk
@@ -179,8 +180,13 @@ class ImageController extends Controller
             try {
                 $image = GalleryImage::find($id);
                 
-                // Security: ensure user owns the gallery
-                if (!$image || $image->gallery->user_id !== auth()->id()) {
+                if (!$image) {
+                    $errors[] = "Image {$id}: Not found";
+                    continue;
+                }
+                try {
+                    $this->authorizeGalleryAccess($image->gallery);
+                } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
                     $errors[] = "Image {$id}: Unauthorized";
                     continue;
                 }
@@ -203,5 +209,20 @@ class ImageController extends Controller
             'deleted' => $count,
             'errors' => $errors
         ]);
+    }
+
+    private function authorizeGalleryAccess(Gallery $gallery): void
+    {
+        $user = auth()->user();
+        if ($gallery->team_id) {
+            $team = $gallery->team;
+            if (!$team || !$user->belongsToTeam($team)) {
+                abort(403);
+            }
+        } else {
+            if ($gallery->user_id !== $user->id) {
+                abort(403);
+            }
+        }
     }
 }

@@ -128,8 +128,18 @@ class WebhookController extends Controller
         ]);
 
         // ================================
-        // STEP 5: Store Transaction Record
+        // STEP 5: Store Transaction Record (idempotent)
         // ================================
+
+        $alreadyProcessed = \DB::table('transactions')
+            ->where('invoice_id', $invoiceId)
+            ->where('status', 'completed')
+            ->exists();
+
+        if ($alreadyProcessed) {
+            Log::warning('2Checkout: Duplicate webhook ignored', ['invoice_id' => $invoiceId]);
+            return response('OK', 200);
+        }
 
         \DB::table('transactions')->insert([
             'user_id'        => $user->id,

@@ -17,10 +17,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // 2. Banned users check — runs on every authenticated request
         $middleware->append(\App\Http\Middleware\CheckBanned::class);
 
-        // 3. Trusted proxies
+        // 3. Plan expiry check — auto-downgrades expired paid plans
+        $middleware->append(\App\Http\Middleware\CheckPlanExpiry::class);
+
+        // 4. Trusted proxies
         $middleware->trustProxies(at: '*');
 
-        // 4. Middleware aliases
+        // 5. Middleware aliases
         $middleware->alias([
             'super_admin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
         ]);

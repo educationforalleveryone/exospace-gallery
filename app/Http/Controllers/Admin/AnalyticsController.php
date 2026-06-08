@@ -16,7 +16,18 @@ class AnalyticsController extends Controller
      */
     public function show(Gallery $gallery)
     {
-        if ($gallery->user_id !== Auth::id()) abort(403);
+        // Authorization: personal gallery must be owned by user; team gallery must be a member
+        $user = Auth::user();
+        if ($gallery->team_id) {
+            $team = $gallery->team;
+            if (!$team || !$user->belongsToTeam($team)) {
+                abort(403);
+            }
+        } else {
+            if ($gallery->user_id !== $user->id) {
+                abort(403);
+            }
+        }
 
         $now   = now();
         $day7  = $now->copy()->subDays(7);

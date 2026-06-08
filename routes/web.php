@@ -25,7 +25,7 @@ Route::view('/about',            'pages.about')->name('about');
 Route::view('/payment-security', 'pages.security')->name('security');
 Route::view('/pricing',          'pages.pricing')->name('pricing');
 Route::view('/contact',          'pages.contact')->name('contact');
-Route::post('/contact', fn() => response()->json(['message' => 'Message received']));
+Route::post('/contact', [\App\Http\Controllers\ContactController::class, 'submit'])->name('contact.submit')->middleware('throttle:5,10');
 
 // ── Demo redirect ─────────────────────────────────────────────────────────
 Route::get('/gallery/demo', function () {
@@ -70,7 +70,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('galleries/{gallery}/analytics',       [\App\Http\Controllers\Admin\AnalyticsController::class, 'show'])->name('galleries.analytics');
 
     // ── Images ─────────────────────────────────────────────────────────────
-    Route::post('galleries/{gallery}/images', [\App\Http\Controllers\Admin\ImageController::class, 'store'])->name('images.store');
+    Route::post('galleries/{gallery}/images', [\App\Http\Controllers\Admin\ImageController::class, 'store'])->name('images.store')->middleware('throttle:30,1');
     Route::delete('images/{image}',           [\App\Http\Controllers\Admin\ImageController::class, 'destroy'])->name('images.destroy');
     Route::post('images/bulk-delete',         [\App\Http\Controllers\Admin\ImageController::class, 'bulkDestroy'])->name('images.bulk_destroy');
 

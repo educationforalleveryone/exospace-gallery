@@ -1,7 +1,7 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 2.1.0
-> **Last Updated:** April 23, 2026
+> **Version:** 2.2.0
+> **Last Updated:** June 8, 2026
 > **Document Type:** Comprehensive Technical Reference
 
 ---
@@ -179,6 +179,7 @@ sequenceDiagram
 | Analytics | Per-gallery visitor tracking |
 | PIN Protection | Optional PIN gate for private galleries |
 | Team Assignment | Galleries optionally belong to a team |
+| Scheduling | Optional open/close timestamps for time-limited exhibitions |
 
 **Customization Options**:
 
@@ -187,7 +188,7 @@ sequenceDiagram
 'frame_style'     => ['modern', 'classic', 'minimal']
 'lighting_preset' => ['bright', 'moody', 'dramatic']
 'floor_material'  => ['wood', 'marble', 'concrete']
-'room_layout'     => configurable
+'room_layout'     => ['square', 'corridor', 'l-shape', 'rotunda']
 ```
 
 ### 2. Multi-Tenancy & Team Collaboration
@@ -274,7 +275,7 @@ $user->teamRole($team);      // 'owner'|'editor'|'viewer'|null
 | Max Galleries | 1 | 5 | Unlimited |
 | Max Images/Gallery | 10 | 50 | Unlimited |
 | Analytics | ❌ | ✅ | ✅ Advanced |
-| Ambient Audio | ❌ | ❌ | ✅ |
+| Ambient Audio | ❌ | ✅ | ✅ |
 | Custom Logo | ❌ | ❌ | ✅ |
 | Teams | ✅ | ✅ | ✅ |
 | Support | Community | Email | Priority |
@@ -283,14 +284,15 @@ $user->teamRole($team);      // 'owner'|'editor'|'viewer'|null
 **Plan helpers on `User` model**:
 
 ```php
-$user->isPro();           // true for pro and studio
-$user->canCreateGallery(); // checks against max_galleries
-$user->isSuperAdmin();    // checks is_super_admin flag
+$user->isPro();              // true for pro and studio
+$user->canCreateGallery();   // DB-level count check against max_galleries
+$user->currentImageCount();  // total images across all personal galleries
+$user->isSuperAdmin();       // checks is_super_admin flag
 ```
 
 ### 4. 2Checkout Payment Integration
 
-**Capability**: Fully automated purchase-to-plan-upgrade pipeline with transaction history.
+**Capability**: Fully automated purchase-to-plan-upgrade pipeline with transaction history and replay protection.
 
 **Webhook Endpoints**:
 
@@ -318,6 +320,8 @@ $productMap = [
 
 **Security**: Every IPN verified via MD5 hash using `TWOCHECKOUT_SECRET_WORD` before any processing occurs.
 
+**Idempotency**: Before upgrading a user, the handler checks for an existing `completed` transaction with the same `invoice_id`. Duplicate IPNs are logged and discarded. A `UNIQUE` database constraint on `transactions.invoice_id` provides a second safety layer.
+
 **Transaction Storage**: All purchases and refunds written to `transactions` table with full audit trail.
 
 **Required `.env` variables**:
@@ -335,7 +339,7 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 
 | Column | Description |
 |--------|-------------|
-| `invoice_id` | Unique 2Checkout invoice ID |
+| `invoice_id` | Unique 2Checkout invoice ID (UNIQUE constraint) |
 | `sale_id` | 2Checkout sale reference |
 | `product_id` | 2Checkout product ID purchased |
 | `plan` | Plan activated (pro / studio) |
@@ -403,7 +407,29 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 
 **Database Column**: `galleries.pin_hash` (nullable string)
 
-### 9. 3D Gallery Viewer
+### 9. Gallery Scheduling (Time-Gate)
+
+**Capability**: Galleries can be configured to automatically open and close at specific timestamps, enforcing time-limited exhibitions.
+
+| Feature | Implementation |
+|---------|----------------|
+| Open date | `opens_at` timestamp — gallery inaccessible before this time |
+| Close date | `closes_at` timestamp — gallery inaccessible after this time |
+| Always-open | Both fields NULL = open indefinitely (default) |
+| Setting | Configured in gallery create/edit form |
+
+**Model helpers on `Gallery`**:
+
+```php
+$gallery->isScheduled();      // bool — has an opens_at set
+$gallery->isOpen();           // bool — currently within the open window
+$gallery->hasNotOpenedYet();  // bool — opens_at is in the future
+$gallery->hasClosed();        // bool — closes_at is in the past
+```
+
+**Database columns**: `galleries.opens_at` (TIMESTAMP NULL), `galleries.closes_at` (TIMESTAMP NULL).
+
+### 10. 3D Gallery Viewer
 
 **Capability**: Real-time WebGL-rendered virtual gallery with first-person navigation.
 
@@ -417,7 +443,7 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 | Collision Detection | Room boundary constraints |
 | Mobile | Virtual joystick + look pad |
 
-### 10. Dynamic Lighting System
+### 11. Dynamic Lighting System
 
 **Capability**: Proximity-based artwork illumination with cinematic tone mapping.
 
@@ -429,7 +455,7 @@ TWOCHECKOUT_PRODUCT_ID_STUDIO=
 
 Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmicToneMapping` at exposure 0.8.
 
-### 11. Momentum Camera System
+### 12. Momentum Camera System
 
 **Capability**: Physics-based camera movement with weight, friction, and cinematic banking.
 
@@ -440,7 +466,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | `maxSpeed` | 3.0 m/s | Top velocity |
 | `maxLean` | 0.02 rad | Cinematic tilt into turns |
 
-### 12. Tactile Art System
+### 13. Tactile Art System
 
 **Capability**: Realistic canvas texture simulation using normal mapping on all artwork surfaces.
 
@@ -448,7 +474,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 - Smart grain scaling based on artwork dimensions
 - Asset: `/assets/textures/shared/canvas_normal.jpg`
 
-### 13. Mobile & Touch Input System
+### 14. Mobile & Touch Input System
 
 **Capability**: Full mobile compatibility with touch-optimized controls.
 
@@ -459,7 +485,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | Adaptive UI | Auto-detection disables keyboard hints, shows touch overlays |
 | Detection | `navigator.maxTouchPoints` + User-Agent |
 
-### 14. Interactive SFX Engine
+### 15. Interactive SFX Engine
 
 **Capability**: Dynamic sound effects for immersion and interaction feedback.
 
@@ -470,9 +496,9 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | UI Acoustics | Focus mode, click feedback |
 | Architecture | Audio Listener attached to camera for spatial positioning |
 
-### 15. Ambient Audio System
+### 16. Ambient Audio System
 
-**Capability**: Optional background music per gallery (Studio plan feature).
+**Capability**: Optional background music per gallery (Pro plan feature).
 
 | Feature | Implementation |
 |---------|----------------|
@@ -481,7 +507,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | Playback | HTML5 Audio API, looped |
 | Control | Mute/unmute button in viewer UI |
 
-### 16. Studio Branding (Custom Logo)
+### 17. Studio Branding (Custom Logo)
 
 **Capability**: White-label branding for Studio plan users.
 
@@ -491,21 +517,81 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | Storage | `storage/galleries/{id}/logo/` |
 | Display | Replaces Exospace logo in gallery viewer header |
 
-### 17. Super Admin Panel
+### 18. Super Admin Panel
 
-**Capability**: Platform-wide administration accessible at `/master-control`.
+**Capability**: Platform-wide administration accessible at `/master-control`. All write actions are recorded in `admin_audit_logs`.
 
 | Feature | Description |
 |---------|-------------|
-| User List | All users with gallery counts and plan info |
+| User List | All users paginated (50/page) with plan and gallery counts |
 | Plan Management | Upgrade/downgrade any user's plan |
 | User Deletion | Cascade delete with full file cleanup |
 | Gallery Oversight | View and toggle any gallery's active status |
-| Platform Stats | Users by plan, total galleries, images, views |
+| Platform Stats | Users by plan, total galleries, images, views, banned users, unverified users |
+| Ban / Unban | Suspend accounts with a reason; banned users are logged out immediately |
+| Email Verify / Unverify | Manually grant or revoke email verification for support escalations |
+| Toggle Super Admin | Grant or revoke super-admin privileges |
+| Audit Log | Every write action recorded in `admin_audit_logs` |
 
-**Access Control**: `is_super_admin` boolean on `users` table, protected by `EnsureUserIsSuperAdmin` middleware.
+**Access Control**: `is_super_admin` boolean on `users` table, protected by `EnsureUserIsSuperAdmin` middleware. Super-admin routes also require `verified` middleware.
 
-### 18. Security Headers
+**Self-action protection**: All destructive actions call `preventSelfAction()` — super-admins cannot ban, delete, or demote themselves.
+
+### 19. User Account Moderation
+
+**Capability**: Full account lifecycle controls for suspended or problematic accounts.
+
+| Action | Implementation |
+|--------|----------------|
+| Ban | Sets `banned_at` + `ban_reason` on user; session invalidated on next request |
+| Unban | Clears `banned_at` and `ban_reason`; user can log in again |
+| Email verify | Manually marks `email_verified_at` — unblocks access without re-verification |
+| Email unverify | Clears `email_verified_at` — restricts access without deleting the account |
+| Toggle super-admin | Flips `is_super_admin` boolean |
+
+**`CheckBanned` middleware** runs globally on every request. When a banned user makes a request, their session is invalidated, they are logged out, and they are redirected to the login page with an error message showing the ban reason.
+
+**Database columns on `users`**: `banned_at` (TIMESTAMP NULL), `ban_reason` (TEXT NULL).
+
+### 20. Admin Audit Log
+
+**Capability**: Append-only record of every privileged super-admin action for compliance and forensics.
+
+| Column | Description |
+|--------|-------------|
+| `actor_id` | Super-admin user who performed the action |
+| `action` | Machine-readable name (e.g. `plan_changed`, `user_banned`) |
+| `target_type` / `target_id` | Polymorphic reference to the affected record |
+| `payload` | JSON before/after state or contextual data |
+| `ip` | IP address of the actor at time of action |
+| `created_at` | Timestamp (no `updated_at` — records are immutable) |
+
+**Recorded actions**: `plan_changed`, `user_banned`, `user_unbanned`, `super_admin_toggled`, `user_deleted`, `email_verified` (manual), `email_unverified`.
+
+**Usage**:
+
+```php
+AdminAuditLog::record('plan_changed', $user, [
+    'from' => $user->getOriginal('plan'),
+    'to'   => $plan,
+]);
+```
+
+**Location**: `app/Models/AdminAuditLog.php`
+
+### 21. Plan Expiry Enforcement
+
+**Capability**: Automatic real-time downgrade of users whose paid plan has expired.
+
+**Middleware**: `CheckPlanExpiry` runs on every authenticated request. If `plan_expires_at` is non-null and in the past, the user is immediately downgraded to the Free plan (1 gallery, 10 images) before the request continues.
+
+- JSON requests receive `402 Payment Required` with an error message.
+- Web requests are redirected to the gallery index with a flash warning.
+- The check is skipped for `free` plan users and when `plan_expires_at` is NULL (lifetime purchases).
+
+**Location**: `app/Http/Middleware/CheckPlanExpiry.php`
+
+### 22. Security Headers
 
 **Capability**: Global middleware enforcing security best practices on all HTTP responses.
 
@@ -519,7 +605,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 
 **Implementation**: `app/Http/Middleware/SecurityHeaders.php` registered globally in `bootstrap/app.php`.
 
-### 19. Cookie Consent Banner
+### 23. Cookie Consent Banner
 
 **Capability**: GDPR-compliant cookie consent with user preference persistence.
 
@@ -530,7 +616,7 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | Reactivity | Alpine.js with fade-in animation |
 | Location | `resources/views/layouts/partials/cookie-banner.blade.php` |
 
-### 20. Legal & Compliance Pages
+### 24. Legal & Compliance Pages
 
 **Capability**: Full legal page suite required for 2Checkout merchant approval and regulatory compliance.
 
@@ -541,12 +627,12 @@ Proximity lights activate for artworks within 5 meters. Tone mapping: `ACESFilmi
 | Refund Policy | `/refund-policy` | 14-day money-back guarantee |
 | Payment Security | `/payment-security` | PCI DSS, SSL, 2Checkout data handling |
 | About Us | `/about` | Company story, mission, registered address |
-| Contact Us | `/contact` | Support and sales inquiry form |
+| Contact Us | `/contact` | Support and sales inquiry form (real delivery via Resend) |
 | Pricing | `/pricing` | Plan comparison with live checkout modals |
 
 All pages reflect the one-time lifetime purchase model — no subscription or auto-renewal language.
 
-### 21. Email Queue System
+### 25. Email Queue System
 
 **Capability**: Asynchronous email delivery via Resend API.
 
@@ -556,6 +642,7 @@ All pages reflect the one-time lifetime purchase model — no subscription or au
 | Queue Backend | `database` driver |
 | Welcome Email | `App\Mail\WelcomeEmail` (implements `ShouldQueue`) |
 | Team Invitation Email | `App\Mail\TeamInvitationMail` (implements `Queueable`) |
+| Contact Form | `ContactController` sends synchronously via `Mail::raw()` |
 | Template | `resources/views/emails/welcome.blade.php` |
 | Template | `resources/views/emails/team-invitation.blade.php` |
 
@@ -564,7 +651,7 @@ All pages reflect the one-time lifetime purchase model — no subscription or au
 php artisan queue:work --tries=3 --timeout=90 --sleep=3 &
 ```
 
-### 22. Gallery Sharing & Demo
+### 26. Gallery Sharing & Demo
 
 | Feature | Implementation |
 |---------|----------------|
@@ -572,7 +659,7 @@ php artisan queue:work --tries=3 --timeout=90 --sleep=3 &
 | Demo URL | `/gallery/demo` redirects to first active gallery |
 | Fallback | Homepage with error if no galleries exist |
 
-### 23. Artwork Focus Mode
+### 27. Artwork Focus Mode
 
 **Capability**: Cinematic zoom-in for detailed artwork viewing.
 
@@ -595,6 +682,7 @@ erDiagram
     User ||--o{ Transaction : has
     User ||--o{ Team : owns
     User }o--o{ Team : "member of"
+    User ||--o{ AdminAuditLog : "audited by"
     Team ||--o{ Gallery : contains
     Team ||--o{ TeamInvitation : has
     Gallery ||--o{ GalleryImage : contains
@@ -613,6 +701,8 @@ erDiagram
         timestamp plan_started_at
         timestamp plan_expires_at
         bigint current_team_id
+        timestamp banned_at
+        text ban_reason
         timestamps created_at
         timestamps updated_at
     }
@@ -663,6 +753,8 @@ erDiagram
         string custom_logo_path
         string pin_hash
         string room_layout
+        timestamp opens_at
+        timestamp closes_at
         int view_count
         timestamps created_at
         timestamps updated_at
@@ -713,6 +805,17 @@ erDiagram
         timestamps created_at
         timestamps updated_at
     }
+
+    AdminAuditLog {
+        bigint id PK
+        bigint actor_id FK
+        string action
+        string target_type
+        bigint target_id
+        json payload
+        string ip
+        timestamp created_at
+    }
 ```
 
 ### Table: `users`
@@ -731,6 +834,8 @@ erDiagram
 | `plan_started_at` | TIMESTAMP | NULL | Plan activation date |
 | `plan_expires_at` | TIMESTAMP | NULL | NULL = lifetime |
 | `current_team_id` | BIGINT UNSIGNED | NULL | Active team context |
+| `banned_at` | TIMESTAMP | NULL | NULL = active; non-null = banned |
+| `ban_reason` | TEXT | NULL | Human-readable ban reason |
 | `created_at` / `updated_at` | TIMESTAMP | — | Eloquent timestamps |
 
 ### Table: `teams`
@@ -788,8 +893,11 @@ erDiagram
 | `audio_path` | VARCHAR(500) | NULL | Ambient audio file path |
 | `custom_logo_path` | VARCHAR(500) | NULL | Branding logo path |
 | `pin_hash` | VARCHAR(255) | NULL | Hashed PIN (nullable = open) |
-| `room_layout` | STRING | NULL | Room configuration |
+| `room_layout` | ENUM | `square` | square / corridor / l-shape / rotunda |
+| `opens_at` | TIMESTAMP | NULL | Gallery opens at this time (NULL = always open) |
+| `closes_at` | TIMESTAMP | NULL | Gallery closes at this time (NULL = never closes) |
 | `view_count` | INT UNSIGNED | 0 | Total view counter |
+| `created_at` / `updated_at` | TIMESTAMP | — | Eloquent timestamps |
 
 ### Table: `gallery_images`
 
@@ -828,7 +936,7 @@ erDiagram
 |--------|------|-------------|
 | `id` | BIGINT PK | Primary key |
 | `user_id` | BIGINT FK INDEXED | Purchasing user |
-| `invoice_id` | VARCHAR UNIQUE | 2Checkout invoice ID |
+| `invoice_id` | VARCHAR UNIQUE | 2Checkout invoice ID (unique — prevents duplicate processing) |
 | `sale_id` | VARCHAR NULL | 2Checkout sale reference |
 | `product_id` | VARCHAR NULL | 2Checkout product ID |
 | `plan` | VARCHAR | Plan purchased (pro / studio) |
@@ -839,6 +947,19 @@ erDiagram
 | `status` | VARCHAR INDEXED | completed / refunded |
 | `created_at` / `updated_at` | TIMESTAMP | Eloquent timestamps |
 
+### Table: `admin_audit_logs`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | BIGINT PK | Primary key |
+| `actor_id` | BIGINT FK INDEXED | Super-admin who performed the action |
+| `action` | VARCHAR(64) INDEXED | Action name (e.g. `plan_changed`, `user_banned`) |
+| `target_type` | VARCHAR(255) | Polymorphic class name of affected model |
+| `target_id` | BIGINT UNSIGNED | ID of affected record |
+| `payload` | JSON NULL | Contextual data (before/after state, reason, etc.) |
+| `ip` | VARCHAR(45) NULL | Actor's IP address |
+| `created_at` | TIMESTAMP INDEXED | Event timestamp (append-only — no `updated_at`) |
+
 ---
 
 ## Backend Architecture
@@ -848,21 +969,39 @@ erDiagram
 ```
 app/Http/Controllers/
 ├── Admin/
-│   ├── AnalyticsController.php    # Gallery analytics dashboard
+│   ├── AnalyticsController.php    # Gallery analytics dashboard (team-aware auth)
 │   ├── DashboardController.php    # Admin home
 │   ├── GalleryController.php      # Gallery CRUD + team scoping + audio/logo upload
-│   ├── ImageController.php        # Image upload/delete/reorder
+│   ├── ImageController.php        # Image upload/delete/reorder (team-aware auth)
 │   └── TeamController.php         # Team CRUD, invite, member management
 ├── Auth/                          # Laravel Breeze controllers
 ├── SuperAdmin/
-│   └── SystemController.php       # Platform-wide administration
+│   └── SystemController.php       # Platform-wide administration + audit logging
+├── ContactController.php          # Contact form with Resend delivery
 ├── GalleryPinController.php       # PIN gate show + verify
 ├── GalleryViewController.php      # Public gallery display
 ├── InstallerController.php        # First-run setup
 ├── ProfileController.php          # User profile management
 ├── TeamInvitationController.php   # Token-based invitation accept/decline
-└── WebhookController.php          # 2Checkout IPN + refund handler
+└── WebhookController.php          # 2Checkout IPN + refund handler (idempotent)
 ```
+
+### Middleware Stack
+
+Registered globally in `bootstrap/app.php` in this order:
+
+| Middleware | Class | Purpose |
+|-----------|-------|---------|
+| Security Headers | `SecurityHeaders` | Injects HTTP security headers on every response |
+| Ban Check | `CheckBanned` | Logs out banned users and redirects to login with reason |
+| Plan Expiry | `CheckPlanExpiry` | Auto-downgrades users with expired paid plans |
+| Trust Proxies | (built-in) | Trusts all proxy headers (Coolify reverse proxy) |
+
+Named alias:
+
+| Alias | Class | Usage |
+|-------|-------|-------|
+| `super_admin` | `EnsureUserIsSuperAdmin` | Applied to all `/master-control` routes |
 
 ### Route Definitions
 
@@ -873,6 +1012,8 @@ Route::get('/gallery/{slug}/pin', [GalleryPinController::class, 'show']);
 Route::post('/gallery/{slug}/pin', [GalleryPinController::class, 'verify']);
 Route::post('/gallery/{gallery}/track', [AnalyticsController::class, 'track'])
     ->middleware('throttle:120,1');
+Route::post('/contact', [ContactController::class, 'submit'])
+    ->middleware('throttle:5,10');
 
 // Webhook Routes (no auth)
 Route::post('/webhooks/2checkout', [WebhookController::class, 'handle2Checkout']);
@@ -890,7 +1031,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::post('galleries/{gallery}/upload-logo', ...);
     Route::post('galleries/{gallery}/reorder-images', ...);
     Route::get('galleries/{gallery}/analytics', [AnalyticsController::class, 'show']);
-    Route::post('galleries/{gallery}/images', [ImageController::class, 'store']);
+    Route::post('galleries/{gallery}/images', [ImageController::class, 'store'])
+        ->middleware('throttle:30,1');
     Route::delete('images/{image}', [ImageController::class, 'destroy']);
     Route::post('images/bulk-delete', [ImageController::class, 'bulkDestroy']);
 
@@ -910,6 +1052,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->group(function () {
     Route::post('teams/{team}/switch', [TeamController::class, 'switchTeam']);
 });
 
+// Auth Routes (throttled)
+// POST /login          → throttle:5,1
+// POST /register       → throttle:10,1
+
 // Super Admin Routes
 Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')->group(function () {
     Route::get('/', [SystemController::class, 'index']);
@@ -917,6 +1063,11 @@ Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')
     Route::delete('/users/{user}', [SystemController::class, 'deleteUser']);
     Route::get('/users/{user}/galleries', [SystemController::class, 'userGalleries']);
     Route::post('/galleries/{gallery}/toggle', [SystemController::class, 'toggleGallery']);
+    Route::post('/users/{user}/ban', [SystemController::class, 'banUser']);
+    Route::post('/users/{user}/unban', [SystemController::class, 'unbanUser']);
+    Route::post('/users/{user}/verify-email', [SystemController::class, 'verifyEmail']);
+    Route::post('/users/{user}/unverify-email', [SystemController::class, 'unverifyEmail']);
+    Route::post('/users/{user}/toggle-super-admin', [SystemController::class, 'toggleSuperAdmin']);
 });
 ```
 
@@ -1029,7 +1180,7 @@ this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 flowchart TD
     A[User Drops Image] --> B{Validate File}
     B -->|Invalid| C[Return Error 422]
-    B -->|Valid| D{Check Gallery Limit}
+    B -->|Valid| D{Check Plan Limits}
     D -->|At limit| E[Return Limit Error]
     D -->|Under limit| F[ImageProcessingService.process]
     F --> G[Read with Intervention Image]
@@ -1052,6 +1203,15 @@ $validator = Validator::make($request->all(), [
     'file' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:10240'
 ]);
 ```
+
+### Plan Limit Checks
+
+Two limits are enforced on every upload:
+
+1. **Per-gallery limit**: `$gallery->images()->count()` vs `$user->max_images`
+2. **Cross-gallery total**: `DB::table('gallery_images')->join('galleries'...)->where('user_id')` vs `$user->max_images`
+
+Both checks use direct `DB::table()` queries to avoid race conditions during concurrent uploads.
 
 ### Storage Structure
 
@@ -1080,16 +1240,10 @@ storage/app/public/
 
 ### Gallery & Team Authorization
 
-Personal galleries verify ownership directly:
-```php
-if ($gallery->user_id !== Auth::id()) {
-    abort(403);
-}
-```
+All controllers use a consistent pattern. Personal galleries verify ownership; team galleries verify membership and role:
 
-Team galleries check membership and role:
 ```php
-// In GalleryController::authorizeGalleryAccess()
+// Used in GalleryController, ImageController, and AnalyticsController:
 if ($gallery->team_id) {
     if (! $user->belongsToTeam($gallery->team)) abort(403);
     if ($requireEdit && ! $gallery->team->canEdit($user)) abort(403);
@@ -1099,12 +1253,23 @@ if ($gallery->team_id) {
 ```
 
 Team management actions verify ownership:
+
 ```php
 // Only owners can invite, remove members, change roles, delete team
 if (! $team->isOwner(Auth::user())) {
     abort(403, 'Only the team owner can perform this action.');
 }
 ```
+
+### Rate Limiting
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| `POST /login` | 5 requests | 1 minute |
+| `POST /register` | 10 requests | 1 minute |
+| `POST /admin/galleries/{id}/images` | 30 requests | 1 minute |
+| `POST /gallery/{gallery}/track` | 120 requests | 1 minute |
+| `POST /contact` | 5 requests | 10 minutes |
 
 ### Invitation Security
 
@@ -1113,7 +1278,7 @@ if (! $team->isOwner(Auth::user())) {
 - Email matching enforced on accept — wrong-account warning shown
 - No `auth` middleware on invitation routes (prevents 405); auth checked inside controller
 
-### Webhook Security
+### Webhook Security & Idempotency
 
 2Checkout IPN verified via MD5 hash before any user updates:
 
@@ -1126,6 +1291,12 @@ $stringToHash = strlen($sale_id) . $sale_id .
 $calculatedHash = strtoupper(md5($stringToHash));
 // Must match $receivedHash or request rejected with 403
 ```
+
+After hash verification, the handler checks for an existing `completed` transaction with the same `invoice_id`. Duplicates are logged and discarded. A `UNIQUE` database constraint on `transactions.invoice_id` provides a second layer of protection.
+
+### Admin Audit Trail
+
+All privileged super-admin write actions are recorded in `admin_audit_logs` before or after the action executes. The table is append-only (no updates or deletes). Recorded actions: `plan_changed`, `user_banned`, `user_unbanned`, `super_admin_toggled`, `user_deleted`, `email_verified`, `email_unverified`.
 
 ### File Upload Security
 
@@ -1155,6 +1326,11 @@ $calculatedHash = strtoupper(md5($stringToHash));
 | **No auth middleware on invitation routes** | Putting `auth` on a POST route returns 405 to unauthenticated users; handling the redirect inside the controller gives a clean login redirect |
 | **`switch-personal` before `{team}` routes** | Laravel route matching is sequential; a literal path segment must precede wildcard segments to avoid being swallowed as a model ID |
 | **`updateOrCreate` for re-invites** | Re-inviting the same email resets the token and expiry cleanly without creating duplicates |
+| **Webhook idempotency via `invoice_id` uniqueness** | 2Checkout retries failed deliveries; a DB-level UNIQUE constraint on `invoice_id` prevents double-upgrading even if the application check is bypassed |
+| **Audit log is append-only** | No UPDATE or DELETE on `admin_audit_logs` — an admin cannot cover their tracks; forensic integrity without a separate immutable store |
+| **Plan expiry in middleware, not cron** | Checking expiry on every authenticated request means instant enforcement without a scheduler gap; negligible overhead since it's a single index read on the user already in session |
+| **`usleep` removed from upload path** | Was added as a workaround for a race condition that no longer exists; 100ms synchronous sleep per upload blocks PHP-FPM workers under load |
+| **DB-level count for plan limits** | `canCreateGallery()` uses `DB::table()` directly to avoid Eloquent cache and race conditions during concurrent requests |
 
 ---
 
@@ -1180,7 +1356,8 @@ $calculatedHash = strtoupper(md5($stringToHash));
 2. Upload custom logo for white-label experience
 3. Create gallery matching physical space aesthetic
 4. Set PIN for preview-only access before opening
-5. Remove PIN on opening day, share URL publicly
+5. Schedule `opens_at` for the opening date; set `closes_at` for the exhibition end
+6. Remove PIN on opening day, share URL publicly
 
 ### Use Case 3: Educational Presentation
 
@@ -1226,21 +1403,24 @@ exospace/
 │   ├── Http/
 │   │   ├── Controllers/
 │   │   │   ├── Admin/
-│   │   │   │   ├── AnalyticsController.php    # Analytics dashboard
+│   │   │   │   ├── AnalyticsController.php    # Analytics dashboard (team-aware auth)
 │   │   │   │   ├── DashboardController.php    # Admin home
 │   │   │   │   ├── GalleryController.php      # Gallery CRUD + team scoping
-│   │   │   │   ├── ImageController.php        # Image management
+│   │   │   │   ├── ImageController.php        # Image management (team-aware auth)
 │   │   │   │   └── TeamController.php         # Team CRUD + member management
 │   │   │   ├── SuperAdmin/
-│   │   │   │   └── SystemController.php       # Platform administration
+│   │   │   │   └── SystemController.php       # Platform administration + audit logging
 │   │   │   ├── Auth/                          # Breeze auth controllers
+│   │   │   ├── ContactController.php          # Contact form with Resend delivery
 │   │   │   ├── GalleryPinController.php       # PIN gate
 │   │   │   ├── GalleryViewController.php      # Public gallery view
 │   │   │   ├── InstallerController.php        # First-run setup
 │   │   │   ├── ProfileController.php          # User profile
 │   │   │   ├── TeamInvitationController.php   # Token invitation accept/decline
-│   │   │   └── WebhookController.php          # 2Checkout IPN handler
+│   │   │   └── WebhookController.php          # 2Checkout IPN handler (idempotent)
 │   │   ├── Middleware/
+│   │   │   ├── CheckBanned.php                # Logs out banned users on every request
+│   │   │   ├── CheckPlanExpiry.php            # Auto-downgrades expired paid plans
 │   │   │   ├── EnsureUserIsSuperAdmin.php     # Super admin gate
 │   │   │   └── SecurityHeaders.php            # HTTP security headers
 │   │   └── Requests/
@@ -1248,7 +1428,8 @@ exospace/
 │   │   ├── TeamInvitationMail.php             # Team invitation email
 │   │   └── WelcomeEmail.php                   # Queued welcome email
 │   ├── Models/
-│   │   ├── Gallery.php
+│   │   ├── AdminAuditLog.php                  # Append-only super-admin action log
+│   │   ├── Gallery.php                        # Gallery model + schedule helpers
 │   │   ├── GalleryEvent.php                   # Analytics events
 │   │   ├── GalleryImage.php
 │   │   ├── Setting.php
@@ -1262,21 +1443,26 @@ exospace/
 │   └── services.php                           # 2Checkout credentials config
 ├── database/
 │   └── migrations/
-│       ├── create_users_table.php
-│       ├── create_galleries_table.php
-│       ├── create_gallery_images_table.php
-│       ├── create_settings_table.php
-│       ├── add_plans_to_users_table.php
-│       ├── add_audio_to_galleries_table.php
-│       ├── add_custom_logo_to_galleries_table.php
-│       ├── add_super_admin_flag_to_users_table.php
-│       ├── add_room_layout_to_galleries_table.php
-│       ├── create_gallery_analytics_table.php
-│       ├── add_pin_to_galleries_table.php
-│       ├── create_transactions_table.php
-│       ├── add_schedule_to_galleries_table.php
-│       ├── 2026_04_22_200001_create_teams_table.php        # teams, team_user, team_invitations + galleries.team_id
-│       └── 2026_04_22_200002_add_current_team_id_to_users_table.php
+│       ├── 0001_01_01_000000_create_users_table.php
+│       ├── 0001_01_01_000001_create_cache_table.php
+│       ├── 0001_01_01_000002_create_jobs_table.php
+│       ├── 2026_01_19_111649_create_galleries_table.php
+│       ├── 2026_01_19_111649_create_gallery_images_table.php
+│       ├── 2026_01_19_111650_create_settings_table.php
+│       ├── 2026_02_01_042719_add_plans_to_users_table.php
+│       ├── 2026_02_06_054006_add_audio_to_galleries_table.php
+│       ├── 2026_02_06_084946_add_custom_logo_to_galleries_table.php
+│       ├── 2026_02_07_042958_add_super_admin_flag_to_users_table.php
+│       ├── 2026_03_22_184944_add_room_layout_to_galleries_table.php
+│       ├── 2026_04_21_201844_create_gallery_analytics_table.php
+│       ├── 2026_04_21_201851_add_pin_to_galleries_table.php
+│       ├── 2026_04_21_213541_create_transactions_table.php
+│       ├── 2026_04_22_140439_add_schedule_to_galleries_table.php
+│       ├── 2026_04_23_121444_create_teams_table.php
+│       ├── 2026_04_23_121455_add_current_team_id_to_users_table.php
+│       ├── 2026_04_25_015249_add_banned_at_to_users_table.php
+│       ├── 2026_06_08_000001_add_unique_invoice_id_to_transactions.php
+│       └── 2026_06_08_000002_create_admin_audit_logs_table.php
 ├── resources/
 │   └── views/
 │       ├── admin/
@@ -1431,7 +1617,7 @@ Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worke
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/admin/galleries/{id}/images` | Upload image |
+| POST | `/admin/galleries/{id}/images` | Upload image (throttle: 30/min) |
 | DELETE | `/admin/images/{id}` | Delete single image |
 | POST | `/admin/images/bulk-delete` | Bulk delete |
 
@@ -1461,7 +1647,7 @@ Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worke
 | GET | `/gallery/{slug}` | 3D gallery viewer |
 | GET | `/gallery/{slug}/pin` | PIN entry screen |
 | POST | `/gallery/{slug}/pin` | PIN verification |
-| POST | `/gallery/{gallery}/track` | Analytics event tracking |
+| POST | `/gallery/{gallery}/track` | Analytics event tracking (throttle: 120/min) |
 | GET | `/gallery/demo` | Redirect to first active gallery |
 | GET | `/team-invitations/{token}` | Invitation accept/decline page |
 | POST | `/team-invitations/{token}/accept` | Accept team invitation |
@@ -1472,13 +1658,14 @@ Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worke
 | GET | `/refund-policy` | Refund Policy |
 | GET | `/payment-security` | Payment Security |
 | GET | `/about` | About Us |
-| GET | `/contact` | Contact |
+| GET | `/contact` | Contact form page |
+| POST | `/contact` | Submit contact form (throttle: 5/10min) |
 
 ### Webhook Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/webhooks/2checkout` | 2Checkout IPN (ORDER_CREATED) |
+| POST | `/webhooks/2checkout` | 2Checkout IPN (ORDER_CREATED) — idempotent |
 | POST | `/webhooks/2checkout/refund` | 2Checkout refund handler |
 
 ### Super Admin Endpoints
@@ -1490,8 +1677,13 @@ Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worke
 | DELETE | `/master-control/users/{id}` | Delete user and all data |
 | GET | `/master-control/users/{id}/galleries` | View user's galleries |
 | POST | `/master-control/galleries/{id}/toggle` | Toggle gallery active status |
+| POST | `/master-control/users/{id}/ban` | Ban user with optional reason |
+| POST | `/master-control/users/{id}/unban` | Unban user |
+| POST | `/master-control/users/{id}/verify-email` | Manually verify email |
+| POST | `/master-control/users/{id}/unverify-email` | Revoke email verification |
+| POST | `/master-control/users/{id}/toggle-super-admin` | Grant/revoke super-admin access |
 
 ---
 
-*Exospace 3D Gallery — Technical Documentation v2.1.0*
-*Last updated: April 23, 2026*
+*Exospace 3D Gallery — Technical Documentation v2.2.0*
+*Last updated: June 8, 2026*

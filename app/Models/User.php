@@ -103,7 +103,19 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function canCreateGallery(): bool
     {
-        return $this->galleries()->count() < $this->max_galleries;
+        // DB-level count to avoid race conditions in concurrent requests
+        return \DB::table('galleries')
+            ->where('user_id', $this->id)
+            ->whereNull('team_id')
+            ->count() < $this->max_galleries;
+    }
+
+    public function currentImageCount(): int
+    {
+        return \DB::table('gallery_images')
+            ->join('galleries', 'galleries.id', '=', 'gallery_images.gallery_id')
+            ->where('galleries.user_id', $this->id)
+            ->count();
     }
 
     public function isSuperAdmin(): bool

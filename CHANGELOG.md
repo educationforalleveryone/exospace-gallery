@@ -1,5 +1,57 @@
 # Exospace 3D Gallery - Changelog
 
+## Version 2.2.0 - June 8, 2026 (Security Hardening & SaaS Reliability)
+
+### 🔒 Security — Critical Fixes
+
+- **ImageController authorization bypass fixed**: Image upload, delete, and bulk-delete operations now correctly check team membership for team galleries, not just `user_id`. Previously any authenticated user could delete images from galleries they did not own.
+- **AnalyticsController team-gallery bypass fixed**: `show()` now enforces the same team-membership check used by `GalleryController`. Previously any authenticated user could view analytics for any gallery by guessing its ID.
+- **Webhook replay attack prevention**: `handle2Checkout` now checks for an existing `completed` transaction with the same `invoice_id` before processing. Duplicate IPN callbacks are rejected and logged rather than applied twice. A `UNIQUE` constraint has been added to `transactions.invoice_id` at the database level.
+- **Rate limiting added to authentication and upload endpoints**: Login capped at 5 requests/minute, registration at 10 requests/minute, image upload at 30 requests/minute. Previously only the analytics tracking endpoint was throttled.
+
+### 🛡️ Security — Audit Trail
+
+- **Admin audit log introduced**: All super-admin actions (plan changes, user bans/unbans, email verification changes, super-admin toggles, user deletions) are now permanently recorded in the new `admin_audit_logs` table with actor ID, action name, target, payload (before/after state), IP address, and timestamp.
+- **New model `AdminAuditLog`**: Provides a static `AdminAuditLog::record($action, $target, $payload)` helper used by `SystemController` for every write action.
+
+### ⚙️ Reliability & SaaS Fundamentals
+
+- **Plan expiry enforcement**: New `CheckPlanExpiry` middleware runs on every authenticated request. If `plan_expires_at` is in the past, the user is automatically downgraded to the Free plan in real time. Previously `plan_expires_at` was stored but never acted on.
+- **Contact form now delivers mail**: `POST /contact` previously returned a fake `{"message":"Message received"}` JSON response and discarded all submissions. It now routes through `ContactController`, validates input, and delivers via Resend. Rate-limited at 5 submissions per 10 minutes.
+- **Image upload 100ms artificial delay removed**: `usleep(100000)` was present in `ImageController::store()` after every successful upload, adding 100ms of dead latency to every image uploaded and stalling PHP-FPM workers under concurrent load. Removed.
+- **Super-admin dashboard paginated**: `SystemController::index()` previously loaded all users with a nested `with(['galleries' => fn → withCount('images')])` eager load — an N+1 query that would OOM at several hundred users. Now uses `paginate(50)` with pre-aggregated counts.
+- **Gallery limits enforced at DB level**: `canCreateGallery()` now uses a direct `DB::table()` count to avoid race conditions in concurrent requests. Image upload additionally checks the user's total cross-gallery image count to prevent plan-limit bypass via parallel uploads.
+
+### 🗄️ Database Schema Updates
+
+- **New table `admin_audit_logs`**: `id`, `actor_id` (FK → users), `action` (VARCHAR 64, indexed), `target_type`, `target_id` (polymorphic morph), `payload` (JSON), `ip` (VARCHAR 45), `created_at` (indexed). No `updated_at` — audit records are append-only.
+- **New UNIQUE constraint** on `transactions.invoice_id` — prevents duplicate webhook processing at the database level.
+
+### 📁 New Files
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_06_08_000001_add_unique_invoice_id_to_transactions.php` | Adds UNIQUE index on `transactions.invoice_id` |
+| `database/migrations/2026_06_08_000002_create_admin_audit_logs_table.php` | New audit log table |
+| `app/Models/AdminAuditLog.php` | Audit log model with `record()` static helper |
+| `app/Http/Middleware/CheckPlanExpiry.php` | Auto-downgrade middleware for expired plans |
+| `app/Http/Controllers/ContactController.php` | Real contact form handler with Resend delivery |
+
+### 📝 Modified Files
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/Admin/ImageController.php` | Fixed authorization to check team membership; removed `usleep(100000)`; added cross-gallery image count check |
+| `app/Http/Controllers/Admin/AnalyticsController.php` | Fixed authorization to check team membership for team galleries |
+| `app/Http/Controllers/WebhookController.php` | Added idempotency check before processing `ORDER_CREATED` |
+| `app/Http/Controllers/SuperAdmin/SystemController.php` | Added `AdminAuditLog::record()` calls to all write actions; paginated user index |
+| `app/Models/User.php` | `canCreateGallery()` uses DB-level count; new `currentImageCount()` method |
+| `bootstrap/app.php` | Registered `CheckPlanExpiry` middleware globally |
+| `routes/web.php` | Image upload route throttled at 30/min; contact form routes to `ContactController` |
+| `routes/auth.php` | Login throttled at 5/min; registration throttled at 10/min |
+
+---
+
 ## Version 2.1.0 - April 23, 2026 (Multi-Tenancy & Team Collaboration)
 
 ### 👥 Teams System
@@ -42,7 +94,7 @@
 
 ### 📁 New Files
 | File | Purpose |
-|------|---------|
+|------|---------| 
 | `database/migrations/2026_04_22_200001_create_teams_table.php` | Teams, team_user, team_invitations tables + galleries.team_id |
 | `database/migrations/2026_04_22_200002_add_current_team_id_to_users_table.php` | Adds current_team_id to users |
 | `app/Models/Team.php` | Team model with relationships and role helpers |
@@ -59,7 +111,7 @@
 
 ### 📝 Modified Files
 | File | Changes |
-|------|---------|
+|------|---------| 
 | `app/Models/User.php` | Added `ownedTeams`, `teams`, `currentTeam()`, `switchTeam()`, `belongsToTeam()`, `teamRole()`. Added `current_team_id` to `$fillable`. |
 | `app/Http/Controllers/Admin/GalleryController.php` | Gallery index/create/store scoped to active team context. Authorization updated to support team-based access. Plan limit checks use team owner's plan for team galleries. |
 | `routes/web.php` | Added all team routes, `switch-personal` route, and invitation routes. Removed `->middleware('auth')` from invitation accept/decline. |
@@ -102,6 +154,35 @@
 ### 🔧 Deployment Improvements
 - **nixpacks.toml**: Added `php artisan migrate --force` to build phase for automatic schema updates on deploy.
 - **Queue Worker**: Confirmed background queue worker runs on startup via `docker-start.sh` for email processing.
+
+---
+
+## Version 1.9.0 - April 25, 2026 (Account Moderation)
+
+### 👑 Super Admin — Account Controls
+- **Ban / Unban Users**: Super-admins can suspend any user account with an optional reason. Banned users are immediately logged out on their next request and shown the ban reason on the login page.
+- **Email Verify / Unverify**: Manually grant or revoke email verification for any user — useful for support escalations without requiring users to re-verify.
+- **Toggle Super Admin**: Grant or revoke super-admin privileges for any user (cannot act on own account).
+- **Self-Action Protection**: All destructive actions block super-admins from acting on their own account via `preventSelfAction()`.
+
+### 🗄️ Database Schema Updates
+- **New Columns on `users`**: `banned_at` (TIMESTAMP NULL) and `ban_reason` (TEXT NULL).
+
+### 🔧 New Middleware
+- **`CheckBanned`**: Runs globally on every request. If the authenticated user has a non-null `banned_at`, their session is invalidated, they are logged out, and they are redirected to login with the ban reason displayed.
+
+---
+
+## Version 1.8.0 - April 22, 2026 (Gallery Scheduling)
+
+### 📅 Time-Gated Exhibitions
+- **Open / Close Scheduling**: Galleries can now be configured with an `opens_at` and/or `closes_at` timestamp directly in the gallery create/edit form.
+- **Automatic Access Control**: Visitors attempting to view a gallery before its open time or after its close time see an appropriate message rather than the gallery viewer.
+- **Always-Open Default**: Both fields are nullable — leaving them empty keeps the gallery open indefinitely as before.
+- **Model Helpers**: `isScheduled()`, `isOpen()`, `hasNotOpenedYet()`, `hasClosed()` added to the `Gallery` model.
+
+### 🗄️ Database Schema Updates
+- **New Columns on `galleries`**: `opens_at` (TIMESTAMP NULL) and `closes_at` (TIMESTAMP NULL).
 
 ---
 
@@ -173,7 +254,7 @@
 
 ### 🎵 Ambient Audio for Galleries
 - **Background Music**: Galleries can now have optional ambient audio that plays during the 3D experience.
-- **Audio Upload**: Upload MP3/WAV files through the gallery edit page (Studio plan feature).
+- **Audio Upload**: Upload MP3/WAV files through the gallery edit page (Pro plan feature).
 - **Seamless Playback**: Audio loops continuously while visitors explore the gallery.
 - **User Control**: Visitors can mute/unmute audio from the gallery interface.
 
