@@ -94,14 +94,20 @@
 
                         {{-- Teams --}}
                         @foreach($allTeams as $t)
+                        @php $tRole = auth()->user()->teamRole($t); @endphp
                         <form action="{{ route('admin.teams.switch', $t) }}" method="POST">
                             @csrf
-                            <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-gray-700 transition text-sm text-left {{ $currentTeam?->id === $t->id ? 'text-white' : 'text-gray-400' }}">
+                            <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-700 transition text-left {{ $currentTeam?->id === $t->id ? 'bg-gray-700/40' : '' }}">
                                 <span class="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-700 to-indigo-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
                                     {{ strtoupper(substr($t->name, 0, 1)) }}
                                 </span>
-                                <span class="truncate">{{ $t->name }}</span>
-                                @if($currentTeam?->id === $t->id) <svg class="w-3.5 h-3.5 text-green-400 ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> @endif
+                                <span class="flex-1 min-w-0">
+                                    <span class="block text-sm truncate {{ $currentTeam?->id === $t->id ? 'text-white' : 'text-gray-300' }}">{{ $t->name }}</span>
+                                    <span class="block text-xs text-gray-600 capitalize">{{ $tRole }}</span>
+                                </span>
+                                @if($currentTeam?->id === $t->id)
+                                    <svg class="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                @endif
                             </button>
                         </form>
                         @endforeach

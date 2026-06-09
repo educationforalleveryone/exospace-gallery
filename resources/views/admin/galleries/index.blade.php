@@ -1,19 +1,42 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-100 leading-tight">
-                {{ __('My Galleries') }}
-            </h2>
-            @if(auth()->user()->canCreateGallery())
-                <a href="{{ route('admin.galleries.create') }}" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition inline-flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                    </svg>
+        @php
+            $activeTeam = auth()->user()->currentTeam();
+            $canEdit = !$activeTeam || $activeTeam->canEdit(auth()->user());
+        @endphp
+        <div class="flex justify-between items-center gap-4">
+            <div>
+                @if($activeTeam)
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <span class="w-6 h-6 rounded-md bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{{ strtoupper(substr($activeTeam->name, 0, 1)) }}</span>
+                        <h2 class="font-semibold text-xl text-gray-100 leading-tight">{{ $activeTeam->name }}</h2>
+                    </div>
+                    <p class="text-xs text-gray-500 flex items-center gap-1.5">
+                        <span class="capitalize text-{{ $canEdit ? 'indigo' : 'gray' }}-400">{{ ucfirst(auth()->user()->teamRole($activeTeam)) }}</span>
+                        <span class="text-gray-700">·</span>
+                        <span>Team workspace</span>
+                        <span class="text-gray-700">·</span>
+                        <a href="{{ route('admin.teams.show', $activeTeam) }}" class="text-gray-500 hover:text-purple-400 transition">Manage team →</a>
+                    </p>
+                @else
+                    <h2 class="font-semibold text-xl text-gray-100 leading-tight">My Galleries</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Personal workspace</p>
+                @endif
+            </div>
+            @if($canEdit && (auth()->user()->canCreateGallery() || $activeTeam))
+                <a href="{{ route('admin.galleries.create') }}{{ $activeTeam ? '?team=' . $activeTeam->id : '' }}"
+                   class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-5 rounded-lg transition inline-flex items-center gap-2 flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     New Gallery
                 </a>
+            @elseif(!$canEdit)
+                <span class="inline-flex items-center gap-1.5 text-xs bg-gray-700/60 border border-gray-600 text-gray-400 px-3 py-1.5 rounded-lg">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    View only
+                </span>
             @else
-                <button onclick="openModal('upgrade-modal')" 
-                        class="bg-gradient-to-r from-purple-600/80 to-indigo-600/80 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold py-2 px-5 rounded-lg transition inline-flex items-center cursor-pointer gap-2">
+                <button onclick="openModal('upgrade-modal')"
+                        class="bg-gradient-to-r from-purple-600/80 to-indigo-600/80 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold py-2 px-5 rounded-lg transition inline-flex items-center cursor-pointer gap-2 flex-shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                     Upgrade for more
                 </button>
@@ -28,7 +51,7 @@
                 <script>document.addEventListener('DOMContentLoaded', () => openModal('upgrade-modal'));</script>
             @endif
 
-            @if(!auth()->user()->canCreateGallery())
+            @if(!auth()->user()->canCreateGallery() && !$activeTeam)
             <div class="mb-6 flex items-center gap-3 bg-purple-950/50 border border-purple-600/40 rounded-xl px-4 py-3">
                 <svg class="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <p class="flex-1 text-sm text-purple-200">You're on the Free plan — 1 gallery maximum. Upgrade to Pro for unlimited galleries and more image slots.</p>

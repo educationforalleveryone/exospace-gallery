@@ -3,20 +3,30 @@
     <x-slot name="header">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h2 class="font-semibold text-xl text-gray-100 leading-tight flex items-center gap-2">
+                <h2 class="font-semibold text-xl text-gray-100 leading-tight flex items-center gap-2.5">
                     @if($team)
-                        <span class="w-2 h-2 rounded-full bg-indigo-400 inline-block"></span>
-                        {{ $team->name }}
+                        <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">{{ strtoupper(substr($team->name, 0, 1)) }}</span>
+                        <span>{{ $team->name }}</span>
                     @else
                         Dashboard
                     @endif
                 </h2>
-                <p class="text-sm text-gray-500 mt-0.5">
-                    Good {{ now()->hour < 12 ? 'morning' : (now()->hour < 18 ? 'afternoon' : 'evening') }},
+                <p class="text-sm text-gray-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>Good {{ now()->hour < 12 ? 'morning' : (now()->hour < 18 ? 'afternoon' : 'evening') }},</span>
                     <span class="text-gray-300 font-medium">{{ $user->name }}</span>
                     @if($team)
-                        <span class="mx-1.5 text-gray-700">·</span>
-                        <span class="text-gray-500">{{ ucfirst($user->teamRole($team)) }}</span>
+                        <span class="text-gray-700">·</span>
+                        @php $dashRole = $user->teamRole($team); @endphp
+                        <span class="text-{{ $dashRole === 'viewer' ? 'gray' : 'indigo' }}-400 capitalize">{{ ucfirst($dashRole) }}</span>
+                        @if($dashRole === 'viewer')
+                            <span class="text-gray-700">·</span>
+                            <span class="text-gray-500 text-xs">View only</span>
+                        @endif
+                        <span class="text-gray-700">·</span>
+                        <form action="{{ route('admin.teams.switch-personal') }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit" class="text-gray-600 hover:text-gray-400 transition text-xs underline underline-offset-2">Personal workspace</button>
+                        </form>
                     @else
                         <span class="mx-1.5 text-gray-700">·</span>
                         <span class="inline-flex items-center gap-1 capitalize {{ $user->plan === 'free' ? 'text-gray-500' : 'text-purple-400' }}">
