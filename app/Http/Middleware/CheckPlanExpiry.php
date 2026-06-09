@@ -17,10 +17,11 @@ class CheckPlanExpiry
                 $user->plan_expires_at !== null &&
                 $user->plan_expires_at->isPast()
             ) {
+                $limits = \App\Models\User::planLimits('free');
                 $user->update([
                     'plan'           => 'free',
-                    'max_galleries'  => 1,
-                    'max_images'     => 10,
+                    'max_galleries'  => $limits['max_galleries'],
+                    'max_images'     => $limits['max_images'],
                 ]);
                 // Reload so current request sees updated plan
                 Auth::setUser($user->fresh());

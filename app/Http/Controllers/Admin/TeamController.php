@@ -64,7 +64,7 @@ class TeamController extends Controller
 
     public function show(Team $team): View
     {
-        $this->authorizeTeamAccess($team);
+        if (! Auth::user()->belongsToTeam($team)) abort(403);
 
         $team->load(['members', 'owner', 'galleries' => fn($q) => $q->latest()->limit(5)]);
         $pendingInvitations = $team->invitations()->where('expires_at', '>', now())->get();
@@ -234,14 +234,6 @@ class TeamController extends Controller
     }
 
     // ── Private helpers ───────────────────────────────────────────────────
-
-    private function authorizeTeamAccess(Team $team): void
-    {
-        $user = Auth::user();
-        if (! $user->belongsToTeam($team)) {
-            abort(403);
-        }
-    }
 
     private function authorizeOwner(Team $team): void
     {

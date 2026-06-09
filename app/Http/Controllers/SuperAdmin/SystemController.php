@@ -48,19 +48,14 @@ class SystemController extends Controller
 
         $request->validate(['plan' => 'required|in:free,pro,studio']);
 
-        $limits = [
-            'free'   => ['max_galleries' => 1,   'max_images' => 10],
-            'pro'    => ['max_galleries' => 999,  'max_images' => 100],
-            'studio' => ['max_galleries' => 999,  'max_images' => 100],
-        ];
-
-        $plan = $request->plan;
+        $plan    = $request->plan;
         $oldPlan = $user->plan;
+        $limits  = User::planLimits($plan);
 
         $user->update([
             'plan'           => $plan,
-            'max_galleries'  => $limits[$plan]['max_galleries'],
-            'max_images'     => $limits[$plan]['max_images'],
+            'max_galleries'  => $limits['max_galleries'],
+            'max_images'     => $limits['max_images'],
             'plan_started_at'=> now(),
             'plan_expires_at'=> $plan === 'free' ? null : now()->addYear(),
         ]);

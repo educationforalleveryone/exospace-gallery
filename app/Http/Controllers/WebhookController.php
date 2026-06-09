@@ -198,10 +198,11 @@ class WebhookController extends Controller
         $user = User::where('email', $customerEmail)->first();
         
         if ($user && in_array($user->plan, ['pro', 'studio'])) {
+            $limits = User::planLimits('free');
             $user->update([
                 'plan'            => 'free',
-                'max_galleries'   => 1,
-                'max_images'      => 10,
+                'max_galleries'   => $limits['max_galleries'],
+                'max_images'      => $limits['max_images'],
                 'plan_expires_at' => now(),
             ]);
 

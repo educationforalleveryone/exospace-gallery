@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
 use App\Models\Gallery;
 use App\Models\GalleryEvent;
 use Illuminate\Http\Request;
@@ -11,23 +12,14 @@ use Illuminate\Support\Facades\DB;
 
 class AnalyticsController extends Controller
 {
+    use AuthorizesGalleryAccess;
+
     /**
      * Show the analytics dashboard for a gallery.
      */
     public function show(Gallery $gallery)
     {
-        // Authorization: personal gallery must be owned by user; team gallery must be a member
-        $user = Auth::user();
-        if ($gallery->team_id) {
-            $team = $gallery->team;
-            if (!$team || !$user->belongsToTeam($team)) {
-                abort(403);
-            }
-        } else {
-            if ($gallery->user_id !== $user->id) {
-                abort(403);
-            }
-        }
+        $this->authorizeGalleryAccess($gallery);
 
         $now   = now();
         $day7  = $now->copy()->subDays(7);

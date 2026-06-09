@@ -96,6 +96,17 @@ class User extends Authenticatable implements MustVerifyEmail
 
     // ── Plan helpers ──────────────────────────────────────────────────────
 
+    /**
+     * Canonical plan → limit map. Single source of truth for the whole app.
+     */
+    public static function planLimits(string $plan): array
+    {
+        return match($plan) {
+            'pro', 'studio' => ['max_galleries' => 999, 'max_images' => 100],
+            default         => ['max_galleries' => 1,   'max_images' => 10],
+        };
+    }
+
     public function isPro(): bool
     {
         return in_array($this->plan, ['pro', 'studio']);

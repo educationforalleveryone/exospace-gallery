@@ -12,7 +12,7 @@ class GalleryViewController extends Controller
     {
         $gallery = Gallery::where('slug', $slug)
             ->where('is_active', true)
-            ->with(['images' => fn($q) => $q->orderBy('position_order')])
+            ->with('images')
             ->firstOrFail();
 
         // Time-gate: not open yet
