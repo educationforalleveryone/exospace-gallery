@@ -12,12 +12,10 @@
                     New Gallery
                 </a>
             @else
-                <button onclick="document.getElementById('upgrade-modal').style.display='flex'" class="bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold py-2 px-6 rounded-lg transition inline-flex items-center cursor-pointer border border-gray-600">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                    </svg>
-                    New Gallery
-                    <span class="ml-2 text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">Pro</span>
+                <button onclick="openModal('upgrade-modal')" 
+                        class="bg-gradient-to-r from-purple-600/80 to-indigo-600/80 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold py-2 px-5 rounded-lg transition inline-flex items-center cursor-pointer gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                    Upgrade for more
                 </button>
             @endif
         </div>
@@ -33,7 +31,15 @@
             @endif
 
             @if(session('upgrade'))
-                <script>document.addEventListener('DOMContentLoaded', () => document.getElementById('upgrade-modal').style.display='flex');</script>
+                <script>document.addEventListener('DOMContentLoaded', () => openModal('upgrade-modal'));</script>
+            @endif
+
+            @if(!auth()->user()->canCreateGallery())
+            <div class="mb-6 flex items-center gap-3 bg-purple-950/50 border border-purple-600/40 rounded-xl px-4 py-3">
+                <svg class="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <p class="flex-1 text-sm text-purple-200">You're on the Free plan — 1 gallery maximum. Upgrade to Pro for unlimited galleries and more image slots.</p>
+                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition whitespace-nowrap">Upgrade — $29</a>
+            </div>
             @endif
 
             @if($galleries->count() > 0)
@@ -278,31 +284,7 @@
         </div>
     </div>
 
-    <!-- Upgrade Modal -->
-    <div id="upgrade-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
-        <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 max-w-md w-full mx-4 text-center">
-            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center mx-auto mb-5">
-                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                </svg>
-            </div>
-            <h3 class="text-xl font-bold text-gray-100 mb-2">Upgrade to Pro</h3>
-            <p class="text-gray-400 text-sm mb-1">
-                You've reached the gallery limit on your <span class="text-gray-300 font-semibold">Free</span> plan.
-            </p>
-            <p class="text-gray-500 text-sm mb-6">
-                Upgrade to <span class="text-purple-400 font-semibold">Pro ($29)</span> for unlimited galleries and watermark removal.
-            </p>
-            <div class="flex gap-3 justify-center">
-                <a href="/pricing" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition text-sm">
-                    See Plans
-                </a>
-                <button onclick="document.getElementById('upgrade-modal').style.display='none'" class="bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold py-2 px-5 rounded-lg transition text-sm">
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
+    <x-upgrade-modal />
 
     <script>
         function shareGallery(url, title) {
@@ -336,7 +318,6 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.getElementById('share-modal').style.display = 'none';
-                document.getElementById('upgrade-modal').style.display = 'none';
             }
         });
     </script>

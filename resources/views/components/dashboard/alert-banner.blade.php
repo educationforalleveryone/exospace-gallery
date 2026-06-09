@@ -12,6 +12,7 @@ $styles = [
     'warning' => ['wrap' => 'bg-amber-950/50 border-amber-700/50', 'icon' => 'text-amber-400', 'text' => 'text-amber-200', 'action' => 'text-amber-300 hover:text-amber-100'],
     'error'   => ['wrap' => 'bg-red-950/50 border-red-700/50',     'icon' => 'text-red-400',   'text' => 'text-red-200',   'action' => 'text-red-300 hover:text-red-100'],
     'success' => ['wrap' => 'bg-green-950/50 border-green-700/50', 'icon' => 'text-green-400', 'text' => 'text-green-200', 'action' => 'text-green-300 hover:text-green-100'],
+    'upgrade' => ['wrap' => 'bg-purple-950/60 border-purple-600/40', 'icon' => 'text-purple-400', 'text' => 'text-purple-200', 'action' => 'text-purple-300 hover:text-white'],
 ];
 $s = $styles[$type] ?? $styles['info'];
 $defaultIcons = [

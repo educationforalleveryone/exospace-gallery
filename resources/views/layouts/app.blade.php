@@ -131,5 +131,18 @@
             lastKey = e.key; lastTime = now;
         });
         </script>
+        <script>
+        function openModal(id)  { const m=document.getElementById(id); m.style.display='flex'; m.classList.add('flex'); }
+        function closeModal(id) { const m=document.getElementById(id); m.style.display='none'; m.classList.remove('flex'); }
+        // close on backdrop click
+        document.addEventListener('DOMContentLoaded',()=>{
+            document.querySelectorAll('[role="dialog"]').forEach(m=>{
+                m.addEventListener('click', e=>{ if(e.target===m) closeModal(m.id); });
+            });
+            document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('[role="dialog"]').forEach(m=>closeModal(m.id)); });
+        });
+        // alias for existing calls
+        function showUpgradeModal(){ openModal('upgrade-modal'); }
+        </script>
     </body>
 </html>

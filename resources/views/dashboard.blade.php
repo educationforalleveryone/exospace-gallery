@@ -177,7 +177,13 @@
                 </div>
 
                 <!-- Plan & Quota -->
-                <div class="bg-gray-800 rounded-xl border border-gray-700/60 p-5 card-lift group" role="region" aria-label="Plan status">
+                @php
+                    $imgCount = Auth::user()->currentImageCount();
+                    $imgMax = Auth::user()->max_images * max($galleriesCount, 1);
+                    $galleryPct = $galleryPercent;
+                    $nearLimit = $galleryPercent >= 80;
+                @endphp
+                <div class="bg-gray-800 rounded-xl border {{ $nearLimit ? 'border-orange-600/40' : 'border-gray-700/60' }} p-5 card-lift group" role="region" aria-label="Plan status">
                     <div class="flex items-start justify-between mb-3">
                         <div class="bg-blue-600/15 w-10 h-10 rounded-lg flex items-center justify-center group-hover:bg-blue-600/25 transition-colors" aria-hidden="true">
                             <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,31 +192,53 @@
                         </div>
                         @if(Auth::user()->plan === 'free')
                             <span class="text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded-full border border-gray-600">Free</span>
-                        @else
+                        @elseif(Auth::user()->plan === 'pro')
                             <span class="text-xs bg-purple-600/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">Pro</span>
+                        @else
+                            <span class="text-xs bg-indigo-600/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">Studio</span>
                         @endif
                     </div>
-                    <div class="text-sm font-semibold text-gray-200 mb-2.5">Your Plan</div>
-                    <div class="space-y-2 text-xs text-gray-400">
-                        <div class="flex justify-between items-center">
-                            <span>Images per gallery</span>
-                            <span class="text-gray-300 font-medium">{{ Auth::user()->max_images }}</span>
+
+                    <div class="text-sm font-semibold text-gray-200 mb-2.5">
+                        @if(Auth::user()->plan === 'free') Free Plan @elseif(Auth::user()->plan === 'pro') Pro Plan @else Studio Plan @endif
+                    </div>
+
+                    {{-- Gallery quota bar --}}
+                    <div class="space-y-1.5 mb-3">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-gray-400">Galleries</span>
+                            <span class="{{ $nearLimit ? 'text-orange-400 font-semibold' : 'text-gray-300' }}">
+                                {{ $galleriesCount }}&thinsp;/&thinsp;{{ Auth::user()->max_galleries }}
+                                @if($nearLimit && !$isAtLimit) <span class="text-orange-400">— almost full</span> @endif
+                                @if($isAtLimit) <span class="text-red-400">— limit reached</span> @endif
+                            </span>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span>Galleries</span>
-                            <span class="text-gray-300 font-medium">{{ $galleriesCount }}/{{ Auth::user()->max_galleries }}</span>
+                        <div class="w-full bg-gray-700/60 h-1.5 rounded-full overflow-hidden">
+                            <div class="h-1.5 rounded-full transition-all duration-500 {{ $isAtLimit ? 'bg-red-500' : ($nearLimit ? 'bg-orange-400' : 'bg-gradient-to-r from-purple-500 to-indigo-500') }}"
+                                 style="width: {{ $galleryPercent }}%"></div>
                         </div>
                     </div>
+
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>Images per gallery</span>
+                        <span class="text-gray-300 font-medium">{{ Auth::user()->max_images }}</span>
+                    </div>
+
                     @if(Auth::user()->plan === 'free')
                     <div class="mt-4 pt-3 border-t border-gray-700/50">
+                        @if($isAtLimit)
+                        <a href="/pricing" class="flex items-center justify-center gap-1.5 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white text-xs font-semibold py-2 rounded-lg transition-all duration-200 active:scale-95">
+                            You've hit the limit — Upgrade
+                        </a>
+                        @else
                         <a href="/pricing" class="flex items-center justify-center gap-1.5 w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold py-2 rounded-lg transition-all duration-200 active:scale-95">
                             <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
                             Upgrade to Pro
                         </a>
+                        @endif
                     </div>
                     @endif
                 </div>
-            </div>
 
             <!-- Recent Galleries or Empty State -->
             @if($galleriesCount > 0)
@@ -352,43 +380,69 @@
             </div>
         </div>
 
-        <!-- Upgrade limit modal (triggered by JS) -->
+        <!-- Upgrade limit modal -->
         <div id="upgrade-modal"
              class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
              role="dialog" aria-modal="true" aria-labelledby="upgrade-heading">
             <div class="bg-gray-900 border border-gray-700 rounded-2xl max-w-sm w-full shadow-2xl p-6 text-center relative">
-                <button onclick="document.getElementById('upgrade-modal').style.display='none'; document.getElementById('upgrade-modal').classList.remove('flex');"
+                <button onclick="closeUpgradeModal()"
                         class="absolute top-3 right-3 text-gray-500 hover:text-gray-300 transition"
-                        aria-label="Close upgrade dialog">
+                        aria-label="Close">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
-                <div class="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-3" aria-hidden="true">
-                    <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+
+                <div class="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                 </div>
-                <h3 id="upgrade-heading" class="text-lg font-bold text-white mb-1.5">Gallery limit reached</h3>
-                <p class="text-sm text-gray-400 mb-5">Upgrade to Pro to create unlimited 3D exhibitions.</p>
-                <div class="space-y-2.5">
-                    <a href="/pricing" class="block w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white font-bold py-2.5 rounded-xl transition text-sm active:scale-95">
-                        See Pricing
+
+                <h3 id="upgrade-heading" class="text-lg font-bold text-white mb-1">You've used your 1 gallery</h3>
+                <p class="text-sm text-gray-400 mb-4">Pro unlocks unlimited galleries, more images, background music, and exhibition scheduling.</p>
+
+                <div class="bg-gray-800 rounded-xl p-3 mb-5 text-left space-y-2">
+                    <div class="flex items-center gap-2 text-xs text-gray-300">
+                        <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        Unlimited galleries
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-gray-300">
+                        <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        50 images per gallery (free: 10)
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-gray-300">
+                        <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        Background music + exhibition scheduling
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-gray-300">
+                        <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        No watermark — $29 one-time
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <a href="/pricing" class="block w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2.5 rounded-xl transition text-sm active:scale-95">
+                        See Plans — from $29
                     </a>
-                    <button onclick="document.getElementById('upgrade-modal').style.display='none'; document.getElementById('upgrade-modal').classList.remove('flex');"
+                    <button onclick="closeUpgradeModal()"
                             class="block w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-2.5 rounded-xl transition text-sm">
-                        Maybe Later
+                        Not now
                     </button>
                 </div>
             </div>
         </div>
         <script>
-        // Upgrade modal trigger helper
         function showUpgradeModal() {
             const m = document.getElementById('upgrade-modal');
             m.style.display = 'flex';
             m.classList.add('flex');
-            // trap focus on Escape
-            m.addEventListener('keydown', e => {
-                if (e.key === 'Escape') { m.style.display='none'; m.classList.remove('flex'); }
-            });
+            m.addEventListener('keydown', e => { if (e.key === 'Escape') closeUpgradeModal(); });
         }
+        function closeUpgradeModal() {
+            const m = document.getElementById('upgrade-modal');
+            m.style.display = 'none';
+            m.classList.remove('flex');
+        }
+        document.getElementById('upgrade-modal').addEventListener('click', e => {
+            if (e.target === e.currentTarget) closeUpgradeModal();
+        });
         </script>
 
     </div>

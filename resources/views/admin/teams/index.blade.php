@@ -20,6 +20,14 @@
                 <div class="p-4 bg-green-900 border border-green-700 text-green-200 rounded-lg">{{ session('status') }}</div>
             @endif
 
+            {{-- Info callout for free users --}}
+            @if(auth()->user()->plan === 'free')
+            <div class="mb-6 flex items-start gap-3 bg-blue-950/40 border border-blue-700/40 rounded-xl px-4 py-3">
+                <svg class="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <p class="text-sm text-blue-200">Teams use the <strong>owner's plan</strong>. If the team owner is on Pro, all members get Pro gallery limits. Your personal galleries follow your own plan.</p>
+            </div>
+            @endif
+
             {{-- Teams I Own --}}
             <div>
                 <h3 class="text-lg font-semibold text-gray-200 mb-4">Teams You Own</h3>

@@ -437,17 +437,17 @@
         <h3 style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Pro — $29</h3>
         <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
         <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
-            <li>Up to 5 galleries</li>
+            <li>Unlimited galleries</li>
             <li>50 images per gallery</li>
-            <li>Analytics dashboard</li>
+            <li>Background music & scheduling</li>
             <li>No watermark</li>
-            <li>Priority support</li>
+            <li>Priority email support</li>
         </ul>
         <a href="https://www.2checkout.com/checkout/purchase?sid={{ config('services.2checkout.account_number') }}&product_id={{ config('services.2checkout.product_id_pro') }}&quantity=1" target="_blank"
            style="display:block; background:linear-gradient(135deg,#3b82f6,#8b5cf6); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
             Pay Securely with 2Checkout →
         </a>
-        <p style="font-size:0.72rem; color:#475569;">After payment, log in with the same email to activate your plan.</p>
+        <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
         <button onclick="document.getElementById('upgrade-modal-pro').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
     </div>
 </div>
@@ -469,7 +469,7 @@
            style="display:block; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
             Pay Securely with 2Checkout →
         </a>
-        <p style="font-size:0.72rem; color:#475569;">After payment, log in with the same email to activate your plan.</p>
+        <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
         <button onclick="document.getElementById('upgrade-modal-studio').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
     </div>
 </div>

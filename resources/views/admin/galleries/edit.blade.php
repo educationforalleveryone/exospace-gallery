@@ -194,15 +194,14 @@
                                 <p class="text-xs text-gray-500 mt-2">MP3, WAV, or M4A • Max 10MB • Upload happens instantly</p>
                             </div>
                         @else
-                            <!-- Show locked state for Free users -->
-                            <div class="bg-gray-700/50 border border-gray-600 rounded-lg p-6 text-center">
-                                <svg class="w-12 h-12 text-gray-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                </svg>
-                                <p class="text-gray-400 mb-4 text-sm">Background music is a <strong>Pro feature</strong></p>
-                                <p class="text-gray-500 text-xs mb-4">Add ambient soundtracks to create immersive 3D experiences</p>
-                                <a href="/pricing" class="inline-block bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition text-sm">
-                                    Upgrade to Pro - $29
+                            <!-- Show locked state for Free users (inline design) -->
+                            <div class="flex items-center justify-between gap-4 bg-gray-800/60 border border-dashed border-gray-600 rounded-lg px-4 py-3">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                    <p class="text-sm text-gray-400">Add ambient audio to your gallery — ambient soundscapes, custom tracks, anything MP3.</p>
+                                </div>
+                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-purple-400 hover:text-purple-300 border border-purple-600/40 hover:border-purple-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                    Pro — $29
                                 </a>
                             </div>
                         @endif
@@ -342,24 +341,14 @@
                                 </div>
                             @endif
                         @else
-                            <div class="relative">
-                                <div class="bg-gray-800/30 rounded-lg p-5 border-2 border-dashed border-gray-700 opacity-50 pointer-events-none">
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <div class="h-4 bg-gray-700 rounded w-20 mb-2"></div>
-                                            <div class="h-10 bg-gray-700 rounded w-full"></div>
-                                        </div>
-                                        <div>
-                                            <div class="h-4 bg-gray-700 rounded w-20 mb-2"></div>
-                                            <div class="h-10 bg-gray-700 rounded w-full"></div>
-                                        </div>
-                                    </div>
+                            <div class="flex items-center justify-between gap-4 bg-gray-800/60 border border-dashed border-gray-600 rounded-lg px-4 py-3">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                    <p class="text-sm text-gray-400">Set an opening date — visitors see a live countdown. Close it automatically after the run ends.</p>
                                 </div>
-                                <div class="absolute inset-0 flex items-center justify-center">
-                                    <a href="/pricing" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold px-6 py-2.5 rounded-lg shadow-lg transform hover:scale-105 transition-all text-sm">
-                                        Upgrade to Pro to Schedule Exhibitions
-                                    </a>
-                                </div>
+                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-purple-400 hover:text-purple-300 border border-purple-600/40 hover:border-purple-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                    Pro — $29
+                                </a>
                             </div>
                         @endif
                     </div>
@@ -378,6 +367,33 @@
             <!-- 2. Image Upload Area -->
             <div class="bg-gray-800 border border-gray-700 shadow-lg sm:rounded-lg p-6">
                 <h3 class="text-lg font-medium text-gray-100 mb-4">Upload Artworks</h3>
+                
+                @php
+                    $imgCount = $gallery->images()->count();
+                    $imgMax   = Auth::user()->max_images;
+                    $imgPct   = $imgMax > 0 ? min(($imgCount / $imgMax) * 100, 100) : 0;
+                    $imgNear  = $imgPct >= 80;
+                    $imgFull  = $imgCount >= $imgMax;
+                @endphp
+
+                @if($imgNear || $imgFull)
+                <div class="mb-4 flex items-center gap-3 {{ $imgFull ? 'bg-red-950/40 border-red-700/50' : 'bg-amber-950/40 border-amber-600/50' }} border rounded-xl px-4 py-3">
+                    <svg class="w-4 h-4 {{ $imgFull ? 'text-red-400' : 'text-amber-400' }} flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <p class="flex-1 text-sm {{ $imgFull ? 'text-red-200' : 'text-amber-200' }}">
+                        @if($imgFull)
+                            This gallery has reached its {{ $imgMax }}-image limit.
+                            @if(!Auth::user()->isPro()) Upgrade to Pro for 50 images per gallery. @endif
+                        @else
+                            {{ $imgCount }} of {{ $imgMax }} images used — {{ $imgMax - $imgCount }} slot{{ $imgMax - $imgCount === 1 ? '' : 's' }} remaining.
+                        @endif
+                    </p>
+                    @if(!Auth::user()->isPro())
+                    <a href="/pricing" class="flex-shrink-0 text-xs font-semibold {{ $imgFull ? 'bg-red-600 hover:bg-red-500' : 'bg-amber-600 hover:bg-amber-500' }} text-white px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                        Upgrade
+                    </a>
+                    @endif
+                </div>
+                @endif
                 
                 <form action="{{ route('admin.images.store', $gallery) }}" 
                       class="dropzone border-dashed border-2 border-gray-600 rounded-lg bg-gray-750/50 hover:bg-gray-750 transition-all duration-300 cursor-pointer" 
