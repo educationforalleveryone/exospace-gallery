@@ -5,11 +5,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
+        <title>{{ config('app.name', 'Exospace') }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -69,9 +69,11 @@
                 </div>
 
                 {{-- Auth card --}}
-                <div class="w-full sm:max-w-md lg:w-96 px-6 py-8 bg-gray-800 border border-gray-700 shadow-2xl overflow-hidden sm:rounded-lg flex-shrink-0">
+                <div class="w-full sm:max-w-md lg:w-96 px-6 py-8 bg-gray-800/90 border border-gray-700/80 shadow-2xl overflow-hidden sm:rounded-xl flex-shrink-0 relative">
+    <div class="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-purple-500 to-transparent"></div>
                     {{ $slot }}
                 </div>
+            </div>
             </div>
             
             <div class="mt-6 text-center">

@@ -9,7 +9,7 @@
 
         <!-- Fonts: Inter for body, display weight for headings -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -64,18 +64,18 @@
             .mobile-menu-open { animation: slideDown 0.2s ease-out; }
         </style>
     </head>
-    <body class="font-sans antialiased bg-gray-900 text-gray-100">
+    <body class="font-sans antialiased bg-[#0f1117] text-gray-100">
         <!-- Skip to main content (accessibility) -->
         <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-purple-600 focus:text-white focus:rounded-lg focus:font-semibold">
             Skip to main content
         </a>
 
-        <div class="min-h-screen bg-gray-900">
+        <div class="min-h-screen bg-[#0f1117]">
             @include('layouts.navigation')
 
             <!-- Page Heading -->
             @isset($header)
-                <header class="bg-gray-800/80 backdrop-blur-sm shadow-lg border-b border-gray-700/60 sticky top-0 z-30">
+                <header class="bg-gray-800/40 border-b border-gray-700/40">
                     <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
                         {{ $header }}
                     </div>
@@ -97,11 +97,15 @@
         <script>
         // Global toast utility
         window.toast = function(message, type = 'success') {
-            const colors = { success: 'bg-green-800 border-green-600', error: 'bg-red-900 border-red-700', info: 'bg-gray-800 border-gray-600' };
-            const icons  = { success: '✓', error: '✕', info: 'ℹ' };
+            const colors = { success: 'bg-gray-900 border-green-500/40', error: 'bg-gray-900 border-red-500/40', info: 'bg-gray-900 border-gray-600' };
+            const icons  = {
+                success: '<svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>',
+                error:   '<svg class="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>',
+                info:    '<svg class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+            };
             const el = document.createElement('div');
-            el.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg border text-sm font-medium text-white shadow-xl ${colors[type]} transition-all duration-300 translate-y-2 opacity-0`;
-            el.innerHTML = `<span class="text-base">${icons[type]}</span><span>${message}</span>`;
+            el.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium text-gray-100 shadow-2xl backdrop-blur-sm ${colors[type]} transition-all duration-300 translate-y-2 opacity-0 min-w-[260px] max-w-sm`;
+            el.innerHTML = `${icons[type]}<span class="flex-1">${message}</span>`;
             document.getElementById('toast-container').appendChild(el);
             requestAnimationFrame(() => { el.classList.remove('translate-y-2','opacity-0'); });
             setTimeout(() => {

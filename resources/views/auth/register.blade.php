@@ -66,7 +66,7 @@
             </a>
 
             <x-primary-button class="ms-4">
-                {{ isset($invitationToken) ? __('Create Account & Join Team') : __('Register') }}
+                {{ isset($invitationToken) ? __('Create account & join team') : __('Create account') }}
             </x-primary-button>
         </div>
 

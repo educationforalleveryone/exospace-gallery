@@ -65,7 +65,7 @@
                         @php
                             $coverImage = $gallery->images()->first();
                         @endphp
-                        <div class="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden hover:border-purple-500/60 transition-all duration-200 shadow-lg group card-lift">
+                        <div class="bg-gray-800 border border-gray-700/80 rounded-xl overflow-hidden hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-900/10 transition-all duration-200 group card-lift">
                             
                             <!-- Cover Image -->
                             <div class="relative aspect-video bg-gradient-to-br from-purple-900/20 to-indigo-900/20 overflow-hidden">

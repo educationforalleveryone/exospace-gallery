@@ -50,7 +50,7 @@ $trendFlat = $trend !== null && $trend === 0;
             </div>
         </div>
 
-        <div class="text-2xl sm:text-3xl font-bold text-gray-100 tabular-nums leading-none mb-1">{{ $value }}</div>
+        <div class="text-2xl font-bold text-gray-100 tabular-nums leading-none tracking-tight mb-1">{{ $value }}</div>
         <div class="text-sm text-gray-400 mb-2">{{ $label }}</div>
 
         <div class="flex items-center gap-2 min-h-[18px]">
