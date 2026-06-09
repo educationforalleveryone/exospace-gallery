@@ -84,13 +84,31 @@
                                 @endif
                                 
                                 <!-- Status Badge -->
-                                <div class="absolute top-3 right-3">
+                                <div class="absolute top-3 right-3 flex flex-col items-end gap-1.5">
                                     @if($gallery->is_active)
                                         <span class="bg-green-500/90 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full font-medium">Live</span>
                                     @else
                                         <span class="bg-gray-500/90 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full font-medium">Draft</span>
                                     @endif
                                 </div>
+                                <!-- Venue Badge -->
+                                @if($gallery->venueTemplate)
+                                <div class="absolute top-3 left-3">
+                                    <span class="bg-black/60 backdrop-blur-sm text-purple-300 text-xs px-2.5 py-1 rounded-full font-medium border border-purple-500/30">
+                                        {{ match($gallery->venueTemplate->slug) {
+                                            'white-cube'       => '⬜ ',
+                                            'industrial-loft'  => '🏭 ',
+                                            'dark-museum'      => '🏛️ ',
+                                            'zen-gallery'      => '🎋 ',
+                                            'luxury-penthouse' => '🏙️ ',
+                                            'cyber-gallery'    => '🌐 ',
+                                            'sculpture-garden' => '🌿 ',
+                                            'infinite-void'    => '✨ ',
+                                            default            => ''
+                                        } }}{{ $gallery->venueTemplate->name }}
+                                    </span>
+                                </div>
+                                @endif
                             </div>
                             
                             <!-- Content -->
@@ -159,10 +177,10 @@
                             </div>
                             
                             <h2 class="text-3xl md:text-4xl font-bold text-gray-100 mb-3">
-                                Create Your First <span class="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">3D Masterpiece</span>
+                                Choose a Venue. <span class="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">Open Your Exhibition.</span>
                             </h2>
                             <p class="text-lg text-gray-400 max-w-2xl mx-auto">
-                                Transform your images into an immersive virtual gallery in under 60 seconds
+                                Pick from distinct 3D spaces — White Cube, Industrial Loft, Dark Museum and more. Each venue has its own architecture, scale, and atmosphere.
                             </p>
                         </div>
                         
@@ -182,8 +200,8 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                             </svg>
                                         </div>
-                                        <h3 class="text-lg font-bold text-gray-100 mb-2">Name Your Exhibition</h3>
-                                        <p class="text-sm text-gray-400">Give your gallery a memorable title and description</p>
+                                        <h3 class="text-lg font-bold text-gray-100 mb-2">Choose Your Venue</h3>
+                                        <p class="text-sm text-gray-400">Pick the space that fits your work — each venue has a distinct architecture</p>
                                     </div>
                                 </div>
                                 
@@ -199,8 +217,8 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                             </svg>
                                         </div>
-                                        <h3 class="text-lg font-bold text-gray-100 mb-2">Upload Your Art</h3>
-                                        <p class="text-sm text-gray-400">Add up to {{ auth()->user()->max_images }} stunning images to your space</p>
+                                        <h3 class="text-lg font-bold text-gray-100 mb-2">Hang Your Artworks</h3>
+                                        <p class="text-sm text-gray-400">Upload up to {{ auth()->user()->max_images }} images — placed automatically on the walls</p>
                                     </div>
                                 </div>
                                 
@@ -216,8 +234,8 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path>
                                             </svg>
                                         </div>
-                                        <h3 class="text-lg font-bold text-gray-100 mb-2">Experience in 3D</h3>
-                                        <p class="text-sm text-gray-400">Walk through your virtual gallery and share with the world</p>
+                                        <h3 class="text-lg font-bold text-gray-100 mb-2">Walk In. Share It.</h3>
+                                        <p class="text-sm text-gray-400">Enter your venue in 3D and send the link to anyone in the world</p>
                                     </div>
                                 </div>
                                 

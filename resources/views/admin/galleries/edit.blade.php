@@ -120,49 +120,96 @@
                                 class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">{{ old('description', $gallery->description) }}</textarea>
                         </div>
 
-                        <!-- Wall Texture -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Wall Texture</label>
-                            <select name="wall_texture" required
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">
-                                <option value="white" {{ $gallery->wall_texture == 'white' ? 'selected' : '' }}>White Museum</option>
-                                <option value="concrete" {{ $gallery->wall_texture == 'concrete' ? 'selected' : '' }}>Concrete</option>
-                                <option value="brick" {{ $gallery->wall_texture == 'brick' ? 'selected' : '' }}>Brick</option>
-                                <option value="wood" {{ $gallery->wall_texture == 'wood' ? 'selected' : '' }}>Wood</option>
-                            </select>
                         </div>
 
-                        <!-- Floor Material -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Floor Material</label>
-                            <select name="floor_material" required
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">
-                                <option value="wood" {{ $gallery->floor_material == 'wood' ? 'selected' : '' }}>Wood</option>
-                                <option value="marble" {{ $gallery->floor_material == 'marble' ? 'selected' : '' }}>Marble</option>
-                                <option value="concrete" {{ $gallery->floor_material == 'concrete' ? 'selected' : '' }}>Concrete</option>
-                            </select>
-                        </div>
+                    {{-- Hidden fields — populated by venue picker OR advanced overrides --}}
+                    <input type="hidden" name="wall_texture"      id="edit_wall_texture"      value="{{ old('wall_texture', $gallery->wall_texture) }}">
+                    <input type="hidden" name="floor_material"    id="edit_floor_material"    value="{{ old('floor_material', $gallery->floor_material) }}">
+                    <input type="hidden" name="frame_style"       id="edit_frame_style"       value="{{ old('frame_style', $gallery->frame_style) }}">
+                    <input type="hidden" name="lighting_preset"   id="edit_lighting_preset"   value="{{ old('lighting_preset', $gallery->lighting_preset) }}">
+                    <input type="hidden" name="room_layout"       id="edit_room_layout"       value="{{ old('room_layout', $gallery->room_layout ?? 'square') }}">
+                    <input type="hidden" name="venue_template_id" id="edit_venue_template_id" value="{{ old('venue_template_id', $gallery->venue_template_id) }}">
 
-                        <!-- Frame Style -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Frame Style</label>
-                            <select name="frame_style" required
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">
-                                <option value="modern" {{ $gallery->frame_style == 'modern' ? 'selected' : '' }}>Modern (Black)</option>
-                                <option value="classic" {{ $gallery->frame_style == 'classic' ? 'selected' : '' }}>Classic (Gold)</option>
-                                <option value="minimal" {{ $gallery->frame_style == 'minimal' ? 'selected' : '' }}>Minimal (Frameless)</option>
-                            </select>
+                    {{-- ── Venue Picker ──────────────────────────── --}}
+                    <div class="mb-5">
+                        <label class="block text-sm font-medium text-gray-400 mb-3">Venue</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="edit-venue-cards">
+                            @foreach($venueTemplates as $venue)
+                                @php
+                                    $accessible = $venue->isAccessibleBy(auth()->user());
+                                    $isSelected = $gallery->venue_template_id == $venue->id;
+                                @endphp
+                                <div class="edit-venue-card cursor-pointer"
+                                     data-venue-id="{{ $venue->id }}"
+                                     data-wall="{{ $venue->default_settings['wall_texture'] }}"
+                                     data-floor="{{ $venue->default_settings['floor_material'] }}"
+                                     data-frame="{{ $venue->default_settings['frame_style'] }}"
+                                     data-lighting="{{ $venue->default_settings['lighting_preset'] }}"
+                                     data-layout="{{ $venue->default_settings['room_layout'] }}"
+                                     data-accessible="{{ $accessible ? 'true' : 'false' }}">
+                                    <div class="edit-venue-card-inner border-2 {{ $isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-600' }} {{ !$accessible ? 'opacity-50' : '' }} rounded-lg p-3 text-center transition-all hover:border-purple-400 h-full flex flex-col items-center">
+                                        <div class="text-xl mb-1">
+                                            {{ $venue->slug === 'white-cube'       ? '⬜' :
+                                               ($venue->slug === 'industrial-loft'  ? '🏭' :
+                                               ($venue->slug === 'dark-museum'      ? '🏛️' :
+                                               ($venue->slug === 'zen-gallery'      ? '🎋' :
+                                               ($venue->slug === 'luxury-penthouse' ? '🏙️' :
+                                               ($venue->slug === 'cyber-gallery'    ? '🌐' :
+                                               ($venue->slug === 'sculpture-garden' ? '🌿' :
+                                                '✨')))))))}}
+                                        </div>
+                                        <div class="text-xs font-medium text-gray-200 leading-tight">{{ $venue->name }}</div>
+                                        @if(!$accessible)
+                                            <span class="mt-1 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded-full">{{ ucfirst($venue->plan_required) }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
+                        <p class="text-xs text-gray-500 mt-2" id="edit-venue-description"></p>
+                    </div>
 
-                        <!-- Lighting -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Lighting</label>
-                            <select name="lighting_preset" required
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">
-                                <option value="bright" {{ $gallery->lighting_preset == 'bright' ? 'selected' : '' }}>Bright</option>
-                                <option value="moody" {{ $gallery->lighting_preset == 'moody' ? 'selected' : '' }}>Moody</option>
-                                <option value="dramatic" {{ $gallery->lighting_preset == 'dramatic' ? 'selected' : '' }}>Dramatic</option>
-                            </select>
+                    {{-- ── Advanced overrides (collapsed) ───────────── --}}
+                    <div x-data="{ open: false }" class="mb-4">
+                        <button type="button" @click="open = !open"
+                                class="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition border-t border-gray-700/60 pt-3 pb-1 w-full text-left">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                            Override venue materials
+                            <svg class="w-3.5 h-3.5 ml-auto transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div x-show="open" x-transition class="grid grid-cols-2 gap-3 mt-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Wall</label>
+                                <select id="adv_wall" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
+                                    @foreach(['white'=>'White','concrete'=>'Concrete','brick'=>'Brick','wood'=>'Wood'] as $v=>$l)
+                                        <option value="{{ $v }}" {{ $gallery->wall_texture == $v ? 'selected' : '' }}>{{ $l }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Floor</label>
+                                <select id="adv_floor" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
+                                    @foreach(['wood'=>'Wood','marble'=>'Marble','concrete'=>'Concrete'] as $v=>$l)
+                                        <option value="{{ $v }}" {{ $gallery->floor_material == $v ? 'selected' : '' }}>{{ $l }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Frame</label>
+                                <select id="adv_frame" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
+                                    @foreach(['modern'=>'Modern (Black)','classic'=>'Classic (Gold)','minimal'=>'Minimal'] as $v=>$l)
+                                        <option value="{{ $v }}" {{ $gallery->frame_style == $v ? 'selected' : '' }}>{{ $l }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Lighting</label>
+                                <select id="adv_lighting" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
+                                    @foreach(['bright'=>'Bright','moody'=>'Moody','dramatic'=>'Dramatic'] as $v=>$l)
+                                        <option value="{{ $v }}" {{ $gallery->lighting_preset == $v ? 'selected' : '' }}>{{ $l }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -972,4 +1019,73 @@
         });
     </script>
 
+<script>
+const editVenueDescriptions = {
+    'white-cube':       'Minimal contemporary exhibition space.',
+    'industrial-loft':  'Concrete, steel and large open spaces.',
+    'dark-museum':      'Dramatic lighting with black walls.',
+    'zen-gallery':      'Minimal architecture with natural materials.',
+    'luxury-penthouse': 'High-end collector experience.',
+    'cyber-gallery':    'Futuristic neon exhibition space.',
+    'sculpture-garden': 'Open-air exhibition environment.',
+    'infinite-void':    'Floating artworks in an endless environment.',
+};
+const editSlugMap = @json($venueTemplates->pluck('slug', 'id'));
+
+function selectEditVenue(card) {
+    if (card.dataset.accessible !== 'true') {
+        window.location.href = '/pricing';
+        return;
+    }
+    document.querySelectorAll('.edit-venue-card-inner').forEach(el => {
+        el.classList.remove('border-purple-500', 'bg-purple-900/20');
+        el.classList.add('border-gray-600');
+    });
+    card.querySelector('.edit-venue-card-inner').classList.remove('border-gray-600');
+    card.querySelector('.edit-venue-card-inner').classList.add('border-purple-500', 'bg-purple-900/20');
+
+    // Populate hidden fields from venue defaults
+    document.getElementById('edit_wall_texture').value      = card.dataset.wall;
+    document.getElementById('edit_floor_material').value    = card.dataset.floor;
+    document.getElementById('edit_frame_style').value       = card.dataset.frame;
+    document.getElementById('edit_lighting_preset').value   = card.dataset.lighting;
+    document.getElementById('edit_room_layout').value       = card.dataset.layout;
+    document.getElementById('edit_venue_template_id').value = card.dataset.venueId;
+
+    // Sync advanced dropdowns to reflect new venue defaults
+    const adv = { wall: 'adv_wall', floor: 'adv_floor', frame: 'adv_frame', lighting: 'adv_lighting' };
+    if (document.getElementById('adv_wall')) {
+        document.getElementById('adv_wall').value    = card.dataset.wall;
+        document.getElementById('adv_floor').value   = card.dataset.floor;
+        document.getElementById('adv_frame').value   = card.dataset.frame;
+        document.getElementById('adv_lighting').value = card.dataset.lighting;
+    }
+
+    const slug = editSlugMap[card.dataset.venueId];
+    document.getElementById('edit-venue-description').textContent = editVenueDescriptions[slug] || '';
+}
+
+// Venue card clicks
+document.querySelectorAll('.edit-venue-card').forEach(card => {
+    card.addEventListener('click', () => selectEditVenue(card));
+});
+
+// Advanced dropdowns override hidden inputs live
+['adv_wall','adv_floor','adv_frame','adv_lighting'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+        const map = { adv_wall: 'edit_wall_texture', adv_floor: 'edit_floor_material', adv_frame: 'edit_frame_style', adv_lighting: 'edit_lighting_preset' };
+        document.getElementById(map[id]).value = el.value;
+    });
+});
+
+// Set description for whichever venue is already selected
+const preselectedCard = document.querySelector('.edit-venue-card-inner.border-purple-500');
+if (preselectedCard) {
+    const card = preselectedCard.closest('.edit-venue-card');
+    const slug = editSlugMap[card?.dataset?.venueId];
+    if (slug) document.getElementById('edit-venue-description').textContent = editVenueDescriptions[slug] || '';
+}
+</script>
 </x-app-layout>

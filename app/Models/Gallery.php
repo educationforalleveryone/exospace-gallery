@@ -13,7 +13,7 @@ class Gallery extends Model
         'user_id', 'title', 'slug', 'description',
         'wall_texture', 'frame_style', 'lighting_preset',
         'floor_material', 'audio_path', 'custom_logo_path',
-        'room_layout', 'pin_hash',
+        'room_layout', 'venue_template_id', 'pin_hash',
         'is_active', 'view_count',
         'opens_at', 'closes_at',
     ];
@@ -43,6 +43,11 @@ class Gallery extends Model
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
+    }
+
+    public function venueTemplate(): BelongsTo
+    {
+        return $this->belongsTo(VenueTemplate::class);
     }
 
     public function images(): HasMany

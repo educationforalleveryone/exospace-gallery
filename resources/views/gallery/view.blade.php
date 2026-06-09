@@ -566,6 +566,13 @@
             </p>
             @endif
             
+            <!-- Venue Badge -->
+            @if($gallery->venueTemplate)
+            <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.3); border-radius: 999px; padding: 6px 16px; margin-bottom: 2rem; font-size: 0.8rem; color: rgba(139,92,246,0.9); letter-spacing: 0.08em; font-weight: 600;">
+                {{ strtoupper($gallery->venueTemplate->name) }}
+            </div>
+            @endif
+
             <!-- Stats -->
             <div style="display: flex; gap: 3rem; justify-content: center; margin-bottom: 3rem; font-size: 0.875rem; color: rgba(255,255,255,0.5);">
                 <div>
@@ -859,6 +866,7 @@
                 lighting_preset: "bright",
                 frame_style: "modern",
                 room_layout: "square", // Options: 'square', 'corridor', 'l-shape', 'rotunda'
+                venue_slug: "white-cube",
                 imageCount: mockImages.length,
                 audioUrl: null,
                 'userPlan': 'studio',
@@ -1553,8 +1561,54 @@
                 }
             }
 
+            // ─────────────────────────────────────────────
+            // VENUE OVERRIDES
+            // Patches CONFIG.room + scene globals before the
+            // room builder runs. Each venue has a unique feel
+            // identifiable in <3 seconds without any artwork.
+            // ─────────────────────────────────────────────
+            applyVenueOverrides(slug) {
+                switch (slug) {
+
+                    // ── WHITE CUBE ────────────────────────────────
+                    // Standard. Clean. No overrides needed — this IS
+                    // the baseline every other venue departs from.
+                    case 'white-cube':
+                    default:
+                        CONFIG.room.wallHeight    = 4;
+                        this.scene.background     = new THREE.Color(0x0f0f0f);
+                        this.scene.fog            = new THREE.Fog(0x0f0f0f, 10, 30);
+                        this._venueSlug           = 'white-cube';
+                        break;
+
+                    // ── INDUSTRIAL LOFT ───────────────────────────
+                    // Tall ceilings. Wide corridor. Concrete everywhere.
+                    // Visitor immediately reads "warehouse" from scale.
+                    case 'industrial-loft':
+                        CONFIG.room.wallHeight    = 7;      // Feels huge — nearly double White Cube
+                        CONFIG.room.wallDepth     = 0.5;    // Thicker walls = heavier, rawer
+                        this.scene.background     = new THREE.Color(0x111008); // Warm dark
+                        this.scene.fog            = new THREE.Fog(0x111008, 8, 35);
+                        this._venueSlug           = 'industrial-loft';
+                        break;
+
+                    // ── DARK MUSEUM ───────────────────────────────
+                    // Low ambient, tight spotlights, deep black walls.
+                    // Visitor reads "premium gallery" immediately.
+                    case 'dark-museum':
+                        CONFIG.room.wallHeight    = 5;
+                        this.scene.background     = new THREE.Color(0x020202); // Near black
+                        this.scene.fog            = new THREE.Fog(0x020202, 5, 18); // Tight fog = claustrophobic luxury
+                        this._venueSlug           = 'dark-museum';
+                        break;
+                }
+            },
+
             buildGallery() {
                 const data = window.GALLERY_DATA;
+
+                // Apply venue-specific overrides BEFORE room is built
+                this.applyVenueOverrides(data.venue_slug || 'white-cube');
 
                 this.lightingPreset = data.lighting_preset;
                 this.setupLighting(data.lighting_preset);
@@ -1731,6 +1785,9 @@
                 console.log(`💡 Created optimized ceiling lights for ${wallLength}m room`);
                 console.log(`📐 Room created: ${wallLength}m x ${wallLength}m x ${wallHeight}m`);
 
+                // Add venue-specific structural details
+                this._addVenueStructure(data);
+
                 // STORE ROOM BOUNDARIES FOR COLLISION
                 this.roomBounds = {
                     minX: -wallLength / 2,
@@ -1795,6 +1852,9 @@
                         this.scene.add(l);
                     });
                 }
+
+                // Add venue-specific structural details
+                this._addVenueStructure(data);
 
                 this.camera.position.set(-length / 2 + 1.5, CONFIG.camera.height, 0);
                 this.roomBounds = { minX: -length/2+0.5, maxX: length/2-0.5, minZ: -width/2+0.5, maxZ: width/2-0.5 };
@@ -2020,6 +2080,114 @@
                 this._layoutMeta = { type: 'rotunda', radius };
             }
 
+
+            // ─────────────────────────────────────────────
+            // VENUE STRUCTURE
+            // Adds geometry that makes each venue identifiable
+            // at a glance, independent of artwork content.
+            // ─────────────────────────────────────────────
+            _addVenueStructure(data) {
+                const slug = this._venueSlug || 'white-cube';
+                const wh   = CONFIG.room.wallHeight;
+
+                if (slug === 'industrial-loft') {
+                    // ── Steel beams across the ceiling ────────────
+                    // Immediately communicates "warehouse". Beams run
+                    // perpendicular to the corridor's long axis (Z).
+                    const beamMat = this.isLowEnd
+                        ? new THREE.MeshLambertMaterial({ color: 0x2a2a2a })
+                        : new THREE.MeshStandardMaterial({ color: 0x1e1e1e, roughness: 0.6, metalness: 0.9 });
+
+                    const meta = this._layoutMeta || {};
+                    const length = meta.length || 20;
+                    const width  = meta.width  || 6;
+
+                    // Beam count scales with corridor length
+                    const beamCount  = Math.max(3, Math.floor(length / 5));
+                    const beamStep   = length / (beamCount + 1);
+                    const beamGeo    = new THREE.BoxGeometry(width + 0.4, 0.25, 0.3);
+
+                    for (let i = 1; i <= beamCount; i++) {
+                        const beam = new THREE.Mesh(beamGeo, beamMat);
+                        beam.position.set(-length / 2 + i * beamStep, wh - 0.12, 0);
+                        beam.castShadow = false;
+                        this.scene.add(beam);
+                    }
+
+                    // Vertical column supports at beam intersections (every other beam)
+                    const colGeo = new THREE.BoxGeometry(0.18, wh, 0.18);
+                    for (let i = 1; i <= beamCount; i += 2) {
+                        const xPos = -length / 2 + i * beamStep;
+                        [-width / 2 + 0.09, width / 2 - 0.09].forEach(zPos => {
+                            const col = new THREE.Mesh(colGeo, beamMat);
+                            col.position.set(xPos, wh / 2, zPos);
+                            col.castShadow = false;
+                            this.scene.add(col);
+                        });
+                    }
+
+                    // Floor grate strips (thin dark bands across floor = factory feel)
+                    const grateMat = this.isLowEnd
+                        ? new THREE.MeshLambertMaterial({ color: 0x111111 })
+                        : new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 1.0, metalness: 0.3 });
+                    const grateGeo = new THREE.BoxGeometry(width + 0.3, 0.02, 0.15);
+                    for (let i = 1; i <= beamCount; i++) {
+                        const grate = new THREE.Mesh(grateGeo, grateMat);
+                        grate.position.set(-length / 2 + i * beamStep, 0.01, 0);
+                        this.scene.add(grate);
+                    }
+
+                } else if (slug === 'dark-museum') {
+                    // ── Room dividers — segmented gallery feel ────
+                    // Two partial walls that jut out from opposite sides,
+                    // creating bays. Visitor immediately reads "museum wing."
+                    const meta = this._layoutMeta || {};
+                    const wl   = Math.max(8, meta.wallLength || 14);
+
+                    const divMat = this.isLowEnd
+                        ? new THREE.MeshLambertMaterial({ color: 0x080808 })
+                        : new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.95, metalness: 0.0 });
+
+                    // Two dividers: one from left wall, one from right, offset on Z
+                    const dividerDepth  = 0.3;
+                    const dividerLength = wl * 0.28; // reach 28% into the room
+                    const dividerH      = wh;
+                    const zOffset       = wl * 0.18; // offset from centre, creating asymmetric bays
+
+                    [
+                        { x: -wl / 2 + dividerLength / 2, z:  zOffset, rx: 0 }, // from left wall
+                        { x:  wl / 2 - dividerLength / 2, z: -zOffset, rx: 0 }, // from right wall
+                    ].forEach(cfg => {
+                        const geo  = new THREE.BoxGeometry(dividerLength, dividerH, dividerDepth);
+                        const mesh = new THREE.Mesh(geo, divMat);
+                        mesh.position.set(cfg.x, dividerH / 2, cfg.z);
+                        mesh.castShadow  = false;
+                        mesh.receiveShadow = !this.isLowEnd;
+                        this.scene.add(mesh);
+                    });
+
+                    // Skirting / baseboard — thin strip at floor level adds architectural finish
+                    const skirtMat = this.isLowEnd
+                        ? new THREE.MeshLambertMaterial({ color: 0x0a0a0a })
+                        : new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.8, metalness: 0.4 });
+                    const skirtH   = 0.12;
+                    const skirtGeo = new THREE.BoxGeometry(wl, skirtH, 0.06);
+
+                    // Four walls get a baseboard
+                    [
+                        { x: 0,      z: -wl / 2, ry: 0          },
+                        { x: 0,      z:  wl / 2, ry: Math.PI    },
+                        { x: -wl/2,  z: 0,       ry: Math.PI/2  },
+                        { x:  wl/2,  z: 0,       ry: -Math.PI/2 },
+                    ].forEach(cfg => {
+                        const mesh = new THREE.Mesh(skirtGeo, skirtMat);
+                        mesh.position.set(cfg.x, skirtH / 2 + 0.01, cfg.z);
+                        mesh.rotation.y = cfg.ry;
+                        this.scene.add(mesh);
+                    });
+                }
+                // white-cube: no structure added — clean is the point
+            },
 
             getWallMaterial(type) {
                 const fallbackColors = {

@@ -24,8 +24,8 @@ class GalleryController extends Controller
         $team   = $this->resolveTeamContext($user, $request->query('team'));
 
         $galleries = $team
-            ? Gallery::where('team_id', $team->id)->latest()->paginate(10)
-            : Gallery::where('user_id', $user->id)->whereNull('team_id')->latest()->paginate(10);
+            ? Gallery::with(['images' => fn($q) => $q->orderBy('position_order')->limit(1), 'venueTemplate'])->where('team_id', $team->id)->latest()->paginate(10)
+            : Gallery::with(['images' => fn($q) => $q->orderBy('position_order')->limit(1), 'venueTemplate'])->where('user_id', $user->id)->whereNull('team_id')->latest()->paginate(10);
 
         $userTeams = $user->ownedTeams->merge($user->teams);
 
@@ -43,7 +43,8 @@ class GalleryController extends Controller
             return $redirect;
         }
 
-        return view('admin.galleries.create', compact('team'));
+        $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
+        return view('admin.galleries.create', compact('team', 'venueTemplates'));
     }
 
     // ── Store ─────────────────────────────────────────────────────────────
@@ -105,8 +106,9 @@ class GalleryController extends Controller
     public function edit(Gallery $gallery): View
     {
         $this->authorizeGalleryAccess($gallery);
-        $gallery->load('images');
-        return view('admin.galleries.edit', compact('gallery'));
+        $gallery->load('images', 'venueTemplate');
+        $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
+        return view('admin.galleries.edit', compact('gallery', 'venueTemplates'));
     }
 
     // ── Update ────────────────────────────────────────────────────────────
@@ -276,7 +278,8 @@ class GalleryController extends Controller
             'frame_style'     => 'required|in:modern,classic,minimal',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
             'floor_material'  => 'required|in:wood,marble,concrete',
-            'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',
+            'room_layout'          => 'required|in:square,corridor,l-shape,rotunda',
+            'venue_template_id'    => 'nullable|exists:venue_templates,id',
             'gallery_pin'     => 'nullable|digits:4',
             'opens_at'        => 'nullable|date',
             'closes_at'       => 'nullable|date|after_or_equal:opens_at',

@@ -275,8 +275,8 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Instant digital delivery via browser
     </div>
-    <h1>Simple pricing.<br><span class="grad">Powerful galleries.</span></h1>
-    <p>Pick the plan that fits. No hidden fees, no credit card required to start.</p>
+    <h1>One venue free.<br><span class="grad">Unlock them all.</span></h1>
+    <p>Each plan unlocks more virtual venues — distinct 3D spaces with their own architecture, scale, and atmosphere.</p>
 </section>
 
 <!-- Cards -->
@@ -294,15 +294,15 @@
         <ul class="features">
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                1 gallery
+                1 gallery · up to 10 images
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                Up to 10 images
+                <strong>⬜ Modern White Cube</strong> venue
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                All 3 lighting presets
+                Guided tour · analytics · PIN protection
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -324,23 +324,19 @@
             <span class="amount">29</span>
             <span class="period">/ one-time</span>
         </div>
-        <p class="card-desc">For creators who need more. Unlimited galleries, no watermark, priority support.</p>
+        <p class="card-desc">For serious creators. More venues, more images, no watermark.</p>
         <ul class="features">
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Unlimited galleries</strong>
+                <strong>Unlimited galleries</strong> · 50 images each
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Up to 50 images per gallery</strong>
+                <strong>4 venues</strong> — ⬜ White Cube · 🏭 Industrial Loft · 🏛️ Dark Museum · 🎋 Zen Gallery
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                All 3 lighting presets
-            </li>
-            <li>
-                <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                Shareable public link
+                Background music · exhibition scheduling
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -362,35 +358,27 @@
             <span class="amount">99</span>
             <span class="period">/ one-time</span>
         </div>
-        <p class="card-desc">For agencies and professionals. Everything in Pro, plus advanced features.</p>
+        <p class="card-desc">For agencies and professionals. Every venue, unlimited everything.</p>
         <ul class="features">
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Unlimited galleries</strong>
+                <strong>Unlimited galleries · unlimited images</strong>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Unlimited images per gallery</strong>
+                <strong>All 8 venues</strong> — including 🏙️ Luxury Penthouse · 🌐 Cyber Gallery · 🌿 Sculpture Garden
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                All 3 lighting presets
+                Background music · scheduling · team collaboration
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                Shareable public link
-            </li>
-            <li>
-                <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Watermark removed</strong>
+                <strong>Custom branding</strong> — your logo, no Exospace watermark
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
                 <strong>Dedicated account manager</strong>
-            </li>
-            <li>
-                <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Custom branding on gallery</strong>
             </li>
         </ul>
         <a href="#" class="btn btn-outline" onclick="document.getElementById('upgrade-modal-studio').style.display='flex'; return false;">Upgrade to Studio — $99</a>
@@ -437,9 +425,9 @@
         <h3 style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Pro — $29</h3>
         <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
         <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
-            <li>Unlimited galleries</li>
-            <li>50 images per gallery</li>
-            <li>Background music & scheduling</li>
+            <li>Unlimited galleries · 50 images each</li>
+            <li>⬜ White Cube · 🏭 Industrial Loft · 🏛️ Dark Museum · 🎋 Zen Gallery</li>
+            <li>Background music & exhibition scheduling</li>
             <li>No watermark</li>
             <li>Priority email support</li>
         </ul>
@@ -459,11 +447,11 @@
         <h3 style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Studio — $99</h3>
         <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
         <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
-            <li>Unlimited galleries</li>
-            <li>Unlimited images</li>
-            <li>Advanced analytics</li>
-            <li>Custom branding & logo</li>
-            <li>Priority support</li>
+            <li>Unlimited galleries · unlimited images</li>
+            <li>All 8 venues including 🏙️ Penthouse · 🌐 Cyber · 🌿 Sculpture Garden</li>
+            <li>Custom branding & logo on every gallery</li>
+            <li>Advanced analytics · team collaboration</li>
+            <li>Dedicated account manager</li>
         </ul>
         <a href="https://www.2checkout.com/checkout/purchase?sid={{ config('services.2checkout.account_number') }}&product_id={{ config('services.2checkout.product_id_studio') }}&quantity=1" target="_blank"
            style="display:block; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">

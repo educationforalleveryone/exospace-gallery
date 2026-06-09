@@ -41,6 +41,7 @@ class GalleryViewController extends Controller
             'frame_style'     => $gallery->frame_style,
             'lighting_preset' => $gallery->lighting_preset,
             'room_layout'     => $gallery->room_layout ?? 'square',
+            'venue_slug'      => $gallery->venueTemplate?->slug ?? 'white-cube',
             'images' => $gallery->images->map(fn($img) => [
                 'id'          => $img->id,
                 'url'         => asset($img->path),

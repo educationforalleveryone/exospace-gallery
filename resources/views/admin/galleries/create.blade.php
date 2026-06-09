@@ -69,96 +69,65 @@
                         @enderror
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Wall Texture -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-200 mb-2">Wall Texture *</label>
-                            <select name="wall_texture" required
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500">
-                                <option value="white" {{ old('wall_texture') == 'white' ? 'selected' : '' }}>White Museum</option>
-                                <option value="concrete" {{ old('wall_texture') == 'concrete' ? 'selected' : '' }}>Concrete</option>
-                                <option value="brick" {{ old('wall_texture') == 'brick' ? 'selected' : '' }}>Brick</option>
-                                <option value="wood" {{ old('wall_texture') == 'wood' ? 'selected' : '' }}>Wood</option>
-                            </select>
-                        </div>
+                    {{-- Hidden fields populated by venue selection --}}
+                    <input type="hidden" name="wall_texture"    id="input_wall_texture"    value="{{ old('wall_texture', 'white') }}">
+                    <input type="hidden" name="floor_material"  id="input_floor_material"  value="{{ old('floor_material', 'concrete') }}">
+                    <input type="hidden" name="frame_style"     id="input_frame_style"     value="{{ old('frame_style', 'minimal') }}">
+                    <input type="hidden" name="lighting_preset" id="input_lighting_preset" value="{{ old('lighting_preset', 'bright') }}">
+                    <input type="hidden" name="room_layout"     id="input_room_layout"     value="{{ old('room_layout', 'square') }}">
+                    <input type="hidden" name="venue_template_id" id="input_venue_template_id" value="{{ old('venue_template_id', '') }}">
 
-                        <!-- Floor Material -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-200 mb-2">Floor Material *</label>
-                            <select name="floor_material" required
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500">
-                                <option value="wood" {{ old('floor_material') == 'wood' ? 'selected' : '' }}>Wood</option>
-                                <option value="marble" {{ old('floor_material') == 'marble' ? 'selected' : '' }}>Marble</option>
-                                <option value="concrete" {{ old('floor_material') == 'concrete' ? 'selected' : '' }}>Concrete</option>
-                            </select>
+                    {{-- Venue Picker --}}
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-200 mb-3">Choose Your Venue *</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="venue-cards">
+                            @foreach($venueTemplates as $venue)
+                                @php
+                                    $accessible = $venue->isAccessibleBy(auth()->user());
+                                    $isSelected = old('venue_template_id', $venueTemplates->firstWhere('plan_required', 'free')?->id) == $venue->id;
+                                @endphp
+                                <div class="venue-card cursor-pointer relative {{ !$accessible ? 'opacity-60' : '' }}"
+                                     data-venue-id="{{ $venue->id }}"
+                                     data-wall="{{ $venue->default_settings['wall_texture'] }}"
+                                     data-floor="{{ $venue->default_settings['floor_material'] }}"
+                                     data-frame="{{ $venue->default_settings['frame_style'] }}"
+                                     data-lighting="{{ $venue->default_settings['lighting_preset'] }}"
+                                     data-layout="{{ $venue->default_settings['room_layout'] }}"
+                                     data-accessible="{{ $accessible ? 'true' : 'false' }}">
+                                    <div class="venue-card-inner border-2 {{ $isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-600' }} rounded-lg p-3 text-center transition-all hover:border-purple-400 h-full flex flex-col items-center">
+                                        {{-- Icon --}}
+                                        <div class="w-10 h-10 rounded-lg mb-2 flex items-center justify-center text-xl
+                                            {{ $venue->slug === 'white-cube'       ? 'bg-gray-100/10' :
+                                               ($venue->slug === 'industrial-loft'  ? 'bg-orange-900/30' :
+                                               ($venue->slug === 'dark-museum'      ? 'bg-gray-900/60' :
+                                               ($venue->slug === 'zen-gallery'      ? 'bg-green-900/30' :
+                                               ($venue->slug === 'luxury-penthouse' ? 'bg-amber-900/30' :
+                                               ($venue->slug === 'cyber-gallery'    ? 'bg-blue-900/30' :
+                                               ($venue->slug === 'sculpture-garden' ? 'bg-emerald-900/30' :
+                                                'bg-purple-900/30')))))))}}">
+                                            {{ $venue->slug === 'white-cube'       ? '⬜' :
+                                               ($venue->slug === 'industrial-loft'  ? '🏭' :
+                                               ($venue->slug === 'dark-museum'      ? '🏛️' :
+                                               ($venue->slug === 'zen-gallery'      ? '🎋' :
+                                               ($venue->slug === 'luxury-penthouse' ? '🏙️' :
+                                               ($venue->slug === 'cyber-gallery'    ? '🌐' :
+                                               ($venue->slug === 'sculpture-garden' ? '🌿' :
+                                                '✨')))))))}}
+                                        </div>
+                                        <div class="text-sm font-medium text-gray-200 leading-tight">{{ $venue->name }}</div>
+                                        <div class="text-xs text-gray-500 mt-1 leading-tight">{{ $venue->capacityLabel() }}</div>
+                                        @if(!$accessible)
+                                            <span class="mt-2 text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">
+                                                {{ ucfirst($venue->plan_required) }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
-
-                        <!-- Frame Style -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-200 mb-2">Frame Style *</label>
-                            <select name="frame_style" required
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500">
-                                <option value="modern" {{ old('frame_style') == 'modern' ? 'selected' : '' }}>Modern (Black)</option>
-                                <option value="classic" {{ old('frame_style') == 'classic' ? 'selected' : '' }}>Classic (Gold)</option>
-                                <option value="minimal" {{ old('frame_style') == 'minimal' ? 'selected' : '' }}>Minimal (Frameless)</option>
-                            </select>
-                        </div>
-
-                        <!-- Lighting -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-200 mb-2">Lighting *</label>
-                            <select name="lighting_preset" required
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500">
-                                <option value="bright" {{ old('lighting_preset') == 'bright' ? 'selected' : '' }}>Bright</option>
-                                <option value="moody" {{ old('lighting_preset') == 'moody' ? 'selected' : '' }}>Moody</option>
-                                <option value="dramatic" {{ old('lighting_preset') == 'dramatic' ? 'selected' : '' }}>Dramatic</option>
-                            </select>
-                        </div>
+                        {{-- Selected venue description --}}
+                        <p class="text-xs text-gray-400 mt-2 min-h-[1.5rem]" id="venue-description"></p>
                     </div>
-
-                        <!-- Room Layout -->
-                        <div class="mb-4 md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-200 mb-3">Room Layout *</label>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-
-                                <label class="layout-card cursor-pointer">
-                                    <input type="radio" name="room_layout" value="square" class="sr-only layout-radio" {{ old('room_layout', 'square') == 'square' ? 'checked' : '' }}>
-                                    <div class="layout-card-inner border-2 border-gray-600 rounded-lg p-3 text-center transition-all hover:border-purple-500">
-                                        <svg viewBox="0 0 60 60" class="w-12 h-12 mx-auto mb-2"><rect x="8" y="8" width="44" height="44" rx="2" fill="none" stroke="#9ca3af" stroke-width="2.5"/><circle cx="14" cy="18" r="2" fill="#a78bfa"/><circle cx="14" cy="30" r="2" fill="#a78bfa"/><circle cx="14" cy="42" r="2" fill="#a78bfa"/><circle cx="46" cy="18" r="2" fill="#a78bfa"/><circle cx="46" cy="30" r="2" fill="#a78bfa"/><circle cx="46" cy="42" r="2" fill="#a78bfa"/><circle cx="26" cy="10" r="2" fill="#a78bfa"/><circle cx="34" cy="10" r="2" fill="#a78bfa"/></svg>
-                                        <div class="text-sm font-medium text-gray-200">Square</div>
-                                        <div class="text-xs text-gray-500 mt-1">Classic room</div>
-                                    </div>
-                                </label>
-
-                                <label class="layout-card cursor-pointer">
-                                    <input type="radio" name="room_layout" value="corridor" class="sr-only layout-radio" {{ old('room_layout') == 'corridor' ? 'checked' : '' }}>
-                                    <div class="layout-card-inner border-2 border-gray-600 rounded-lg p-3 text-center transition-all hover:border-purple-500">
-                                        <svg viewBox="0 0 60 60" class="w-12 h-12 mx-auto mb-2"><rect x="4" y="20" width="52" height="20" rx="2" fill="none" stroke="#9ca3af" stroke-width="2.5"/><circle cx="10" cy="25" r="2" fill="#a78bfa"/><circle cx="10" cy="35" r="2" fill="#a78bfa"/><circle cx="50" cy="25" r="2" fill="#a78bfa"/><circle cx="50" cy="35" r="2" fill="#a78bfa"/><circle cx="22" cy="22" r="2" fill="#a78bfa"/><circle cx="30" cy="22" r="2" fill="#a78bfa"/><circle cx="38" cy="22" r="2" fill="#a78bfa"/><circle cx="22" cy="38" r="2" fill="#a78bfa"/><circle cx="30" cy="38" r="2" fill="#a78bfa"/><circle cx="38" cy="38" r="2" fill="#a78bfa"/></svg>
-                                        <div class="text-sm font-medium text-gray-200">Corridor</div>
-                                        <div class="text-xs text-gray-500 mt-1">Long hallway</div>
-                                    </div>
-                                </label>
-
-                                <label class="layout-card cursor-pointer">
-                                    <input type="radio" name="room_layout" value="l-shape" class="sr-only layout-radio" {{ old('room_layout') == 'l-shape' ? 'checked' : '' }}>
-                                    <div class="layout-card-inner border-2 border-gray-600 rounded-lg p-3 text-center transition-all hover:border-purple-500">
-                                        <svg viewBox="0 0 60 60" class="w-12 h-12 mx-auto mb-2"><polygon points="8,8 28,8 28,32 52,32 52,52 8,52" fill="none" stroke="#9ca3af" stroke-width="2.5" stroke-linejoin="round"/><circle cx="13" cy="15" r="2" fill="#a78bfa"/><circle cx="13" cy="25" r="2" fill="#a78bfa"/><circle cx="13" cy="42" r="2" fill="#a78bfa"/><circle cx="30" cy="48" r="2" fill="#a78bfa"/><circle cx="42" cy="48" r="2" fill="#a78bfa"/><circle cx="38" cy="34" r="2" fill="#a78bfa"/><circle cx="48" cy="34" r="2" fill="#a78bfa"/><circle cx="18" cy="10" r="2" fill="#a78bfa"/></svg>
-                                        <div class="text-sm font-medium text-gray-200">L-Shape</div>
-                                        <div class="text-xs text-gray-500 mt-1">Around a corner</div>
-                                    </div>
-                                </label>
-
-                                <label class="layout-card cursor-pointer">
-                                    <input type="radio" name="room_layout" value="rotunda" class="sr-only layout-radio" {{ old('room_layout') == 'rotunda' ? 'checked' : '' }}>
-                                    <div class="layout-card-inner border-2 border-gray-600 rounded-lg p-3 text-center transition-all hover:border-purple-500">
-                                        <svg viewBox="0 0 60 60" class="w-12 h-12 mx-auto mb-2"><circle cx="30" cy="30" r="22" fill="none" stroke="#9ca3af" stroke-width="2.5"/><circle cx="30" cy="10" r="2" fill="#a78bfa"/><circle cx="47" cy="19" r="2" fill="#a78bfa"/><circle cx="47" cy="41" r="2" fill="#a78bfa"/><circle cx="30" cy="50" r="2" fill="#a78bfa"/><circle cx="13" cy="41" r="2" fill="#a78bfa"/><circle cx="13" cy="19" r="2" fill="#a78bfa"/></svg>
-                                        <div class="text-sm font-medium text-gray-200">Rotunda</div>
-                                        <div class="text-xs text-gray-500 mt-1">Circular room</div>
-                                    </div>
-                                </label>
-
-                            </div>
-                        </div>
 
                     {{-- Advanced settings: collapsible, open by default for Pro users --}}
                     <div x-data="{ open: {{ Auth::user()->isPro() ? 'true' : 'false' }} }" class="mt-6">
@@ -273,24 +242,65 @@
     </div>
 
 <script>
-document.querySelectorAll('.layout-radio').forEach(radio => {
-    radio.addEventListener('change', () => {
-        document.querySelectorAll('.layout-card-inner').forEach(c => {
-            c.classList.remove('border-purple-500', 'bg-purple-900/20');
-            c.classList.add('border-gray-600');
-        });
-        if (radio.checked) {
-            const inner = radio.closest('.layout-card').querySelector('.layout-card-inner');
-            inner.classList.remove('border-gray-600');
-            inner.classList.add('border-purple-500', 'bg-purple-900/20');
-        }
-    });
-    if (radio.checked) {
-        const inner = radio.closest('.layout-card').querySelector('.layout-card-inner');
-        inner.classList.remove('border-gray-600');
-        inner.classList.add('border-purple-500', 'bg-purple-900/20');
+// Venue descriptions (matches slug)
+const venueDescriptions = {
+    'white-cube':       'Minimal contemporary exhibition space. The professional standard.',
+    'industrial-loft':  'Concrete, steel and large open spaces. Urban contemporary feel.',
+    'dark-museum':      'Dramatic lighting with black walls. Premium artwork presentation.',
+    'zen-gallery':      'Minimal architecture with natural materials. Calm and focused.',
+    'luxury-penthouse': 'High-end collector experience with city views.',
+    'cyber-gallery':    'Futuristic neon exhibition space for digital creators.',
+    'sculpture-garden': 'Open-air exhibition environment for large installations.',
+    'infinite-void':    'Floating artworks in an endless environment. No limits.',
+};
+
+function selectVenue(card) {
+    const accessible = card.dataset.accessible === 'true';
+    if (!accessible) {
+        window.location.href = '/pricing';
+        return;
     }
+
+    // Deselect all
+    document.querySelectorAll('.venue-card-inner').forEach(el => {
+        el.classList.remove('border-purple-500', 'bg-purple-900/20');
+        el.classList.add('border-gray-600');
+    });
+
+    // Select this one
+    const inner = card.querySelector('.venue-card-inner');
+    inner.classList.remove('border-gray-600');
+    inner.classList.add('border-purple-500', 'bg-purple-900/20');
+
+    // Populate hidden inputs
+    document.getElementById('input_wall_texture').value    = card.dataset.wall;
+    document.getElementById('input_floor_material').value  = card.dataset.floor;
+    document.getElementById('input_frame_style').value     = card.dataset.frame;
+    document.getElementById('input_lighting_preset').value = card.dataset.lighting;
+    document.getElementById('input_room_layout').value     = card.dataset.layout;
+    document.getElementById('input_venue_template_id').value = card.dataset.venueId;
+
+    // Update description
+    const slugMap = @json($venueTemplates->pluck('slug', 'id'));
+    const venueSlug = slugMap[card.dataset.venueId];
+    document.getElementById('venue-description').textContent = venueDescriptions[venueSlug] || '';
+}
+
+document.querySelectorAll('.venue-card').forEach(card => {
+    card.addEventListener('click', () => selectVenue(card));
 });
+
+// Auto-select free venue on load (or restored old value)
+const preselectedId = document.getElementById('input_venue_template_id').value;
+if (preselectedId) {
+    const preselected = document.querySelector(`.venue-card[data-venue-id="${preselectedId}"]`);
+    if (preselected) selectVenue(preselected);
+} else {
+    const firstFree = document.querySelector('.venue-card[data-accessible="true"]');
+    if (firstFree) selectVenue(firstFree);
+}
+
+// Submit spinner
 document.querySelector('form').addEventListener('submit', function() {
     const btn = document.getElementById('create-gallery-btn');
     const label = document.getElementById('create-gallery-label');
