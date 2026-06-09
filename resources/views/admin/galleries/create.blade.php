@@ -1,11 +1,31 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-100 leading-tight">
-                {{ __('Create New Gallery') }}
-            </h2>
-            @if(isset($team))
-                <p class="text-sm text-indigo-400 mt-1">Creating in team: <strong>{{ $team->name }}</strong></p>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+                <h2 class="font-semibold text-xl text-gray-100 leading-tight">Create New Gallery</h2>
+                @if(isset($team))
+                    <p class="text-xs text-indigo-400 mt-0.5">Creating in <span class="font-semibold">{{ $team->name }}</span></p>
+                @endif
+            </div>
+            @if(Auth::user()->galleries()->count() === 0)
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span class="flex items-center gap-1.5 text-green-400">
+                    <span class="w-5 h-5 rounded-full bg-green-500/20 border border-green-500 inline-flex items-center justify-center flex-shrink-0">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    </span>
+                    Account
+                </span>
+                <span class="text-gray-700">→</span>
+                <span class="flex items-center gap-1.5 text-purple-300 font-semibold">
+                    <span class="w-5 h-5 rounded-full bg-purple-600 inline-flex items-center justify-center flex-shrink-0"><span style="font-size:9px;font-weight:700;color:white">2</span></span>
+                    Gallery
+                </span>
+                <span class="text-gray-700">→</span>
+                <span class="flex items-center gap-1.5 text-gray-600">
+                    <span class="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 inline-flex items-center justify-center flex-shrink-0"><span style="font-size:9px;font-weight:700;color:#6b7280">3</span></span>
+                    Share
+                </span>
+            </div>
             @endif
         </div>
     </x-slot>
@@ -19,7 +39,16 @@
         <input type="hidden" name="team_id" value="{{ $team->id }}">
     @endif
                     @csrf
-                    
+
+                    @if(Auth::user()->galleries()->count() === 0)
+                    <div class="flex items-start gap-3 bg-purple-900/20 border border-purple-500/20 rounded-lg px-4 py-3 mb-5">
+                        <svg class="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        <p class="text-xs text-purple-200 leading-relaxed">
+                            <span class="font-semibold">Tip:</span> Give it a clear title — it becomes the page name when you share the link. Defaults below are fine for your first gallery; you can change everything later.
+                        </p>
+                    </div>
+                    @endif
+
                     <!-- Title -->
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-200 mb-2">Gallery Title *</label>
@@ -131,8 +160,25 @@
                             </div>
                         </div>
 
+                    {{-- Advanced settings: collapsible, open by default for Pro users --}}
+                    <div x-data="{ open: {{ Auth::user()->isPro() ? 'true' : 'false' }} }" class="mt-6">
+                        <button type="button" @click="open = !open"
+                                class="w-full flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-gray-200 transition border-t border-gray-700/60 pt-4 pb-2 text-left">
+                            <svg class="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                            Advanced settings
+                            @if(!Auth::user()->isPro())
+                                <span class="text-xs bg-gray-700/80 text-gray-400 px-1.5 py-0.5 rounded ml-0.5">Pro features inside</span>
+                            @endif
+                            <svg class="w-4 h-4 ml-auto flex-shrink-0 transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+
+                        <div x-show="open"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 -translate-y-1"
+                             x-transition:enter-end="opacity-100 translate-y-0">
+
                     <!-- Background Music (Pro Feature) -->
-                    <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
+                    <div class="mb-6 mt-2 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <label class="block text-sm font-medium text-gray-200 mb-3">
                             🎵 Background Music
                             @if(!auth()->user()->isPro())
@@ -209,6 +255,9 @@
                             </div>
                         @endif
                     </div>
+
+                    </div>{{-- /x-show --}}
+                    </div>{{-- /x-data advanced --}}
 
                     <div class="mt-6 flex justify-end gap-3">
                         <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-100 font-semibold py-2 px-6 rounded-lg transition">

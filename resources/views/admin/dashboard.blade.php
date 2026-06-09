@@ -84,14 +84,32 @@
                 />
             @endif
 
+            {{-- ── Share nudge: has live galleries but 0 total views ────────── --}}
+            @if($hasUnsharedGallery ?? false)
+            <div class="flex items-center gap-4 rounded-xl border border-indigo-500/20 bg-indigo-950/30 px-5 py-3.5">
+                <svg class="w-5 h-5 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                <p class="flex-1 text-sm text-indigo-200">
+                    Your gallery is live — <span class="font-semibold">share it to get your first view.</span>
+                    <span class="text-indigo-400 text-xs ml-1">Anyone with the link can explore it in 3D.</span>
+                </p>
+                @if($topGallery)
+                <button onclick="dashboardShare('{{ route('gallery.view', $topGallery->slug) }}', '{{ addslashes($topGallery->title) }}')"
+                        class="flex-shrink-0 inline-flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-2 rounded-lg transition">
+                    Copy link
+                </button>
+                @endif
+            </div>
+            @endif
+
             {{-- ── Onboarding strip (zero-gallery users only) ────────────────── --}}
             @if($galleriesCount === 0)
-            <div class="relative overflow-hidden rounded-xl border border-purple-500/25 bg-gradient-to-r from-purple-950/60 via-indigo-950/40 to-purple-950/60 p-5"
-                 x-data="{ show: true }" x-show="show" x-cloak>
+            <div class="relative overflow-hidden rounded-xl border border-purple-500/25 bg-gradient-to-r from-purple-950/60 via-indigo-950/40 to-purple-950/60 p-5">
                 <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(168,85,247,0.08),transparent_60%)]"></div>
                 <div class="relative flex flex-col sm:flex-row sm:items-center gap-4">
                     <div class="flex-1">
-                        <p class="text-sm font-semibold text-purple-200 mb-2">Get started in 3 steps</p>
+                        <p class="text-sm font-semibold text-purple-200 mb-2">
+                            @if($isNewUser) Welcome! Get started in 3 steps @else Pick up where you left off @endif
+                        </p>
                         <div class="flex flex-wrap gap-x-6 gap-y-2">
                             {{-- Step 1: done --}}
                             <div class="flex items-center gap-2 text-green-400 text-sm">
@@ -116,8 +134,11 @@
                             </div>
                         </div>
                     </div>
+                    @if($isNewUser)
+                    <p class="text-xs text-gray-500 mt-1 sm:hidden">Takes ~3 min. Upload images, pick a layout, share the link.</p>
+                    @endif
                     <a href="{{ route('admin.galleries.create') }}"
-                       class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition flex-shrink-0">
+                       class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition flex-shrink-0 shadow-lg shadow-purple-900/30">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                         Create Gallery
                     </a>
@@ -509,8 +530,8 @@
         </div>
     </div>
 
-    {{-- ── First-visit welcome modal ─────────────────────────────────────── --}}
-    @if($galleriesCount === 0 && !$team)
+    {{-- ── First-visit welcome modal (only for brand-new users < 48h) ─────── --}}
+    @if($isNewUser && !$team)
     <div x-data="{ show: !localStorage.getItem('exospace_welcomed') }"
          x-show="show" x-cloak
          @click.self="localStorage.setItem('exospace_welcomed','1'); show=false"

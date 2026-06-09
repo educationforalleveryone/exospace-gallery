@@ -112,6 +112,10 @@ class DashboardController extends Controller
             }
         }
 
+        // ── Activation flags for onboarding UX ──────────────────────────────
+        $isNewUser          = !$team && $galleriesCount === 0 && $user->created_at->gt(now()->subHours(48));
+        $hasUnsharedGallery = !$team && $galleriesCount > 0 && $totalViews === 0 && $activeCount > 0;
+
         // ── Gallery health flags (for recent list) ───────────────────────────
         // Flag galleries that are live but have 0 views after 3+ days
         $staleLiveIds = (clone $galleriesScope)
@@ -126,6 +130,8 @@ class DashboardController extends Controller
             'team',
             'galleriesCount',
             'totalViews',
+            'isNewUser',
+            'hasUnsharedGallery',
             'viewsToday',
             'views7',
             'viewsTrend',
