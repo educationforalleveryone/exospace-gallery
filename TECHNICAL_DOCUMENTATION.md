@@ -1,7 +1,7 @@
 # Exospace 3D Gallery — Technical Documentation
 
-> **Version:** 2.2.0
-> **Last Updated:** June 8, 2026
+> **Version:** 2.3.0
+> **Last Updated:** June 9, 2026
 > **Document Type:** Comprehensive Technical Reference
 
 ---
@@ -66,7 +66,7 @@ The platform solves the problem of digital art presentation by transforming stat
 ├─────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │
 │  │   Admin Panel   │  │  Gallery Viewer │  │   Authentication    │  │
-│  │   (Livewire)    │  │   (Three.js)    │  │   (Laravel Breeze)  │  │
+│  │  (Blade+Alpine) │  │   (Three.js)    │  │   (Laravel Breeze)  │  │
 │  └────────┬────────┘  └────────┬────────┘  └──────────┬──────────┘  │
 └───────────┼────────────────────┼─────────────────────┼──────────────┘
             │                    │                     │
@@ -124,7 +124,7 @@ sequenceDiagram
 |------------|---------|---------|
 | **PHP** | 8.2+ | Server-side language |
 | **Laravel** | 12.x | MVC framework |
-| **Livewire** | 4.x | Reactive UI components |
+| **Alpine.js** | 3.4.2 | Reactive UI (dropdowns, toggles, modals) |
 | **Laravel Sanctum** | 4.2 | API authentication |
 | **Laravel Breeze** | 2.3 | Authentication scaffolding |
 | **Intervention Image** | 3.11 | Image processing & manipulation |
@@ -136,9 +136,10 @@ sequenceDiagram
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | **Three.js** | 0.160.0 | WebGL 3D rendering engine |
-| **GSAP** | 3.14.2 | Animation library |
-| **Alpine.js** | 3.4.2 | Lightweight reactivity |
+| **GSAP** | 3.14.2 | Camera animation in gallery viewer |
+| **Alpine.js** | 3.4.2 | Lightweight reactivity for UI components |
 | **Tailwind CSS** | 4.x | Utility-first CSS framework |
+| **Inter** | Variable | UI typeface (replaces Figtree as of v2.3.0) |
 | **Vite** | 7.x | Asset bundling |
 | **Axios** | 1.11 | HTTP client |
 
@@ -1211,7 +1212,7 @@ Two limits are enforced on every upload:
 1. **Per-gallery limit**: `$gallery->images()->count()` vs `$user->max_images`
 2. **Cross-gallery total**: `DB::table('gallery_images')->join('galleries'...)->where('user_id')` vs `$user->max_images`
 
-Both checks use direct `DB::table()` queries to avoid race conditions during concurrent uploads.
+Both checks use direct `DB::table()` queries to avoid Eloquent cache and race conditions during concurrent uploads.
 
 ### Storage Structure
 
@@ -1223,6 +1224,99 @@ storage/app/public/
         └── thumbnails/
             └── abc123.jpg       # Thumbnail (400×400, JPEG 80%)
 ```
+
+---
+
+## User Interface Components
+
+The admin panel uses a shared Blade component library (`resources/views/components/`) and a set of dashboard-specific components (`resources/views/components/dashboard/`). All components are dark-themed using Tailwind CSS. As of v2.3.0 the typeface is **Inter** loaded from Bunny Fonts.
+
+### Layout & Shell
+
+| Component / File | Purpose |
+|------------------|---------|
+| `layouts/app.blade.php` | Authenticated app shell — nav, page-in animation, toast system, keyboard shortcuts, modal helpers |
+| `layouts/guest.blade.php` | Unauthenticated shell — split-pane with feature sidebar on desktop, auth card on right |
+| `layouts/navigation.blade.php` | Top nav — logo, nav links with icons, team context switcher, user menu |
+| `layouts/partials/cookie-banner.blade.php` | GDPR cookie consent, Alpine.js, 365-day cookie |
+| `layouts/partials/footer.blade.php` | Shared marketing footer |
+
+### Core Components
+
+| Component | Props / Notes |
+|-----------|--------------|
+| `primary-button` | Submit/CTA button. Gradient purple→indigo, `text-sm`, sentence case, press scale, purple shadow. |
+| `secondary-button` | Secondary action. Dark background, `text-sm`, sentence case, press scale, `hover:text-white`. |
+| `text-input` | Form text/email/password input. `bg-gray-800/80`, `hover:border-gray-500` pre-focus state, wider focus ring. |
+| `input-label` | Form field label. `text-gray-300 font-medium text-sm mb-1` (implicit bottom margin). |
+| `input-error` | Inline validation error message. |
+| `nav-link` | Desktop nav link. Active = `font-semibold text-white border-b-2 border-purple-400`. Inactive = `text-gray-400`. |
+| `responsive-nav-link` | Mobile nav link. |
+| `dropdown` | Alpine.js dropdown wrapper with `rounded-xl border border-gray-700 shadow-2xl` panel. |
+| `dropdown-link` | Row inside a dropdown. `flex items-center`, `hover:bg-white/[0.04]`, `py-2.5`. |
+| `modal` | Base modal wrapper. |
+| `upgrade-modal` | Plan upgrade prompt modal (`id="upgrade-modal"`). Call `openModal('upgrade-modal')` or `showUpgradeModal()`. |
+| `application-logo` | SVG logo mark. |
+| `auth-session-status` | Flash status message on auth pages. |
+| `danger-button` | Destructive action button (red). |
+
+### Dashboard Components (`components/dashboard/`)
+
+| Component | Props | Purpose |
+|-----------|-------|---------|
+| `stat-card` | `label`, `value`, `icon` (SVG path), `color`, `trend` (int %), `trendLabel`, `sub`, `subColor`, `href`, `badge` | KPI card with coloured icon, value, trend indicator, and optional accent line. Supports `href` to render as `<a>`. |
+| `card` | `title`, `action` (`[label, href]`), `padding`, `noBorder` | Content card container with optional titled header and action link. |
+| `gallery-row` | `gallery` (Eloquent), `stale` (bool) | Single gallery row for the dashboard list — thumbnail, title, status dot, health flags (no images, no views), image count, view count, age. |
+| `quick-action` | `href`, `icon` (SVG path), `label`, `description`, `color`, `disabled` | Small icon+label tile for the dashboard quick-action grid. Six colour variants. Disabled state. |
+| `sparkline` | `data` (Collection), `label`, `today`, `trend`, `href` | SVG bar chart for the 7-day views sparkline. Renders entirely server-side in Blade. |
+| `alert-banner` | `type` (`info`/`warning`/`error`/`success`/`upgrade`), `icon`, `text`, `action`, `dismissKey` | Contextual inline alert strip. Optional dismiss via localStorage key. |
+
+### CSS Design Tokens (`resources/css/app.css`)
+
+Defined in `@layer components`:
+
+```css
+/* Buttons */
+.btn          /* base: flex, gap, rounded-lg, font-semibold, transitions, focus ring */
+.btn-primary  /* gradient purple→indigo, white text, purple shadow */
+.btn-ghost    /* dark background, gray border */
+
+/* Card */
+.card         /* bg-gray-800 rounded-xl border border-gray-700/60 */
+
+/* Input */
+.input-base   /* bg-gray-800, gray border, purple focus */
+
+/* Badges */
+.badge        /* base badge shell */
+.badge-success / .badge-warn / .badge-neutral / .badge-pro
+
+/* Layout helpers */
+.table-row-base   /* border-b border-gray-700/50 + subtle hover */
+.section-header   /* text-xs font-semibold text-gray-500 uppercase tracking-wider */
+.action-link      /* text-gray-400 hover:text-white transition font-medium text-sm */
+.empty-state      /* flex flex-col items-center justify-center py-16 text-center */
+```
+
+### Global JavaScript (inlined in `app.blade.php`)
+
+| Utility | Description |
+|---------|-------------|
+| `window.toast(message, type)` | Shows a toast notification. Types: `success`, `error`, `info`. Auto-dismisses after 3.5s. Reads Laravel flash sessions (`success`, `error`, `info`, `status`, `warning`) on page load. |
+| `openModal(id)` / `closeModal(id)` | Show/hide a modal element by ID. Backdrop click and Escape key auto-close all dialogs. |
+| `showUpgradeModal()` | Alias for `openModal('upgrade-modal')`. |
+| Keyboard shortcuts | `g d` → Dashboard, `g l` → Galleries, `g n` → New Gallery. Ignored when focus is on an input or textarea. |
+
+### App Shell Animations & Utilities (inlined CSS)
+
+| Class / Selector | Effect |
+|------------------|--------|
+| `.page-content` | `pageIn` fade-up animation (0.25s, ease-out) on every page load |
+| `.skeleton` | Shimmer animation for loading placeholders |
+| `.card-lift` | `translateY(-2px)` + purple glow on hover |
+| `[data-tooltip]` | CSS-only tooltip via `::after` pseudo-element reading `data-tooltip` attribute |
+| `.progress-fill` | Smooth width transition for progress bars (`0.8s cubic-bezier`) |
+| `@media (prefers-reduced-motion)` | All animations reduced to 0.01ms |
 
 ---
 
@@ -1331,6 +1425,10 @@ All privileged super-admin write actions are recorded in `admin_audit_logs` befo
 | **Plan expiry in middleware, not cron** | Checking expiry on every authenticated request means instant enforcement without a scheduler gap; negligible overhead since it's a single index read on the user already in session |
 | **`usleep` removed from upload path** | Was added as a workaround for a race condition that no longer exists; 100ms synchronous sleep per upload blocks PHP-FPM workers under load |
 | **DB-level count for plan limits** | `canCreateGallery()` uses `DB::table()` directly to avoid Eloquent cache and race conditions during concurrent requests |
+| **Inter typeface** | Industry-standard SaaS typeface — superior tabular-numeric rendering for data-dense views; replaces Figtree which reads as a marketing/branding face |
+| **Sticky header removed** | Sub-nav header was `sticky top-0 z-30`, creating a double-sticky stack with the main nav. Static header removes visual clutter while keeping the nav accessible |
+| **Toast dark-panel style** | Saturated coloured toast backgrounds (`bg-green-800`) compete with the app for attention; a unified `bg-gray-900` panel with thin accent border is readable without shouting |
+| **`#0f1117` background** | Cooler near-black than Tailwind's `gray-900 (#111827)`; reads as intentional rather than framework-default, and avoids the warm cast that makes dark UIs feel dated |
 
 ---
 
@@ -1464,6 +1562,10 @@ exospace/
 │       ├── 2026_06_08_000001_add_unique_invoice_id_to_transactions.php
 │       └── 2026_06_08_000002_create_admin_audit_logs_table.php
 ├── resources/
+│   ├── css/
+│   │   └── app.css                            # Tailwind + design token utilities
+│   ├── js/
+│   │   └── app.js
 │   └── views/
 │       ├── admin/
 │       │   ├── dashboard.blade.php
@@ -1474,12 +1576,36 @@ exospace/
 │       │       └── show.blade.php             # Team detail + member management
 │       ├── auth/
 │       │   └── verify-email.blade.php
+│       ├── components/
+│       │   ├── application-logo.blade.php
+│       │   ├── auth-session-status.blade.php
+│       │   ├── danger-button.blade.php
+│       │   ├── dropdown.blade.php
+│       │   ├── dropdown-link.blade.php
+│       │   ├── input-error.blade.php
+│       │   ├── input-label.blade.php
+│       │   ├── modal.blade.php
+│       │   ├── nav-link.blade.php
+│       │   ├── primary-button.blade.php
+│       │   ├── responsive-nav-link.blade.php
+│       │   ├── secondary-button.blade.php
+│       │   ├── text-input.blade.php
+│       │   ├── upgrade-modal.blade.php
+│       │   └── dashboard/
+│       │       ├── alert-banner.blade.php     # Contextual inline alerts
+│       │       ├── card.blade.php             # Card container
+│       │       ├── gallery-row.blade.php      # Dashboard gallery list row
+│       │       ├── quick-action.blade.php     # Quick-action tile
+│       │       ├── sparkline.blade.php        # SVG 7-day bar chart
+│       │       └── stat-card.blade.php        # KPI stat card
 │       ├── emails/
 │       │   ├── team-invitation.blade.php      # Invitation HTML email
 │       │   └── welcome.blade.php
 │       ├── gallery/
 │       │   └── view.blade.php                 # Three.js 3D engine
 │       ├── layouts/
+│       │   ├── app.blade.php                  # Authenticated shell
+│       │   ├── guest.blade.php                # Unauthenticated shell
 │       │   ├── navigation.blade.php           # Nav with team switcher
 │       │   └── partials/
 │       │       ├── cookie-banner.blade.php
@@ -1500,6 +1626,8 @@ exospace/
 │   ├── web.php
 │   └── auth.php
 ├── .env.example
+├── CHANGELOG.md
+├── TECHNICAL_DOCUMENTATION.md
 ├── composer.json
 ├── docker-start.sh
 ├── nixpacks.toml
@@ -1685,5 +1813,5 @@ Configures PHP upload limits, patches Nginx for 50MB uploads, starts queue worke
 
 ---
 
-*Exospace 3D Gallery — Technical Documentation v2.2.0*
-*Last updated: June 8, 2026*
+*Exospace 3D Gallery — Technical Documentation v2.3.0*
+*Last updated: June 9, 2026*
