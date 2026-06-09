@@ -1,3 +1,44 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    /* Improved scrollbar for dark theme */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #111827; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+    /* Selection colour */
+    ::selection { background: rgba(139,92,246,0.35); color: #f3f4f6; }
+}
+
+@layer components {
+    /* Consistent button base */
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900;
+    }
+    .btn-primary {
+        @apply btn bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white hover:shadow-lg hover:shadow-purple-900/40;
+    }
+    .btn-ghost {
+        @apply btn bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300;
+    }
+
+    /* Card: unified look */
+    .card {
+        @apply bg-gray-800 rounded-xl border border-gray-700/60;
+    }
+
+    /* Input base */
+    .input-base {
+        @apply bg-gray-800 border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors;
+    }
+
+    /* Status badge */
+    .badge { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border; }
+    .badge-success { @apply bg-green-900/40 text-green-400 border-green-700/40; }
+    .badge-warn    { @apply bg-yellow-900/40 text-yellow-400 border-yellow-700/40; }
+    .badge-neutral { @apply bg-gray-700 text-gray-400 border-gray-600; }
+    .badge-pro     { @apply bg-purple-600/20 text-purple-300 border-purple-500/30; }
+}

@@ -23,7 +23,7 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
+    <div class="py-8 sm:py-10">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             
             @if(session('status'))
@@ -42,7 +42,7 @@
                         @php
                             $coverImage = $gallery->images()->first();
                         @endphp
-                        <div class="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden hover:border-purple-500 transition shadow-lg group">
+                        <div class="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden hover:border-purple-500/60 transition-all duration-200 shadow-lg group card-lift">
                             
                             <!-- Cover Image -->
                             <div class="relative aspect-video bg-gradient-to-br from-purple-900/20 to-indigo-900/20 overflow-hidden">
