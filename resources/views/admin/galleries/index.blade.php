@@ -23,12 +23,6 @@
 
     <div class="py-8 sm:py-10">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            
-            @if(session('status'))
-                <div class="mb-6 p-4 bg-green-900 border border-green-700 text-green-200 rounded-lg">
-                    {{ session('status') }}
-                </div>
-            @endif
 
             @if(session('upgrade'))
                 <script>document.addEventListener('DOMContentLoaded', () => openModal('upgrade-modal'));</script>

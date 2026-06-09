@@ -113,6 +113,8 @@
         @if(session('success')) toast("{{ session('success') }}", 'success'); @endif
         @if(session('error'))   toast("{{ session('error') }}", 'error'); @endif
         @if(session('info'))    toast("{{ session('info') }}", 'info'); @endif
+        @if(session('status'))  toast("{{ session('status') }}", 'success'); @endif
+        @if(session('warning')) toast("{{ session('warning') }}", 'error'); @endif
 
         // Keyboard shortcut: G+D = dashboard, G+G = galleries
         let lastKey = null, lastTime = 0;

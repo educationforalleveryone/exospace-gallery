@@ -59,7 +59,10 @@
                 <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
                     <h3 class="text-base font-semibold text-gray-100 mb-5">Most-Focused Artworks</h3>
                     @if($topArtworks->isEmpty())
-                        <p class="text-gray-500 text-sm py-8 text-center">No focus events yet. Share your gallery to start collecting data.</p>
+                        <div class="py-8 text-center">
+                            <p class="text-gray-500 text-sm mb-2">No focus events recorded yet.</p>
+                            <a href="{{ route('admin.galleries.index') }}" class="text-xs text-purple-400 hover:text-purple-300 transition underline underline-offset-2">Share your gallery to start collecting data →</a>
+                        </div>
                     @else
                         @php $maxFocus = $topArtworks->first()->focus_count; @endphp
                         <div class="space-y-3">
@@ -95,7 +98,10 @@
                 <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
                     <h3 class="text-base font-semibold text-gray-100 mb-5">Traffic Sources</h3>
                     @if($referrers->isEmpty())
-                        <p class="text-gray-500 text-sm py-8 text-center">No traffic data yet.</p>
+                        <div class="py-8 text-center">
+                            <p class="text-gray-500 text-sm mb-1">No traffic recorded yet.</p>
+                            <p class="text-gray-600 text-xs">Direct visits and referrers will appear here once people view your gallery.</p>
+                        </div>
                     @else
                         @php $maxRef = $referrers->first()->count; @endphp
                         <div class="space-y-3">

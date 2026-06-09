@@ -16,10 +16,6 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
 
-            @if(session('status'))
-                <div class="p-4 bg-green-900 border border-green-700 text-green-200 rounded-lg">{{ session('status') }}</div>
-            @endif
-
             {{-- Info callout for free users --}}
             @if(auth()->user()->plan === 'free')
             <div class="mb-6 flex items-start gap-3 bg-blue-950/40 border border-blue-700/40 rounded-xl px-4 py-3">
