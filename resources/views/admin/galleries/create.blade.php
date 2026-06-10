@@ -110,14 +110,19 @@
                                             };
                                         @endphp
                                         <div class="w-10 h-10 rounded-lg mb-2 flex items-center justify-center text-xl {{ $iconBg }}">
-                                            {{ $venue->slug === 'white-cube'       ? '⬜' :
-                                               ($venue->slug === 'industrial-loft'  ? '🏭' :
-                                               ($venue->slug === 'dark-museum'      ? '🏛️' :
-                                               ($venue->slug === 'zen-gallery'      ? '🎋' :
-                                               ($venue->slug === 'luxury-penthouse' ? '🏙️' :
-                                               ($venue->slug === 'cyber-gallery'    ? '🌐' :
-                                               ($venue->slug === 'sculpture-garden' ? '🌿' :
-                                                '✨')))))))}}
+                                            @php
+                                                $venueIcon = match($venue->slug) {
+                                                    'white-cube'       => '⬜',
+                                                    'industrial-loft'  => '🏭',
+                                                    'dark-museum'      => '🏛️',
+                                                    'zen-gallery'      => '🎋',
+                                                    'luxury-penthouse' => '🏙️',
+                                                    'cyber-gallery'    => '🌐',
+                                                    'sculpture-garden' => '🌿',
+                                                    default            => '✨',
+                                                };
+                                            @endphp
+                                            {{ $venueIcon }}
                                         </div>
                                         <div class="text-sm font-medium text-gray-200 leading-tight">{{ $venue->name }}</div>
                                         <div class="text-xs text-gray-500 mt-1 leading-tight">{{ $venue->capacityLabel() }}</div>

@@ -150,14 +150,19 @@
                                     @php $editCardBorder = $isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-600'; @endphp
 <div class="edit-venue-card-inner border-2 {{ $editCardBorder }} {{ !$accessible ? 'opacity-50' : '' }} rounded-lg p-3 text-center transition-all hover:border-purple-400 h-full flex flex-col items-center">
                                         <div class="text-xl mb-1">
-                                            {{ $venue->slug === 'white-cube'       ? '⬜' :
-                                               ($venue->slug === 'industrial-loft'  ? '🏭' :
-                                               ($venue->slug === 'dark-museum'      ? '🏛️' :
-                                               ($venue->slug === 'zen-gallery'      ? '🎋' :
-                                               ($venue->slug === 'luxury-penthouse' ? '🏙️' :
-                                               ($venue->slug === 'cyber-gallery'    ? '🌐' :
-                                               ($venue->slug === 'sculpture-garden' ? '🌿' :
-                                                '✨')))))))}}
+                                            @php
+                                                $editVenueIcon = match($venue->slug) {
+                                                    'white-cube'       => '⬜',
+                                                    'industrial-loft'  => '🏭',
+                                                    'dark-museum'      => '🏛️',
+                                                    'zen-gallery'      => '🎋',
+                                                    'luxury-penthouse' => '🏙️',
+                                                    'cyber-gallery'    => '🌐',
+                                                    'sculpture-garden' => '🌿',
+                                                    default            => '✨',
+                                                };
+                                            @endphp
+                                            {{ $editVenueIcon }}
                                         </div>
                                         <div class="text-xs font-medium text-gray-200 leading-tight">{{ $venue->name }}</div>
                                         @if(!$accessible)
