@@ -37,6 +37,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
             'is_super_admin'    => 'boolean',
+            'plan_expires_at'   => 'datetime',
+            'plan_started_at'   => 'datetime',
         ];
     }
 

@@ -869,8 +869,8 @@
                 venue_slug: "white-cube",
                 imageCount: mockImages.length,
                 audioUrl: null,
-                'userPlan': 'studio',
-                'customLogoUrl': 'https://via.placeholder.com/200x50.png?text=Studio+Logo',
+                userPlan: "studio",
+                customLogoUrl: "https://via.placeholder.com/200x50.png?text=Studio+Logo",
                 images: mockImages
             };
         }
