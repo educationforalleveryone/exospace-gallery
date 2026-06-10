@@ -15,7 +15,11 @@ else
     sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
 fi
 
-# 3. Run migrations and seed at runtime (has access to production DB)
+# 3. Clear all caches then migrate at runtime
+php /app/artisan config:clear
+php /app/artisan cache:clear
+php /app/artisan view:clear
+php /app/artisan route:clear
 php /app/artisan migrate --force
 php /app/artisan db:seed --class=VenueTemplateSeeder --force
 

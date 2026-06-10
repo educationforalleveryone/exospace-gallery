@@ -5,9 +5,7 @@ nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer"]
 cmds = [
     "npm install",
     "npm run build",
-    "composer install --no-dev --optimize-autoloader",
-    "php artisan config:cache",
-    "php artisan view:cache"
+    "composer install --no-dev --optimize-autoloader"
 ]
 
 [start]
