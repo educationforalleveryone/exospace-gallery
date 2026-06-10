@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 class Gallery extends Model
 {
     protected $fillable = [
-        'user_id', 'title', 'slug', 'description',
+        'user_id', 'team_id', 'title', 'slug', 'description',
         'wall_texture', 'frame_style', 'lighting_preset',
         'floor_material', 'audio_path', 'custom_logo_path',
         'room_layout', 'venue_template_id', 'pin_hash',
