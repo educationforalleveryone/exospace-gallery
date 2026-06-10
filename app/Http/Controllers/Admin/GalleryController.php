@@ -85,8 +85,9 @@ class GalleryController extends Controller
             'pin_hash'         => $validated['gallery_pin'] ? Hash::make($validated['gallery_pin']) : null,
             'opens_at'         => $validated['opens_at'] ?? null,
             'closes_at'        => $validated['closes_at'] ?? null,
-            'audio_path'       => $audioPath,
-            'custom_logo_path' => $logoPath,
+            'venue_template_id' => $validated['venue_template_id'] ?? null,
+            'audio_path'        => $audioPath,
+            'custom_logo_path'  => $logoPath,
         ]);
 
         $redirectParams = $team ? ['team' => $team->id] : [];
