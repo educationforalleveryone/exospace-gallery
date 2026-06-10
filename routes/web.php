@@ -111,4 +111,98 @@ Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')
     Route::post('/users/{user}/toggle-super-admin',    [SystemController::class, 'toggleSuperAdmin'])->name('toggleSuperAdmin');
 });
 
+// TEMPORARY DEBUG — remove after fixing
+Route::get('/debug-gallery-create', function () {
+    try {
+        $user = \App\Models\User::first();
+        if (!$user) return 'No users in DB';
+
+        $results = [];
+
+        // Step 1: Can we query venue templates?
+        try {
+            $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
+            $results[] = 'VenueTemplates count: ' . $venueTemplates->count();
+        } catch (\Exception $e) {
+            $results[] = 'FAIL VenueTemplates: ' . $e->getMessage();
+        }
+
+        // Step 2: Does default_settings have required keys?
+        try {
+            foreach ($venueTemplates as $v) {
+                $keys = ['wall_texture','floor_material','frame_style','lighting_preset','room_layout'];
+                foreach ($keys as $k) {
+                    if (!isset($v->default_settings[$k])) {
+                        $results[] = "MISSING key '$k' on venue ID {$v->id} slug={$v->slug}";
+                    }
+                }
+            }
+            $results[] = 'default_settings keys OK';
+        } catch (\Exception $e) {
+            $results[] = 'FAIL default_settings: ' . $e->getMessage();
+        }
+
+        // Step 3: isAccessibleBy
+        try {
+            foreach ($venueTemplates as $v) {
+                $v->isAccessibleBy($user);
+            }
+            $results[] = 'isAccessibleBy OK';
+        } catch (\Exception $e) {
+            $results[] = 'FAIL isAccessibleBy: ' . $e->getMessage();
+        }
+
+        // Step 4: firstWhere plan_required free
+        try {
+            $first = $venueTemplates->firstWhere('plan_required', 'free');
+            $results[] = 'firstWhere free: ' . ($first ? $first->slug : 'NULL — no free template!');
+        } catch (\Exception $e) {
+            $results[] = 'FAIL firstWhere: ' . $e->getMessage();
+        }
+
+        // Step 5: galleries()->count on user
+        try {
+            $count = $user->galleries()->count();
+            $results[] = 'galleries count: ' . $count;
+        } catch (\Exception $e) {
+            $results[] = 'FAIL galleries count: ' . $e->getMessage();
+        }
+
+        // Step 6: resolveEditableTeam simulation
+        try {
+            $teamId = $user->current_team_id;
+            if ($teamId) {
+                $team = \App\Models\Team::find($teamId);
+                $canEdit = $team ? $team->canEdit($user) : 'no team found';
+                $results[] = "current_team_id=$teamId canEdit=$canEdit";
+            } else {
+                $results[] = 'No current_team_id set';
+            }
+        } catch (\Exception $e) {
+            $results[] = 'FAIL team check: ' . $e->getMessage();
+        }
+
+        // Step 7: checkGalleryLimit
+        try {
+            $canCreate = $user->canCreateGallery();
+            $results[] = 'canCreateGallery: ' . ($canCreate ? 'yes' : 'no') . ' max=' . $user->max_galleries;
+        } catch (\Exception $e) {
+            $results[] = 'FAIL canCreateGallery: ' . $e->getMessage();
+        }
+
+        // Step 8: Try rendering a minimal version of what create view does
+        try {
+            $isPro = $user->isPro();
+            $results[] = 'isPro: ' . ($isPro ? 'yes' : 'no') . ' plan=' . $user->plan;
+        } catch (\Exception $e) {
+            $results[] = 'FAIL isPro: ' . $e->getMessage();
+        }
+
+        return '<pre>' . implode("\n", $results) . '</pre>';
+
+    } catch (\Exception $e) {
+        return '<pre>TOP LEVEL ERROR: ' . $e->getMessage() . "\n" . $e->getTraceAsString() . '</pre>';
+    }
+})->middleware(['auth', 'verified']);
+
 require __DIR__.'/auth.php';
