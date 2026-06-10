@@ -115,56 +115,72 @@ Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')
 Route::get('/debug-render-test', function () {
     $output = [];
 
-    $user = \App\Models\User::first();
-    if (!$user) return 'No users found';
+    // Step 0: Clear compiled view cache so we test fresh files
+    try {
+        $viewCachePath = storage_path('framework/views');
+        $files = glob($viewCachePath . '/*.php');
+        $deleted = 0;
+        foreach ($files as $file) {
+            if (is_file($file)) { unlink($file); $deleted++; }
+        }
+        $output[] = "Cache cleared: $deleted compiled view files deleted";
+    } catch (\Throwable $e) {
+        $output[] = 'Cache clear failed: ' . $e->getMessage();
+    }
 
-    // Simulate what the create controller does
+    // Step 1: Show actual file contents around the fixed lines
+    $createPath = resource_path('views/admin/galleries/create.blade.php');
+    $editPath   = resource_path('views/admin/galleries/edit.blade.php');
+    $output[] = '';
+    $output[] = '=== CREATE file mtime: ' . date('Y-m-d H:i:s', filemtime($createPath)) . ' ===';
+    $createLines = file($createPath);
+    foreach (range(130, 137) as $n) {
+        if (isset($createLines[$n])) $output[] = "  L" . ($n+1) . ": " . rtrim($createLines[$n]);
+    }
+    $output[] = '';
+    $output[] = '=== EDIT file mtime: ' . date('Y-m-d H:i:s', filemtime($editPath)) . ' ===';
+    $editLines = file($editPath);
+    foreach (range(490, 496) as $n) {
+        if (isset($editLines[$n])) $output[] = "  L" . ($n+1) . ": " . rtrim($editLines[$n]);
+    }
+
+    $user = \App\Models\User::first();
+    if (!$user) { $output[] = 'No users in DB'; goto done; }
+
     $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
 
-    // Test rendering create view
-    $output[] = '=== Testing CREATE view render ===';
+    // Test CREATE
+    $output[] = '';
+    $output[] = '=== Testing CREATE view render (fresh) ===';
     try {
-        $html = view('admin.galleries.create', [
-            'team' => null,
-            'venueTemplates' => $venueTemplates,
-        ])->render();
+        $html = view('admin.galleries.create', ['team' => null, 'venueTemplates' => $venueTemplates])->render();
         $output[] = 'CREATE: OK (' . strlen($html) . ' bytes)';
     } catch (\Throwable $e) {
         $output[] = 'CREATE FAILED: ' . $e->getMessage();
-        $output[] = 'File: ' . $e->getFile() . ':' . $e->getLine();
-        $output[] = 'Trace:';
+        $output[] = 'At: ' . $e->getFile() . ':' . $e->getLine();
         $output[] = $e->getTraceAsString();
-        return '<pre style="font-size:12px;background:#1a1a2e;color:#e2e2e2;padding:20px">' . implode("\n", $output) . '</pre>';
+        goto done;
     }
 
-    // Get first gallery for edit test
+    // Test EDIT
     $gallery = \App\Models\Gallery::with(['images', 'venueTemplate'])->first();
+    $output[] = '';
+    $output[] = '=== Testing EDIT view render (fresh) ===';
     if (!$gallery) {
-        $output[] = 'No galleries in DB — skipping edit test';
+        $output[] = 'No galleries in DB — skipping';
     } else {
-        $output[] = '=== Testing EDIT view render ===';
-        $output[] = 'Gallery: ' . $gallery->title . ' (id=' . $gallery->id . ')';
-        $output[] = 'wall_texture: ' . var_export($gallery->wall_texture, true);
-        $output[] = 'floor_material: ' . var_export($gallery->floor_material, true);
-        $output[] = 'frame_style: ' . var_export($gallery->frame_style, true);
-        $output[] = 'lighting_preset: ' . var_export($gallery->lighting_preset, true);
-        $output[] = 'room_layout: ' . var_export($gallery->room_layout, true);
-        $output[] = 'venue_template_id: ' . var_export($gallery->venue_template_id, true);
         try {
-            $html = view('admin.galleries.edit', [
-                'gallery' => $gallery,
-                'venueTemplates' => $venueTemplates,
-            ])->render();
+            $html = view('admin.galleries.edit', ['gallery' => $gallery, 'venueTemplates' => $venueTemplates])->render();
             $output[] = 'EDIT: OK (' . strlen($html) . ' bytes)';
         } catch (\Throwable $e) {
             $output[] = 'EDIT FAILED: ' . $e->getMessage();
-            $output[] = 'File: ' . $e->getFile() . ':' . $e->getLine();
-            $output[] = 'Trace:';
+            $output[] = 'At: ' . $e->getFile() . ':' . $e->getLine();
             $output[] = $e->getTraceAsString();
         }
     }
 
-    return '<pre style="font-size:12px;background:#1a1a2e;color:#e2e2e2;padding:20px">' . implode("\n", $output) . '</pre>';
+    done:
+    return '<pre style="font-size:11px;background:#0d1117;color:#c9d1d9;padding:20px;line-height:1.5">' . implode("\n", $output) . '</pre>';
 })->middleware(['auth', 'verified']);
 
 require __DIR__.'/auth.php';
