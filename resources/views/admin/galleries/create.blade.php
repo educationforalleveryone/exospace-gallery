@@ -94,17 +94,22 @@
                                      data-lighting="{{ $venue->default_settings['lighting_preset'] }}"
                                      data-layout="{{ $venue->default_settings['room_layout'] }}"
                                      data-accessible="{{ $accessible ? 'true' : 'false' }}">
-                                    <div class="venue-card-inner border-2 {{ $isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-600' }} rounded-lg p-3 text-center transition-all hover:border-purple-400 h-full flex flex-col items-center">
+                                    @php $cardBorder = $isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-600'; @endphp
+<div class="venue-card-inner border-2 {{ $cardBorder }} rounded-lg p-3 text-center transition-all hover:border-purple-400 h-full flex flex-col items-center">
                                         {{-- Icon --}}
-                                        <div class="w-10 h-10 rounded-lg mb-2 flex items-center justify-center text-xl
-                                            {{ $venue->slug === 'white-cube'       ? 'bg-gray-100/10' :
-                                               ($venue->slug === 'industrial-loft'  ? 'bg-orange-900/30' :
-                                               ($venue->slug === 'dark-museum'      ? 'bg-gray-900/60' :
-                                               ($venue->slug === 'zen-gallery'      ? 'bg-green-900/30' :
-                                               ($venue->slug === 'luxury-penthouse' ? 'bg-amber-900/30' :
-                                               ($venue->slug === 'cyber-gallery'    ? 'bg-blue-900/30' :
-                                               ($venue->slug === 'sculpture-garden' ? 'bg-emerald-900/30' :
-                                                'bg-purple-900/30')))))))}}">
+                                        @php
+                                            $iconBg = match($venue->slug) {
+                                                'white-cube'       => 'bg-gray-100/10',
+                                                'industrial-loft'  => 'bg-orange-900/30',
+                                                'dark-museum'      => 'bg-gray-900/60',
+                                                'zen-gallery'      => 'bg-green-900/30',
+                                                'luxury-penthouse' => 'bg-amber-900/30',
+                                                'cyber-gallery'    => 'bg-blue-900/30',
+                                                'sculpture-garden' => 'bg-emerald-900/30',
+                                                default            => 'bg-purple-900/30',
+                                            };
+                                        @endphp
+                                        <div class="w-10 h-10 rounded-lg mb-2 flex items-center justify-center text-xl {{ $iconBg }}">
                                             {{ $venue->slug === 'white-cube'       ? '⬜' :
                                                ($venue->slug === 'industrial-loft'  ? '🏭' :
                                                ($venue->slug === 'dark-museum'      ? '🏛️' :
