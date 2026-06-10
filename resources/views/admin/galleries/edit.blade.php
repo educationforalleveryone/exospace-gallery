@@ -141,11 +141,11 @@
                                 @endphp
                                 <div class="edit-venue-card cursor-pointer"
                                      data-venue-id="{{ $venue->id }}"
-                                     data-wall="{{ $venue->default_settings['wall_texture'] ?? 'white' }}"
-                                     data-floor="{{ $venue->default_settings['floor_material'] ?? 'concrete' }}"
-                                     data-frame="{{ $venue->default_settings['frame_style'] ?? 'minimal' }}"
-                                     data-lighting="{{ $venue->default_settings['lighting_preset'] ?? 'bright' }}"
-                                     data-layout="{{ $venue->default_settings['room_layout'] ?? 'square' }}"
+                                     data-wall="{{ $venue->default_settings['wall_texture'] }}"
+                                     data-floor="{{ $venue->default_settings['floor_material'] }}"
+                                     data-frame="{{ $venue->default_settings['frame_style'] }}"
+                                     data-lighting="{{ $venue->default_settings['lighting_preset'] }}"
+                                     data-layout="{{ $venue->default_settings['room_layout'] }}"
                                      data-accessible="{{ $accessible ? 'true' : 'false' }}">
                                     <div class="edit-venue-card-inner border-2 {{ $isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-600' }} {{ !$accessible ? 'opacity-50' : '' }} rounded-lg p-3 text-center transition-all hover:border-purple-400 h-full flex flex-col items-center">
                                         <div class="text-xl mb-1">
