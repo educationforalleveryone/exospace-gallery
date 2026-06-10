@@ -1602,7 +1602,7 @@
                         this._venueSlug           = 'dark-museum';
                         break;
                 }
-            },
+            }
 
             buildGallery() {
                 const data = window.GALLERY_DATA;
@@ -2187,7 +2187,7 @@
                     });
                 }
                 // white-cube: no structure added — clean is the point
-            },
+            }
 
             getWallMaterial(type) {
                 const fallbackColors = {
