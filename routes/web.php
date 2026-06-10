@@ -8,6 +8,22 @@ use App\Http\Controllers\SuperAdmin\SystemController;
 use App\Http\Controllers\TeamInvitationController;
 use Illuminate\Support\Facades\Route;
 
+// ── Bare DB check — no middleware, no models, no views ───────────────────
+Route::get('/db-check', function () {
+    try {
+        $tables = \Illuminate\Support\Facades\DB::select("SHOW TABLES");
+        $names = array_map(fn($t) => array_values((array)$t)[0], $tables);
+        $migrations = \Illuminate\Support\Facades\DB::table('migrations')->pluck('migration')->toArray();
+        return response('<pre style="background:#0d1117;color:#c9d1d9;padding:20px;font-size:12px">'
+            . "DB connected: YES\n\nTables (" . count($names) . "):\n" . implode("\n", $names)
+            . "\n\nRan migrations (" . count($migrations) . "):\n" . implode("\n", $migrations)
+            . '</pre>', 200)->header('Content-Type', 'text/html');
+    } catch (\Throwable $e) {
+        return response('<pre style="background:#1a0000;color:#ff6b6b;padding:20px">'
+            . "DB FAILED: " . $e->getMessage() . '</pre>', 200)->header('Content-Type', 'text/html');
+    }
+});
+
 // ── Installer ─────────────────────────────────────────────────────────────
 Route::get('/finalize-installation', [InstallerController::class, 'finalize'])
     ->name('installer.finalize')->withoutMiddleware(['auth', 'verified']);
