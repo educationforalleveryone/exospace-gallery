@@ -490,7 +490,8 @@
                             This gallery has reached its {{ $imgMax }}-image limit.
                             @if(!Auth::user()->isPro()) Upgrade to Pro for 50 images per gallery. @endif
                         @else
-                            {{ $imgCount }} of {{ $imgMax }} images used — {{ $imgMax - $imgCount }} slot{{ $imgMax - $imgCount === 1 ? '' : 's' }} remaining.
+                            @php $slotsLeft = $imgMax - $imgCount; @endphp
+                            {{ $imgCount }} of {{ $imgMax }} images used — {{ $slotsLeft }} slot{{ $slotsLeft === 1 ? '' : 's' }} remaining.
                         @endif
                     </p>
                     @if(!Auth::user()->isPro())
