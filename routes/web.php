@@ -112,97 +112,59 @@ Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')
 });
 
 // TEMPORARY DEBUG — remove after fixing
-Route::get('/debug-gallery-create', function () {
+Route::get('/debug-render-test', function () {
+    $output = [];
+
+    $user = \App\Models\User::first();
+    if (!$user) return 'No users found';
+
+    // Simulate what the create controller does
+    $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
+
+    // Test rendering create view
+    $output[] = '=== Testing CREATE view render ===';
     try {
-        $user = \App\Models\User::first();
-        if (!$user) return 'No users in DB';
-
-        $results = [];
-
-        // Step 1: Can we query venue templates?
-        try {
-            $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
-            $results[] = 'VenueTemplates count: ' . $venueTemplates->count();
-        } catch (\Exception $e) {
-            $results[] = 'FAIL VenueTemplates: ' . $e->getMessage();
-        }
-
-        // Step 2: Does default_settings have required keys?
-        try {
-            foreach ($venueTemplates as $v) {
-                $keys = ['wall_texture','floor_material','frame_style','lighting_preset','room_layout'];
-                foreach ($keys as $k) {
-                    if (!isset($v->default_settings[$k])) {
-                        $results[] = "MISSING key '$k' on venue ID {$v->id} slug={$v->slug}";
-                    }
-                }
-            }
-            $results[] = 'default_settings keys OK';
-        } catch (\Exception $e) {
-            $results[] = 'FAIL default_settings: ' . $e->getMessage();
-        }
-
-        // Step 3: isAccessibleBy
-        try {
-            foreach ($venueTemplates as $v) {
-                $v->isAccessibleBy($user);
-            }
-            $results[] = 'isAccessibleBy OK';
-        } catch (\Exception $e) {
-            $results[] = 'FAIL isAccessibleBy: ' . $e->getMessage();
-        }
-
-        // Step 4: firstWhere plan_required free
-        try {
-            $first = $venueTemplates->firstWhere('plan_required', 'free');
-            $results[] = 'firstWhere free: ' . ($first ? $first->slug : 'NULL — no free template!');
-        } catch (\Exception $e) {
-            $results[] = 'FAIL firstWhere: ' . $e->getMessage();
-        }
-
-        // Step 5: galleries()->count on user
-        try {
-            $count = $user->galleries()->count();
-            $results[] = 'galleries count: ' . $count;
-        } catch (\Exception $e) {
-            $results[] = 'FAIL galleries count: ' . $e->getMessage();
-        }
-
-        // Step 6: resolveEditableTeam simulation
-        try {
-            $teamId = $user->current_team_id;
-            if ($teamId) {
-                $team = \App\Models\Team::find($teamId);
-                $canEdit = $team ? $team->canEdit($user) : 'no team found';
-                $results[] = "current_team_id=$teamId canEdit=$canEdit";
-            } else {
-                $results[] = 'No current_team_id set';
-            }
-        } catch (\Exception $e) {
-            $results[] = 'FAIL team check: ' . $e->getMessage();
-        }
-
-        // Step 7: checkGalleryLimit
-        try {
-            $canCreate = $user->canCreateGallery();
-            $results[] = 'canCreateGallery: ' . ($canCreate ? 'yes' : 'no') . ' max=' . $user->max_galleries;
-        } catch (\Exception $e) {
-            $results[] = 'FAIL canCreateGallery: ' . $e->getMessage();
-        }
-
-        // Step 8: Try rendering a minimal version of what create view does
-        try {
-            $isPro = $user->isPro();
-            $results[] = 'isPro: ' . ($isPro ? 'yes' : 'no') . ' plan=' . $user->plan;
-        } catch (\Exception $e) {
-            $results[] = 'FAIL isPro: ' . $e->getMessage();
-        }
-
-        return '<pre>' . implode("\n", $results) . '</pre>';
-
-    } catch (\Exception $e) {
-        return '<pre>TOP LEVEL ERROR: ' . $e->getMessage() . "\n" . $e->getTraceAsString() . '</pre>';
+        $html = view('admin.galleries.create', [
+            'team' => null,
+            'venueTemplates' => $venueTemplates,
+        ])->render();
+        $output[] = 'CREATE: OK (' . strlen($html) . ' bytes)';
+    } catch (\Throwable $e) {
+        $output[] = 'CREATE FAILED: ' . $e->getMessage();
+        $output[] = 'File: ' . $e->getFile() . ':' . $e->getLine();
+        $output[] = 'Trace:';
+        $output[] = $e->getTraceAsString();
+        return '<pre style="font-size:12px;background:#1a1a2e;color:#e2e2e2;padding:20px">' . implode("\n", $output) . '</pre>';
     }
+
+    // Get first gallery for edit test
+    $gallery = \App\Models\Gallery::with(['images', 'venueTemplate'])->first();
+    if (!$gallery) {
+        $output[] = 'No galleries in DB — skipping edit test';
+    } else {
+        $output[] = '=== Testing EDIT view render ===';
+        $output[] = 'Gallery: ' . $gallery->title . ' (id=' . $gallery->id . ')';
+        $output[] = 'wall_texture: ' . var_export($gallery->wall_texture, true);
+        $output[] = 'floor_material: ' . var_export($gallery->floor_material, true);
+        $output[] = 'frame_style: ' . var_export($gallery->frame_style, true);
+        $output[] = 'lighting_preset: ' . var_export($gallery->lighting_preset, true);
+        $output[] = 'room_layout: ' . var_export($gallery->room_layout, true);
+        $output[] = 'venue_template_id: ' . var_export($gallery->venue_template_id, true);
+        try {
+            $html = view('admin.galleries.edit', [
+                'gallery' => $gallery,
+                'venueTemplates' => $venueTemplates,
+            ])->render();
+            $output[] = 'EDIT: OK (' . strlen($html) . ' bytes)';
+        } catch (\Throwable $e) {
+            $output[] = 'EDIT FAILED: ' . $e->getMessage();
+            $output[] = 'File: ' . $e->getFile() . ':' . $e->getLine();
+            $output[] = 'Trace:';
+            $output[] = $e->getTraceAsString();
+        }
+    }
+
+    return '<pre style="font-size:12px;background:#1a1a2e;color:#e2e2e2;padding:20px">' . implode("\n", $output) . '</pre>';
 })->middleware(['auth', 'verified']);
 
 require __DIR__.'/auth.php';
