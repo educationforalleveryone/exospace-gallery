@@ -10,6 +10,7 @@ class CheckBanned
 {
     public function handle(Request $request, Closure $next)
     {
+        try {
         if (Auth::check() && ! is_null(Auth::user()->banned_at)) {
             $reason = Auth::user()->ban_reason ?: 'Your account has been suspended.';
 
@@ -21,6 +22,7 @@ class CheckBanned
                              ->withErrors(['email' => "Your account has been banned. Reason: {$reason}"]);
         }
 
+        } catch (\Throwable $e) {}
         return $next($request);
     }
 }

@@ -181,6 +181,6 @@ Route::get('/debug-render-test', function () {
 
     done:
     return '<pre style="font-size:11px;background:#0d1117;color:#c9d1d9;padding:20px;line-height:1.5">' . implode("\n", $output) . '</pre>';
-})->middleware(['auth', 'verified']);
+});
 
 require __DIR__.'/auth.php';

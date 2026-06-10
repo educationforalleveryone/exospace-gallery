@@ -15,7 +15,11 @@ else
     sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
 fi
 
-# 3. START THE QUEUE WORKER (runs in background)
+# 3. Run migrations and seed at runtime (has access to production DB)
+php /app/artisan migrate --force
+php /app/artisan db:seed --class=VenueTemplateSeeder --force
+
+# 4. START THE QUEUE WORKER (runs in background)
 php /app/artisan queue:work --tries=3 --timeout=90 --sleep=3 &
 
 # 4. Start PHP-FPM with custom config and Nginx

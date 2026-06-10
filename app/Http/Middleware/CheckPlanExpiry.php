@@ -10,6 +10,7 @@ class CheckPlanExpiry
 {
     public function handle(Request $request, Closure $next)
     {
+        try {
         if (Auth::check()) {
             $user = Auth::user();
             if (
@@ -35,6 +36,7 @@ class CheckPlanExpiry
             }
         }
 
+        } catch (\Throwable $e) {}
         return $next($request);
     }
 }
