@@ -67,7 +67,10 @@ class Team extends Model
 
     public function canEdit(User $user): bool
     {
+        if ($this->isOwner($user)) {
+            return true;
+        }
         $role = $this->memberRole($user);
-        return in_array($role, ['owner', 'editor']);
+        return in_array($role, ['editor']);
     }
 }
