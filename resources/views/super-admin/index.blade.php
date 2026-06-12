@@ -23,6 +23,9 @@
                     <a href="{{ route('admin.dashboard') }}" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition text-sm">
                         ← Dashboard
                     </a>
+                    <a href="{{ route('super.venues.index') }}" class="px-4 py-2 bg-purple-800 hover:bg-purple-700 rounded-lg transition text-sm">
+                        🏛️ Venue Templates
+                    </a>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition text-sm">Logout</button>

@@ -12,7 +12,7 @@ class GalleryViewController extends Controller
     {
         $gallery = Gallery::where('slug', $slug)
             ->where('is_active', true)
-            ->with('images')
+            ->with(['images', 'user', 'venueTemplate'])
             ->firstOrFail();
 
         // Time-gate: not open yet
@@ -52,8 +52,12 @@ class GalleryViewController extends Controller
                 'title'       => $img->title ?? $img->original_name,
                 'description' => $img->description,
             ])->values(),
-            'imageCount' => $gallery->images->count(),
-            'audioUrl'   => $gallery->audio_path ? asset('storage/' . $gallery->audio_path) : null,
+            'imageCount'     => $gallery->images->count(),
+            'audioUrl'       => $gallery->audio_path ? asset('storage/' . $gallery->audio_path) : null,
+            'userPlan'       => $gallery->user->plan ?? 'free',
+            'customLogoUrl'  => ($gallery->custom_logo_path && $gallery->user->plan === 'studio')
+                                    ? asset('storage/' . $gallery->custom_logo_path)
+                                    : null,
         ];
 
         return view('gallery.view', compact('gallery', 'galleryData'));

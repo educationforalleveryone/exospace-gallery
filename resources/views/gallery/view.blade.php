@@ -1593,13 +1593,65 @@
                         break;
 
                     // ── DARK MUSEUM ───────────────────────────────
-                    // Low ambient, tight spotlights, deep black walls.
-                    // Visitor reads "premium gallery" immediately.
                     case 'dark-museum':
                         CONFIG.room.wallHeight    = 5;
-                        this.scene.background     = new THREE.Color(0x020202); // Near black
-                        this.scene.fog            = new THREE.Fog(0x020202, 5, 18); // Tight fog = claustrophobic luxury
+                        this.scene.background     = new THREE.Color(0x020202);
+                        this.scene.fog            = new THREE.Fog(0x020202, 5, 18);
                         this._venueSlug           = 'dark-museum';
+                        break;
+
+                    // ── ZEN GALLERY ───────────────────────────────
+                    // Warm natural tones, soft diffuse light, open feel.
+                    // Modest ceiling — intimacy, not grandeur.
+                    case 'zen-gallery':
+                        CONFIG.room.wallHeight    = 3.2;   // Low, human-scale ceiling
+                        CONFIG.room.wallDepth     = 0.15;  // Slender walls — light and airy
+                        this.scene.background     = new THREE.Color(0x1a1710); // Warm cream-black
+                        this.scene.fog            = new THREE.Fog(0x1a1710, 12, 40); // Soft, airy fade
+                        this._venueSlug           = 'zen-gallery';
+                        break;
+
+                    // ── LUXURY PENTHOUSE ──────────────────────────
+                    // Floor-to-ceiling height. Marble everywhere.
+                    // Tight spotlights — expensive, considered light.
+                    case 'luxury-penthouse':
+                        CONFIG.room.wallHeight    = 4.5;
+                        CONFIG.room.wallDepth     = 0.3;
+                        this.scene.background     = new THREE.Color(0x08090d); // Cold luxury black
+                        this.scene.fog            = new THREE.Fog(0x08090d, 8, 25);
+                        this._venueSlug           = 'luxury-penthouse';
+                        break;
+
+                    // ── CYBER GALLERY ─────────────────────────────
+                    // Dark, neon-tinged. Tall walls, tight fog creates
+                    // a sense of infinite depth between artworks.
+                    case 'cyber-gallery':
+                        CONFIG.room.wallHeight    = 6;
+                        CONFIG.room.wallDepth     = 0.4;
+                        this.scene.background     = new THREE.Color(0x020412); // Deep indigo-black
+                        this.scene.fog            = new THREE.Fog(0x020412, 6, 22);
+                        this._venueSlug           = 'cyber-gallery';
+                        break;
+
+                    // ── SCULPTURE GARDEN ──────────────────────────
+                    // No ceiling — open sky. Very tall virtual walls
+                    // create the illusion of an outdoor perimeter.
+                    case 'sculpture-garden':
+                        CONFIG.room.wallHeight    = 8;     // Sky-high perimeter walls
+                        CONFIG.room.wallDepth     = 0.6;   // Thick — feels like stone/hedge
+                        this.scene.background     = new THREE.Color(0x0d1a0d); // Dark forest green-black
+                        this.scene.fog            = new THREE.Fog(0x0d1a0d, 10, 45); // Wide — outdoor scale
+                        this._venueSlug           = 'sculpture-garden';
+                        break;
+
+                    // ── INFINITE VOID ─────────────────────────────
+                    // No fog. No background color. Artworks float in
+                    // literal infinite space — walls are invisible.
+                    case 'infinite-void':
+                        CONFIG.room.wallHeight    = 20;    // Effectively invisible ceiling
+                        this.scene.background     = new THREE.Color(0x000000);
+                        this.scene.fog            = null;  // No fog = true infinite feel
+                        this._venueSlug           = 'infinite-void';
                         break;
                 }
             }
@@ -1731,26 +1783,8 @@
                     this.scene.add(wallMesh);
                 });
 
-                // CEILING — ⚡ FIX F: Lambert on low-end, shared plane geo
-                const ceilingMaterial = this.isLowEnd
-                    ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling })
-                    : new THREE.MeshStandardMaterial({
-                        color: this.lightingConfig.ceiling,
-                        roughness: 0.5,
-                        metalness: 0.0,
-                        emissive: this.lightingConfig.ceiling,
-                        emissiveIntensity: 0.1
-                    });
-
-                const ceiling = new THREE.Mesh(
-                    new THREE.PlaneGeometry(wallLength * 2, wallLength * 2),
-                    ceilingMaterial
-                );
-                ceiling.rotation.x = Math.PI / 2;
-                ceiling.position.y = wallHeight;
-                ceiling.receiveShadow = !this.isLowEnd;
-                ceiling.name = 'ceiling';
-                this.scene.add(ceiling);
+                // Ceiling — venue-aware
+                this.addVenueCeiling(wallLength * 2, wallLength * 2, wallHeight);
 
                 // ⚡ FIX A: Radically fewer PointLights on low-end.
                 // Each PointLight adds a full per-fragment lighting pass in WebGL.
@@ -1821,13 +1855,8 @@
                 floor.receiveShadow = !this.isLowEnd;
                 this.scene.add(floor);
 
-                const ceilMat = this.isLowEnd
-                    ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling })
-                    : new THREE.MeshStandardMaterial({ color: this.lightingConfig.ceiling, roughness: 0.5, metalness: 0.0, emissive: this.lightingConfig.ceiling, emissiveIntensity: 0.1 });
-                const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(length, width), ceilMat);
-                ceiling.rotation.x = Math.PI / 2;
-                ceiling.position.y = wallHeight;
-                this.scene.add(ceiling);
+                // Ceiling — venue-aware
+                this.addVenueCeiling(length, width, wallHeight);
 
                 [
                     { pos: [0, wallHeight/2, -width/2],  ry: 0,            sx: length },
@@ -1923,9 +1952,18 @@
                     floorMat.map.needsUpdate = true;
                 }
 
+                // Ceiling — venue-aware color
+                const _lsCeilColor = (() => {
+                    const s = this._venueSlug || 'white-cube';
+                    if (s === 'dark-museum' || s === 'luxury-penthouse') return 0x080808;
+                    if (s === 'cyber-gallery')  return 0x04081a;
+                    if (s === 'industrial-loft') return 0x1a1a18;
+                    if (s === 'zen-gallery')    return 0x1e1c14;
+                    return 0xffffff;
+                })();
                 const ceilMatA = this.isLowEnd
-                    ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling })
-                    : new THREE.MeshStandardMaterial({ color: this.lightingConfig.ceiling, roughness: 0.5, metalness: 0.0 });
+                    ? new THREE.MeshLambertMaterial({ color: _lsCeilColor })
+                    : new THREE.MeshStandardMaterial({ color: _lsCeilColor, roughness: 0.95, metalness: 0 });
                 const ceilMatB = ceilMatA.clone ? ceilMatA.clone() : ceilMatA;
 
                 // ── Floor + Ceiling panels ──────────────────────────────────
@@ -2060,13 +2098,24 @@
                 floor.receiveShadow = !this.isLowEnd;
                 this.scene.add(floor);
 
-                const ceilMat = this.isLowEnd
-                    ? new THREE.MeshLambertMaterial({ color: this.lightingConfig.ceiling, side: THREE.BackSide })
-                    : new THREE.MeshStandardMaterial({ color: this.lightingConfig.ceiling, roughness: 0.5, metalness: 0.0, emissive: this.lightingConfig.ceiling, emissiveIntensity: 0.1, side: THREE.BackSide });
-                const ceil = new THREE.Mesh(new THREE.CircleGeometry(radius, 64), ceilMat);
-                ceil.rotation.x = -Math.PI / 2;
-                ceil.position.y = wallHeight;
-                this.scene.add(ceil);
+                // Ceiling — venue-aware
+                if (this._venueSlug !== 'infinite-void' && this._venueSlug !== 'sculpture-garden') {
+                    const _rotCeilColor = (() => {
+                        const s = this._venueSlug || 'white-cube';
+                        if (s === 'dark-museum' || s === 'luxury-penthouse') return 0x080808;
+                        if (s === 'cyber-gallery')  return 0x04081a;
+                        if (s === 'industrial-loft') return 0x1a1a18;
+                        if (s === 'zen-gallery')    return 0x1e1c14;
+                        return 0xffffff;
+                    })();
+                    const ceilMat = this.isLowEnd
+                        ? new THREE.MeshLambertMaterial({ color: _rotCeilColor, side: THREE.BackSide })
+                        : new THREE.MeshStandardMaterial({ color: _rotCeilColor, roughness: 0.95, metalness: 0, side: THREE.BackSide });
+                    const ceil = new THREE.Mesh(new THREE.CircleGeometry(radius, 64), ceilMat);
+                    ceil.rotation.x = -Math.PI / 2;
+                    ceil.position.y = wallHeight;
+                    this.scene.add(ceil);
+                }
 
                 if (!this.isLowEnd) {
                     const cl = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 3.0, radius * 2.5);
@@ -2080,6 +2129,63 @@
                 this._layoutMeta = { type: 'rotunda', radius };
             }
 
+
+            // ─────────────────────────────────────────────
+            // VENUE-AWARE CEILING
+            // ─────────────────────────────────────────────
+            addVenueCeiling(roomWidth, roomDepth, wallHeight) {
+                const slug = this._venueSlug || 'white-cube';
+
+                // Infinite Void and Sculpture Garden — no ceiling
+                if (slug === 'infinite-void' || slug === 'sculpture-garden') return;
+
+                // Base ceiling color
+                let ceilColor = 0xffffff;
+                if (slug === 'dark-museum' || slug === 'luxury-penthouse') ceilColor = 0x080808;
+                if (slug === 'cyber-gallery')  ceilColor = 0x04081a;
+                if (slug === 'industrial-loft') ceilColor = 0x1a1a18;
+                if (slug === 'zen-gallery')    ceilColor = 0x1e1c14;
+
+                const ceilGeo = new THREE.PlaneGeometry(roomWidth, roomDepth);
+                const ceilMat = this.isLowEnd
+                    ? new THREE.MeshLambertMaterial({ color: ceilColor })
+                    : new THREE.MeshStandardMaterial({ color: ceilColor, roughness: 0.95, metalness: 0 });
+                const ceiling = new THREE.Mesh(ceilGeo, ceilMat);
+                ceiling.rotation.x = Math.PI / 2;
+                ceiling.position.set(0, wallHeight, 0);
+                ceiling.receiveShadow = false;
+                this.scene.add(ceiling);
+
+                // Industrial Loft — add steel beams across ceiling
+                if (slug === 'industrial-loft') {
+                    const beamMat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.8, metalness: 0.6 });
+                    const beamCount = Math.max(2, Math.floor(roomDepth / 4));
+                    for (let i = 0; i < beamCount; i++) {
+                        const beam = new THREE.Mesh(
+                            new THREE.BoxGeometry(roomWidth, 0.18, 0.22),
+                            beamMat
+                        );
+                        beam.position.set(0, wallHeight - 0.1, -roomDepth / 2 + (i + 1) * (roomDepth / (beamCount + 1)));
+                        this.scene.add(beam);
+                    }
+                }
+
+                // Cyber Gallery — add glowing neon strip lights along ceiling edges
+                if (slug === 'cyber-gallery') {
+                    const neonColors = [0x00ffff, 0x8800ff];
+                    [[-roomWidth / 2, 0], [roomWidth / 2, 0]].forEach(([x], idx) => {
+                        const neonGeo = new THREE.BoxGeometry(0.05, 0.05, roomDepth);
+                        const neonMat = new THREE.MeshStandardMaterial({
+                            color: neonColors[idx],
+                            emissive: neonColors[idx],
+                            emissiveIntensity: 3,
+                        });
+                        const neon = new THREE.Mesh(neonGeo, neonMat);
+                        neon.position.set(x, wallHeight - 0.05, 0);
+                        this.scene.add(neon);
+                    });
+                }
+            }
 
             // ─────────────────────────────────────────────
             // VENUE STRUCTURE
@@ -2283,6 +2389,20 @@
                 const ambientLight = new THREE.AmbientLight(0xffffff, ambientIntensity);
                 this.scene.add(ambientLight);
 
+                // Venue-specific ambient color tint
+                const venueTints = {
+                    'white-cube':       0xffffff,
+                    'industrial-loft':  0xffe8c0,  // Warm sodium orange
+                    'dark-museum':      0xffffff,
+                    'zen-gallery':      0xfff5e0,  // Candlelight warm
+                    'luxury-penthouse': 0xdce8ff,  // Cold blue-white
+                    'cyber-gallery':    0x80c0ff,  // Neon blue
+                    'sculpture-garden': 0xe8fce8,  // Outdoor green-white
+                    'infinite-void':    0xaaaaff,  // Ethereal cool
+                };
+                const tint = venueTints[this._venueSlug] || 0xffffff;
+                ambientLight.color.set(tint);
+
                 // Hemisphere light gives cheap sky/ground gradient — keep on all tiers
                 const hemisphereLight = new THREE.HemisphereLight(
                     0xffffff,
@@ -2484,18 +2604,26 @@
                 const frameWidth = 0.1;
                 
                 const colors = {
-                    modern: 0x2c2c2c,
+                    modern:  0x2c2c2c,
                     classic: 0x8b7355,
-                    minimal: 0xffffff
+                    minimal: 0xffffff,
+                    gold:    0xc9a84c,
                 };
+
+                // Venue-driven frame override — luxury + dark museum get gold
+                const venueFrameOverride = {
+                    'luxury-penthouse': 'gold',
+                    'dark-museum':      'gold',
+                };
+                const effectiveStyle = venueFrameOverride[this._venueSlug] || style;
 
                 const lightingConfig = this.lightingConfig || CONFIG.lighting.bright;
 
                 // ⚡ FIX E: Lambert on low-end — frames don't need PBR metalness shine
                 const frameMat = this.isLowEnd
-                    ? new THREE.MeshLambertMaterial({ color: colors[style] || colors.modern })
+                    ? new THREE.MeshLambertMaterial({ color: colors[effectiveStyle] || colors.modern })
                     : new THREE.MeshStandardMaterial({
-                        color: colors[style] || colors.modern,
+                        color: colors[effectiveStyle] || colors.modern,
                         roughness: 0.3,
                         metalness: 0.8,
                         envMapIntensity: 1.5 * (lightingConfig.envIntensity || 1.0)

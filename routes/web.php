@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\InstallerController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\SuperAdmin\SystemController;
+use App\Http\Controllers\SuperAdmin\VenueTemplateController;
 use App\Http\Controllers\TeamInvitationController;
 use Illuminate\Support\Facades\Route;
 
@@ -125,6 +126,12 @@ Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')
     Route::post('/users/{user}/verify-email',          [SystemController::class, 'verifyEmail'])->name('verifyEmail');
     Route::post('/users/{user}/unverify-email',        [SystemController::class, 'unverifyEmail'])->name('unverifyEmail');
     Route::post('/users/{user}/toggle-super-admin',    [SystemController::class, 'toggleSuperAdmin'])->name('toggleSuperAdmin');
+
+    // ── Venue Templates Management ──────────────────────────────────────────
+    Route::get('/venues',                              [VenueTemplateController::class, 'index'])->name('venues.index');
+    Route::get('/venues/{venue}/edit',                 [VenueTemplateController::class, 'edit'])->name('venues.edit');
+    Route::put('/venues/{venue}',                      [VenueTemplateController::class, 'update'])->name('venues.update');
+    Route::patch('/venues/{venue}/toggle',             [VenueTemplateController::class, 'toggle'])->name('venues.toggle');
 });
 
 // TEMPORARY DEBUG — remove after fixing

@@ -97,32 +97,14 @@
                                     @php $cardBorder = $isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-600'; @endphp
 <div class="venue-card-inner border-2 {{ $cardBorder }} rounded-lg p-3 text-center transition-all hover:border-purple-400 h-full flex flex-col items-center">
                                         {{-- Icon --}}
-                                        @php
-                                            $iconBg = match($venue->slug) {
-                                                'white-cube'       => 'bg-gray-100/10',
-                                                'industrial-loft'  => 'bg-orange-900/30',
-                                                'dark-museum'      => 'bg-gray-900/60',
-                                                'zen-gallery'      => 'bg-green-900/30',
-                                                'luxury-penthouse' => 'bg-amber-900/30',
-                                                'cyber-gallery'    => 'bg-blue-900/30',
-                                                'sculpture-garden' => 'bg-emerald-900/30',
-                                                default            => 'bg-purple-900/30',
-                                            };
-                                        @endphp
-                                        <div class="w-10 h-10 rounded-lg mb-2 flex items-center justify-center text-xl {{ $iconBg }}">
-                                            @php
-                                                $venueIcon = match($venue->slug) {
-                                                    'white-cube'       => '⬜',
-                                                    'industrial-loft'  => '🏭',
-                                                    'dark-museum'      => '🏛️',
-                                                    'zen-gallery'      => '🎋',
-                                                    'luxury-penthouse' => '🏙️',
-                                                    'cyber-gallery'    => '🌐',
-                                                    'sculpture-garden' => '🌿',
-                                                    default            => '✨',
-                                                };
-                                            @endphp
-                                            {{ $venueIcon }}
+                                        <div class="w-full aspect-video rounded-md mb-2 overflow-hidden bg-gray-900">
+                                            <img src="/assets/thumbnails/{{ $venue->slug }}.jpg"
+                                                 alt="{{ $venue->name }}"
+                                                 class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                                            <div class="hidden w-full h-full items-center justify-center text-2xl">
+                                                {{ match($venue->slug) { 'white-cube' => '⬜', 'industrial-loft' => '🏭', 'dark-museum' => '🏛️', 'zen-gallery' => '🎋', 'luxury-penthouse' => '🏙️', 'cyber-gallery' => '🌐', 'sculpture-garden' => '🌿', default => '✨' } }}
+                                            </div>
                                         </div>
                                         <div class="text-sm font-medium text-gray-200 leading-tight">{{ $venue->name }}</div>
                                         <div class="text-xs text-gray-500 mt-1 leading-tight">{{ $venue->capacityLabel() }}</div>
@@ -136,6 +118,7 @@
                             @endforeach
                         </div>
                         {{-- Selected venue description --}}
+                        <div id="venue-color-strip" class="w-full h-8 rounded-md mt-2 transition-all duration-500 border border-gray-700/50"></div>
                         <p class="text-xs text-gray-400 mt-2 min-h-[1.5rem]" id="venue-description"></p>
                     </div>
 
@@ -282,6 +265,21 @@ function selectVenue(card) {
     const inner = card.querySelector('.venue-card-inner');
     inner.classList.remove('border-gray-600');
     inner.classList.add('border-purple-500', 'bg-purple-900/20');
+
+    // Live color preview strip
+    const previewColors = {
+        'white-cube': '#0f0f0f', 'industrial-loft': '#111008',
+        'dark-museum': '#020202', 'zen-gallery': '#1a1710',
+        'luxury-penthouse': '#08090d', 'cyber-gallery': '#020412',
+        'sculpture-garden': '#0d1a0d', 'infinite-void': '#000000',
+    };
+    const slugMap2 = @json($venueTemplates->pluck('slug', 'id'));
+    const thisSlug = slugMap2[card.dataset.venueId];
+    const strip = document.getElementById('venue-color-strip');
+    if (strip && thisSlug) {
+        strip.style.background = previewColors[thisSlug] || '#111';
+        strip.style.boxShadow = `0 0 20px 2px ${previewColors[thisSlug]}88`;
+    }
 
     // Populate hidden inputs
     document.getElementById('input_wall_texture').value    = card.dataset.wall;
