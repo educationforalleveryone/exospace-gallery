@@ -89,6 +89,87 @@
             from { opacity: 1; transform: translateX(0) scale(1); }
             to { opacity: 0; transform: translateX(100%) scale(0.95); }
         }
+        
+        /* Venue card styles */
+        .venue-card-inner {
+            position: relative;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 2px solid #374151;
+            background: #1f2937;
+        }
+        .venue-card-inner.selected {
+            border-color: #a855f7;
+            background: rgba(168, 85, 247, 0.2);
+            box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
+        }
+        .venue-check {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            background: #a855f7;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 5;
+        }
+        .venue-card-inner.selected .venue-check {
+            opacity: 1;
+        }
+        .venue-lock-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .venue-preview {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .venue-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .venue-preview-fallback {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .venue-meta {
+            padding: 8px;
+            text-align: center;
+        }
+        .venue-plan-badge {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 999px;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .badge-free { background: #374151; color: #9ca3af; }
+        .badge-pro { background: #d97706; color: #fef3c7; }
+        .badge-studio { background: #7c3aed; color: #e9d5ff; }
     </style>
 
     <!-- Toast container (rendered immediately) -->
@@ -133,46 +214,81 @@
                     {{-- ── Venue Picker ──────────────────────────── --}}
                     <div class="mb-5">
                         <label class="block text-sm font-medium text-gray-400 mb-3">Venue</label>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="edit-venue-cards">
+                        @php
+                        $venueAtmospheres = [
+                            'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => '⬜', 'accent' => '#e0e0e0'],
+                            'industrial-loft'   => ['bg' => 'linear-gradient(135deg, #2a2820 0%, #1a1610 100%)',  'emoji' => '🏭', 'accent' => '#8a7a50'],
+                            'dark-museum'       => ['bg' => 'linear-gradient(135deg, #0a0a0a 0%, #1a0808 100%)',  'emoji' => '🏛️', 'accent' => '#8b1a1a'],
+                            'zen-gallery'       => ['bg' => 'linear-gradient(135deg, #2a2218 0%, #1a1810 100%)',  'emoji' => '🎋', 'accent' => '#8b7355'],
+                            'luxury-penthouse'  => ['bg' => 'linear-gradient(135deg, #0d0f18 0%, #060810 100%)',  'emoji' => '🏙️', 'accent' => '#c9a84c'],
+                            'cyber-gallery'     => ['bg' => 'linear-gradient(135deg, #020820 0%, #000412 100%)',  'emoji' => '🌐', 'accent' => '#00ffff'],
+                            'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #0d2010 0%, #081408 100%)',  'emoji' => '🌿', 'accent' => '#4ade80'],
+                            'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => '✨', 'accent' => '#8b5cf6'],
+                        ];
+                        @endphp
+
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" id="edit-venue-cards">
                             @foreach($venueTemplates as $venue)
                                 @php
                                     $accessible = $venue->isAccessibleBy(auth()->user());
                                     $isSelected = $gallery->venue_template_id == $venue->id;
+                                    $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '🖼️', 'accent' => '#555'];
+                                    $badgeClass = match($venue->plan_required) { 'pro' => 'badge-pro', 'studio' => 'badge-studio', default => 'badge-free' };
                                 @endphp
-                                <div class="edit-venue-card cursor-pointer"
+                                <div class="edit-venue-card"
                                      data-venue-id="{{ $venue->id }}"
                                      data-wall="{{ $venue->default_settings['wall_texture'] }}"
                                      data-floor="{{ $venue->default_settings['floor_material'] }}"
                                      data-frame="{{ $venue->default_settings['frame_style'] }}"
                                      data-lighting="{{ $venue->default_settings['lighting_preset'] }}"
                                      data-layout="{{ $venue->default_settings['room_layout'] }}"
-                                     data-accessible="{{ $accessible ? 'true' : 'false' }}">
-                                    @php $editCardBorder = $isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-600'; @endphp
-<div class="edit-venue-card-inner border-2 {{ $editCardBorder }} {{ !$accessible ? 'opacity-50' : '' }} rounded-lg p-3 text-center transition-all hover:border-purple-400 h-full flex flex-col items-center">
-                                        <div class="text-xl mb-1">
-                                            @php
-                                                $editVenueIcon = match($venue->slug) {
-                                                    'white-cube'       => '⬜',
-                                                    'industrial-loft'  => '🏭',
-                                                    'dark-museum'      => '🏛️',
-                                                    'zen-gallery'      => '🎋',
-                                                    'luxury-penthouse' => '🏙️',
-                                                    'cyber-gallery'    => '🌐',
-                                                    'sculpture-garden' => '🌿',
-                                                    default            => '✨',
-                                                };
-                                            @endphp
-                                            {{ $editVenueIcon }}
+                                     data-accessible="{{ $accessible ? 'true' : 'false' }}"
+                                     data-slug="{{ $venue->slug }}">
+
+                                    <div class="venue-card-inner {{ $isSelected ? 'selected' : '' }}">
+
+                                        <div class="venue-check">
+                                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                         </div>
-                                        <div class="text-xs font-medium text-gray-200 leading-tight">{{ $venue->name }}</div>
+
                                         @if(!$accessible)
-                                            <span class="mt-1 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded-full">{{ ucfirst($venue->plan_required) }}</span>
+                                        <div class="venue-lock-overlay">
+                                            <div style="text-align:center">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 4px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                                                <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;text-transform:uppercase;">{{ ucfirst($venue->plan_required) }}</div>
+                                            </div>
+                                        </div>
                                         @endif
+
+                                        <div class="venue-preview" style="background: {{ $atm['bg'] }};">
+                                            <img src="/assets/thumbnails/{{ $venue->slug }}.jpg"
+                                                 alt="{{ $venue->name }}"
+                                                 onerror="this.style.display='none'">
+                                            <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
+                                                <span style="font-size:2.2rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.6));">{{ $atm['emoji'] }}</span>
+                                                <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:32px;height:3px;border-radius:2px;background:{{ $atm['accent'] }};opacity:0.6;box-shadow:0 0 8px {{ $atm['accent'] }};"></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="venue-meta">
+                                            <div style="font-size:12px;font-weight:600;color:#e5e7eb;line-height:1.3;">{{ $venue->name }}</div>
+                                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">{{ $venue->capacityLabel() }}</div>
+                                            <span class="venue-plan-badge {{ $badgeClass }}">{{ ucfirst($venue->plan_required) }}</span>
+                                        </div>
+
                                     </div>
                                 </div>
                             @endforeach
                         </div>
-                        <p class="text-xs text-gray-500 mt-2" id="edit-venue-description"></p>
+
+                        {{-- Selected venue info bar --}}
+                        <div id="edit-venue-info-bar" style="margin-top:12px;padding:10px 14px;border-radius:8px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);display:none;align-items:center;gap:10px;">
+                            <div id="edit-venue-info-accent" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
+                            <div>
+                                <div id="edit-venue-info-name" style="font-size:13px;font-weight:600;color:#e5e7eb;"></div>
+                                <div id="edit-venue-info-desc" style="font-size:11px;color:#9ca3af;margin-top:1px;"></div>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- ── Advanced overrides (collapsed) ───────────── --}}
@@ -1046,18 +1162,22 @@ const editVenueDescriptions = {
     'infinite-void':    'Floating artworks in an endless environment.',
 };
 const editSlugMap = @json($venueTemplates->pluck('slug', 'id'));
+const editVenueAccentColors = {
+    'white-cube': '#e0e0e0', 'industrial-loft': '#8a7a50',
+    'dark-museum': '#8b1a1a', 'zen-gallery': '#8b7355',
+    'luxury-penthouse': '#c9a84c', 'cyber-gallery': '#00ffff',
+    'sculpture-garden': '#4ade80', 'infinite-void': '#8b5cf6',
+};
 
 function selectEditVenue(card) {
     if (card.dataset.accessible !== 'true') {
         window.location.href = '/pricing';
         return;
     }
-    document.querySelectorAll('.edit-venue-card-inner').forEach(el => {
-        el.classList.remove('border-purple-500', 'bg-purple-900/20');
-        el.classList.add('border-gray-600');
+    document.querySelectorAll('.venue-card-inner').forEach(el => {
+        el.classList.remove('selected');
     });
-    card.querySelector('.edit-venue-card-inner').classList.remove('border-gray-600');
-    card.querySelector('.edit-venue-card-inner').classList.add('border-purple-500', 'bg-purple-900/20');
+    card.querySelector('.venue-card-inner').classList.add('selected');
 
     // Populate hidden fields from venue defaults
     document.getElementById('edit_wall_texture').value      = card.dataset.wall;
@@ -1077,6 +1197,18 @@ function selectEditVenue(card) {
     }
 
     const slug = editSlugMap[card.dataset.venueId];
+    const accent = editVenueAccentColors[slug] || '#8b5cf6';
+    const bar = document.getElementById('edit-venue-info-bar');
+    if (bar) {
+        bar.style.display = 'flex';
+        bar.style.borderColor = accent + '40';
+        bar.style.background = accent + '10';
+        document.getElementById('edit-venue-info-accent').style.background = accent;
+        document.getElementById('edit-venue-info-accent').style.boxShadow = `0 0 8px ${accent}`;
+        document.getElementById('edit-venue-info-name').textContent = card.querySelector('.venue-meta div:first-child')?.textContent?.trim() || '';
+        document.getElementById('edit-venue-info-desc').textContent = editVenueDescriptions[slug] || '';
+    }
+    
     document.getElementById('edit-venue-description').textContent = editVenueDescriptions[slug] || '';
 }
 
@@ -1096,11 +1228,24 @@ document.querySelectorAll('.edit-venue-card').forEach(card => {
 });
 
 // Set description for whichever venue is already selected
-const preselectedCard = document.querySelector('.edit-venue-card-inner.border-purple-500');
+const preselectedCard = document.querySelector('.venue-card-inner.selected');
 if (preselectedCard) {
     const card = preselectedCard.closest('.edit-venue-card');
     const slug = editSlugMap[card?.dataset?.venueId];
-    if (slug) document.getElementById('edit-venue-description').textContent = editVenueDescriptions[slug] || '';
+    if (slug) {
+        document.getElementById('edit-venue-description').textContent = editVenueDescriptions[slug] || '';
+        const accent = editVenueAccentColors[slug] || '#8b5cf6';
+        const bar = document.getElementById('edit-venue-info-bar');
+        if (bar) {
+            bar.style.display = 'flex';
+            bar.style.borderColor = accent + '40';
+            bar.style.background = accent + '10';
+            document.getElementById('edit-venue-info-accent').style.background = accent;
+            document.getElementById('edit-venue-info-accent').style.boxShadow = `0 0 8px ${accent}`;
+            document.getElementById('edit-venue-info-name').textContent = card?.querySelector('.venue-meta div:first-child')?.textContent?.trim() || '';
+            document.getElementById('edit-venue-info-desc').textContent = editVenueDescriptions[slug] || '';
+        }
+    }
 }
 </script>
 </x-app-layout>

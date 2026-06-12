@@ -80,46 +80,184 @@
                     {{-- Venue Picker --}}
                     <div class="mb-6">
                         <label class="block text-sm font-medium text-gray-200 mb-3">Choose Your Venue *</label>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="venue-cards">
-                            @foreach($venueTemplates as $venue)
-                                @php
-                                    $accessible = $venue->isAccessibleBy(auth()->user());
-                                    $isSelected = old('venue_template_id', $venueTemplates->firstWhere('plan_required', 'free')?->id) == $venue->id;
-                                @endphp
-                                <div class="venue-card cursor-pointer relative {{ !$accessible ? 'opacity-60' : '' }}"
-                                     data-venue-id="{{ $venue->id }}"
-                                     data-wall="{{ $venue->default_settings['wall_texture'] }}"
-                                     data-floor="{{ $venue->default_settings['floor_material'] }}"
-                                     data-frame="{{ $venue->default_settings['frame_style'] }}"
-                                     data-lighting="{{ $venue->default_settings['lighting_preset'] }}"
-                                     data-layout="{{ $venue->default_settings['room_layout'] }}"
-                                     data-accessible="{{ $accessible ? 'true' : 'false' }}">
-                                    @php $cardBorder = $isSelected ? 'border-purple-500 bg-purple-900/20' : 'border-gray-600'; @endphp
-<div class="venue-card-inner border-2 {{ $cardBorder }} rounded-lg p-3 text-center transition-all hover:border-purple-400 h-full flex flex-col items-center">
-                                        {{-- Icon --}}
-                                        <div class="w-full aspect-video rounded-md mb-2 overflow-hidden bg-gray-900">
-                                            <img src="/assets/thumbnails/{{ $venue->slug }}.jpg"
-                                                 alt="{{ $venue->name }}"
-                                                 class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                                            <div class="hidden w-full h-full items-center justify-center text-2xl">
-                                                {{ match($venue->slug) { 'white-cube' => '⬜', 'industrial-loft' => '🏭', 'dark-museum' => '🏛️', 'zen-gallery' => '🎋', 'luxury-penthouse' => '🏙️', 'cyber-gallery' => '🌐', 'sculpture-garden' => '🌿', default => '✨' } }}
-                                            </div>
-                                        </div>
-                                        <div class="text-sm font-medium text-gray-200 leading-tight">{{ $venue->name }}</div>
-                                        <div class="text-xs text-gray-500 mt-1 leading-tight">{{ $venue->capacityLabel() }}</div>
-                                        @if(!$accessible)
-                                            <span class="mt-2 text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">
-                                                {{ ucfirst($venue->plan_required) }}
-                                            </span>
-                                        @endif
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                        {{-- Selected venue description --}}
-                        <div id="venue-color-strip" class="w-full h-8 rounded-md mt-2 transition-all duration-500 border border-gray-700/50"></div>
-                        <p class="text-xs text-gray-400 mt-2 min-h-[1.5rem]" id="venue-description"></p>
+                        <style>
+.venue-card-inner {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid #374151;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    background: #111827;
+    cursor: pointer;
+}
+.venue-card-inner:hover {
+    border-color: #7c3aed;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.2);
+}
+.venue-card-inner.selected {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 1px #8b5cf6, 0 8px 24px rgba(139, 92, 246, 0.3);
+}
+.venue-card-inner.selected .venue-check {
+    opacity: 1;
+    transform: scale(1);
+}
+.venue-preview {
+    width: 100%;
+    aspect-ratio: 16/9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+.venue-preview img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+.venue-card-inner:hover .venue-preview img {
+    transform: scale(1.06);
+}
+.venue-preview-fallback {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+}
+.venue-check {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    background: #8b5cf6;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 10;
+}
+.venue-lock-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    backdrop-filter: blur(1px);
+}
+.venue-meta {
+    padding: 10px 10px 8px;
+}
+.venue-plan-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+.badge-free    { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.badge-pro     { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+.badge-studio  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+</style>
+
+@php
+$venueAtmospheres = [
+    'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => '⬜', 'accent' => '#e0e0e0'],
+    'industrial-loft'   => ['bg' => 'linear-gradient(135deg, #2a2820 0%, #1a1610 100%)',  'emoji' => '🏭', 'accent' => '#8a7a50'],
+    'dark-museum'       => ['bg' => 'linear-gradient(135deg, #0a0a0a 0%, #1a0808 100%)',  'emoji' => '🏛️', 'accent' => '#8b1a1a'],
+    'zen-gallery'       => ['bg' => 'linear-gradient(135deg, #2a2218 0%, #1a1810 100%)',  'emoji' => '🎋', 'accent' => '#8b7355'],
+    'luxury-penthouse'  => ['bg' => 'linear-gradient(135deg, #0d0f18 0%, #060810 100%)',  'emoji' => '🏙️', 'accent' => '#c9a84c'],
+    'cyber-gallery'     => ['bg' => 'linear-gradient(135deg, #020820 0%, #000412 100%)',  'emoji' => '🌐', 'accent' => '#00ffff'],
+    'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #0d2010 0%, #081408 100%)',  'emoji' => '🌿', 'accent' => '#4ade80'],
+    'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => '✨', 'accent' => '#8b5cf6'],
+];
+@endphp
+
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" id="venue-cards">
+    @foreach($venueTemplates as $venue)
+        @php
+            $accessible = $venue->isAccessibleBy(auth()->user());
+            $isSelected = old('venue_template_id', $venueTemplates->firstWhere('plan_required', 'free')?->id) == $venue->id;
+            $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '🖼️', 'accent' => '#555'];
+            $badgeClass = match($venue->plan_required) { 'pro' => 'badge-pro', 'studio' => 'badge-studio', default => 'badge-free' };
+        @endphp
+        <div class="venue-card"
+             data-venue-id="{{ $venue->id }}"
+             data-wall="{{ $venue->default_settings['wall_texture'] }}"
+             data-floor="{{ $venue->default_settings['floor_material'] }}"
+             data-frame="{{ $venue->default_settings['frame_style'] }}"
+             data-lighting="{{ $venue->default_settings['lighting_preset'] }}"
+             data-layout="{{ $venue->default_settings['room_layout'] }}"
+             data-accessible="{{ $accessible ? 'true' : 'false' }}"
+             data-slug="{{ $venue->slug }}">
+
+            <div class="venue-card-inner {{ $isSelected ? 'selected' : '' }}">
+
+                {{-- Checkmark --}}
+                <div class="venue-check">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+
+                {{-- Lock overlay for inaccessible plans --}}
+                @if(!$accessible)
+                <div class="venue-lock-overlay">
+                    <div style="text-align:center">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 4px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;text-transform:uppercase;">{{ ucfirst($venue->plan_required) }}</div>
+                    </div>
+                </div>
+                @endif
+
+                {{-- Venue Preview --}}
+                <div class="venue-preview" style="background: {{ $atm['bg'] }};">
+                    <img src="/assets/thumbnails/{{ $venue->slug }}.jpg"
+                         alt="{{ $venue->name }}"
+                         onerror="this.style.display='none'">
+                    <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
+                        <span style="font-size:2.2rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.6));">{{ $atm['emoji'] }}</span>
+                        {{-- Accent glow dot --}}
+                        <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:32px;height:3px;border-radius:2px;background:{{ $atm['accent'] }};opacity:0.6;box-shadow:0 0 8px {{ $atm['accent'] }};"></div>
+                    </div>
+                </div>
+
+                {{-- Meta --}}
+                <div class="venue-meta">
+                    <div style="font-size:12px;font-weight:600;color:#e5e7eb;line-height:1.3;">{{ $venue->name }}</div>
+                    <div style="font-size:10px;color:#6b7280;margin-top:2px;">{{ $venue->capacityLabel() }}</div>
+                    <span class="venue-plan-badge {{ $badgeClass }}">{{ ucfirst($venue->plan_required) }}</span>
+                </div>
+
+            </div>
+        </div>
+    @endforeach
+</div>
+
+{{-- Selected venue info bar --}}
+<div id="venue-info-bar" style="margin-top:12px;padding:10px 14px;border-radius:8px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);display:none;align-items:center;gap:10px;">
+    <div id="venue-info-accent" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
+    <div>
+        <div id="venue-info-name" style="font-size:13px;font-weight:600;color:#e5e7eb;"></div>
+        <div id="venue-info-desc" style="font-size:11px;color:#9ca3af;margin-top:1px;"></div>
+    </div>
+</div>
                     </div>
 
                     {{-- Advanced settings: collapsible, open by default for Pro users --}}
@@ -248,6 +386,13 @@ const venueDescriptions = {
     'infinite-void':    'Floating artworks in an endless environment. No limits.',
 };
 
+const venueAccentColors = {
+    'white-cube': '#e0e0e0', 'industrial-loft': '#8a7a50',
+    'dark-museum': '#8b1a1a', 'zen-gallery': '#8b7355',
+    'luxury-penthouse': '#c9a84c', 'cyber-gallery': '#00ffff',
+    'sculpture-garden': '#4ade80', 'infinite-void': '#8b5cf6',
+};
+
 function selectVenue(card) {
     const accessible = card.dataset.accessible === 'true';
     if (!accessible) {
@@ -257,42 +402,34 @@ function selectVenue(card) {
 
     // Deselect all
     document.querySelectorAll('.venue-card-inner').forEach(el => {
-        el.classList.remove('border-purple-500', 'bg-purple-900/20');
-        el.classList.add('border-gray-600');
+        el.classList.remove('selected');
     });
 
     // Select this one
-    const inner = card.querySelector('.venue-card-inner');
-    inner.classList.remove('border-gray-600');
-    inner.classList.add('border-purple-500', 'bg-purple-900/20');
-
-    // Live color preview strip
-    const previewColors = {
-        'white-cube': '#0f0f0f', 'industrial-loft': '#111008',
-        'dark-museum': '#020202', 'zen-gallery': '#1a1710',
-        'luxury-penthouse': '#08090d', 'cyber-gallery': '#020412',
-        'sculpture-garden': '#0d1a0d', 'infinite-void': '#000000',
-    };
-    const slugMap2 = @json($venueTemplates->pluck('slug', 'id'));
-    const thisSlug = slugMap2[card.dataset.venueId];
-    const strip = document.getElementById('venue-color-strip');
-    if (strip && thisSlug) {
-        strip.style.background = previewColors[thisSlug] || '#111';
-        strip.style.boxShadow = `0 0 20px 2px ${previewColors[thisSlug]}88`;
-    }
+    card.querySelector('.venue-card-inner').classList.add('selected');
 
     // Populate hidden inputs
-    document.getElementById('input_wall_texture').value    = card.dataset.wall;
-    document.getElementById('input_floor_material').value  = card.dataset.floor;
-    document.getElementById('input_frame_style').value     = card.dataset.frame;
-    document.getElementById('input_lighting_preset').value = card.dataset.lighting;
-    document.getElementById('input_room_layout').value     = card.dataset.layout;
+    document.getElementById('input_wall_texture').value      = card.dataset.wall;
+    document.getElementById('input_floor_material').value    = card.dataset.floor;
+    document.getElementById('input_frame_style').value       = card.dataset.frame;
+    document.getElementById('input_lighting_preset').value   = card.dataset.lighting;
+    document.getElementById('input_room_layout').value       = card.dataset.layout;
     document.getElementById('input_venue_template_id').value = card.dataset.venueId;
 
-    // Update description
+    // Update info bar
     const slugMap = @json($venueTemplates->pluck('slug', 'id'));
     const venueSlug = slugMap[card.dataset.venueId];
-    document.getElementById('venue-description').textContent = venueDescriptions[venueSlug] || '';
+    const accent = venueAccentColors[venueSlug] || '#8b5cf6';
+    const bar = document.getElementById('venue-info-bar');
+    if (bar) {
+        bar.style.display = 'flex';
+        bar.style.borderColor = accent + '40';
+        bar.style.background = accent + '10';
+        document.getElementById('venue-info-accent').style.background = accent;
+        document.getElementById('venue-info-accent').style.boxShadow = `0 0 8px ${accent}`;
+        document.getElementById('venue-info-name').textContent = card.querySelector('[style*="font-weight:600"]')?.textContent?.trim() || '';
+        document.getElementById('venue-info-desc').textContent = venueDescriptions[venueSlug] || '';
+    }
 }
 
 document.querySelectorAll('.venue-card').forEach(card => {
