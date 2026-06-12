@@ -31,6 +31,7 @@
     </x-slot>
 
     <div class="py-12">
+        @php $venueTemplates ??= collect(); @endphp
         <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg p-6 border border-gray-700">
                 
@@ -330,13 +331,13 @@ $venueAtmospheres = [
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
-                                    <input type="datetime-local" name="opens_at" value="{{ old('opens_at') }}"
+                                    <input type="datetime-local" name="opens_at" value="{{ old('opens_at') }}" placeholder=" "
                                         class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Your local time. Leave blank to open immediately.</p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
-                                    <input type="datetime-local" name="closes_at" value="{{ old('closes_at') }}"
+                                    <input type="datetime-local" name="closes_at" value="{{ old('closes_at') }}" placeholder=" "
                                         class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Optional. Leave blank for no end date.</p>
                                 </div>
@@ -396,6 +397,8 @@ const venueAccentColors = {
 function selectVenue(card) {
     const accessible = card.dataset.accessible === 'true';
     if (!accessible) {
+        window.removeEventListener('beforeunload', window._dirtyHandler);
+        window.removeEventListener('beforeunload', window._reorderHandler);
         window.location.href = '/pricing';
         return;
     }

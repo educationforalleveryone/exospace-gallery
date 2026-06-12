@@ -1123,9 +1123,10 @@
                 el.addEventListener('input', () => dirty = true);
             });
             form.addEventListener('submit', () => dirty = false);
-            window.addEventListener('beforeunload', e => {
+            window._dirtyHandler = e => {
                 if (dirty) { e.preventDefault(); e.returnValue = ''; }
-            });
+            };
+            window.addEventListener('beforeunload', window._dirtyHandler);
         })();
     </script>
 
@@ -1139,7 +1140,7 @@
 
     <script>
         // Warn on navigate if order changed but not saved
-        window.addEventListener('beforeunload', e => {
+        window._reorderHandler = e => {
             const reorderBar = document.getElementById('reorder-save-bar');
             if (reorderBar && 
                 getComputedStyle(reorderBar).display !== 'none' &&
@@ -1147,7 +1148,8 @@
                 e.preventDefault();
                 e.returnValue = '';
             }
-        });
+        };
+        window.addEventListener('beforeunload', window._reorderHandler);
     </script>
 
 <script>
@@ -1171,6 +1173,8 @@ const editVenueAccentColors = {
 
 function selectEditVenue(card) {
     if (card.dataset.accessible !== 'true') {
+        window.removeEventListener('beforeunload', window._dirtyHandler);
+        window.removeEventListener('beforeunload', window._reorderHandler);
         window.location.href = '/pricing';
         return;
     }
@@ -1209,7 +1213,8 @@ function selectEditVenue(card) {
         document.getElementById('edit-venue-info-desc').textContent = editVenueDescriptions[slug] || '';
     }
     
-    document.getElementById('edit-venue-description').textContent = editVenueDescriptions[slug] || '';
+    const descEl = document.getElementById('edit-venue-description');
+    if (descEl) descEl.textContent = editVenueDescriptions[slug] || '';
 }
 
 // Venue card clicks
@@ -1233,7 +1238,8 @@ if (preselectedCard) {
     const card = preselectedCard.closest('.edit-venue-card');
     const slug = editSlugMap[card?.dataset?.venueId];
     if (slug) {
-        document.getElementById('edit-venue-description').textContent = editVenueDescriptions[slug] || '';
+        const descEl2 = document.getElementById('edit-venue-description');
+        if (descEl2) descEl2.textContent = editVenueDescriptions[slug] || '';
         const accent = editVenueAccentColors[slug] || '#8b5cf6';
         const bar = document.getElementById('edit-venue-info-bar');
         if (bar) {

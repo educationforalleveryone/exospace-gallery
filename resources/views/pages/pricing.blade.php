@@ -152,6 +152,16 @@
             padding: 0.4rem 0;
             font-size: 0.87rem;
             color: #cbd5e1;
+            line-height: 1.5;
+        }
+        .features li .feat-label {
+            font-weight: 700;
+            color: #f1f5f9;
+            min-width: 5rem;
+            flex-shrink: 0;
+        }
+        .features li .feat-detail {
+            color: #94a3b8;
         }
         .features li .icon {
             flex-shrink: 0;
@@ -332,7 +342,7 @@
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>4 venues</strong> — ⬜ White Cube · 🏭 Industrial Loft · 🏛️ Dark Museum · 🎋 Zen Gallery
+                <span class="feat-label">4 venues</span><span class="feat-detail">⬜ White Cube · 🏭 Industrial Loft · 🏛️ Dark Museum · 🎋 Zen Gallery</span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -366,7 +376,7 @@
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>All 8 venues</strong> — including 🏙️ Luxury Penthouse · 🌐 Cyber Gallery · 🌿 Sculpture Garden
+                <span class="feat-label">All 8 venues</span><span class="feat-detail">🏙️ Penthouse · 🌐 Cyber Gallery · 🌿 Sculpture Garden + more</span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -374,7 +384,7 @@
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Custom branding</strong> — your logo, no Exospace watermark
+                <span class="feat-label">Custom branding</span><span class="feat-detail">your logo, no Exospace watermark</span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>

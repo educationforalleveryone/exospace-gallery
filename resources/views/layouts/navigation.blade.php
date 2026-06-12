@@ -61,8 +61,8 @@
                     $allTeams    = auth()->user()->ownedTeams->merge(auth()->user()->teams)->unique('id');
                 @endphp
                 @if($allTeams->isNotEmpty())
-                <div x-data="{ open: false }" class="relative">
-                    <button @click="open = !open"
+                <div x-data="{ teamOpen: false }" class="relative">
+                    <button @click="teamOpen = !teamOpen"
                             class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-300 transition">
                         @if($currentTeam)
                             <span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
@@ -76,7 +76,7 @@
                         </svg>
                     </button>
 
-                    <div x-show="open" @click.outside="open = false" x-cloak
+                    <div x-show="teamOpen" @click.outside="teamOpen = false" x-cloak
                          class="absolute right-0 mt-2 w-52 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
 
                         <div class="px-3 py-2 border-b border-gray-700">
