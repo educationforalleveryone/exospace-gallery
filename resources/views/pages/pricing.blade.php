@@ -80,15 +80,28 @@
         }
         .delivery-badge svg { flex-shrink: 0; }
 
-        /* ── Cards grid ── */
+        /* ── Cards grid ──
+           FIX: Changed from repeat(auto-fit, minmax(280px,1fr)) which can collapse
+           to 1 or 2 columns unexpectedly on mid-size screens. Fixed 3-column grid
+           with responsive fallback. align-items: start prevents cards from
+           stretching to equal height (which distorted the featured card badge).
+        ── */
         .cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.25rem;
-            max-width: 1050px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 0 1.5rem 4rem;
+            align-items: start;
         }
+        @media (max-width: 900px) {
+            .cards { grid-template-columns: 1fr; max-width: 480px; }
+        }
+        @media (min-width: 901px) and (max-width: 1050px) {
+            .cards { gap: 1rem; }
+        }
+
         .card {
             background: #131319;
             border: 1px solid #1e1e2e;
@@ -143,25 +156,38 @@
             line-height: 1.5;
         }
 
-        /* ── Feature list ── */
+        /* ── Feature list ──
+           FIX: The original feat-label/feat-detail were siblings sitting inline
+           which caused the venue list text to spill or wrap chaotically depending
+           on card width. Now they stack vertically inside a flex column wrapper,
+           keeping the checkmark icon aligned to the first line.
+        ── */
         .features { list-style: none; margin-bottom: 2rem; }
         .features li {
             display: flex;
             align-items: flex-start;
             gap: 0.6rem;
-            padding: 0.4rem 0;
+            padding: 0.45rem 0;
             font-size: 0.87rem;
             color: #cbd5e1;
             line-height: 1.5;
         }
-        .features li .feat-label {
+        /* Wrapper that stacks label + detail vertically */
+        .feat-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+        }
+        .feat-label {
             font-weight: 700;
             color: #f1f5f9;
-            min-width: 5rem;
-            flex-shrink: 0;
+            line-height: 1.4;
         }
-        .features li .feat-detail {
+        .feat-detail {
+            font-size: 0.79rem;
             color: #94a3b8;
+            line-height: 1.45;
         }
         .features li .icon {
             flex-shrink: 0;
@@ -171,7 +197,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: 1px;
+            margin-top: 2px;
         }
         .features li .icon.yes { background: rgba(139,92,246,0.15); }
         .features li .icon.no  { background: rgba(100,116,139,0.12); }
@@ -308,7 +334,7 @@
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>⬜ Modern White Cube</strong> venue
+                <span><strong>⬜ Modern White Cube</strong> venue</span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -342,7 +368,10 @@
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <span class="feat-label">4 venues</span><span class="feat-detail">⬜ White Cube · 🏭 Industrial Loft · 🏛️ Dark Museum · 🎋 Zen Gallery</span>
+                <span class="feat-group">
+                    <span class="feat-label">4 venues</span>
+                    <span class="feat-detail">⬜ White Cube · 🏭 Industrial Loft · 🏛️ Dark Museum · 🎋 Zen Gallery</span>
+                </span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -376,7 +405,10 @@
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <span class="feat-label">All 8 venues</span><span class="feat-detail">🏙️ Penthouse · 🌐 Cyber Gallery · 🌿 Sculpture Garden + more</span>
+                <span class="feat-group">
+                    <span class="feat-label">All 8 venues</span>
+                    <span class="feat-detail">🏙️ Penthouse · 🌐 Cyber Gallery · 🌿 Sculpture Garden + more</span>
+                </span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -384,7 +416,10 @@
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <span class="feat-label">Custom branding</span><span class="feat-detail">your logo, no Exospace watermark</span>
+                <span class="feat-group">
+                    <span class="feat-label">Custom branding</span>
+                    <span class="feat-detail">Your logo on every gallery, no Exospace watermark</span>
+                </span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>

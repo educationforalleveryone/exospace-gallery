@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide Alpine-controlled elements until Alpine initialises — prevents flash/auto-open */
+[x-cloak] { display: none !important; }
+
 @layer base {
     /* Improved scrollbar for dark theme */
     ::-webkit-scrollbar { width: 6px; height: 6px; }

@@ -61,7 +61,14 @@
                     $allTeams    = auth()->user()->ownedTeams->merge(auth()->user()->teams)->unique('id');
                 @endphp
                 @if($allTeams->isNotEmpty())
-                <div x-data="{ teamOpen: false }" class="relative">
+                {{--
+                    FIX: Added style="display:none" so the dropdown panel is hidden before Alpine.js
+                    loads — without it the panel flashes open on every page load because x-cloak
+                    alone requires the [x-cloak]{display:none} CSS rule to already be parsed, which
+                    can race against the JS bundle.  The style attr is the guaranteed no-flash guard.
+                    Also added @keydown.escape.window so the dropdown closes when pressing Escape.
+                --}}
+                <div x-data="{ teamOpen: false }" class="relative" @keydown.escape.window="teamOpen = false">
                     <button @click="teamOpen = !teamOpen"
                             class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-300 transition">
                         @if($currentTeam)
@@ -77,6 +84,7 @@
                     </button>
 
                     <div x-show="teamOpen" @click.outside="teamOpen = false" x-cloak
+                         style="display: none;"
                          class="absolute right-0 mt-2 w-52 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
 
                         <div class="px-3 py-2 border-b border-gray-700">

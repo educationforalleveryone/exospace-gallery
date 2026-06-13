@@ -72,6 +72,11 @@ class GalleryController extends Controller
             $logoPath = $request->file('custom_logo')->store('branding', 'public');
         }
 
+        // FIX: treat empty string venue_template_id as null — the form submits "" when
+        // no venue card has been clicked, which causes an "exists" validation failure or
+        // a DB foreign-key 500 if it slips through.
+        $venueTemplateId = !empty($validated['venue_template_id']) ? $validated['venue_template_id'] : null;
+
         Gallery::create([
             'user_id'          => $user->id,
             'team_id'          => $team?->id,
@@ -85,7 +90,7 @@ class GalleryController extends Controller
             'pin_hash'         => $validated['gallery_pin'] ? Hash::make($validated['gallery_pin']) : null,
             'opens_at'         => $validated['opens_at'] ?? null,
             'closes_at'        => $validated['closes_at'] ?? null,
-            'venue_template_id' => $validated['venue_template_id'] ?? null,
+            'venue_template_id' => $venueTemplateId,
             'audio_path'        => $audioPath,
             'custom_logo_path'  => $logoPath,
         ]);
@@ -140,6 +145,13 @@ class GalleryController extends Controller
 
         $validated['opens_at']  = $validated['opens_at']  ?: null;
         $validated['closes_at'] = $validated['closes_at'] ?: null;
+
+        // FIX: treat empty string venue_template_id as null
+        if (array_key_exists('venue_template_id', $validated)) {
+            $validated['venue_template_id'] = !empty($validated['venue_template_id'])
+                ? $validated['venue_template_id']
+                : null;
+        }
 
         unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo']);
 
@@ -269,6 +281,10 @@ class GalleryController extends Controller
 
     /**
      * Shared validation rules for create and update.
+     *
+     * FIX: Added 'integer' to venue_template_id rule so that an empty string ""
+     * (submitted when no venue card is selected) is cast/rejected cleanly rather
+     * than hitting the 'exists' check and producing a confusing 500.
      */
     private function galleryValidationRules(bool $isUpdate = false): array
     {
@@ -280,7 +296,7 @@ class GalleryController extends Controller
             'lighting_preset' => 'required|in:bright,moody,dramatic',
             'floor_material'  => 'required|in:wood,marble,concrete',
             'room_layout'          => 'required|in:square,corridor,l-shape,rotunda',
-            'venue_template_id'    => 'nullable|exists:venue_templates,id',
+            'venue_template_id'    => 'nullable|integer|exists:venue_templates,id',
             'gallery_pin'     => 'nullable|digits:4',
             'opens_at'        => 'nullable|date',
             'closes_at'       => 'nullable|date|after_or_equal:opens_at',

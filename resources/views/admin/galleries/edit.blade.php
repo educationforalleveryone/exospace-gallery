@@ -1113,16 +1113,20 @@
             document.getElementById('update-label').textContent = 'Saving…';
             btn.disabled = true;
         });
-        // Unsaved changes guard
+        // Unsaved changes guard — delayed so Dropzone/hidden-input init doesn't trip it
         (function() {
             let dirty = false;
+            let ready = false;
             const form = document.querySelector('form[action*="galleries"]');
             if (!form) return;
-            form.querySelectorAll('input, select, textarea').forEach(el => {
-                el.addEventListener('change', () => dirty = true);
-                el.addEventListener('input', () => dirty = true);
-            });
-            form.addEventListener('submit', () => dirty = false);
+            setTimeout(function() {
+                ready = true;
+                form.querySelectorAll('input:not([type="hidden"]), select, textarea').forEach(el => {
+                    el.addEventListener('change', () => { if (ready) dirty = true; });
+                    el.addEventListener('input',  () => { if (ready) dirty = true; });
+                });
+            }, 800);
+            form.addEventListener('submit', () => { dirty = false; ready = false; });
             window._dirtyHandler = e => {
                 if (dirty) { e.preventDefault(); e.returnValue = ''; }
             };

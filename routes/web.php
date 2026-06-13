@@ -87,9 +87,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('galleries/{gallery}/analytics',       [\App\Http\Controllers\Admin\AnalyticsController::class, 'show'])->name('galleries.analytics');
 
     // ── Images ─────────────────────────────────────────────────────────────
+    // FIX: 'images/bulk-delete' MUST be registered before 'images/{image}' — otherwise
+    // Laravel's router matches the literal string "bulk-delete" as the {image} wildcard
+    // and the bulk-delete endpoint returns 404 (model not found) instead of routing correctly.
     Route::post('galleries/{gallery}/images', [\App\Http\Controllers\Admin\ImageController::class, 'store'])->name('images.store')->middleware('throttle:30,1');
-    Route::delete('images/{image}',           [\App\Http\Controllers\Admin\ImageController::class, 'destroy'])->name('images.destroy');
     Route::post('images/bulk-delete',         [\App\Http\Controllers\Admin\ImageController::class, 'bulkDestroy'])->name('images.bulk_destroy');
+    Route::delete('images/{image}',           [\App\Http\Controllers\Admin\ImageController::class, 'destroy'])->name('images.destroy');
 
     // ── Teams ──────────────────────────────────────────────────────────────
     Route::get   ('teams',                             [\App\Http\Controllers\Admin\TeamController::class, 'index'])->name('teams.index');
