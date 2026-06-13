@@ -80,7 +80,7 @@
                     Start Free Trial
                 </a>
                 <a href="/gallery/demo" class="border border-purple-500 bg-gray-800/60 px-8 py-4 rounded-lg text-lg font-semibold hover:border-purple-400 hover:bg-gray-800 transition transform hover:scale-105">
-                    🎨 View Live Demo
+                    View Live Demo
                 </a>
             </div>
             

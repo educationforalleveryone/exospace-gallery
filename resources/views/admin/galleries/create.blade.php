@@ -181,14 +181,14 @@
 
 @php
 $venueAtmospheres = [
-    'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => '⬜', 'accent' => '#e0e0e0'],
-    'industrial-loft'   => ['bg' => 'linear-gradient(135deg, #2a2820 0%, #1a1610 100%)',  'emoji' => '🏭', 'accent' => '#8a7a50'],
-    'dark-museum'       => ['bg' => 'linear-gradient(135deg, #0a0a0a 0%, #1a0808 100%)',  'emoji' => '🏛️', 'accent' => '#8b1a1a'],
-    'zen-gallery'       => ['bg' => 'linear-gradient(135deg, #2a2218 0%, #1a1810 100%)',  'emoji' => '🎋', 'accent' => '#8b7355'],
-    'luxury-penthouse'  => ['bg' => 'linear-gradient(135deg, #0d0f18 0%, #060810 100%)',  'emoji' => '🏙️', 'accent' => '#c9a84c'],
-    'cyber-gallery'     => ['bg' => 'linear-gradient(135deg, #020820 0%, #000412 100%)',  'emoji' => '🌐', 'accent' => '#00ffff'],
-    'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #0d2010 0%, #081408 100%)',  'emoji' => '🌿', 'accent' => '#4ade80'],
-    'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => '✨', 'accent' => '#8b5cf6'],
+    'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => 'WC', 'accent' => '#e0e0e0'],
+    'industrial-loft'   => ['bg' => 'linear-gradient(135deg, #2a2820 0%, #1a1610 100%)',  'emoji' => 'IL', 'accent' => '#8a7a50'],
+    'dark-museum'       => ['bg' => 'linear-gradient(135deg, #0a0a0a 0%, #1a0808 100%)',  'emoji' => 'DM', 'accent' => '#8b1a1a'],
+    'zen-gallery'       => ['bg' => 'linear-gradient(135deg, #2a2218 0%, #1a1810 100%)',  'emoji' => 'ZG', 'accent' => '#8b7355'],
+    'luxury-penthouse'  => ['bg' => 'linear-gradient(135deg, #0d0f18 0%, #060810 100%)',  'emoji' => 'LP', 'accent' => '#c9a84c'],
+    'cyber-gallery'     => ['bg' => 'linear-gradient(135deg, #020820 0%, #000412 100%)',  'emoji' => 'CG', 'accent' => '#00ffff'],
+    'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #0d2010 0%, #081408 100%)',  'emoji' => 'SG', 'accent' => '#4ade80'],
+    'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => 'IV', 'accent' => '#8b5cf6'],
 ];
 @endphp
 
@@ -197,7 +197,7 @@ $venueAtmospheres = [
         @php
             $accessible = $venue->isAccessibleBy(auth()->user());
             $isSelected = old('venue_template_id', $venueTemplates->firstWhere('plan_required', 'free')?->id) == $venue->id;
-            $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '🖼️', 'accent' => '#555'];
+            $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '??', 'accent' => '#555'];
             $badgeClass = match($venue->plan_required) { 'pro' => 'badge-pro', 'studio' => 'badge-studio', default => 'badge-free' };
         @endphp
         <div class="venue-card"
@@ -233,7 +233,7 @@ $venueAtmospheres = [
                          alt="{{ $venue->name }}"
                          onerror="this.style.display='none'">
                     <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
-                        <span style="font-size:2.2rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.6));">{{ $atm['emoji'] }}</span>
+                        <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.7);">{{ $atm['emoji'] }}</span>
                         {{-- Accent glow dot --}}
                         <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:32px;height:3px;border-radius:2px;background:{{ $atm['accent'] }};opacity:0.6;box-shadow:0 0 8px {{ $atm['accent'] }};"></div>
                     </div>
@@ -282,7 +282,7 @@ $venueAtmospheres = [
                     <!-- Background Music (Pro Feature) -->
                     <div class="mb-6 mt-2 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <label class="block text-sm font-medium text-gray-200 mb-3">
-                            🎵 Background Music
+                            Background Music
                             @if(!auth()->user()->isPro())
                                 <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2">Pro Only</span>
                             @endif

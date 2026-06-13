@@ -58,6 +58,11 @@ class GalleryController extends Controller
             return $redirect;
         }
 
+        // Strip emoji from title to prevent utf8 column errors
+        $request->merge([
+            'title' => preg_replace('/[\x{1F000}-\x{1FFFF}]|[\x{2600}-\x{27FF}]|[\x{2B00}-\x{2BFF}]|[\x{FE00}-\x{FE0F}]|[\x{1F300}-\x{1F9FF}]|[\x{1FA00}-\x{1FA9F}]|\x{200D}/u', '', $request->input('title', '')),
+        ]);
+
         $validated = $request->validate($this->galleryValidationRules());
 
         $planHolder = $team ? $team->owner : $user;
@@ -119,9 +124,14 @@ class GalleryController extends Controller
 
     // ── Update ────────────────────────────────────────────────────────────
 
-    public function update(Request $request, Gallery $gallery): RedirectResponse
+    public function update(Request $request, Gallery $gallery): \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->authorizeGalleryAccess($gallery);
+
+        // Strip emoji from title to prevent utf8 column errors
+        $request->merge([
+            'title' => preg_replace('/[\x{1F000}-\x{1FFFF}]|[\x{2600}-\x{27FF}]|[\x{2B00}-\x{2BFF}]|[\x{FE00}-\x{FE0F}]|[\x{1F300}-\x{1F9FF}]|[\x{1FA00}-\x{1FA9F}]|\x{200D}/u', '', $request->input('title', '')),
+        ]);
 
         $validated = $request->validate($this->galleryValidationRules(isUpdate: true));
 
@@ -156,6 +166,11 @@ class GalleryController extends Controller
         unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo']);
 
         $gallery->update($validated);
+
+        // Return JSON for AJAX requests (edit page uses fetch), redirect otherwise
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Gallery settings updated!']);
+        }
         return back()->with('status', 'Gallery settings updated!');
     }
 

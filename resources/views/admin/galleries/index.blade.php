@@ -96,14 +96,14 @@
                                 <div class="absolute top-3 left-3">
                                     <span class="bg-black/60 backdrop-blur-sm text-purple-300 text-xs px-2.5 py-1 rounded-full font-medium border border-purple-500/30">
                                         {{ match($gallery->venueTemplate->slug) {
-                                            'white-cube'       => '⬜ ',
-                                            'industrial-loft'  => '🏭 ',
-                                            'dark-museum'      => '🏛️ ',
-                                            'zen-gallery'      => '🎋 ',
-                                            'luxury-penthouse' => '🏙️ ',
-                                            'cyber-gallery'    => '🌐 ',
-                                            'sculpture-garden' => '🌿 ',
-                                            'infinite-void'    => '✨ ',
+                                            'white-cube'       => '',
+                                            'industrial-loft'  => '',
+                                            'dark-museum'      => '',
+                                            'zen-gallery'      => '',
+                                            'luxury-penthouse' => '',
+                                            'cyber-gallery'    => '',
+                                            'sculpture-garden' => '',
+                                            'infinite-void'    => '',
                                             default            => ''
                                         } }}{{ $gallery->venueTemplate->name }}
                                     </span>
@@ -159,7 +159,7 @@
                     {{ $galleries->links() }}
                 </div>
             @else
-                <!-- ✨ PREMIUM EMPTY STATE: First-Time User Onboarding -->
+                <!-- PREMIUM EMPTY STATE: First-Time User Onboarding -->
                 <div class="max-w-4xl mx-auto">
                     <!-- Main Hero Card -->
                     <div class="bg-gradient-to-br from-gray-800 via-gray-800 to-purple-900/20 border border-gray-700 rounded-2xl overflow-hidden shadow-2xl">
@@ -255,7 +255,7 @@
                                 </a>
                                 
                                 <p class="mt-6 text-sm text-gray-500">
-                                    🎨 Free plan includes {{ auth()->user()->max_galleries }} galleries with {{ auth()->user()->max_images }} images each
+                                    Free plan includes {{ auth()->user()->max_galleries }} galleries with {{ auth()->user()->max_images }} images each
                                 </p>
                             </div>
                         </div>

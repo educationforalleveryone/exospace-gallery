@@ -260,7 +260,7 @@
                             <div class="flex items-center gap-2 flex-wrap">
                                 <h4 class="text-sm font-semibold text-gray-100 truncate">{{ $gallery->title }}</h4>
                                 @if($gallery->pin)
-                                <span class="text-[10px] bg-yellow-900/40 text-yellow-400 border border-yellow-700/40 px-1.5 py-0.5 rounded font-medium" aria-label="PIN protected">🔒 PIN</span>
+                                <span class="text-[10px] bg-yellow-900/40 text-yellow-400 border border-yellow-700/40 px-1.5 py-0.5 rounded font-medium" aria-label="PIN protected">PIN</span>
                                 @endif
                             </div>
                             <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">

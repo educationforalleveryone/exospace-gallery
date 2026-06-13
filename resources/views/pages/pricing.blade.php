@@ -334,7 +334,7 @@
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <span><strong>⬜ Modern White Cube</strong> venue</span>
+                <strong>Modern White Cube</strong> venue
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -370,7 +370,7 @@
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
                 <span class="feat-group">
                     <span class="feat-label">4 venues</span>
-                    <span class="feat-detail">⬜ White Cube · 🏭 Industrial Loft · 🏛️ Dark Museum · 🎋 Zen Gallery</span>
+                    <span class="feat-detail">White Cube · Industrial Loft · Dark Museum · Zen Gallery</span>
                 </span>
             </li>
             <li>
@@ -407,7 +407,7 @@
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
                 <span class="feat-group">
                     <span class="feat-label">All 8 venues</span>
-                    <span class="feat-detail">🏙️ Penthouse · 🌐 Cyber Gallery · 🌿 Sculpture Garden + more</span>
+                    <span class="feat-detail">Penthouse · Cyber Gallery · Sculpture Garden + more</span>
                 </span>
             </li>
             <li>
@@ -466,12 +466,12 @@
 <!-- Pro Upgrade Modal -->
 <div id="upgrade-modal-pro" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
     <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
-        <div style="font-size:2rem; margin-bottom:0.75rem;">🚀</div>
+        
         <h3 style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Pro — $29</h3>
         <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
         <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
             <li>Unlimited galleries · 50 images each</li>
-            <li>⬜ White Cube · 🏭 Industrial Loft · 🏛️ Dark Museum · 🎋 Zen Gallery</li>
+            <li>White Cube · Industrial Loft · Dark Museum · Zen Gallery</li>
             <li>Background music & exhibition scheduling</li>
             <li>No watermark</li>
             <li>Priority email support</li>
@@ -488,12 +488,12 @@
 <!-- Studio Upgrade Modal -->
 <div id="upgrade-modal-studio" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
     <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
-        <div style="font-size:2rem; margin-bottom:0.75rem;">🏛️</div>
+        
         <h3 style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Studio — $99</h3>
         <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
         <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
             <li>Unlimited galleries · unlimited images</li>
-            <li>All 8 venues including 🏙️ Penthouse · 🌐 Cyber · 🌿 Sculpture Garden</li>
+            <li>All 8 venues including Penthouse · Cyber Gallery · Sculpture Garden</li>
             <li>Custom branding & logo on every gallery</li>
             <li>Advanced analytics · team collaboration</li>
             <li>Dedicated account manager</li>

@@ -216,14 +216,14 @@
                         <label class="block text-sm font-medium text-gray-400 mb-3">Venue</label>
                         @php
                         $venueAtmospheres = [
-                            'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => '⬜', 'accent' => '#e0e0e0'],
-                            'industrial-loft'   => ['bg' => 'linear-gradient(135deg, #2a2820 0%, #1a1610 100%)',  'emoji' => '🏭', 'accent' => '#8a7a50'],
-                            'dark-museum'       => ['bg' => 'linear-gradient(135deg, #0a0a0a 0%, #1a0808 100%)',  'emoji' => '🏛️', 'accent' => '#8b1a1a'],
-                            'zen-gallery'       => ['bg' => 'linear-gradient(135deg, #2a2218 0%, #1a1810 100%)',  'emoji' => '🎋', 'accent' => '#8b7355'],
-                            'luxury-penthouse'  => ['bg' => 'linear-gradient(135deg, #0d0f18 0%, #060810 100%)',  'emoji' => '🏙️', 'accent' => '#c9a84c'],
-                            'cyber-gallery'     => ['bg' => 'linear-gradient(135deg, #020820 0%, #000412 100%)',  'emoji' => '🌐', 'accent' => '#00ffff'],
-                            'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #0d2010 0%, #081408 100%)',  'emoji' => '🌿', 'accent' => '#4ade80'],
-                            'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => '✨', 'accent' => '#8b5cf6'],
+                            'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => 'WC', 'accent' => '#e0e0e0'],
+                            'industrial-loft'   => ['bg' => 'linear-gradient(135deg, #2a2820 0%, #1a1610 100%)',  'emoji' => 'IL', 'accent' => '#8a7a50'],
+                            'dark-museum'       => ['bg' => 'linear-gradient(135deg, #0a0a0a 0%, #1a0808 100%)',  'emoji' => 'DM', 'accent' => '#8b1a1a'],
+                            'zen-gallery'       => ['bg' => 'linear-gradient(135deg, #2a2218 0%, #1a1810 100%)',  'emoji' => 'ZG', 'accent' => '#8b7355'],
+                            'luxury-penthouse'  => ['bg' => 'linear-gradient(135deg, #0d0f18 0%, #060810 100%)',  'emoji' => 'LP', 'accent' => '#c9a84c'],
+                            'cyber-gallery'     => ['bg' => 'linear-gradient(135deg, #020820 0%, #000412 100%)',  'emoji' => 'CG', 'accent' => '#00ffff'],
+                            'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #0d2010 0%, #081408 100%)',  'emoji' => 'SG', 'accent' => '#4ade80'],
+                            'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => 'IV', 'accent' => '#8b5cf6'],
                         ];
                         @endphp
 
@@ -232,7 +232,7 @@
                                 @php
                                     $accessible = $venue->isAccessibleBy(auth()->user());
                                     $isSelected = $gallery->venue_template_id == $venue->id;
-                                    $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '🖼️', 'accent' => '#555'];
+                                    $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '??', 'accent' => '#555'];
                                     $badgeClass = match($venue->plan_required) { 'pro' => 'badge-pro', 'studio' => 'badge-studio', default => 'badge-free' };
                                 @endphp
                                 <div class="edit-venue-card"
@@ -265,7 +265,7 @@
                                                  alt="{{ $venue->name }}"
                                                  onerror="this.style.display='none'">
                                             <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
-                                                <span style="font-size:2.2rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.6));">{{ $atm['emoji'] }}</span>
+                                                <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.7);">{{ $atm['emoji'] }}</span>
                                                 <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:32px;height:3px;border-radius:2px;background:{{ $atm['accent'] }};opacity:0.6;box-shadow:0 0 8px {{ $atm['accent'] }};"></div>
                                             </div>
                                         </div>
@@ -339,14 +339,14 @@
                     <!-- Background Music (Pro Feature) -->
                     <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <label class="block text-sm font-medium text-gray-300 mb-3">
-                            🎵 Background Music
+                            Background Music
                             @if(!auth()->user()->isPro())
                                 <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2">Pro Only</span>
                             @endif
                         </label>
 
                         @if(auth()->user()->isPro())
-                            <!-- ✅ AJAX Upload Container -->
+                            <!-- AJAX Upload Container -->
                             <div class="space-y-3">
                                 <!-- Current Audio Preview -->
                                 <div id="audio-preview-container" @if($gallery->audio_path) @else style="display:none;" @endif class="bg-gray-700 rounded-lg p-3 flex items-center justify-between mb-3">
@@ -369,7 +369,7 @@
                                     </audio>
                                 </div>
 
-                                <!-- ✅ Upload Input -->
+                                <!-- Upload Input -->
                                 <div class="relative">
                                     <input type="file" id="audio-upload-input" accept=".mp3,.wav,.m4a"
                                         onchange="uploadAudioFile(this)"
@@ -381,7 +381,7 @@
                                             hover:file:bg-purple-700
                                             cursor-pointer">
 
-                                    <!-- ✅ Progress Bar (Hidden by default) -->
+                                    <!-- Progress Bar (Hidden by default) -->
                                     <div id="audio-upload-progress" style="display:none;" class="mt-2">
                                         <div class="flex justify-between text-xs text-gray-400 mb-1">
                                             <span id="audio-progress-text">Uploading...</span>
@@ -392,12 +392,12 @@
                                         </div>
                                     </div>
 
-                                    <!-- ✅ Success Message (Hidden by default) -->
+                                    <!-- Success Message (Hidden by default) -->
                                     <div id="audio-upload-success" style="display:none;" class="mt-2 p-2 bg-green-900/50 border border-green-700 rounded text-green-300 text-sm">
-                                        ✅ <span id="audio-success-message">Audio uploaded successfully!</span>
+                                        <span id="audio-success-message">Audio uploaded successfully!</span>
                                     </div>
 
-                                    <!-- ✅ Error Message (Hidden by default) -->
+                                    <!-- Error Message (Hidden by default) -->
                                     <div id="audio-upload-error" style="display:none;" class="mt-2 p-3 bg-red-950/50 border border-red-700/60 rounded-lg flex items-center justify-between gap-3">
                                         <div class="flex items-center gap-2 text-red-300 text-sm">
                                             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -430,14 +430,14 @@
                     <!-- Custom Branding (Studio Feature) -->
                     <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <label class="block text-sm font-medium text-gray-300 mb-3">
-                            🎨 Custom Logo
+                            Custom Logo
                             @if(auth()->user()->plan !== 'studio')
                                 <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2">Studio Only</span>
                             @endif
                         </label>
 
                         @if(auth()->user()->plan === 'studio')
-                            <!-- ✅ AJAX Upload Container -->
+                            <!-- AJAX Upload Container -->
                             <div class="space-y-3">
                                 <!-- Current Logo Preview -->
                                 <div id="logo-preview-container" @if($gallery->custom_logo_path) @else style="display:none;" @endif class="bg-gray-700 rounded-lg p-3 mb-3 flex items-center justify-center">
@@ -447,7 +447,7 @@
                                          class="max-h-20 object-contain">
                                 </div>
 
-                                <!-- ✅ Upload Input -->
+                                <!-- Upload Input -->
                                 <div class="relative">
                                     <input type="file" id="logo-upload-input" accept=".png,.svg,.jpg,.jpeg"
                                         onchange="uploadLogoFile(this)"
@@ -459,7 +459,7 @@
                                             hover:file:bg-purple-700
                                             cursor-pointer">
 
-                                    <!-- ✅ Progress Bar (Hidden by default) -->
+                                    <!-- Progress Bar (Hidden by default) -->
                                     <div id="logo-upload-progress" style="display:none;" class="mt-2">
                                         <div class="flex justify-between text-xs text-gray-400 mb-1">
                                             <span id="logo-progress-text">Uploading...</span>
@@ -470,12 +470,12 @@
                                         </div>
                                     </div>
 
-                                    <!-- ✅ Success Message (Hidden by default) -->
+                                    <!-- Success Message (Hidden by default) -->
                                     <div id="logo-upload-success" style="display:none;" class="mt-2 p-2 bg-green-900/50 border border-green-700 rounded text-green-300 text-sm">
-                                        ✅ <span id="logo-success-message">Logo uploaded successfully!</span>
+                                        <span id="logo-success-message">Logo uploaded successfully!</span>
                                     </div>
 
-                                    <!-- ✅ Error Message (Hidden by default) -->
+                                    <!-- Error Message (Hidden by default) -->
                                     <div id="logo-upload-error" style="display:none;" class="mt-2 p-3 bg-red-950/50 border border-red-700/60 rounded-lg flex items-center justify-between gap-3">
                                         <div class="flex items-center gap-2 text-red-300 text-sm">
                                             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -514,7 +514,7 @@
                             </div>
 
                             <div class="mt-4 bg-orange-900/20 border border-orange-700/30 rounded-lg p-4">
-                                <h4 class="text-orange-300 font-semibold text-sm mb-2">🌟 Studio Plan Benefits</h4>
+                                <h4 class="text-orange-300 font-semibold text-sm mb-2">Studio Plan Benefits</h4>
                                 <ul class="text-xs text-orange-300/80 space-y-1 ml-4">
                                     <li>• White-label your galleries with custom branding</li>
                                     <li>• Remove "Exospace" watermark completely</li>
@@ -563,12 +563,12 @@
                                     @endphp
                                     {{ $scheduleClass }}">
                                     @if($gallery->hasNotOpenedYet())
-                                        🕐 <strong>Scheduled</strong> — Opens {{ $gallery->opens_at->diffForHumans() }}
+                                        <strong>Scheduled</strong> — Opens {{ $gallery->opens_at->diffForHumans() }}
                                         ({{ $gallery->opens_at->format('M j, Y \a\t g:i A') }})
                                     @elseif($gallery->hasClosed())
-                                        🔒 <strong>Closed</strong> — Exhibition ended {{ $gallery->closes_at->diffForHumans() }}
+                                        <strong>Closed</strong> — Exhibition ended {{ $gallery->closes_at->diffForHumans() }}
                                     @else
-                                        ✅ <strong>Open</strong> —
+                                        <strong>Open</strong> —
                                         {{ $gallery->closes_at ? 'Closes ' . $gallery->closes_at->diffForHumans() . ' (' . $gallery->closes_at->format('M j, Y \a\t g:i A') . ')' : 'No closing date set' }}
                                     @endif
                                 </div>
@@ -744,7 +744,7 @@
             parallelUploads: 2,
             timeout: 180000,
             acceptedFiles: ".jpeg,.jpg,.png,.webp",
-            dictDefaultMessage: "📸 <span class='text-purple-400 font-bold text-lg'>Drag your artwork here</span> or <span class='underline cursor-pointer'>browse</span><br><span class='text-xs text-gray-500 mt-2 block'>Supports JPG, PNG, WEBP (Max 10MB)</span>",
+            dictDefaultMessage: "<span class='text-purple-400 font-bold text-lg'>Drag your artwork here</span> or <span class='underline cursor-pointer'>browse</span><br><span class='text-xs text-gray-500 mt-2 block'>Supports JPG, PNG, WEBP (Max 10MB)</span>",
             addRemoveLinks: true,
             uploadMultiple: false,
             autoProcessQueue: true,
@@ -766,7 +766,7 @@
                 this.on("success", function(file, response) {
                     if(response.success) {
                         uploadedCount++;
-                        console.log(`✅ Uploaded ${uploadedCount}/${totalFiles}: ${file.name}`);
+                        console.log(`Uploaded ${uploadedCount}/${totalFiles}: ${file.name}`);
                     }
                 });
 
@@ -796,17 +796,17 @@
                         error: cleanError
                     });
 
-                    console.error(`❌ Upload failed for ${file.name}:`, cleanError);
+                    console.error(`Upload failed for ${file.name}:`, cleanError);
                 });
 
                 this.on("queuecomplete", function() {
-                    console.log(`🎉 Queue complete! Uploaded: ${uploadedCount}/${totalFiles}`);
+                    console.log(`Queue complete! Uploaded: ${uploadedCount}/${totalFiles}`);
 
                     if (failedFiles.length > 0) {
                         const errHtml = failedFiles.map(f => `<li class="text-red-300 text-xs">• <strong>${f.name}</strong>: ${f.error}</li>`).join('');
                         const banner = document.createElement('div');
                         banner.className = 'mt-3 p-3 bg-red-950/60 border border-red-700/60 rounded-lg text-sm';
-                        banner.innerHTML = `<p class="text-red-300 font-semibold mb-1.5">⚠ ${failedFiles.length} file${failedFiles.length > 1 ? 's' : ''} failed to upload:</p><ul class="space-y-0.5">${errHtml}</ul><p class="text-red-400/70 text-xs mt-2">Common fixes: reduce file size below 10MB, use JPG/PNG/WEBP format.</p>`;
+                        banner.innerHTML = `<p class="text-red-300 font-semibold mb-1.5">[!] ${failedFiles.length} file${failedFiles.length > 1 ? 's' : ''} failed to upload:</p><ul class="space-y-0.5">${errHtml}</ul><p class="text-red-400/70 text-xs mt-2">Common fixes: reduce file size below 10MB, use JPG/PNG/WEBP format.</p>`;
                         document.getElementById('image-upload-dropzone').after(banner);
                         setTimeout(() => banner.remove(), 12000);
                     }
@@ -1107,15 +1107,56 @@
                 document.getElementById('logo-upload-error').style.display = 'block';
             });
         }
-        document.querySelector('form[action*="galleries"]').addEventListener('submit', function() {
+        // ─── AJAX form submit — no page navigation so no "leave site" dialog ───
+        document.querySelector('form[action*="galleries"]').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const form = this;
             const btn = document.getElementById('update-settings-btn');
             document.getElementById('update-spinner').classList.remove('hidden');
             document.getElementById('update-label').textContent = 'Saving…';
             btn.disabled = true;
+
+            // Sync advanced dropdown overrides into hidden fields before serialising
+            ['adv_wall','adv_floor','adv_frame','adv_lighting'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const map = { adv_wall: 'edit_wall_texture', adv_floor: 'edit_floor_material', adv_frame: 'edit_frame_style', adv_lighting: 'edit_lighting_preset' };
+                document.getElementById(map[id]).value = el.value;
+            });
+
+            // Add _method=PUT for Laravel
+            const fd = new FormData(form);
+            fd.set('_method', 'PUT');
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                body: fd
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                document.getElementById('update-spinner').classList.add('hidden');
+                document.getElementById('update-label').textContent = 'Update Settings';
+                btn.disabled = false;
+                if (ok) {
+                    dirty = false;
+                    toast('Settings updated', 'success');
+                } else {
+                    const errors = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'Could not save — please try again');
+                    toast(errors, 'error');
+                }
+            })
+            .catch(() => {
+                document.getElementById('update-spinner').classList.add('hidden');
+                document.getElementById('update-label').textContent = 'Update Settings';
+                btn.disabled = false;
+                toast('Network error — please try again', 'error');
+            });
         });
+
         // Unsaved changes guard — delayed so Dropzone/hidden-input init doesn't trip it
+        var dirty = false;
         (function() {
-            let dirty = false;
             let ready = false;
             const form = document.querySelector('form[action*="galleries"]');
             if (!form) return;
@@ -1126,7 +1167,6 @@
                     el.addEventListener('input',  () => { if (ready) dirty = true; });
                 });
             }, 800);
-            form.addEventListener('submit', () => { dirty = false; ready = false; });
             window._dirtyHandler = e => {
                 if (dirty) { e.preventDefault(); e.returnValue = ''; }
             };
