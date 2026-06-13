@@ -39,10 +39,12 @@
             }
             /* Smooth page-level fade-in */
             @keyframes pageIn {
-                from { opacity: 0; transform: translateY(6px); }
-                to   { opacity: 1; transform: translateY(0); }
+                from { opacity: 0; }
+                to   { opacity: 1; }
             }
-            .page-content { animation: pageIn 0.25s ease-out both; }
+            /* transform removed from pageIn: transform on <main> creates a stacking
+               context that buries nav dropdown panels even when nav has z-40. */
+            .page-content { animation: pageIn 0.25s ease-out; }
             /* Card hover lift */
             .card-lift { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
             .card-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(139,92,246,0.12); }

@@ -586,7 +586,13 @@
                         @endif
                     </div>
 
-                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+                    <div class="flex justify-end items-center gap-3 mt-6 pt-4 border-t border-gray-700">
+                        <!-- Inline save feedback — shown right next to the button -->
+                        <div id="save-feedback" class="hidden items-center gap-2 text-sm font-medium">
+                            <svg id="save-feedback-icon-ok" class="hidden w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            <svg id="save-feedback-icon-err" class="hidden w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <span id="save-feedback-text" class="text-green-400"></span>
+                        </div>
                         <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg transition-colors">
                             Cancel
                         </a>
@@ -1140,21 +1146,21 @@
                 btn.disabled = false;
                 if (ok) {
                     dirty = false;
-                    toast('Settings updated', 'success');
+                    showSaveFeedback('Settings updated', true);
                 } else {
                     const errors = data.errors ? Object.values(data.errors).flat().join(' ') : (data.message || 'Could not save — please try again');
-                    toast(errors, 'error');
+                    showSaveFeedback(errors, false);
                 }
             })
             .catch(() => {
                 document.getElementById('update-spinner').classList.add('hidden');
                 document.getElementById('update-label').textContent = 'Update Settings';
                 btn.disabled = false;
-                toast('Network error — please try again', 'error');
+                showSaveFeedback('Network error — please try again', false);
             });
         });
 
-        // Unsaved changes guard — delayed so Dropzone/hidden-input init doesn't trip it
+        // Unsaved changes guard — uses custom in-page modal instead of native browser dialog
         var dirty = false;
         (function() {
             let ready = false;
@@ -1167,11 +1173,26 @@
                     el.addEventListener('input',  () => { if (ready) dirty = true; });
                 });
             }, 800);
-            window._dirtyHandler = e => {
-                if (dirty) { e.preventDefault(); e.returnValue = ''; }
-            };
-            window.addEventListener('beforeunload', window._dirtyHandler);
+            // Intercept all nav links and the Cancel button so we can show custom modal
+            document.querySelectorAll('a[href]').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    if (!dirty) return;
+                    const href = this.href;
+                    if (!href || href.startsWith('#') || href.startsWith('javascript')) return;
+                    e.preventDefault();
+                    showUnsavedModal(href);
+                });
+            });
         })();
+
+        function showUnsavedModal(destination) {
+            const modal = document.getElementById('unsaved-changes-modal');
+            document.getElementById('unsaved-leave-btn').onclick = () => {
+                dirty = false;
+                window.location.href = destination;
+            };
+            modal.style.display = 'flex';
+        }
     </script>
 
     <!-- Reorder save bar -->
@@ -1298,4 +1319,52 @@ if (preselectedCard) {
     }
 }
 </script>
+<script>
+// Show inline save feedback next to the Update Settings button
+function showSaveFeedback(message, isSuccess) {
+    const fb = document.getElementById('save-feedback');
+    const okIcon = document.getElementById('save-feedback-icon-ok');
+    const errIcon = document.getElementById('save-feedback-icon-err');
+    const text = document.getElementById('save-feedback-text');
+    okIcon.classList.toggle('hidden', !isSuccess);
+    errIcon.classList.toggle('hidden', isSuccess);
+    text.textContent = message;
+    text.className = isSuccess ? 'text-green-400' : 'text-red-400';
+    fb.classList.remove('hidden');
+    fb.classList.add('flex');
+    clearTimeout(fb._hideTimer);
+    fb._hideTimer = setTimeout(() => {
+        fb.classList.add('hidden');
+        fb.classList.remove('flex');
+    }, 4000);
+}
+</script>
+
+<!-- Custom "Unsaved changes" modal — replaces native browser dialog -->
+<div id="unsaved-changes-modal"
+     style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); align-items:center; justify-content:center;"
+     onclick="if(event.target===this) this.style.display='none'">
+    <div style="background:#1f2937; border:1px solid #374151; border-radius:16px; padding:2rem; max-width:400px; width:90%; box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:1rem;">
+            <div style="width:40px; height:40px; border-radius:10px; background:rgba(245,158,11,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <svg width="20" height="20" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            </div>
+            <div>
+                <p style="font-size:1rem; font-weight:700; color:#f1f5f9; margin:0;">Unsaved changes</p>
+                <p style="font-size:0.82rem; color:#94a3b8; margin:2px 0 0;">Your gallery settings have not been saved yet.</p>
+            </div>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:1.5rem;">
+            <button onclick="document.getElementById('unsaved-changes-modal').style.display='none'"
+                    style="background:#374151; border:none; color:#d1d5db; font-size:0.875rem; font-weight:600; padding:0.6rem 1.25rem; border-radius:8px; cursor:pointer;">
+                Keep editing
+            </button>
+            <button id="unsaved-leave-btn"
+                    style="background:linear-gradient(135deg,#ef4444,#dc2626); border:none; color:#fff; font-size:0.875rem; font-weight:600; padding:0.6rem 1.25rem; border-radius:8px; cursor:pointer;">
+                Leave without saving
+            </button>
+        </div>
+    </div>
+</div>
+
 </x-app-layout>

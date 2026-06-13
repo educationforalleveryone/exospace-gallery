@@ -82,23 +82,37 @@ class GalleryController extends Controller
         // a DB foreign-key 500 if it slips through.
         $venueTemplateId = !empty($validated['venue_template_id']) ? $validated['venue_template_id'] : null;
 
-        Gallery::create([
-            'user_id'          => $user->id,
-            'team_id'          => $team?->id,
-            'title'            => $validated['title'],
-            'description'      => $validated['description'],
-            'wall_texture'     => $validated['wall_texture'],
-            'frame_style'      => $validated['frame_style'],
-            'lighting_preset'  => $validated['lighting_preset'],
-            'floor_material'   => $validated['floor_material'],
-            'room_layout'      => $validated['room_layout'],
-            'pin_hash'         => $validated['gallery_pin'] ? Hash::make($validated['gallery_pin']) : null,
-            'opens_at'         => $validated['opens_at'] ?? null,
-            'closes_at'        => $validated['closes_at'] ?? null,
-            'venue_template_id' => $venueTemplateId,
-            'audio_path'        => $audioPath,
-            'custom_logo_path'  => $logoPath,
-        ]);
+        try {
+            $gallery = Gallery::create([
+                'user_id'          => $user->id,
+                'team_id'          => $team?->id,
+                'title'            => $validated['title'],
+                'description'      => $validated['description'] ?? null,
+                'wall_texture'     => $validated['wall_texture'],
+                'frame_style'      => $validated['frame_style'],
+                'lighting_preset'  => $validated['lighting_preset'],
+                'floor_material'   => $validated['floor_material'],
+                'room_layout'      => $validated['room_layout'],
+                'pin_hash'         => !empty($validated['gallery_pin']) ? Hash::make($validated['gallery_pin']) : null,
+                'opens_at'         => $validated['opens_at'] ?? null,
+                'closes_at'        => $validated['closes_at'] ?? null,
+                'venue_template_id' => $venueTemplateId,
+                'audio_path'        => $audioPath,
+                'custom_logo_path'  => $logoPath,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Gallery::create failed', [
+                'message'  => $e->getMessage(),
+                'title'    => $validated['title'] ?? null,
+                'user_id'  => $user->id,
+                'venue_id' => $venueTemplateId,
+                'layout'   => $validated['room_layout'] ?? null,
+            ]);
+            // Surface a human-readable error instead of a blank 500
+            return back()
+                ->withInput()
+                ->with('error', 'Could not create gallery: ' . $e->getMessage());
+        }
 
         $redirectParams = $team ? ['team' => $team->id] : [];
         return redirect()->route('admin.galleries.index', $redirectParams)
