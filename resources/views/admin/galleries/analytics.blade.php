@@ -11,7 +11,50 @@
         </div>
     </x-slot>
 
-    <div class="py-10 bg-gray-900 min-h-screen">
+    <!-- Skeleton loading overlay -->
+    <div id="analytics-skeleton" class="py-10 bg-gray-900 min-h-screen">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <!-- Skeleton stat cards -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                @for($i = 0; $i < 5; $i++)
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 animate-pulse">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-9 h-9 rounded-lg bg-gray-700"></div>
+                        <div class="h-3 bg-gray-700 rounded w-20"></div>
+                    </div>
+                    <div class="h-7 bg-gray-700 rounded w-16"></div>
+                </div>
+                @endfor
+            </div>
+            <!-- Skeleton chart -->
+            <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 animate-pulse">
+                <div class="h-4 bg-gray-700 rounded w-40 mb-5"></div>
+                <div class="h-32 bg-gray-700/50 rounded-lg"></div>
+            </div>
+            <!-- Skeleton bottom cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                @for($i = 0; $i < 2; $i++)
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 animate-pulse">
+                    <div class="h-4 bg-gray-700 rounded w-44 mb-5"></div>
+                    <div class="space-y-4">
+                        @for($j = 0; $j < 4; $j++)
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-gray-700 flex-shrink-0"></div>
+                            <div class="flex-1 space-y-2">
+                                <div class="h-3 bg-gray-700 rounded w-3/4"></div>
+                                <div class="h-2 bg-gray-700/60 rounded-full"></div>
+                            </div>
+                        </div>
+                        @endfor
+                    </div>
+                </div>
+                @endfor
+            </div>
+        </div>
+    </div>
+
+    <!-- Actual content (hidden until loaded) -->
+    <div id="analytics-content" style="display:none;" class="py-10 bg-gray-900 min-h-screen">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
             {{-- ── Overview stat cards ─────────────────────────────── --}}
@@ -129,9 +172,20 @@
         </div>
     </div>
 
+        </div>
+    </div><!-- end #analytics-content -->
+
     {{-- Chart.js ──────────────────────────────────────────────────────── --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <script>
+        // Show skeleton briefly then reveal real content
+        setTimeout(function() {
+            document.getElementById('analytics-skeleton').style.display = 'none';
+            document.getElementById('analytics-content').style.display = 'block';
+            initChart();
+        }, 1200);
+
+        function initChart() {
         const ctx = document.getElementById('views-chart').getContext('2d');
         new Chart(ctx, {
             type: 'line',
@@ -166,5 +220,6 @@
                 }
             }
         });
+        } // end initChart
     </script>
 </x-app-layout>

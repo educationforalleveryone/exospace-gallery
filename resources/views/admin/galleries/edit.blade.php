@@ -1162,6 +1162,7 @@
 
         // Unsaved changes guard — uses custom in-page modal instead of native browser dialog
         var dirty = false;
+        var _pauseDirty = false; // paused while venue card selection syncs dropdowns
         (function() {
             let ready = false;
             const form = document.querySelector('form[action*="galleries"]');
@@ -1169,11 +1170,11 @@
             setTimeout(function() {
                 ready = true;
                 form.querySelectorAll('input:not([type="hidden"]), select, textarea').forEach(el => {
-                    el.addEventListener('change', () => { if (ready) dirty = true; });
-                    el.addEventListener('input',  () => { if (ready) dirty = true; });
+                    el.addEventListener('change', () => { if (ready && !_pauseDirty) dirty = true; });
+                    el.addEventListener('input',  () => { if (ready && !_pauseDirty) dirty = true; });
                 });
             }, 800);
-            // Intercept all nav links and the Cancel button so we can show custom modal
+            // Intercept all nav links so we can show custom modal instead of browser dialog
             document.querySelectorAll('a[href]').forEach(link => {
                 link.addEventListener('click', function(e) {
                     if (!dirty) return;
@@ -1204,17 +1205,31 @@
     </div>
 
     <script>
-        // Warn on navigate if order changed but not saved
+        // Warn on navigate if order changed but not saved — use custom modal, not native dialog
         window._reorderHandler = e => {
             const reorderBar = document.getElementById('reorder-save-bar');
-            if (reorderBar && 
+            if (reorderBar &&
                 getComputedStyle(reorderBar).display !== 'none' &&
                 reorderBar.style.display !== 'none') {
                 e.preventDefault();
                 e.returnValue = '';
             }
         };
-        window.addEventListener('beforeunload', window._reorderHandler);
+        // Intercept nav links to show custom modal when reorder bar is visible
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            const reorderBar = document.getElementById('reorder-save-bar');
+            const reorderVisible = reorderBar &&
+                getComputedStyle(reorderBar).display !== 'none' &&
+                reorderBar.style.display !== 'none';
+            if (!reorderVisible) return;
+            const href = link.href;
+            if (!href || href.startsWith('#') || href.startsWith('javascript')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            showUnsavedModal(href);
+        }, true);
     </script>
 
 <script>
@@ -1248,6 +1263,9 @@ function selectEditVenue(card) {
     });
     card.querySelector('.venue-card-inner').classList.add('selected');
 
+    // Pause dirty tracking while we programmatically sync fields
+    _pauseDirty = true;
+
     // Populate hidden fields from venue defaults
     document.getElementById('edit_wall_texture').value      = card.dataset.wall;
     document.getElementById('edit_floor_material').value    = card.dataset.floor;
@@ -1264,6 +1282,10 @@ function selectEditVenue(card) {
         document.getElementById('adv_frame').value   = card.dataset.frame;
         document.getElementById('adv_lighting').value = card.dataset.lighting;
     }
+
+    // Mark dirty (user intentionally changed venue) then re-enable tracking
+    dirty = true;
+    setTimeout(() => { _pauseDirty = false; }, 50);
 
     const slug = editSlugMap[card.dataset.venueId];
     const accent = editVenueAccentColors[slug] || '#8b5cf6';

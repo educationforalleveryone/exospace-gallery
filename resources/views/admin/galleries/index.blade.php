@@ -136,7 +136,7 @@
                                 </div>
                                 
                                 <!-- Actions -->
-                                <div class="grid grid-cols-3 gap-2">
+                                <div class="grid grid-cols-2 gap-2 mb-2">
                                     <a href="{{ route('gallery.view', $gallery->slug) }}" target="_blank" 
                                        class="bg-gray-700 hover:bg-gray-600 text-center text-gray-100 font-medium py-2 px-3 rounded-lg transition text-sm">
                                         View
@@ -145,10 +145,18 @@
                                        class="bg-blue-600 hover:bg-blue-700 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">
                                         Share
                                     </button>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
                                     <a href="{{ route('admin.galleries.edit', $gallery) }}" 
                                        class="bg-purple-600 hover:bg-purple-700 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">
                                         Edit
                                     </a>
+                                    @if($canEdit)
+                                    <button onclick="confirmDelete({{ $gallery->id }}, '{{ addslashes($gallery->title) }}')"
+                                       class="bg-red-700/80 hover:bg-red-600 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">
+                                        Delete
+                                    </button>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -319,9 +327,47 @@
         </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+        <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 rounded-xl bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-gray-100">Delete Gallery</h3>
+                    <p class="text-sm text-gray-400">This action cannot be undone.</p>
+                </div>
+            </div>
+            <p class="text-gray-300 mb-6">Are you sure you want to permanently delete <span id="delete-gallery-name" class="font-semibold text-white"></span>? All images and analytics data will be lost.</p>
+            <form id="delete-form" method="POST">
+                @csrf
+                @method('DELETE')
+                <div class="flex gap-3 justify-end">
+                    <button type="button" onclick="document.getElementById('delete-modal').style.display='none'"
+                            class="bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold px-5 py-2.5 rounded-lg transition text-sm">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="bg-red-600 hover:bg-red-500 text-white font-semibold px-5 py-2.5 rounded-lg transition text-sm">
+                        Yes, Delete Gallery
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <x-upgrade-modal />
 
     <script>
+        function confirmDelete(galleryId, galleryTitle) {
+            document.getElementById('delete-gallery-name').textContent = galleryTitle;
+            document.getElementById('delete-form').action = '/admin/galleries/' + galleryId;
+            document.getElementById('delete-modal').style.display = 'flex';
+        }
+
         function shareGallery(url, title) {
             document.getElementById('share-url').value = url;
             document.getElementById('share-title').textContent = title;
@@ -353,6 +399,7 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.getElementById('share-modal').style.display = 'none';
+                document.getElementById('delete-modal').style.display = 'none';
             }
         });
     </script>
