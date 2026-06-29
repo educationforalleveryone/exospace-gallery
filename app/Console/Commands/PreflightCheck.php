@@ -16,15 +16,18 @@ use Illuminate\Support\Str;
  *
  *     php artisan exospace:preflight
  *
- * Optionally with --verbose for stack traces on failures.
- *
  * Exits with code 1 if any CRITICAL check fails (so it can be wired into
  * a CI/CD pipeline or a post-deploy Coolify health check).
+ *
+ * NOTE: do NOT add a {--verbose} option to the signature — Laravel's
+ * base Command class (via Symfony Console) already registers -v|--verbose
+ * globally, and re-declaring it throws "An option named 'verbose' already
+ * exists" at command registration time. The built-in -v / -vv / -vvv
+ * flags work automatically if you ever need them.
  */
 class PreflightCheck extends Command
 {
-    protected $signature = 'exospace:preflight
-                            {--verbose : Show full stack traces on failures}';
+    protected $signature = 'exospace:preflight';
     protected $description = 'Verify production configuration, extensions, and integrations.';
 
     private int $failures = 0;
