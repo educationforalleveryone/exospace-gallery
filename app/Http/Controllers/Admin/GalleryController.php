@@ -7,10 +7,11 @@ use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
 use App\Models\Gallery;
 use App\Models\Team;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
 
 class GalleryController extends Controller
 {
@@ -77,10 +78,17 @@ class GalleryController extends Controller
             $logoPath = $request->file('custom_logo')->store('branding', 'public');
         }
 
-        // FIX: treat empty string venue_template_id as null — the form submits "" when
-        // no venue card has been clicked, which causes an "exists" validation failure or
-        // a DB foreign-key 500 if it slips through.
         $venueTemplateId = !empty($validated['venue_template_id']) ? $validated['venue_template_id'] : null;
+
+        // Custom domain is Studio-plan only
+        $customDomain = null;
+        if (!empty($validated['custom_domain']) && $planHolder->plan === 'studio') {
+            $customDomain = $this->normaliseCustomDomain($validated['custom_domain']);
+            // Uniqueness check
+            if (Gallery::where('custom_domain', $customDomain)->exists()) {
+                return back()->withInput()->with('error', "The custom domain \"{$customDomain}\" is already in use.");
+            }
+        }
 
         try {
             $gallery = Gallery::create([
@@ -99,6 +107,7 @@ class GalleryController extends Controller
                 'venue_template_id' => $venueTemplateId,
                 'audio_path'        => $audioPath,
                 'custom_logo_path'  => $logoPath,
+                'custom_domain'     => $customDomain,
             ]);
         } catch (\Throwable $e) {
             \Log::error('Gallery::create failed', [
@@ -108,7 +117,6 @@ class GalleryController extends Controller
                 'venue_id' => $venueTemplateId,
                 'layout'   => $validated['room_layout'] ?? null,
             ]);
-            // Surface a human-readable error instead of a blank 500
             return back()
                 ->withInput()
                 ->with('error', 'Could not create gallery: ' . $e->getMessage());
@@ -117,6 +125,78 @@ class GalleryController extends Controller
         $redirectParams = $team ? ['team' => $team->id] : [];
         return redirect()->route('admin.galleries.index', $redirectParams)
                          ->with('status', 'Gallery created! You can now upload images.');
+    }
+
+    // ── Duplicate (clone) ─────────────────────────────────────────────────
+    //
+    // Creates a new gallery that copies all settings from an existing one,
+    // including image files (copied on disk so the clone is independent).
+    // The clone's title gets " (Copy)" appended; its slug is auto-generated.
+
+    public function duplicate(Gallery $gallery): RedirectResponse
+    {
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
+
+        $user = Auth::user();
+        $team = $gallery->team;
+
+        // Plan limit check
+        if ($redirect = $this->checkGalleryLimit($user, $team)) {
+            return $redirect;
+        }
+
+        // Create the clone
+        $clone = $gallery->replicate([
+            'id', 'slug', 'view_count', 'pin_hash', 'opens_at', 'closes_at',
+            'custom_domain', // custom domains are unique — never copy
+            'created_at', 'updated_at',
+        ]);
+
+        $clone->title       = $gallery->title . ' (Copy)';
+        $clone->slug        = null; // boot() will generate a new one
+        $clone->view_count  = 0;
+        $clone->is_active   = true;
+
+        // Copy audio + logo files on disk so the clone is independent
+        if ($gallery->audio_path) {
+            $newPath = $this->copyFile($gallery->audio_path, 'audio');
+            if ($newPath) $clone->audio_path = $newPath;
+        }
+        if ($gallery->custom_logo_path) {
+            $newPath = $this->copyFile($gallery->custom_logo_path, 'branding');
+            if ($newPath) $clone->custom_logo_path = $newPath;
+        }
+
+        $clone->save();
+
+        // Copy all images — duplicate files on disk + create new GalleryImage rows
+        foreach ($gallery->images()->orderBy('position_order')->get() as $image) {
+            $newImagePath = $this->copyFile($image->path, 'gallery-images');
+            if (!$newImagePath) {
+                \Log::warning("Duplicate: failed to copy image {$image->path}");
+                continue;
+            }
+            \App\Models\GalleryImage::create([
+                'gallery_id'     => $clone->id,
+                'filename'       => $image->filename,
+                'original_name'  => $image->original_name,
+                'path'           => $newImagePath,
+                'mime_type'      => $image->mime_type,
+                'size'           => $image->size,
+                'width'          => $image->width,
+                'height'         => $image->height,
+                'orientation'    => $image->orientation,
+                'position_order' => $image->position_order,
+                'wall_position'  => $image->wall_position,
+                'title'          => $image->title,
+                'description'    => $image->description,
+            ]);
+        }
+
+        $redirectParams = $team ? ['team' => $team->id] : [];
+        return redirect()
+            ->route('admin.galleries.index', $redirectParams)
+            ->with('status', "Gallery duplicated as \"{$clone->title}\".");
     }
 
     // ── Show (redirects to edit) ──────────────────────────────────────────
@@ -142,7 +222,6 @@ class GalleryController extends Controller
     {
         $this->authorizeGalleryAccess($gallery);
 
-        // Strip emoji from title to prevent utf8 column errors
         $request->merge([
             'title' => preg_replace('/[\x{1F000}-\x{1FFFF}]|[\x{2600}-\x{27FF}]|[\x{2B00}-\x{2BFF}]|[\x{FE00}-\x{FE0F}]|[\x{1F300}-\x{1F9FF}]|[\x{1FA00}-\x{1FA9F}]|\x{200D}/u', '', $request->input('title', '')),
         ]);
@@ -170,18 +249,43 @@ class GalleryController extends Controller
         $validated['opens_at']  = $validated['opens_at']  ?: null;
         $validated['closes_at'] = $validated['closes_at'] ?: null;
 
-        // FIX: treat empty string venue_template_id as null
         if (array_key_exists('venue_template_id', $validated)) {
             $validated['venue_template_id'] = !empty($validated['venue_template_id'])
                 ? $validated['venue_template_id']
                 : null;
         }
 
+        // Custom domain — Studio-plan only, must be unique across galleries
+        if (array_key_exists('custom_domain', $validated)) {
+            $cd = $validated['custom_domain'];
+            if (!empty($cd) && $planHolder->plan === 'studio') {
+                $cd = $this->normaliseCustomDomain($cd);
+                $exists = Gallery::where('custom_domain', $cd)
+                    ->where('id', '!=', $gallery->id)
+                    ->exists();
+                if ($exists) {
+                    return back()->withInput()
+                        ->with('error', "The custom domain \"{$cd}\" is already in use.");
+                }
+                $validated['custom_domain'] = $cd;
+                // Clear the lookup cache for the new domain
+                \Illuminate\Support\Facades\Cache::forget("custom_domain:{$cd}");
+            } elseif (empty($cd)) {
+                $validated['custom_domain'] = null;
+                // Clear the lookup cache for the old domain if any
+                if ($gallery->custom_domain) {
+                    \Illuminate\Support\Facades\Cache::forget("custom_domain:{$gallery->custom_domain}");
+                }
+            } else {
+                // Non-Studio plan trying to set a custom domain — block silently
+                unset($validated['custom_domain']);
+            }
+        }
+
         unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo']);
 
         $gallery->update($validated);
 
-        // Return JSON for AJAX requests (edit page uses fetch), redirect otherwise
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Gallery settings updated!']);
         }
@@ -194,6 +298,12 @@ class GalleryController extends Controller
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
         $teamId = $gallery->team_id;
+
+        // Clean up custom domain cache if set
+        if ($gallery->custom_domain) {
+            \Illuminate\Support\Facades\Cache::forget("custom_domain:{$gallery->custom_domain}");
+        }
+
         $gallery->delete();
         return redirect()->route('admin.galleries.index', $teamId ? ['team' => $teamId] : [])
                          ->with('status', 'Gallery deleted.');
@@ -259,10 +369,6 @@ class GalleryController extends Controller
 
     // ── Private helpers ───────────────────────────────────────────────────
 
-    /**
-     * Resolve team context from a team ID param, validating membership.
-     * Returns null if param is absent or user isn't a member.
-     */
     private function resolveTeamContext($user, ?string $teamId): ?Team
     {
         if (! $teamId) {
@@ -274,9 +380,6 @@ class GalleryController extends Controller
         return ($team && $user->belongsToTeam($team)) ? $team : null;
     }
 
-    /**
-     * Like resolveTeamContext but also requires edit permission.
-     */
     private function resolveEditableTeam($user, ?string $teamId): ?Team
     {
         if (! $teamId) {
@@ -288,9 +391,6 @@ class GalleryController extends Controller
         return ($team && $team->canEdit($user)) ? $team : null;
     }
 
-    /**
-     * Check gallery creation limits. Returns a redirect if the limit is hit, null otherwise.
-     */
     private function checkGalleryLimit($user, ?Team $team): ?RedirectResponse
     {
         if (! $team) {
@@ -309,12 +409,39 @@ class GalleryController extends Controller
     }
 
     /**
-     * Shared validation rules for create and update.
-     *
-     * FIX: Added 'integer' to venue_template_id rule so that an empty string ""
-     * (submitted when no venue card is selected) is cast/rejected cleanly rather
-     * than hitting the 'exists' check and producing a confusing 500.
+     * Normalise a custom domain: lowercase, strip scheme/path/port.
+     * The Gallery model's saving() event also does this, but doing it
+     * here lets us do the uniqueness check on the normalised value.
      */
+    private function normaliseCustomDomain(string $domain): string
+    {
+        $domain = strtolower(trim($domain));
+        $domain = preg_replace('#^https?://#', '', $domain);
+        $domain = explode('/', $domain)[0];
+        $domain = explode(':', $domain)[0];
+        return $domain;
+    }
+
+    /**
+     * Copy a file within the public disk and return the new path,
+     * or null on failure.
+     */
+    private function copyFile(?string $path, string $folder): ?string
+    {
+        if (!$path) return null;
+        try {
+            $disk = Storage::disk('public');
+            if (!$disk->exists($path)) return null;
+            $ext = pathinfo($path, PATHINFO_EXTENSION);
+            $newName = $folder . '/' . \Str::random(40) . ($ext ? '.' . $ext : '');
+            $disk->copy($path, $newName);
+            return $newName;
+        } catch (\Throwable $e) {
+            \Log::warning("copyFile failed for {$path}: {$e->getMessage()}");
+            return null;
+        }
+    }
+
     private function galleryValidationRules(bool $isUpdate = false): array
     {
         $rules = [
@@ -324,13 +451,16 @@ class GalleryController extends Controller
             'frame_style'     => 'required|in:modern,classic,minimal',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
             'floor_material'  => 'required|in:wood,marble,concrete',
-            'room_layout'          => 'required|in:square,corridor,l-shape,rotunda',
-            'venue_template_id'    => 'nullable|integer|exists:venue_templates,id',
+            'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',
+            'venue_template_id' => 'nullable|integer|exists:venue_templates,id',
             'gallery_pin'     => 'nullable|digits:4',
             'opens_at'        => 'nullable|date',
             'closes_at'       => 'nullable|date|after_or_equal:opens_at',
             'audio'           => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
             'custom_logo'     => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
+            // NEW: custom domain — Studio plan only, validated for shape here.
+            // Plan-tier enforcement happens in the controller.
+            'custom_domain'   => ['nullable', 'string', 'max:255', 'regex:/^([a-z0-9-]+\.)+[a-z]{2,}$/i'],
         ];
 
         if ($isUpdate) {

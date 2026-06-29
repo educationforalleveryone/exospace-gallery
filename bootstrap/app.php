@@ -11,6 +11,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // 0. Custom domain resolution — runs FIRST so that the host header
+        //    is checked before route matching. If a gallery is resolved,
+        //    GalleryViewController will render it regardless of the URL path.
+        $middleware->prepend(\App\Http\Middleware\DetectCustomDomain::class);
+
         // 1. Security Headers
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 

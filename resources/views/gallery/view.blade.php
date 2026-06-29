@@ -1,3 +1,8 @@
+@php
+    $isEmbed = request()->boolean('embed');
+    $ogImageUrl = route('gallery.og-image', $gallery->slug);
+    $publicUrl = $gallery->public_url;
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,8 +10,27 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{ Str::limit($gallery->description, 150) }}">
+
+    {{-- Open Graph / social card --}}
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ $gallery->title }}">
+    <meta property="og:description" content="{{ Str::limit($gallery->description, 150) }}">
+    <meta property="og:image" content="{{ $ogImageUrl }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:url" content="{{ $publicUrl }}">
+    <meta property="og:site_name" content="Exospace">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $gallery->title }}">
+    <meta name="twitter:description" content="{{ Str::limit($gallery->description, 150) }}">
+    <meta name="twitter:image" content="{{ $ogImageUrl }}">
+
+    @if($isEmbed)
+        <meta name="robots" content="noindex,nofollow">
+    @endif
+
     <title>{{ $gallery->title }} | Exospace 3D Gallery</title>
-    
+
     @vite(['resources/css/app.css'])
     
     <style>
@@ -547,7 +571,24 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
 <script src="{{ asset('js/gsap.min.js') }}"></script>
-<body>
+<body @if($isEmbed) class="embed-mode" @endif>
+
+    {{-- Embed mode: minimal UI for iframe embedding --}}
+    @if($isEmbed)
+    <style>
+        /* Hide Exospace branding, tour button, and entrance curtain logo in embed mode */
+        body.embed-mode .entrance-logo { display: none !important; }
+        body.embed-mode #in-gallery-tour-btn { display: none !important; }
+        body.embed-mode .created-with-exospace { display: none !important; }
+        body.embed-mode #focus-exit-hint { display: none !important; }
+        /* Auto-enter: skip entrance curtain interaction in embed mode */
+        body.embed-mode #entrance-curtain { transition: opacity 0.3s ease !important; }
+    </style>
+    <script>
+        // In embed mode, auto-enter after assets load (no user click required)
+        window.EXOSPACE_EMBED_MODE = true;
+    </script>
+    @endif
 
     <!-- Entrance Curtain (Shown First) -->
     <div id="entrance-curtain">
@@ -845,11 +886,13 @@
         window.GALLERY_DATA = @json($galleryData);
         
         // ==========================================
-        // MOCK DATA FALLBACK (For standalone testing)
+        // MOCK DATA FALLBACK — DEVELOPMENT ONLY
         // ==========================================
-        // If running directly in browser without Laravel backend, use this data:
+        // In production, an empty gallery shows a friendly empty state
+        // instead of random picsum.photos images.
+        @if(app()->environment('local'))
         if (!window.GALLERY_DATA || window.GALLERY_DATA.images.length === 0) {
-            console.warn("No backend data found. Using mock data for testing.");
+            console.warn("[DEV] No backend data found. Using mock data for testing.");
             const mockImages = Array.from({ length: 24 }, (_, i) => ({
                 id: i,
                 url: `https://picsum.photos/seed/${i + 100}/600/800`,
@@ -857,15 +900,15 @@
                 title: `Artwork Piece ${i + 1}`,
                 description: `This is a detailed description for artwork number ${i + 1}.`
             }));
-            
+
             window.GALLERY_DATA = {
                 title: "Exospace Demo Gallery",
-                description: "A demo 3D gallery running in standalone mode. Variable speed and dynamic proximity lighting enabled.",
+                description: "A demo 3D gallery running in standalone mode.",
                 wall_texture: "white",
                 floor_material: "wood",
                 lighting_preset: "bright",
                 frame_style: "modern",
-                room_layout: "square", // Options: 'square', 'corridor', 'l-shape', 'rotunda'
+                room_layout: "square",
                 venue_slug: "white-cube",
                 imageCount: mockImages.length,
                 audioUrl: null,
@@ -874,6 +917,14 @@
                 images: mockImages
             };
         }
+        @else
+        // Production: if no images, mark empty so the entrance curtain shows a friendly state.
+        if (!window.GALLERY_DATA || window.GALLERY_DATA.images.length === 0) {
+            console.warn("Gallery has no artworks. Showing empty state.");
+            window.GALLERY_DATA.images = [];
+            window.GALLERY_DATA._isEmpty = true;
+        }
+        @endif
         // Analytics configuration
         window.EXOSPACE_TRACK_URL = '{{ route("gallery.track", $gallery) }}';
         window.EXOSPACE_SESSION   = (function() {
@@ -1568,6 +1619,18 @@
             // identifiable in <3 seconds without any artwork.
             // ─────────────────────────────────────────────
             applyVenueOverrides(slug) {
+                // ─── NEW: data-driven path ───────────────────────────
+                // If the backend injected a `venueConfig` (from the
+                // VenueConfigExporter service), consume it directly and
+                // skip the hardcoded switch below. The switch is kept as
+                // a fallback for backward compatibility.
+                const cfg = window.GALLERY_DATA.venueConfig;
+                if (cfg && cfg.visual_config && Object.keys(cfg.visual_config).length) {
+                    this._applyVenueConfig(cfg);
+                    return;
+                }
+
+                // ─── LEGACY: hardcoded switch ────────────────────────
                 switch (slug) {
 
                     // ── WHITE CUBE ────────────────────────────────
@@ -1653,6 +1716,125 @@
                         this.scene.fog            = null;  // No fog = true infinite feel
                         this._venueSlug           = 'infinite-void';
                         break;
+                }
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // NEW: Apply data-driven venue config from the database
+            // (passed via VenueConfigExporter service).
+            // ─────────────────────────────────────────────────────────────
+            _applyVenueConfig(cfg) {
+                const v = cfg.visual_config || {};
+                const m = cfg.material_config || {};
+
+                // Visual config
+                if (v.wall_height)            CONFIG.room.wallHeight = v.wall_height;
+                if (v.wall_depth)             CONFIG.room.wallDepth  = v.wall_depth;
+                if (v.background_color)       this.scene.background  = new THREE.Color(v.background_color);
+                if (v.fog_color) {
+                    this.scene.fog = new THREE.Fog(
+                        new THREE.Color(v.fog_color),
+                        v.fog_near ?? 10,
+                        v.fog_far  ?? 30
+                    );
+                } else if (v.fog_color === null) {
+                    this.scene.fog = null;
+                }
+                if (v.ambient_color)          this._venueAmbientColor     = new THREE.Color(v.ambient_color);
+                if (v.ambient_intensity != null)   this._venueAmbientIntensity = v.ambient_intensity;
+                if (v.spot_intensity != null)      this._venueSpotIntensity    = v.spot_intensity;
+                if (v.fill_intensity != null)      this._venueFillIntensity    = v.fill_intensity;
+                if (v.tone_mapping_exposure != null) this.renderer.toneMappingExposure = v.tone_mapping_exposure;
+                if (v.frame_override)         this._venueFrameOverride = v.frame_override;
+                if (v.ceiling_type)           this._venueCeilingType   = v.ceiling_type;
+
+                // Material config (applied when walls/floor are built)
+                this._venueMaterialConfig = m;
+
+                // Store slug for downstream code that checks it
+                this._venueSlug = cfg.slug || 'white-cube';
+
+                // Decorations (3D props) — load asynchronously, no blocking
+                if (Array.isArray(cfg.decorations) && cfg.decorations.length) {
+                    this._loadDecorations(cfg.decorations);
+                }
+
+                // Custom lighting fixtures — added on top of preset lighting
+                if (Array.isArray(cfg.lighting_fixtures) && cfg.lighting_fixtures.length) {
+                    this._addCustomLights(cfg.lighting_fixtures);
+                }
+
+                // Custom HDRI — overrides preset-based HDRI
+                if (cfg.hdri_url) {
+                    this._customHdriUrl = cfg.hdri_url;
+                }
+            }
+
+            // Load 3D decoration props (GLB files) asynchronously
+            async _loadDecorations(decorations) {
+                if (!this._gltfLoader) {
+                    try {
+                        const mod = await import('https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js');
+                        this._gltfLoader = new mod.GLTFLoader();
+                    } catch (err) {
+                        console.warn('GLTFLoader not available — skipping decorations:', err);
+                        return;
+                    }
+                }
+                for (const dec of decorations) {
+                    try {
+                        const url = dec.model_url || dec.model_path;
+                        if (!url) continue;
+                        const gltf = await this._gltfLoader.loadAsync(url);
+                        const obj = gltf.scene;
+                        if (dec.position) obj.position.set(dec.position[0], dec.position[1], dec.position[2]);
+                        if (dec.rotation) obj.rotation.set(dec.rotation[0], dec.rotation[1], dec.rotation[2]);
+                        if (typeof dec.scale === 'number') {
+                            obj.scale.setScalar(dec.scale);
+                        } else if (Array.isArray(dec.scale)) {
+                            obj.scale.set(dec.scale[0], dec.scale[1], dec.scale[2]);
+                        }
+                        obj.traverse(child => {
+                            if (child.isMesh) {
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+                            }
+                        });
+                        this.scene.add(obj);
+                    } catch (err) {
+                        console.warn('Failed to load decoration:', dec.model_path || dec.model_url, err);
+                    }
+                }
+            }
+
+            // Add custom lighting fixtures from venue config
+            _addCustomLights(fixtures) {
+                for (const f of fixtures) {
+                    let light;
+                    const color = f.color ? new THREE.Color(f.color) : 0xffffff;
+                    const intensity = f.intensity ?? 1;
+                    switch (f.type) {
+                        case 'point':
+                            light = new THREE.PointLight(color, intensity, f.distance ?? 0, f.decay ?? 2);
+                            break;
+                        case 'spot':
+                            light = new THREE.SpotLight(color, intensity, f.distance ?? 0);
+                            break;
+                        case 'directional':
+                            light = new THREE.DirectionalLight(color, intensity);
+                            break;
+                        case 'strip':
+                            // Modeled as a point light — pair with a GLB mesh with emissive material for visual
+                            light = new THREE.PointLight(color, intensity, f.distance ?? 10, f.decay ?? 1.5);
+                            break;
+                        default:
+                            continue;
+                    }
+                    if (f.position) light.position.set(f.position[0], f.position[1], f.position[2]);
+                    if (f.cast_shadow !== false && light.castShadow !== undefined) {
+                        light.castShadow = true;
+                    }
+                    this.scene.add(light);
                 }
             }
 
@@ -3735,6 +3917,10 @@
                     // Add pulse animation to button
                     enterBtn.style.animation = 'pulse 2s ease-in-out infinite';
 
+                    // Embed mode: auto-enter after assets load (no user click required)
+                    if (window.EXOSPACE_EMBED_MODE) {
+                        setTimeout(() => enterBtn.click(), 400);
+                    }
 
                 }
             }
@@ -3893,6 +4079,8 @@
                 this.index = (this.index + 1) % this.artworks.length;
                 if (this.index === 0) {
                     // Finished — stop tour instead of looping
+                    // BUGFIX: fire the tour_complete analytics event (was missing)
+                    if (typeof Analytics !== 'undefined') Analytics.trackTourComplete();
                     this.stop();
                     return;
                 }

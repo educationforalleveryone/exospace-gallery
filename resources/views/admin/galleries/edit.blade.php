@@ -586,6 +586,45 @@
                         @endif
                     </div>
 
+                    @php
+                        $planHolder = $gallery->team_id ? $gallery->team->owner : auth()->user();
+                        $isStudio = $planHolder->plan === 'studio';
+                    @endphp
+                    @if($isStudio)
+                    <div class="mt-6 pt-4 border-t border-gray-700">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                            <label class="block text-sm font-medium text-gray-300">Custom Domain</label>
+                            <span class="text-xs bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">Studio</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-3">Point a CNAME at exospace.gallery and enter the domain here. Visitors will see this gallery at the root of your custom domain. DNS and SSL must be configured separately via Coolify.</p>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-gray-500 text-sm">https://</span>
+                            <input type="text" name="custom_domain"
+                                value="{{ old('custom_domain', $gallery->custom_domain) }}"
+                                placeholder="gallery.yourdomain.com"
+                                class="pl-16 mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-sm transition-colors text-sm font-mono"
+                                pattern="^([a-z0-9-]+\.)+[a-z]{2,}$">
+                        </div>
+                        @error('custom_domain')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+                        @if($gallery->custom_domain)
+                        <p class="text-xs text-green-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline">{{ $gallery->custom_domain }}</a> see this gallery.</p>
+                        @endif
+                    </div>
+                    @else
+                    <div class="mt-6 pt-4 border-t border-gray-700">
+                        <div class="flex items-center justify-between gap-4 bg-gray-800/60 border border-dashed border-gray-600 rounded-lg px-4 py-3">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                                <p class="text-sm text-gray-400">Use a custom domain to host this gallery at your own URL.</p>
+                            </div>
+                            <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-amber-400 hover:text-amber-300 border border-amber-600/40 hover:border-amber-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                Studio — $99
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+
                     <div class="flex justify-end items-center gap-3 mt-6 pt-4 border-t border-gray-700">
                         <!-- Inline save feedback — shown right next to the button -->
                         <div id="save-feedback" class="hidden items-center gap-2 text-sm font-medium">
@@ -1230,6 +1269,80 @@
             e.stopImmediatePropagation();
             showUnsavedModal(href);
         }, true);
+
+        // ─── BUGFIX: SortableJS init + saveOrder/discardOrder ──────────────
+        // Previously: SortableJS was loaded (line 10) but never initialized,
+        // and saveOrder()/discardOrder() were referenced by the reorder save
+        // bar buttons (line 1203-1204) but never defined. This made the
+        // entire image-reorder feature non-functional dead code.
+        //
+        // Now: Sortable is initialized on the #gallery-grid container.
+        // On drag end, the reorder save bar appears. saveOrder() persists
+        // the new order via AJAX to the existing reorder-images endpoint.
+        // discardOrder() reverts the DOM to the original order.
+        (function() {
+            const grid = document.getElementById('gallery-grid');
+            if (!grid || typeof Sortable === 'undefined') return;
+
+            // Snapshot the original order so we can revert on discard
+            let originalOrder = [];
+            function snapshotOrder() {
+                originalOrder = Array.from(grid.children).map(el => el.cloneNode(true));
+            }
+            snapshotOrder();
+
+            Sortable.create(grid, {
+                animation: 150,
+                ghostClass: 'opacity-30',
+                chosenClass: 'ring-2 ring-purple-500',
+                onEnd: function() {
+                    document.getElementById('reorder-save-bar').style.display = 'flex';
+                }
+            });
+
+            // Expose globally for the inline onclick handlers
+            window.saveOrder = function() {
+                const order = Array.from(grid.children).map(el => parseInt(el.dataset.id, 10));
+                const bar = document.getElementById('reorder-save-bar');
+                const saveBtn = bar.querySelector('.save-btn');
+                const originalText = saveBtn.textContent;
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving…';
+
+                fetch('{{ route("admin.galleries.reorder-images", $gallery) }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ order: order }),
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        bar.style.display = 'none';
+                        snapshotOrder(); // New baseline
+                        if (typeof toast === 'function') toast('Image order saved', 'success');
+                        else if (window.toast) window.toast('Image order saved', 'success');
+                    } else {
+                        throw new Error(data.message || 'Save failed');
+                    }
+                })
+                .catch(err => {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = originalText;
+                    alert('Could not save order: ' + err.message);
+                });
+            };
+
+            window.discardOrder = function() {
+                // Revert DOM to the snapshot taken at init / last save
+                grid.innerHTML = '';
+                originalOrder.forEach(node => grid.appendChild(node));
+                document.getElementById('reorder-save-bar').style.display = 'none';
+            };
+        })();
     </script>
 
 <script>

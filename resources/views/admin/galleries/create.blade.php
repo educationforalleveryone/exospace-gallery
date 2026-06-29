@@ -462,7 +462,8 @@ document.querySelector('form').addEventListener('submit', function(e) {
     const label = document.getElementById('create-gallery-label');
     const spinner = document.getElementById('create-gallery-spinner');
 
-    // Capture form state for debug display
+    // Capture form state for debug display (dev only — panel only renders in local env)
+    @if(app()->environment('local'))
     const fd = new FormData(this);
     const debugLines = [];
     for (const [k, v] of fd.entries()) {
@@ -473,6 +474,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
         document.getElementById('create-debug-table').innerHTML = debugLines.join('');
         debugPanel.style.display = 'block';
     }
+    @endif
 
     btn.disabled = true;
     label.textContent = 'Creating…';
@@ -482,6 +484,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
 </script>
 
 <!-- Debug panel: shows submitted form values if a 500 occurs -->
+@if(app()->environment('local'))
 <div id="create-debug-panel" style="display:none; position:fixed; bottom:1rem; right:1rem; z-index:9999; background:#111827; border:1px solid #374151; border-radius:12px; padding:1rem 1.25rem; max-width:380px; font-size:0.78rem; font-family:monospace; box-shadow:0 20px 40px rgba(0,0,0,0.5);">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
         <span style="color:#f59e0b; font-weight:700; font-size:0.8rem;">Submitted values</span>
@@ -490,5 +493,6 @@ document.querySelector('form').addEventListener('submit', function(e) {
     <table id="create-debug-table" style="border-collapse:collapse;width:100%;"></table>
     <p style="color:#6b7280;margin-top:0.5rem;font-size:0.72rem;">If a 500 occurs, check your server log — the error message is now logged. This panel shows what was sent.</p>
 </div>
+@endif
 
 </x-app-layout>

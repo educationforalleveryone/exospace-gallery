@@ -147,7 +147,7 @@
                                     </button>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
-                                    <a href="{{ route('admin.galleries.edit', $gallery) }}" 
+                                    <a href="{{ route('admin.galleries.edit', $gallery) }}"
                                        class="bg-purple-600 hover:bg-purple-700 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">
                                         Edit
                                     </a>
@@ -158,6 +158,17 @@
                                     </button>
                                     @endif
                                 </div>
+                                @if($canEdit)
+                                <form action="{{ route('admin.galleries.duplicate', $gallery) }}" method="POST" class="mt-2"
+                                      onsubmit="return confirm('Duplicate this gallery? A copy with all images will be created.');">
+                                    @csrf
+                                    <button type="submit"
+                                            class="w-full bg-gray-700 hover:bg-gray-600 text-center text-gray-200 font-medium py-2 px-3 rounded-lg transition text-sm flex items-center justify-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                        Duplicate
+                                    </button>
+                                </form>
+                                @endif
                             </div>
                         </div>
                     @endforeach
@@ -324,6 +335,20 @@
                     <p class="text-sm text-blue-300">Share this link with anyone to let them explore your 3D gallery in their browser.</p>
                 </div>
             </div>
+
+            {{-- Quick-share shortcuts: QR code + embed snippet --}}
+            <div class="grid grid-cols-2 gap-3 mt-4">
+                <a href="#" onclick="openQrCode(); return false;"
+                   class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium py-2.5 px-4 rounded-lg transition text-center flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h.01M4 20h4M12 8a4 4 0 100-8 4 4 0 000 8zm8-4a4 4 0 11-8 0 4 4 0 018 0zM4 4h4v4H4V4z"/></svg>
+                    QR Code
+                </a>
+                <a href="#" onclick="copyEmbedSnippet(); return false;"
+                   class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium py-2.5 px-4 rounded-lg transition text-center flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    Embed code
+                </a>
+            </div>
         </div>
     </div>
 
@@ -377,8 +402,7 @@
 
         function copyShareUrl() {
             const urlInput = document.getElementById('share-url');
-            const btnText = document.getElementById('copy-btn-text');
-            
+            const btnText = document.getElementById('copy-btn-text');            
             navigator.clipboard.writeText(urlInput.value).then(() => {
                 btnText.textContent = 'Copied!';
                 setTimeout(() => {
@@ -402,6 +426,28 @@
                 document.getElementById('delete-modal').style.display = 'none';
             }
         });
+
+        // Open QR code in new tab — the route returns a PNG
+        function openQrCode() {
+            const url = document.getElementById('share-url').value;
+            // Extract the slug from the share URL
+            const match = url.match(/\/gallery\/([^\/?#]+)/);
+            if (!match) return;
+            const slug = match[1];
+            window.open('/gallery/' + slug + '/qr', '_blank', 'width=640,height=640');
+        }
+
+        // Copy an iframe embed snippet for embedding the gallery elsewhere
+        function copyEmbedSnippet() {
+            const url = document.getElementById('share-url').value + '?embed=1';
+            const snippet = `<iframe src="${url}" width="1024" height="640" style="border:0;max-width:100%;" allow="fullscreen; autoplay" loading="lazy" title="Exospace 3D Gallery"></iframe>`;
+            navigator.clipboard.writeText(snippet).then(() => {
+                const btn = event.target.closest('a');
+                const original = btn.innerHTML;
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Copied!';
+                setTimeout(() => { btn.innerHTML = original; }, 2000);
+            }).catch(() => alert('Could not copy. Here is the snippet:\n\n' + snippet));
+        }
     </script>
 
 </x-app-layout>

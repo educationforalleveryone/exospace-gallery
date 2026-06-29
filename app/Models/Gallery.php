@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
+
 class Gallery extends Model
 {
     protected $fillable = [
@@ -16,6 +18,7 @@ class Gallery extends Model
         'room_layout', 'venue_template_id', 'pin_hash',
         'is_active', 'view_count',
         'opens_at', 'closes_at',
+        'custom_domain',  // NEW — Studio-plan white-label CNAME support
     ];
 
     protected $casts = [
@@ -31,6 +34,22 @@ class Gallery extends Model
         static::creating(function ($gallery) {
             if (empty($gallery->slug)) {
                 $gallery->slug = Str::slug($gallery->title) . '-' . uniqid();
+            }
+        });
+
+        // Normalise custom_domain on save: lowercase, strip scheme/path.
+        static::saving(function ($gallery) {
+            if (!empty($gallery->custom_domain)) {
+                $domain = strtolower(trim($gallery->custom_domain));
+                // Strip http:// or https:// prefix
+                $domain = preg_replace('#^https?://#', '', $domain);
+                // Strip any path component
+                $domain = explode('/', $domain)[0];
+                // Strip :port
+                $domain = explode(':', $domain)[0];
+                // Strip leading www. (we treat www and non-www as the same)
+                // Actually keep www. — let DNS decide. Just trim whitespace.
+                $gallery->custom_domain = $domain;
             }
         });
     }
@@ -66,14 +85,53 @@ class Gallery extends Model
         return $this->hasMany(GalleryEvent::class);
     }
 
+    // ─── Scopes ────────────────────────────────────────────────────────
+
+    public function scopePubliclyViewable(Builder $q): Builder
+    {
+        return $q->where('is_active', true)
+                 ->whereNull('pin_hash')
+                 ->where(function ($q) {
+                     // Not scheduled, OR currently open
+                     $q->whereNull('opens_at')->orWhere('opens_at', '<=', now());
+                 })
+                 ->where(function ($q) {
+                     $q->whereNull('closes_at')->orWhere('closes_at', '>=', now());
+                 });
+    }
+
+    public function scopeWithCustomDomain(Builder $q, string $host): Builder
+    {
+        return $q->where('custom_domain', $host);
+    }
+
+    // ─── Accessors ─────────────────────────────────────────────────────
+
     public function getPublicUrlAttribute(): string
     {
+        // If a custom domain is set, use it; otherwise use the standard slug URL.
+        if ($this->custom_domain) {
+            return 'https://' . $this->custom_domain;
+        }
         return url("/gallery/{$this->slug}");
     }
+
+    public function getCoverImageUrlAttribute(): ?string
+    {
+        $img = $this->coverImage;
+        return $img ? asset($img->path) : null;
+    }
+
+    // ─── Helpers ───────────────────────────────────────────────────────
 
     public function hasPinProtection(): bool
     {
         return !empty($this->pin_hash);
+    }
+
+    public function hasCustomDomain(): bool
+    {
+        return !empty($this->custom_domain);
     }
 
     // --- Time-gate helpers ---

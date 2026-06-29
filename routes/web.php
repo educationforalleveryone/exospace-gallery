@@ -7,6 +7,10 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\SuperAdmin\SystemController;
 use App\Http\Controllers\SuperAdmin\VenueTemplateController;
 use App\Http\Controllers\TeamInvitationController;
+use App\Http\Controllers\DiscoverController;
+use App\Http\Controllers\OgImageController;
+use App\Http\Controllers\QrCodeController;
+use App\Http\Controllers\SitemapController;
 use Illuminate\Support\Facades\Route;
 
 // ── Bare DB check — no middleware, no models, no views ───────────────────
@@ -33,6 +37,11 @@ Route::get('/finalize-installation', [InstallerController::class, 'finalize'])
 Route::post('/webhooks/2checkout',        [WebhookController::class, 'handle2Checkout'])->name('webhooks.2checkout');
 Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund'])->name('webhooks.2checkout.refund');
 
+// ── SEO & discovery endpoints ─────────────────────────────────────────────
+Route::get('/sitemap.xml', [SitemapController::class, 'sitemap'])->name('sitemap');
+Route::get('/feed.xml',    [SitemapController::class, 'feed'])->name('feed');
+Route::get('/discover',    [DiscoverController::class, 'index'])->name('discover');
+
 // ── Public pages ─────────────────────────────────────────────────────────
 Route::get('/', fn() => view('welcome'));
 Route::view('/privacy',          'pages.privacy')->name('privacy');
@@ -50,9 +59,11 @@ Route::get('/gallery/demo', function () {
     return $gallery ? redirect()->route('gallery.view', $gallery->slug) : redirect('/')->with('error', 'No demo gallery available yet.');
 });
 
-// ── PIN-protected gallery entry ───────────────────────────────────────────
-Route::get('/gallery/{slug}/pin',  [\App\Http\Controllers\GalleryPinController::class, 'show'])->name('gallery.pin');
-Route::post('/gallery/{slug}/pin', [\App\Http\Controllers\GalleryPinController::class, 'verify'])->name('gallery.pin.verify');
+// ── Per-gallery: PIN entry, OG image, QR code ─────────────────────────────
+Route::get('/gallery/{slug}/pin',       [\App\Http\Controllers\GalleryPinController::class, 'show'])->name('gallery.pin');
+Route::post('/gallery/{slug}/pin',      [\App\Http\Controllers\GalleryPinController::class, 'verify'])->name('gallery.pin.verify');
+Route::get('/gallery/{slug}/og-image',  [OgImageController::class, 'show'])->name('gallery.og-image');
+Route::get('/gallery/{slug}/qr',        [QrCodeController::class, 'show'])->name('gallery.qr');
 
 // ── Public gallery view ───────────────────────────────────────────────────
 Route::get('/gallery/{slug}', [\App\Http\Controllers\GalleryViewController::class, 'show'])->name('gallery.view');
@@ -80,7 +91,19 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // ── Galleries ──────────────────────────────────────────────────────────
-    Route::resource('galleries', \App\Http\Controllers\Admin\GalleryController::class);
+    // NOTE: the `duplicate` route MUST come BEFORE `galleries/{gallery}` so
+    // Laravel doesn't match the literal string "duplicate" as a wildcard.
+    Route::get('galleries',                [\App\Http\Controllers\Admin\GalleryController::class, 'index'])->name('galleries.index');
+    Route::get('galleries/create',         [\App\Http\Controllers\Admin\GalleryController::class, 'create'])->name('galleries.create');
+    Route::post('galleries',               [\App\Http\Controllers\Admin\GalleryController::class, 'store'])->name('galleries.store');
+    Route::get('galleries/{gallery}',      [\App\Http\Controllers\Admin\GalleryController::class, 'show'])->name('galleries.show');
+    Route::get('galleries/{gallery}/edit', [\App\Http\Controllers\Admin\GalleryController::class, 'edit'])->name('galleries.edit');
+    Route::put('galleries/{gallery}',      [\App\Http\Controllers\Admin\GalleryController::class, 'update'])->name('galleries.update');
+    Route::delete('galleries/{gallery}',   [\App\Http\Controllers\Admin\GalleryController::class, 'destroy'])->name('galleries.destroy');
+
+    // NEW: gallery duplication (clone)
+    Route::post('galleries/{gallery}/duplicate', [\App\Http\Controllers\Admin\GalleryController::class, 'duplicate'])->name('galleries.duplicate');
+
     Route::post('galleries/{gallery}/upload-audio',   [\App\Http\Controllers\Admin\GalleryController::class, 'uploadAudio'])->name('galleries.upload-audio');
     Route::post('galleries/{gallery}/upload-logo',    [\App\Http\Controllers\Admin\GalleryController::class, 'uploadLogo'])->name('galleries.upload-logo');
     Route::post('galleries/{gallery}/reorder-images', [\App\Http\Controllers\Admin\GalleryController::class, 'reorderImages'])->name('galleries.reorder-images');
@@ -139,101 +162,6 @@ Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')
     Route::patch ('venues/{venue}/toggle',             [VenueTemplateController::class, 'toggle'])->name('venues.toggle');
     Route::patch ('venues/{venue}/toggle-featured',    [VenueTemplateController::class, 'toggleFeatured'])->name('venues.toggle-featured');
     Route::delete('venues/{venue}',                    [VenueTemplateController::class, 'destroy'])->name('venues.destroy');
-});
-
-// TEMPORARY DEBUG — remove after fixing
-Route::get('/debug-render-test', function () {
-    $lines = [];
-
-    $lines[] = 'PHP: ' . PHP_VERSION;
-    $lines[] = 'Laravel: ' . app()->version();
-    $lines[] = 'APP_DEBUG: ' . (config('app.debug') ? 'true' : 'false');
-    $lines[] = '';
-
-    // DB check
-    try {
-        $count = \Illuminate\Support\Facades\DB::table('venue_templates')->count();
-        $lines[] = "venue_templates rows: $count";
-        $templates = \Illuminate\Support\Facades\DB::table('venue_templates')->get();
-        foreach ($templates as $t) {
-            $lines[] = "  - [{$t->id}] {$t->name} (plan: {$t->plan_required}, active: {$t->is_active})";
-        }
-    } catch (\Throwable $e) {
-        $lines[] = 'venue_templates ERROR: ' . $e->getMessage();
-    }
-
-    $lines[] = '';
-
-    // User check
-    try {
-        $user = \App\Models\User::first();
-        $lines[] = $user ? "User: {$user->email} | plan: {$user->plan} | max_galleries: {$user->max_galleries}" : 'No users found';
-    } catch (\Throwable $e) {
-        $lines[] = 'User model ERROR: ' . $e->getMessage();
-    }
-
-    $lines[] = '';
-
-    // VenueTemplate model check
-    try {
-        $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
-        $lines[] = "VenueTemplate model: OK — {$venueTemplates->count()} active templates";
-    } catch (\Throwable $e) {
-        $lines[] = 'VenueTemplate model ERROR: ' . $e->getMessage();
-        $html = '<pre style="font-size:12px;background:#0d1117;color:#ff6b6b;padding:20px">' . implode("\n", $lines) . '</pre>';
-        return response($html, 200)->header('Content-Type', 'text/html');
-    }
-
-    $lines[] = '';
-
-    // Clear view cache
-    try {
-        $files = glob(storage_path('framework/views') . '/*.php');
-        foreach ($files as $f) { if (is_file($f)) unlink($f); }
-        $lines[] = 'View cache cleared: ' . count($files) . ' files';
-    } catch (\Throwable $e) {
-        $lines[] = 'View cache clear ERROR: ' . $e->getMessage();
-    }
-
-    $lines[] = '';
-
-    // Test CREATE view
-    $lines[] = '=== CREATE view ===';
-    try {
-        $html = view('admin.galleries.create', [
-            'team'           => null,
-            'venueTemplates' => $venueTemplates,
-        ])->render();
-        $lines[] = 'CREATE: OK (' . strlen($html) . ' bytes)';
-    } catch (\Throwable $e) {
-        $lines[] = 'CREATE FAILED: ' . $e->getMessage();
-        $lines[] = 'File: ' . $e->getFile() . ':' . $e->getLine();
-        $lines[] = $e->getTraceAsString();
-    }
-
-    $lines[] = '';
-
-    // Test EDIT view
-    $lines[] = '=== EDIT view ===';
-    try {
-        $gallery = \App\Models\Gallery::with(['images', 'venueTemplate'])->first();
-        if (!$gallery) {
-            $lines[] = 'No galleries in DB — skipping EDIT test';
-        } else {
-            $html = view('admin.galleries.edit', [
-                'gallery'        => $gallery,
-                'venueTemplates' => $venueTemplates,
-            ])->render();
-            $lines[] = 'EDIT: OK (' . strlen($html) . ' bytes)';
-        }
-    } catch (\Throwable $e) {
-        $lines[] = 'EDIT FAILED: ' . $e->getMessage();
-        $lines[] = 'File: ' . $e->getFile() . ':' . $e->getLine();
-        $lines[] = $e->getTraceAsString();
-    }
-
-    $html = '<pre style="font-size:12px;background:#0d1117;color:#c9d1d9;padding:20px;line-height:1.6">' . implode("\n", $lines) . '</pre>';
-    return response($html, 200)->header('Content-Type', 'text/html');
 });
 
 require __DIR__.'/auth.php';
