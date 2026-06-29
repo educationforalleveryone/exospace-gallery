@@ -130,11 +130,15 @@ Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')
     Route::post('/users/{user}/unverify-email',        [SystemController::class, 'unverifyEmail'])->name('unverifyEmail');
     Route::post('/users/{user}/toggle-super-admin',    [SystemController::class, 'toggleSuperAdmin'])->name('toggleSuperAdmin');
 
-    // ── Venue Templates Management ──────────────────────────────────────────
-    Route::get('/venues',                              [VenueTemplateController::class, 'index'])->name('venues.index');
-    Route::get('/venues/{venue}/edit',                 [VenueTemplateController::class, 'edit'])->name('venues.edit');
-    Route::put('/venues/{venue}',                      [VenueTemplateController::class, 'update'])->name('venues.update');
-    Route::patch('/venues/{venue}/toggle',             [VenueTemplateController::class, 'toggle'])->name('venues.toggle');
+    // ── Venue Templates Management (full CRUD) ──────────────────────────────
+    Route::get   ('venues',                            [VenueTemplateController::class, 'index'])->name('venues.index');
+    Route::get   ('venues/create',                     [VenueTemplateController::class, 'create'])->name('venues.create');
+    Route::post  ('venues',                            [VenueTemplateController::class, 'store'])->name('venues.store');
+    Route::get   ('venues/{venue}/edit',               [VenueTemplateController::class, 'edit'])->name('venues.edit');
+    Route::put   ('venues/{venue}',                    [VenueTemplateController::class, 'update'])->name('venues.update');
+    Route::patch ('venues/{venue}/toggle',             [VenueTemplateController::class, 'toggle'])->name('venues.toggle');
+    Route::patch ('venues/{venue}/toggle-featured',    [VenueTemplateController::class, 'toggleFeatured'])->name('venues.toggle-featured');
+    Route::delete('venues/{venue}',                    [VenueTemplateController::class, 'destroy'])->name('venues.destroy');
 });
 
 // TEMPORARY DEBUG — remove after fixing
