@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
 use App\Models\Gallery;
 use App\Models\Team;
+use App\Services\CoolifyDomainManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +17,10 @@ use Illuminate\Http\RedirectResponse;
 class GalleryController extends Controller
 {
     use AuthorizesGalleryAccess;
+
+    public function __construct(
+        private readonly CoolifyDomainManager $coolify,
+    ) {}
 
     // ── Index: show personal OR team galleries ────────────────────────────
 
@@ -122,7 +127,27 @@ class GalleryController extends Controller
                 ->with('error', 'Could not create gallery: ' . $e->getMessage());
         }
 
+        // If a custom domain was set, register it in Coolify so Traefik
+        // routes it + Let's Encrypt provisions a cert. Failures are logged
+        // but do NOT fail the gallery creation — the user can retry the
+        // domain setup separately.
         $redirectParams = $team ? ['team' => $team->id] : [];
+
+        if ($customDomain) {
+            $result = $this->coolify->addDomain($customDomain);
+            if (!$result['success']) {
+                \Log::warning('Coolify domain registration deferred.', [
+                    'gallery_id' => $gallery->id,
+                    'domain'     => $customDomain,
+                    'reason'     => $result['message'],
+                ]);
+                // Surface a soft warning to the user via session flash
+                return redirect()->route('admin.galleries.index', $redirectParams)
+                    ->with('status', 'Gallery created! You can now upload images.')
+                    ->with('warning', "Custom domain could not be auto-configured in Coolify: {$result['message']} DNS + SSL setup will need to be done manually.");
+            }
+        }
+
         return redirect()->route('admin.galleries.index', $redirectParams)
                          ->with('status', 'Gallery created! You can now upload images.');
     }
@@ -270,12 +295,28 @@ class GalleryController extends Controller
                 $validated['custom_domain'] = $cd;
                 // Clear the lookup cache for the new domain
                 \Illuminate\Support\Facades\Cache::forget("custom_domain:{$cd}");
-            } elseif (empty($cd)) {
-                $validated['custom_domain'] = null;
-                // Clear the lookup cache for the old domain if any
-                if ($gallery->custom_domain) {
-                    \Illuminate\Support\Facades\Cache::forget("custom_domain:{$gallery->custom_domain}");
+
+                // Register with Coolify if it's a new domain (different from current)
+                if ($cd !== $gallery->getOriginal('custom_domain')) {
+                    $coolifyResult = $this->coolify->addDomain($cd);
+                    if (!$coolifyResult['success']) {
+                        \Log::warning('Coolify domain registration deferred on update.', [
+                            'gallery_id' => $gallery->id,
+                            'domain'     => $cd,
+                            'reason'     => $coolifyResult['message'],
+                        ]);
+                        // Don't fail the save — but warn the user
+                        session()->flash('warning', "Gallery saved, but Coolify could not auto-configure the custom domain: {$coolifyResult['message']}");
+                    }
                 }
+            } elseif (empty($cd)) {
+                // Domain was cleared — remove from Coolify if it was set
+                if ($gallery->custom_domain) {
+                    $oldDomain = $gallery->custom_domain;
+                    $this->coolify->removeDomain($oldDomain);
+                    \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
+                }
+                $validated['custom_domain'] = null;
             } else {
                 // Non-Studio plan trying to set a custom domain — block silently
                 unset($validated['custom_domain']);
@@ -299,9 +340,11 @@ class GalleryController extends Controller
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
         $teamId = $gallery->team_id;
 
-        // Clean up custom domain cache if set
+        // Clean up custom domain cache + remove from Coolify if set
         if ($gallery->custom_domain) {
-            \Illuminate\Support\Facades\Cache::forget("custom_domain:{$gallery->custom_domain}");
+            $oldDomain = $gallery->custom_domain;
+            \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
+            $this->coolify->removeDomain($oldDomain);
         }
 
         $gallery->delete();

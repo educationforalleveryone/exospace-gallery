@@ -1,30 +1,32 @@
 #!/bin/bash
+set -e
 
 # 1. Configure PHP upload limits
-cat > /assets/php-fpm-overrides.conf << 'EOF'
+cat > /assets/php-fpm-overrides.conf << 'PHPEOF'
 upload_max_filesize = 50M
 post_max_size = 50M
 memory_limit = 512M
 max_execution_time = 300
-EOF
+PHPEOF
 
-# 2. Patch the Nginx Template to allow 50MB uploads
+# 2. Patch the Nginx template to allow 50MB uploads
 if grep -q "client_max_body_size" /assets/nginx.template.conf; then
     sed -i 's/client_max_body_size [^;]*;/client_max_body_size 50M;/g' /assets/nginx.template.conf
 else
     sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
 fi
 
-# 3. Clear all caches then migrate at runtime
+# 3. Clear all caches, migrate, seed
 php /app/artisan config:clear
 php /app/artisan cache:clear
 php /app/artisan view:clear
 php /app/artisan route:clear
+php /app/artisan storage:link --force
 php /app/artisan migrate --force
 php /app/artisan db:seed --class=VenueTemplateSeeder --force
 
-# 4. START THE QUEUE WORKER (runs in background)
+# 4. Start the queue worker in the background
 php /app/artisan queue:work --tries=3 --timeout=90 --sleep=3 &
 
-# 4. Start PHP-FPM with custom config and Nginx
+# 5. Start PHP-FPM and Nginx
 node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=50M -d post_max_size=50M -d memory_limit=512M & nginx -c /nginx.conf)
