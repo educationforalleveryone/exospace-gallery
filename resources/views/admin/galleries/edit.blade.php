@@ -89,7 +89,7 @@
             from { opacity: 1; transform: translateX(0) scale(1); }
             to { opacity: 0; transform: translateX(100%) scale(0.95); }
         }
-        
+
         /* Venue card styles */
         .venue-card-inner {
             position: relative;
@@ -430,7 +430,6 @@
                         </div>
                     </div>
 
-                    <!-- CHANGE #1: AJAX Audio Upload Section -->
                     <!-- Background Music (Pro Feature) -->
                     <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <label class="block text-sm font-medium text-gray-300 mb-3">
@@ -521,7 +520,6 @@
                         @endif
                     </div>
 
-                    <!-- CHANGE #2: AJAX Logo Upload Section -->
                     <!-- Custom Branding (Studio Feature) -->
                     <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <label class="block text-sm font-medium text-gray-300 mb-3">
@@ -681,90 +679,99 @@
                         @endif
                     </div>
 
+                    {{-- ============================================================
+                         Round 4: Custom Domain + Branded Entrance Curtain
+                         (Studio-plan only — non-Studio users see an upgrade CTA)
+
+                         ONE @if($isStudio) block containing both features,
+                         then ONE @else for the upgrade CTA, then ONE @endif.
+                         ============================================================ --}}
                     @php
                         $planHolder = $gallery->team_id ? $gallery->team->owner : auth()->user();
                         $isStudio = $planHolder->plan === 'studio';
                     @endphp
-                    @if($isStudio)
-                    <div class="mt-6 pt-4 border-t border-gray-700">
-                        <div class="flex items-center gap-2 mb-1">
-                            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                            <label class="block text-sm font-medium text-gray-300">Custom Domain</label>
-                            <span class="text-xs bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">Studio</span>
-                        </div>
-                        <p class="text-xs text-gray-500 mb-3">Point a CNAME at exospace.gallery and enter the domain here. Visitors will see this gallery at the root of your custom domain. DNS and SSL must be configured separately via Coolify.</p>
-                        <div class="relative">
-                            <span class="absolute left-3 top-2 text-gray-500 text-sm">https://</span>
-                            <input type="text" name="custom_domain"
-                                value="{{ old('custom_domain', $gallery->custom_domain) }}"
-                                placeholder="gallery.yourdomain.com"
-                                class="pl-16 mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-sm transition-colors text-sm font-mono"
-                                pattern="^([a-z0-9-]+\.)+[a-z]{2,}$">
-                        </div>
-                        @error('custom_domain')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
-                        @if($gallery->custom_domain)
-                        <p class="text-xs text-green-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline">{{ $gallery->custom_domain }}</a> see this gallery.</p>
-                        @endif
-                    </div>
 
-                    {{-- NEW (Round 4) — Branded entrance curtain (Studio only) --}}
                     @if($isStudio)
-                    <div class="mt-6 pt-4 border-t border-gray-700">
-                        <div class="flex items-center gap-2 mb-1">
-                            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            <label class="block text-sm font-medium text-gray-300">Branded Entrance Curtain</label>
-                            <span class="text-xs bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">Studio</span>
-                        </div>
-                        <p class="text-xs text-gray-500 mb-3">Replace the default "EXOSPACE" entrance curtain with your own logo and background color. White-label your exhibition entrance.</p>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Custom curtain logo</label>
-                                <input type="file" name="curtain_logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                                       class="w-full text-sm text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600">
-                                <p class="text-xs text-gray-500 mt-1">PNG / JPG / SVG / WEBP, max 2 MB. Recommended: wide aspect, transparent background.</p>
-                                @if($gallery->curtain_logo_path)
-                                    <div class="mt-2 flex items-center gap-3">
-                                        <img src="{{ asset('storage/' . $gallery->curtain_logo_path) }}" alt="Curtain logo" class="h-10 max-w-[160px] object-contain bg-gray-900 rounded border border-gray-700 px-2">
-                                        <label class="text-xs text-gray-400 flex items-center gap-1">
-                                            <input type="checkbox" name="clear_curtain_logo" value="1" class="rounded bg-gray-700 border-gray-600 text-purple-600">
-                                            Remove
-                                        </label>
-                                    </div>
-                                @endif
+                        {{-- Custom Domain --}}
+                        <div class="mt-6 pt-4 border-t border-gray-700">
+                            <div class="flex items-center gap-2 mb-1">
+                                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                                <label class="block text-sm font-medium text-gray-300">Custom Domain</label>
+                                <span class="text-xs bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">Studio</span>
                             </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Custom background color</label>
-                                <div class="flex items-center gap-2">
-                                    <input type="color" name="curtain_bg_color"
-                                           value="{{ old('curtain_bg_color', $gallery->curtain_bg_color ?? '#0a0a14') }}"
-                                           class="w-12 h-10 rounded border border-gray-600 bg-gray-700 cursor-pointer">
-                                    <input type="text" name="curtain_bg_color_text"
-                                           value="{{ old('curtain_bg_color', $gallery->curtain_bg_color) }}"
-                                           placeholder="#0a0a14"
-                                           class="flex-1 rounded-md bg-gray-700 border-gray-600 text-gray-100 px-3 py-2 text-sm font-mono"
-                                           oninput="document.querySelector('input[name=curtain_bg_color]').value = this.value">
+                            <p class="text-xs text-gray-500 mb-3">Point a CNAME at exospace.gallery and enter the domain here. Visitors will see this gallery at the root of your custom domain. DNS and SSL must be configured separately via Coolify.</p>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2 text-gray-500 text-sm">https://</span>
+                                <input type="text" name="custom_domain"
+                                    value="{{ old('custom_domain', $gallery->custom_domain) }}"
+                                    placeholder="gallery.yourdomain.com"
+                                    class="pl-16 mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-sm transition-colors text-sm font-mono"
+                                    pattern="^([a-z0-9-]+\.)+[a-z]{2,}$">
+                            </div>
+                            @error('custom_domain')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+                            @if($gallery->custom_domain)
+                            <p class="text-xs text-green-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline">{{ $gallery->custom_domain }}</a> see this gallery.</p>
+                            @endif
+                        </div>
+
+                        {{-- Branded Entrance Curtain --}}
+                        <div class="mt-6 pt-4 border-t border-gray-700">
+                            <div class="flex items-center gap-2 mb-1">
+                                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                <label class="block text-sm font-medium text-gray-300">Branded Entrance Curtain</label>
+                                <span class="text-xs bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">Studio</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-3">Replace the default "EXOSPACE" entrance curtain with your own logo and background color. White-label your exhibition entrance.</p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Custom curtain logo</label>
+                                    <input type="file" name="curtain_logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                           class="w-full text-sm text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600">
+                                    <p class="text-xs text-gray-500 mt-1">PNG / JPG / SVG / WEBP, max 2 MB. Recommended: wide aspect, transparent background.</p>
+                                    @if($gallery->curtain_logo_path)
+                                        <div class="mt-2 flex items-center gap-3">
+                                            <img src="{{ asset('storage/' . $gallery->curtain_logo_path) }}" alt="Curtain logo" class="h-10 max-w-[160px] object-contain bg-gray-900 rounded border border-gray-700 px-2">
+                                            <label class="text-xs text-gray-400 flex items-center gap-1">
+                                                <input type="checkbox" name="clear_curtain_logo" value="1" class="rounded bg-gray-700 border-gray-600 text-purple-600">
+                                                Remove
+                                            </label>
+                                        </div>
+                                    @endif
                                 </div>
-                                <p class="text-xs text-gray-500 mt-1">Override the default dark gradient with a solid color.</p>
-                                <label class="text-xs text-gray-400 flex items-center gap-1 mt-2">
-                                    <input type="checkbox" name="clear_curtain_bg" value="1" class="rounded bg-gray-700 border-gray-600 text-purple-600">
-                                    Reset to default gradient
-                                </label>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1">Custom background color</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="color" name="curtain_bg_color"
+                                               value="{{ old('curtain_bg_color', $gallery->curtain_bg_color ?? '#0a0a14') }}"
+                                               class="w-12 h-10 rounded border border-gray-600 bg-gray-700 cursor-pointer">
+                                        <input type="text" name="curtain_bg_color_text"
+                                               value="{{ old('curtain_bg_color', $gallery->curtain_bg_color) }}"
+                                               placeholder="#0a0a14"
+                                               class="flex-1 rounded-md bg-gray-700 border-gray-600 text-gray-100 px-3 py-2 text-sm font-mono"
+                                               oninput="document.querySelector('input[name=curtain_bg_color]').value = this.value">
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">Override the default dark gradient with a solid color.</p>
+                                    <label class="text-xs text-gray-400 flex items-center gap-1 mt-2">
+                                        <input type="checkbox" name="clear_curtain_bg" value="1" class="rounded bg-gray-700 border-gray-600 text-purple-600">
+                                        Reset to default gradient
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                    </div>
                     @else
-                    <div class="mt-6 pt-4 border-t border-gray-700">
-                        <div class="flex items-center justify-between gap-4 bg-gray-800/60 border border-dashed border-gray-600 rounded-lg px-4 py-3">
-                            <div class="flex items-center gap-3">
-                                <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                                <p class="text-sm text-gray-400">Custom domain + branded entrance curtain are Studio-plan features.</p>
+                        {{-- Non-Studio: upgrade CTA --}}
+                        <div class="mt-6 pt-4 border-t border-gray-700">
+                            <div class="flex items-center justify-between gap-4 bg-gray-800/60 border border-dashed border-gray-600 rounded-lg px-4 py-3">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                                    <p class="text-sm text-gray-400">Custom domain + branded entrance curtain are Studio-plan features.</p>
+                                </div>
+                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-amber-400 hover:text-amber-300 border border-amber-600/40 hover:border-amber-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                    Studio — $99
+                                </a>
                             </div>
-                            <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-amber-400 hover:text-amber-300 border border-amber-600/40 hover:border-amber-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
-                                Studio — $99
-                            </a>
                         </div>
-                    </div>
                     @endif
 
                     <div class="flex justify-end items-center gap-3 mt-6 pt-4 border-t border-gray-700">
@@ -1413,20 +1420,6 @@
         }, true);
 
         // ─── BUGFIX: SortableJS init + saveOrder/discardOrder (Round 4) ────
-        // Round 2 patched the missing init, but two issues remained:
-        //   1. The reorder save bar had no CSS — rendered as ugly unstyled block
-        //   2. After clicking Save, the bar would not reappear on the next drag
-        //      because the Sortable instance was bound once and the onEnd
-        //      callback was sometimes losing its reference to the bar element.
-        //
-        // Round 4 fix:
-        //   - CSS added above for #reorder-save-bar (glassmorphism fixed bar)
-        //   - Sortable instance stored in a variable so we can destroy + recreate
-        //     if needed (defensive against any DOM mutations)
-        //   - onEnd uses a fresh lookup of the bar element each time
-        //   - saveOrder uses async/await for clearer error handling
-        //   - discardOrder re-binds Sortable after reverting the DOM (because
-        //     innerHTML='' can break event bindings in some edge cases)
         (function() {
             const grid = document.getElementById('gallery-grid');
             if (!grid || typeof Sortable === 'undefined') {
@@ -1461,8 +1454,6 @@
                     chosenClass: 'sortable-chosen',
                     dragClass: 'sortable-drag',
                     onEnd: function(evt) {
-                        // Only show the bar if the order actually changed
-                        // (Sortable fires onEnd even on dropped-in-place drags)
                         if (evt.oldIndex !== evt.newIndex) {
                             showBar();
                         }
@@ -1473,7 +1464,6 @@
             snapshotOrder();
             initSortable();
 
-            // Expose globally for the inline onclick handlers
             window.saveOrder = async function() {
                 const order = Array.from(grid.children).map(el => parseInt(el.dataset.id, 10));
                 const bar = document.getElementById('reorder-save-bar');
@@ -1519,11 +1509,9 @@
             };
 
             window.discardOrder = function() {
-                // Revert DOM to the snapshot taken at init / last save
                 grid.innerHTML = '';
                 originalOrder.forEach(node => grid.appendChild(node));
                 hideBar();
-                // Re-bind Sortable defensively (innerHTML='' can break bindings)
                 initSortable();
             };
         })();
@@ -1596,7 +1584,7 @@ function selectEditVenue(card) {
         document.getElementById('edit-venue-info-name').textContent = card.querySelector('.venue-meta div:first-child')?.textContent?.trim() || '';
         document.getElementById('edit-venue-info-desc').textContent = editVenueDescriptions[slug] || '';
     }
-    
+
     const descEl = document.getElementById('edit-venue-description');
     if (descEl) descEl.textContent = editVenueDescriptions[slug] || '';
 }
