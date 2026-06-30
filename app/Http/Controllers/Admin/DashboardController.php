@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AnalyticsEvent;
 use App\Models\Gallery;
-use App\Models\GalleryEvent;
 use App\Models\TeamInvitation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -49,6 +49,9 @@ class DashboardController extends Controller
             ->first();
 
         // ── Analytics: views last 7 days + prior 7 days (for trend) ─────────
+        // FIXED (Round 4): uses AnalyticsEvent instead of the deleted GalleryEvent.
+        // The table was renamed from gallery_events to analytics_events by
+        // migration 2026_06_22_000001.
         $galleryIds = (clone $galleriesScope)->pluck('id');
 
         $viewsToday = 0;
@@ -62,22 +65,22 @@ class DashboardController extends Controller
             $day7   = $now->copy()->subDays(7);
             $day14  = $now->copy()->subDays(14);
 
-            $viewsToday = GalleryEvent::whereIn('gallery_id', $galleryIds)
+            $viewsToday = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
                 ->where('event', 'view')
                 ->where('created_at', '>=', $day0)
                 ->count();
 
-            $views7 = GalleryEvent::whereIn('gallery_id', $galleryIds)
+            $views7 = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
                 ->where('event', 'view')
                 ->where('created_at', '>=', $day7)
                 ->count();
 
-            $viewsPrev7 = GalleryEvent::whereIn('gallery_id', $galleryIds)
+            $viewsPrev7 = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
                 ->where('event', 'view')
                 ->whereBetween('created_at', [$day14, $day7])
                 ->count();
 
-            $rawChart = GalleryEvent::whereIn('gallery_id', $galleryIds)
+            $rawChart = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
                 ->where('event', 'view')
                 ->where('created_at', '>=', $now->copy()->subDays(6)->startOfDay())
                 ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
@@ -117,7 +120,6 @@ class DashboardController extends Controller
         $hasUnsharedGallery = !$team && $galleriesCount > 0 && $totalViews === 0 && $activeCount > 0;
 
         // ── Gallery health flags (for recent list) ───────────────────────────
-        // Flag galleries that are live but have 0 views after 3+ days
         $staleLiveIds = (clone $galleriesScope)
             ->where('is_active', true)
             ->where('view_count', 0)
