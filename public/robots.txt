@@ -1,2 +1,23 @@
+# Exospace 3D Gallery — robots.txt
+# Public galleries are crawlable; admin/auth/team areas are not.
+
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /admin
+Disallow: /master-control
+Disallow: /profile
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /team-invitations
+Disallow: /finalize-installation
+Disallow: /db-check
+Disallow: /debug-render-test
+Disallow: /gallery/*/pin
+Disallow: /gallery/*/track
+
+# Block embed-mode URLs from indexing (each is a duplicate of the canonical gallery page)
+Disallow: /*?embed=1
+
+# Sitemap
+Sitemap: https://exospace.gallery/sitemap.xml
