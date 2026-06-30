@@ -170,6 +170,77 @@
         .badge-free { background: #374151; color: #9ca3af; }
         .badge-pro { background: #d97706; color: #fef3c7; }
         .badge-studio { background: #7c3aed; color: #e9d5ff; }
+    /* ─── Reorder save bar (Round 4 polish) ─── */
+    #reorder-save-bar {
+        position: fixed;
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        display: none; /* hidden by default; JS shows via display:flex */
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1.25rem;
+        background: rgba(17, 24, 39, 0.95);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(139, 92, 246, 0.4);
+        border-radius: 0.75rem;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.1);
+        font-size: 0.875rem;
+        color: #e5e7eb;
+        animation: reorder-bar-slide-up 0.25s ease-out;
+    }
+    @keyframes reorder-bar-slide-up {
+        from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+        to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+    }
+    #reorder-save-bar .save-btn,
+    #reorder-save-bar .discard-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        font-size: 0.8rem;
+        transition: all 0.15s ease;
+        cursor: pointer;
+    }
+    #reorder-save-bar .save-btn {
+        background: linear-gradient(to right, #9333ea, #6366f1);
+        color: white;
+        border: none;
+    }
+    #reorder-save-bar .save-btn:hover:not(:disabled) {
+        background: linear-gradient(to right, #7c3aed, #4f46e5);
+        transform: translateY(-1px);
+    }
+    #reorder-save-bar .save-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    #reorder-save-bar .discard-btn {
+        background: #374151;
+        color: #d1d5db;
+        border: 1px solid #4b5563;
+    }
+    #reorder-save-bar .discard-btn:hover {
+        background: #4b5563;
+        color: white;
+    }
+
+    /* Drag handle cursor on image cards */
+    #gallery-grid .gallery-card {
+        cursor: grab;
+    }
+    #gallery-grid .gallery-card:active {
+        cursor: grabbing;
+    }
+    #gallery-grid .gallery-card.sortable-ghost {
+        opacity: 0.3;
+    }
+    #gallery-grid .gallery-card.sortable-chosen {
+        outline: 2px solid #9333ea;
+        outline-offset: 2px;
+    }
+
     </style>
 
     <!-- Toast container (rendered immediately) -->
@@ -177,6 +248,30 @@
 
     <div class="py-12 bg-gray-900 min-h-screen">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+
+            {{-- Round 4: gallery sub-nav --}}
+            <div class="flex flex-wrap gap-2 text-sm">
+                <a href="{{ route('admin.galleries.events.index', $gallery) }}"
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-purple-500 text-gray-300 hover:text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    Events
+                    @if($gallery->scheduleEvents()->active()->upcoming()->count() > 0)
+                        <span class="ml-1 px-1.5 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-bold">{{ $gallery->scheduleEvents()->active()->upcoming()->count() }}</span>
+                    @endif
+                </a>
+                <a href="{{ route('admin.galleries.analytics', $gallery) }}"
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-purple-500 text-gray-300 hover:text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Analytics
+                </a>
+                @if($gallery->newsletterSignups()->exists())
+                <a href="{{ route('admin.galleries.analytics', $gallery) }}#newsletter"
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-purple-500 text-gray-300 hover:text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    {{ $gallery->newsletterSignups()->count() }} newsletter signups
+                </a>
+                @endif
+            </div>
 
             <!-- 1. Gallery Settings -->
             <div class="bg-gray-800 border border-gray-700 shadow-lg sm:rounded-lg p-6">
@@ -611,12 +706,59 @@
                         <p class="text-xs text-green-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline">{{ $gallery->custom_domain }}</a> see this gallery.</p>
                         @endif
                     </div>
+
+                    {{-- NEW (Round 4) — Branded entrance curtain (Studio only) --}}
+                    @if($isStudio)
+                    <div class="mt-6 pt-4 border-t border-gray-700">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <label class="block text-sm font-medium text-gray-300">Branded Entrance Curtain</label>
+                            <span class="text-xs bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">Studio</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-3">Replace the default "EXOSPACE" entrance curtain with your own logo and background color. White-label your exhibition entrance.</p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Custom curtain logo</label>
+                                <input type="file" name="curtain_logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                       class="w-full text-sm text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600">
+                                <p class="text-xs text-gray-500 mt-1">PNG / JPG / SVG / WEBP, max 2 MB. Recommended: wide aspect, transparent background.</p>
+                                @if($gallery->curtain_logo_path)
+                                    <div class="mt-2 flex items-center gap-3">
+                                        <img src="{{ asset('storage/' . $gallery->curtain_logo_path) }}" alt="Curtain logo" class="h-10 max-w-[160px] object-contain bg-gray-900 rounded border border-gray-700 px-2">
+                                        <label class="text-xs text-gray-400 flex items-center gap-1">
+                                            <input type="checkbox" name="clear_curtain_logo" value="1" class="rounded bg-gray-700 border-gray-600 text-purple-600">
+                                            Remove
+                                        </label>
+                                    </div>
+                                @endif
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Custom background color</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" name="curtain_bg_color"
+                                           value="{{ old('curtain_bg_color', $gallery->curtain_bg_color ?? '#0a0a14') }}"
+                                           class="w-12 h-10 rounded border border-gray-600 bg-gray-700 cursor-pointer">
+                                    <input type="text" name="curtain_bg_color_text"
+                                           value="{{ old('curtain_bg_color', $gallery->curtain_bg_color) }}"
+                                           placeholder="#0a0a14"
+                                           class="flex-1 rounded-md bg-gray-700 border-gray-600 text-gray-100 px-3 py-2 text-sm font-mono"
+                                           oninput="document.querySelector('input[name=curtain_bg_color]').value = this.value">
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Override the default dark gradient with a solid color.</p>
+                                <label class="text-xs text-gray-400 flex items-center gap-1 mt-2">
+                                    <input type="checkbox" name="clear_curtain_bg" value="1" class="rounded bg-gray-700 border-gray-600 text-purple-600">
+                                    Reset to default gradient
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                     @else
                     <div class="mt-6 pt-4 border-t border-gray-700">
                         <div class="flex items-center justify-between gap-4 bg-gray-800/60 border border-dashed border-gray-600 rounded-lg px-4 py-3">
                             <div class="flex items-center gap-3">
                                 <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                                <p class="text-sm text-gray-400">Use a custom domain to host this gallery at your own URL.</p>
+                                <p class="text-sm text-gray-400">Custom domain + branded entrance curtain are Studio-plan features.</p>
                             </div>
                             <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-amber-400 hover:text-amber-300 border border-amber-600/40 hover:border-amber-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
                                 Studio — $99
@@ -1270,77 +1412,119 @@
             showUnsavedModal(href);
         }, true);
 
-        // ─── BUGFIX: SortableJS init + saveOrder/discardOrder ──────────────
-        // Previously: SortableJS was loaded (line 10) but never initialized,
-        // and saveOrder()/discardOrder() were referenced by the reorder save
-        // bar buttons (line 1203-1204) but never defined. This made the
-        // entire image-reorder feature non-functional dead code.
+        // ─── BUGFIX: SortableJS init + saveOrder/discardOrder (Round 4) ────
+        // Round 2 patched the missing init, but two issues remained:
+        //   1. The reorder save bar had no CSS — rendered as ugly unstyled block
+        //   2. After clicking Save, the bar would not reappear on the next drag
+        //      because the Sortable instance was bound once and the onEnd
+        //      callback was sometimes losing its reference to the bar element.
         //
-        // Now: Sortable is initialized on the #gallery-grid container.
-        // On drag end, the reorder save bar appears. saveOrder() persists
-        // the new order via AJAX to the existing reorder-images endpoint.
-        // discardOrder() reverts the DOM to the original order.
+        // Round 4 fix:
+        //   - CSS added above for #reorder-save-bar (glassmorphism fixed bar)
+        //   - Sortable instance stored in a variable so we can destroy + recreate
+        //     if needed (defensive against any DOM mutations)
+        //   - onEnd uses a fresh lookup of the bar element each time
+        //   - saveOrder uses async/await for clearer error handling
+        //   - discardOrder re-binds Sortable after reverting the DOM (because
+        //     innerHTML='' can break event bindings in some edge cases)
         (function() {
             const grid = document.getElementById('gallery-grid');
-            if (!grid || typeof Sortable === 'undefined') return;
+            if (!grid || typeof Sortable === 'undefined') {
+                console.warn('Reorder init skipped: grid or Sortable not available');
+                return;
+            }
 
-            // Snapshot the original order so we can revert on discard
             let originalOrder = [];
+            let sortableInstance = null;
+
             function snapshotOrder() {
                 originalOrder = Array.from(grid.children).map(el => el.cloneNode(true));
             }
-            snapshotOrder();
 
-            Sortable.create(grid, {
-                animation: 150,
-                ghostClass: 'opacity-30',
-                chosenClass: 'ring-2 ring-purple-500',
-                onEnd: function() {
-                    document.getElementById('reorder-save-bar').style.display = 'flex';
+            function showBar() {
+                const bar = document.getElementById('reorder-save-bar');
+                if (bar) bar.style.display = 'flex';
+            }
+
+            function hideBar() {
+                const bar = document.getElementById('reorder-save-bar');
+                if (bar) bar.style.display = 'none';
+            }
+
+            function initSortable() {
+                if (sortableInstance) {
+                    sortableInstance.destroy();
                 }
-            });
+                sortableInstance = Sortable.create(grid, {
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    onEnd: function(evt) {
+                        // Only show the bar if the order actually changed
+                        // (Sortable fires onEnd even on dropped-in-place drags)
+                        if (evt.oldIndex !== evt.newIndex) {
+                            showBar();
+                        }
+                    }
+                });
+            }
+
+            snapshotOrder();
+            initSortable();
 
             // Expose globally for the inline onclick handlers
-            window.saveOrder = function() {
+            window.saveOrder = async function() {
                 const order = Array.from(grid.children).map(el => parseInt(el.dataset.id, 10));
                 const bar = document.getElementById('reorder-save-bar');
                 const saveBtn = bar.querySelector('.save-btn');
+                const discardBtn = bar.querySelector('.discard-btn');
                 const originalText = saveBtn.textContent;
+
                 saveBtn.disabled = true;
+                discardBtn.disabled = true;
                 saveBtn.textContent = 'Saving…';
 
-                fetch('{{ route("admin.galleries.reorder-images", $gallery) }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: JSON.stringify({ order: order }),
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        bar.style.display = 'none';
-                        snapshotOrder(); // New baseline
-                        if (typeof toast === 'function') toast('Image order saved', 'success');
-                        else if (window.toast) window.toast('Image order saved', 'success');
-                    } else {
+                try {
+                    const resp = await fetch('{{ route("admin.galleries.reorder-images", $gallery) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({ order: order }),
+                    });
+
+                    if (!resp.ok) {
+                        throw new Error(`HTTP ${resp.status}`);
+                    }
+
+                    const data = await resp.json();
+                    if (!data.success) {
                         throw new Error(data.message || 'Save failed');
                     }
-                })
-                .catch(err => {
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = originalText;
+
+                    hideBar();
+                    snapshotOrder(); // New baseline
+                    if (typeof toast === 'function') toast('Image order saved', 'success');
+                    else if (window.toast) window.toast('Image order saved', 'success');
+                } catch (err) {
                     alert('Could not save order: ' + err.message);
-                });
+                } finally {
+                    saveBtn.disabled = false;
+                    discardBtn.disabled = false;
+                    saveBtn.textContent = originalText;
+                }
             };
 
             window.discardOrder = function() {
                 // Revert DOM to the snapshot taken at init / last save
                 grid.innerHTML = '';
                 originalOrder.forEach(node => grid.appendChild(node));
-                document.getElementById('reorder-save-bar').style.display = 'none';
+                hideBar();
+                // Re-bind Sortable defensively (innerHTML='' can break bindings)
+                initSortable();
             };
         })();
     </script>

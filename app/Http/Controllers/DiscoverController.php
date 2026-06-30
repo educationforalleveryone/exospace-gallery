@@ -43,12 +43,11 @@ class DiscoverController extends Controller
               ->when($sort === 'newest', fn($q) => $q->orderByDesc('created_at'))
               ->when($sort === 'updated', fn($q) => $q->orderByDesc('updated_at'))
               ->unless(in_array($sort, ['views', 'newest', 'updated']), function ($q) {
-                  // Default: featured first, then by view_count
-                  // is_featured isn't a column on galleries — feature venues instead.
-                  return $q->leftJoin('venue_templates', 'galleries.venue_template_id', '=', 'venue_templates.id')
-                           ->orderByDesc('venue_templates.is_featured')
-                           ->orderByDesc('galleries.view_count')
-                           ->select('galleries.*');
+                  // Default: featured galleries first (Round 4 — is_featured column
+                  // on galleries, controlled via super-admin /master-control/featured),
+                  // then by view_count.
+                  return $q->orderByDesc('is_featured')
+                           ->orderByDesc('view_count');
               });
 
         $galleries = $query->paginate(24)->withQueryString();

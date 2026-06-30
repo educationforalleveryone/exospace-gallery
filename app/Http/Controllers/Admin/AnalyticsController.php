@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
+use App\Models\AnalyticsEvent;
 use App\Models\Gallery;
-use App\Models\GalleryEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -115,7 +115,7 @@ class AnalyticsController extends Controller
 
         if ($validated['event'] === 'dwell') {
             // Update dwell on the most recent view event for this session
-            GalleryEvent::where('gallery_id', $gallery->id)
+            AnalyticsEvent::where('gallery_id', $gallery->id)
                 ->where('session_token', $validated['session_token'])
                 ->where('event', 'view')
                 ->latest('created_at')
@@ -128,7 +128,7 @@ class AnalyticsController extends Controller
                 $imageId = $gallery->images()->where('id', $validated['image_id'])->value('id');
             }
 
-            GalleryEvent::create([
+            AnalyticsEvent::create([
                 'gallery_id'    => $gallery->id,
                 'image_id'      => $imageId,
                 'event'         => $validated['event'],

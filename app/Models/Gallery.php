@@ -18,7 +18,10 @@ class Gallery extends Model
         'room_layout', 'venue_template_id', 'pin_hash',
         'is_active', 'view_count',
         'opens_at', 'closes_at',
-        'custom_domain',  // NEW — Studio-plan white-label CNAME support
+        'custom_domain',  // Studio-plan white-label CNAME support
+        'is_featured',    // NEW (Round 4) — super-admin curated for /discover
+        'curtain_logo_path',  // NEW (Round 4) — Studio-only custom entrance curtain logo
+        'curtain_bg_color',   // NEW (Round 4) — Studio-only custom entrance curtain bg color
     ];
 
     protected $casts = [
@@ -80,9 +83,30 @@ class Gallery extends Model
         return $this->hasOne(GalleryImage::class)->orderBy('position_order');
     }
 
+    /** Analytics events (view, focus, tour_start, dwell) — renamed from GalleryEvent in Round 4 */
     public function events(): HasMany
     {
-        return $this->hasMany(GalleryEvent::class);
+        return $this->hasMany(AnalyticsEvent::class);
+    }
+
+    /** Schedule events (calendar) — opening receptions, artist talks, etc. */
+    public function scheduleEvents(): HasMany
+    {
+        return $this->hasMany(GalleryScheduleEvent::class)->orderBy('starts_at');
+    }
+
+    /** Newsletter signups captured in the entrance curtain */
+    public function newsletterSignups(): HasMany
+    {
+        return $this->hasMany(NewsletterSignup::class);
+    }
+
+    /** All artists featured in this gallery (via images) */
+    public function artists()
+    {
+        return Artist::whereHas('images', function ($q) {
+            $q->where('gallery_id', $this->id);
+        })->distinct()->orderBy('name');
     }
 
     // ─── Scopes ────────────────────────────────────────────────────────

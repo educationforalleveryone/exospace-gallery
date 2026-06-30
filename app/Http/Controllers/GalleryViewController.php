@@ -21,7 +21,7 @@ class GalleryViewController extends Controller
         $gallery = $request->attributes->get('resolved_gallery')
             ?? Gallery::where('slug', $slug)
                 ->where('is_active', true)
-                ->with(['images', 'user', 'venueTemplate'])
+                ->with(['images.artist', 'user', 'venueTemplate'])
                 ->firstOrFail();
 
         // If the resolved-by-domain gallery's slug doesn't match the URL slug,
@@ -77,16 +77,32 @@ class GalleryViewController extends Controller
             'lighting_preset' => $gallery->lighting_preset,
             'room_layout'     => $gallery->room_layout ?? 'square',
             'venue_slug'      => $gallery->venueTemplate?->slug ?? 'white-cube',
-            'venueConfig'     => $venueConfig,   // NEW — data-driven venue config
+            'venueConfig'     => $venueConfig,
             'images' => $gallery->images->map(fn($img) => [
-                'id'          => $img->id,
-                'url'         => asset($img->path),
-                'width'       => $img->width,
-                'height'      => $img->height,
-                'aspectRatio' => $img->width / max($img->height, 1),
-                'orientation' => $img->orientation,
-                'title'       => $img->title ?? $img->original_name,
-                'description' => $img->description,
+                'id'             => $img->id,
+                'url'            => asset($img->path),
+                'width'          => $img->width,
+                'height'         => $img->height,
+                'aspectRatio'    => $img->width / max($img->height, 1),
+                'orientation'    => $img->orientation,
+                'title'          => $img->title ?? $img->original_name,
+                'description'    => $img->description,
+                // NEW (Round 4) — per-artwork metadata for focus mode
+                'artist'         => $img->artist ? [
+                    'id'     => $img->artist->id,
+                    'name'   => $img->artist->name,
+                    'slug'   => $img->artist->slug,
+                    'url'    => route('artist.profile', $img->artist->slug),
+                ] : null,
+                'price'          => $img->price ? (float) $img->price : null,
+                'currency'       => $img->currency,
+                'formattedPrice' => $img->formattedPrice(),
+                'forSale'        => (bool) $img->for_sale,
+                'medium'         => $img->medium,
+                'year'           => $img->year,
+                'dimensions'     => $img->dimensions,
+                'edition'        => $img->formattedEdition(),
+                'externalUrl'    => $img->external_url,
             ])->values(),
             'imageCount'     => $gallery->images->count(),
             'audioUrl'       => $gallery->audio_path ? asset('storage/' . $gallery->audio_path) : null,
@@ -94,6 +110,18 @@ class GalleryViewController extends Controller
             'customLogoUrl'  => ($gallery->custom_logo_path && $gallery->user->plan === 'studio')
                                     ? asset('storage/' . $gallery->custom_logo_path)
                                     : null,
+            // NEW (Round 4) — branded curtain (Studio only)
+            'curtainLogoUrl' => ($gallery->curtain_logo_path && $gallery->user->plan === 'studio')
+                                    ? asset('storage/' . $gallery->curtain_logo_path)
+                                    : null,
+            'curtainBgColor' => ($gallery->curtain_bg_color && $gallery->user->plan === 'studio')
+                                    ? $gallery->curtain_bg_color
+                                    : null,
+            // NEW (Round 4) — newsletter signup endpoint
+            'newsletterUrl'  => route('gallery.newsletter', $gallery->slug),
+            // NEW (Round 4) — events page link
+            'eventsUrl'      => route('gallery.events.index', $gallery->slug),
+            'hasUpcomingEvents' => $gallery->scheduleEvents()->active()->upcoming()->exists(),
         ];
 
         return view('gallery.view', compact('gallery', 'galleryData'));

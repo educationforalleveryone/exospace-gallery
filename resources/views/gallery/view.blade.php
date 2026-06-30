@@ -591,22 +591,32 @@
     @endif
 
     <!-- Entrance Curtain (Shown First) -->
-    <div id="entrance-curtain">
+    <div id="entrance-curtain"
+         @if($gallery->user->plan === 'studio' && $gallery->curtain_bg_color)
+         style="background: {{ $gallery->curtain_bg_color }};"
+         @endif>
+    >
         <div style="max-width: 800px; text-align: center; padding: 0 2rem;">
-            <!-- Logo -->
-            <div class="entrance-logo">EXOSPACE</div>
-            
+            <!-- Logo: Studio custom curtain logo OR Exospace default -->
+            @if($gallery->user->plan === 'studio' && $gallery->curtain_logo_path)
+                <img src="{{ asset('storage/' . $gallery->curtain_logo_path) }}"
+                     alt="{{ $gallery->title }}"
+                     style="max-height: 80px; max-width: 240px; object-fit: contain; margin-bottom: 2rem;">
+            @else
+                <div class="entrance-logo">EXOSPACE</div>
+            @endif
+
             <!-- Gallery Info -->
             <h1 style="font-size: 3rem; font-weight: 800; color: white; margin-bottom: 1rem; line-height: 1.2;">
                 {{ $gallery->title }}
             </h1>
-            
+
             @if($gallery->description)
             <p style="font-size: 1.125rem; color: rgba(255,255,255,0.7); margin-bottom: 3rem; max-width: 600px; margin-left: auto; margin-right: auto;">
                 {{ $gallery->description }}
             </p>
             @endif
-            
+
             <!-- Venue Badge -->
             @if($gallery->venueTemplate)
             <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.3); border-radius: 999px; padding: 6px 16px; margin-bottom: 2rem; font-size: 0.8rem; color: rgba(139,92,246,0.9); letter-spacing: 0.08em; font-weight: 600;">
@@ -640,7 +650,7 @@
                     <div id="curtain-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); transition: width 0.3s ease;"></div>
                 </div>
             </div>
-            
+
             <!-- Enter Button -->
             <button id="enter-btn" class="entrance-button" style="opacity: 0.5; pointer-events: none;">
                 <span style="font-size: 1.125rem; font-weight: 600; letter-spacing: 0.05em;">ENTER EXHIBITION</span>
@@ -648,10 +658,40 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
                 </svg>
             </button>
-            
+
             <p style="margin-top: 2rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">
                 Use WASD to move • Mouse to look around • Press T for guided tour
             </p>
+
+            {{-- NEW (Round 4) — Events link if upcoming events exist --}}
+            @if($gallery->scheduleEvents()->active()->upcoming()->exists())
+            <a href="{{ route('gallery.events.index', $gallery->slug) }}"
+               style="display: inline-flex; align-items: center; gap: 8px; margin-top: 1.5rem; padding: 8px 16px; background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.4); border-radius: 999px; color: rgba(195,180,255,0.95); font-size: 0.8rem; font-weight: 500; text-decoration: none; transition: all 0.2s ease;"
+               onmouseenter="this.style.background='rgba(139,92,246,0.25)'"
+               onmouseleave="this.style.background='rgba(139,92,246,0.15)'">
+                <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                View upcoming events
+            </a>
+            @endif
+
+            {{-- NEW (Round 4) — Newsletter signup (skip in embed mode) --}}
+            @if(!request()->boolean('embed'))
+            <form onsubmit="return submitNewsletterSignup(this)"
+                  style="max-width: 380px; margin: 2.5rem auto 0; padding: 1rem 1.25rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; backdrop-filter: blur(8px);">
+                <p style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-bottom: 0.75rem; letter-spacing: 0.04em;">
+                    JOIN THE LIST
+                </p>
+                <div style="display: flex; gap: 8px;">
+                    <input type="email" name="email" required placeholder="your@email.com"
+                           style="flex: 1; padding: 8px 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; font-size: 0.85rem; outline: none;">
+                    <button type="submit"
+                            style="padding: 8px 16px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; border-radius: 8px; color: white; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s;">
+                        Subscribe
+                    </button>
+                </div>
+                <p class="newsletter-msg" style="font-size: 0.75rem; margin-top: 0.5rem; min-height: 1rem;"></p>
+            </form>
+            @endif
         </div>
     </div>
 
@@ -759,7 +799,24 @@
         <div id="info-panel">
             <h3 class="text-xl font-bold mb-2" id="artwork-title">Artwork Title</h3>
             <p class="text-gray-400 text-sm" id="artwork-description">Description will appear here</p>
-            
+
+            <!-- NEW (Round 4) — Artist attribution + metadata -->
+            <div id="artwork-meta" class="mt-3 pt-3 border-t border-white/10" style="display:none;">
+                <a id="artwork-artist-link" href="#" target="_blank" class="inline-flex items-center gap-2 text-purple-400 hover:text-purple-300 text-sm font-medium transition mb-2" style="display:none;">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    <span id="artwork-artist-name"></span>
+                </a>
+                <div id="artwork-details" class="text-xs text-gray-500 space-y-0.5"></div>
+                <div id="artwork-price-row" class="mt-2 flex items-center gap-2" style="display:none;">
+                    <span id="artwork-price" class="text-green-400 font-semibold text-sm"></span>
+                    <span id="artwork-for-sale-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-green-900/40 text-green-400 border border-green-700/30" style="display:none;">FOR SALE</span>
+                </div>
+                <a id="artwork-external-link" href="#" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition" style="display:none;">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    View on artist's site
+                </a>
+            </div>
+
             <!-- ISSUE 2A: Modified HTML for Close Instructions -->
             <div class="mt-3 pt-3 border-t border-white/10" id="info-panel-close-hint">
                 <p class="text-xs text-gray-500 desktop-hint">Press E to close</p>
@@ -933,6 +990,127 @@
             if (!s) { s = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36); sessionStorage.setItem(k, s); }
             return s;
         })();
+
+        // NEW (Round 4) — Update the artwork info panel with artist + metadata
+        // Called from focus-mode (manual click) and guided-tour focus.
+        window.updateArtworkMeta = function(data) {
+            const metaPanel = document.getElementById('artwork-meta');
+            const artistLink = document.getElementById('artwork-artist-link');
+            const artistName = document.getElementById('artwork-artist-name');
+            const detailsEl = document.getElementById('artwork-details');
+            const priceRow = document.getElementById('artwork-price-row');
+            const priceEl = document.getElementById('artwork-price');
+            const forSaleBadge = document.getElementById('artwork-for-sale-badge');
+            const externalLink = document.getElementById('artwork-external-link');
+
+            if (!metaPanel) return;
+
+            // Reset
+            metaPanel.style.display = 'none';
+            artistLink.style.display = 'none';
+            priceRow.style.display = 'none';
+            forSaleBadge.style.display = 'none';
+            externalLink.style.display = 'none';
+            detailsEl.innerHTML = '';
+
+            const hasArtist = data.artist && data.artist.name;
+            const hasDetails = data.medium || data.year || data.dimensions || data.edition;
+            const hasPrice = data.formattedPrice || data.price;
+            const hasExternal = data.externalUrl;
+
+            if (!hasArtist && !hasDetails && !hasPrice && !hasExternal) return;
+
+            metaPanel.style.display = 'block';
+
+            // Artist
+            if (hasArtist) {
+                artistName.textContent = data.artist.name;
+                artistLink.href = data.artist.url || ('/artist/' + data.artist.slug);
+                artistLink.style.display = 'inline-flex';
+            }
+
+            // Details (medium, year, dimensions, edition)
+            const detailParts = [];
+            if (data.medium) detailParts.push(data.medium);
+            if (data.year) detailParts.push(data.year);
+            if (data.dimensions) detailParts.push(data.dimensions);
+            if (data.edition) detailParts.push(data.edition);
+            if (detailParts.length) {
+                detailsEl.innerHTML = detailParts.map(p => `<div>${p}</div>`).join('');
+            }
+
+            // Price + for-sale badge
+            if (hasPrice) {
+                priceEl.textContent = data.formattedPrice || ('$' + Number(data.price).toFixed(2));
+                priceRow.style.display = 'flex';
+                if (data.forSale) {
+                    forSaleBadge.style.display = 'inline-block';
+                }
+            } else if (data.forSale) {
+                // for_sale but no price — show "Price on request"
+                priceEl.textContent = 'Price on request';
+                priceRow.style.display = 'flex';
+                forSaleBadge.style.display = 'inline-block';
+            }
+
+            // External link
+            if (hasExternal) {
+                externalLink.href = data.externalUrl;
+                externalLink.style.display = 'inline-flex';
+            }
+        };
+
+        // NEW (Round 4) — Newsletter signup handler (entrance curtain)
+        window.submitNewsletterSignup = function(form) {
+            const btn = form.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            const msgEl = form.querySelector('.newsletter-msg');
+            btn.disabled = true;
+            btn.textContent = '…';
+
+            const formData = new FormData(form);
+            const payload = {
+                email: formData.get('email'),
+                name: formData.get('name') || null,
+            };
+
+            fetch(window.GALLERY_DATA.newsletterUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify(payload),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    form.reset();
+                    if (msgEl) {
+                        msgEl.textContent = data.message;
+                        msgEl.className = 'newsletter-msg text-green-400 text-xs mt-2';
+                    }
+                    // Hide the form after a successful signup
+                    setTimeout(() => {
+                        form.style.display = 'none';
+                    }, 2000);
+                } else {
+                    throw new Error(data.message || 'Signup failed');
+                }
+            })
+            .catch(err => {
+                if (msgEl) {
+                    msgEl.textContent = 'Could not sign up: ' + err.message;
+                    msgEl.className = 'newsletter-msg text-red-400 text-xs mt-2';
+                }
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+            return false; // prevent default form submit
+        };
     </script>
 
     <!-- Main Application -->
@@ -3253,10 +3431,13 @@
                                 }
                                 
                                 document.getElementById('artwork-title').textContent = displayTitle;
-                                document.getElementById('artwork-description').textContent = 
+                                document.getElementById('artwork-description').textContent =
                                     data.description || 'No description available.';
+                                if (typeof window.updateArtworkMeta === 'function') {
+                                    window.updateArtworkMeta(data);
+                                }
                                 panel.classList.add('show');
-                                
+
                                 console.log('📋 Info panel displayed');
                             }, 400);
                         }
@@ -4188,6 +4369,9 @@
                             document.getElementById('artwork-title').textContent = title;
                             document.getElementById('artwork-description').textContent =
                                 artwork.userData.description || 'No description available.';
+                            if (typeof window.updateArtworkMeta === 'function') {
+                                window.updateArtworkMeta(artwork.userData);
+                            }
                             if (panel) panel.classList.add('show');
                             // Analytics: track focus from tour
                             if (typeof Analytics !== 'undefined') Analytics.trackFocus(artwork.userData.id);

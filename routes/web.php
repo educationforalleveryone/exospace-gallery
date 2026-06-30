@@ -6,14 +6,18 @@ use App\Http\Controllers\InstallerController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\SuperAdmin\SystemController;
 use App\Http\Controllers\SuperAdmin\VenueTemplateController;
+use App\Http\Controllers\SuperAdmin\FeaturedExhibitionsController;
 use App\Http\Controllers\TeamInvitationController;
 use App\Http\Controllers\DiscoverController;
 use App\Http\Controllers\OgImageController;
 use App\Http\Controllers\QrCodeController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\ArtistProfileController;
+use App\Http\Controllers\PublicEventController;
+use App\Http\Controllers\NewsletterSignupController;
 use Illuminate\Support\Facades\Route;
 
-// ── Bare DB check — no middleware, no models, no views ───────────────────
+// ── Bare DB check ────────────────────────────────────────────────────────
 Route::get('/db-check', function () {
     try {
         $tables = \Illuminate\Support\Facades\DB::select("SHOW TABLES");
@@ -29,15 +33,15 @@ Route::get('/db-check', function () {
     }
 });
 
-// ── Installer ─────────────────────────────────────────────────────────────
+// ── Installer ────────────────────────────────────────────────────────────
 Route::get('/finalize-installation', [InstallerController::class, 'finalize'])
     ->name('installer.finalize')->withoutMiddleware(['auth', 'verified']);
 
-// ── Webhooks ──────────────────────────────────────────────────────────────
+// ── Webhooks ─────────────────────────────────────────────────────────────
 Route::post('/webhooks/2checkout',        [WebhookController::class, 'handle2Checkout'])->name('webhooks.2checkout');
 Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund'])->name('webhooks.2checkout.refund');
 
-// ── SEO & discovery endpoints ─────────────────────────────────────────────
+// ── SEO & discovery endpoints ────────────────────────────────────────────
 Route::get('/sitemap.xml', [SitemapController::class, 'sitemap'])->name('sitemap');
 Route::get('/feed.xml',    [SitemapController::class, 'feed'])->name('feed');
 Route::get('/discover',    [DiscoverController::class, 'index'])->name('discover');
@@ -53,19 +57,31 @@ Route::view('/pricing',          'pages.pricing')->name('pricing');
 Route::view('/contact',          'pages.contact')->name('contact');
 Route::post('/contact', [\App\Http\Controllers\ContactController::class, 'submit'])->name('contact.submit')->middleware('throttle:5,10');
 
-// ── Demo redirect ─────────────────────────────────────────────────────────
+// ── Demo redirect ────────────────────────────────────────────────────────
 Route::get('/gallery/demo', function () {
     $gallery = \App\Models\Gallery::where('is_active', true)->first();
     return $gallery ? redirect()->route('gallery.view', $gallery->slug) : redirect('/')->with('error', 'No demo gallery available yet.');
 });
 
-// ── Per-gallery: PIN entry, OG image, QR code ─────────────────────────────
+// ── Public artist profile (Round 4) ──────────────────────────────────────
+Route::get('/artist/{slug}', [ArtistProfileController::class, 'show'])->name('artist.profile');
+
+// ── Per-gallery: PIN entry, OG image, QR code, events, newsletter ────────
 Route::get('/gallery/{slug}/pin',       [\App\Http\Controllers\GalleryPinController::class, 'show'])->name('gallery.pin');
 Route::post('/gallery/{slug}/pin',      [\App\Http\Controllers\GalleryPinController::class, 'verify'])->name('gallery.pin.verify');
 Route::get('/gallery/{slug}/og-image',  [OgImageController::class, 'show'])->name('gallery.og-image');
 Route::get('/gallery/{slug}/qr',        [QrCodeController::class, 'show'])->name('gallery.qr');
 
-// ── Public gallery view ───────────────────────────────────────────────────
+// Public events page + RSVP (Round 4)
+Route::get('/gallery/{slug}/events',                       [PublicEventController::class, 'index'])->name('gallery.events.index');
+Route::post('/gallery/{slug}/events/{event}/rsvp',         [PublicEventController::class, 'rsvp'])->name('gallery.events.rsvp')
+      ->middleware('throttle:10,1');
+
+// Newsletter signup (Round 4)
+Route::post('/gallery/{slug}/newsletter', [NewsletterSignupController::class, 'store'])->name('gallery.newsletter')
+      ->middleware('throttle:10,1');
+
+// ── Public gallery view ──────────────────────────────────────────────────
 Route::get('/gallery/{slug}', [\App\Http\Controllers\GalleryViewController::class, 'show'])->name('gallery.view');
 
 // ── Analytics tracking (public, no auth) ─────────────────────────────────
@@ -73,12 +89,12 @@ Route::post('/gallery/{gallery}/track', [\App\Http\Controllers\Admin\AnalyticsCo
     ->name('gallery.track')
     ->middleware('throttle:120,1');
 
-// ── Team Invitations (public — token-based, no auth required to VIEW) ─────
+// ── Team Invitations ─────────────────────────────────────────────────────
 Route::get('/team-invitations/{token}',          [TeamInvitationController::class, 'show'])->name('team-invitations.show');
 Route::post('/team-invitations/{token}/accept',  [TeamInvitationController::class, 'accept'])->name('team-invitations.accept');
 Route::post('/team-invitations/{token}/decline', [TeamInvitationController::class, 'decline'])->name('team-invitations.decline');
 
-// ── Auth ──────────────────────────────────────────────────────────────────
+// ── Auth ─────────────────────────────────────────────────────────────────
 Route::get('/dashboard', fn() => redirect()->route('admin.dashboard'))->middleware(['auth', 'verified'])->name('dashboard');
 Route::middleware('auth')->group(function () {
     Route::get('/profile',    [ProfileController::class, 'edit'])->name('profile.edit');
@@ -86,13 +102,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// ── Admin ─────────────────────────────────────────────────────────────────
+// ── Admin ────────────────────────────────────────────────────────────────
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // ── Galleries ──────────────────────────────────────────────────────────
-    // NOTE: the `duplicate` route MUST come BEFORE `galleries/{gallery}` so
-    // Laravel doesn't match the literal string "duplicate" as a wildcard.
     Route::get('galleries',                [\App\Http\Controllers\Admin\GalleryController::class, 'index'])->name('galleries.index');
     Route::get('galleries/create',         [\App\Http\Controllers\Admin\GalleryController::class, 'create'])->name('galleries.create');
     Route::post('galleries',               [\App\Http\Controllers\Admin\GalleryController::class, 'store'])->name('galleries.store');
@@ -101,7 +115,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::put('galleries/{gallery}',      [\App\Http\Controllers\Admin\GalleryController::class, 'update'])->name('galleries.update');
     Route::delete('galleries/{gallery}',   [\App\Http\Controllers\Admin\GalleryController::class, 'destroy'])->name('galleries.destroy');
 
-    // NEW: gallery duplication (clone)
+    // NEW (Round 2): gallery duplication
     Route::post('galleries/{gallery}/duplicate', [\App\Http\Controllers\Admin\GalleryController::class, 'duplicate'])->name('galleries.duplicate');
 
     Route::post('galleries/{gallery}/upload-audio',   [\App\Http\Controllers\Admin\GalleryController::class, 'uploadAudio'])->name('galleries.upload-audio');
@@ -109,13 +123,32 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('galleries/{gallery}/reorder-images', [\App\Http\Controllers\Admin\GalleryController::class, 'reorderImages'])->name('galleries.reorder-images');
     Route::get('galleries/{gallery}/analytics',       [\App\Http\Controllers\Admin\AnalyticsController::class, 'show'])->name('galleries.analytics');
 
+    // NEW (Round 4): per-artwork metadata editor
+    Route::put('galleries/{gallery}/images/{image}/metadata', [\App\Http\Controllers\Admin\ImageMetadataController::class, 'update'])->name('galleries.images.metadata');
+
+    // NEW (Round 4): gallery event calendar
+    Route::get('galleries/{gallery}/events',                      [\App\Http\Controllers\Admin\GalleryEventController::class, 'index'])->name('galleries.events.index');
+    Route::get('galleries/{gallery}/events/create',               [\App\Http\Controllers\Admin\GalleryEventController::class, 'create'])->name('galleries.events.create');
+    Route::post('galleries/{gallery}/events',                     [\App\Http\Controllers\Admin\GalleryEventController::class, 'store'])->name('galleries.events.store');
+    Route::get('galleries/{gallery}/events/{event}/edit',         [\App\Http\Controllers\Admin\GalleryEventController::class, 'edit'])->name('galleries.events.edit');
+    Route::put('galleries/{gallery}/events/{event}',              [\App\Http\Controllers\Admin\GalleryEventController::class, 'update'])->name('galleries.events.update');
+    Route::delete('galleries/{gallery}/events/{event}',           [\App\Http\Controllers\Admin\GalleryEventController::class, 'destroy'])->name('galleries.events.destroy');
+    Route::get('galleries/{gallery}/events/{event}/rsvps',        [\App\Http\Controllers\Admin\GalleryEventController::class, 'rsvps'])->name('galleries.events.rsvps');
+
     // ── Images ─────────────────────────────────────────────────────────────
-    // FIX: 'images/bulk-delete' MUST be registered before 'images/{image}' — otherwise
-    // Laravel's router matches the literal string "bulk-delete" as the {image} wildcard
-    // and the bulk-delete endpoint returns 404 (model not found) instead of routing correctly.
     Route::post('galleries/{gallery}/images', [\App\Http\Controllers\Admin\ImageController::class, 'store'])->name('images.store')->middleware('throttle:30,1');
     Route::post('images/bulk-delete',         [\App\Http\Controllers\Admin\ImageController::class, 'bulkDestroy'])->name('images.bulk_destroy');
     Route::delete('images/{image}',           [\App\Http\Controllers\Admin\ImageController::class, 'destroy'])->name('images.destroy');
+
+    // ── Artists (Round 4) ──────────────────────────────────────────────────
+    Route::get('artists',                   [\App\Http\Controllers\Admin\ArtistController::class, 'index'])->name('artists.index');
+    Route::get('artists/create',            [\App\Http\Controllers\Admin\ArtistController::class, 'create'])->name('artists.create');
+    Route::post('artists',                  [\App\Http\Controllers\Admin\ArtistController::class, 'store'])->name('artists.store');
+    Route::get('artists/{artist}',          [\App\Http\Controllers\Admin\ArtistController::class, 'show'])->name('artists.show');
+    Route::get('artists/{artist}/edit',     [\App\Http\Controllers\Admin\ArtistController::class, 'edit'])->name('artists.edit');
+    Route::put('artists/{artist}',          [\App\Http\Controllers\Admin\ArtistController::class, 'update'])->name('artists.update');
+    Route::delete('artists/{artist}',       [\App\Http\Controllers\Admin\ArtistController::class, 'destroy'])->name('artists.destroy');
+    Route::get('artists-search',            [\App\Http\Controllers\Admin\ArtistController::class, 'search'])->name('artists.search');
 
     // ── Teams ──────────────────────────────────────────────────────────────
     Route::get   ('teams',                             [\App\Http\Controllers\Admin\TeamController::class, 'index'])->name('teams.index');
@@ -138,7 +171,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post  ('teams/{team}/switch',               [\App\Http\Controllers\Admin\TeamController::class, 'switchTeam'])->name('teams.switch');
 });
 
-// ── Super Admin ───────────────────────────────────────────────────────────
+// ── Super Admin ──────────────────────────────────────────────────────────
 Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')->name('super.')->group(function () {
     Route::get('/',                                    [SystemController::class, 'index'])->name('index');
     Route::post('/users/{user}/plan',                  [SystemController::class, 'updatePlan'])->name('updatePlan');
@@ -162,6 +195,10 @@ Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')
     Route::patch ('venues/{venue}/toggle',             [VenueTemplateController::class, 'toggle'])->name('venues.toggle');
     Route::patch ('venues/{venue}/toggle-featured',    [VenueTemplateController::class, 'toggleFeatured'])->name('venues.toggle-featured');
     Route::delete('venues/{venue}',                    [VenueTemplateController::class, 'destroy'])->name('venues.destroy');
+
+    // ── Featured Exhibitions (Round 4) ──────────────────────────────────────
+    Route::get   ('featured',                          [FeaturedExhibitionsController::class, 'index'])->name('featured.index');
+    Route::patch ('featured/{gallery}',                [FeaturedExhibitionsController::class, 'toggle'])->name('featured.toggle');
 });
 
 require __DIR__.'/auth.php';

@@ -265,6 +265,27 @@ class GalleryController extends Controller
             $validated['custom_logo_path'] = $request->file('custom_logo')->store('branding', 'public');
         }
 
+        // NEW (Round 4) — Branded entrance curtain (Studio only)
+        if ($planHolder->plan === 'studio') {
+            if ($request->hasFile('curtain_logo')) {
+                if ($gallery->curtain_logo_path) \Storage::disk('public')->delete($gallery->curtain_logo_path);
+                $validated['curtain_logo_path'] = $request->file('curtain_logo')->store('branding', 'public');
+            } elseif ($request->boolean('clear_curtain_logo') && $gallery->curtain_logo_path) {
+                \Storage::disk('public')->delete($gallery->curtain_logo_path);
+                $validated['curtain_logo_path'] = null;
+            }
+
+            if ($request->boolean('clear_curtain_bg')) {
+                $validated['curtain_bg_color'] = null;
+            } elseif (!empty($validated['curtain_bg_color'])) {
+                // Validate hex color
+                $bg = $validated['curtain_bg_color'];
+                if (!preg_match('/^#[0-9a-fA-F]{6}$/', $bg)) {
+                    $validated['curtain_bg_color'] = null;
+                }
+            }
+        }
+
         if ($request->boolean('clear_pin')) {
             $validated['pin_hash'] = null;
         } elseif (! empty($validated['gallery_pin'])) {
@@ -323,7 +344,9 @@ class GalleryController extends Controller
             }
         }
 
-        unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo']);
+        unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo'],
+              $validated['curtain_logo'], $validated['clear_curtain_logo'], $validated['clear_curtain_bg'],
+              $validated['curtain_bg_color_text']);
 
         $gallery->update($validated);
 
@@ -504,10 +527,16 @@ class GalleryController extends Controller
             // NEW: custom domain — Studio plan only, validated for shape here.
             // Plan-tier enforcement happens in the controller.
             'custom_domain'   => ['nullable', 'string', 'max:255', 'regex:/^([a-z0-9-]+\.)+[a-z]{2,}$/i'],
+            // NEW (Round 4) — Branded entrance curtain (Studio only)
+            'curtain_logo'        => 'nullable|file|mimes:png,jpeg,svg,webp|max:2048',
+            'curtain_bg_color'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'curtain_bg_color_text' => 'nullable|string|max:20',
         ];
 
         if ($isUpdate) {
-            $rules['clear_pin'] = 'nullable|boolean';
+            $rules['clear_pin']          = 'nullable|boolean';
+            $rules['clear_curtain_logo'] = 'nullable|boolean';
+            $rules['clear_curtain_bg']   = 'nullable|boolean';
         }
 
         return $rules;
