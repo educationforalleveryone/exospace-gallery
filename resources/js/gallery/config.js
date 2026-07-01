@@ -6,6 +6,8 @@
 // constants file per venue if a venue needs bespoke tuning.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import * as THREE from 'three';
+
 export const CONFIG = {
     camera: {
         fov: 75,
@@ -176,3 +178,27 @@ export const CIRCULAR_VENUES = new Set([
     'mirror-lake',
     'sculpture-garden',
 ]);
+
+// ── Color parsing helper ────────────────────────────────────────────────────
+// Venue configs from the database store colors as strings like '0x87ceeb'.
+// Three.js r182's Color constructor treats strings as CSS color names, so
+// `new THREE.Color('0x87ceeb')` fails with "Unknown color".
+// This helper converts '0xRRGGBB' strings to numbers before passing to THREE.Color.
+//
+// Usage:
+//   import { parseColor } from './config.js';
+//   const c = parseColor(vc.background_color); // handles string, number, or null
+//   if (c) this.scene.background = c;
+export function parseColor(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') return new THREE.Color(value);
+    if (typeof value === 'string') {
+        // '0xRRGGBB' → parse as hex number
+        if (value.startsWith('0x') || value.startsWith('0X')) {
+            return new THREE.Color(parseInt(value, 16));
+        }
+        // '#RRGGBB' or CSS color name → let THREE.Color handle it
+        return new THREE.Color(value);
+    }
+    return null;
+}

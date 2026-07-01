@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
-import { CONFIG, OPEN_AIR_VENUES } from './config.js';
+import { CONFIG, OPEN_AIR_VENUES, parseColor } from './config.js';
 import { loadGlb } from './AssetLoader.js';
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
@@ -44,17 +44,17 @@ export function applyVenueConfig(cfg) {
 
     if (v.wall_height)                CONFIG.room.wallHeight = v.wall_height;
     if (v.wall_depth)                 CONFIG.room.wallDepth  = v.wall_depth;
-    if (v.background_color)           this.scene.background  = new THREE.Color(v.background_color);
+    if (v.background_color)           this.scene.background  = parseColor(v.background_color);
     if (v.fog_color) {
         this.scene.fog = new THREE.Fog(
-            new THREE.Color(v.fog_color),
+            parseColor(v.fog_color),
             v.fog_near ?? 10,
             v.fog_far  ?? 30
         );
     } else if (v.fog_color === null) {
         this.scene.fog = null;
     }
-    if (v.ambient_color)              this._venueAmbientColor     = new THREE.Color(v.ambient_color);
+    if (v.ambient_color)              this._venueAmbientColor     = parseColor(v.ambient_color);
     if (v.ambient_intensity != null)  this._venueAmbientIntensity = v.ambient_intensity;
     if (v.spot_intensity != null)     this._venueSpotIntensity    = v.spot_intensity;
     if (v.fill_intensity != null)     this._venueFillIntensity    = v.fill_intensity;
@@ -161,7 +161,7 @@ export async function loadDecorations(decorations) {
 export function addCustomLights(fixtures) {
     for (const f of fixtures) {
         let light;
-        const color = f.color ? new THREE.Color(f.color) : 0xffffff;
+        const color = f.color ? parseColor(f.color) : 0xffffff;
         const intensity = f.intensity ?? 1;
         switch (f.type) {
             case 'point':       light = new THREE.PointLight(color, intensity, f.distance ?? 0, f.decay ?? 2); break;

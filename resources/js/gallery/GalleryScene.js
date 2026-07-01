@@ -40,6 +40,7 @@ import { updateMovement, updateMovementMobile } from './Movement.js';
 import { toggleArtworkInfo, checkArtworkFocus } from './FocusMode.js';
 import { setupMobileControls } from './Mobile.js';
 import { PostProcessing } from './PostProcessing.js';
+import { PerformanceControls } from './PerformanceControls.js';
 
 export class GalleryScene {
     constructor() {
@@ -144,6 +145,10 @@ export class GalleryScene {
         document.addEventListener('visibilitychange', () => {
             this._isVisible = !document.hidden;
         });
+
+        // Performance controls (FPS counter + quality toggle)
+        // Initialized after detectLowEnd so it knows the auto-detected tier
+        this._perfControls = new PerformanceControls(this);
 
         // Controls (keyboard + pointer lock + mobile)
         setupControls.call(this);

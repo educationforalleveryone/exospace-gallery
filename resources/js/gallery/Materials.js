@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
-import { MATERIAL_PRESETS, FRAME_STYLES, TEXTURE_PATHS } from './config.js';
+import { MATERIAL_PRESETS, FRAME_STYLES, TEXTURE_PATHS, parseColor } from './config.js';
 
 // Cache loaded textures per material directory so we don't re-fetch the same
 // PBR set when a venue uses the same material twice (e.g. wall + ceiling).
@@ -50,7 +50,7 @@ export function getWallMaterial(type) {
 
     // Apply venue-level overrides from the JSON config
     const vc = this._venueMaterialConfig;
-    const color          = vc?.wall_color          ? new THREE.Color(vc.wall_color)         : new THREE.Color(preset.color);
+    const color          = vc?.wall_color          ? parseColor(vc.wall_color)         : new THREE.Color(preset.color);
     const roughness      = vc?.wall_roughness      ?? preset.roughness;
     const metalness      = vc?.wall_metalness      ?? preset.metalness;
     const normalStrength = vc?.wall_normal_strength ?? preset.normalStrength;
@@ -94,7 +94,7 @@ export function getFloorMaterial(type) {
     const preset  = presets[type] || presets.wood;
 
     const vc = this._venueMaterialConfig;
-    const color          = vc?.floor_color          ? new THREE.Color(vc.floor_color)        : new THREE.Color(preset.color);
+    const color          = vc?.floor_color          ? parseColor(vc.floor_color)        : new THREE.Color(preset.color);
     const roughness      = vc?.floor_roughness      ?? preset.roughness;
     const metalness      = vc?.floor_metalness      ?? preset.metalness;
     const normalStrength = vc?.floor_normal_strength ?? preset.normalStrength;

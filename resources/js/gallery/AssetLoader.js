@@ -12,7 +12,12 @@ import * as THREE from 'three';
 import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader }      from 'three/addons/loaders/KTX2Loader.js';
-import { RGBELoader }      from 'three/addons/loaders/RGBELoader.js';
+// Three.js r163+ deprecated RGBELoader in favour of HDRLoader. The file is
+// still at examples/jsm/loaders/RGBELoader.js but the class emits a console
+// warning. We import via namespace and pick whichever export exists — this
+// silences the deprecation warning without breaking on older three versions.
+import * as _HDRLoaderModule from 'three/addons/loaders/RGBELoader.js';
+const _HDRLoader = _HDRLoaderModule.HDRLoader || _HDRLoaderModule.RGBELoader;
 import { CONFIG } from './config.js';
 import { preloadMaterialTextures } from './Materials.js';
 
@@ -150,7 +155,7 @@ export function loadEnvironmentMap() {
     const hdriPath = this._customHdriUrl || lightingConfig.hdri;
     if (!hdriPath) return;
 
-    const rgbeLoader = new RGBELoader();
+    const rgbeLoader = new _HDRLoader();
     rgbeLoader.load(
         hdriPath,
         (texture) => {
