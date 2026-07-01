@@ -8,288 +8,176 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0a14;
+            color: #f1f5f9;
             min-height: 100vh;
-            background: #0a0a0f;
-            color: #e2e8f0;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
         }
 
-        /* ── Nav ── */
+        /* ── Nav ─────────────────────────────────────────── */
         nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1.25rem 2.5rem;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.12);
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(12px);
+            position: sticky; top: 0; z-index: 100;
         }
         .nav-logo {
-            font-size: 1.25rem;
-            font-weight: 800;
-            letter-spacing: 0.2em;
+            font-size: 1.1rem; font-weight: 800; letter-spacing: 0.18em;
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             text-decoration: none;
         }
+        .nav-links { display: flex; gap: 1.75rem; }
         .nav-links a {
-            color: #94a3b8;
-            text-decoration: none;
-            margin-left: 1.75rem;
-            font-size: 0.9rem;
+            color: #94a3b8; text-decoration: none; font-size: 0.85rem; font-weight: 500;
             transition: color 0.2s;
         }
-        .nav-links a:hover { color: #fff; }
+        .nav-links a:hover { color: #f1f5f9; }
 
-        /* ── Hero ── */
+        /* ── Hero ────────────────────────────────────────── */
         .hero {
-            text-align: center;
-            padding: 5rem 1.5rem 3rem;
+            text-align: center; padding: 5rem 2rem 3rem;
+            max-width: 800px; margin: 0 auto;
+        }
+        .delivery-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.4rem 0.9rem;
+            background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 999px;
+            font-size: 0.75rem; color: #c4b5fd; font-weight: 500;
+            margin-bottom: 1.5rem;
         }
         .hero h1 {
-            font-size: clamp(2.25rem, 5vw, 3.25rem);
-            font-weight: 800;
-            line-height: 1.15;
+            font-size: clamp(2.2rem, 5vw, 3.5rem); font-weight: 800; line-height: 1.1;
             margin-bottom: 1rem;
         }
-        .hero h1 .grad {
+        .grad {
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
         .hero p {
-            color: #64748b;
-            font-size: 1.05rem;
-            max-width: 540px;
-            margin: 0 auto;
+            font-size: 1.05rem; color: #94a3b8; line-height: 1.6;
+            max-width: 600px; margin: 0 auto;
         }
 
-        /* ── Delivery badge ── */
-        .delivery-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(59,130,246,0.08);
-            border: 1px solid rgba(59,130,246,0.2);
-            border-radius: 999px;
-            padding: 0.4rem 1rem;
-            margin-bottom: 1.75rem;
-            font-size: 0.8rem;
-            color: #60a5fa;
-            font-weight: 500;
-        }
-        .delivery-badge svg { flex-shrink: 0; }
-
-        /* ── Cards grid ──
-           FIX: Changed from repeat(auto-fit, minmax(280px,1fr)) which can collapse
-           to 1 or 2 columns unexpectedly on mid-size screens. Fixed 3-column grid
-           with responsive fallback. align-items: start prevents cards from
-           stretching to equal height (which distorted the featured card badge).
-        ── */
+        /* ── Cards ───────────────────────────────────────── */
         .cards {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 0 1.5rem 4rem;
-            align-items: start;
+            display: grid; gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            max-width: 1200px; margin: 3rem auto; padding: 0 2rem;
         }
-        @media (max-width: 900px) {
-            .cards { grid-template-columns: 1fr; max-width: 480px; }
-        }
-        @media (min-width: 901px) and (max-width: 1050px) {
-            .cards { gap: 1rem; }
-        }
-
         .card {
-            background: #131319;
-            border: 1px solid #1e1e2e;
-            border-radius: 16px;
-            padding: 2rem 1.75rem;
-            position: relative;
-            transition: border-color 0.25s;
+            background: linear-gradient(180deg, #131319 0%, #0d0d14 100%);
+            border: 1px solid rgba(139, 92, 246, 0.12);
+            border-radius: 18px; padding: 2rem;
+            display: flex; flex-direction: column;
+            transition: all 0.3s ease;
         }
-        .card:hover { border-color: #2e2e44; }
+        .card:hover { border-color: rgba(139, 92, 246, 0.3); transform: translateY(-4px); }
         .card.featured {
-            border-color: #8b5cf6;
-            background: linear-gradient(180deg, #1a1428 0%, #131319 40%);
+            border-color: rgba(139, 92, 246, 0.4);
+            box-shadow: 0 0 50px rgba(139, 92, 246, 0.15);
+            position: relative;
         }
         .card.featured::before {
-            content: 'Most Popular';
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
+            content: 'MOST POPULAR';
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            color: #fff;
-            font-size: 0.7rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            padding: 0.3rem 1rem;
-            border-radius: 999px;
-            white-space: nowrap;
+            color: white; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+            padding: 4px 12px; border-radius: 999px;
         }
-
         .card-tier {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
+            font-size: 0.85rem; font-weight: 600; color: #94a3b8;
+            text-transform: uppercase; letter-spacing: 0.1em;
             margin-bottom: 0.5rem;
         }
         .card-price {
-            display: flex;
-            align-items: baseline;
-            gap: 0.25rem;
-            margin-bottom: 0.25rem;
+            display: flex; align-items: baseline; gap: 0.25rem;
+            margin-bottom: 1rem;
         }
-        .card-price .dollar { font-size: 1.25rem; color: #64748b; margin-top: 0.4rem; }
-        .card-price .amount { font-size: 2.75rem; font-weight: 800; color: #f1f5f9; }
-        .card-price .period { font-size: 0.85rem; color: #64748b; }
-        .card-desc {
-            font-size: 0.82rem;
-            color: #64748b;
-            margin-bottom: 1.75rem;
-            line-height: 1.5;
-        }
-
-        /* ── Feature list ──
-           FIX: The original feat-label/feat-detail were siblings sitting inline
-           which caused the venue list text to spill or wrap chaotically depending
-           on card width. Now they stack vertically inside a flex column wrapper,
-           keeping the checkmark icon aligned to the first line.
-        ── */
-        .features { list-style: none; margin-bottom: 2rem; }
+        .dollar { font-size: 1.5rem; color: #94a3b8; font-weight: 600; }
+        .amount { font-size: 3rem; font-weight: 800; color: #f1f5f9; }
+        .period { font-size: 0.85rem; color: #64748b; }
+        .card-desc { font-size: 0.9rem; color: #94a3b8; line-height: 1.6; margin-bottom: 1.5rem; }
+        .features { list-style: none; flex-grow: 1; margin-bottom: 1.5rem; }
         .features li {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.6rem;
-            padding: 0.45rem 0;
-            font-size: 0.87rem;
-            color: #cbd5e1;
-            line-height: 1.5;
+            display: flex; align-items: flex-start; gap: 0.65rem;
+            font-size: 0.85rem; color: #cbd5e1; line-height: 1.5;
+            padding: 0.4rem 0;
         }
-        /* Wrapper that stacks label + detail vertically */
-        .feat-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.15rem;
-            min-width: 0;
-        }
-        .feat-label {
-            font-weight: 700;
-            color: #f1f5f9;
-            line-height: 1.4;
-        }
-        .feat-detail {
-            font-size: 0.79rem;
-            color: #94a3b8;
-            line-height: 1.45;
-        }
-        .features li .icon {
-            flex-shrink: 0;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-top: 2px;
-        }
-        .features li .icon.yes { background: rgba(139,92,246,0.15); }
-        .features li .icon.no  { background: rgba(100,116,139,0.12); }
-        .features li .icon svg { width: 10px; height: 10px; }
         .features li.dim { color: #475569; }
+        .features li strong { color: #f1f5f9; font-weight: 600; }
+        .icon { flex-shrink: 0; width: 16px; height: 16px; margin-top: 2px; }
+        .icon.yes { display: inline-flex; align-items: center; justify-content: center; }
+        .icon.no  { display: inline-flex; align-items: center; justify-content: center; }
+        .feat-group { display: flex; flex-direction: column; gap: 1px; }
+        .feat-label { font-weight: 600; color: #f1f5f9; }
+        .feat-detail { font-size: 0.75rem; color: #64748b; }
 
-        /* ── CTA buttons ── */
         .btn {
-            display: block;
-            width: 100%;
-            text-align: center;
-            padding: 0.75rem 1rem;
-            border-radius: 10px;
-            font-size: 0.88rem;
-            font-weight: 600;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
+            display: block; text-align: center; text-decoration: none;
+            padding: 0.85rem 1.5rem; border-radius: 10px;
+            font-weight: 700; font-size: 0.95rem;
+            transition: all 0.2s ease;
         }
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #2e2e44;
-            color: #cbd5e1;
-        }
-        .btn-outline:hover { border-color: #8b5cf6; color: #fff; }
         .btn-primary {
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            color: #fff;
-            box-shadow: 0 4px 24px rgba(139,92,246,0.25);
+            color: white;
         }
-        .btn-primary:hover { box-shadow: 0 4px 32px rgba(139,92,246,0.4); transform: translateY(-1px); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(139, 92, 246, 0.35); }
+        .btn-outline {
+            background: transparent; color: #f1f5f9;
+            border: 1px solid rgba(139, 92, 246, 0.4);
+        }
+        .btn-outline:hover { background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.7); }
 
-        /* ── Trust footer ── */
+        /* ── Trust footer ────────────────────────────────── */
         .trust-footer {
-            text-align: center;
-            padding: 2rem 1.5rem 4rem;
-            border-top: 1px solid #1e1e2e;
-            max-width: 680px;
-            margin: 0 auto;
+            text-align: center; padding: 2.5rem 2rem;
+            border-top: 1px solid rgba(139, 92, 246, 0.08);
+            margin-top: 3rem;
         }
-        .trust-footer .lock-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-bottom: 0.75rem;
+        .lock-row {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            color: #8b5cf6; margin-bottom: 0.5rem;
         }
-        .trust-footer .lock-row svg { color: #64748b; }
         .trust-footer p {
-            font-size: 0.78rem;
-            color: #475569;
-            line-height: 1.7;
+            font-size: 0.8rem; color: #64748b; line-height: 1.7;
         }
-        .trust-footer p strong { color: #64748b; }
 
-        /* ── FAQ (minimal) ── */
+        /* ── FAQ ─────────────────────────────────────────── */
         .faq {
-            max-width: 680px;
-            margin: 0 auto;
-            padding: 0 1.5rem 5rem;
+            max-width: 720px; margin: 4rem auto; padding: 0 2rem;
         }
         .faq h2 {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #f1f5f9;
-            margin-bottom: 1.25rem;
-            text-align: center;
+            font-size: 1.6rem; font-weight: 700; text-align: center; margin-bottom: 2rem;
         }
         .faq-item {
-            border-bottom: 1px solid #1e1e2e;
-            padding: 1rem 0;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(139, 92, 246, 0.1);
+            border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.6rem;
         }
         .faq-item summary {
-            font-size: 0.88rem;
-            font-weight: 600;
-            color: #cbd5e1;
-            cursor: pointer;
-            list-style: none;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            font-size: 0.9rem; font-weight: 600; color: #f1f5f9;
+            cursor: pointer; list-style: none;
+            display: flex; justify-content: space-between; align-items: center;
         }
         .faq-item summary::-webkit-details-marker { display: none; }
         .faq-item summary .plus { color: #64748b; font-size: 1.2rem; transition: transform 0.2s; }
         .faq-item[open] summary .plus { transform: rotate(45deg); }
         .faq-item p {
-            font-size: 0.82rem;
-            color: #64748b;
-            line-height: 1.7;
-            padding-top: 0.6rem;
+            font-size: 0.82rem; color: #94a3b8; line-height: 1.7; padding-top: 0.6rem;
+        }
+
+        @media (max-width: 720px) {
+            nav { padding: 1rem 1.25rem; }
+            .nav-links { gap: 1rem; }
+            .nav-links a { font-size: 0.8rem; }
+            .hero { padding: 3rem 1.5rem 2rem; }
+            .cards { padding: 0 1rem; }
         }
     </style>
 </head>
@@ -311,8 +199,8 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Instant digital delivery via browser
     </div>
-    <h1>One venue free.<br><span class="grad">Unlock them all.</span></h1>
-    <p>Each plan unlocks more virtual venues — distinct 3D spaces with their own architecture, scale, and atmosphere.</p>
+    <h1>Two venues free.<br><span class="grad">Unlock them all.</span></h1>
+    <p>Each plan unlocks more virtual venues — 11 distinct 3D spaces with their own architecture, scale, and atmosphere.</p>
 </section>
 
 <!-- Cards -->
@@ -334,7 +222,10 @@
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Modern White Cube</strong> venue
+                <span class="feat-group">
+                    <span class="feat-label">2 venues</span>
+                    <span class="feat-detail">Modern White Cube · Infinite Void</span>
+                </span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -364,13 +255,13 @@
         <ul class="features">
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Unlimited galleries</strong> · 50 images each
+                <strong>5 galleries</strong> · 100 images each
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
                 <span class="feat-group">
-                    <span class="feat-label">4 venues</span>
-                    <span class="feat-detail">White Cube · Industrial Loft · Dark Museum · Zen Gallery</span>
+                    <span class="feat-label">7 venues</span>
+                    <span class="feat-detail">White Cube · Infinite Void · Industrial Loft · Dark Museum · Zen Gallery · Crystal Cathedral · Nebula Drift</span>
                 </span>
             </li>
             <li>
@@ -397,29 +288,36 @@
             <span class="amount">99</span>
             <span class="period">/ one-time</span>
         </div>
-        <p class="card-desc">For agencies and professionals. Every venue, unlimited everything.</p>
+        <p class="card-desc">For agencies and professionals. Every venue, custom domains, white-label branding.</p>
         <ul class="features">
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Unlimited galleries · unlimited images</strong>
+                <strong>Unlimited galleries · 500 images each</strong>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
                 <span class="feat-group">
-                    <span class="feat-label">All 8 venues</span>
-                    <span class="feat-detail">Penthouse · Cyber Gallery · Sculpture Garden + more</span>
+                    <span class="feat-label">All 11 venues</span>
+                    <span class="feat-detail">Penthouse · Cyber Gallery · Sculpture Garden · Mirror Lake + every Pro venue</span>
+                </span>
+            </li>
+            <li>
+                <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
+                <span class="feat-group">
+                    <span class="feat-label">Custom domain</span>
+                    <span class="feat-detail">Host galleries on your own subdomain (e.g. gallery.yourname.com)</span>
+                </span>
+            </li>
+            <li>
+                <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
+                <span class="feat-group">
+                    <span class="feat-label">White-label branding</span>
+                    <span class="feat-detail">Your logo on every gallery, no Exospace watermark</span>
                 </span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
                 Background music · scheduling · team collaboration
-            </li>
-            <li>
-                <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <span class="feat-group">
-                    <span class="feat-label">Custom branding</span>
-                    <span class="feat-detail">Your logo on every gallery, no Exospace watermark</span>
-                </span>
             </li>
             <li>
                 <span class="icon yes"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -447,7 +345,7 @@
     <h2>Questions?</h2>
     <details class="faq-item">
         <summary>Is there a free trial for Pro? <span class="plus">+</span></summary>
-        <p>The Free plan is your trial — create a gallery, upload images, and experience the full 3D viewer. Upgrade anytime when you're ready.</p>
+        <p>The Free plan is your trial — create a gallery, upload images, and experience the full 3D viewer with two venues. Upgrade anytime when you're ready.</p>
     </details>
     <details class="faq-item">
         <summary>Can I upgrade later? <span class="plus">+</span></summary>
@@ -461,17 +359,21 @@
         <summary>What happens to my gallery if I don't upgrade? <span class="plus">+</span></summary>
         <p>Nothing. Your gallery stays live and public. The only difference is the small "Created with Exospace" watermark in the corner.</p>
     </details>
+    <details class="faq-item">
+        <summary>Are the 3D venues pre-built or can I customize them? <span class="plus">+</span></summary>
+        <p>Each venue is a fully-realized 3D environment with its own architecture, lighting, and atmosphere. Within a venue, you can customize wall material, floor material, frame style, and lighting preset to fine-tune the look.</p>
+    </details>
 </section>
 
 <!-- Pro Upgrade Modal -->
 <div id="upgrade-modal-pro" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
     <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
-        
+
         <h3 style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Pro — $29</h3>
         <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
         <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
-            <li>Unlimited galleries · 50 images each</li>
-            <li>White Cube · Industrial Loft · Dark Museum · Zen Gallery</li>
+            <li>5 galleries · 100 images each</li>
+            <li>7 venues: White Cube, Infinite Void, Industrial Loft, Dark Museum, Zen Gallery, Crystal Cathedral, Nebula Drift</li>
             <li>Background music & exhibition scheduling</li>
             <li>No watermark</li>
             <li>Priority email support</li>
@@ -488,13 +390,14 @@
 <!-- Studio Upgrade Modal -->
 <div id="upgrade-modal-studio" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
     <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
-        
+
         <h3 style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Studio — $99</h3>
         <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
         <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
-            <li>Unlimited galleries · unlimited images</li>
-            <li>All 8 venues including Penthouse · Cyber Gallery · Sculpture Garden</li>
-            <li>Custom branding & logo on every gallery</li>
+            <li>Unlimited galleries · 500 images each</li>
+            <li>All 11 venues including Penthouse, Cyber Gallery, Sculpture Garden, Mirror Lake</li>
+            <li>Custom domain (yourname.com)</li>
+            <li>White-label branding & logo on every gallery</li>
             <li>Advanced analytics · team collaboration</li>
             <li>Dedicated account manager</li>
         </ul>

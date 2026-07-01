@@ -23,7 +23,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'max_images',
         'plan_started_at',
         'plan_expires_at',
-        'current_team_id',   // ← NEW: active team context
+        'current_team_id',
     ];
 
     protected $hidden = [
@@ -97,21 +97,42 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     // ── Plan helpers ──────────────────────────────────────────────────────
+    //
+    // Plan tiers and limits — single source of truth.
+    //
+    //   Free   — 1 gallery,  10 images, white-cube + infinite-void venues
+    //   Pro    — 5 galleries, 100 images, all venues except studio-only
+    //   Studio — unlimited galleries, 500 images, all venues + custom materials
+    //            + custom domains + white-label (no Exospace watermark)
+    //
+    // Why these numbers:
+    //   - Free = enough to try the product, not enough for a real artist
+    //   - Pro  = enough for a working artist (5 exhibitions, 100 works each)
+    //   - Studio = enough for a gallery / agency (unlimited exhibitions,
+    //     500 images each = ample for any real-world use)
+    //
+    // If you change these, also update:
+    //   - resources/views/pages/pricing.blade.php (UI display)
+    //   - database/seeders/VenueTemplateSeeder.php (plan_required per venue)
+    //   - app/Services/VenueConfigExporter.php (plan gating for decorations)
 
-    /**
-     * Canonical plan → limit map. Single source of truth for the whole app.
-     */
     public static function planLimits(string $plan): array
     {
         return match($plan) {
-            'pro', 'studio' => ['max_galleries' => 999, 'max_images' => 100],
-            default         => ['max_galleries' => 1,   'max_images' => 10],
+            'studio' => ['max_galleries' => 999, 'max_images' => 500],
+            'pro'    => ['max_galleries' => 5,   'max_images' => 100],
+            default  => ['max_galleries' => 1,   'max_images' => 10],
         };
     }
 
     public function isPro(): bool
     {
         return in_array($this->plan, ['pro', 'studio']);
+    }
+
+    public function isStudio(): bool
+    {
+        return $this->plan === 'studio';
     }
 
     public function canCreateGallery(): bool
@@ -138,22 +159,27 @@ class User extends Authenticatable implements MustVerifyEmail
 
     // ── Boot ──────────────────────────────────────────────────────────────
 
-    protected static function booted(): void
+    protected static function boot()
     {
-        static::created(function (User $user) {
-            // Skip welcome email for invitation-created accounts.
-            // They already have email_verified_at set, meaning they came
-            // through the invite flow and will get a team-specific welcome instead.
-            if ($user->email_verified_at !== null) {
-                return;
-            }
+        parent::boot();
 
-            try {
-                \Illuminate\Support\Facades\Mail::to($user->email)
-                    ->send(new \App\Mail\WelcomeEmail($user));
-                \Illuminate\Support\Facades\Log::info("Welcome email sent to: {$user->email}");
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Failed to send welcome email: ' . $e->getMessage());
+        // When a user is created, default their plan limits from the plan.
+        // When a user's plan changes, refresh their limits.
+        static::creating(function (User $user) {
+            if (! $user->plan) $user->plan = 'free';
+            $limits = self::planLimits($user->plan);
+            if (! $user->max_galleries) $user->max_galleries = $limits['max_galleries'];
+            if (! $user->max_images)    $user->max_images    = $limits['max_images'];
+            if (! $user->plan_started_at) $user->plan_started_at = now();
+        });
+
+        static::updating(function (User $user) {
+            // If plan changed, refresh the limits
+            if ($user->isDirty('plan')) {
+                $limits = self::planLimits($user->plan);
+                $user->max_galleries = $limits['max_galleries'];
+                $user->max_images    = $limits['max_images'];
+                $user->plan_started_at = now();
             }
         });
     }

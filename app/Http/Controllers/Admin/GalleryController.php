@@ -513,10 +513,10 @@ class GalleryController extends Controller
         $rules = [
             'title'           => 'required|string|max:255',
             'description'     => 'nullable|string|max:1000',
-            'wall_texture'    => 'required|in:white,concrete,brick,wood',
-            'frame_style'     => 'required|in:modern,classic,minimal',
+            'wall_texture'    => 'required|in:white,concrete,brick,wood,plaster,marble,velvet',
+            'frame_style'     => 'required|in:modern,classic,minimal,gold,silver,bronze,black',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
-            'floor_material'  => 'required|in:wood,marble,concrete',
+            'floor_material'  => 'required|in:wood,marble,concrete,terrazzo,grass,sand',
             'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',
             'venue_template_id' => 'nullable|integer|exists:venue_templates,id',
             'gallery_pin'     => 'nullable|digits:4',

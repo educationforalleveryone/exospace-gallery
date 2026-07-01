@@ -189,13 +189,16 @@
 @php
 $venueAtmospheres = [
     'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => 'WC', 'accent' => '#e0e0e0'],
+    'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => 'IV', 'accent' => '#8b5cf6'],
     'industrial-loft'   => ['bg' => 'linear-gradient(135deg, #2a2820 0%, #1a1610 100%)',  'emoji' => 'IL', 'accent' => '#8a7a50'],
     'dark-museum'       => ['bg' => 'linear-gradient(135deg, #0a0a0a 0%, #1a0808 100%)',  'emoji' => 'DM', 'accent' => '#8b1a1a'],
     'zen-gallery'       => ['bg' => 'linear-gradient(135deg, #2a2218 0%, #1a1810 100%)',  'emoji' => 'ZG', 'accent' => '#8b7355'],
+    'crystal-cathedral' => ['bg' => 'linear-gradient(135deg, #1a1a3a 0%, #0a0a2a 100%)',  'emoji' => 'CC', 'accent' => '#ddeeff'],
+    'nebula-drift'      => ['bg' => 'linear-gradient(135deg, #1a0530 0%, #050015 100%)',  'emoji' => 'ND', 'accent' => '#8844ff'],
     'luxury-penthouse'  => ['bg' => 'linear-gradient(135deg, #0d0f18 0%, #060810 100%)',  'emoji' => 'LP', 'accent' => '#c9a84c'],
     'cyber-gallery'     => ['bg' => 'linear-gradient(135deg, #020820 0%, #000412 100%)',  'emoji' => 'CG', 'accent' => '#00ffff'],
-    'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #0d2010 0%, #081408 100%)',  'emoji' => 'SG', 'accent' => '#4ade80'],
-    'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => 'IV', 'accent' => '#8b5cf6'],
+    'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #87ceeb 0%, #4a8a3a 100%)',  'emoji' => 'SG', 'accent' => '#4ade80'],
+    'mirror-lake'       => ['bg' => 'linear-gradient(135deg, #0a0a18 0%, #202830 100%)',  'emoji' => 'ML', 'accent' => '#b0c8ff'],
 ];
 @endphp
 
@@ -385,20 +388,25 @@ $venueAtmospheres = [
 // Venue descriptions (matches slug)
 const venueDescriptions = {
     'white-cube':       'Minimal contemporary exhibition space. The professional standard.',
+    'infinite-void':    'Floating artworks in an endless environment. No limits.',
     'industrial-loft':  'Concrete, steel and large open spaces. Urban contemporary feel.',
     'dark-museum':      'Dramatic lighting with black walls. Premium artwork presentation.',
     'zen-gallery':      'Minimal architecture with natural materials. Calm and focused.',
+    'crystal-cathedral':'Floating glass shards catch refracted light. Ethereal prism space.',
+    'nebula-drift':     'Drift through cosmic cloud of stars and purple nebula. Otherworldly.',
     'luxury-penthouse': 'High-end collector experience with city views.',
     'cyber-gallery':    'Futuristic neon exhibition space for digital creators.',
-    'sculpture-garden': 'Open-air exhibition environment for large installations.',
-    'infinite-void':    'Floating artworks in an endless environment. No limits.',
+    'sculpture-garden': 'Open-air garden with hedges, trees, and stone paths.',
+    'mirror-lake':      'Reflective floor + moonlight + drifting mist. Meditative.',
 };
 
 const venueAccentColors = {
-    'white-cube': '#e0e0e0', 'industrial-loft': '#8a7a50',
-    'dark-museum': '#8b1a1a', 'zen-gallery': '#8b7355',
-    'luxury-penthouse': '#c9a84c', 'cyber-gallery': '#00ffff',
-    'sculpture-garden': '#4ade80', 'infinite-void': '#8b5cf6',
+    'white-cube': '#e0e0e0', 'infinite-void': '#8b5cf6',
+    'industrial-loft': '#8a7a50', 'dark-museum': '#8b1a1a',
+    'zen-gallery': '#8b7355', 'crystal-cathedral': '#ddeeff',
+    'nebula-drift': '#8844ff', 'luxury-penthouse': '#c9a84c',
+    'cyber-gallery': '#00ffff', 'sculpture-garden': '#4ade80',
+    'mirror-lake': '#b0c8ff',
 };
 
 function selectVenue(card) {

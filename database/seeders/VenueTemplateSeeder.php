@@ -6,21 +6,35 @@ use App\Models\VenueTemplate;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds the 8 built-in venue templates with FULL data-driven configuration
- * in the new JSON columns.
+ * Seeds the venue templates with full data-driven configuration.
  *
- * The values in `visual_config`, `material_config`, `decorations`, and
- * `lighting_fixtures` mirror the values that were previously hardcoded in
- * resources/views/gallery/view.blade.php's `applyVenueOverrides(slug)`
- * switch statement. After running this seeder, the JS switch and the JSON
- * config produce IDENTICAL visual output — the switch can then be removed
- * (or kept as a fallback) without changing the look of any existing gallery.
+ * After running this seeder, the JS switch in VenueDecorator.js is only a
+ * fallback — the data-driven path (via VenueConfigExporter) takes precedence.
  *
- * Run after the 2026_06_21_000001_extend_venue_templates_table migration:
- *
- *     php artisan db:seed --class=VenueTemplateSeeder
+ * Run:
+ *   php artisan db:seed --class=VenueTemplateSeeder
  *
  * Safe to re-run — uses updateOrCreate on the slug.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * VENUE LIST (11 venues total)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * FREE PLAN:
+ *   1. white-cube          — Modern White Cube (default)
+ *   2. infinite-void       — Floating artworks in endless space (user favourite)
+ *
+ * PRO PLAN:
+ *   3. industrial-loft     — Concrete + steel + beams
+ *   4. dark-museum         — Dramatic dark walls, gold frames
+ *   5. zen-gallery         — Japanese minimalism, low walls, natural materials
+ *   6. crystal-cathedral   — NEW: floating glass shards, refracted light
+ *   7. nebula-drift        — NEW: starfield + nebula cloud + cosmic feel
+ *
+ * STUDIO PLAN:
+ *   8. luxury-penthouse    — Marble + gold, private collector feel
+ *   9. cyber-gallery       — Neon strips, futuristic
+ *  10. sculpture-garden    — REDESIGNED: outdoor garden with hedges, trees, sky
+ *  11. mirror-lake         — NEW: reflective floor + moonlight + mist
  */
 class VenueTemplateSeeder extends Seeder
 {
@@ -34,14 +48,11 @@ class VenueTemplateSeeder extends Seeder
         }
     }
 
-    /**
-     * @return array<int, array<string, mixed>>
-     */
     public static function templates(): array
     {
         return [
             // ─────────────────────────────────────────────────────────────
-            // 1. Modern White Cube — the default, free plan
+            // 1. Modern White Cube — Free
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Modern White Cube',
@@ -94,7 +105,60 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 2. Industrial Loft — Pro plan, concrete + steel + beams
+            // 2. Infinite Void — Free (user's favourite, so it's free)
+            // ─────────────────────────────────────────────────────────────
+            [
+                'name'          => 'Infinite Void',
+                'slug'          => 'infinite-void',
+                'description'   => 'Floating artworks in an endless environment. No limits, no walls, no ceiling.',
+                'category'      => 'abstract',
+                'tags'          => ['abstract', 'infinite', 'floating'],
+                'plan_required' => 'free',
+                'capacity_min'  => 1,
+                'capacity_max'  => null,
+                'sort_order'    => 2,
+                'is_featured'   => true,
+                'version'       => '1.0.0',
+                'default_settings' => [
+                    'wall_texture'    => 'white',
+                    'floor_material'  => 'marble',
+                    'lighting_preset' => 'dramatic',
+                    'frame_style'     => 'minimal',
+                    'room_layout'     => 'rotunda',
+                ],
+                'visual_config' => [
+                    'wall_height'            => 20,
+                    'wall_depth'             => 0.3,
+                    'ceiling_type'           => 'none',
+                    'ceiling_height'         => 0,
+                    'background_color'       => '0x000000',
+                    'fog_color'              => null,
+                    'fog_near'               => 0,
+                    'fog_far'                => 0,
+                    'ambient_color'          => '0xa0b0d0',
+                    'ambient_intensity'      => 0.2,
+                    'spot_intensity'         => 0.55,
+                    'fill_intensity'         => 0.12,
+                    'tone_mapping_exposure'  => 0.55,
+                    'frame_override'         => null,
+                ],
+                'material_config' => [
+                    'wall_color'             => '0x050505',
+                    'wall_roughness'         => 0.95,
+                    'wall_metalness'         => 0.1,
+                    'wall_normal_strength'   => 0.4,
+                    'floor_color'            => '0x0a0a0a',
+                    'floor_roughness'        => 0.4,
+                    'floor_metalness'        => 0.6,
+                    'floor_normal_strength'  => 0.4,
+                ],
+                'decorations'       => [],
+                'lighting_fixtures' => [],
+                'supported_layouts' => ['rotunda'],
+            ],
+
+            // ─────────────────────────────────────────────────────────────
+            // 3. Industrial Loft — Pro
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Industrial Loft',
@@ -105,7 +169,7 @@ class VenueTemplateSeeder extends Seeder
                 'plan_required' => 'pro',
                 'capacity_min'  => 30,
                 'capacity_max'  => 80,
-                'sort_order'    => 2,
+                'sort_order'    => 3,
                 'is_featured'   => true,
                 'version'       => '1.0.0',
                 'default_settings' => [
@@ -141,43 +205,13 @@ class VenueTemplateSeeder extends Seeder
                     'floor_metalness'        => 0.0,
                     'floor_normal_strength'  => 0.7,
                 ],
-                'decorations' => [
-                    [
-                        'id'            => 'beam-1',
-                        'type'          => 'custom',
-                        'model_path'    => 'venue-models/industrial-beam.glb',
-                        'position'      => [0, 6.5, 0],
-                        'rotation'      => [0, 0, 0],
-                        'scale'         => 1,
-                        'plan_required' => 'free',
-                    ],
-                    [
-                        'id'            => 'steel-column-1',
-                        'type'          => 'column',
-                        'model_path'    => 'venue-models/steel-column.glb',
-                        'position'      => [-3, 0, -3],
-                        'rotation'      => [0, 0, 0],
-                        'scale'         => 1,
-                        'plan_required' => 'free',
-                    ],
-                ],
-                'lighting_fixtures' => [
-                    [
-                        'id'          => 'warm-pendant-1',
-                        'type'        => 'point',
-                        'position'    => [0, 6, 0],
-                        'color'       => '0xffd9a8',
-                        'intensity'   => 0.4,
-                        'cast_shadow' => false,
-                        'distance'    => 12,
-                        'decay'       => 2,
-                    ],
-                ],
+                'decorations'       => [],  // beams + columns are procedural (VenueDecorator)
+                'lighting_fixtures' => [],
                 'supported_layouts' => ['square', 'corridor', 'l-shape'],
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 3. Dark Museum — Pro, dramatic, gold frames forced
+            // 4. Dark Museum — Pro (FIXED: dividers now register collisions)
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Dark Museum',
@@ -188,7 +222,7 @@ class VenueTemplateSeeder extends Seeder
                 'plan_required' => 'pro',
                 'capacity_min'  => 15,
                 'capacity_max'  => 50,
-                'sort_order'    => 3,
+                'sort_order'    => 4,
                 'is_featured'   => false,
                 'version'       => '1.0.0',
                 'default_settings' => [
@@ -224,13 +258,13 @@ class VenueTemplateSeeder extends Seeder
                     'floor_metalness'        => 0.2,
                     'floor_normal_strength'  => 0.5,
                 ],
-                'decorations'       => [],
+                'decorations'       => [],  // dividers are procedural (VenueDecorator)
                 'lighting_fixtures' => [],
                 'supported_layouts' => ['square', 'rotunda'],
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 4. Japanese Zen Gallery — Pro, low walls, natural materials
+            // 5. Japanese Zen Gallery — Pro
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Japanese Zen Gallery',
@@ -241,7 +275,7 @@ class VenueTemplateSeeder extends Seeder
                 'plan_required' => 'pro',
                 'capacity_min'  => 10,
                 'capacity_max'  => 40,
-                'sort_order'    => 4,
+                'sort_order'    => 5,
                 'is_featured'   => false,
                 'version'       => '1.0.0',
                 'default_settings' => [
@@ -277,23 +311,130 @@ class VenueTemplateSeeder extends Seeder
                     'floor_metalness'        => 0.0,
                     'floor_normal_strength'  => 0.6,
                 ],
-                'decorations' => [
-                    [
-                        'id'            => 'divider-1',
-                        'type'          => 'custom',
-                        'model_path'    => 'venue-models/zen-divider.glb',
-                        'position'      => [0, 0, -2],
-                        'rotation'      => [0, 0, 0],
-                        'scale'         => 1,
-                        'plan_required' => 'free',
-                    ],
-                ],
+                'decorations'       => [],
                 'lighting_fixtures' => [],
                 'supported_layouts' => ['square', 'rotunda', 'l-shape'],
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 5. Luxury Penthouse — Studio, marble + gold frames
+            // 6. Crystal Cathedral — Pro (NEW void-style venue)
+            // ─────────────────────────────────────────────────────────────
+            [
+                'name'          => 'Crystal Cathedral',
+                'slug'          => 'crystal-cathedral',
+                'description'   => 'Floating glass shards catch refracted light. An ethereal space where art hangs in a prism of colour.',
+                'category'      => 'abstract',
+                'tags'          => ['glass', 'crystal', 'ethereal', 'refraction'],
+                'plan_required' => 'pro',
+                'capacity_min'  => 5,
+                'capacity_max'  => 40,
+                'sort_order'    => 6,
+                'is_featured'   => true,
+                'version'       => '1.0.0',
+                'default_settings' => [
+                    'wall_texture'    => 'white',
+                    'floor_material'  => 'marble',
+                    'lighting_preset' => 'bright',
+                    'frame_style'     => 'minimal',
+                    'room_layout'     => 'rotunda',
+                ],
+                'visual_config' => [
+                    'wall_height'            => 12,
+                    'wall_depth'             => 0.3,
+                    'ceiling_type'           => 'none',
+                    'ceiling_height'         => 0,
+                    'background_color'       => '0x0a0a1a',
+                    'fog_color'              => '0x0a0a1a',
+                    'fog_near'               => 15,
+                    'fog_far'                => 50,
+                    'ambient_color'          => '0xddeeff',
+                    'ambient_intensity'      => 0.25,
+                    'spot_intensity'         => 0.5,
+                    'fill_intensity'         => 0.15,
+                    'tone_mapping_exposure'  => 0.6,
+                    'frame_override'         => 'silver',
+                ],
+                'material_config' => [
+                    'wall_color'             => '0x202030',
+                    'wall_roughness'         => 0.2,
+                    'wall_metalness'         => 0.0,
+                    'wall_normal_strength'   => 0.3,
+                    'floor_color'            => null,
+                    'floor_roughness'        => 0.1,    // highly polished
+                    'floor_metalness'        => 0.4,
+                    'floor_normal_strength'  => 0.3,
+                ],
+                'decorations'       => [],  // glass shards are procedural (VenueDecorator)
+                'lighting_fixtures' => [],
+                'supported_layouts' => ['rotunda'],
+            ],
+
+            // ─────────────────────────────────────────────────────────────
+            // 7. Nebula Drift — Pro (NEW void-style venue)
+            // ─────────────────────────────────────────────────────────────
+            [
+                'name'          => 'Nebula Drift',
+                'slug'          => 'nebula-drift',
+                'description'   => 'Drift through a cosmic cloud of stars and purple nebula. For digital art and otherworldly exhibitions.',
+                'category'      => 'abstract',
+                'tags'          => ['cosmic', 'stars', 'nebula', 'ethereal'],
+                'plan_required' => 'pro',
+                'capacity_min'  => 5,
+                'capacity_max'  => 50,
+                'sort_order'    => 7,
+                'is_featured'   => true,
+                'version'       => '1.0.0',
+                'default_settings' => [
+                    'wall_texture'    => 'white',
+                    'floor_material'  => 'marble',
+                    'lighting_preset' => 'dramatic',
+                    'frame_style'     => 'minimal',
+                    'room_layout'     => 'rotunda',
+                ],
+                'visual_config' => [
+                    'wall_height'            => 15,
+                    'wall_depth'             => 0.3,
+                    'ceiling_type'           => 'none',
+                    'ceiling_height'         => 0,
+                    'background_color'       => '0x050015',
+                    'fog_color'              => '0x050015',
+                    'fog_near'               => 10,
+                    'fog_far'                => 40,
+                    'ambient_color'          => '0x8844ff',
+                    'ambient_intensity'      => 0.2,
+                    'spot_intensity'         => 0.55,
+                    'fill_intensity'         => 0.15,
+                    'tone_mapping_exposure'  => 0.6,
+                    'frame_override'         => null,
+                ],
+                'material_config' => [
+                    'wall_color'             => '0x080015',
+                    'wall_roughness'         => 0.4,
+                    'wall_metalness'         => 0.2,
+                    'wall_normal_strength'   => 0.3,
+                    'floor_color'            => '0x100525',
+                    'floor_roughness'        => 0.3,
+                    'floor_metalness'        => 0.5,
+                    'floor_normal_strength'  => 0.3,
+                ],
+                'decorations'       => [],  // starfield + nebula particles are procedural
+                'lighting_fixtures' => [
+                    [
+                        'id'          => 'nebula-center',
+                        'type'        => 'point',
+                        'position'    => [0, 5, 0],
+                        'color'       => '0x8844ff',
+                        'intensity'   => 0.5,
+                        'cast_shadow' => false,
+                        'distance'    => 30,
+                        'decay'       => 1.5,
+                    ],
+                ],
+                'supported_layouts' => ['rotunda'],
+            ],
+
+            // ─────────────────────────────────────────────────────────────
+            // 8. Luxury Penthouse — Studio
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Luxury Penthouse',
@@ -304,7 +445,7 @@ class VenueTemplateSeeder extends Seeder
                 'plan_required' => 'studio',
                 'capacity_min'  => 10,
                 'capacity_max'  => 40,
-                'sort_order'    => 5,
+                'sort_order'    => 8,
                 'is_featured'   => true,
                 'version'       => '1.0.0',
                 'default_settings' => [
@@ -346,7 +487,7 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 6. Cyber Gallery — Studio, neon strips, futuristic
+            // 9. Cyber Gallery — Studio
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Cyber Gallery',
@@ -357,7 +498,7 @@ class VenueTemplateSeeder extends Seeder
                 'plan_required' => 'studio',
                 'capacity_min'  => 20,
                 'capacity_max'  => 100,
-                'sort_order'    => 6,
+                'sort_order'    => 9,
                 'is_featured'   => true,
                 'version'       => '1.0.0',
                 'default_settings' => [
@@ -393,154 +534,123 @@ class VenueTemplateSeeder extends Seeder
                     'floor_metalness'        => 0.5,
                     'floor_normal_strength'  => 0.5,
                 ],
-                'decorations' => [
-                    [
-                        'id'            => 'neon-strip-1',
-                        'type'          => 'strip',
-                        'model_path'    => 'venue-models/neon-strip-blue.glb',
-                        'position'      => [0, 5.5, 0],
-                        'rotation'      => [0, 0, 0],
-                        'scale'         => 1,
-                        'plan_required' => 'free',
-                    ],
-                ],
-                'lighting_fixtures' => [
-                    [
-                        'id'          => 'neon-blue-1',
-                        'type'        => 'strip',
-                        'position'    => [0, 5.5, 0],
-                        'color'       => '0x3060ff',
-                        'intensity'   => 1.5,
-                        'cast_shadow' => false,
-                        'distance'    => 15,
-                        'decay'       => 1.5,
-                    ],
-                ],
+                'decorations'       => [],  // neon strips are procedural (VenueDecorator)
+                'lighting_fixtures' => [],
                 'supported_layouts' => ['square', 'corridor'],
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 7. Outdoor Sculpture Garden — Studio, no ceiling, open-air
+            // 10. Outdoor Sculpture Garden — Studio (REDESIGNED)
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Outdoor Sculpture Garden',
                 'slug'          => 'sculpture-garden',
-                'description'   => 'Open-air exhibition environment. For large installations and outdoor sculpture work.',
+                'description'   => 'Open-air garden exhibition. Hedges, trees, sky, and stone paths. Artworks on easels along a winding path.',
                 'category'      => 'outdoor',
-                'tags'          => ['outdoor', 'sculpture', 'open-air'],
+                'tags'          => ['outdoor', 'garden', 'sculpture', 'open-air'],
                 'plan_required' => 'studio',
-                'capacity_min'  => 10,
-                'capacity_max'  => 100,
-                'sort_order'    => 7,
+                'capacity_min'  => 5,
+                'capacity_max'  => 30,
+                'sort_order'    => 10,
                 'is_featured'   => false,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
-                    'floor_material'  => 'wood',
+                    'floor_material'  => 'grass',
                     'lighting_preset' => 'bright',
-                    'frame_style'     => 'minimal',
-                    'room_layout'     => 'l-shape',
-                ],
-                'visual_config' => [
-                    'wall_height'            => 8,
-                    'wall_depth'             => 0.6,
-                    'ceiling_type'           => 'none',
-                    'ceiling_height'         => 0,
-                    'background_color'       => '0x0d1a0d',
-                    'fog_color'              => '0x0d1a0d',
-                    'fog_near'               => 10,
-                    'fog_far'                => 45,
-                    'ambient_color'          => '0xe0f0d0',
-                    'ambient_intensity'      => 0.25,
-                    'spot_intensity'         => 0.4,
-                    'fill_intensity'         => 0.18,
-                    'tone_mapping_exposure'  => 0.6,
-                    'frame_override'         => null,
-                ],
-                'material_config' => [
-                    'wall_color'             => '0x6a7a5a',
-                    'wall_roughness'         => 1.0,
-                    'wall_metalness'         => 0.0,
-                    'wall_normal_strength'   => 0.8,
-                    'floor_color'            => null,
-                    'floor_roughness'        => 0.9,
-                    'floor_metalness'        => 0.0,
-                    'floor_normal_strength'  => 0.7,
-                ],
-                'decorations' => [
-                    [
-                        'id'            => 'pedestal-1',
-                        'type'          => 'pedestal',
-                        'model_path'    => 'venue-models/stone-pedestal.glb',
-                        'position'      => [0, 0, 0],
-                        'rotation'      => [0, 0, 0],
-                        'scale'         => 1,
-                        'plan_required' => 'free',
-                    ],
-                    [
-                        'id'            => 'plant-1',
-                        'type'          => 'plant',
-                        'model_path'    => 'venue-models/garden-plant.glb',
-                        'position'      => [-4, 0, -4],
-                        'rotation'      => [0, 0, 0],
-                        'scale'         => 1.2,
-                        'plan_required' => 'free',
-                    ],
-                ],
-                'lighting_fixtures' => [],
-                'supported_layouts' => ['square', 'l-shape', 'rotunda'],
-            ],
-
-            // ─────────────────────────────────────────────────────────────
-            // 8. Infinite Void — Studio, no walls/ceiling, no fog
-            // ─────────────────────────────────────────────────────────────
-            [
-                'name'          => 'Infinite Void',
-                'slug'          => 'infinite-void',
-                'description'   => 'Floating artworks in an endless environment. No limits, no walls, no ceiling.',
-                'category'      => 'abstract',
-                'tags'          => ['abstract', 'infinite', 'floating'],
-                'plan_required' => 'studio',
-                'capacity_min'  => 1,
-                'capacity_max'  => null,
-                'sort_order'    => 8,
-                'is_featured'   => false,
-                'version'       => '1.0.0',
-                'default_settings' => [
-                    'wall_texture'    => 'brick',
-                    'floor_material'  => 'marble',
-                    'lighting_preset' => 'dramatic',
                     'frame_style'     => 'minimal',
                     'room_layout'     => 'rotunda',
                 ],
                 'visual_config' => [
-                    'wall_height'            => 20,
-                    'wall_depth'             => 0.3,
+                    'wall_height'            => 0,    // no walls
+                    'wall_depth'             => 0,
                     'ceiling_type'           => 'none',
                     'ceiling_height'         => 0,
-                    'background_color'       => '0x000000',
-                    'fog_color'              => null,
+                    'background_color'       => '0x87ceeb',  // sky blue (overridden by sky dome shader)
+                    'fog_color'              => null,         // no fog — open air
                     'fog_near'               => 0,
                     'fog_far'                => 0,
-                    'ambient_color'          => '0xa0b0d0',
-                    'ambient_intensity'      => 0.2,
-                    'spot_intensity'         => 0.55,
-                    'fill_intensity'         => 0.12,
-                    'tone_mapping_exposure'  => 0.55,
+                    'ambient_color'          => '0xe0f0ff',
+                    'ambient_intensity'      => 0.4,          // brighter — outdoor daylight
+                    'spot_intensity'         => 0.3,
+                    'fill_intensity'         => 0.2,
+                    'tone_mapping_exposure'  => 0.7,
                     'frame_override'         => null,
                 ],
                 'material_config' => [
-                    'wall_color'             => '0x050505',
-                    'wall_roughness'         => 0.95,
-                    'wall_metalness'         => 0.1,
-                    'wall_normal_strength'   => 0.4,
-                    'floor_color'            => '0x0a0a0a',
-                    'floor_roughness'        => 0.4,
-                    'floor_metalness'        => 0.6,
-                    'floor_normal_strength'  => 0.4,
+                    'wall_color'             => null,         // n/a — no walls
+                    'wall_roughness'         => 1.0,
+                    'wall_metalness'         => 0.0,
+                    'wall_normal_strength'   => 0.5,
+                    'floor_color'            => '0x3a6a2a',   // grass green fallback
+                    'floor_roughness'        => 1.0,
+                    'floor_metalness'        => 0.0,
+                    'floor_normal_strength'  => 0.9,
                 ],
-                'decorations'       => [],
-                'lighting_fixtures' => [],
+                'decorations'       => [],  // hedges, trees, sky, path are procedural (VenueDecorator)
+                'lighting_fixtures' => [],  // sun is procedural (VenueDecorator)
+                'supported_layouts' => ['rotunda'],
+            ],
+
+            // ─────────────────────────────────────────────────────────────
+            // 11. Mirror Lake — Studio (NEW void-style venue)
+            // ─────────────────────────────────────────────────────────────
+            [
+                'name'          => 'Mirror Lake',
+                'slug'          => 'mirror-lake',
+                'description'   => 'A perfectly still mirror floor reflects artworks floating above. Moonlit, misty, meditative.',
+                'category'      => 'abstract',
+                'tags'          => ['mirror', 'reflection', 'moonlit', 'meditative'],
+                'plan_required' => 'studio',
+                'capacity_min'  => 5,
+                'capacity_max'  => 40,
+                'sort_order'    => 11,
+                'is_featured'   => true,
+                'version'       => '1.0.0',
+                'default_settings' => [
+                    'wall_texture'    => 'white',
+                    'floor_material'  => 'marble',
+                    'lighting_preset' => 'moody',
+                    'frame_style'     => 'minimal',
+                    'room_layout'     => 'rotunda',
+                ],
+                'visual_config' => [
+                    'wall_height'            => 0,    // no walls
+                    'wall_depth'             => 0,
+                    'ceiling_type'           => 'none',
+                    'ceiling_height'         => 0,
+                    'background_color'       => '0x0a0a18',  // deep night
+                    'fog_color'              => '0x0a0a18',
+                    'fog_near'               => 15,
+                    'fog_far'                => 45,
+                    'ambient_color'          => '0xb0c8ff',
+                    'ambient_intensity'      => 0.18,
+                    'spot_intensity'         => 0.5,
+                    'fill_intensity'         => 0.12,
+                    'tone_mapping_exposure'  => 0.55,
+                    'frame_override'         => 'silver',
+                ],
+                'material_config' => [
+                    'wall_color'             => null,
+                    'wall_roughness'         => 1.0,
+                    'wall_metalness'         => 0.0,
+                    'wall_normal_strength'   => 0.3,
+                    'floor_color'            => '0x202830',
+                    'floor_roughness'        => 0.0,    // perfect mirror
+                    'floor_metalness'        => 1.0,
+                    'floor_normal_strength'  => 0.1,
+                ],
+                'decorations'       => [],  // moon + mist particles are procedural
+                'lighting_fixtures' => [
+                    [
+                        'id'          => 'moonlight',
+                        'type'        => 'directional',
+                        'position'    => [12, 22, -8],
+                        'color'       => '0xb0c8ff',
+                        'intensity'   => 0.6,
+                        'cast_shadow' => false,
+                    ],
+                ],
                 'supported_layouts' => ['rotunda'],
             ],
         ];

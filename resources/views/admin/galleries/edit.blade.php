@@ -312,13 +312,16 @@
                         @php
                         $venueAtmospheres = [
                             'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => 'WC', 'accent' => '#e0e0e0'],
+                            'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => 'IV', 'accent' => '#8b5cf6'],
                             'industrial-loft'   => ['bg' => 'linear-gradient(135deg, #2a2820 0%, #1a1610 100%)',  'emoji' => 'IL', 'accent' => '#8a7a50'],
                             'dark-museum'       => ['bg' => 'linear-gradient(135deg, #0a0a0a 0%, #1a0808 100%)',  'emoji' => 'DM', 'accent' => '#8b1a1a'],
                             'zen-gallery'       => ['bg' => 'linear-gradient(135deg, #2a2218 0%, #1a1810 100%)',  'emoji' => 'ZG', 'accent' => '#8b7355'],
+                            'crystal-cathedral' => ['bg' => 'linear-gradient(135deg, #1a1a3a 0%, #0a0a2a 100%)',  'emoji' => 'CC', 'accent' => '#ddeeff'],
+                            'nebula-drift'      => ['bg' => 'linear-gradient(135deg, #1a0530 0%, #050015 100%)',  'emoji' => 'ND', 'accent' => '#8844ff'],
                             'luxury-penthouse'  => ['bg' => 'linear-gradient(135deg, #0d0f18 0%, #060810 100%)',  'emoji' => 'LP', 'accent' => '#c9a84c'],
                             'cyber-gallery'     => ['bg' => 'linear-gradient(135deg, #020820 0%, #000412 100%)',  'emoji' => 'CG', 'accent' => '#00ffff'],
-                            'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #0d2010 0%, #081408 100%)',  'emoji' => 'SG', 'accent' => '#4ade80'],
-                            'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => 'IV', 'accent' => '#8b5cf6'],
+                            'sculpture-garden'  => ['bg' => 'linear-gradient(135deg, #87ceeb 0%, #4a8a3a 100%)',  'emoji' => 'SG', 'accent' => '#4ade80'],
+                            'mirror-lake'       => ['bg' => 'linear-gradient(135deg, #0a0a18 0%, #202830 100%)',  'emoji' => 'ML', 'accent' => '#b0c8ff'],
                         ];
                         @endphp
 
@@ -398,7 +401,7 @@
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Wall</label>
                                 <select id="adv_wall" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
-                                    @foreach(['white'=>'White','concrete'=>'Concrete','brick'=>'Brick','wood'=>'Wood'] as $v=>$l)
+                                    @foreach(['white'=>'White','concrete'=>'Concrete','brick'=>'Brick','wood'=>'Wood','plaster'=>'Plaster','marble'=>'Marble','velvet'=>'Velvet'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->wall_texture == $v ? 'selected' : '' }}>{{ $l }}</option>
                                     @endforeach
                                 </select>
@@ -406,7 +409,7 @@
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Floor</label>
                                 <select id="adv_floor" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
-                                    @foreach(['wood'=>'Wood','marble'=>'Marble','concrete'=>'Concrete'] as $v=>$l)
+                                    @foreach(['wood'=>'Wood','marble'=>'Marble','concrete'=>'Concrete','terrazzo'=>'Terrazzo','grass'=>'Grass','sand'=>'Sand'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->floor_material == $v ? 'selected' : '' }}>{{ $l }}</option>
                                     @endforeach
                                 </select>
@@ -414,7 +417,7 @@
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Frame</label>
                                 <select id="adv_frame" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
-                                    @foreach(['modern'=>'Modern (Black)','classic'=>'Classic (Gold)','minimal'=>'Minimal'] as $v=>$l)
+                                    @foreach(['modern'=>'Modern (Black)','classic'=>'Classic (Gold)','minimal'=>'Minimal','gold'=>'Gold','silver'=>'Silver','bronze'=>'Bronze','black'=>'Black'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->frame_style == $v ? 'selected' : '' }}>{{ $l }}</option>
                                     @endforeach
                                 </select>
