@@ -17,19 +17,25 @@ use Illuminate\Support\Facades\Storage;
  *   - On the server after `php artisan storage:link` if uploads start 404'ing
  *   - Whenever you suspect a venue's decorations / HDRI / audio are missing
  *
- * Exit code is non-zero if any asset is missing — wire this into your CI to
- * block deploys that reference non-existent files.
+ * Exit code is non-zero only if a REQUIRED asset is missing — wire this
+ * into your CI to block deploys that reference non-existent files.
+ *
+ * Optional directories (thumbnails/venues, models/venue-props, models/frames)
+ * are auto-created if missing and downgraded to warnings, because they're
+ * legitimately empty by default — venue thumbnails have gradient fallbacks
+ * in the venue picker, and all current venue decorations are procedural
+ * (no GLBs needed until you start adding AI-generated 3D props).
  *
  * Usage:
  *   php artisan preflight:assets
  *   php artisan preflight:assets --fix   (creates empty placeholder files
- *                                          so the gallery doesn't crash —
- *                                          use as a last resort)
+ *                                          for missing core textures — use
+ *                                          as a last resort)
  */
 class PreflightAssets extends Command
 {
     protected $signature = 'preflight:assets
-                            {--fix : Create empty placeholder files for missing assets}';
+                            {--fix : Create placeholder files for missing core textures}';
 
     protected $description = 'Verify all venue/gallery assets exist on disk';
 
@@ -38,11 +44,14 @@ class PreflightAssets extends Command
         $this->info('🔍 Running asset preflight check...');
         $this->newLine();
 
-        $errors = 0;
+        $errors   = 0;
         $warnings = 0;
 
-        // ── 1. Public asset directories must exist ───────────────────────────
+        // ── 1. Public asset directories ───────────────────────────────────────
+        // Required directories: must exist (errors if missing).
+        // Optional directories: auto-create + warn (no errors).
         $this->info('Checking public asset directories...');
+
         $requiredDirs = [
             'public/assets/textures/walls',
             'public/assets/textures/floors',
@@ -50,9 +59,6 @@ class PreflightAssets extends Command
             'public/assets/textures/env',
             'public/assets/textures/shared',
             'public/assets/audio/sfx',
-            'public/assets/thumbnails/venues',
-            'public/assets/models/venue-props',
-            'public/assets/models/frames',
             'public/decoders/draco',     // DRACO wasm
             'public/decoders/basis',     // KTX2 basis transcoder
         ];
@@ -67,6 +73,24 @@ class PreflightAssets extends Command
                 $errors++;
             } else {
                 $this->line("  ✓ {$dir}");
+            }
+        }
+
+        // Optional directories — auto-create + warn. These are legitimately
+        // empty until the user adds venue thumbnails or AI-generated GLB props.
+        $optionalDirs = [
+            'public/assets/thumbnails/venues',  // venue preview thumbnails (gradient fallback in UI)
+            'public/assets/models/venue-props', // GLB decoration models (currently procedural)
+            'public/assets/models/frames',      // GLB artwork frame models (currently procedural)
+        ];
+        foreach ($optionalDirs as $dir) {
+            $full = base_path($dir);
+            if (! is_dir($full)) {
+                @mkdir($full, 0775, true);
+                $this->warn("  ⚠ Created empty optional directory: {$dir}");
+                $warnings++;
+            } else {
+                $this->line("  ✓ {$dir} (optional)");
             }
         }
         $this->newLine();
@@ -89,7 +113,7 @@ class PreflightAssets extends Command
         foreach ($venues as $venue) {
             $this->line("  • {$venue->name} (slug: {$venue->slug})");
 
-            // Thumbnail
+            // Thumbnail — optional (UI has gradient fallback). Warn if missing.
             if ($venue->thumbnail_path) {
                 if (! Storage::disk('public')->exists($venue->thumbnail_path)) {
                     $this->error("    ✗ Missing thumbnail: {$venue->thumbnail_path}");
@@ -99,24 +123,24 @@ class PreflightAssets extends Command
                 // Fallback to /assets/thumbnails/venues/{slug}.jpg
                 $fallback = public_path("assets/thumbnails/venues/{$venue->slug}.jpg");
                 if (! file_exists($fallback)) {
-                    $this->warn("    ⚠ No thumbnail_path and no /assets/thumbnails/venues/{$venue->slug}.jpg");
+                    $this->warn("    ⚠ No thumbnail — venue picker will use gradient fallback");
                     $warnings++;
                 }
             }
 
-            // HDRI
+            // HDRI — error if missing (venue references it but file isn't there)
             if ($venue->hdri_path && ! Storage::disk('public')->exists($venue->hdri_path)) {
                 $this->error("    ✗ Missing HDRI: {$venue->hdri_path}");
                 $errors++;
             }
 
-            // Default audio
+            // Default audio — error if missing
             if ($venue->default_audio_path && ! Storage::disk('public')->exists($venue->default_audio_path)) {
                 $this->error("    ✗ Missing audio: {$venue->default_audio_path}");
                 $errors++;
             }
 
-            // Decoration GLBs
+            // Decoration GLBs — error if referenced but missing
             if (is_array($venue->decorations)) {
                 foreach ($venue->decorations as $dec) {
                     $path = $dec['model_path'] ?? null;
@@ -128,10 +152,10 @@ class PreflightAssets extends Command
                 }
             }
 
-            // Preview model
+            // Preview model — warn if missing (only used for admin 3D preview, not in production)
             if ($venue->preview_model_path && ! Storage::disk('public')->exists($venue->preview_model_path)) {
-                $this->error("    ✗ Missing preview model: {$venue->preview_model_path}");
-                $errors++;
+                $this->warn("    ⚠ Missing preview model: {$venue->preview_model_path}");
+                $warnings++;
             }
         }
         $this->newLine();
@@ -178,6 +202,9 @@ class PreflightAssets extends Command
                 $errors++;
             }
         }
+        if ($errors === 0) {
+            $this->line('  ✓ All core textures present');
+        }
         $this->newLine();
 
         // ── Summary ──────────────────────────────────────────────────────────
@@ -191,7 +218,7 @@ class PreflightAssets extends Command
             return Command::FAILURE;
         }
 
-        $this->warn("⚠ {$warnings} warning(s), 0 errors.");
+        $this->warn("⚠ {$warnings} warning(s), 0 errors — gallery will run, but consider addressing warnings.");
         return Command::SUCCESS;
     }
 }
