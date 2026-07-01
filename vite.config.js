@@ -18,6 +18,18 @@ import copyDecodersPlugin from './scripts/copy-decoders-plugin.js';
 //     public/decoders/ on every build/dev start — no manual script needed.
 //   - The gallery entry point lives in resources/js/gallery/main.js; the legacy
 //     resources/js/app.js stays for the admin pages.
+//
+// ⚠️ IMPORTANT — alias ordering matters!
+// The `three/addons` alias MUST be listed BEFORE the `three` alias.
+// `@rollup/plugin-alias` (which Vite uses internally) matches in array order —
+// first match wins. If `three` came first, it would match
+// `three/addons/loaders/GLTFLoader.js` as a prefix and rewrite it to
+// `node_modules/three/addons/loaders/GLTFLoader.js` (a literal path that does
+// not exist — the addons are physically under examples/jsm/). The build would
+// then fail with ENOENT. Putting `three/addons` first ensures the longer
+// prefix is matched first.
+//
+// We use the array form (not the object form) so the order is explicit.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -37,14 +49,26 @@ export default defineConfig({
         copyDecodersPlugin(),
     ],
     resolve: {
-        alias: {
-            // Three core + addons both resolve to the same node_modules install
-            three: resolve(__dirname, 'node_modules/three'),
-            'three/addons': resolve(__dirname, 'node_modules/three/examples/jsm'),
-        },
+        alias: [
+            // ⚠️ ORDER MATTERS — three/addons must be FIRST.
+            // Matches `three/addons/loaders/GLTFLoader.js` →
+            //   node_modules/three/examples/jsm/loaders/GLTFLoader.js
+            {
+                find: 'three/addons',
+                replacement: resolve(__dirname, 'node_modules/three/examples/jsm'),
+            },
+            // Plain `three` matches `import * as THREE from 'three'` →
+            //   node_modules/three (resolved via package.json main field →
+            //   build/three.module.js)
+            {
+                find: 'three',
+                replacement: resolve(__dirname, 'node_modules/three'),
+            },
+        ],
     },
     optimizeDeps: {
-        // Three is large; pre-bundle so dev server startup is fast
+        // Three is large; pre-bundle so dev server startup is fast.
+        // We don't pre-bundle three/addons/* — those resolve via the alias.
         include: [
             'three',
             'gsap',
