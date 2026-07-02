@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Gallery;
+use App\Models\GalleryImage;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Intervention\Image\ImageManager;
@@ -12,6 +14,7 @@ use Intervention\Image\Drivers\Gd\Driver;
  * Generates an Open Graph / Twitter card image (1200×630 PNG) per gallery.
  *
  * Route: GET /gallery/{slug}/og-image
+ * Route: GET /gallery/{slug}/og-image?artwork={id}  (Task H50)
  *
  * The image is composed of:
  *   - Dark gradient background
@@ -20,11 +23,16 @@ use Intervention\Image\Drivers\Gd\Driver;
  *   - Venue template name (small badge)
  *   - Exospace wordmark (bottom right)
  *
- * Cached for 1 hour per slug to keep CPU usage low.
+ * (Task H50) — if ?artwork={id} is provided, the OG image uses the
+ * specified artwork's image instead of the gallery cover, and shows
+ * the artwork's title + artist name. This lets artists share
+ * deep-linked artwork URLs on social media with a proper preview card.
+ *
+ * Cached for 6 hours per slug (+ artwork ID) to keep CPU usage low.
  */
 class OgImageController extends Controller
 {
-    public function show(string $slug): Response
+    public function show(Request $request, string $slug): Response
     {
         $gallery = Cache::remember("og:gallery:{$slug}", now()->addHour(), function () use ($slug) {
             return Gallery::where('slug', $slug)
@@ -32,9 +40,22 @@ class OgImageController extends Controller
                 ->firstOrFail();
         });
 
-        $cacheKey = "og:image:{$slug}:v1";
-        $pngBytes = Cache::remember($cacheKey, now()->addHours(6), function () use ($gallery) {
-            return $this->render($gallery);
+        // (Task H50) — per-artwork OG image for deep-linked URLs
+        $artworkId = $request->integer('artwork');
+        $artwork = null;
+        if ($artworkId) {
+            $artwork = GalleryImage::with('artist')
+                ->where('gallery_id', $gallery->id)
+                ->where('id', $artworkId)
+                ->first();
+        }
+
+        $cacheKey = $artwork
+            ? "og:image:{$slug}:artwork:{$artworkId}:v1"
+            : "og:image:{$slug}:v1";
+
+        $pngBytes = Cache::remember($cacheKey, now()->addHours(6), function () use ($gallery, $artwork) {
+            return $this->render($gallery, $artwork);
         });
 
         return response($pngBytes, 200, [
@@ -43,7 +64,7 @@ class OgImageController extends Controller
         ]);
     }
 
-    private function render(Gallery $gallery): string
+    private function render(Gallery $gallery, ?GalleryImage $artwork = null): string
     {
         $manager = new ImageManager(new Driver());
         $canvas = $manager->create(1200, 630);
@@ -63,10 +84,9 @@ class OgImageController extends Controller
             } catch (\Throwable) {}
         }
 
-        // Left half: cover image if available
-        $coverUrl = $gallery->coverImage?->path
-            ? public_path(ltrim($gallery->coverImage->path, '/'))
-            : null;
+        // Left half: artwork image (if deep-linked) or cover image
+        $imagePath = $artwork?->path ?? $gallery->coverImage?->path;
+        $coverUrl = $imagePath ? public_path(ltrim($imagePath, '/')) : null;
 
         if ($coverUrl && file_exists($coverUrl)) {
             try {
@@ -93,42 +113,77 @@ class OgImageController extends Controller
         // Right half: text content
         $textX = 640;
 
-        // Venue badge
-        if ($gallery->venueTemplate) {
-            $venueName = strtoupper($gallery->venueTemplate->name);
-            $canvas->drawRectangle($textX, 80)
-                ->size(min(strlen($venueName) * 9 + 24, 280), 32)
-                ->fill('#7c3aed');
-            $this->text($canvas, $venueName, $textX + 12, 88, '#ffffff', 14, 'bold');
-        }
+        // (Task H50) — if deep-linked to an artwork, show artwork title +
+        // artist name instead of gallery title
+        if ($artwork) {
+            // "FROM" label
+            $this->text($canvas, 'FROM', $textX, 80, '#6b7280', 12, 'bold');
+            $this->text($canvas, $gallery->title ?: 'Untitled Exhibition', $textX, 100, '#9ca3af', 16, 'normal');
 
-        // Gallery title — wrap at ~28 chars per line, up to 4 lines
-        $title = $gallery->title ?: 'Untitled Exhibition';
-        $lines = $this->wrapText($title, 28);
-        $titleY = 140;
-        foreach (array_slice($lines, 0, 4) as $line) {
-            $this->text($canvas, $line, $textX, $titleY, '#ffffff', 38, 'bold');
-            $titleY += 50;
-        }
-
-        // Description — small, muted, wrap at ~50 chars
-        if ($gallery->description) {
-            $desc = str_replace(["\n", "\r"], ' ', $gallery->description);
-            $descLines = $this->wrapText($desc, 48);
-            $descY = $titleY + 20;
-            foreach (array_slice($descLines, 0, 3) as $line) {
-                $this->text($canvas, $line, $textX, $descY, '#9ca3af', 16, 'normal');
-                $descY += 24;
+            // Artwork title
+            $title = $artwork->title ?: $artwork->original_name ?: 'Untitled';
+            $lines = $this->wrapText($title, 28);
+            $titleY = 150;
+            foreach (array_slice($lines, 0, 4) as $line) {
+                $this->text($canvas, $line, $textX, $titleY, '#ffffff', 38, 'bold');
+                $titleY += 50;
             }
-        }
 
-        // Stats row
-        $statsY = 510;
-        $statsText = sprintf('%d artworks · %s views',
-            $gallery->images()->count(),
-            number_format($gallery->view_count)
-        );
-        $this->text($canvas, $statsText, $textX, $statsY, '#6b7280', 14, 'normal');
+            // Artist name
+            if ($artwork->artist) {
+                $this->text($canvas, 'by ' . $artwork->artist->name, $textX, $titleY + 10, '#a78bfa', 18, 'normal');
+            }
+
+            // Artwork description
+            if ($artwork->description) {
+                $desc = str_replace(["\n", "\r"], ' ', $artwork->description);
+                $descLines = $this->wrapText($desc, 48);
+                $descY = $titleY + 50;
+                foreach (array_slice($descLines, 0, 3) as $line) {
+                    $this->text($canvas, $line, $textX, $descY, '#9ca3af', 16, 'normal');
+                    $descY += 24;
+                }
+            }
+        } else {
+            // Gallery-level OG image (original behavior)
+
+            // Venue badge
+            if ($gallery->venueTemplate) {
+                $venueName = strtoupper($gallery->venueTemplate->name);
+                $canvas->drawRectangle($textX, 80)
+                    ->size(min(strlen($venueName) * 9 + 24, 280), 32)
+                    ->fill('#7c3aed');
+                $this->text($canvas, $venueName, $textX + 12, 88, '#ffffff', 14, 'bold');
+            }
+
+            // Gallery title — wrap at ~28 chars per line, up to 4 lines
+            $title = $gallery->title ?: 'Untitled Exhibition';
+            $lines = $this->wrapText($title, 28);
+            $titleY = 140;
+            foreach (array_slice($lines, 0, 4) as $line) {
+                $this->text($canvas, $line, $textX, $titleY, '#ffffff', 38, 'bold');
+                $titleY += 50;
+            }
+
+            // Description — small, muted, wrap at ~50 chars
+            if ($gallery->description) {
+                $desc = str_replace(["\n", "\r"], ' ', $gallery->description);
+                $descLines = $this->wrapText($desc, 48);
+                $descY = $titleY + 20;
+                foreach (array_slice($descLines, 0, 3) as $line) {
+                    $this->text($canvas, $line, $textX, $descY, '#9ca3af', 16, 'normal');
+                    $descY += 24;
+                }
+            }
+
+            // Stats row
+            $statsY = 510;
+            $statsText = sprintf('%d artworks · %s views',
+                $gallery->images()->count(),
+                number_format($gallery->view_count)
+            );
+            $this->text($canvas, $statsText, $textX, $statsY, '#6b7280', 14, 'normal');
+        }
 
         // Exospace wordmark bottom right
         $this->text($canvas, 'EXOSPACE', 1080, 590, '#6b7280', 14, 'bold');

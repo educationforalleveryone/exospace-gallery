@@ -1,6 +1,11 @@
 @php
     $isEmbed = request()->boolean('embed');
-    $ogImageUrl = route('gallery.og-image', $gallery->slug);
+    // (Task H50) — if ?artwork=<id> is in the URL, generate a per-artwork
+    // OG image that shows the artwork's image + title + artist.
+    $artworkParam = request()->integer('artwork');
+    $ogImageUrl = $artworkParam
+        ? route('gallery.og-image', $gallery->slug) . '?artwork=' . $artworkParam
+        : route('gallery.og-image', $gallery->slug);
     $publicUrl = $gallery->public_url;
 @endphp
 <!DOCTYPE html>
@@ -326,6 +331,17 @@
             <p style="margin-top: 2rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">
                 Use WASD to move • Mouse to look around • Press T for guided tour
             </p>
+
+            {{-- (Task H48 / audit MX6) — "Skip Intro" link. Lets visitors
+                 enter the gallery without waiting for 100% load. The
+                 button is always visible (not gated by loading progress)
+                 so visitors on slow connections aren't held hostage. --}}
+            <a href="#" id="skip-intro-link"
+               style="display: block; margin-top: 1rem; font-size: 0.8rem; color: rgba(255,255,255,0.35); text-decoration: none; transition: color 0.2s;"
+               onmouseover="this.style.color='rgba(255,255,255,0.6)'"
+               onmouseout="this.style.color='rgba(255,255,255,0.35)'">
+                Skip intro →
+            </a>
 
             @if($gallery->scheduleEvents()->active()->upcoming()->exists())
             <a href="{{ route('gallery.events.index', $gallery->slug) }}"

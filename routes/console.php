@@ -29,3 +29,9 @@ Schedule::command('exospace:verify-pending-domains')->hourly();
 // prune events older than 90 days. Keeps the analytics_events table from
 // growing unboundedly. (Task H30 / audit H31.)
 Schedule::command('exospace:rollup-analytics')->dailyAt('03:00');
+
+// Every 5 minutes: purge sessions for banned users. The CheckBanned
+// middleware purges the current session, but the user's other sessions
+// (laptop, mobile) remain valid until their next request. This command
+// catches them. (Task H51 / audit H16.)
+Schedule::command('exospace:purge-banned-sessions')->everyFiveMinutes();

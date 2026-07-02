@@ -83,6 +83,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const enterBtn = document.getElementById('enter-btn');
     if (!enterBtn) return;
 
+    // (Task H48 / audit MX6) — "Skip Intro" link. Fires the same enter
+    // handler as the Enter button, but doesn't wait for 100% load progress.
+    // The enter handler already enables the button if it's still disabled.
+    const skipLink = document.getElementById('skip-intro-link');
+    if (skipLink) {
+        skipLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Force-enable the enter button and trigger its click
+            if (enterBtn) {
+                enterBtn.style.opacity = '1';
+                enterBtn.style.pointerEvents = 'auto';
+                enterBtn.click();
+            }
+        });
+    }
+
     enterBtn.addEventListener('click', () => {
         // Resume audio context — browsers block autoplay until a gesture
         if (galleryScene?.listener?.context) {

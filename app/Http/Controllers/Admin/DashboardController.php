@@ -119,6 +119,13 @@ class DashboardController extends Controller
         $isNewUser          = !$team && $galleriesCount === 0 && $user->created_at->gt(now()->subHours(48));
         $hasUnsharedGallery = !$team && $galleriesCount > 0 && $totalViews === 0 && $activeCount > 0;
 
+        // (Task H49) — onboarding checklist data
+        $totalImages = !$team ? \DB::table('gallery_images')
+            ->join('galleries', 'galleries.id', '=', 'gallery_images.gallery_id')
+            ->where('galleries.user_id', $user->id)
+            ->count() : 0;
+        $hasPublishedGallery = !$team && $activeCount > 0;
+
         // ── Gallery health flags (for recent list) ───────────────────────────
         $staleLiveIds = (clone $galleriesScope)
             ->where('is_active', true)
@@ -147,6 +154,8 @@ class DashboardController extends Controller
             'alerts',
             'pendingInvitations',
             'staleLiveIds',
+            'totalImages',
+            'hasPublishedGallery',
         ));
     }
 
