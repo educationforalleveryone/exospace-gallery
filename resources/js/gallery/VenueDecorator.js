@@ -74,6 +74,54 @@ export function applyVenueConfig(cfg) {
     if (cfg.hdri_url) this._customHdriUrl = cfg.hdri_url;
 }
 
+// ── Live Preview patcher ────────────────────────────────────────────────────
+//
+// applyVisualPatch(patch) is the Live-Preview counterpart to applyVenueConfig.
+// Where applyVenueConfig runs ONCE at scene boot to apply the full venue
+// config, applyVisualPatch runs REPEATEDLY (on every slider tweak) to update
+// individual venue-state fields without rebuilding the room.
+//
+// It only updates the internal _venue* state fields that Lighting.js,
+// Materials.js, and other modules read on the next frame. The actual scene
+// mutations (fog color, background color, light intensities, material
+// roughness) are handled by GalleryScene.applyLiveOverride() — which calls
+// this function first to sync state, then does the scene-level work.
+//
+// This split exists so venue-state updates don't get duplicated: this
+// function owns the "what's the current venue intent" state, and the
+// scene-level mutator owns "apply that intent to THREE.Scene objects".
+//
+// Null values in the patch revert to the venue template's default (read
+// from window.GALLERY_DATA.venueConfig).
+export function applyVisualPatch(patch) {
+    if (!patch || typeof patch !== 'object') return;
+
+    const venueCfg = window.GALLERY_DATA?.venueConfig?.visual_config || {};
+
+    if ('ambient_color'      in patch) this._venueAmbientColor      = patch.ambient_color      === null ? null      : parseColor(patch.ambient_color);
+    if ('ambient_intensity'  in patch) this._venueAmbientIntensity  = patch.ambient_intensity  === null ? null      : patch.ambient_intensity;
+    if ('spot_intensity'     in patch) this._venueSpotIntensity     = patch.spot_intensity     === null ? null      : patch.spot_intensity;
+    if ('fill_intensity'     in patch) this._venueFillIntensity     = patch.fill_intensity     === null ? null      : patch.fill_intensity;
+    if ('tone_mapping_exposure' in patch && this.renderer) {
+        this.renderer.toneMappingExposure = patch.tone_mapping_exposure === null
+            ? (venueCfg.tone_mapping_exposure ?? 0.5)
+            : patch.tone_mapping_exposure;
+    }
+    if ('frame_override'    in patch) this._venueFrameOverride      = patch.frame_override     === null ? null      : patch.frame_override;
+    if ('ceiling_type'      in patch) this._venueCeilingType        = patch.ceiling_type       === null ? null      : patch.ceiling_type;
+
+    // Material config patches (wall/floor PBR overrides) — stored on the
+    // _venueMaterialConfig object so Materials.js reads them on the next
+    // material rebuild. For LIVE updates (no rebuild), GalleryScene.
+    // applyLiveOverride() pokes the material props directly.
+    if (patch._materialPatch && typeof patch._materialPatch === 'object') {
+        this._venueMaterialConfig = {
+            ...(this._venueMaterialConfig || {}),
+            ...patch._materialPatch,
+        };
+    }
+}
+
 // ── Legacy hardcoded switch (fallback only) ─────────────────────────────────
 function legacyVenueSwitch(slug) {
     switch (slug) {

@@ -22,6 +22,7 @@ class Gallery extends Model
         'is_featured',    // NEW (Round 4) — super-admin curated for /discover
         'curtain_logo_path',  // NEW (Round 4) — Studio-only custom entrance curtain logo
         'curtain_bg_color',   // NEW (Round 4) — Studio-only custom entrance curtain bg color
+        'visual_overrides',   // NEW (Live Preview) — per-gallery tweaks on top of venue config
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class Gallery extends Model
         'view_count' => 'integer',
         'opens_at'   => 'datetime',
         'closes_at'  => 'datetime',
+        'visual_overrides' => 'array',
     ];
 
     protected static function boot()
@@ -193,5 +195,41 @@ class Gallery extends Model
     public function verifyPin(string $pin): bool
     {
         return \Hash::check($pin, $this->pin_hash);
+    }
+
+    // ─── Live Preview helpers ──────────────────────────────────────────
+
+    /**
+     * Returns the gallery's visual_overrides as a clean associative array
+     * with the three expected buckets: visual_config, material_config, post_fx.
+     *
+     * Missing buckets default to empty arrays — so callers can safely
+     * array_merge() without null checks.
+     *
+     * Used by VenueConfigExporter::forGallery() and by the Live Preview
+     * panel's initial state hydration.
+     */
+    public function visualOverridesArray(): array
+    {
+        $v = $this->visual_overrides;
+        if (!is_array($v)) {
+            return ['visual_config' => [], 'material_config' => [], 'post_fx' => []];
+        }
+        return [
+            'visual_config'   => is_array($v['visual_config']   ?? null) ? $v['visual_config']   : [],
+            'material_config' => is_array($v['material_config'] ?? null) ? $v['material_config'] : [],
+            'post_fx'         => is_array($v['post_fx']         ?? null) ? $v['post_fx']         : [],
+        ];
+    }
+
+    /**
+     * True if the gallery has any non-empty override bucket.
+     * Used by the edit page to decide whether to show the "Reset all
+     * overrides" button.
+     */
+    public function hasVisualOverrides(): bool
+    {
+        $v = $this->visualOverridesArray();
+        return !empty($v['visual_config']) || !empty($v['material_config']) || !empty($v['post_fx']);
     }
 }

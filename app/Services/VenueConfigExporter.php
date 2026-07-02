@@ -26,6 +26,22 @@ use App\Models\Gallery;
  *   - The hardcoded switch can be removed in a future cleanup once every
  *     venue has a complete `visual_config` JSON in the database.
  *
+ * THREE-LAYER MERGE
+ * -----------------
+ * The final config sent to the viewer is the result of merging three layers
+ * in order of increasing precedence (last wins):
+ *
+ *   1. Venue template defaults (from the `venue_templates` row's JSON columns)
+ *   2. Gallery-level explicit fields (wall_texture, floor_material,
+ *      frame_style, lighting_preset, room_layout — chosen via the venue
+ *      picker or the "Override materials" dropdowns on the edit page)
+ *   3. Gallery visual_overrides (per-gallery tweaks from the Live Preview
+ *      panel — wall height, fog, ambient intensity, PBR roughness, etc.)
+ *
+ * Layer 2 is kept for back-compat with the existing edit form's hidden
+ * inputs. Layer 3 is new — it's the granular, per-gallery override that
+ * makes the Live Preview feature possible without modifying venue templates.
+ *
  * USAGE
  * -----
  * In GalleryViewController::show():
@@ -46,39 +62,20 @@ use App\Models\Gallery;
  *         }
  *         // ... legacy hardcoded switch follows ...
  *     }
- *
- * And add a new method `_applyVenueConfig(cfg)` that reads each field with
- * sensible defaults:
- *
- *     _applyVenueConfig(cfg) {
- *         const v = cfg.visual_config || {};
- *         const m = cfg.material_config || {};
- *
- *         this.wallHeight = v.wall_height ?? 4;
- *         this.wallDepth  = v.wall_depth  ?? 0.3;
- *         this.scene.background = new THREE.Color(v.background_color ?? 0x0f0f0f);
- *         this.scene.fog = v.fog_color
- *             ? new THREE.Fog(new THREE.Color(v.fog_color), v.fog_near ?? 10, v.fog_far ?? 30)
- *             : null;
- *
- *         // ... and so on for ambient_intensity, spot_intensity, fill_intensity,
- *         // tone_mapping_exposure, frame_override, ceiling_type, etc.
- *     }
- *
- * This service is the single source of truth for the JSON shape — if you
- * need to add a new field, add it here first, then teach the viewer to
- * consume it.
  */
 class VenueConfigExporter
 {
     /**
      * Build the viewer config for a specific gallery + venue combination.
      *
-     * The gallery-level wall_texture / floor_material / frame_style /
-     * lighting_preset / room_layout (chosen by the curator in the admin
-     * panel) override the venue's default_settings — this preserves the
-     * existing behaviour where a curator can pick "Zen Gallery" but then
-     * manually change the wall to "brick".
+     * The merge order is:
+     *   venue->visual_config  ←  gallery->visual_overrides['visual_config']
+     *   venue->material_config ← gallery->visual_overrides['material_config']
+     *   venue has no post_fx column yet, so post_fx comes ONLY from overrides.
+     *
+     * Null values inside the override buckets are stripped before merge so
+     * that "reset to default" (which writes null) doesn't clobber the venue
+     * default with a null.
      *
      * @return array|null  null if the gallery has no venue template.
      */
@@ -91,8 +88,9 @@ class VenueConfigExporter
 
         $config = $venue->toViewerConfig();
 
-        // Merge gallery-level overrides on top of the venue's default_settings.
-        // The gallery's explicit fields win.
+        // Layer 2 — gallery-level explicit fields (kept for back-compat with
+        // the existing edit form's hidden inputs and the legacy JS switch).
+        // The gallery's explicit fields win over the venue's default_settings.
         $config['effective_settings'] = array_merge(
             $venue->default_settings ?? [],
             array_filter([
@@ -103,6 +101,30 @@ class VenueConfigExporter
                 'room_layout'     => $gallery->room_layout,
             ], fn ($v) => !is_null($v))
         );
+
+        // Layer 3 — per-gallery visual_overrides from the Live Preview panel.
+        // Merged on top of the venue's visual_config + material_config so the
+        // viewer sees the curator's tweaks without us having to mutate the
+        // venue template (which is shared across galleries).
+        $overrides = $gallery->visualOverridesArray();
+
+        if (!empty($overrides['visual_config'])) {
+            $config['visual_config'] = array_merge(
+                $config['visual_config'] ?? [],
+                array_filter($overrides['visual_config'], fn ($v) => !is_null($v))
+            );
+        }
+
+        if (!empty($overrides['material_config'])) {
+            $config['material_config'] = array_merge(
+                $config['material_config'] ?? [],
+                array_filter($overrides['material_config'], fn ($v) => !is_null($v))
+            );
+        }
+
+        if (!empty($overrides['post_fx'])) {
+            $config['post_fx'] = array_filter($overrides['post_fx'], fn ($v) => !is_null($v));
+        }
 
         // Filter decorations by the visitor's plan so a Free visitor
         // doesn't see Studio-only props.
@@ -133,6 +155,44 @@ class VenueConfigExporter
     public function forVenue(VenueTemplate $venue): array
     {
         return $venue->toViewerConfig();
+    }
+
+    /**
+     * Build a preview config for the admin Live Preview iframe.
+     *
+     * Same as forGallery() but also accepts a runtime override patch (from
+     * the URL `?override=` param) so the iframe can render un-saved tweaks
+     * without writing to the database first.
+     *
+     * @param array $runtimeOverrides  Same shape as gallery->visual_overrides.
+     *                                 Merged on top of the gallery's stored
+     *                                 overrides so unsaved slider tweaks win.
+     */
+    public function forGalleryPreview(Gallery $gallery, array $runtimeOverrides = []): ?array
+    {
+        $config = $this->forGallery($gallery);
+        if (!$config) return null;
+
+        $merged = [
+            'visual_config'   => array_merge(
+                $config['visual_config']   ?? [],
+                array_filter($runtimeOverrides['visual_config']   ?? [], fn ($v) => !is_null($v))
+            ),
+            'material_config' => array_merge(
+                $config['material_config'] ?? [],
+                array_filter($runtimeOverrides['material_config'] ?? [], fn ($v) => !is_null($v))
+            ),
+            'post_fx'         => array_merge(
+                $config['post_fx']         ?? [],
+                array_filter($runtimeOverrides['post_fx']         ?? [], fn ($v) => !is_null($v))
+            ),
+        ];
+
+        $config['visual_config']   = $merged['visual_config'];
+        $config['material_config'] = $merged['material_config'];
+        $config['post_fx']         = $merged['post_fx'];
+
+        return $config;
     }
 
     /**

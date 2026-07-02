@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
 use App\Models\Gallery;
 use App\Models\Team;
 use App\Services\CoolifyDomainManager;
+use App\Services\VenueConfigExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -20,6 +21,7 @@ class GalleryController extends Controller
 
     public function __construct(
         private readonly CoolifyDomainManager $coolify,
+        private readonly VenueConfigExporter $venueExporter,
     ) {}
 
     // ── Index: show personal OR team galleries ────────────────────────────
@@ -113,6 +115,7 @@ class GalleryController extends Controller
                 'audio_path'        => $audioPath,
                 'custom_logo_path'  => $logoPath,
                 'custom_domain'     => $customDomain,
+                'visual_overrides'  => $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null),
             ]);
         } catch (\Throwable $e) {
             \Log::error('Gallery::create failed', [
@@ -241,6 +244,48 @@ class GalleryController extends Controller
         return view('admin.galleries.edit', compact('gallery', 'venueTemplates'));
     }
 
+    // ── Live Preview iframe target ────────────────────────────────────────
+    //
+    // Renders a stripped-down version of the public gallery view:
+    //   - no entrance curtain (auto-enters)
+    //   - no view_count increment (preview is not a "view")
+    //   - no PIN gate (the curator owns the gallery)
+    //   - no time-gate (the curator may preview before opens_at)
+    //
+    // Accepts an optional `?override=<base64-json>` query param so the
+    // iframe can be reloaded with un-saved slider tweaks baked in. The
+    // override is merged on top of the gallery's stored visual_overrides
+    // via VenueConfigExporter::forGalleryPreview().
+
+    public function preview(Request $request, Gallery $gallery): View
+    {
+        $this->authorizeGalleryAccess($gallery);
+        $gallery->load(['images.artist', 'user', 'venueTemplate']);
+
+        $runtimeOverrides = [];
+        if ($request->filled('override')) {
+            $decoded = base64_decode(strtr($request->input('override'), '-_', '+/'), true);
+            if ($decoded !== false) {
+                $parsed = json_decode($decoded, true);
+                if (is_array($parsed)) {
+                    $runtimeOverrides = $parsed;
+                }
+            }
+        }
+
+        $venueConfig = $gallery->venueTemplate
+            ? $this->venueExporter->forGalleryPreview($gallery, $runtimeOverrides)
+            : null;
+
+        $galleryData = $this->buildGalleryData($gallery, $venueConfig, isPreview: true);
+
+        // Preview flag tells the blade to: skip curtain, hide newsletter form,
+        // hide share buttons, and load the PreviewClient listener.
+        $galleryData['isPreview'] = true;
+
+        return view('admin.galleries.preview', compact('gallery', 'galleryData'));
+    }
+
     // ── Update ────────────────────────────────────────────────────────────
 
     public function update(Request $request, Gallery $gallery): \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
@@ -301,6 +346,12 @@ class GalleryController extends Controller
                 : null;
         }
 
+        // NEW (Live Preview) — parse the visual_overrides JSON string coming
+        // from the edit page's hidden input. null/empty clears overrides.
+        $validated['visual_overrides'] = $this->parseVisualOverrides(
+            $validated['visual_overrides_json'] ?? null
+        );
+
         // Custom domain — Studio-plan only, must be unique across galleries
         if (array_key_exists('custom_domain', $validated)) {
             $cd = $validated['custom_domain'];
@@ -346,7 +397,7 @@ class GalleryController extends Controller
 
         unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo'],
               $validated['curtain_logo'], $validated['clear_curtain_logo'], $validated['clear_curtain_bg'],
-              $validated['curtain_bg_color_text']);
+              $validated['curtain_bg_color_text'], $validated['visual_overrides_json']);
 
         $gallery->update($validated);
 
@@ -508,17 +559,119 @@ class GalleryController extends Controller
         }
     }
 
+    /**
+     * Parse the visual_overrides JSON string from the edit form's hidden
+     * input. Returns a structured array with the three buckets
+     * (visual_config, material_config, post_fx), or null if the input is
+     * empty/invalid — which clears the column so the venue defaults take over.
+     *
+     * Validation lives in galleryValidationRules() — this method only
+     * decodes + sanitises.
+     */
+    private function parseVisualOverrides(?string $json): ?array
+    {
+        if (!$json || trim($json) === '') return null;
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) return null;
+
+        // Whitelist the three buckets so a malicious payload can't inject
+        // arbitrary top-level keys that would later be merged into the
+        // venue config exported to the browser.
+        $clean = [
+            'visual_config'   => is_array($decoded['visual_config']   ?? null) ? $decoded['visual_config']   : [],
+            'material_config' => is_array($decoded['material_config'] ?? null) ? $decoded['material_config'] : [],
+            'post_fx'         => is_array($decoded['post_fx']         ?? null) ? $decoded['post_fx']         : [],
+        ];
+
+        // Strip empty buckets entirely so the column stays small + so
+        // hasVisualOverrides() returns false when the curator hits "Reset all".
+        $clean = array_filter($clean, fn ($bucket) => !empty($bucket));
+        return empty($clean) ? null : $clean;
+    }
+
+    /**
+     * Build the gallery data array consumed by the 3D viewer.
+     * Extracted from GalleryViewController::show() so the preview route
+     * and the public route produce identical data shapes (the preview
+     * just skips the time-gate, PIN, and view-count bump).
+     */
+    private function buildGalleryData(Gallery $gallery, ?array $venueConfig, bool $isPreview = false): array
+    {
+        return [
+            'id'          => $gallery->id,
+            'title'       => $gallery->title,
+            'description' => $gallery->description,
+            'wall_texture'    => $gallery->wall_texture,
+            'floor_material'  => $gallery->floor_material,
+            'frame_style'     => $gallery->frame_style,
+            'lighting_preset' => $gallery->lighting_preset,
+            'room_layout'     => $gallery->room_layout ?? 'square',
+            'venue_slug'      => $gallery->venueTemplate?->slug ?? 'white-cube',
+            'venueConfig'     => $venueConfig,
+            'images' => $gallery->images->map(fn($img) => [
+                'id'             => $img->id,
+                'url'            => asset($img->path),
+                'width'          => $img->width,
+                'height'         => $img->height,
+                'aspectRatio'    => $img->width / max($img->height, 1),
+                'orientation'    => $img->orientation,
+                'title'          => $img->title ?? $img->original_name,
+                'description'    => $img->description,
+                'artist'         => $img->artist ? [
+                    'id'     => $img->artist->id,
+                    'name'   => $img->artist->name,
+                    'slug'   => $img->artist->slug,
+                    'url'    => route('artist.profile', $img->artist->slug),
+                ] : null,
+                'price'          => $img->price ? (float) $img->price : null,
+                'currency'       => $img->currency,
+                'formattedPrice' => $img->formattedPrice(),
+                'forSale'        => (bool) $img->for_sale,
+                'medium'         => $img->medium,
+                'year'           => $img->year,
+                'dimensions'     => $img->dimensions,
+                'edition'        => $img->formattedEdition(),
+                'externalUrl'    => $img->external_url,
+            ])->values(),
+            'imageCount'     => $gallery->images->count(),
+            'audioUrl'       => $gallery->audio_path ? asset('storage/' . $gallery->audio_path) : null,
+            'userPlan'       => $gallery->user->plan ?? 'free',
+            'customLogoUrl'  => ($gallery->custom_logo_path && $gallery->user->plan === 'studio')
+                                    ? asset('storage/' . $gallery->custom_logo_path)
+                                    : null,
+            'curtainLogoUrl' => ($gallery->curtain_logo_path && $gallery->user->plan === 'studio')
+                                    ? asset('storage/' . $gallery->curtain_logo_path)
+                                    : null,
+            'curtainBgColor' => ($gallery->curtain_bg_color && $gallery->user->plan === 'studio')
+                                    ? $gallery->curtain_bg_color
+                                    : null,
+            'newsletterUrl'  => $isPreview ? null : route('gallery.newsletter', $gallery->slug),
+            'eventsUrl'      => $isPreview ? null : route('gallery.events.index', $gallery->slug),
+            'hasUpcomingEvents' => $isPreview ? false : $gallery->scheduleEvents()->active()->upcoming()->exists(),
+        ];
+    }
+
     private function galleryValidationRules(bool $isUpdate = false): array
     {
         $rules = [
             'title'           => 'required|string|max:255',
             'description'     => 'nullable|string|max:1000',
+            // NOTE: validation is intentionally a whitelist. If you want to
+            // allow custom material slugs (e.g. from your own 3D model
+            // pipeline), broaden these to 'string|max:50' and add a
+            // registration step that drops the matching texture folder
+            // under public/assets/textures/<surface>/<material>/.
             'wall_texture'    => 'required|in:white,concrete,brick,wood,plaster,marble,velvet',
             'frame_style'     => 'required|in:modern,classic,minimal,gold,silver,bronze,black',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
             'floor_material'  => 'required|in:wood,marble,concrete,terrazzo,grass,sand',
             'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',
-            'venue_template_id' => 'nullable|integer|exists:venue_templates,id',
+            // Only active + published venues are selectable. Drafts and
+            // disabled templates would otherwise be injectable via direct POST.
+            'venue_template_id' => ['nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('venue_templates', 'id')
+                    ->where(fn ($q) => $q->where('is_active', true)->where('is_draft', false)),
+            ],
             'gallery_pin'     => 'nullable|digits:4',
             'opens_at'        => 'nullable|date',
             'closes_at'       => 'nullable|date|after_or_equal:opens_at',
@@ -531,6 +684,11 @@ class GalleryController extends Controller
             'curtain_logo'        => 'nullable|file|mimes:png,jpeg,svg,webp|max:2048',
             'curtain_bg_color'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'curtain_bg_color_text' => 'nullable|string|max:20',
+            // NEW (Live Preview) — JSON string from the hidden input. The
+            // controller decodes + sanitises via parseVisualOverrides().
+            // The regex is a coarse shape check; the controller does the
+            // structural validation.
+            'visual_overrides_json' => ['nullable', 'string', 'max:16000', 'regex:/^\s*(\{.*\}|\[\])?\s*$/s'],
         ];
 
         if ($isUpdate) {

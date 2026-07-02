@@ -17,8 +17,14 @@ use App\Http\Controllers\PublicEventController;
 use App\Http\Controllers\NewsletterSignupController;
 use Illuminate\Support\Facades\Route;
 
-// ── Bare DB check ────────────────────────────────────────────────────────
+// ── Bare DB check (locked down to non-production) ───────────────────────
+// WARNING: this route exposes the full schema + migration list. Disable
+// it in production by setting APP_ENV=production (the env check below
+// returns 404). Use `/health` for Coolify's readiness probe instead.
 Route::get('/db-check', function () {
+    if (app()->environment('production')) {
+        abort(404);
+    }
     try {
         $tables = \Illuminate\Support\Facades\DB::select("SHOW TABLES");
         $names = array_map(fn($t) => array_values((array)$t)[0], $tables);
@@ -32,6 +38,18 @@ Route::get('/db-check', function () {
             . "DB FAILED: " . $e->getMessage() . '</pre>', 200)->header('Content-Type', 'text/html');
     }
 });
+
+// ── Healthcheck endpoint for Coolify readiness probe ────────────────────
+// Returns 200 if DB is reachable + a key migration table exists.
+// No auth, no schema leak — safe to expose publicly.
+Route::get('/health', function () {
+    try {
+        \Illuminate\Support\Facades\DB::select('SELECT 1');
+        return response()->json(['status' => 'ok', 'ts' => time()], 200);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'down', 'error' => 'db unreachable'], 503);
+    }
+})->name('health');
 
 // ── Installer ────────────────────────────────────────────────────────────
 Route::get('/finalize-installation', [InstallerController::class, 'finalize'])
@@ -82,7 +100,12 @@ Route::post('/gallery/{slug}/newsletter', [NewsletterSignupController::class, 's
       ->middleware('throttle:10,1');
 
 // ── Public gallery view ──────────────────────────────────────────────────
-Route::get('/gallery/{slug}', [\App\Http\Controllers\GalleryViewController::class, 'show'])->name('gallery.view');
+// Throttled at 60 req/min/IP to absorb viral spikes without DOSing the
+// 3D scene bootstrap. A genuine visitor loads the page once; a scraper
+// hitting 60+ times in a minute is abusive.
+Route::get('/gallery/{slug}', [\App\Http\Controllers\GalleryViewController::class, 'show'])
+    ->name('gallery.view')
+    ->middleware('throttle:60,1');
 
 // ── Analytics tracking (public, no auth) ─────────────────────────────────
 Route::post('/gallery/{gallery}/track', [\App\Http\Controllers\Admin\AnalyticsController::class, 'track'])
@@ -112,6 +135,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('galleries',               [\App\Http\Controllers\Admin\GalleryController::class, 'store'])->name('galleries.store');
     Route::get('galleries/{gallery}',      [\App\Http\Controllers\Admin\GalleryController::class, 'show'])->name('galleries.show');
     Route::get('galleries/{gallery}/edit', [\App\Http\Controllers\Admin\GalleryController::class, 'edit'])->name('galleries.edit');
+
+    // NEW (Live Preview) — admin-only preview iframe target.
+    // Skips PIN + time-gate + view-count bump; the curator owns the gallery.
+    // Accepts an optional ?override=<base64-json> so the iframe can be
+    // reloaded with un-saved slider tweaks baked into the URL.
+    Route::get('galleries/{gallery}/preview', [\App\Http\Controllers\Admin\GalleryController::class, 'preview'])->name('galleries.preview');
+
     Route::put('galleries/{gallery}',      [\App\Http\Controllers\Admin\GalleryController::class, 'update'])->name('galleries.update');
     Route::delete('galleries/{gallery}',   [\App\Http\Controllers\Admin\GalleryController::class, 'destroy'])->name('galleries.destroy');
 
@@ -154,8 +184,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get   ('teams',                             [\App\Http\Controllers\Admin\TeamController::class, 'index'])->name('teams.index');
     Route::get   ('teams/create',                      [\App\Http\Controllers\Admin\TeamController::class, 'create'])->name('teams.create');
     Route::post  ('teams',                             [\App\Http\Controllers\Admin\TeamController::class, 'store'])->name('teams.store');
+    // NOTE: kept as a Closure for now — the Auth facade root alias makes
+    // this work without an explicit `use` import. If you refactor, move
+    // it into TeamController::switchToPersonal() and import Auth there.
     Route::post  ('teams/switch-personal',             function () {
-        Auth::user()->forceFill(['current_team_id' => null])->save();
+        \Illuminate\Support\Facades\Auth::user()->forceFill(['current_team_id' => null])->save();
         return redirect()->route('admin.galleries.index')
                          ->with('status', 'Switched to personal workspace.');
     })->name('teams.switch-personal');

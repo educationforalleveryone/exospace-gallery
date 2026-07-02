@@ -3,6 +3,12 @@
 //
 // EffectComposer is loaded from three/addons/postprocessing/ which Vite now
 // bundles locally (no more unpkg CDN).
+//
+// NEW (Live Preview): applyPatch(patch) — accepts a partial post-fx patch
+// like { bloom_strength: 0.8, vignette_darkness: 0.4 } and applies it to
+// the existing passes without rebuilding the composer. Called by
+// GalleryScene.applyLiveOverride() when a curator drags a post-fx slider
+// in the admin Live Preview panel.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
@@ -68,5 +74,48 @@ export class PostProcessing {
 
     render() {
         this.composer.render();
+    }
+
+    /**
+     * Apply a partial post-FX patch to the running composer.
+     *
+     * Patch shape (all keys optional):
+     *   {
+     *     bloom_strength:     number  0..2   — UnrealBloomPass.strength
+     *     bloom_threshold:    number  0..1   — UnrealBloomPass.threshold (luminance cutoff)
+     *     bloom_radius:       number  0..1   — UnrealBloomPass.radius (glow spread)
+     *     vignette_darkness:  number  0..1   — VignetteShader darkness uniform
+     *     vignette_offset:    number  0..2   — VignetteShader offset uniform
+     *   }
+     *
+     * Null values are ignored — the curator's "Reset" button should send
+     * the venue default explicitly rather than null.
+     *
+     * Called from GalleryScene.applyLiveOverride(). Safe to call repeatedly
+     * (idempotent — sets values, doesn't accumulate).
+     */
+    applyPatch(patch) {
+        if (!patch || typeof patch !== 'object') return;
+
+        if (this.bloomPass) {
+            if (patch.bloom_strength  !== undefined && patch.bloom_strength  !== null) {
+                this.bloomPass.strength  = patch.bloom_strength;
+            }
+            if (patch.bloom_threshold !== undefined && patch.bloom_threshold !== null) {
+                this.bloomPass.threshold = patch.bloom_threshold;
+            }
+            if (patch.bloom_radius    !== undefined && patch.bloom_radius    !== null) {
+                this.bloomPass.radius    = patch.bloom_radius;
+            }
+        }
+
+        if (this.vignettePass) {
+            if (patch.vignette_darkness !== undefined && patch.vignette_darkness !== null) {
+                this.vignettePass.uniforms['darkness'].value = patch.vignette_darkness;
+            }
+            if (patch.vignette_offset   !== undefined && patch.vignette_offset   !== null) {
+                this.vignettePass.uniforms['offset'].value   = patch.vignette_offset;
+            }
+        }
     }
 }

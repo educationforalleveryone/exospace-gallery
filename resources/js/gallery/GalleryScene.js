@@ -21,6 +21,10 @@
 //   - Analytics.js       for view / focus / dwell tracking
 //
 // The class itself only holds state and dispatches.
+//
+// NEW (Live Preview): applyLiveOverride(patch) — accepts a partial config
+// patch and applies it to the running scene without rebuilding the room.
+// Used by the admin preview iframe to reflect slider tweaks in real time.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
@@ -30,7 +34,7 @@ import { initRenderer, detectLowEnd, applyLowEndSettings, earlyLowEndCheck } fro
 import { setupControls, setSpeedMultiplier } from './Controls.js';
 import { loadAssets, loadEnvironmentMap } from './AssetLoader.js';
 import { initAudio, playAudio } from './Audio.js';
-import { applyVenueOverrides, applyVenueConfig, loadDecorations, addCustomLights, addVenueStructure } from './VenueDecorator.js';
+import { applyVenueOverrides, applyVenueConfig, applyVisualPatch, loadDecorations, addCustomLights, addVenueStructure } from './VenueDecorator.js';
 import { buildGallery, createRoom, createRoomCorridor, createRoomLShape, createRoomRotunda, createRoomCircular, addVenueCeiling } from './RoomBuilder.js';
 import { placeArtworks, makeArtworkGroup, placeAndRegister } from './ArtworkPlacer.js';
 import { setupLighting, addArtworkLight, updateProximityLighting } from './Lighting.js';
@@ -162,6 +166,7 @@ export class GalleryScene {
     setSpeedMultiplier(index)                       { return setSpeedMultiplier.call(this, index); }
     applyVenueOverrides(slug)                       { return applyVenueOverrides.call(this, slug); }
     applyVenueConfig(cfg)                           { return applyVenueConfig.call(this, cfg); }
+    applyVisualPatch(patch)                         { return applyVisualPatch.call(this, patch); }
     loadDecorations(decorations)                    { return loadDecorations.call(this, decorations); }
     addCustomLights(fixtures)                       { return addCustomLights.call(this, fixtures); }
     addVenueStructure(data)                         { return addVenueStructure.call(this, data); }
@@ -234,6 +239,8 @@ export class GalleryScene {
 
     // ── Progress bar (called by AssetLoader) ────────────────────────────────
     updateProgress(percent, text) {
+        this.loadingProgress = percent;
+
         const bar        = document.getElementById('curtain-progress-bar');
         const percentTxt = document.getElementById('curtain-progress-percent');
         const statusTxt  = document.getElementById('curtain-progress-text');
@@ -260,4 +267,219 @@ export class GalleryScene {
         // No separate loader — the curtain is the loader
         console.log('✅ Loading complete — gallery ready');
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Live Preview — apply a partial config patch to the running scene
+    // ─────────────────────────────────────────────────────────────────────────
+    //
+    //  Used by the admin preview iframe (resources/views/admin/galleries/
+    //  preview.blade.php). The parent window sends a postMessage with a
+    //  patch shape like:
+    //
+    //      {
+    //        visual_config:   { ambient_intensity: 0.32, fog_color: '0x1a1a1a' },
+    //        material_config: { wall_roughness: 0.4 },
+    //        post_fx:         { bloom_strength: 0.8 }
+    //      }
+    //
+    //  Each key is OPTIONAL — only the keys present in the patch are applied;
+    //  others stay at their current value. A null value reverts to the venue
+    //  default (read from window.GALLERY_DATA.venueConfig).
+    //
+    //  IMPORTANT: structural changes (wall_height, room_layout) are NOT
+    //  supported here — they require a full room rebuild. The parent window
+    //  handles those by reloading the iframe with a `?override=` query param
+    //  so the scene is built fresh with the new structural config.
+    //
+    //  The patch is also forwarded to applyVisualPatch() in VenueDecorator
+    //  so venue-specific state (ambient color, spot intensity, etc.) stays
+    //  in sync with what the Lighting.js module reads next frame.
+    applyLiveOverride(patch) {
+        if (!patch || typeof patch !== 'object') return;
+
+        // ── Auto-tag floors + fill lights on first call ──────────────────
+        // The Live Preview's material/fill-intensity patchers need to find
+        // these meshes cheaply. Rather than modify RoomBuilder.js (which
+        // would mean delivering a 450-line file just for 5 one-line tags),
+        // we scan the scene once and tag everything that looks like a floor
+        // (horizontal plane/circle at y≈0) or a fill light (warm-coloured
+        // PointLight placed high up). Subsequent calls skip the scan.
+        if (!this._lpTagged) {
+            this.scene.traverse(obj => {
+                if (obj.isMesh && obj.geometry) {
+                    // Floor: rotation.x ≈ -PI/2, position.y ≈ 0
+                    const rotX = obj.rotation.x;
+                    const isHorizontal = Math.abs(rotX + Math.PI / 2) < 0.01 || Math.abs(rotX - Math.PI / 2) < 0.01;
+                    if (isHorizontal && Math.abs(obj.position.y) < 0.1) {
+                        obj.userData._lpIsFloor = true;
+                    }
+                }
+                if (obj.isPointLight && obj.position.y > 1) {
+                    // Fill lights created by RoomBuilder use 0xfff8e8 (warm)
+                    // or 0xffffff (white) and sit near the ceiling.
+                    const c = obj.color;
+                    if (c && ((c.r === 1 && c.g > 0.95 && c.b > 0.85) || (c.r === 1 && c.g === 1 && c.b === 1))) {
+                        obj.userData._lpFillLight = true;
+                        // Store the original multiplier so fill_intensity
+                        // patches can rescale correctly.
+                        obj.userData._lpFillMult = obj.intensity / Math.max(0.001, (this.lightingConfig?.fillLight ?? 0.12));
+                    }
+                }
+            });
+            this._lpTagged = true;
+        }
+
+        const v = patch.visual_config   || {};
+        const m = patch.material_config || {};
+        const p = patch.post_fx         || {};
+
+        // ── Visual config (atmosphere — all live) ────────────────────────
+        if (Object.keys(v).length > 0) {
+            // Forward to VenueDecorator so internal state (_venueAmbientIntensity,
+            // _venueSpotIntensity, etc.) stays in sync.
+            this.applyVisualPatch(v);
+
+            // Background color
+            if ('background_color' in v) {
+                if (v.background_color === null) {
+                    this.scene.background = new THREE.Color(0x000000);
+                } else {
+                    const c = _parseColor(v.background_color);
+                    if (c) this.scene.background = c;
+                }
+            }
+
+            // Fog — any of color/near/far can be patched; missing keys fall
+            // back to the current fog's values.
+            if ('fog_color' in v || 'fog_near' in v || 'fog_far' in v) {
+                const venueCfg = window.GALLERY_DATA?.venueConfig?.visual_config || {};
+                const fogColor = ('fog_color' in v ? v.fog_color : (this.scene.fog?.color ? '#' + this.scene.fog.color.getHexString() : venueCfg.fog_color)) ?? null;
+                const fogNear  = ('fog_near'  in v ? v.fog_near  : (this.scene.fog?.near ?? venueCfg.fog_near  ?? 10));
+                const fogFar   = ('fog_far'   in v ? v.fog_far   : (this.scene.fog?.far  ?? venueCfg.fog_far   ?? 30));
+
+                if (fogColor === null) {
+                    this.scene.fog = null;
+                } else {
+                    const c = _parseColor(fogColor);
+                    this.scene.fog = new THREE.Fog(c ?? new THREE.Color(0x0a0a0a), fogNear, fogFar);
+                }
+            }
+
+            // Ambient intensity — update the existing AmbientLight objects.
+            // The first one is the white key ambient; the second (if present)
+            // is the venue-tinted ambient. We scale both by the same factor
+            // so the curator's intent ("brighter overall ambient") holds
+            // regardless of venue tinting.
+            if ('ambient_intensity' in v) {
+                const newI = v.ambient_intensity;
+                const baseAmbientBoost = this.isLowEnd ? 3.5 : 1;
+                this.scene.children.forEach(c => {
+                    if (c.isAmbientLight && !c.userData._lpTinted) {
+                        c.intensity = newI * baseAmbientBoost;
+                    }
+                });
+            }
+
+            // Spot intensity — update the per-artwork lightMax so the next
+            // proximity-lighting frame boosts them by the new factor.
+            if ('spot_intensity' in v) {
+                const newMax = (v.spot_intensity ?? 0) * 3.5;
+                this.artworks.forEach(a => {
+                    if (a.userData.lightMax !== undefined) {
+                        const base = a.userData.lightBase;
+                        a.userData.lightMax = newMax;
+                        // If currently boosted, snap to the new max so the
+                        // change is visible immediately rather than waiting
+                        // for the next proximity update.
+                        if (a.userData.lightCurrent > base) {
+                            a.userData.lightCurrent = newMax;
+                            if (a.userData.light) a.userData.light.intensity = newMax;
+                        }
+                    }
+                });
+            }
+
+            // Fill intensity — update the ceiling PointLights (created by
+            // RoomBuilder as fill-light grid). We tag them at creation time
+            // so we can find them cheaply here.
+            if ('fill_intensity' in v) {
+                this.scene.children.forEach(c => {
+                    if (c.isPointLight && c.userData._lpFillLight) {
+                        c.intensity = (v.fill_intensity ?? 0) * (c.userData._lpFillMult || 2.5);
+                    }
+                });
+            }
+
+            // Tone mapping exposure — renderer-level, instant.
+            if ('tone_mapping_exposure' in v) {
+                this.renderer.toneMappingExposure = v.tone_mapping_exposure ?? 0.5;
+            }
+        }
+
+        // ── Material config (PBR — live on existing meshes) ──────────────
+        if (Object.keys(m).length > 0) {
+            this.scene.traverse(obj => {
+                if (!obj.isMesh || !obj.material) return;
+                const isWall   = obj.name && obj.name.startsWith('wall_');
+                const isFloor  = obj.userData._lpIsFloor === true;
+                if (!isWall && !isFloor) return;
+
+                const mat = obj.material;
+                if (isWall) {
+                    if ('wall_roughness'  in m && mat.roughness !== undefined) mat.roughness  = m.wall_roughness;
+                    if ('wall_metalness'  in m && mat.metalness !== undefined) mat.metalness  = m.wall_metalness;
+                    if ('wall_color'      in m) {
+                        const c = _parseColor(m.wall_color);
+                        if (c) mat.color = c;
+                    }
+                    if ('wall_normal_strength' in m && mat.normalScale) {
+                        mat.normalScale.set(m.wall_normal_strength, m.wall_normal_strength);
+                    }
+                } else if (isFloor) {
+                    if ('floor_roughness' in m && mat.roughness !== undefined) mat.roughness = m.floor_roughness;
+                    if ('floor_metalness' in m && mat.metalness !== undefined) mat.metalness = m.floor_metalness;
+                    if ('floor_color'     in m) {
+                        const c = _parseColor(m.floor_color);
+                        if (c) mat.color = c;
+                    }
+                }
+                mat.needsUpdate = true;
+            });
+        }
+
+        // ── Post-FX (bloom / vignette — live) ────────────────────────────
+        if (Object.keys(p).length > 0 && this._postFx) {
+            if (typeof this._postFx.applyPatch === 'function') {
+                this._postFx.applyPatch(p);
+            } else {
+                // Fallback: directly poke the bloom + vignette passes if present.
+                if (p.bloom_strength !== undefined && this._postFx.bloomPass) {
+                    this._postFx.bloomPass.strength = p.bloom_strength;
+                }
+                if (p.bloom_threshold !== undefined && this._postFx.bloomPass) {
+                    this._postFx.bloomPass.threshold = p.bloom_threshold;
+                }
+                if (p.vignette_darkness !== undefined && this._postFx.vignettePass) {
+                    this._postFx.vignettePass.darkness = p.vignette_darkness;
+                }
+                if (p.vignette_offset !== undefined && this._postFx.vignettePass) {
+                    this._postFx.vignettePass.offset = p.vignette_offset;
+                }
+            }
+        }
+    }
+}
+
+// ── Local color parser (mirrors config.parseColor but doesn't need the import)
+// ─────────────────────────────────────────────────────────────────────────────
+function _parseColor(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') return new THREE.Color(value);
+    if (typeof value === 'string') {
+        if (value.startsWith('0x') || value.startsWith('0X')) {
+            return new THREE.Color(parseInt(value, 16));
+        }
+        try { return new THREE.Color(value); } catch { return null; }
+    }
+    return null;
 }

@@ -433,6 +433,14 @@
                         </div>
                     </div>
 
+                    {{-- ── Live Preview & Template Controls ──────────────────────
+                        Drop-in partial that renders a side-by-side preview iframe
+                        + slider sidebar with per-control hint cards. State is
+                        persisted in #visual_overrides_json, which is parsed by
+                        GalleryController::update() on form submit.
+                    --}}
+                    @include('admin.galleries.live-preview-panel', ['gallery' => $gallery])
+
                     <!-- Background Music (Pro Feature) -->
                     <div class="mb-6 mt-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <label class="block text-sm font-medium text-gray-300 mb-3">
