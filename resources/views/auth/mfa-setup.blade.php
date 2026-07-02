@@ -13,7 +13,7 @@
 
     <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6">
         <div class="text-center mb-6">
-            <img src="{{ $qrCodeUrl }}" alt="MFA QR Code" class="mx-auto rounded-lg bg-white p-4" style="width: 200px; height: 200px;">
+            <img src="{{ $qrCodeData }}" alt="MFA QR Code" class="mx-auto rounded-lg bg-white p-4" style="width: 200px; height: 200px;">
         </div>
 
         <div class="mb-6">
