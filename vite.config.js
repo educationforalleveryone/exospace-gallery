@@ -41,6 +41,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.js',
                 'resources/js/gallery/main.js',
+                'resources/js/admin-vendor.js', // (Task H19) Chart.js + Dropzone + SortableJS
             ],
             refresh: true,
         }),

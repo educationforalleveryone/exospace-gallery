@@ -6,8 +6,8 @@
     </x-slot>
 
     <!-- Dropzone CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    
+    @vite(['resources/js/admin-vendor.js'])
 
     <!-- Custom Premium Styles -->
     <style>
@@ -929,7 +929,7 @@
     </div>
 
     <!-- Dropzone & Scripts -->
-    <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+    
     <script>
         // ─── Toast Notification System ───────────────────────────
         function toast(message, type = 'info') {
