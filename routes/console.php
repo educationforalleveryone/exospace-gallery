@@ -24,3 +24,8 @@ Artisan::command('inspire', function () {
 // pending verifications in the background so the user doesn't have to
 // click "Verify now" repeatedly. (Task C06.)
 Schedule::command('exospace:verify-pending-domains')->hourly();
+
+// Daily at 3am: roll up raw analytics_events into analytics_daily, then
+// prune events older than 90 days. Keeps the analytics_events table from
+// growing unboundedly. (Task H30 / audit H31.)
+Schedule::command('exospace:rollup-analytics')->dailyAt('03:00');

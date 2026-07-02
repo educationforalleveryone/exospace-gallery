@@ -103,6 +103,11 @@ class ImageController extends Controller
                 'position_order' => ($gallery->images()->max('position_order') ?? 0) + 1,
             ]);
 
+            // (Task H25) Register with Spatie Media Library for responsive
+            // WebP variants. Non-blocking — if it fails, the legacy `path`
+            // column still serves the JPEG.
+            $this->imageService->registerMedia($image, $file);
+
             return response()->json(['success' => true, 'id' => $image->id, 'path' => asset($image->path)]);
 
         } catch (\Exception $e) {

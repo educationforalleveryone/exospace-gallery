@@ -141,8 +141,8 @@
                               onsubmit="const btn=this.querySelector('button[type=submit]');btn.disabled=true;btn.innerHTML='<svg class=\'animate-spin w-4 h-4\' fill=\'none\' viewBox=\'0 0 24 24\'><circle class=\'opacity-25\' cx=\'12\' cy=\'12\' r=\'10\' stroke=\'currentColor\' stroke-width=\'4\'></circle><path class=\'opacity-75\' fill=\'currentColor\' d=\'M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z\'></path></svg> Sending…';">
                             @csrf
                             <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1.5">Email address</label>
-                                <input type="email" name="email" placeholder="colleague@example.com" required
+                                <label for="invite-email" class="block text-xs font-medium text-gray-400 mb-1.5">Email address</label>
+                                <input type="email" id="invite-email" name="email" placeholder="colleague@example.com" required
                                        value="{{ old('email') }}"
                                        class="w-full bg-gray-700 border {{ $errors->has('email') ? 'border-red-500' : 'border-gray-600' }} rounded-lg px-4 py-2.5 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition text-sm">
                                 @error('email')
@@ -258,14 +258,13 @@
                         <form action="{{ route('admin.teams.update', $team) }}" method="POST" class="space-y-4">
                             @csrf @method('PATCH')
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1.5">Team Name</label>
-                                <input type="text" name="name" value="{{ old('name', $team->name) }}" required maxlength="100"
+                                <label for="team-name" class="block text-sm font-medium text-gray-300 mb-1.5">Team Name</label>
+                                <input type="text" id="team-name" name="name" value="{{ old('name', $team->name) }}" required maxlength="100"
                                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1.5">Description</label>
-                                <textarea name="description" rows="2" maxlength="500"
-                                          class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition resize-none">{{ old('description', $team->description) }}</textarea>
+                                <label for="team-description" class="block text-sm font-medium text-gray-300 mb-1.5">Description</label>
+                                <textarea name="description" id="team-description"{{ old('description', $team->description) }}</textarea>
                             </div>
                             <button type="submit" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium py-2 px-4 rounded-lg transition">
                                 Save Changes

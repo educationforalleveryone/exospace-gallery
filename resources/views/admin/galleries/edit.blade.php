@@ -284,16 +284,15 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Title -->
                         <div class="mb-4 md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Title</label>
-                            <input type="text" name="title" value="{{ old('title', $gallery->title) }}" required
+                            <label for="edit-title" class="block text-sm font-medium text-gray-400 mb-2">Title</label>
+                            <input type="text" id="edit-title" name="title" value="{{ old('title', $gallery->title) }}" required
                                 class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">
                         </div>
 
                         <!-- Description -->
                         <div class="mb-4 md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Description</label>
-                            <textarea name="description" rows="3"
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">{{ old('description', $gallery->description) }}</textarea>
+                            <label for="edit-description" class="block text-sm font-medium text-gray-400 mb-2">Description</label>
+                            <textarea name="description" id="edit-description" rows="3"{{ old('description', $gallery->description) }}</textarea>
                         </div>
 
                         </div>
@@ -399,7 +398,7 @@
                         </button>
                         <div x-show="open" x-transition class="grid grid-cols-2 gap-3 mt-3">
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Wall</label>
+                                <label for="input_wall_texture" class="block text-xs text-gray-500 mb-1">Wall</label>
                                 <select id="adv_wall" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
                                     @foreach(['white'=>'White','concrete'=>'Concrete','brick'=>'Brick','wood'=>'Wood','plaster'=>'Plaster','marble'=>'Marble','velvet'=>'Velvet'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->wall_texture == $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -407,7 +406,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Floor</label>
+                                <label for="input_floor_material" class="block text-xs text-gray-500 mb-1">Floor</label>
                                 <select id="adv_floor" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
                                     @foreach(['wood'=>'Wood','marble'=>'Marble','concrete'=>'Concrete','terrazzo'=>'Terrazzo','grass'=>'Grass','sand'=>'Sand'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->floor_material == $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -415,7 +414,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Frame</label>
+                                <label for="input_frame_style" class="block text-xs text-gray-500 mb-1">Frame</label>
                                 <select id="adv_frame" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
                                     @foreach(['modern'=>'Modern (Black)','classic'=>'Classic (Gold)','minimal'=>'Minimal','gold'=>'Gold','silver'=>'Silver','bronze'=>'Bronze','black'=>'Black'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->frame_style == $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -423,7 +422,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">Lighting</label>
+                                <label for="input_lighting_preset" class="block text-xs text-gray-500 mb-1">Lighting</label>
                                 <select id="adv_lighting" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
                                     @foreach(['bright'=>'Bright','moody'=>'Moody','dramatic'=>'Dramatic'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->lighting_preset == $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -633,7 +632,7 @@
                     <div class="mb-6 pt-5 border-t border-gray-700">
                         <div class="flex items-center gap-2 mb-1">
                             <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            <label class="block text-sm font-medium text-gray-300">Exhibition Schedule</label>
+                            <label class="block text-sm font-medium text-gray-300" id="schedule-label">Exhibition Schedule</label>
                             <span class="text-xs bg-purple-900/50 text-purple-300 border border-purple-700/50 px-2 py-0.5 rounded-full">Pro</span>
                         </div>
                         <p class="text-xs text-gray-500 mb-4">Set an opening date and optional closing date. Visitors will see a countdown before opening and a "Closed" page after. Leave blank for always-open.</p>
@@ -641,15 +640,15 @@
                         @if(Auth::user()->isPro())
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
-                                    <input type="datetime-local" name="opens_at"
+                                    <label for="edit-opens-at" class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
+                                    <input type="datetime-local" id="edit-opens-at" name="opens_at"
                                         value="{{ $gallery->opens_at ? $gallery->opens_at->format('Y-m-d\TH:i') : old('opens_at') }}"
                                         class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Your local time. Leave blank to open immediately.</p>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
-                                    <input type="datetime-local" name="closes_at"
+                                    <label for="edit-closes-at" class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
+                                    <input type="datetime-local" id="edit-closes-at" name="closes_at"
                                         value="{{ $gallery->closes_at ? $gallery->closes_at->format('Y-m-d\TH:i') : old('closes_at') }}"
                                         class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Optional. Leave blank for no end date.</p>
@@ -707,13 +706,13 @@
                         <div class="mt-6 pt-4 border-t border-gray-700">
                             <div class="flex items-center gap-2 mb-1">
                                 <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                                <label class="block text-sm font-medium text-gray-300">Custom Domain</label>
+                                <label for="edit-custom-domain" class="block text-sm font-medium text-gray-300">Custom Domain</label>
                                 <span class="text-xs bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">Studio</span>
                             </div>
                             <p class="text-xs text-gray-500 mb-3">Point a CNAME at exospace.gallery and enter the domain here. Visitors will see this gallery at the root of your custom domain. DNS and SSL must be configured separately via Coolify.</p>
                             <div class="relative">
                                 <span class="absolute left-3 top-2 text-gray-500 text-sm">https://</span>
-                                <input type="text" name="custom_domain"
+                                <input type="text" id="edit-custom-domain" name="custom_domain"
                                     value="{{ old('custom_domain', $gallery->custom_domain) }}"
                                     placeholder="gallery.yourdomain.com"
                                     class="pl-16 mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-sm transition-colors text-sm font-mono"
