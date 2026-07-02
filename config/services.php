@@ -53,6 +53,11 @@ return [
 
         'product_id_pro'         => env('TWOCHECKOUT_PRODUCT_ID_PRO'),
         'product_id_studio'      => env('TWOCHECKOUT_PRODUCT_ID_STUDIO'),
+
+        // (Task H54) — optional default coupon code applied to every
+        // upgrade. Set in .env to run a site-wide promotion. Override
+        // per-link with ?coupon=XXXX on the billing.upgrade route.
+        'coupon_code'            => env('TWOCHECKOUT_COUPON_CODE'),
     ],
 
     // ── Coolify custom-domain automation (task C14) ──────────────────────

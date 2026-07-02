@@ -118,6 +118,18 @@ class BillingController extends Controller
             urlencode($user->email),
         );
 
+        // (Task H54) — optional coupon code. 2Checkout supports a `coupon`
+        // URL parameter that applies a discount configured in the merchant
+        // dashboard. The coupon code is stored in the .env var
+        // TWOCHECKOUT_COUPON_CODE (if set, it's applied to every upgrade).
+        // For per-campaign coupons, pass ?coupon=XXXX to the billing.upgrade
+        // route — it overrides the env var.
+        $couponCode = $request->query('coupon')
+            ?? config('services.2checkout.coupon_code');
+        if ($couponCode) {
+            $buyUrl .= '&coupon=' . urlencode($couponCode);
+        }
+
         Log::info('BillingController: redirecting user to 2Checkout', [
             'user_id'           => $user->id,
             'plan'              => $plan,

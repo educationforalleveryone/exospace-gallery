@@ -35,3 +35,12 @@ Schedule::command('exospace:rollup-analytics')->dailyAt('03:00');
 // (laptop, mobile) remain valid until their next request. This command
 // catches them. (Task H51 / audit H16.)
 Schedule::command('exospace:purge-banned-sessions')->everyFiveMinutes();
+
+// Daily at 10am: send abandoned-cart recovery emails for pending
+// upgrades older than 24 hours. (Task H53)
+Schedule::command('exospace:abandoned-cart')->dailyAt('10:00');
+
+// Daily at 9am: send lifecycle nudge emails. (Task H55)
+//   - "You haven't published in 7 days" for users with 0 published galleries
+//   - "Your plan expires soon" for admin-granted expiring plans
+Schedule::command('exospace:send-lifecycle-emails')->dailyAt('09:00');

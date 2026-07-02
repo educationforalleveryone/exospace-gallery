@@ -61,11 +61,15 @@ class User extends Authenticatable implements MustVerifyEmail
         'ban_reason',
         'email_verified_at',  // set via markEmailAsVerified() / forceFill()
         'remember_token',
+        'google2fa_secret',   // (Task H56) — encrypted TOTP secret
+        'mfa_enabled_at',     // (Task H56) — when MFA was activated
+        'lifecycle_nudged_at',// (Task H55) — last lifecycle email sent
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'google2fa_secret', // (Task H56) — never expose in JSON
     ];
 
     protected function casts(): array
@@ -76,6 +80,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'is_super_admin'    => 'boolean',
             'plan_expires_at'   => 'datetime',
             'plan_started_at'   => 'datetime',
+            'mfa_enabled_at'    => 'datetime',     // (Task H56)
+            'lifecycle_nudged_at' => 'datetime',   // (Task H55)
         ];
     }
 

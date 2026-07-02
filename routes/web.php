@@ -151,6 +151,14 @@ Route::middleware('auth')->group(function () {
     // and artist profiles. (Task C10.)
     Route::get('/profile/export', [ProfileController::class, 'export'])->name('profile.export');
 
+    // (Task H56) — MFA setup + verification routes for super-admins.
+    // Setup: shows QR code for Google Authenticator / Authy / 1Password.
+    // Verify: enters the 6-digit TOTP code to complete MFA for the session.
+    Route::get('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'setup'])->name('mfa.setup');
+    Route::post('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'enable']);
+    Route::get('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'showVerify'])->name('mfa.verify');
+    Route::post('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'verify']);
+
     // ── Billing portal + upgrade flow (tasks H01 + H02) ────────────────
     // /billing shows current plan, transaction history, pending upgrades.
     // /billing/upgrade/{plan} generates a pending_upgrade token and
@@ -246,8 +254,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post  ('teams/{team}/switch',               [\App\Http\Controllers\Admin\TeamController::class, 'switchTeam'])->name('teams.switch');
 });
 
-// ── Super Admin ──────────────────────────────────────────────────────────
-Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')->name('super.')->group(function () {
+// ── Super Admin (Task H56 — MFA required for all super-admin routes) ──────
+Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-control')->name('super.')->group(function () {
     Route::get('/',                                    [SystemController::class, 'index'])->name('index');
     Route::post('/users/{user}/plan',                  [SystemController::class, 'updatePlan'])->name('updatePlan')
           ->middleware('password.confirm');
