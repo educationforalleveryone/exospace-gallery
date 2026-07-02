@@ -135,8 +135,16 @@ class PlanDowngradeService
             // the normalize() helper existed.
             Cache::forget("custom_domain:{$customDomain}");
 
-            // Clear the column.
-            $gallery->forceFill(['custom_domain' => null])->save();
+            // Clear the column AND the verification fields (task C06).
+            // The domain is being unassigned — there's nothing to keep
+            // verified. If the user re-upgrades and re-claims the same
+            // domain later, they'll need to re-add the TXT record (which
+            // proves they still own it).
+            $gallery->forceFill([
+                'custom_domain'                     => null,
+                'custom_domain_verification_token'  => null,
+                'custom_domain_verified_at'         => null,
+            ])->save();
 
             Log::info('PlanDowngradeService: cleared custom_domain', [
                 'gallery_id' => $gallery->id,

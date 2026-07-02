@@ -352,7 +352,17 @@ class GalleryController extends Controller
             $validated['visual_overrides_json'] ?? null
         );
 
-        // Custom domain — Studio-plan only, must be unique across galleries
+        // Custom domain — Studio-plan only, must be unique across galleries.
+        // (Task C06) DNS verification is now required before Coolify routing
+        // is configured. The flow is:
+        //   1. User sets custom_domain → we store it + generate a verification
+        //      token. custom_domain_verified_at stays NULL. Coolify is NOT
+        //      called yet — the domain won't route.
+        //   2. User adds a TXT record to their DNS and clicks "Verify now"
+        //      (or a scheduled job retries hourly).
+        //   3. verifyCustomDomain() checks DNS, sets custom_domain_verified_at,
+        //      and calls CoolifyDomainManager::addDomain().
+        //   4. DetectCustomDomain middleware only routes verified galleries.
         if (array_key_exists('custom_domain', $validated)) {
             $cd = $validated['custom_domain'];
             if (!empty($cd) && $planHolder->plan === 'studio') {
@@ -364,31 +374,47 @@ class GalleryController extends Controller
                     return back()->withInput()
                         ->with('error', "The custom domain \"{$cd}\" is already in use.");
                 }
-                $validated['custom_domain'] = $cd;
-                // Clear the lookup cache for the new domain
-                \Illuminate\Support\Facades\Cache::forget("custom_domain:{$cd}");
 
-                // Register with Coolify if it's a new domain (different from current)
-                if ($cd !== $gallery->getOriginal('custom_domain')) {
-                    $coolifyResult = $this->coolify->addDomain($cd);
-                    if (!$coolifyResult['success']) {
-                        \Log::warning('Coolify domain registration deferred on update.', [
-                            'gallery_id' => $gallery->id,
-                            'domain'     => $cd,
-                            'reason'     => $coolifyResult['message'],
-                        ]);
-                        // Don't fail the save — but warn the user
-                        session()->flash('warning', "Gallery saved, but Coolify could not auto-configure the custom domain: {$coolifyResult['message']}");
+                $oldDomain = $gallery->getOriginal('custom_domain');
+                $domainChanged = $cd !== $oldDomain;
+
+                $validated['custom_domain'] = $cd;
+
+                // Clear the lookup cache for the new domain (and the old one
+                // if it changed) so DetectCustomDomain middleware re-resolves.
+                \Illuminate\Support\Facades\Cache::forget("custom_domain:{$cd}");
+                if ($domainChanged && $oldDomain) {
+                    \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
+                }
+
+                if ($domainChanged) {
+                    // Generate a new verification token; reset verified_at.
+                    // These columns are guarded (not in $fillable) — use
+                    // forceFill on the model after the update() call below.
+                    // We stash the token in the request attributes for the
+                    // post-update forceFill.
+                    $request->attributes->set('_pending_domain_token', \Illuminate\Support\Str::random(32));
+
+                    // If the old domain was previously verified + registered
+                    // with Coolify, remove it now — the new domain must be
+                    // re-verified before re-registering.
+                    if ($oldDomain && $gallery->custom_domain_verified_at) {
+                        $this->coolify->removeDomain($oldDomain);
                     }
                 }
             } elseif (empty($cd)) {
-                // Domain was cleared — remove from Coolify if it was set
+                // Domain was cleared — remove from Coolify if it was verified
+                // and registered, and clear verification fields.
                 if ($gallery->custom_domain) {
                     $oldDomain = $gallery->custom_domain;
-                    $this->coolify->removeDomain($oldDomain);
                     \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
+                    if ($gallery->custom_domain_verified_at) {
+                        $this->coolify->removeDomain($oldDomain);
+                    }
                 }
                 $validated['custom_domain'] = null;
+                // Clear verification fields via forceFill after the update.
+                $request->attributes->set('_clear_domain_verification', true);
             } else {
                 // Non-Studio plan trying to set a custom domain — block silently
                 unset($validated['custom_domain']);
@@ -401,10 +427,138 @@ class GalleryController extends Controller
 
         $gallery->update($validated);
 
+        // ── Post-update: set guarded custom-domain verification fields ──────
+        // (Task C06) — these columns are NOT in $fillable, so update() won't
+        // touch them. We use forceFill() to set them based on the flags we
+        // stashed in the request attributes earlier in this method.
+        if ($request->attributes->has('_pending_domain_token')) {
+            $gallery->forceFill([
+                'custom_domain_verification_token' => $request->attributes->get('_pending_domain_token'),
+                'custom_domain_verified_at'        => null,
+            ])->save();
+
+            // Show the user the DNS instructions in the next response.
+            session()->flash('info', 'Custom domain saved. Add the TXT record shown below to your DNS, then click "Verify domain".');
+        } elseif ($request->attributes->get('_clear_domain_verification')) {
+            $gallery->forceFill([
+                'custom_domain_verification_token' => null,
+                'custom_domain_verified_at'        => null,
+            ])->save();
+        }
+
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Gallery settings updated!']);
         }
         return back()->with('status', 'Gallery settings updated!');
+    }
+
+    // ── Verify custom domain (Task C06) ───────────────────────────────────
+
+    /**
+     * Check DNS for the verification TXT record. If found, mark the domain
+     * as verified and register it with Coolify.
+     *
+     * Called when the user clicks "Verify now" in the gallery edit page.
+     * Also called by the scheduled `exospace:verify-pending-domains` command
+     * for galleries with pending verifications.
+     */
+    public function verifyCustomDomain(Request $request, Gallery $gallery)
+    {
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
+
+        if (empty($gallery->custom_domain)) {
+            return back()->with('error', 'No custom domain to verify.');
+        }
+
+        if ($gallery->isCustomDomainVerified()) {
+            return back()->with('status', 'Domain is already verified.');
+        }
+
+        if (empty($gallery->custom_domain_verification_token)) {
+            // Defensive — should never happen because the token is generated
+            // when the domain is set. But if it does, generate one now.
+            $gallery->generateDomainVerificationToken();
+            $gallery->refresh();
+        }
+
+        $verified = $this->checkDnsTxtRecord(
+            $gallery->domainVerificationTxtHost(),
+            $gallery->domainVerificationTxtValue()
+        );
+
+        if (! $verified) {
+            return back()->with('error', 'DNS verification failed. Make sure the TXT record has propagated (this can take 5–60 minutes for some DNS providers), then try again.');
+        }
+
+        // ── Verified! Mark + register with Coolify ──────────────────────
+        $gallery->forceFill(['custom_domain_verified_at' => now()])->save();
+
+        // Clear the lookup cache so DetectCustomDomain middleware picks up
+        // the now-verified gallery on the next request.
+        \Illuminate\Support\Facades\Cache::forget("custom_domain:{$gallery->custom_domain}");
+
+        $coolifyResult = $this->coolify->addDomain($gallery->custom_domain);
+        if (! $coolifyResult['success']) {
+            \Log::warning('Coolify domain registration deferred on verification.', [
+                'gallery_id' => $gallery->id,
+                'domain'     => $gallery->custom_domain,
+                'reason'     => $coolifyResult['message'],
+            ]);
+            session()->flash('warning', "Domain verified, but Coolify could not auto-configure the routing: {$coolifyResult['message']}");
+        }
+
+        return back()->with('status', "Domain \"{$gallery->custom_domain}\" verified! SSL cert will be provisioned automatically (may take 1–5 minutes).");
+    }
+
+    /**
+     * Look up DNS TXT records for $host and return true if any record's
+     * text matches $expectedValue exactly.
+     *
+     * Uses dns_get_record() which is available on PHP 8.2+ without
+     * extensions. The lookup respects the system resolver's DNS cache
+     * (so propagation delays apply — this is intentional, we want to
+     * see what visitors will see).
+     */
+    private function checkDnsTxtRecord(string $host, string $expectedValue): bool
+    {
+        if (empty($host) || empty($expectedValue)) {
+            return false;
+        }
+
+        // dns_get_record can return false on resolver failure. Suppress
+        // warnings (the function emits E_WARNING on DNS errors) and treat
+        // false as "no match" — the user can retry.
+        $records = @dns_get_record($host, DNS_TXT);
+
+        if (! is_array($records)) {
+            \Log::info('Custom domain DNS lookup failed (no array returned)', [
+                'host' => $host,
+            ]);
+            return false;
+        }
+
+        foreach ($records as $record) {
+            // TXT records come back as either:
+            //   ['host' => ..., 'txt' => 'exospace-verify=abc123']
+            //   ['host' => ..., 'entries' => ['exospace-verify=abc123']]
+            $candidates = [];
+            if (isset($record['txt'])) {
+                $candidates[] = trim($record['txt'], '"');
+            }
+            if (isset($record['entries']) && is_array($record['entries'])) {
+                foreach ($record['entries'] as $entry) {
+                    $candidates[] = trim($entry, '"');
+                }
+            }
+
+            foreach ($candidates as $candidate) {
+                if (hash_equals($expectedValue, $candidate)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     // ── Destroy ───────────────────────────────────────────────────────────
@@ -414,11 +568,14 @@ class GalleryController extends Controller
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
         $teamId = $gallery->team_id;
 
-        // Clean up custom domain cache + remove from Coolify if set
+        // Clean up custom domain cache + remove from Coolify if the domain
+        // was actually verified + registered. (Task C06.)
         if ($gallery->custom_domain) {
             $oldDomain = $gallery->custom_domain;
             \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
-            $this->coolify->removeDomain($oldDomain);
+            if ($gallery->custom_domain_verified_at) {
+                $this->coolify->removeDomain($oldDomain);
+            }
         }
 
         $gallery->delete();

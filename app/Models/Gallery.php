@@ -23,6 +23,10 @@ class Gallery extends Model
         'curtain_logo_path',  // NEW (Round 4) — Studio-only custom entrance curtain logo
         'curtain_bg_color',   // NEW (Round 4) — Studio-only custom entrance curtain bg color
         'visual_overrides',   // NEW (Live Preview) — per-gallery tweaks on top of venue config
+        // NOTE: custom_domain_verification_token and custom_domain_verified_at
+        // are intentionally NOT fillable — they're set via forceFill() in
+        // GalleryController::update / verifyCustomDomain to prevent a client
+        // from forging a verification status. (Task C06.)
     ];
 
     protected $casts = [
@@ -31,6 +35,7 @@ class Gallery extends Model
         'opens_at'   => 'datetime',
         'closes_at'  => 'datetime',
         'visual_overrides' => 'array',
+        'custom_domain_verified_at' => 'datetime',  // Task C06
     ];
 
     protected static function boot()
@@ -195,6 +200,69 @@ class Gallery extends Model
     public function verifyPin(string $pin): bool
     {
         return \Hash::check($pin, $this->pin_hash);
+    }
+
+    // ─── Custom-domain verification (Task C06) ──────────────────────────
+
+    /**
+     * Has the gallery's custom_domain been DNS-verified?
+     *
+     * DetectCustomDomain middleware only routes verified galleries on
+     * their custom domain. Unverified galleries get a 404 (or a "pending
+     * verification" page) so a squatter who claims a domain they don't
+     * own can never serve traffic on it.
+     */
+    public function isCustomDomainVerified(): bool
+    {
+        return ! empty($this->custom_domain)
+            && ! empty($this->custom_domain_verified_at);
+    }
+
+    /**
+     * Generate (and persist) a new random verification token for the
+     * current custom_domain. Resets custom_domain_verified_at to NULL
+     * because a new token has not yet been verified.
+     *
+     * Called by GalleryController::update when the user changes their
+     * custom_domain — the new domain must be re-verified.
+     */
+    public function generateDomainVerificationToken(): string
+    {
+        $token = Str::random(32);
+
+        $this->forceFill([
+            'custom_domain_verification_token' => $token,
+            'custom_domain_verified_at'        => null,
+        ])->save();
+
+        return $token;
+    }
+
+    /**
+     * The TXT record hostname the user must add to their DNS.
+     *
+     * For domain "gallery.janedoe.com", this returns
+     * "_exospace.gallery.janedoe.com". The user adds:
+     *
+     *   _exospace.gallery.janedoe.com.  IN  TXT  "exospace-verify=<token>"
+     */
+    public function domainVerificationTxtHost(): ?string
+    {
+        if (empty($this->custom_domain)) {
+            return null;
+        }
+        return '_exospace.' . $this->custom_domain;
+    }
+
+    /**
+     * The TXT record value the user must add to their DNS.
+     */
+    public function domainVerificationTxtValue(): ?string
+    {
+        if (empty($this->custom_domain_verification_token)) {
+            return null;
+        }
+        return 'exospace-verify=' . $this->custom_domain_verification_token;
     }
 
     // ─── Live Preview helpers ──────────────────────────────────────────

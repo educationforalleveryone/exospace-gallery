@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Models\Gallery;
 use App\Models\AdminAuditLog;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 
 class SystemController extends Controller
@@ -87,27 +86,12 @@ class SystemController extends Controller
 
         AdminAuditLog::record('user_deleted', $user, ['email' => $userEmail, 'plan' => $userPlan]);
 
-        // 1. Delete files for all personal galleries
-        $user->galleries()->with('images')->get()->each(function ($gallery) {
-            $this->deleteGalleryFiles($gallery);
-        });
-
-        // 2. Delete teams owned by this user and their team galleries
-        foreach ($user->ownedTeams as $team) {
-            $team->galleries()->with('images')->get()->each(function ($gallery) {
-                $this->deleteGalleryFiles($gallery);
-            });
-            // Clear current_team_id for all members of this team
-            User::where('current_team_id', $team->id)->update(['current_team_id' => null]);
-            $team->delete(); // cascades team_user + team_invitations
-        }
-
-        // 3. Clear current_team_id if pointing at a team they don't own
-        // (handled by FK set null on teams, but belt-and-suspenders)
-        $user->forceFill(['current_team_id' => null])->save();
-
-        // 4. Delete the user (DB cascade handles galleries, images, events, transactions)
-        $user->delete();
+        // Delegate to UserDeletionService — same code path as the self-serve
+        // ProfileController::destroy. Handles file cleanup (images, audio,
+        // logos, artist portraits), Coolify custom-domain removal, owned-team
+        // cleanup, and the final user row delete. (Tasks C05 + C10.)
+        app(\App\Services\UserDeletionService::class)
+            ->deleteUser($user, 'Admin deletion');
 
         return redirect()->route('super.index')
                          ->with('success', "User \"{$userName}\" and all their data permanently deleted.");
@@ -211,28 +195,6 @@ class SystemController extends Controller
     {
         if ($user->id === auth()->id()) {
             abort(403, "You cannot {$action} your own account.");
-        }
-    }
-
-    private function deleteGalleryFiles(Gallery $gallery): void
-    {
-        foreach ($gallery->images as $image) {
-            $this->deleteFile($image->path);
-        }
-        if ($gallery->audio_path)      $this->deleteFile($gallery->audio_path);
-        if ($gallery->custom_logo_path) $this->deleteFile($gallery->custom_logo_path);
-    }
-
-    private function deleteFile(?string $path): void
-    {
-        if (empty($path)) return;
-
-        $clean = str_replace('storage/', '', $path);
-
-        if (Storage::disk('public')->exists($clean)) {
-            Storage::disk('public')->delete($clean);
-        } elseif (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
         }
     }
 }

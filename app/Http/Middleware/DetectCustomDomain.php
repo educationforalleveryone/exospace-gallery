@@ -17,9 +17,10 @@ use Symfony\Component\HttpFoundation\Response;
  *   3. Skip the middleware entirely if the host matches the primary
  *      APP_URL host (e.g. "exospace.gallery") — those requests go through
  *      the normal /gallery/{slug} route.
- *   4. Otherwise, look up a gallery with that custom_domain. If found,
- *      stash it in request attributes so GalleryViewController can render
- *      it directly. If not found, let the request fall through (it'll
+ *   4. Otherwise, look up a gallery with that custom_domain AND a non-null
+ *      custom_domain_verified_at (task C06). If found, stash it in request
+ *      attributes so GalleryViewController can render it directly. If not
+ *      found (or not yet verified), let the request fall through (it'll
  *      404 naturally).
  *
  * Caching:
@@ -37,6 +38,13 @@ use Symfony\Component\HttpFoundation\Response;
  *     gets provisioned.
  *   - The "TRUSTED_PROXIES=*" in .env ensures Laravel trusts the
  *     X-Forwarded-Host header set by the proxy.
+ *
+ * Task C06 — DNS verification:
+ *   A gallery can have custom_domain set in the DB without being verified.
+ *   This middleware only routes verified galleries, so a squatter who
+ *   claims a domain they don't own can never serve traffic on it. The
+ *   legitimate domain owner can always claim their domain because only
+ *   they can add the verification TXT record.
  */
 class DetectCustomDomain
 {
@@ -58,15 +66,32 @@ class DetectCustomDomain
             return $next($request);
         }
 
-        // Cache the lookup for 5 minutes per host
+        // Cache the lookup for 5 minutes per host.
+        //
+        // (Task C06) Only route galleries whose custom_domain_verified_at is
+        // set. Unverified custom domains get the same fall-through behavior
+        // as "no matching gallery" → 404 from the router. This is what
+        // stops a squatter from serving traffic on a domain they don't own:
+        // they can claim it in the DB, but without DNS verification they
+        // can't actually route traffic to it.
+        //
+        // The cache stores the gallery ID or null. We intentionally cache
+        // null too (for the "domain not in DB at all" case) — but see task
+        // C13 for the related CoolifyDomainManager cache-nulls bug, which
+        // is a separate concern.
         $cacheKey = "custom_domain:{$host}";
         $galleryId = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($host) {
-            return Gallery::where('custom_domain', $host)->value('id');
+            return Gallery::where('custom_domain', $host)
+                ->whereNotNull('custom_domain_verified_at')
+                ->value('id');
         });
 
         if ($galleryId) {
             $gallery = Gallery::with(['images', 'user', 'venueTemplate'])->find($galleryId);
-            if ($gallery && $gallery->is_active) {
+            // Double-check verification at request time in case the cache
+            // is stale (a domain could be un-verified between cache write
+            // and now via a downgrade or admin action).
+            if ($gallery && $gallery->is_active && $gallery->isCustomDomainVerified()) {
                 $request->attributes->set('resolved_gallery', $gallery);
             }
         }

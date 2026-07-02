@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\InstallerController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\SuperAdmin\SystemController;
 use App\Http\Controllers\SuperAdmin\VenueTemplateController;
@@ -51,9 +50,22 @@ Route::get('/health', function () {
     }
 })->name('health');
 
-// ── Installer ────────────────────────────────────────────────────────────
-Route::get('/finalize-installation', [InstallerController::class, 'finalize'])
-    ->name('installer.finalize')->withoutMiddleware(['auth', 'verified']);
+// ── Installer (REMOVED in task C08) ──────────────────────────────────────
+// The public /install/ directory and InstallerController have been removed.
+// They were a standing risk: gated only by storage/.installed, the route
+// called Artisan::call('migrate:fresh', ['--force' => true]) which drops
+// every table. A missing lockfile (container rebuild without persistent
+// volume) made the route reproducible — an attacker could wipe the DB.
+//
+// First-run setup is now done via artisan commands:
+//   php artisan migrate --force
+//   php artisan db:seed --class=VenueTemplateSeeder --force
+//   php artisan storage:link
+//   php artisan tinker  # create the first super-admin manually:
+//     >>> $u = App\Models\User::create(['name'=>'Admin','email'=>'…','password'=>bcrypt('…')]);
+//     >>> $u->forceFill(['is_super_admin'=>true,'email_verified_at'=>now()])->save();
+//
+// Any request to /install/ or /finalize-installation now returns 404.
 
 // ── Webhooks ─────────────────────────────────────────────────────────────
 Route::post('/webhooks/2checkout',        [WebhookController::class, 'handle2Checkout'])->name('webhooks.2checkout');
@@ -85,8 +97,14 @@ Route::get('/gallery/demo', function () {
 Route::get('/artist/{slug}', [ArtistProfileController::class, 'show'])->name('artist.profile');
 
 // ── Per-gallery: PIN entry, OG image, QR code, events, newsletter ────────
+// PIN verify is throttled at two layers (task C07):
+//   1. Route-level `throttle:5,1` — 5 req/min/IP across all PIN endpoints
+//   2. Per-gallery lockout in GalleryPinController — after 5 failed attempts
+//      for a (gallery, IP) pair, that IP is locked out of that gallery's PIN
+//      for 15 minutes. Stops distributed brute-force against a single gallery.
 Route::get('/gallery/{slug}/pin',       [\App\Http\Controllers\GalleryPinController::class, 'show'])->name('gallery.pin');
-Route::post('/gallery/{slug}/pin',      [\App\Http\Controllers\GalleryPinController::class, 'verify'])->name('gallery.pin.verify');
+Route::post('/gallery/{slug}/pin',      [\App\Http\Controllers\GalleryPinController::class, 'verify'])->name('gallery.pin.verify')
+      ->middleware('throttle:5,1');
 Route::get('/gallery/{slug}/og-image',  [OgImageController::class, 'show'])->name('gallery.og-image');
 Route::get('/gallery/{slug}/qr',        [QrCodeController::class, 'show'])->name('gallery.qr');
 
@@ -123,6 +141,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile',    [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile',  [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // GDPR Art. 20 — right to data portability. Returns JSON download of
+    // the user's profile, galleries, images metadata, transactions, teams,
+    // and artist profiles. (Task C10.)
+    Route::get('/profile/export', [ProfileController::class, 'export'])->name('profile.export');
 });
 
 // ── Admin ────────────────────────────────────────────────────────────────
@@ -152,6 +174,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('galleries/{gallery}/upload-logo',    [\App\Http\Controllers\Admin\GalleryController::class, 'uploadLogo'])->name('galleries.upload-logo');
     Route::post('galleries/{gallery}/reorder-images', [\App\Http\Controllers\Admin\GalleryController::class, 'reorderImages'])->name('galleries.reorder-images');
     Route::get('galleries/{gallery}/analytics',       [\App\Http\Controllers\Admin\AnalyticsController::class, 'show'])->name('galleries.analytics');
+
+    // Custom-domain DNS verification (Task C06). User adds the TXT record
+    // to their DNS, then clicks "Verify domain" which hits this endpoint.
+    // Also retried hourly by the exospace:verify-pending-domains command.
+    Route::post('galleries/{gallery}/verify-domain',  [\App\Http\Controllers\Admin\GalleryController::class, 'verifyCustomDomain'])->name('galleries.verify-domain');
 
     // NEW (Round 4): per-artwork metadata editor
     Route::put('galleries/{gallery}/images/{image}/metadata', [\App\Http\Controllers\Admin\ImageMetadataController::class, 'update'])->name('galleries.images.metadata');

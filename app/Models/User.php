@@ -13,10 +13,43 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable;
 
+    // ── Mass-assignment surface ───────────────────────────────────────────
+    //
+    // Only the three identity fields are mass-assignable. Everything that
+    // affects billing, authorization, or plan state is guarded and must be
+    // set explicitly via forceFill() (which bypasses $guarded) in the
+    // trusted admin / webhook / middleware code paths.
+    //
+    // This prevents a class of privilege-escalation / billing-bypass bugs
+    // where a future controller refactor accidentally passes
+    // $request->validated() or $request->all() to User::create() / update()
+    // / fill() and lets a client set is_super_admin=1, plan='studio',
+    // max_images=99999, etc.
+    //
+    // Trusted callers that need to set the guarded fields:
+    //   - WebhookController (upgrade / downgrade)
+    //   - SuperAdmin\SystemController (plan change, ban, super-admin toggle)
+    //   - CheckPlanExpiry middleware (expiry-driven downgrade)
+    //   - PlanDowngradeService (Studio-only resource cleanup)
+    //   - RegisteredUserController (initial user creation — only sets name/email/password)
+    //   - PasswordController (password change — only sets password)
+    //   - ProfileController (name/email change — only sets name/email)
+    //   - TeamController / teams.switch-personal route (current_team_id)
+    //
+    // All of the above already use forceFill() or query-builder update()
+    // (which bypasses $fillable/$guarded). If you add a new caller that
+    // needs to set a guarded field, use forceFill(['field' => $value])->save()
+    // and add a comment explaining why the mutation is trusted.
     protected $fillable = [
         'name',
         'email',
         'password',
+    ];
+
+    // Explicitly guarded — these fields CANNOT be set via fill() / create()
+    // / update() with an array. Use forceFill() in trusted code paths only.
+    protected $guarded = [
+        'id',
         'is_super_admin',
         'plan',
         'max_galleries',
@@ -24,6 +57,10 @@ class User extends Authenticatable implements MustVerifyEmail
         'plan_started_at',
         'plan_expires_at',
         'current_team_id',
+        'banned_at',
+        'ban_reason',
+        'email_verified_at',  // set via markEmailAsVerified() / forceFill()
+        'remember_token',
     ];
 
     protected $hidden = [
@@ -48,6 +85,12 @@ class User extends Authenticatable implements MustVerifyEmail
     public function galleries(): HasMany
     {
         return $this->hasMany(Gallery::class);
+    }
+
+    /** Artist profiles created by this user (curator) */
+    public function createdArtists(): HasMany
+    {
+        return $this->hasMany(Artist::class, 'created_by');
     }
 
     // ── Team relationships ────────────────────────────────────────────────
