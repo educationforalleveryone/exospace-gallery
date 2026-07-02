@@ -84,6 +84,13 @@
                 </header>
             @endisset
 
+            {{-- (Task H10 / audit H40) — every admin page needs an <h1> for
+                 screen-reader navigation. Pages that don't provide a $header
+                 slot get a visually-hidden h1 with the page title. --}}
+            @empty($header)
+                <h1 class="sr-only">{{ $pageTitle ?? 'Dashboard' }}</h1>
+            @endempty
+
             <!-- Page Content -->
             <main id="main-content" class="page-content">
                 {{ $slot }}

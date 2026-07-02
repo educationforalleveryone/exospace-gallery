@@ -65,12 +65,13 @@
         }
         .submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
         .submit-btn:active { transform: scale(0.98); }
+        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .hint { font-size: 0.75rem; color: rgba(255,255,255,0.3); margin-top: 1.2rem; }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="lock-icon">
+        <div class="lock-icon" aria-hidden="true">
             <svg width="24" height="24" fill="none" stroke="#8b5cf6" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -82,18 +83,29 @@
         <p class="subtitle">This gallery is private. Enter the 4-digit PIN to continue.</p>
 
         @if($errors->has('pin'))
-            <div class="error-msg">{{ $errors->first('pin') }}</div>
+            <div class="error-msg" role="alert" id="pin-error">{{ $errors->first('pin') }}</div>
         @endif
 
         <form method="POST" action="{{ route('gallery.pin.verify', $gallery->slug) }}" id="pin-form">
             @csrf
             <input type="hidden" name="pin" id="pin-hidden">
 
-            <div class="pin-row">
-                <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" data-index="0" autocomplete="off">
-                <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" data-index="1" autocomplete="off">
-                <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" data-index="2" autocomplete="off">
-                <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" data-index="3" autocomplete="off">
+            {{-- (Task H11 / audit H43) — accessible PIN input.
+                 Previously 4 unlabeled <input type="text"> elements with
+                 no aria-label, no role, visible to shoulder-surfers, and
+                 auto-submitting 200ms after the 4th digit (yanking screen
+                 reader users mid-announcement).
+
+                 Now: 4 inputs with proper aria-labels, type="password" to
+                 mask from shoulder-surfers, autocomplete="one-time-code"
+                 for iOS SMS-code autofill affordance, aria-describedby
+                 linking to the error message, and NO auto-submit (user
+                 presses Enter or clicks Submit). --}}
+            <div class="pin-row" role="group" aria-label="4-digit gallery PIN">
+                <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="0" autocomplete="one-time-code" aria-label="PIN digit 1" aria-describedby="pin-error">
+                <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="1" autocomplete="off" aria-label="PIN digit 2" aria-describedby="pin-error">
+                <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="2" autocomplete="off" aria-label="PIN digit 3" aria-describedby="pin-error">
+                <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="3" autocomplete="off" aria-label="PIN digit 4" aria-describedby="pin-error">
             </div>
 
             <button type="submit" class="submit-btn" id="submit-btn" disabled>Enter Gallery</button>
@@ -129,6 +141,12 @@
                     digits[i - 1].focus();
                     sync();
                 }
+                // Enter on the last digit submits (accessible alternative
+                // to the removed auto-submit). (Task H11)
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (!submit.disabled) document.getElementById('pin-form').submit();
+                }
             });
 
             // Handle paste on first digit
@@ -152,11 +170,8 @@
             submit.disabled = pin.length < 4;
         }
 
-        // Auto-submit when all 4 digits filled
-        document.getElementById('pin-form').addEventListener('input', () => {
-            const pin = Array.from(digits).map(d => d.value).join('');
-            if (pin.length === 4) setTimeout(() => document.getElementById('pin-form').submit(), 200);
-        });
+        // (Task H11) Auto-submit removed — it yanked screen reader users
+        // mid-announcement. Users now press Enter or click "Enter Gallery".
     </script>
 </body>
 </html>

@@ -1,0 +1,173 @@
+{{--
+    Public layout for marketing / legal / discovery pages.
+
+    (Task H09 / audit H34, H38, H39) — replaces the standalone HTML
+    documents that used cdn.tailwindcss.com (a development-only CDN
+    that ships a ~300 KB runtime compiler and has no SRI). Now all
+    public pages use the same Vite-built CSS as the admin app, plus
+    a shared nav + footer + SEO head.
+
+    Usage:
+        @extends('layouts.public')
+        @section('title', 'Pricing — Exospace')
+        @section('description', '...')
+        @section('content')
+            ... page content ...
+        @endsection
+--}}
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    {{-- SEO meta tags (Task H13) --}}
+    <x-seo
+        title="@yield('title', config('app.name', 'Exospace'))"
+        description="@yield('description', 'Create museum-quality 3D art exhibitions in minutes. Upload your images, pick a venue, share a link. Free to start.')"
+        canonical-url="@yield('canonical', url()->current())"
+    />
+
+    {{-- Fonts --}}
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
+
+    {{-- Vite-built CSS + JS — replaces cdn.tailwindcss.com (Task H09) --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    {{-- Favicon + theme color --}}
+    <link rel="icon" href="{{ asset('favicon.ico') }}">
+    <meta name="theme-color" content="#0f1117">
+
+    <style>
+        html { scroll-behavior: smooth; }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+        *:focus-visible {
+            outline: 2px solid rgb(139 92 246);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased bg-[#0f1117] text-gray-100 min-h-screen flex flex-col">
+    {{-- Skip to content (accessibility) --}}
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-purple-600 focus:text-white focus:rounded-lg focus:font-semibold">
+        Skip to main content
+    </a>
+
+    {{-- Public nav (simplified version of the admin nav) --}}
+    <nav class="border-b border-gray-800/60 bg-[#0f1117]/95 backdrop-blur sticky top-0 z-40" aria-label="Main navigation">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <a href="/" class="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
+                        Exospace
+                    </a>
+                    <div class="hidden md:flex items-center gap-6">
+                        <a href="/#features" class="text-sm text-gray-300 hover:text-white transition">Features</a>
+                        <a href="{{ route('pricing') }}" class="text-sm text-gray-300 hover:text-white transition">Pricing</a>
+                        <a href="{{ route('discover') }}" class="text-sm text-gray-300 hover:text-white transition">Discover</a>
+                        <a href="{{ route('contact') }}" class="text-sm text-gray-300 hover:text-white transition">Contact</a>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center gap-4">
+                    @auth
+                        <a href="{{ route('admin.dashboard') }}" class="text-sm text-gray-300 hover:text-white transition">Dashboard</a>
+                        <a href="{{ route('billing.index') }}" class="text-sm text-gray-300 hover:text-white transition">Billing</a>
+                        <form method="POST" action="{{ route('logout') }}" class="inline">
+                            @csrf
+                            <button type="submit" class="text-sm text-gray-300 hover:text-white transition">Log out</button>
+                        </form>
+                    @else
+                        <a href="{{ route('login') }}" class="text-sm text-gray-300 hover:text-white transition">Log in</a>
+                        <a href="{{ route('register') }}" class="text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold px-4 py-2 rounded-lg transition">
+                            Get Started
+                        </a>
+                    @endauth
+                </div>
+                {{-- Mobile menu button --}}
+                <button @click="mobileMenuOpen = !mobileMenuOpen"
+                        class="md:hidden text-gray-400 hover:text-white"
+                        :aria-expanded="mobileMenuOpen"
+                        aria-controls="mobile-public-nav"
+                        aria-label="Toggle menu">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        {{-- Mobile menu --}}
+        <div x-show="mobileMenuOpen" x-cloak id="mobile-public-nav" class="md:hidden border-t border-gray-800 bg-[#0f1117]">
+            <div class="px-4 py-3 space-y-2">
+                <a href="/#features" class="block py-2 text-sm text-gray-300 hover:text-white">Features</a>
+                <a href="{{ route('pricing') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Pricing</a>
+                <a href="{{ route('discover') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Discover</a>
+                <a href="{{ route('contact') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Contact</a>
+                <hr class="border-gray-800 my-2">
+                @auth
+                    <a href="{{ route('admin.dashboard') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Dashboard</a>
+                    <a href="{{ route('billing.index') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Billing</a>
+                    <form method="POST" action="{{ route('logout') }}" class="inline">
+                        @csrf
+                        <button type="submit" class="block py-2 text-sm text-gray-300 hover:text-white">Log out</button>
+                    </form>
+                @else
+                    <a href="{{ route('login') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Log in</a>
+                    <a href="{{ route('register') }}" class="block py-2 text-sm text-purple-400 hover:text-purple-300">Get Started</a>
+                @endauth
+            </div>
+        </div>
+    </nav>
+
+    {{-- Page content --}}
+    <main id="main-content" class="flex-1">
+        @yield('content')
+    </main>
+
+    {{-- Footer --}}
+    @include('layouts.partials.footer')
+
+    {{-- Cookie banner --}}
+    @include('layouts.partials.cookie-banner')
+
+    {{-- Toast notifications + modal helpers (same as app layout) --}}
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
+    <script>
+    window.toast = function(message, type = 'success') {
+        const colors = { success: 'bg-gray-900 border-green-500/40', error: 'bg-gray-900 border-red-500/40', info: 'bg-gray-900 border-gray-600' };
+        const icons  = {
+            success: '<svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>',
+            error:   '<svg class="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>',
+            info:    '<svg class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+        };
+        const el = document.createElement('div');
+        el.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium text-gray-100 shadow-2xl backdrop-blur-sm ${colors[type]} transition-all duration-300 translate-y-2 opacity-0 min-w-[260px] max-w-sm`;
+        el.innerHTML = `${icons[type]}<span class="flex-1">${message}</span>`;
+        document.getElementById('toast-container').appendChild(el);
+        requestAnimationFrame(() => { el.classList.remove('translate-y-2','opacity-0'); });
+        setTimeout(() => {
+            el.classList.add('translate-y-2','opacity-0');
+            setTimeout(() => el.remove(), 300);
+        }, 3500);
+    };
+    @if(session('success')) toast("{{ session('success') }}", 'success'); @endif
+    @if(session('error'))   toast("{{ session('error') }}", 'error'); @endif
+    @if(session('info'))    toast("{{ session('info') }}", 'info'); @endif
+    @if(session('status'))  toast("{{ session('status') }}", 'success'); @endif
+    @if(session('warning')) toast("{{ session('warning') }}", 'error'); @endif
+
+    function openModal(id)  { const m=document.getElementById(id); m.style.display='flex'; m.classList.add('flex'); }
+    function closeModal(id) { const m=document.getElementById(id); m.style.display='none'; m.classList.remove('flex'); }
+    document.addEventListener('DOMContentLoaded',()=>{
+        document.querySelectorAll('[role="dialog"]').forEach(m=>{
+            m.addEventListener('click', e=>{ if(e.target===m) closeModal(m.id); });
+        });
+        document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('[role="dialog"]').forEach(m=>closeModal(m.id)); });
+    });
+    </script>
+</body>
+</html>

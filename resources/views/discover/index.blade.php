@@ -43,7 +43,7 @@
                         {{-- Cover --}}
                         <div class="aspect-[4/3] bg-gray-900 overflow-hidden relative">
                             @if($gallery->coverImage)
-                                <img src="{{ asset($gallery->coverImage->path) }}" alt="{{ $gallery->title }}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                                <img src="{{ asset($gallery->coverImage->path) }}" alt="{{ $gallery->title }}" loading="lazy" decoding="async" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
                             @else
                                 <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900/30 to-gray-900">
                                     <svg class="w-16 h-16 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
