@@ -36,8 +36,12 @@
     {{-- Vite-built CSS + JS — replaces cdn.tailwindcss.com (Task H09) --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    {{-- Favicon + theme color --}}
-    <link rel="icon" href="{{ asset('favicon.ico') }}">
+    {{-- Favicon + theme color + PWA manifest (Task H23) --}}
+    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
+    <link rel="manifest" href="{{ asset('site.webmanifest') }}">
     <meta name="theme-color" content="#0f1117">
 
     <style>

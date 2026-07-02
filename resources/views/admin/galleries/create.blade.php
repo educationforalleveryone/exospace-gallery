@@ -59,21 +59,21 @@
 
                     <!-- Title -->
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-200 mb-2">Gallery Title *</label>
-                        <input type="text" name="title" value="{{ old('title') }}" required 
+                        <label for="title" class="block text-sm font-medium text-gray-200 mb-2">Gallery Title <span class="text-red-400" aria-hidden="true">*</span></label>
+                        <input type="text" id="title" name="title" value="{{ old('title') }}" required aria-required="true"
                             class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 shadow-sm focus:border-purple-500 focus:ring-purple-500">
                         @error('title')
-                            <p class="text-red-400 text-sm mt-1">{{ $message }}</p>
+                            <p class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <!-- Description -->
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-200 mb-2">Description</label>
-                        <textarea name="description" rows="3" 
+                        <label for="description" class="block text-sm font-medium text-gray-200 mb-2">Description</label>
+                        <textarea name="description" id="description" rows="3"
                             class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 shadow-sm focus:border-purple-500 focus:ring-purple-500">{{ old('description') }}</textarea>
                         @error('description')
-                            <p class="text-red-400 text-sm mt-1">{{ $message }}</p>
+                            <p class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
                         @enderror
                     </div>
 
@@ -340,13 +340,13 @@ $venueAtmospheres = [
                         @if(auth()->user()->isPro())
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
+                                    <label for="opens_at" class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
                                     <input type="datetime-local" name="opens_at" value="{{ old('opens_at') }}" placeholder=" "
                                         class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Your local time. Leave blank to open immediately.</p>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
+                                    <label for="closes_at" class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
                                     <input type="datetime-local" name="closes_at" value="{{ old('closes_at') }}" placeholder=" "
                                         class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Optional. Leave blank for no end date.</p>

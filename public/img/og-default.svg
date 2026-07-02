@@ -1,0 +1,66 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <!--
+    Default Open Graph image for Exospace (Task H23 / audit H39, MX9).
+
+    Used by the <x-seo> component when no per-page OG image is specified.
+    Social platforms (Facebook, Twitter, LinkedIn, Slack) use this image
+    when someone shares a link to any page that doesn't have its own
+    OG image (homepage, pricing, about, legal pages, etc.).
+
+    Dimensions: 1200×630 (the recommended OG image size for all platforms).
+
+    NOTE: Most social platforms now support SVG OG images, but for maximum
+    compatibility, convert this to PNG:
+      rsvg-convert -w 1200 -h 630 og-default.svg -o og-default.png
+    or use an online converter. The <x-seo> component references
+    og-default.png — create that file from this SVG.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a0f"/>
+      <stop offset="50%" stop-color="#16213e"/>
+      <stop offset="100%" stop-color="#0f3460"/>
+    </linearGradient>
+    <linearGradient id="logo" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.05" stroke="#ffffff" stroke-width="1">
+    <line x1="0" y1="210" x2="1200" y2="210"/>
+    <line x1="0" y1="420" x2="1200" y2="420"/>
+    <line x1="400" y1="0" x2="400" y2="630"/>
+    <line x1="800" y1="0" x2="800" y2="630"/>
+  </g>
+
+  <!-- Logo -->
+  <text x="600" y="260" font-family="Inter, -apple-system, sans-serif" font-size="72" font-weight="700" fill="url(#logo)" text-anchor="middle">
+    EXOSPACE
+  </text>
+
+  <!-- Tagline -->
+  <text x="600" y="330" font-family="Inter, -apple-system, sans-serif" font-size="32" font-weight="400" fill="#94a3b8" text-anchor="middle">
+    Immersive 3D Art Galleries
+  </text>
+
+  <!-- Subtitle -->
+  <text x="600" y="400" font-family="Inter, -apple-system, sans-serif" font-size="24" font-weight="400" fill="#64748b" text-anchor="middle">
+    Upload your images, pick a venue, share a link
+  </text>
+
+  <!-- CTA -->
+  <rect x="450" y="450" width="300" height="60" rx="12" fill="url(#logo)"/>
+  <text x="600" y="490" font-family="Inter, -apple-system, sans-serif" font-size="24" font-weight="600" fill="#ffffff" text-anchor="middle">
+    Start Free →
+  </text>
+
+  <!-- URL -->
+  <text x="600" y="570" font-family="Inter, -apple-system, sans-serif" font-size="20" font-weight="400" fill="#475569" text-anchor="middle">
+    exospace.gallery
+  </text>
+</svg>

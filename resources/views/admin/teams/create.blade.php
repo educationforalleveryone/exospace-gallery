@@ -21,15 +21,15 @@
                     @csrf
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Team Name <span class="text-red-400">*</span></label>
-                        <input type="text" name="name" value="{{ old('name') }}" required maxlength="100"
+                        <label for="name" class="block text-sm font-medium text-gray-300 mb-2">Team Name <span class="text-red-400" aria-hidden="true">*</span></label>
+                        <input type="text" id="name" name="name" value="{{ old('name') }}" required maxlength="100" aria-required="true"
                                placeholder="e.g. Studio Collective"
                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition">
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Description <span class="text-gray-500">(optional)</span></label>
-                        <textarea name="description" rows="3" maxlength="500"
+                        <label for="description" class="block text-sm font-medium text-gray-300 mb-2">Description <span class="text-gray-500">(optional)</span></label>
+                        <textarea name="description" id="description" rows="3" maxlength="500"
                                   placeholder="What is this team for?"
                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition resize-none">{{ old('description') }}</textarea>
                     </div>

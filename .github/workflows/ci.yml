@@ -1,0 +1,102 @@
+# Exospace CI pipeline (Task H22 / audit H60)
+#
+# Runs on every push and pull request to main. Prevents regressions by:
+#   1. Running the full test suite (composer test)
+#   2. Building the frontend (npm run build) — catches Vite config issues
+#   3. Checking PHP syntax (composer lint / pint --test)
+#
+# The test suite uses SQLite in-memory (phpunit.xml) so no MySQL service
+# container is needed. C15 fixed the SQLite-incompatible migration.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  php-tests:
+    name: PHP Tests (SQLite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, json, bcmath, gd, exif, pdo, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run tests
+        run: php artisan test --parallel
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify manifest has gallery entry
+        run: |
+          if ! grep -q "resources/js/gallery/main.js" public/build/manifest.json; then
+            echo "ERROR: gallery entry missing from Vite manifest"
+            exit 1
+          fi
+          if ! grep -q "resources/js/admin-vendor.js" public/build/manifest.json; then
+            echo "ERROR: admin-vendor entry missing from Vite manifest"
+            exit 1
+          fi
+          echo "Vite manifest OK — gallery + admin-vendor entries present"
+
+  php-lint:
+    name: PHP Lint (Pint)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Run Pint
+        run: vendor/bin/pint --test
