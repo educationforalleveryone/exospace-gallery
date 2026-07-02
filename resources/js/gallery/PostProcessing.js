@@ -26,6 +26,21 @@ export class PostProcessing {
         this.scene    = scene;
         this.camera   = camera;
 
+        // (Task H43 / audit C4) — if the user prefers reduced motion,
+        // skip bloom + vignette entirely. These effects can cause
+        // vestibular discomfort (pulsing glow, edge darkening that
+        // shifts with camera movement).
+        const reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
+        if (reducedMotion) {
+            console.log('⚡ PostProcessing: reduced-motion — bloom + vignette disabled');
+            // Still create a minimal composer so render() works
+            this.composer = new EffectComposer(renderer);
+            this.composer.addPass(new RenderPass(scene, camera));
+            this.composer.addPass(new OutputPass());
+            window.addEventListener('resize', () => this.resize());
+            return;
+        }
+
         const w = window.innerWidth;
         const h = window.innerHeight;
 

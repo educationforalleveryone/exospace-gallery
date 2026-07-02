@@ -112,14 +112,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fire analytics view event (once)
         Analytics.trackView();
 
-        // (Task H41 / audit MX8) — deep-link to a specific artwork.
+        // (Task H41, H44 / audit MX8) — deep-link to a specific artwork.
         // If the URL has ?artwork=<id>, auto-focus that artwork after
-        // the scene loads. This lets artists share links to specific
-        // works from social media.
+        // the scene is ready. Uses the sceneReady event instead of a
+        // fixed timer (Task H44) — more reliable on slow connections.
         const deepLinkArtworkId = window.GALLERY_DATA?.deepLinkArtworkId;
-        if (deepLinkArtworkId && galleryScene?.artworks) {
-            // Wait a moment for the scene to settle after the curtain fades
-            setTimeout(() => {
+        if (deepLinkArtworkId) {
+            const focusArtwork = () => {
+                if (!galleryScene?.artworks) return;
                 const target = galleryScene.artworks.find(
                     a => a.userData?.id === deepLinkArtworkId
                 );
@@ -127,7 +127,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     galleryScene.focusedArtwork = target;
                     galleryScene.toggleArtworkInfo();
                 }
-            }, 1500);
+            };
+
+            // If the scene is already ready (artworks loaded), focus now.
+            // Otherwise, poll until artworks are available (max 10s).
+            if (galleryScene?.artworks?.length > 0) {
+                setTimeout(focusArtwork, 500); // small delay for camera settle
+            } else {
+                let attempts = 0;
+                const poll = setInterval(() => {
+                    attempts++;
+                    if (galleryScene?.artworks?.length > 0) {
+                        clearInterval(poll);
+                        setTimeout(focusArtwork, 500);
+                    } else if (attempts > 100) { // 10s timeout
+                        clearInterval(poll);
+                    }
+                }, 100);
+            }
         }
     }, { once: true });
 

@@ -57,8 +57,14 @@ export function updateMovement() {
     this.camera.position.y = CONFIG.camera.height;
 
     // ── Step 6: Cinematic lean (camera rolls slightly into turns) ───────────
-    const targetLean = -this.velocity.x * CONFIG.camera.maxLean;
-    this.currentLean += (targetLean - this.currentLean) * CONFIG.camera.leanSpeed;
+    // (Task H43 / audit C4) — skip camera lean for reduced-motion users.
+    // The rolling sensation can trigger vestibular discomfort.
+    if (this.reducedMotion) {
+        this.currentLean = 0;
+    } else {
+        const targetLean = -this.velocity.x * CONFIG.camera.maxLean;
+        this.currentLean += (targetLean - this.currentLean) * CONFIG.camera.leanSpeed;
+    }
 
     // ── Step 7: Footstep SFX (only while input is held + actually moving) ───
     if (!this.isInspecting && this.sfxEnabled && this.sfx.footstep) {

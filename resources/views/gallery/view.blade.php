@@ -447,6 +447,13 @@
             </div>
 
             <div class="mt-3 pt-3 border-t border-white/10">
+                {{-- (Task H45 / audit MX8) — Share this artwork button.
+                     Generates a deep-link URL with ?artwork=<id> that
+                     auto-focuses this artwork when visited. --}}
+                <button id="share-artwork-btn" onclick="shareArtwork()" class="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition mb-2" style="display:none;">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                    Share this artwork
+                </button>
                 <p class="text-xs text-gray-500 desktop-hint">Press E to close</p>
                 <p class="text-xs text-gray-500 mobile-hint hidden">Double-tap to close</p>
             </div>
@@ -613,6 +620,46 @@
             if (hasExternal) {
                 externalLink.href = data.externalUrl;
                 externalLink.style.display = 'inline-flex';
+            }
+
+            // (Task H45 / audit MX8) — show the "Share this artwork" button
+            // with the deep-link URL. Uses the native Web Share API on
+            // mobile (opens the share sheet); falls back to clipboard copy.
+            const shareBtn = document.getElementById('share-artwork-btn');
+            if (shareBtn && data.id) {
+                shareBtn.style.display = 'inline-flex';
+                shareBtn.dataset.artworkId = data.id;
+            }
+        };
+
+        // (Task H45 / audit MX8) — share the current artwork via deep-link.
+        window.shareArtwork = function() {
+            const btn = document.getElementById('share-artwork-btn');
+            if (!btn) return;
+            const artworkId = btn.dataset.artworkId;
+            if (!artworkId) return;
+
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareUrl = baseUrl + '?artwork=' + artworkId;
+            const shareText = document.getElementById('artwork-title')?.textContent || 'Check out this artwork';
+
+            // Use native Web Share API if available (mobile browsers)
+            if (navigator.share) {
+                navigator.share({
+                    title: shareText,
+                    text: shareText + ' — on Exospace',
+                    url: shareUrl,
+                }).catch(() => {}); // user cancelled — no-op
+            } else {
+                // Fallback: copy to clipboard + show toast
+                navigator.clipboard?.writeText(shareUrl).then(() => {
+                    if (window.toast) {
+                        window.toast('Link copied to clipboard!', 'success');
+                    }
+                }).catch(() => {
+                    // Final fallback: open a prompt with the URL
+                    window.prompt('Copy this link:', shareUrl);
+                });
             }
         };
     </script>

@@ -172,6 +172,17 @@
         });
         document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('[role="dialog"]').forEach(m=>closeModal(m.id)); });
     });
+
+    // (Task H46 / audit MX5) — Register the PWA service worker for offline
+    // gallery caching. Progressive enhancement — if registration fails,
+    // the site works normally online.
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch(() => {
+                // SW registration failed — silent no-op
+            });
+        });
+    }
     </script>
 </body>
 </html>
