@@ -151,6 +151,24 @@ class GalleryController extends Controller
             }
         }
 
+        // (Task H64) — send "first gallery created" email if this is the
+        // user's first personal gallery. Part of the activation sequence.
+        $personalGalleryCount = Gallery::where('user_id', $user->id)
+            ->whereNull('team_id')
+            ->count();
+        if ($personalGalleryCount === 1) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($user->email)
+                    ->send(new \App\Mail\FirstGalleryCreatedEmail($user, $gallery));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('FirstGalleryCreatedEmail send failed', [
+                    'user_id'    => $user->id,
+                    'gallery_id' => $gallery->id,
+                    'error'      => $e->getMessage(),
+                ]);
+            }
+        }
+
         return redirect()->route('admin.galleries.index', $redirectParams)
                          ->with('status', 'Gallery created! You can now upload images.');
     }

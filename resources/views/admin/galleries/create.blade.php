@@ -87,7 +87,7 @@
 
                     {{-- Venue Picker --}}
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-200 mb-3">Choose Your Venue *</label>
+                        <h3 class="block text-sm font-medium text-gray-200 mb-3">Choose Your Venue <span class="text-red-400" aria-hidden="true">*</span></h3>
                         <style>
 .venue-card-inner {
     position: relative;
@@ -330,7 +330,7 @@ $venueAtmospheres = [
                     <div class="mb-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <div class="flex items-center gap-2 mb-1">
                             <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            <label class="block text-sm font-medium text-gray-200">Exhibition Schedule</label>
+                            <h3 class="block text-sm font-medium text-gray-200">Exhibition Schedule</h3>
                             @if(!auth()->user()->isPro())
                                 <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-1">Pro Only</span>
                             @endif

@@ -29,6 +29,9 @@
                     <a href="{{ route('super.featured.index') }}" class="px-4 py-2 bg-amber-700 hover:bg-amber-600 rounded-lg transition text-sm">
                         ⭐ Featured
                     </a>
+                    <a href="{{ route('super.pending-upgrades.index') }}" class="px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded-lg transition text-sm">
+                        💳 Pending Upgrades
+                    </a>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition text-sm">Logout</button>

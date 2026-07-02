@@ -83,30 +83,43 @@ class AnalyticsController extends Controller
             }
         }
 
-        // ── Top artworks by focus count ───────────────────────────────────
+        // ── Top artworks by focus count (Task H66 — cached 10 min) ───────
         // This still reads from raw events because the rollup doesn't
         // store per-image data. For galleries with 90+ days of data, this
         // query only hits events from the last 90 days (pruning keeps the
-        // table bounded).
-        $topArtworks = $gallery->events()
-            ->where('event', 'focus')
-            ->whereNotNull('image_id')
-            ->select('image_id', DB::raw('COUNT(*) as focus_count'))
-            ->groupBy('image_id')
-            ->orderByDesc('focus_count')
-            ->with('image')
-            ->limit(10)
-            ->get();
+        // table bounded). Cached for 10 minutes to avoid re-running on
+        // every page refresh.
+        $topArtworks = \Illuminate\Support\Facades\Cache::remember(
+            "analytics:top-artworks:{$gallery->id}",
+            now()->addMinutes(10),
+            function () use ($gallery) {
+                return $gallery->events()
+                    ->where('event', 'focus')
+                    ->whereNotNull('image_id')
+                    ->select('image_id', DB::raw('COUNT(*) as focus_count'))
+                    ->groupBy('image_id')
+                    ->orderByDesc('focus_count')
+                    ->with('image')
+                    ->limit(10)
+                    ->get();
+            }
+        );
 
-        // ── Traffic sources (last 90 days from raw events) ───────────────
-        $referrers = $gallery->events()
-            ->where('event', 'view')
-            ->where('created_at', '>=', now()->subDays(90))
-            ->select('referrer', DB::raw('COUNT(*) as count'))
-            ->groupBy('referrer')
-            ->orderByDesc('count')
-            ->limit(8)
-            ->get();
+        // ── Traffic sources (Task H66 — cached 10 min) ───────────────────
+        $referrers = \Illuminate\Support\Facades\Cache::remember(
+            "analytics:referrers:{$gallery->id}",
+            now()->addMinutes(10),
+            function () use ($gallery) {
+                return $gallery->events()
+                    ->where('event', 'view')
+                    ->where('created_at', '>=', now()->subDays(90))
+                    ->select('referrer', DB::raw('COUNT(*) as count'))
+                    ->groupBy('referrer')
+                    ->orderByDesc('count')
+                    ->limit(8)
+                    ->get();
+            }
+        );
 
         // ── Last 7 days vs prior 7 days (from rollup + today) ────────────
         $views7Rollup = DB::table('analytics_daily')

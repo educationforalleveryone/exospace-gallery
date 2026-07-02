@@ -287,6 +287,11 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     // ── Featured Exhibitions (Round 4) ──────────────────────────────────────
     Route::get   ('featured',                          [FeaturedExhibitionsController::class, 'index'])->name('featured.index');
     Route::patch ('featured/{gallery}',                [FeaturedExhibitionsController::class, 'toggle'])->name('featured.toggle');
+
+    // ── Pending Upgrades (Task H67) ────────────────────────────────────────
+    Route::get   ('pending-upgrades',                  [SystemController::class, 'pendingUpgrades'])->name('pending-upgrades.index');
+    Route::post  ('pending-upgrades/{pending}/manual-upgrade', [SystemController::class, 'manualUpgrade'])->name('pending-upgrades.manual-upgrade')
+          ->middleware('password.confirm');
 });
 
 require __DIR__.'/auth.php';

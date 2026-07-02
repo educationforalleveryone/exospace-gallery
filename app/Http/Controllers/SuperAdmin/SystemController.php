@@ -232,6 +232,68 @@ class SystemController extends Controller
         return back()->with('success', "Gallery \"{$gallery->title}\" {$status}.");
     }
 
+    // ── Pending Upgrades (Task H67) ──────────────────────────────────────
+
+    public function pendingUpgrades()
+    {
+        $pendingUpgrades = \App\Models\PendingUpgrade::with('user')
+            ->orderByDesc('created_at')
+            ->paginate(25);
+
+        return view('super-admin.pending-upgrades', compact('pendingUpgrades'));
+    }
+
+    public function manualUpgrade(\App\Models\PendingUpgrade $pending)
+    {
+        $user = $pending->user;
+
+        if (! $user) {
+            return back()->with('error', 'User not found for this pending upgrade.');
+        }
+
+        if ($pending->status !== 'pending') {
+            return back()->with('error', "This pending upgrade is already {$pending->status}.");
+        }
+
+        // Manually upgrade the user (bypasses 2Checkout payment)
+        $plan = $pending->plan;
+        $limits = User::planLimits($plan);
+
+        $user->forceFill([
+            'plan'            => $plan,
+            'max_galleries'   => $limits['max_galleries'],
+            'max_images'      => $limits['max_images'],
+            'plan_started_at' => now(),
+            'plan_expires_at' => null, // lifetime
+        ])->save();
+
+        // Mark the pending upgrade as converted
+        $pending->forceFill(['status' => 'converted'])->save();
+
+        // Record a transaction (manual — no invoice_id from 2Checkout)
+        \DB::table('transactions')->insert([
+            'user_id'        => $user->id,
+            'invoice_id'     => 'MANUAL-' . $pending->id . '-' . time(),
+            'sale_id'        => null,
+            'product_id'     => $pending->product_id,
+            'plan'           => $plan,
+            'amount'         => 0.00,
+            'currency'       => 'USD',
+            'customer_email' => $user->email,
+            'customer_name'  => $user->name,
+            'status'         => 'manual',
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+
+        AdminAuditLog::record('manual_upgrade', $user, [
+            'plan'              => $plan,
+            'pending_upgrade_id'=> $pending->id,
+        ]);
+
+        return back()->with('success', "Manually upgraded {$user->name} to {$plan}.");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private function preventSelfAction(User $user, string $action): void

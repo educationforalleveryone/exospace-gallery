@@ -307,7 +307,7 @@
 
                     {{-- ── Venue Picker ──────────────────────────── --}}
                     <div class="mb-5">
-                        <label class="block text-sm font-medium text-gray-400 mb-3">Venue</label>
+                        <h3 class="block text-sm font-medium text-gray-400 mb-3">Venue</h3>
                         @php
                         $venueAtmospheres = [
                             'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => 'WC', 'accent' => '#e0e0e0'],
@@ -632,7 +632,7 @@
                     <div class="mb-6 pt-5 border-t border-gray-700">
                         <div class="flex items-center gap-2 mb-1">
                             <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            <label class="block text-sm font-medium text-gray-300" id="schedule-label">Exhibition Schedule</label>
+                            <h3 class="block text-sm font-medium text-gray-300" id="schedule-label">Exhibition Schedule</h3>
                             <span class="text-xs bg-purple-900/50 text-purple-300 border border-purple-700/50 px-2 py-0.5 rounded-full">Pro</span>
                         </div>
                         <p class="text-xs text-gray-500 mb-4">Set an opening date and optional closing date. Visitors will see a countdown before opening and a "Closed" page after. Leave blank for always-open.</p>
@@ -722,13 +722,19 @@
                             @if($gallery->custom_domain)
                             <p class="text-xs text-green-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline">{{ $gallery->custom_domain }}</a> see this gallery.</p>
                             @endif
+
+                            {{-- (Task H63) — DNS verification UI. Shows the TXT
+                                 record the user must add + a "Verify domain" button.
+                                 Wired to the galleries.verify-domain route from
+                                 Iteration 02. --}}
+                            @include('admin.galleries._custom-domain-verification')
                         </div>
 
                         {{-- Branded Entrance Curtain --}}
                         <div class="mt-6 pt-4 border-t border-gray-700">
                             <div class="flex items-center gap-2 mb-1">
                                 <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <label class="block text-sm font-medium text-gray-300">Branded Entrance Curtain</label>
+                                <h3 class="block text-sm font-medium text-gray-300">Branded Entrance Curtain</h3>
                                 <span class="text-xs bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">Studio</span>
                             </div>
                             <p class="text-xs text-gray-500 mb-3">Replace the default "EXOSPACE" entrance curtain with your own logo and background color. White-label your exhibition entrance.</p>
