@@ -126,9 +126,14 @@ Route::get('/gallery/{slug}', [\App\Http\Controllers\GalleryViewController::clas
     ->middleware('throttle:60,1');
 
 // ── Analytics tracking (public, no auth) ─────────────────────────────────
+// (Task H06 / audit H12) — lowered throttle from 120/min to 30/min.
+// 120/min was too generous and allowed view-count inflation. A genuine
+// visitor loads the page once and fires ~5-10 events (view, focus, dwell,
+// tour_start) — 30/min is ample for that, and stops a script from
+// generating 120 fake views per minute per IP.
 Route::post('/gallery/{gallery}/track', [\App\Http\Controllers\Admin\AnalyticsController::class, 'track'])
     ->name('gallery.track')
-    ->middleware('throttle:120,1');
+    ->middleware('throttle:30,1');
 
 // ── Team Invitations ─────────────────────────────────────────────────────
 Route::get('/team-invitations/{token}',          [TeamInvitationController::class, 'show'])->name('team-invitations.show');
@@ -244,17 +249,22 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 // ── Super Admin ──────────────────────────────────────────────────────────
 Route::middleware(['auth', 'verified', 'super_admin'])->prefix('master-control')->name('super.')->group(function () {
     Route::get('/',                                    [SystemController::class, 'index'])->name('index');
-    Route::post('/users/{user}/plan',                  [SystemController::class, 'updatePlan'])->name('updatePlan');
-    Route::delete('/users/{user}',                     [SystemController::class, 'deleteUser'])->name('deleteUser');
+    Route::post('/users/{user}/plan',                  [SystemController::class, 'updatePlan'])->name('updatePlan')
+          ->middleware('password.confirm');
+    Route::delete('/users/{user}',                     [SystemController::class, 'deleteUser'])->name('deleteUser')
+          ->middleware('password.confirm');
     Route::get('/users/{user}/galleries',              [SystemController::class, 'userGalleries'])->name('user-galleries');
     Route::post('/galleries/{gallery}/toggle',         [SystemController::class, 'toggleGallery'])->name('toggleGallery');
 
-    // Account controls
-    Route::post('/users/{user}/ban',                   [SystemController::class, 'banUser'])->name('banUser');
+    // Account controls — destructive actions get password.confirm (audit H18)
+    Route::post('/users/{user}/ban',                   [SystemController::class, 'banUser'])->name('banUser')
+          ->middleware('password.confirm');
     Route::post('/users/{user}/unban',                 [SystemController::class, 'unbanUser'])->name('unbanUser');
     Route::post('/users/{user}/verify-email',          [SystemController::class, 'verifyEmail'])->name('verifyEmail');
-    Route::post('/users/{user}/unverify-email',        [SystemController::class, 'unverifyEmail'])->name('unverifyEmail');
-    Route::post('/users/{user}/toggle-super-admin',    [SystemController::class, 'toggleSuperAdmin'])->name('toggleSuperAdmin');
+    Route::post('/users/{user}/unverify-email',        [SystemController::class, 'unverifyEmail'])->name('unverifyEmail')
+          ->middleware('password.confirm');
+    Route::post('/users/{user}/toggle-super-admin',    [SystemController::class, 'toggleSuperAdmin'])->name('toggleSuperAdmin')
+          ->middleware('password.confirm');
 
     // ── Venue Templates Management (full CRUD) ──────────────────────────────
     Route::get   ('venues',                            [VenueTemplateController::class, 'index'])->name('venues.index');

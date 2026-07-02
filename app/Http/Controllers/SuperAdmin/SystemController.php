@@ -165,6 +165,11 @@ class SystemController extends Controller
 
         $user->markEmailAsVerified();
 
+        // (Task H07 / audit H17) — audit this action. Email verification
+        // is security-relevant (verified users can do paid things). Was
+        // previously silent.
+        AdminAuditLog::record('email_verified', $user);
+
         return back()->with('success', "{$user->name}'s email manually verified.");
     }
 
@@ -173,6 +178,9 @@ class SystemController extends Controller
         $this->preventSelfAction($user, 'unverify email for');
 
         $user->forceFill(['email_verified_at' => null])->save();
+
+        // (Task H07 / audit H17) — audit this action.
+        AdminAuditLog::record('email_unverified', $user);
 
         return back()->with('success', "{$user->name}'s email verification revoked.");
     }
@@ -208,9 +216,18 @@ class SystemController extends Controller
 
     public function toggleGallery(Gallery $gallery)
     {
+        $oldActive = $gallery->is_active;
         $gallery->update(['is_active' => ! $gallery->is_active]);
 
         $status = $gallery->is_active ? 'activated' : 'deactivated';
+
+        // (Task H07 / audit H17) — audit this action. A super-admin
+        // deactivating a gallery is a material action that should be
+        // auditable. Was previously silent.
+        AdminAuditLog::record('gallery_toggled', $gallery, [
+            'from' => $oldActive,
+            'to'   => $gallery->is_active,
+        ]);
 
         return back()->with('success', "Gallery \"{$gallery->title}\" {$status}.");
     }

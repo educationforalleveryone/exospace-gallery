@@ -23,11 +23,18 @@ class ArtistProfileController extends Controller
     {
         $artist = Artist::where('slug', $slug)->firstOrFail();
 
-        // Load only images from publicly-viewable galleries
+        // Load only images from publicly-viewable galleries.
+        // (Task H06 / audit H11) — previously this only checked `is_active`,
+        // which leaked images from PIN-protected and scheduled galleries
+        // (visitor could browse /artist/{slug} and see works from a
+        // gallery whose PIN they didn't know, or that hadn't opened yet).
+        // Now uses the same `publiclyViewable` scope as DiscoverController
+        // and SitemapController — checks is_active + no pin_hash + within
+        // schedule window.
         $images = $artist->images()
             ->with(['gallery.venueTemplate', 'gallery.user'])
             ->whereHas('gallery', function ($q) {
-                $q->where('is_active', true);
+                $q->publiclyViewable();
             })
             ->orderBy('created_at', 'desc')
             ->get();
