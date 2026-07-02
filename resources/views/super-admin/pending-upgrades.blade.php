@@ -1,8 +1,8 @@
-@extends('layouts.app')
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Pending Upgrades</h2>
+    </x-slot>
 
-@section('title', 'Pending Upgrades — Super Admin')
-
-@section('content')
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
     <h1 class="text-2xl font-bold text-white mb-2">Pending Upgrades</h1>
     <p class="text-sm text-gray-400 mb-6">Users who clicked "Upgrade" but haven't completed 2Checkout checkout. Expired or abandoned upgrades can be manually reviewed here.</p>
@@ -93,4 +93,4 @@
         {{ $pendingUpgrades->links() }}
     </div>
 </div>
-@endsection
+</x-app-layout>

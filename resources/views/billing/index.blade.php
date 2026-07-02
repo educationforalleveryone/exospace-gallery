@@ -1,8 +1,8 @@
-@extends('layouts.app')
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Billing</h2>
+    </x-slot>
 
-@section('title', 'Billing — ' . config('app.name'))
-
-@section('content')
 <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
 
     {{-- Page header --}}
@@ -177,4 +177,4 @@
         </div>
     </div>
 </div>
-@endsection
+</x-app-layout>

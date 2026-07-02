@@ -1,8 +1,8 @@
-@extends('layouts.app')
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-100 leading-tight">MFA Verification</h2>
+    </x-slot>
 
-@section('title', 'MFA Verification — ' . config('app.name'))
-
-@section('content')
 <div class="max-w-md mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-white mb-2">Enter Your Authenticator Code</h1>
     <p class="text-sm text-gray-400 mb-6">Enter the 6-digit code from your authenticator app to access the super-admin panel.</p>
@@ -29,4 +29,4 @@
         </form>
     </div>
 </div>
-@endsection
+</x-app-layout>
