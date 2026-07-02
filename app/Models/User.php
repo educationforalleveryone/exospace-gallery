@@ -93,6 +93,18 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Artist::class, 'created_by');
     }
 
+    /** Billing transactions (2Checkout payments) */
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    /** Pending upgrade requests (awaiting 2Checkout IPN) */
+    public function pendingUpgrades(): HasMany
+    {
+        return $this->hasMany(PendingUpgrade::class);
+    }
+
     // ── Team relationships ────────────────────────────────────────────────
 
     /** Teams this user owns */

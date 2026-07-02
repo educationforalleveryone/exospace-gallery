@@ -60,16 +60,42 @@ class SystemController extends Controller
         } else {
             // Upgrade or lateral move — no cleanup needed. Use forceFill
             // because plan / max_* / plan_* are guarded columns (task C09).
+            //
+            // (Task H03) Plan-expiry semantics: webhook-granted plans are
+            // lifetime (plan_expires_at = null). Admin-granted plans now
+            // match that semantic — previously they expired in 1 year via
+            // CheckPlanExpiry middleware, which contradicted the pricing
+            // page's "lifetime access, no subscription" promise and silently
+            // downgraded customers a year later.
+            //
+            // If you actually want expiring plans (e.g. for promotional
+            // grants), set plan_expires_at explicitly via forceFill here
+            // and document the expiry in the admin form.
             $user->forceFill([
                 'plan'            => $plan,
                 'max_galleries'   => $limits['max_galleries'],
                 'max_images'      => $limits['max_images'],
                 'plan_started_at' => now(),
-                'plan_expires_at' => $plan === 'free' ? null : now()->addYear(),
+                'plan_expires_at' => null, // Lifetime — matches webhook semantics (task H03)
             ])->save();
         }
 
         AdminAuditLog::record('plan_changed', $user, ['from' => $oldPlan, 'to' => $plan]);
+
+        // Send confirmation email to the user for upgrade path (task H03).
+        // Downgrade path goes through PlanDowngradeService which already
+        // handles notification internally (via the downgrade log entry).
+        if ($plan !== 'free' && $oldPlan !== $plan) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($user->email)
+                    ->send(new \App\Mail\PlanUpgradedEmail($user, $plan, null));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('SystemController: PlanUpgradedEmail send failed', [
+                    'user_id' => $user->id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+        }
 
         return back()->with('success', "Plan updated to {$plan} for {$user->name}.");
     }

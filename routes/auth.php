@@ -15,19 +15,30 @@ Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    // (Task H08 / audit H21) — there was previously a DUPLICATE POST
+    // /register route: line 18 (no throttle) and line 25 (throttled).
+    // Last-registered wins, but reordering would silently unthrottle
+    // registration. Removed the duplicate; keeping only the throttled
+    // version below.
+    Route::post('register', [RegisteredUserController::class, 'store'])
+        ->middleware('throttle:10,1');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
-    Route::post('login', [AuthenticatedSessionController::class, 'store'])->middleware('throttle:5,1');
-
-    Route::post('register', [RegisteredUserController::class, 'store'])->middleware('throttle:10,1');
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])
+        ->middleware('throttle:5,1');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
+    // (Task H08 / audit H22) — add throttle to forgot-password. The
+    // underlying Password::sendResetLink has a 60s throttle per email
+    // (config/auth.php), but a botnet rotating IPs can still spam reset
+    // emails. 5 per hour per IP is generous for legitimate users and
+    // stops the spam.
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('throttle:5,60')
         ->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])

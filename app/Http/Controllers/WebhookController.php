@@ -89,22 +89,57 @@ class WebhookController extends Controller
         $productId     = $request->input('item_id_1'); // Product ID from 2Checkout
         $amount        = $request->input('item_list_amount_1', 0);
 
-        if (! filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
-            Log::warning('2Checkout: Invalid customer_email', [
-                'invoice_id' => $invoiceId,
+        // ── Task H01: prefer external-reference for user matching ─────────
+        // The buy URL (BillingController::upgrade) passes external-reference
+        // = <pending_upgrade.token>. This is the authoritative binding —
+        // it proves the payment originated from THIS user's click, even if
+        // they paid with a different email at checkout (PayPal, gift card,
+        // typo, etc.). Without this, customer_email mismatches silently
+        // orphan the payment.
+        $externalReference = $request->input('external-reference')
+            ?? $request->input('external_reference')
+            ?? $request->input('merchant_item_id_1');
+
+        $user = null;
+        $pendingUpgrade = null;
+
+        if (! empty($externalReference)) {
+            // Try as pending_upgrade token first (preferred path)
+            $pendingUpgrade = \App\Models\PendingUpgrade::where('token', $externalReference)
+                ->where('status', 'pending')
+                ->first();
+
+            if ($pendingUpgrade) {
+                $user = $pendingUpgrade->user;
+                // Use the user's account email for the transaction record,
+                // NOT the customer_email from 2Checkout — the account email
+                // is what we'll send future notifications to.
+                $customerEmail = $user->email;
+            } else {
+                // Fallback: try as a bare user_id (merchant_item_id_1 path)
+                $user = User::find((int) $externalReference);
+            }
+        }
+
+        // Fallback: match by customer_email (legacy path for buyers who
+        // somehow reached 2Checkout without going through BillingController)
+        if (! $user && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+            $user = User::where('email', $customerEmail)->first();
+        }
+
+        if (! $user) {
+            Log::warning('2Checkout: User not found by external-reference or customer_email', [
+                'invoice_id'           => $invoiceId,
+                'has_external_ref'     => ! empty($externalReference),
+                'has_customer_email'   => ! empty($customerEmail),
+                // Do not log the email here — it is PII
             ]);
             return response('OK', 200); // 200 so 2Checkout does not retry
         }
 
-        // Find the user by email
-        $user = User::where('email', $customerEmail)->first();
-
-        if (! $user) {
-            Log::warning('2Checkout: User not found', [
-                'invoice_id' => $invoiceId,
-                // Do not log the email here — it is PII
-            ]);
-            return response('OK', 200); // 200 so 2Checkout does not retry
+        // Validate customer_email if we don't have one yet (defensive)
+        if (empty($customerEmail)) {
+            $customerEmail = $user->email;
         }
 
         // ================================
@@ -150,11 +185,11 @@ class WebhookController extends Controller
         try {
             $processed = $lock->block(5, function () use (
                 $user, $planConfig, $invoiceId, $productId, $amount,
-                $request, $customerEmail, $customerName
+                $request, $customerEmail, $customerName, $pendingUpgrade
             ) {
                 return \DB::transaction(function () use (
                     $user, $planConfig, $invoiceId, $productId, $amount,
-                    $request, $customerEmail, $customerName
+                    $request, $customerEmail, $customerName, $pendingUpgrade
                 ) {
                     // ── Idempotency check FIRST ──────────────────────────
                     // Lock the transactions row for the duration of the
@@ -191,7 +226,7 @@ class WebhookController extends Controller
                     ])->save();
 
                     // ── Insert transaction record ───────────────────────
-                    \DB::table('transactions')->insert([
+                    $transactionId = \DB::table('transactions')->insertGetId([
                         'user_id'        => $user->id,
                         'invoice_id'     => $invoiceId,
                         'sale_id'        => $request->input('sale_id'),
@@ -206,11 +241,37 @@ class WebhookController extends Controller
                         'updated_at'     => now(),
                     ]);
 
+                    // ── Mark the pending_upgrade as converted (task H01) ──
+                    // This links the IPN back to the original click, so
+                    // BillingController's "pending upgrades" list knows
+                    // to hide this one.
+                    if ($pendingUpgrade) {
+                        $pendingUpgrade->markConverted($transactionId);
+                    }
+
                     Log::info('2Checkout: User upgraded successfully', [
                         'user_id'    => $user->id,
                         'plan'       => $planConfig['plan'],
                         'invoice_id' => $invoiceId,
+                        'matched_by' => $pendingUpgrade ? 'external-reference' : 'customer_email',
                     ]);
+
+                    // ── Send confirmation email (task H03 / audit H5) ──────
+                    // Previously users got NO confirmation after a successful
+                    // upgrade. They had to log in and check their dashboard.
+                    // For a $29–$99 purchase, a confirmation email is a basic
+                    // customer expectation and reduces support tickets.
+                    try {
+                        \Illuminate\Support\Facades\Mail::to($user->email)
+                            ->send(new \App\Mail\PlanUpgradedEmail($user, $planConfig['plan'], $invoiceId));
+                    } catch (\Throwable $e) {
+                        Log::warning('2Checkout: PlanUpgradedEmail send failed', [
+                            'user_id' => $user->id,
+                            'error'   => $e->getMessage(),
+                        ]);
+                        // Don't fail the upgrade — the user is upgraded in
+                        // the DB, the email is a nice-to-have.
+                    }
 
                     return true; // signal "upgraded"
                 });

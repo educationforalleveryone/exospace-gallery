@@ -378,10 +378,18 @@
             <li>No watermark</li>
             <li>Priority email support</li>
         </ul>
-        <a href="https://www.2checkout.com/checkout/purchase?sid={{ config('services.2checkout.account_number') }}&product_id={{ config('services.2checkout.product_id_pro') }}&quantity=1" target="_blank"
+        @auth
+        <a href="{{ route('billing.upgrade', 'pro') }}"
            style="display:block; background:linear-gradient(135deg,#3b82f6,#8b5cf6); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
             Pay Securely with 2Checkout →
         </a>
+        @else
+        <a href="{{ route('register') }}"
+           style="display:block; background:linear-gradient(135deg,#3b82f6,#8b5cf6); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
+            Sign up to Upgrade →
+        </a>
+        <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}" style="color:#8b5cf6; text-decoration:underline;">Log in</a></p>
+        @endauth
         <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
         <button onclick="document.getElementById('upgrade-modal-pro').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
     </div>
@@ -401,10 +409,18 @@
             <li>Advanced analytics · team collaboration</li>
             <li>Dedicated account manager</li>
         </ul>
-        <a href="https://www.2checkout.com/checkout/purchase?sid={{ config('services.2checkout.account_number') }}&product_id={{ config('services.2checkout.product_id_studio') }}&quantity=1" target="_blank"
+        @auth
+        <a href="{{ route('billing.upgrade', 'studio') }}"
            style="display:block; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
             Pay Securely with 2Checkout →
         </a>
+        @else
+        <a href="{{ route('register') }}"
+           style="display:block; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
+            Sign up to Upgrade →
+        </a>
+        <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}" style="color:#f59e0b; text-decoration:underline;">Log in</a></p>
+        @endauth
         <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
         <button onclick="document.getElementById('upgrade-modal-studio').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
     </div>

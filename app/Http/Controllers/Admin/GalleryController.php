@@ -629,7 +629,7 @@ class GalleryController extends Controller
             return response()->json(['success' => false, 'message' => 'Upgrade to Studio to use custom branding'], 403);
         }
 
-        $request->validate(['custom_logo' => 'required|file|mimes:png,svg,jpg,jpeg|max:2048']);
+        $request->validate(['custom_logo' => 'required|file|mimes:png,jpg,jpeg|max:2048']);
         try {
             if ($gallery->custom_logo_path) \Storage::disk('public')->delete($gallery->custom_logo_path);
             $logoPath = $request->file('custom_logo')->store('branding', 'public');
@@ -833,12 +833,12 @@ class GalleryController extends Controller
             'opens_at'        => 'nullable|date',
             'closes_at'       => 'nullable|date|after_or_equal:opens_at',
             'audio'           => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
-            'custom_logo'     => 'nullable|file|mimes:png,svg,jpg,jpeg|max:2048',
+            'custom_logo'     => 'nullable|file|mimes:png,jpg,jpeg|max:2048',
             // NEW: custom domain — Studio plan only, validated for shape here.
             // Plan-tier enforcement happens in the controller.
             'custom_domain'   => ['nullable', 'string', 'max:255', 'regex:/^([a-z0-9-]+\.)+[a-z]{2,}$/i'],
             // NEW (Round 4) — Branded entrance curtain (Studio only)
-            'curtain_logo'        => 'nullable|file|mimes:png,jpeg,svg,webp|max:2048',
+            'curtain_logo'        => 'nullable|file|mimes:png,jpeg,webp|max:2048',
             'curtain_bg_color'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'curtain_bg_color_text' => 'nullable|string|max:20',
             // NEW (Live Preview) — JSON string from the hidden input. The

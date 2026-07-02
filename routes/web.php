@@ -145,6 +145,16 @@ Route::middleware('auth')->group(function () {
     // the user's profile, galleries, images metadata, transactions, teams,
     // and artist profiles. (Task C10.)
     Route::get('/profile/export', [ProfileController::class, 'export'])->name('profile.export');
+
+    // ── Billing portal + upgrade flow (tasks H01 + H02) ────────────────
+    // /billing shows current plan, transaction history, pending upgrades.
+    // /billing/upgrade/{plan} generates a pending_upgrade token and
+    // redirects to 2Checkout with external-reference=<token> + pre-filled
+    // customer_email — closes the silent-revenue-leak bug where email
+    // mismatches orphaned payments.
+    Route::get('/billing',                [\App\Http\Controllers\BillingController::class, 'index'])->name('billing.index');
+    Route::get('/billing/upgrade/{plan}', [\App\Http\Controllers\BillingController::class, 'upgrade'])->name('billing.upgrade')
+          ->where('plan', 'pro|studio');
 });
 
 // ── Admin ────────────────────────────────────────────────────────────────
