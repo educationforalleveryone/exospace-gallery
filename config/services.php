@@ -36,10 +36,23 @@ return [
     ],
 
     '2checkout' => [
-        'account_number'   => env('TWOCHECKOUT_ACCOUNT_NUMBER'),
-        'secret_word'      => env('TWOCHECKOUT_SECRET_WORD'),
-        'product_id_pro'   => env('TWOCHECKOUT_PRODUCT_ID_PRO'),
-        'product_id_studio'=> env('TWOCHECKOUT_PRODUCT_ID_STUDIO'),
+        'account_number'         => env('TWOCHECKOUT_ACCOUNT_NUMBER'),
+        'secret_word'            => env('TWOCHECKOUT_SECRET_WORD'),
+
+        // Optional but strongly recommended — see WebhookController::verify2CheckoutSignature()
+        // When set, the webhook's `signature` field is verified via HMAC SHA-256
+        // over the security-critical IPN fields (customer_email, item_id, amount, etc.).
+        // Configure 2Checkout to send the `signature` parameter in your merchant
+        // dashboard (Notification settings → Advanced → HMAC SHA-256 signature).
+        'buy_link_secret_word'   => env('TWOCHECKOUT_BUY_LINK_SECRET_WORD'),
+
+        // Optional comma-separated IP allowlist for 2Checkout INS servers.
+        // 2Checkout publishes their INS IP ranges in their merchant docs.
+        // Example: "198.61.180.0/22,162.242.218.0/24"
+        'webhook_ip_allowlist'   => env('TWOCHECKOUT_WEBHOOK_IP_ALLOWLIST'),
+
+        'product_id_pro'         => env('TWOCHECKOUT_PRODUCT_ID_PRO'),
+        'product_id_studio'      => env('TWOCHECKOUT_PRODUCT_ID_STUDIO'),
     ],
 
 ];

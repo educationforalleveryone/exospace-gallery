@@ -16,6 +16,21 @@ return Application::configure(basePath: dirname(__DIR__))
         //    GalleryViewController will render it regardless of the URL path.
         $middleware->prepend(\App\Http\Middleware\DetectCustomDomain::class);
 
+        // 0b. Exempt 2Checkout IPN webhook routes from CSRF protection.
+        //     2Checkout's INS (Instant Notification Service) sends server-to-
+        //     server POSTs that do not carry a Laravel CSRF token. Without
+        //     this exemption every webhook returns HTTP 419 and no paying
+        //     customer is ever upgraded.
+        //
+        //     SECURITY: these routes are instead authenticated by the HMAC
+        //     signature verification in WebhookController::verify2CheckoutHash().
+        //     A request that fails signature verification is rejected with 403
+        //     before any state mutation occurs. See WebhookController for the
+        //     signature algorithm. Do NOT add other routes here lightly.
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/*',
+        ]);
+
         // 0a. Scope session cookie domain to the request host — runs BEFORE
         //     the session middleware so config('session.domain') is set
         //     correctly when the cookie is baked. Fixes the PIN-session

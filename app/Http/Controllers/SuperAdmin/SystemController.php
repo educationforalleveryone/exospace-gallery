@@ -52,13 +52,23 @@ class SystemController extends Controller
         $oldPlan = $user->plan;
         $limits  = User::planLimits($plan);
 
-        $user->update([
-            'plan'           => $plan,
-            'max_galleries'  => $limits['max_galleries'],
-            'max_images'     => $limits['max_images'],
-            'plan_started_at'=> now(),
-            'plan_expires_at'=> $plan === 'free' ? null : now()->addYear(),
-        ]);
+        if ($plan === 'free' && $oldPlan !== 'free') {
+            // Downgrade path — use PlanDowngradeService so Studio-only
+            // resources (custom_domain, branding files) are cleaned up,
+            // not just the plan column flipped (task C05).
+            app(\App\Services\PlanDowngradeService::class)
+                ->downgradeToFree($user, "Admin plan change ({$oldPlan} → free)");
+        } else {
+            // Upgrade or lateral move — no cleanup needed. Use forceFill
+            // because plan / max_* / plan_* are guarded columns (task C09).
+            $user->forceFill([
+                'plan'            => $plan,
+                'max_galleries'   => $limits['max_galleries'],
+                'max_images'      => $limits['max_images'],
+                'plan_started_at' => now(),
+                'plan_expires_at' => $plan === 'free' ? null : now()->addYear(),
+            ])->save();
+        }
 
         AdminAuditLog::record('plan_changed', $user, ['from' => $oldPlan, 'to' => $plan]);
 
