@@ -41,7 +41,7 @@ import { setupLighting, addArtworkLight, updateProximityLighting } from './Light
 import { getWallMaterial, getFloorMaterial, createFrame } from './Materials.js';
 import { enforceRoomBounds, registerObstacle, clearObstacles } from './Collisions.js';
 import { updateMovement, updateMovementMobile } from './Movement.js';
-import { toggleArtworkInfo, checkArtworkFocus } from './FocusMode.js';
+import { toggleArtworkInfo, checkArtworkFocus, focusNearestArtwork } from './FocusMode.js';
 import { setupMobileControls } from './Mobile.js';
 import { PostProcessing } from './PostProcessing.js';
 import { PerformanceControls } from './PerformanceControls.js';
@@ -192,6 +192,7 @@ export class GalleryScene {
     updateMovement()                                { return updateMovement.call(this); }
     updateMovementMobile()                          { return updateMovementMobile.call(this); }
     toggleArtworkInfo()                             { return toggleArtworkInfo.call(this); }
+    focusNearestArtwork()                           { return focusNearestArtwork.call(this); }
     checkArtworkFocus()                             { return checkArtworkFocus.call(this); }
     setupMobileControls()                           { return setupMobileControls.call(this); }
     loadEnvironmentMap()                            { return loadEnvironmentMap.call(this); }

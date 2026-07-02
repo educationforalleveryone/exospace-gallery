@@ -128,3 +128,37 @@ export function toggleArtworkInfo() {
         }
     });
 }
+
+
+// (Task H38 / audit C4) — focus the nearest artwork to the camera.
+// Called when the user presses Enter (keyboard navigation alternative
+// to click-to-focus). Finds the closest artwork by distance to camera
+// and calls toggleArtworkInfo on it.
+export function focusNearestArtwork() {
+    if (this.isInspecting) {
+        // Already inspecting — Exit focus mode (same as pressing E)
+        toggleArtworkInfo.call(this);
+        return;
+    }
+
+    if (!this.artworks || this.artworks.length === 0) return;
+
+    const cameraPos = this.camera.position;
+    let nearest = null;
+    let nearestDist = Infinity;
+
+    for (const artwork of this.artworks) {
+        const pos = new THREE.Vector3();
+        artwork.getWorldPosition(pos);
+        const dist = cameraPos.distanceTo(pos);
+        if (dist < nearestDist) {
+            nearestDist = dist;
+            nearest = artwork;
+        }
+    }
+
+    if (nearest) {
+        this.focusedArtwork = nearest;
+        toggleArtworkInfo.call(this);
+    }
+}

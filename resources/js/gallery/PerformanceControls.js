@@ -31,10 +31,20 @@ export class PerformanceControls {
         this._currentFps = 0;
         this._quality = this._loadSavedQuality() || 'auto';
 
-        this._createPanel();
+        // (Task H37 / audit C4) — only show the performance panel when
+        // ?debug=1 is in the URL. Previously it was visible to every
+        // visitor, overlapping the in-gallery title.
+        this._debugMode = window.EXOSPACE_DEBUG === true;
+
+        // Always apply the quality setting (even if the panel is hidden)
         this._applyQuality(this._quality);
 
-        // Hook into the animate loop
+        // Only create the visible panel in debug mode
+        if (this._debugMode) {
+            this._createPanel();
+        }
+
+        // Always hook into the animate loop for FPS counting
         const origAnimate = scene.animate.bind(scene);
         scene.animate = () => {
             origAnimate();

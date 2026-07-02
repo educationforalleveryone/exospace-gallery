@@ -20,14 +20,24 @@ export function setupControls() {
     this.currentSpeedMultiplier = CONFIG.movement.speedMultipliers[CONFIG.movement.currentSpeedIndex];
 
     // ── Keydown ────────────────────────────────────────────────────────────
+    // (Task H38 / audit C4) — filter keydown when the user is typing in
+    // an input/textarea (e.g. the newsletter signup on the curtain).
+    // Previously, pressing WASD inside the email field would both type
+    // the letter AND start moving the invisible camera.
     document.addEventListener('keydown', (e) => {
+        const tag = e.target?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
+
         switch (e.code) {
-            case 'KeyW': this.moveState.forward  = true; break;
-            case 'KeyS': this.moveState.backward = true; break;
-            case 'KeyA': this.moveState.left     = true; break;
-            case 'KeyD': this.moveState.right    = true; break;
+            case 'KeyW': case 'ArrowUp':    this.moveState.forward  = true; break;
+            case 'KeyS': case 'ArrowDown':  this.moveState.backward = true; break;
+            case 'KeyA': case 'ArrowLeft':  this.moveState.left     = true; break;
+            case 'KeyD': case 'ArrowRight': this.moveState.right    = true; break;
             case 'ShiftLeft': this.moveState.sprint = true; break;
             case 'KeyE': this.toggleArtworkInfo(); break;
+            // (Task H38) Enter focuses the nearest artwork (accessible
+            // alternative to click-to-focus for keyboard-only users)
+            case 'Enter': this.focusNearestArtwork(); break;
             // Speed multipliers
             case 'Digit1': this.setSpeedMultiplier(0); break; // 1x
             case 'Digit2': this.setSpeedMultiplier(1); break; // 2x
@@ -39,10 +49,10 @@ export function setupControls() {
     // ── Keyup ──────────────────────────────────────────────────────────────
     document.addEventListener('keyup', (e) => {
         switch (e.code) {
-            case 'KeyW': this.moveState.forward  = false; break;
-            case 'KeyS': this.moveState.backward = false; break;
-            case 'KeyA': this.moveState.left     = false; break;
-            case 'KeyD': this.moveState.right    = false; break;
+            case 'KeyW': case 'ArrowUp':    this.moveState.forward  = false; break;
+            case 'KeyS': case 'ArrowDown':  this.moveState.backward = false; break;
+            case 'KeyA': case 'ArrowLeft':  this.moveState.left     = false; break;
+            case 'KeyD': case 'ArrowRight': this.moveState.right    = false; break;
             case 'ShiftLeft': this.moveState.sprint = false; break;
         }
     });

@@ -111,6 +111,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fire analytics view event (once)
         Analytics.trackView();
+
+        // (Task H41 / audit MX8) — deep-link to a specific artwork.
+        // If the URL has ?artwork=<id>, auto-focus that artwork after
+        // the scene loads. This lets artists share links to specific
+        // works from social media.
+        const deepLinkArtworkId = window.GALLERY_DATA?.deepLinkArtworkId;
+        if (deepLinkArtworkId && galleryScene?.artworks) {
+            // Wait a moment for the scene to settle after the curtain fades
+            setTimeout(() => {
+                const target = galleryScene.artworks.find(
+                    a => a.userData?.id === deepLinkArtworkId
+                );
+                if (target) {
+                    galleryScene.focusedArtwork = target;
+                    galleryScene.toggleArtworkInfo();
+                }
+            }, 1500);
+        }
     }, { once: true });
 
     // ── Tour keyboard shortcut ──────────────────────────────────────────────

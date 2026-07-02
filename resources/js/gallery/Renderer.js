@@ -90,6 +90,19 @@ export function detectLowEnd() {
     this._scheduleFpsBenchmark = _scheduleFpsBenchmark;
     this._scheduleFpsBenchmark();
 
+    // (Task H37 / audit C4) — respect prefers-reduced-motion. Users with
+    // vestibular disorders need bloom, vignette, and camera lean disabled.
+    // We treat reduced-motion the same as low-end for rendering purposes,
+    // but ALSO set a flag so other modules (Tour.js, Controls.js) can
+    // disable motion-based effects.
+    const reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
+    this.reducedMotion = reducedMotion;
+
+    if (reducedMotion) {
+        isLowEnd = true;
+        reasons.push('prefers-reduced-motion: reduce');
+    }
+
     this.isLowEnd = isLowEnd;
     if (isLowEnd) {
         console.log('⚡ Low-end mode:', reasons.join(', '));

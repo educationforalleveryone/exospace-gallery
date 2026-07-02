@@ -22,6 +22,16 @@ export class GuidedTour {
         this._dwellTimer = null;
         this._countdownRaf = null;
         this._circumference = 2 * Math.PI * 15.9;
+
+        // (Task H37 / audit C4) — if the user prefers reduced motion,
+        // shorten the camera tween duration to near-zero (instant cut
+        // instead of smooth fly) and reduce dwell time. The tour still
+        // works, just without the cinematic camera movement.
+        this._reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
+        this._tweenDuration = this._reducedMotion ? 0.1 : 2.0;
+        if (this._reducedMotion) {
+            this._dwellMs = 3000; // shorter dwell for reduced-motion users
+        }
     }
 
     start(atIndex = 0) {
@@ -122,7 +132,7 @@ export class GuidedTour {
 
         this.scene.focusTween = gsap.to(this.scene.camera.position, {
             x: targetPos.x, y: targetPos.y, z: targetPos.z,
-            duration: 1.8,
+            duration: this._tweenDuration,  // (Task H37) reduced-motion aware
             ease: 'power2.inOut',
             onUpdate: () => { this.scene.camera.lookAt(artworkPos); },
             onComplete: () => {

@@ -122,6 +122,12 @@ class GalleryViewController extends Controller
             // NEW (Round 4) — events page link
             'eventsUrl'      => route('gallery.events.index', $gallery->slug),
             'hasUpcomingEvents' => $gallery->scheduleEvents()->active()->upcoming()->exists(),
+
+            // (Task H41 / audit MX8) — deep-link target artwork. If the
+            // URL has ?artwork=<id>, the 3D viewer's main.js will
+            // auto-focus that artwork after the scene loads. This lets
+            // artists share links to specific works from social media.
+            'deepLinkArtworkId' => $request->integer('artwork'),
         ];
 
         return view('gallery.view', compact('gallery', 'galleryData'));
