@@ -46,8 +46,32 @@ return Application::configure(basePath: dirname(__DIR__))
         // 3. Plan expiry check — auto-downgrades expired paid plans
         $middleware->append(\App\Http\Middleware\CheckPlanExpiry::class);
 
-        // 4. Trusted proxies
-        $middleware->trustProxies(at: '*');
+        // 4. Trusted proxies — restrict to the actual reverse-proxy network
+        //    instead of trusting every caller. (Task C17)
+        //
+        //    WHY: `trustProxies(at: '*')` trusts any client's
+        //    X-Forwarded-Host / X-Forwarded-Proto / X-Forwarded-For headers.
+        //    An attacker who can reach the app directly (bypassing Coolify's
+        //    Traefik) can spoof these headers — enabling host-header session
+        //    attacks (ScopeSessionDomain reads $request->getHost()), custom-
+        //    domain spoofing (DetectCustomDomain reads $request->getHost()),
+        //    and IP-spoofing (which weakens rate limiting and audit logging).
+        //
+        //    The TRUSTED_PROXIES env var should be set in production to
+        //    Coolify's internal docker network (typically 172.16.0.0/12 or
+        //    the specific Traefik container IP). Find it via:
+        //       docker network inspect coolify-network | grep Subnet
+        //
+        //    Acceptable values:
+        //      - specific IPs: "10.0.0.5,10.0.0.6"
+        //      - CIDR ranges: "172.16.0.0/12"
+        //      - "*" (legacy permissive — logs a warning in PreflightCheck)
+        //
+        //    Leaving empty/unset is FAIL-OPEN to '*' for backward
+        //    compatibility — existing deployments that haven't set the
+        //    env var keep working. New deployments should set it.
+        $trustedProxies = env('TRUSTED_PROXIES', '*');
+        $middleware->trustProxies(at: $trustedProxies);
 
         // 5. Middleware aliases
         $middleware->alias([

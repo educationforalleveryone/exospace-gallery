@@ -55,4 +55,15 @@ return [
         'product_id_studio'      => env('TWOCHECKOUT_PRODUCT_ID_STUDIO'),
     ],
 
+    // ── Coolify custom-domain automation (task C14) ──────────────────────
+    // Centralized env reads so that `php artisan config:cache` is safe.
+    // Previously CoolifyDomainManager read env() directly in its constructor,
+    // which breaks under config:cache because env() returns null outside of
+    // config files once the config is cached.
+    'coolify' => [
+        'api_token'    => env('COOLIFY_API_TOKEN'),
+        'api_base_url' => rtrim((string) env('COOLIFY_API_BASE_URL', ''), '/'),
+        'application_uuid' => env('COOLIFY_APPLICATION_UUID'),
+    ],
+
 ];

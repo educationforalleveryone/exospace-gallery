@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Convert galleries.wall_texture, frame_style, floor_material columns from
@@ -29,8 +30,18 @@ use Illuminate\Support\Facades\DB;
  *   - Removes the need for a migration every time we add a new material
  *   - Makes Laravel validation the single source of truth for allowed values
  *
- * We use raw DB::statement() because Laravel's schema builder requires
- * doctrine/dbal for `change()` calls, which may not be installed.
+ * SQLite COMPATIBILITY (task C15)
+ * -------------------------------
+ * The previous version of this migration used raw `ALTER TABLE ...
+ * MODIFY COLUMN` which is MySQL-only syntax. SQLite does not support
+ * MODIFY COLUMN — the test suite (phpunit.xml sets DB_CONNECTION=sqlite)
+ * could not bootstrap, which is why tests/Feature/ contained only stock
+ * Breeze stubs and zero coverage of actual SaaS logic.
+ *
+ * The fix: guard each statement with a driver check. On MySQL we use
+ * the cheap `MODIFY COLUMN` (preserves column position + data). On
+ * SQLite we use Laravel's schema builder `change()` which rebuilds the
+ * table — slower but correct, and only ever runs in the test suite.
  *
  * We leave lighting_preset and room_layout as ENUMs because:
  *   - They have no new values in v3.0
@@ -43,11 +54,21 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Convert ENUM → VARCHAR(20). Existing values are preserved.
-        // MODIFY COLUMN keeps the column's position in the table.
-        DB::statement("ALTER TABLE galleries MODIFY COLUMN wall_texture VARCHAR(20) NOT NULL DEFAULT 'white'");
-        DB::statement("ALTER TABLE galleries MODIFY COLUMN frame_style VARCHAR(20) NOT NULL DEFAULT 'modern'");
-        DB::statement("ALTER TABLE galleries MODIFY COLUMN floor_material VARCHAR(20) NOT NULL DEFAULT 'wood'");
+        if (DB::getDriverName() === 'sqlite') {
+            // SQLite path — used by the test suite. Schema builder's
+            // change() rebuilds the table behind the scenes.
+            Schema::table('galleries', function ($table) {
+                $table->string('wall_texture', 20)->default('white')->change();
+                $table->string('frame_style', 20)->default('modern')->change();
+                $table->string('floor_material', 20)->default('wood')->change();
+            });
+        } else {
+            // MySQL / MariaDB path — preserves column position + data.
+            // MODIFY COLUMN is the cheap O(1) operation here.
+            DB::statement("ALTER TABLE galleries MODIFY COLUMN wall_texture VARCHAR(20) NOT NULL DEFAULT 'white'");
+            DB::statement("ALTER TABLE galleries MODIFY COLUMN frame_style VARCHAR(20) NOT NULL DEFAULT 'modern'");
+            DB::statement("ALTER TABLE galleries MODIFY COLUMN floor_material VARCHAR(20) NOT NULL DEFAULT 'wood'");
+        }
     }
 
     public function down(): void
@@ -55,8 +76,15 @@ return new class extends Migration
         // Revert to the original ENUM definitions.
         // WARNING: any rows with values outside the original ENUM lists will
         // fail this downgrade. If you have such rows, delete or fix them first.
-        DB::statement("ALTER TABLE galleries MODIFY COLUMN wall_texture ENUM('white','concrete','brick','wood') NOT NULL DEFAULT 'white'");
-        DB::statement("ALTER TABLE galleries MODIFY COLUMN frame_style ENUM('modern','classic','minimal') NOT NULL DEFAULT 'modern'");
-        DB::statement("ALTER TABLE galleries MODIFY COLUMN floor_material ENUM('wood','marble','concrete') NOT NULL DEFAULT 'wood'");
+        if (DB::getDriverName() === 'sqlite') {
+            // SQLite can't represent ENUM — best we can do is keep VARCHAR(20).
+            // The down() migration is only used in tests where preserving
+            // the exact ENUM constraint doesn't matter.
+            // No-op.
+        } else {
+            DB::statement("ALTER TABLE galleries MODIFY COLUMN wall_texture ENUM('white','concrete','brick','wood') NOT NULL DEFAULT 'white'");
+            DB::statement("ALTER TABLE galleries MODIFY COLUMN frame_style ENUM('modern','classic','minimal') NOT NULL DEFAULT 'modern'");
+            DB::statement("ALTER TABLE galleries MODIFY COLUMN floor_material ENUM('wood','marble','concrete') NOT NULL DEFAULT 'wood'");
+        }
     }
 };

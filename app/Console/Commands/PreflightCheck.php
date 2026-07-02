@@ -104,9 +104,13 @@ class PreflightCheck extends Command
             $this->critical("APP_KEY is missing or invalid — run `php artisan key:generate`.");
         }
 
-        $trustedProxies = env('TRUSTED_PROXIES');
+        $trustedProxies = env('TRUSTED_PROXIES', '*');
         if ($trustedProxies === '*' || !empty($trustedProxies)) {
-            $this->ok("TRUSTED_PROXIES is set ({$trustedProxies}) — Coolify reverse proxy trusted.");
+            if ($trustedProxies === '*') {
+                $this->advisory("TRUSTED_PROXIES=* — works but is overly permissive. For production, restrict to Coolify's Traefik subnet (task C17). Find it via: docker network inspect coolify-network | grep Subnet");
+            } else {
+                $this->ok("TRUSTED_PROXIES is set ({$trustedProxies}) — Coolify reverse proxy trusted.");
+            }
         } else {
             $this->critical("TRUSTED_PROXIES is empty — Laravel will reject X-Forwarded-* headers from Coolify's Traefik. Custom domains and HTTPS detection will break.");
         }
@@ -276,7 +280,7 @@ class PreflightCheck extends Command
         }
 
         if ($mailer === 'resend') {
-            $key = config('services.resend.key') ?? env('RESEND_API_KEY');
+            $key = config('services.resend.key');
             if (!empty($key) && Str::startsWith($key, 're_')) {
                 $this->ok('Resend API key is configured (looks valid).');
             } else {
@@ -296,10 +300,10 @@ class PreflightCheck extends Command
     {
         $this->section('Payments (2Checkout)');
 
-        $acct = env('TWOCHECKOUT_ACCOUNT_NUMBER');
-        $secret = env('TWOCHECKOUT_SECRET_WORD');
-        $pro = env('TWOCHECKOUT_PRODUCT_ID_PRO');
-        $studio = env('TWOCHECKOUT_PRODUCT_ID_STUDIO');
+        $acct = config('services.2checkout.account_number');
+        $secret = config('services.2checkout.secret_word');
+        $pro = config('services.2checkout.product_id_pro');
+        $studio = config('services.2checkout.product_id_studio');
 
         if (empty($acct) || $acct === 'your_account_number') {
             $this->critical('TWOCHECKOUT_ACCOUNT_NUMBER is placeholder — Pro/Studio plan purchases will fail.');
@@ -334,9 +338,9 @@ class PreflightCheck extends Command
         // NOTE: previous version of this check looked for COOLIFY_PROJECT_UUID
         // and COOLIFY_ENVIRONMENT_UUID, which don't exist anywhere else in the
         // codebase — false-positive warnings. Fixed in Round 3 patch.
-        $token   = env('COOLIFY_API_TOKEN');
-        $baseUrl = env('COOLIFY_API_BASE_URL');
-        $appUuid = env('COOLIFY_APPLICATION_UUID');
+        $token   = config('services.coolify.api_token');
+        $baseUrl = config('services.coolify.api_base_url');
+        $appUuid = config('services.coolify.application_uuid');
 
         if (empty($token)) {
             $this->advisory('COOLIFY_API_TOKEN not set — custom domain requests will require manual Coolify UI configuration. Set this to enable automatic domain + SSL provisioning.');

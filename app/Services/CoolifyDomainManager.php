@@ -50,11 +50,27 @@ use Illuminate\Support\Facades\Log;
  * custom domain won't work until you either set the env vars OR add the
  * domain manually via the Coolify UI.
  *
- * CACHING
+ * CACHING (task C13)
  * -------
  * The current `domains` list is cached for 5 minutes per app UUID so we
  * don't hammer the Coolify API. After a successful update, the cache is
- * busted. If you ever change domains manually in the Coolify UI, run:
+ * busted.
+ *
+ * FAILURE MODES FIXED IN TASK C13:
+ *   1. Cache-nulls bug: previously, a transient network blip cached `null`
+ *      for 5 minutes, locking out ALL custom-domain provisioning. Now
+ *      `getCurrentDomains()` throws on failure instead of caching null —
+ *      the caller can retry, and the cache stays warm with the last known
+ *      good value (or empty if never fetched).
+ *
+ *   2. Read-modify-write race: previously, two concurrent `addDomain()`
+ *      calls both read the same cached list, both merge their own domain,
+ *      both PATCH — last PATCH wins, the first user's domain silently
+ *      disappears from Coolify. Now `addDomain()` and `removeDomain()`
+ *      acquire a per-app cache lock for the duration of the read-modify-
+ *      write, so concurrent calls serialize.
+ *
+ * If you ever change domains manually in the Coolify UI, run:
  *
  *     php artisan cache:clear
  *
@@ -68,9 +84,13 @@ class CoolifyDomainManager
 
     public function __construct()
     {
-        $this->token = env('COOLIFY_API_TOKEN');
-        $this->baseUrl = rtrim((string) env('COOLIFY_API_BASE_URL', ''), '/');
-        $this->appUuid = env('COOLIFY_APPLICATION_UUID');
+        // Read from config() rather than env() directly. This makes the
+        // service safe under `php artisan config:cache` — env() returns
+        // null outside of config files once the config is cached, which
+        // would silently break custom-domain provisioning. (Task C14.)
+        $this->token    = config('services.coolify.api_token');
+        $this->baseUrl  = (string) config('services.coolify.api_base_url', '');
+        $this->appUuid  = config('services.coolify.application_uuid');
     }
 
     /**
@@ -84,6 +104,10 @@ class CoolifyDomainManager
 
     /**
      * Add a custom domain to the Coolify application.
+     *
+     * (Task C13) Wraps the read-modify-write in a per-app cache lock so
+     * two concurrent calls serialize. Previously, a race could cause one
+     * caller's domain to be silently dropped from the PATCH.
      *
      * @param  string  $domain  The domain to add (e.g. "gallery.janedoe.com")
      * @return array{success: bool, message: string}
@@ -105,35 +129,65 @@ class CoolifyDomainManager
             ];
         }
 
-        $current = $this->getCurrentDomains();
-        if ($current === null) {
-            return ['success' => false, 'message' => 'Could not fetch current domains from Coolify API. Check the logs.'];
-        }
+        // Per-app lock — serializes concurrent addDomain/removeDomain calls
+        // so the read-modify-write is atomic. 30-second TTL, 10-second block
+        // timeout (the caller waits up to 10s for another caller to finish).
+        $lock = Cache::lock($this->lockKey(), 30);
 
-        // Already there?
-        if (in_array($domain, $current, true)) {
-            return ['success' => true, 'message' => "Domain '{$domain}' is already in Coolify's domain list."];
-        }
+        try {
+            return $lock->block(10, function () use ($domain) {
+                $current = $this->getCurrentDomains();
 
-        $newList = array_merge($current, [$domain]);
-        $result = $this->updateDomains($newList);
+                // Already there?
+                if (is_array($current) && in_array($domain, $current, true)) {
+                    return ['success' => true, 'message' => "Domain '{$domain}' is already in Coolify's domain list."];
+                }
 
-        if ($result) {
-            // Bust the cache so subsequent reads see the new list
-            Cache::forget($this->cacheKey());
-            Log::info('CoolifyDomainManager: added domain.', ['domain' => $domain]);
+                // getCurrentDomains() returns null on failure — but unlike the
+                // pre-C13 behavior, it does NOT cache the null. We treat a null
+                // return as "fetch failed, tell the caller to retry".
+                if ($current === null) {
+                    return ['success' => false, 'message' => 'Could not fetch current domains from Coolify API. Check the logs.'];
+                }
+
+                $newList = array_merge($current, [$domain]);
+                $result = $this->updateDomains($newList);
+
+                if ($result) {
+                    // Bust the cache so subsequent reads see the new list
+                    Cache::forget($this->cacheKey());
+                    Log::info('CoolifyDomainManager: added domain.', ['domain' => $domain]);
+                    return [
+                        'success' => true,
+                        'message' => "Domain '{$domain}' added to Coolify. SSL cert will be provisioned automatically (may take 1-5 minutes).",
+                    ];
+                }
+
+                return ['success' => false, 'message' => 'Coolify API call failed. Check the logs.'];
+            });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            Log::info('CoolifyDomainManager: addDomain lock busy, another worker is updating Coolify domains', [
+                'domain' => $domain,
+            ]);
             return [
-                'success' => true,
-                'message' => "Domain '{$domain}' added to Coolify. SSL cert will be provisioned automatically (may take 1-5 minutes).",
+                'success' => false,
+                'message' => 'Another domain update is in progress. Please retry in a moment.',
             ];
+        } catch (\Throwable $e) {
+            Log::error('CoolifyDomainManager: addDomain failed', [
+                'domain' => $domain,
+                'error'  => $e->getMessage(),
+            ]);
+            return ['success' => false, 'message' => 'Unexpected error. Check the logs.'];
         }
-
-        return ['success' => false, 'message' => 'Coolify API call failed. Check the logs.'];
     }
 
     /**
      * Remove a custom domain from the Coolify application.
      * Called when a user clears their custom_domain field or deletes the gallery.
+     *
+     * (Task C13) Same per-app lock as addDomain() to serialize the
+     * read-modify-write.
      */
     public function removeDomain(string $domain): array
     {
@@ -147,32 +201,57 @@ class CoolifyDomainManager
             return ['success' => true, 'message' => 'Coolify API not configured — nothing to remove.'];
         }
 
-        $current = $this->getCurrentDomains();
-        if ($current === null) {
-            return ['success' => false, 'message' => 'Could not fetch current domains from Coolify API.'];
-        }
+        $lock = Cache::lock($this->lockKey(), 30);
 
-        if (!in_array($domain, $current, true)) {
-            return ['success' => true, 'message' => "Domain '{$domain}' not in Coolify's domain list — nothing to remove."];
-        }
+        try {
+            return $lock->block(10, function () use ($domain) {
+                $current = $this->getCurrentDomains();
 
-        $newList = array_values(array_diff($current, [$domain]));
-        $result = $this->updateDomains($newList);
+                if ($current === null) {
+                    return ['success' => false, 'message' => 'Could not fetch current domains from Coolify API.'];
+                }
 
-        if ($result) {
-            Cache::forget($this->cacheKey());
-            Log::info('CoolifyDomainManager: removed domain.', ['domain' => $domain]);
+                if (!in_array($domain, $current, true)) {
+                    return ['success' => true, 'message' => "Domain '{$domain}' not in Coolify's domain list — nothing to remove."];
+                }
+
+                $newList = array_values(array_diff($current, [$domain]));
+                $result = $this->updateDomains($newList);
+
+                if ($result) {
+                    Cache::forget($this->cacheKey());
+                    Log::info('CoolifyDomainManager: removed domain.', ['domain' => $domain]);
+                    return [
+                        'success' => true,
+                        'message' => "Domain '{$domain}' removed from Coolify.",
+                    ];
+                }
+
+                return ['success' => false, 'message' => 'Coolify API call failed. Check the logs.'];
+            });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            Log::info('CoolifyDomainManager: removeDomain lock busy', ['domain' => $domain]);
             return [
-                'success' => true,
-                'message' => "Domain '{$domain}' removed from Coolify.",
+                'success' => false,
+                'message' => 'Another domain update is in progress. Please retry in a moment.',
             ];
+        } catch (\Throwable $e) {
+            Log::error('CoolifyDomainManager: removeDomain failed', [
+                'domain' => $domain,
+                'error'  => $e->getMessage(),
+            ]);
+            return ['success' => false, 'message' => 'Unexpected error. Check the logs.'];
         }
-
-        return ['success' => false, 'message' => 'Coolify API call failed. Check the logs.'];
     }
 
     /**
      * Get the current list of domains Coolify routes to this app.
+     *
+     * (Task C13) CRITICAL: does NOT cache null on failure. If the HTTP
+     * call fails, we throw — `Cache::remember` only caches the return
+     * value of a successful closure. The caller can retry immediately,
+     * and a transient network blip no longer locks out all provisioning
+     * for 5 minutes.
      *
      * @return string[]|null  Array of domains, or null on failure.
      */
@@ -193,7 +272,8 @@ class CoolifyDomainManager
                         'status' => $resp->status(),
                         'body'   => $resp->body(),
                     ]);
-                    return null;
+                    // Throw so Cache::remember does NOT cache null.
+                    throw new \RuntimeException("Coolify API GET failed: HTTP {$resp->status()}");
                 }
 
                 $data = $resp->json();
@@ -204,10 +284,12 @@ class CoolifyDomainManager
                 return array_values($list);
             } catch (ConnectionException $e) {
                 Log::error('CoolifyDomainManager: connection error.', ['message' => $e->getMessage()]);
-                return null;
+                // Throw so Cache::remember does NOT cache null.
+                throw $e;
             } catch (\Throwable $e) {
                 Log::error('CoolifyDomainManager: unexpected error.', ['message' => $e->getMessage()]);
-                return null;
+                // Throw so Cache::remember does NOT cache null.
+                throw $e;
             }
         });
     }
@@ -259,5 +341,16 @@ class CoolifyDomainManager
     private function cacheKey(): string
     {
         return "coolify:domains:{$this->appUuid}";
+    }
+
+    /**
+     * Per-application lock key for serializing addDomain/removeDomain calls.
+     * (Task C13) — prevents the read-modify-write race where two concurrent
+     * callers both PATCH and the second one's list (without the first one's
+     * domain) overwrites the first.
+     */
+    private function lockKey(): string
+    {
+        return "coolify:domains:lock:{$this->appUuid}";
     }
 }

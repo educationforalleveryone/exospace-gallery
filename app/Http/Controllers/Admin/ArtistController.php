@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
 use App\Models\Artist;
-use App\Models\Gallery;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -18,10 +16,25 @@ use Illuminate\Http\RedirectResponse;
  * Curators (any authenticated user) can create artist profiles and
  * assign them to artworks. The creator is recorded in `created_by`.
  *
- * Any user can edit any artist profile (no per-user ownership enforced)
- * — this is intentional for the multi-curator group-show scenario
- * where one curator corrects another's typo. If we later need stricter
- * ownership, we can add an `editable_only_by` scope.
+ * AUTHORIZATION (task C16)
+ * ------------------------
+ * Previously, "any user can edit any artist profile" — the docblock
+ * called this "intentional for the multi-curator group-show scenario."
+ * The pre-launch audit flagged this as a critical vulnerability: a
+ * malicious free-tier user could change any artist's bio/website/social
+ * links (defacement, phishing-link injection) or delete any artist and
+ * detach them from every image across every gallery via
+ * `$artist->images()->update(['artist_id' => null])`.
+ *
+ * New model:
+ *   - Any authenticated user can VIEW / search all artists (multi-curator
+ *     collaboration preserved — the dropdown still shows everyone).
+ *   - Only the creator OR a super-admin can edit or delete an artist.
+ *   - `created_by` is locked at creation time and cannot be changed via
+ *     the update form (it's not in the validated fields).
+ *
+ * This stops the cross-tenant defacement / attribution-wipe attack
+ * while keeping the legitimate collaboration flow working.
  */
 class ArtistController extends Controller
 {
@@ -29,7 +42,7 @@ class ArtistController extends Controller
     {
         $user = Auth::user();
         $query = Artist::withCount('images')
-            ->with(['creator', 'images.gallery'])
+            ->with(['creator'])
             ->orderBy('name');
 
         if ($search = trim((string) $request->query('q', ''))) {
@@ -108,11 +121,15 @@ class ArtistController extends Controller
 
     public function edit(Artist $artist): View
     {
+        $this->authorizeArtistMutation($artist);
+
         return view('admin.artists.edit', compact('artist'));
     }
 
     public function update(Request $request, Artist $artist): RedirectResponse
     {
+        $this->authorizeArtistMutation($artist);
+
         $validated = $request->validate([
             'name'      => ['required', 'string', 'max:100'],
             'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/'],
@@ -131,6 +148,9 @@ class ArtistController extends Controller
             }
         }
 
+        // `created_by` is intentionally NOT in $validated — it is locked
+        // at creation time and cannot be transferred via the edit form.
+
         if ($request->hasFile('portrait')) {
             if ($artist->portrait_path) {
                 Storage::disk('public')->delete($artist->portrait_path);
@@ -148,6 +168,8 @@ class ArtistController extends Controller
 
     public function destroy(Artist $artist): RedirectResponse
     {
+        $this->authorizeArtistMutation($artist);
+
         $name = $artist->name;
 
         if ($artist->portrait_path) {
@@ -167,6 +189,10 @@ class ArtistController extends Controller
     /**
      * AJAX endpoint: search artists by name (for the image-edit dropdown).
      * Returns JSON [{id, name, location, portrait_url}].
+     *
+     * Search is available to any authenticated user — multi-curator
+     * collaboration requires seeing everyone's artists in the dropdown.
+     * Only mutation (edit/delete) is restricted by authorizeArtistMutation().
      */
     public function search(Request $request)
     {
@@ -187,5 +213,34 @@ class ArtistController extends Controller
             'portrait_url' => $a->portrait_url,
             'initials'     => $a->initials,
         ]));
+    }
+
+    // ── Authorization ─────────────────────────────────────────────────────
+
+    /**
+     * Only the artist's creator OR a super-admin can edit/delete.
+     *
+     * (Task C16) — previously any authenticated user could mutate any
+     * artist, enabling cross-tenant defacement and attribution-wipe
+     * attacks. Now only the original creator (or a super-admin for
+     * support cases) can mutate.
+     *
+     * The view/search/index/show actions remain open to any authenticated
+     * user — multi-curator collaboration requires seeing everyone's
+     * artists in the dropdown.
+     */
+    private function authorizeArtistMutation(Artist $artist): void
+    {
+        $user = Auth::user();
+
+        if ($user->is_super_admin) {
+            return;
+        }
+
+        if ($artist->created_by === $user->id) {
+            return;
+        }
+
+        abort(403, 'You can only edit artists you created. Contact a super-admin if you need to correct another curator\'s artist profile.');
     }
 }

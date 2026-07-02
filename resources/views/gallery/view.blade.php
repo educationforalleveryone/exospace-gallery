@@ -219,7 +219,11 @@
     @endif
 </head>
 <body @if($isEmbed) class="embed-mode" @endif>
-    <script src="{{ asset('js/gsap.min.js') }}" defer></script>
+    {{-- GSAP is now bundled by Vite as an ES module via the gallery entry
+         point (resources/js/gallery/main.js). The previous hand-placed
+         <script src="js/gsap.min.js" defer> was redundant — `import gsap
+         from 'gsap'` in Tour.js / FocusMode.js does NOT read window.gsap,
+         it expects an ES module export. (Task C12 / audit L15.) --}}
 
     {{-- ── Entrance curtain ──────────────────────────────────────────────────── --}}
     <div id="entrance-curtain"
