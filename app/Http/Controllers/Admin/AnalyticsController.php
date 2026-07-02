@@ -24,36 +24,70 @@ class AnalyticsController extends Controller
         $now   = now();
         $day7  = $now->copy()->subDays(7);
         $day30 = $now->copy()->subDays(30);
+        $today = $now->toDateString();
 
-        // ── Overview stats ────────────────────────────────────────────────
-        $totalViews   = $gallery->events()->where('event', 'view')->count();
-        $uniqueVisitors = $gallery->events()->where('event', 'view')
-            ->distinct('session_token')->count('session_token');
-        $avgDwell     = $gallery->events()->where('event', 'view')
-            ->whereNotNull('dwell_seconds')->avg('dwell_seconds');
-        $totalFocuses = $gallery->events()->where('event', 'focus')->count();
-        $tourStarts   = $gallery->events()->where('event', 'tour_start')->count();
+        // ── Overview stats (Task H33) ─────────────────────────────────────
+        // Use analytics_daily for historical data (fast — pre-aggregated)
+        // and analytics_events for today's data (fresh — not yet rolled up).
+        // This avoids running 7+ COUNT/DISTINCT/AVG queries against a
+        // potentially multi-million-row raw events table.
 
-        // ── Views over last 30 days ───────────────────────────────────────
-        $viewsByDay = $gallery->events()
-            ->where('event', 'view')
-            ->where('created_at', '>=', $day30)
-            ->select(DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get()
-            ->keyBy('date');
+        // Historical totals from rollup (everything before today)
+        $rollup = DB::table('analytics_daily')
+            ->where('gallery_id', $gallery->id)
+            ->where('date', '<', $today)
+            ->selectRaw('COALESCE(SUM(views), 0) as total_views')
+            ->selectRaw('COALESCE(SUM(unique_visitors), 0) as total_unique')
+            ->selectRaw('COALESCE(SUM(focuses), 0) as total_focuses')
+            ->selectRaw('COALESCE(SUM(tour_starts), 0) as total_tours')
+            ->selectRaw('CASE WHEN SUM(views) > 0 THEN SUM(avg_dwell_seconds * views) / SUM(views) ELSE 0 END as avg_dwell')
+            ->first();
 
-        // Fill all 30 days (zeros for missing dates)
+        // Today's totals from raw events
+        $todayStats = $gallery->events()->whereDate('created_at', $today);
+        $todayViews       = (clone $todayStats)->where('event', 'view')->count();
+        $todayUnique      = (clone $todayStats)->where('event', 'view')->distinct('session_token')->count('session_token');
+        $todayFocuses     = (clone $todayStats)->where('event', 'focus')->count();
+        $todayTours       = (clone $todayStats)->where('event', 'tour_start')->count();
+        $todayDwell       = (clone $todayStats)->where('event', 'view')->whereNotNull('dwell_seconds')->avg('dwell_seconds') ?? 0;
+
+        // Combine rollup + today
+        $totalViews     = ($rollup->total_views ?? 0) + $todayViews;
+        $uniqueVisitors = ($rollup->total_unique ?? 0) + $todayUnique;
+        $totalFocuses   = ($rollup->total_focuses ?? 0) + $todayFocuses;
+        $tourStarts     = ($rollup->total_tours ?? 0) + $todayTours;
+        $avgDwell       = $todayViews > 0
+            ? (($rollup->avg_dwell ?? 0) * ($rollup->total_views ?? 0) + ($todayDwell * $todayViews)) / $totalViews
+            : ($rollup->avg_dwell ?? 0);
+
+        // ── Views over last 30 days (Task H33) ────────────────────────────
+        // Read from analytics_daily for days 1-29 (already rolled up),
+        // then from raw events for today (not yet rolled up).
+        $rollupDays = DB::table('analytics_daily')
+            ->where('gallery_id', $gallery->id)
+            ->where('date', '>=', now()->subDays(29)->toDateString())
+            ->where('date', '<', $today)
+            ->pluck('views', 'date');
+
+        // Fill all 30 days
         $chartDates  = [];
         $chartCounts = [];
         for ($i = 29; $i >= 0; $i--) {
-            $date = now()->subDays($i)->format('Y-m-d');
+            $date = now()->subDays($i)->toDateString();
             $chartDates[]  = now()->subDays($i)->format('M d');
-            $chartCounts[] = $viewsByDay[$date]->count ?? 0;
+            if ($i === 0) {
+                // Today — from raw events
+                $chartCounts[] = $todayViews;
+            } else {
+                $chartCounts[] = $rollupDays[$date] ?? 0;
+            }
         }
 
         // ── Top artworks by focus count ───────────────────────────────────
+        // This still reads from raw events because the rollup doesn't
+        // store per-image data. For galleries with 90+ days of data, this
+        // query only hits events from the last 90 days (pruning keeps the
+        // table bounded).
         $topArtworks = $gallery->events()
             ->where('event', 'focus')
             ->whereNotNull('image_id')
@@ -64,19 +98,28 @@ class AnalyticsController extends Controller
             ->limit(10)
             ->get();
 
-        // ── Traffic sources ───────────────────────────────────────────────
+        // ── Traffic sources (last 90 days from raw events) ───────────────
         $referrers = $gallery->events()
             ->where('event', 'view')
+            ->where('created_at', '>=', now()->subDays(90))
             ->select('referrer', DB::raw('COUNT(*) as count'))
             ->groupBy('referrer')
             ->orderByDesc('count')
             ->limit(8)
             ->get();
 
-        // ── Last 7 days vs prior 7 days (for trend indicators) ────────────
-        $views7     = $gallery->events()->where('event', 'view')->where('created_at', '>=', $day7)->count();
-        $viewsPrev7 = $gallery->events()->where('event', 'view')
-            ->whereBetween('created_at', [$now->copy()->subDays(14), $day7])->count();
+        // ── Last 7 days vs prior 7 days (from rollup + today) ────────────
+        $views7Rollup = DB::table('analytics_daily')
+            ->where('gallery_id', $gallery->id)
+            ->whereBetween('date', [now()->subDays(7)->toDateString(), $today])
+            ->where('date', '<', $today)
+            ->sum('views');
+        $views7 = $views7Rollup + $todayViews;
+
+        $viewsPrev7 = DB::table('analytics_daily')
+            ->where('gallery_id', $gallery->id)
+            ->whereBetween('date', [now()->subDays(14)->toDateString(), now()->subDays(7)->toDateString()])
+            ->sum('views');
         $viewsTrend = $viewsPrev7 > 0 ? round((($views7 - $viewsPrev7) / $viewsPrev7) * 100) : null;
 
         return view('admin.galleries.analytics', compact(

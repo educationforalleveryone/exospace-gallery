@@ -8,7 +8,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    {{-- (Task H35 / audit M9) — removed maximum-scale=1.0, user-scalable=no.
+         WCAG 2.1 AA (1.4.4 Resize Text) requires users be able to zoom.
+         The 3D canvas intercepts touch events regardless; the curtain UI
+         (title, description, "Enter" button) should be zoomable. --}}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{ Str::limit($gallery->description, 150) }}">
 
     {{-- Open Graph / social card --}}
@@ -224,6 +228,37 @@
          <script src="js/gsap.min.js" defer> was redundant — `import gsap
          from 'gsap'` in Tour.js / FocusMode.js does NOT read window.gsap,
          it expects an ES module export. (Task C12 / audit L15.) --}}
+
+    {{-- (Task H35 / audit C4) — noscript fallback for users without JS --}}
+    <noscript>
+        <div style="max-width: 600px; margin: 4rem auto; padding: 2rem; text-align: center; color: #e2e8f0; font-family: system-ui, sans-serif;">
+            <h1 style="font-size: 2rem; margin-bottom: 1rem;">{{ $gallery->title }}</h1>
+            <p style="color: #94a3b8; margin-bottom: 2rem;">
+                This gallery requires JavaScript and WebGL to display the immersive 3D experience.
+                Please enable JavaScript in your browser settings to continue.
+            </p>
+            <p style="color: #64748b; font-size: 0.875rem;">
+                <a href="{{ route('discover') }}" style="color: #a78bfa;">Browse other galleries →</a>
+            </p>
+        </div>
+    </noscript>
+
+    {{-- (Task H35 / audit C4) — WebGL fallback div (hidden by default,
+         shown by JS if WebGL is unavailable) --}}
+    <div id="webgl-fallback" style="display:none; max-width: 600px; margin: 4rem auto; padding: 2rem; text-align: center; color: #e2e8f0; font-family: system-ui, sans-serif;">
+        <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">WebGL Not Available</h2>
+        <p style="color: #94a3b8; margin-bottom: 1.5rem;">
+            Your browser does not support WebGL, which is required for the 3D gallery experience.
+            Try a modern browser like Chrome, Firefox, or Safari with hardware acceleration enabled.
+        </p>
+        <div style="background: #1e293b; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+            <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Gallery: {{ $gallery->title }}</p>
+            @if($gallery->images->count() > 0)
+                <p style="font-size: 0.875rem; color: #64748b;">{{ $gallery->images->count() }} artworks in this exhibition</p>
+            @endif
+        </div>
+        <a href="{{ route('discover') }}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600;">Browse Other Galleries →</a>
+    </div>
 
     {{-- ── Entrance curtain ──────────────────────────────────────────────────── --}}
     <div id="entrance-curtain"
@@ -459,6 +494,29 @@
 
     {{-- ── Gallery data injection (consumed by main.js) ──────────────────────── --}}
     <script>
+        // (Task H35 / audit C4) — WebGL detection. If WebGL is unavailable,
+        // show the fallback div and hide the curtain. The 3D viewer won't
+        // try to boot.
+        (function() {
+            var canvas = document.createElement('canvas');
+            var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (!gl) {
+                var fallback = document.getElementById('webgl-fallback');
+                var curtain = document.getElementById('entrance-curtain');
+                if (fallback) fallback.style.display = 'block';
+                if (curtain) curtain.style.display = 'none';
+            }
+        })();
+
+        // (Task H35 / audit C4) — expose prefers-reduced-motion for the
+        // 3D viewer's main.js to consume. When true, the viewer should
+        // disable bloom, vignette, camera lean, and tour tweens.
+        window.EXOSPACE_REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // (Task H35 / audit C4) — hide PerformanceControls panel unless
+        // ?debug=1 is in the URL. Previously visible to every visitor.
+        window.EXOSPACE_DEBUG = new URLSearchParams(window.location.search).has('debug');
+
         window.GALLERY_DATA = @json($galleryData);
 
         @if(app()->environment('local'))

@@ -235,36 +235,26 @@
 
                                 {{-- Toggle Super Admin --}}
                                 @if(! $user->is_super_admin)
-                                    <form method="POST" action="{{ route('super.toggleSuperAdmin', $user) }}">
-                                        @csrf
-                                        <button type="submit"
-                                                onclick="return confirm('Grant SUPER ADMIN to {{ addslashes($user->name) }}? They will have full platform access.')"
-                                                class="px-3 py-1.5 bg-purple-800 hover:bg-purple-700 rounded-lg text-xs transition">
-                                            👑 Make Admin
-                                        </button>
-                                    </form>
+                                    <button type="button"
+                                            onclick="openAdminModal({{ $user->id }}, '{{ addslashes($user->name) }}', 'grant')"
+                                            class="px-3 py-1.5 bg-purple-800 hover:bg-purple-700 rounded-lg text-xs transition">
+                                        👑 Make Admin
+                                    </button>
                                 @else
-                                    <form method="POST" action="{{ route('super.toggleSuperAdmin', $user) }}">
-                                        @csrf
-                                        <button type="submit"
-                                                onclick="return confirm('Revoke super admin from {{ addslashes($user->name) }}?')"
-                                                class="px-3 py-1.5 bg-purple-900/50 border border-purple-700 hover:bg-purple-800 rounded-lg text-xs transition text-purple-300">
-                                            👑 Revoke Admin
-                                        </button>
-                                    </form>
+                                    <button type="button"
+                                            onclick="openAdminModal({{ $user->id }}, '{{ addslashes($user->name) }}', 'revoke')"
+                                            class="px-3 py-1.5 bg-purple-900/50 border border-purple-700 hover:bg-purple-800 rounded-lg text-xs transition text-purple-300">
+                                        👑 Revoke Admin
+                                    </button>
                                 @endif
 
                                 {{-- Delete --}}
                                 @if(! $user->is_super_admin)
-                                    <form method="POST" action="{{ route('super.deleteUser', $user) }}">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit"
-                                                onclick="return confirm('⚠️ PERMANENTLY DELETE {{ addslashes($user->name) }}?\n\nThis will delete:\n• User account\n• All personal galleries & images\n• All teams they own\n• All files from storage\n\nThis CANNOT be undone.')"
-                                                class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs transition">
-                                            🗑 Delete
-                                        </button>
-                                    </form>
+                                    <button type="button"
+                                            onclick="openDeleteModal({{ $user->id }}, '{{ addslashes($user->name) }}')"
+                                            class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs transition">
+                                        🗑 Delete
+                                    </button>
                                 @endif
 
                             </div>
@@ -349,6 +339,123 @@
         search.addEventListener('input', applyFilters);
         planFilter.addEventListener('change', applyFilters);
         statusFilter.addEventListener('change', applyFilters);
+    </script>
+
+
+    {{-- (Task H32) Type-to-confirm modals for destructive super-admin actions --}}
+    <div id="deleteConfirmModal" x-data="{ open: false, typed: '', userId: 0, userName: '' }"
+         x-cloak
+         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden items-center justify-center p-4"
+         role="dialog" aria-modal="true" aria-labelledby="delete-modal-heading"
+         :class="open ? 'flex' : 'hidden'"
+         @keydown.escape.window="open = false; typed = ''"
+         @click.self="open = false; typed = ''">
+        <div class="bg-gray-900 border border-red-700/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+            <button @click="open = false; typed = ''" class="absolute top-3 right-3 text-gray-500 hover:text-gray-300" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h3 id="delete-modal-heading" class="text-lg font-bold text-red-400 mb-3">Permanently Delete User</h3>
+            <div class="text-sm text-gray-400 mb-4 space-y-2">
+                <p>You are about to <strong class="text-red-400">permanently delete</strong> <strong x-text="userName" class="text-white"></strong>.</p>
+                <p>This will delete:</p>
+                <ul class="list-disc list-inside text-gray-500 ml-2 space-y-0.5">
+                    <li>User account</li>
+                    <li>All personal galleries &amp; images</li>
+                    <li>All teams they own</li>
+                    <li>All files from storage</li>
+                </ul>
+                <p class="text-red-400 font-semibold">This CANNOT be undone.</p>
+            </div>
+            <div class="bg-gray-800/50 rounded-lg p-3 mb-4">
+                <label for="delete-confirm-input" class="block text-xs text-gray-500 mb-1">
+                    Type <code class="text-gray-300 font-mono">DELETE</code> to confirm
+                </label>
+                <input id="delete-confirm-input" type="text" x-model="typed" :placeholder="userName"
+                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                    autocomplete="off">
+            </div>
+            <form :action="'/master-control/users/' + userId" method="POST" id="deleteForm">
+                @csrf
+                <input type="hidden" name="_method" value="DELETE">
+                <div class="flex gap-3">
+                    <button type="button" @click="open = false; typed = ''"
+                            class="flex-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-2.5 rounded-xl transition text-sm">Cancel</button>
+                    <button type="submit" :disabled="typed !== 'DELETE'"
+                            class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-40 disabled:cursor-not-allowed">Delete User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="adminConfirmModal" x-data="{ open: false, typed: '', userId: 0, userName: '', action: 'grant' }"
+         x-cloak
+         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden items-center justify-center p-4"
+         role="dialog" aria-modal="true" aria-labelledby="admin-modal-heading"
+         :class="open ? 'flex' : 'hidden'"
+         @keydown.escape.window="open = false; typed = ''"
+         @click.self="open = false; typed = ''">
+        <div class="bg-gray-900 border border-purple-700/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+            <button @click="open = false; typed = ''" class="absolute top-3 right-3 text-gray-500 hover:text-gray-300" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h3 id="admin-modal-heading" class="text-lg font-bold text-purple-400 mb-3"
+                x-text="action === 'grant' ? 'Grant Super Admin' : 'Revoke Super Admin'"></h3>
+            <div class="text-sm text-gray-400 mb-4 space-y-2">
+                <p x-show="action === 'grant'">
+                    You are about to grant <strong class="text-purple-400">super admin access</strong> to <strong x-text="userName" class="text-white"></strong>.
+                    They will have full platform access including the ability to delete users, change plans, and modify any gallery.
+                </p>
+                <p x-show="action === 'revoke'">
+                    You are about to <strong class="text-purple-400">revoke super admin access</strong> from <strong x-text="userName" class="text-white"></strong>.
+                    They will lose access to /master-control/* immediately.
+                </p>
+            </div>
+            <div class="bg-gray-800/50 rounded-lg p-3 mb-4">
+                <label for="admin-confirm-input" class="block text-xs text-gray-500 mb-1">
+                    Type <code class="text-gray-300 font-mono" x-text="action === 'grant' ? 'GRANT' : 'REVOKE'"></code> to confirm
+                </label>
+                <input id="admin-confirm-input" type="text" x-model="typed"
+                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                    autocomplete="off">
+            </div>
+            <form :action="'/master-control/users/' + userId + '/toggle-super-admin'" method="POST" id="adminForm">
+                @csrf
+                <div class="flex gap-3">
+                    <button type="button" @click="open = false; typed = ''"
+                            class="flex-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-2.5 rounded-xl transition text-sm">Cancel</button>
+                    <button type="submit"
+                            :disabled="(action === 'grant' && typed !== 'GRANT') || (action === 'revoke' && typed !== 'REVOKE')"
+                            class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                            x-text="action === 'grant' ? 'Grant Access' : 'Revoke Access'"></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    // (Task H32) Modal openers for type-to-confirm destructive actions
+    function openDeleteModal(userId, userName) {
+        const modal = document.getElementById('deleteConfirmModal');
+        if (modal.__x) {
+            modal.__x.$data.open = true;
+            modal.__x.$data.userId = userId;
+            modal.__x.$data.userName = userName;
+            modal.__x.$data.typed = '';
+        }
+        setTimeout(() => document.getElementById('delete-confirm-input')?.focus(), 100);
+    }
+
+    function openAdminModal(userId, userName, action) {
+        const modal = document.getElementById('adminConfirmModal');
+        if (modal.__x) {
+            modal.__x.$data.open = true;
+            modal.__x.$data.userId = userId;
+            modal.__x.$data.userName = userName;
+            modal.__x.$data.action = action;
+            modal.__x.$data.typed = '';
+        }
+        setTimeout(() => document.getElementById('admin-confirm-input')?.focus(), 100);
+    }
     </script>
 
 </body>
