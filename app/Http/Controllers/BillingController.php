@@ -118,22 +118,32 @@ class BillingController extends Controller
             urlencode($user->email),
         );
 
-        // (Task H54) — optional coupon code. 2Checkout supports a `coupon`
-        // URL parameter that applies a discount configured in the merchant
-        // dashboard. The coupon code is stored in the .env var
-        // TWOCHECKOUT_COUPON_CODE (if set, it's applied to every upgrade).
-        // For per-campaign coupons, pass ?coupon=XXXX to the billing.upgrade
-        // route — it overrides the env var.
+        // (Task H54) — optional coupon code.
         $couponCode = $request->query('coupon')
             ?? config('services.2checkout.coupon_code');
         if ($couponCode) {
             $buyUrl .= '&coupon=' . urlencode($couponCode);
         }
 
+        // (Task H58) — affiliate/referral tracking. 2Checkout supports an
+        // `affiliate` URL parameter that credits an affiliate account
+        // configured in the merchant dashboard. The affiliate ID can be:
+        //   - Site-wide default: TWOCHECKOUT_AFFILIATE_ID env var
+        //   - Per-campaign: ?ref=AFFILIATE_ID on the billing.upgrade route
+        // The ref param is stored on the pending_upgrade for reporting.
+        $affiliateId = $request->query('ref')
+            ?? config('services.2checkout.affiliate_id');
+        if ($affiliateId) {
+            $buyUrl .= '&affiliate=' . urlencode($affiliateId);
+            $pending->forceFill(['affiliate_id' => $affiliateId])->save();
+        }
+
         Log::info('BillingController: redirecting user to 2Checkout', [
             'user_id'           => $user->id,
             'plan'              => $plan,
             'pending_upgrade_id'=> $pending->id,
+            'has_coupon'        => ! empty($couponCode),
+            'has_affiliate'     => ! empty($affiliateId),
         ]);
 
         return redirect()->away($buyUrl);

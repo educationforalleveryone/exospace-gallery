@@ -892,8 +892,11 @@
 
                                 <!-- Image: Enforced Aspect Ratio (Square) -->
                                 <div class="aspect-square w-full bg-gray-950 overflow-hidden">
-                                    <img src="{{ asset($image->path) }}"
+                                    <img src="{{ $image->public_url }}"
+                                         srcset="{{ $image->srcset }}"
+                                         sizes="150px"
                                          alt="{{ $image->original_name }}"
+                                         loading="lazy" decoding="async"
                                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
                                 </div>
 

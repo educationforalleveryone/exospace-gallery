@@ -70,8 +70,11 @@
                             <!-- Cover Image -->
                             <div class="relative aspect-video bg-gradient-to-br from-purple-900/20 to-indigo-900/20 overflow-hidden">
                                 @if($coverImage)
-                                    <img src="{{ asset($coverImage->path) }}" 
+                                    <img src="{{ $coverImage->public_url }}"
+                                         srcset="{{ $coverImage->srcset }}"
+                                         sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                                          alt="{{ $gallery->title }}"
+                                         loading="lazy" decoding="async"
                                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
                                     <div class="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/20 to-transparent"></div>
                                 @else

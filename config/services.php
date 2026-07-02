@@ -58,6 +58,11 @@ return [
         // upgrade. Set in .env to run a site-wide promotion. Override
         // per-link with ?coupon=XXXX on the billing.upgrade route.
         'coupon_code'            => env('TWOCHECKOUT_COUPON_CODE'),
+
+        // (Task H58) — optional default affiliate ID. Set in .env for
+        // site-wide affiliate crediting. Override per-link with ?ref=ID
+        // on the billing.upgrade route.
+        'affiliate_id'           => env('TWOCHECKOUT_AFFILIATE_ID'),
     ],
 
     // ── Coolify custom-domain automation (task C14) ──────────────────────

@@ -19,6 +19,7 @@ class PendingUpgrade extends Model
         'transaction_id',
         'expires_at',
         'notified_at',
+        'affiliate_id',
     ];
 
     protected $casts = [

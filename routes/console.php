@@ -41,6 +41,8 @@ Schedule::command('exospace:purge-banned-sessions')->everyFiveMinutes();
 Schedule::command('exospace:abandoned-cart')->dailyAt('10:00');
 
 // Daily at 9am: send lifecycle nudge emails. (Task H55)
-//   - "You haven't published in 7 days" for users with 0 published galleries
-//   - "Your plan expires soon" for admin-granted expiring plans
 Schedule::command('exospace:send-lifecycle-emails')->dailyAt('09:00');
+
+// Daily at 4am: clean up stale data — expired pending upgrades + expired
+// team invitations. (Task H61)
+Schedule::command('exospace:cleanup-stale')->dailyAt('04:00');

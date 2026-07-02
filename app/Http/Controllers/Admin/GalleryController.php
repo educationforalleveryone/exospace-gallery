@@ -194,6 +194,11 @@ class GalleryController extends Controller
             $newPath = $this->copyFile($gallery->custom_logo_path, 'branding');
             if ($newPath) $clone->custom_logo_path = $newPath;
         }
+        // (Task H59 / audit S10) — also copy curtain logo
+        if ($gallery->curtain_logo_path) {
+            $newPath = $this->copyFile($gallery->curtain_logo_path, 'branding');
+            if ($newPath) $clone->curtain_logo_path = $newPath;
+        }
 
         $clone->save();
 
@@ -218,6 +223,18 @@ class GalleryController extends Controller
                 'wall_position'  => $image->wall_position,
                 'title'          => $image->title,
                 'description'    => $image->description,
+                // (Task H59 / audit S10) — preserve artist attribution +
+                // artwork metadata that was previously lost on duplicate.
+                'artist_id'      => $image->artist_id,
+                'price'          => $image->price,
+                'currency'       => $image->currency,
+                'for_sale'       => $image->for_sale,
+                'medium'         => $image->medium,
+                'year'           => $image->year,
+                'dimensions'     => $image->dimensions,
+                'edition_size'   => $image->edition_size,
+                'edition_number' => $image->edition_number,
+                'external_url'   => $image->external_url,
             ]);
         }
 
