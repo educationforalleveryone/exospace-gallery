@@ -146,13 +146,17 @@ class GalleryImage extends Model implements HasMedia
      * Get the public URL for the original image.
      *
      * Falls back to the legacy `path` column if no Spatie media exists
-     * (for images uploaded before the H21 migration).
+     * or if Spatie throws (corrupted media record, missing file, etc.).
      */
     public function getPublicUrlAttribute(): string
     {
-        $media = $this->getFirstMedia('original');
-        if ($media) {
-            return $media->getUrl();
+        try {
+            $media = $this->getFirstMedia('original');
+            if ($media) {
+                return $media->getUrl();
+            }
+        } catch (\Throwable $e) {
+            // Spatie media record is broken — fall back to legacy path
         }
         return asset($this->path);
     }
@@ -161,13 +165,17 @@ class GalleryImage extends Model implements HasMedia
      * Get the URL for a specific conversion (thumb, small, medium, large).
      *
      * Falls back to the original URL if the conversion doesn't exist
-     * (e.g. for legacy images that haven't been re-processed).
+     * or if Spatie throws.
      */
     public function conversionUrl(string $conversion): string
     {
-        $media = $this->getFirstMedia('original');
-        if ($media && $media->hasGeneratedConversion($conversion)) {
-            return $media->getUrl($conversion);
+        try {
+            $media = $this->getFirstMedia('original');
+            if ($media && $media->hasGeneratedConversion($conversion)) {
+                return $media->getUrl($conversion);
+            }
+        } catch (\Throwable $e) {
+            // Spatie media record is broken — fall back
         }
         return $this->public_url;
     }
@@ -175,28 +183,28 @@ class GalleryImage extends Model implements HasMedia
     /**
      * Build a responsive srcset string for <img srcset>.
      *
-     * Returns something like:
-     *   "/storage/123/conversions/small.webp 768w,
-     *    /storage/123/conversions/medium.webp 1024w,
-     *    /storage/123/conversions/large.webp 2048w"
-     *
-     * Falls back to the original URL if no conversions exist.
+     * Falls back to the original URL if no conversions exist or Spatie throws.
      */
     public function getSrcsetAttribute(): string
     {
-        $media = $this->getFirstMedia('original');
-        if (! $media) {
-            return $this->public_url . ' 2048w';
-        }
-
-        $srcset = [];
-        foreach (['small' => 768, 'medium' => 1024, 'large' => 2048] as $name => $width) {
-            if ($media->hasGeneratedConversion($name)) {
-                $srcset[] = $media->getUrl($name) . " {$width}w";
+        try {
+            $media = $this->getFirstMedia('original');
+            if (! $media) {
+                return $this->public_url . ' 2048w';
             }
-        }
 
-        return empty($srcset) ? $this->public_url . ' 2048w' : implode(', ', $srcset);
+            $srcset = [];
+            foreach (['small' => 768, 'medium' => 1024, 'large' => 2048] as $name => $width) {
+                if ($media->hasGeneratedConversion($name)) {
+                    $srcset[] = $media->getUrl($name) . " {$width}w";
+                }
+            }
+
+            return empty($srcset) ? $this->public_url . ' 2048w' : implode(', ', $srcset);
+        } catch (\Throwable $e) {
+            // Any Spatie error — fall back to legacy path
+            return asset($this->path) . ' 2048w';
+        }
     }
 
     /**
