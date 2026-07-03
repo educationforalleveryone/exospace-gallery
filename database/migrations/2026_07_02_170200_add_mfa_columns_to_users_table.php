@@ -21,7 +21,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('google2fa_secret')->nullable()->after('ban_reason');
+            // TEXT type — the encrypted secret can exceed VARCHAR(255)
+            $table->text('google2fa_secret')->nullable()->after('ban_reason');
             $table->timestamp('mfa_enabled_at')->nullable()->after('google2fa_secret');
         });
     }
