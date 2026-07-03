@@ -292,7 +292,7 @@
                         <!-- Description -->
                         <div class="mb-4 md:col-span-2">
                             <label for="edit-description" class="block text-sm font-medium text-gray-400 mb-2">Description</label>
-                            <textarea name="description" id="edit-description" rows="3"{{ old('description', $gallery->description) }}</textarea>
+                            <textarea name="description" id="edit-description" rows="3" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">{{ old('description', $gallery->description) }}</textarea>
                         </div>
 
                         </div>
