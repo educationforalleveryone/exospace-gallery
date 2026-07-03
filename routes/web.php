@@ -81,7 +81,7 @@ Route::get('/feed.xml',    [SitemapController::class, 'feed'])->name('feed');
 Route::get('/discover',    [DiscoverController::class, 'index'])->name('discover');
 
 // ── Public pages ─────────────────────────────────────────────────────────
-Route::get('/', fn() => view('welcome'));
+Route::get('/', fn() => view('welcome'))->name('welcome');
 Route::view('/privacy',          'pages.privacy')->name('privacy');
 Route::view('/terms',            'pages.terms')->name('terms');
 Route::view('/refund-policy',    'pages.refund')->name('refund');
