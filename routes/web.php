@@ -68,6 +68,10 @@ Route::get('/health', function () {
 // Any request to /install/ or /finalize-installation now returns 404.
 
 // ── Webhooks ─────────────────────────────────────────────────────────────
+// (Hotfix) 2Checkout sends a GET request to validate the IPN URL before
+// saving it. Without a GET handler, the validation returns 405 and 2Checkout
+// refuses to save the URL. This GET route returns a simple 200 OK.
+Route::get ('webhooks/2checkout',         fn() => response('OK', 200));
 Route::post('/webhooks/2checkout',        [WebhookController::class, 'handle2Checkout'])->name('webhooks.2checkout');
 Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund'])->name('webhooks.2checkout.refund');
 
