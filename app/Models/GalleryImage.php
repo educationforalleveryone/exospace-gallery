@@ -87,14 +87,17 @@ class GalleryImage extends Model implements HasMedia
      */
     public function registerMediaConversions(?Media $media = null): void
     {
-        // Thumbnail — 400×400, used for gallery cards and admin lists
+        // Thumbnail — 400px wide, used for gallery cards and admin lists
+        // (Hotfix) Removed crop() — Spatie v11 has a type bug with crop()
+        // on certain PHP versions. width()+height() with fit Crop is the
+        // safe alternative that produces the same visual result.
         $this->addMediaConversion('thumb')
               ->width(400)
               ->height(400)
-              ->crop('crop-center', 400, 400)
+              ->fit('crop', 400, 400)
               ->format('webp')
               ->quality(85)
-              ->nonQueued(); // small enough to do synchronously
+              ->nonQueued();
 
         // Small — 768px wide, for mobile devices
         $this->addMediaConversion('small')
