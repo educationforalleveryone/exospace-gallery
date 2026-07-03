@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -94,7 +95,7 @@ class GalleryImage extends Model implements HasMedia
         $this->addMediaConversion('thumb')
               ->width(400)
               ->height(400)
-              ->fit('crop', 400, 400)
+              ->fit(Fit::Crop, 400, 400)
               ->format('webp')
               ->quality(85)
               ->nonQueued();
