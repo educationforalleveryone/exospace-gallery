@@ -58,8 +58,8 @@
                             {{ $user->plan_expires_at->format('M j, Y') }}
                             @if($user->plan_expires_at->isPast())
                                 <span class="text-red-400">(expired)</span>
-                            @elseif($user->plan_expires_at->diffInDays(now()) <= 7)
-                                <span class="text-amber-400">({{ $user->plan_expires_at->diffInDays(now()) }} days left)</span>
+                            @elseif(now()->diffInDays($user->plan_expires_at) <= 7)
+                                <span class="text-amber-400">({{ now()->diffInDays($user->plan_expires_at) }} days left)</span>
                             @endif
                         </dd>
                     </div>

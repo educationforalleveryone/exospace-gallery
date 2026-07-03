@@ -26,7 +26,7 @@ class PlanExpiringSoon extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         $planName = ucfirst($this->user->plan);
-        $daysLeft = $this->user->plan_expires_at?->diffInDays(now()) ?? 0;
+        $daysLeft = now()->diffInDays($this->user->plan_expires_at) ?? 0;
         return new Envelope(
             subject: "Your Exospace {$planName} plan expires in {$daysLeft} days",
         );
