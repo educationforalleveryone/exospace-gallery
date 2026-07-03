@@ -4,16 +4,13 @@ set -e
 # ──────────────────────────────────────────────────────────────────────────
 # Container start script for Exospace on Coolify / Nixpacks.
 #
-# Iteration 03 (task C11) changes:
-#   - Removed `php artisan migrate --force` and `db:seed` from this script.
-#     Migrations now run as a Coolify PRE-DEPLOY command so a failed
-#     migration aborts the deploy instead of producing a broken container.
-#     See DEPLOYMENT.md section 5.
-#   - Removed `php /app/artisan queue:work &` — the queue worker now runs
-#     as a separate Coolify service so it gets proper signal handling,
-#     log separation, and independent scaling. See DEPLOYMENT.md section 7.
-#   - Cache clearing is kept — the post-deploy command (see DEPLOYMENT.md
-#     section 6) re-warms the caches with config:cache / route:cache / etc.
+# (Hotfix) — Queue worker re-added to docker-start.sh because a separate
+# Coolify application couldn't be created (GitHub app installation issue).
+# This runs the worker as a background process inside the web container.
+# Not ideal (no supervisor restart on crash) but functional for a small
+# SaaS. To upgrade to a proper setup later, create a separate Coolify
+# application with the command:
+#   php artisan queue:work redis --tries=3 --max-jobs=1000 --max-time=3600
 # ──────────────────────────────────────────────────────────────────────────
 
 # 1. Configure PHP upload limits
@@ -31,17 +28,20 @@ else
     sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
 fi
 
-# 3. Clear all caches. The post-deploy command (DEPLOYMENT.md section 6)
-#    re-warms them with config:cache / route:cache / view:cache / event:cache.
-#    storage:link ensures the public/storage symlink exists for serving
-#    user-uploaded files.
+# 3. Clear all caches.
 php /app/artisan config:clear
 php /app/artisan cache:clear
 php /app/artisan view:clear
 php /app/artisan route:clear
 php /app/artisan storage:link --force
 
-# 4. Start PHP-FPM and Nginx
-#    The queue worker and scheduler run as SEPARATE Coolify services —
-#    see DEPLOYMENT.md sections 7 and 8.
+# 4. Start the queue worker in the background
+#    Uses Redis (QUEUE_CONNECTION=redis in .env). Runs with --tries=3
+#    (retry failed jobs 3 times), --timeout=90 (kill jobs that run >90s),
+#    --sleep=3 (sleep 3s when no jobs available). The & backgrounds it
+#    so the web server can start. If the worker crashes, it stays down
+#    until the next container restart (redeploy).
+php /app/artisan queue:work redis --tries=3 --timeout=90 --sleep=3 &
+
+# 5. Start PHP-FPM and Nginx
 node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=50M -d post_max_size=50M -d memory_limit=512M & nginx -c /nginx.conf)
