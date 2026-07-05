@@ -77,24 +77,39 @@ class PreflightCheck extends Command
         $this->section('Environment configuration');
 
         $appEnv = config('app.env');
-        if ($appEnv === 'production') {
+
+        // P3-20: The env-config checks below are PRODUCTION-ONLY. In CI / testing /
+        // local dev, APP_ENV is intentionally not 'production', APP_DEBUG is
+        // intentionally true, APP_URL is intentionally http://localhost, and
+        // TRUSTED_PROXIES is intentionally empty. Running these checks in
+        // non-production would always CRITICAL-fail and break CI.
+        //
+        // We still log what we see (info-level) so the CI output shows the
+        // current values, but we don't critical-fail.
+        $isProduction = $appEnv === 'production';
+
+        if ($isProduction) {
             $this->ok("APP_ENV=production");
         } else {
-            $this->critical("APP_ENV is '{$appEnv}' — should be 'production' for live deployments.");
+            $this->info("APP_ENV={$appEnv} (non-production — env-config checks skipped)");
         }
 
         $appDebug = config('app.debug');
-        if (!$appDebug) {
+        if (! $appDebug) {
             $this->ok("APP_DEBUG=false");
-        } else {
+        } elseif ($isProduction) {
             $this->critical("APP_DEBUG=true in production — leaks stack traces to visitors.");
+        } else {
+            $this->info("APP_DEBUG=true (non-production — OK)");
         }
 
         $appUrl = config('app.url');
         if (Str::startsWith($appUrl, 'https://')) {
             $this->ok("APP_URL uses HTTPS ({$appUrl})");
-        } else {
+        } elseif ($isProduction) {
             $this->critical("APP_URL is '{$appUrl}' — must start with https:// in production.");
+        } else {
+            $this->info("APP_URL={$appUrl} (non-production — HTTP is OK)");
         }
 
         $appKey = config('app.key');
@@ -111,8 +126,10 @@ class PreflightCheck extends Command
             } else {
                 $this->ok("TRUSTED_PROXIES is set ({$trustedProxies}) — Coolify reverse proxy trusted.");
             }
-        } else {
+        } elseif ($isProduction) {
             $this->critical("TRUSTED_PROXIES is empty — Laravel will reject X-Forwarded-* headers from Coolify's Traefik. Custom domains and HTTPS detection will break.");
+        } else {
+            $this->info("TRUSTED_PROXIES is empty (non-production — OK)");
         }
     }
 
@@ -120,8 +137,21 @@ class PreflightCheck extends Command
     {
         $this->section('PHP extensions');
 
-        $required = ['pdo', 'pdo_mysql', 'mbstring', 'ctype', 'json', 'xml', 'tokenizer', 'curl', 'fileinfo', 'bcmath', 'gd', 'exif'];
+        $required = ['pdo', 'mbstring', 'ctype', 'json', 'xml', 'tokenizer', 'curl', 'fileinfo', 'bcmath', 'gd', 'exif'];
         $optional = ['redis', 'imagick', 'zip', 'intl'];
+
+        // P3-20: Database driver extension is required but which one depends
+        // on DB_CONNECTION. In production it's pdo_mysql; in CI / testing it's
+        // pdo_sqlite. We check that AT LEAST ONE is loaded — failing only if
+        // neither is present.
+        $pdoDrivers = array_filter(['pdo_mysql', 'pdo_sqlite'], fn($ext) => extension_loaded($ext));
+        if (empty($pdoDrivers)) {
+            $this->critical("ext-pdo_mysql AND ext-pdo_sqlite BOTH MISSING — at least one PDO driver is required.");
+        } else {
+            foreach ($pdoDrivers as $ext) {
+                $this->ok("ext-{$ext} loaded");
+            }
+        }
 
         foreach ($required as $ext) {
             if (extension_loaded($ext)) {
@@ -274,6 +304,14 @@ class PreflightCheck extends Command
         $mailer = config('mail.default');
         $this->info("  MAIL_MAILER = {$mailer}");
 
+        // P3-20: Skip mail-config critical checks in non-production. In CI
+        // and local dev, MAIL_MAILER is intentionally 'log' or 'array' —
+        // that's correct, not a config error. We still log what we see.
+        if (config('app.env') !== 'production') {
+            $this->info('  (non-production — mail-config critical checks skipped)');
+            return;
+        }
+
         if ($mailer === 'log') {
             $this->critical('MAIL_MAILER=log — emails are written to laravel.log instead of being sent. Production must use resend (or smtp).');
             return;
@@ -299,6 +337,14 @@ class PreflightCheck extends Command
     private function checkPayments(): void
     {
         $this->section('Payments (2Checkout)');
+
+        // P3-20: Skip payment-config critical checks in non-production. In CI
+        // and local dev, 2Checkout credentials are intentionally empty — that's
+        // correct, not a config error. We still log what we see.
+        if (config('app.env') !== 'production') {
+            $this->info('  (non-production — payment-config critical checks skipped)');
+            return;
+        }
 
         $acct = config('services.2checkout.account_number');
         $secret = config('services.2checkout.secret_word');

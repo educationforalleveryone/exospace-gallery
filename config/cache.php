@@ -76,6 +76,28 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_CACHE_CONNECTION', 'cache'),
             'lock_connection' => env('REDIS_CACHE_LOCK_CONNECTION', 'default'),
+            // PERF-23 FIX: block_for=N tells Laravel to BLOCK on Cache::lock()
+            // acquisition for up to N seconds (using Redis BLPOP / phpredis
+            // lock blocking) instead of busy-polling. Without block_for,
+            // Cache::lock(60)->block(5, fn() => ...) does this in a tight
+            // PHP loop:
+            //
+            //   for ($i = 0; $i < 5; $i++) {
+            //       if ($this->acquire()) return $callback();
+            //       usleep(250000); // 250ms sleep, then retry
+            //   }
+            //
+            // That's 20 PHP wakeups per second per waiting request, holding
+            // a PHP-FPM worker for 5 seconds doing nothing. With block_for=5,
+            // Laravel issues a single Redis blocking wait, freeing the PHP
+            // worker to handle other requests until Redis signals the lock
+            // is available.
+            //
+            // The 5-second value matches the typical ->block(5, ...) call
+            // in WebhookController. If a caller passes ->block(N) where N
+            // > block_for, Laravel will busy-poll for the remainder — so
+            // set this to the LARGEST block() timeout in the codebase.
+            'block_for' => env('CACHE_BLOCK_FOR', 5),
         ],
 
         'dynamodb' => [

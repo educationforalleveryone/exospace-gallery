@@ -6,11 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Gallery;
 use App\Models\AdminAuditLog;
+use App\Services\PlanLockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class SystemController extends Controller
 {
+    public function __construct(
+        private readonly PlanLockService $planLock,
+    ) {}
+
     // ── Dashboard ─────────────────────────────────────────────────────────
 
     public function index()
@@ -51,50 +56,67 @@ class SystemController extends Controller
         $oldPlan = $user->plan;
         $limits  = User::planLimits($plan);
 
-        if ($plan === 'free' && $oldPlan !== 'free') {
-            // Downgrade path — use PlanDowngradeService so Studio-only
-            // resources (custom_domain, branding files) are cleaned up,
-            // not just the plan column flipped (task C05).
-            app(\App\Services\PlanDowngradeService::class)
-                ->downgradeToFree($user, "Admin plan change ({$oldPlan} → free)");
-        } else {
-            // Upgrade or lateral move — no cleanup needed. Use forceFill
-            // because plan / max_* / plan_* are guarded columns (task C09).
-            //
-            // (Task H03) Plan-expiry semantics: webhook-granted plans are
-            // lifetime (plan_expires_at = null). Admin-granted plans now
-            // match that semantic — previously they expired in 1 year via
-            // CheckPlanExpiry middleware, which contradicted the pricing
-            // page's "lifetime access, no subscription" promise and silently
-            // downgraded customers a year later.
-            //
-            // If you actually want expiring plans (e.g. for promotional
-            // grants), set plan_expires_at explicitly via forceFill here
-            // and document the expiry in the admin form.
-            $user->forceFill([
-                'plan'            => $plan,
-                'max_galleries'   => $limits['max_galleries'],
-                'max_images'      => $limits['max_images'],
-                'plan_started_at' => now(),
-                'plan_expires_at' => null, // Lifetime — matches webhook semantics (task H03)
-            ])->save();
-        }
+        // P3-11 FIX: Acquire per-user plan lock so an admin-initiated plan
+        // change can't race with a concurrent webhook upgrade or a user-
+        // initiated upgrade via BillingController. Without this, the
+        // last-writer-wins UPDATE could leave the user on the wrong plan
+        // (e.g. admin downgrades to free, webhook upgrades to pro 50ms later,
+        // final state is pro — defeating the admin action).
+        $result = $this->planLock->withUserLock($user->id, function () use ($user, $plan, $oldPlan, $limits) {
+            // Re-fetch the user inside the lock — a concurrent path may have
+            // already changed their plan.
+            $user->refresh();
+            $currentPlan = $user->plan;
 
-        AdminAuditLog::record('plan_changed', $user, ['from' => $oldPlan, 'to' => $plan]);
-
-        // Send confirmation email to the user for upgrade path (task H03).
-        // Downgrade path goes through PlanDowngradeService which already
-        // handles notification internally (via the downgrade log entry).
-        if ($plan !== 'free' && $oldPlan !== $plan) {
-            try {
-                \Illuminate\Support\Facades\Mail::to($user->email)
-                    ->send(new \App\Mail\PlanUpgradedEmail($user, $plan, null));
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('SystemController: PlanUpgradedEmail send failed', [
-                    'user_id' => $user->id,
-                    'error'   => $e->getMessage(),
-                ]);
+            if ($plan === 'free' && $currentPlan !== 'free') {
+                // Downgrade path — use PlanDowngradeService so Studio-only
+                // resources (custom_domain, branding files) are cleaned up,
+                // not just the plan column flipped (task C05).
+                app(\App\Services\PlanDowngradeService::class)
+                    ->downgradeToFree($user, "Admin plan change ({$currentPlan} → free)");
+            } else {
+                // Upgrade or lateral move — no cleanup needed. Use forceFill
+                // because plan / max_* / plan_* are guarded columns (task C09).
+                //
+                // (Task H03) Plan-expiry semantics: webhook-granted plans are
+                // lifetime (plan_expires_at = null). Admin-granted plans now
+                // match that semantic — previously they expired in 1 year via
+                // CheckPlanExpiry middleware, which contradicted the pricing
+                // page's "lifetime access, no subscription" promise and silently
+                // downgraded customers a year later.
+                //
+                // If you actually want expiring plans (e.g. for promotional
+                // grants), set plan_expires_at explicitly via forceFill here
+                // and document the expiry in the admin form.
+                $user->forceFill([
+                    'plan'            => $plan,
+                    'max_galleries'   => $limits['max_galleries'],
+                    'max_images'      => $limits['max_images'],
+                    'plan_started_at' => now(),
+                    'plan_expires_at' => null, // Lifetime — matches webhook semantics (task H03)
+                ])->save();
             }
+
+            AdminAuditLog::record('plan_changed', $user, ['from' => $oldPlan, 'to' => $plan]);
+
+            // Send confirmation email to the user for upgrade path (task H03).
+            // Downgrade path goes through PlanDowngradeService which already
+            // handles notification internally (via the downgrade log entry).
+            if ($plan !== 'free' && $oldPlan !== $plan) {
+                try {
+                    \Illuminate\Support\Facades\Mail::to($user->email)
+                        ->send(new \App\Mail\PlanUpgradedEmail($user, $plan, null));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('SystemController: PlanUpgradedEmail send failed', [
+                        'user_id' => $user->id,
+                        'error'   => $e->getMessage(),
+                    ]);
+                }
+            }
+        });
+
+        if ($result === \App\Services\PlanLockService::LOCK_BUSY) {
+            return back()->with('warning', "Another billing operation is in progress for {$user->name}. Please wait a moment and try again.");
         }
 
         return back()->with('success', "Plan updated to {$plan} for {$user->name}.");

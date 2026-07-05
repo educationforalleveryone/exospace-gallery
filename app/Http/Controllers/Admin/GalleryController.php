@@ -475,6 +475,12 @@ class GalleryController extends Controller
                 \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
             }
 
+            // PERF-16: Invalidate the eager-loaded gallery-object cache so
+            // the next custom-domain request picks up the new custom_domain /
+            // custom_logo_path / audio_path / venue_template_id values rather
+            // than serving the stale cached copy for up to 5 minutes.
+            \Illuminate\Support\Facades\Cache::forget("custom_domain_gallery:{$gallery->id}");
+
             if ($domainChanged) {
                 $request->attributes->set('_pending_domain_token', \Illuminate\Support\Str::random(32));
 

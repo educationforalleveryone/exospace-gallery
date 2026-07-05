@@ -115,4 +115,19 @@ return [
         'application_uuid' => env('COOLIFY_APPLICATION_UUID'),
     ],
 
+    // ── Cloudflare Turnstile (P3-19) ──────────────────────────────────────
+    // Privacy-respecting CAPTCHA alternative. Free, no quotas, no Google
+    // tracking. Invisible by default (managed challenge mode).
+    //
+    // Get keys at: https://dash.cloudflare.com/?to=/:account/turnstile
+    //
+    // When BOTH keys are empty (the default), Turnstile is DISABLED — the
+    // TurnstileService::verify() method returns true unconditionally. This
+    // is the safe default for local dev. Set both keys in production to
+    // protect public forms (contact, newsletter signup, event RSVP).
+    'turnstile' => [
+        'site_key'   => env('TURNSTILE_SITE_KEY'),
+        'secret_key' => env('TURNSTILE_SECRET_KEY'),
+    ],
+
 ];

@@ -21,6 +21,10 @@ use Illuminate\Http\JsonResponse;
  */
 class NewsletterSignupController extends Controller
 {
+    public function __construct(
+        private readonly \App\Services\TurnstileService $turnstile,
+    ) {}
+
     public function store(Request $request, string $slug): JsonResponse
     {
         $gallery = Gallery::where('slug', $slug)
@@ -31,6 +35,15 @@ class NewsletterSignupController extends Controller
             'email' => ['required', 'string', 'max:255', 'email'],
             'name'  => ['nullable', 'string', 'max:100'],
         ]);
+
+        // P3-19: Verify Turnstile captcha if enabled. When TURNSTILE_SITE_KEY
+        // is not set, TurnstileService::verify() returns true (dev mode).
+        if (! $this->turnstile->verify($request->input('cf-turnstile-response'), $request->ip())) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Captcha verification failed. Please refresh and try again.',
+            ], 422);
+        }
 
         // Idempotent — unique constraint on (gallery_id, email)
         $signup = NewsletterSignup::firstOrCreate(

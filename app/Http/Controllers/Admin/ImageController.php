@@ -110,6 +110,13 @@ class ImageController extends Controller
 
             return response()->json(['success' => true, 'id' => $image->id, 'path' => asset($image->path)]);
 
+        } catch (\App\Exceptions\ImageTooLargeException $e) {
+            // P3-12: Pre-decode dimension cap was exceeded. Return a 422 with
+            // a user-friendly message that tells them the actual dimensions
+            // and the limit, so they can resize and retry.
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 422);
         } catch (\Exception $e) {
             // (Task H06 / audit H10) — don't leak $e->getMessage() to the
             // client. Log the full error internally; return a generic

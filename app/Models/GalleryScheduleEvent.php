@@ -95,12 +95,35 @@ class GalleryScheduleEvent extends Model
     public function isAtCapacity(): bool
     {
         if (!$this->capacity) return false;
+
+        // PERF-15 FIX: Use withCount('rsvps') cache when available
+        // instead of issuing a separate COUNT query on every call.
+        // The gallery events page renders up to 20 events per gallery
+        // — calling isAtCapacity() on each would issue 20 separate
+        // COUNT queries. When the events are eager-loaded via
+        // ->withCount('rsvps'), the count is available as
+        // $event->rsvps_count (set by Laravel withCount magic) and
+        // we use it directly.
+        //
+        // Callers that load events without withCount fall back to a
+        // per-call COUNT query — still correct, just slower.
+        if (array_key_exists('rsvps_count', $this->attributesToArray())) {
+            return $this->rsvps_count >= $this->capacity;
+        }
+
         return $this->rsvps()->count() >= $this->capacity;
     }
 
     public function spotsRemaining(): ?int
     {
         if (!$this->capacity) return null;
+
+        // PERF-15: Same pattern as isAtCapacity() — prefer the
+        // eager-loaded rsvps_count when available.
+        if (array_key_exists('rsvps_count', $this->attributesToArray())) {
+            return max(0, $this->capacity - $this->rsvps_count);
+        }
+
         return max(0, $this->capacity - $this->rsvps()->count());
     }
 }

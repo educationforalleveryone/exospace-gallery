@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\TurnstileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 
 class ContactController extends Controller
 {
+    public function __construct(
+        private readonly TurnstileService $turnstile,
+    ) {}
+
     public function submit(Request $request)
     {
         $validated = $request->validate([
@@ -16,6 +21,15 @@ class ContactController extends Controller
             'subject' => 'nullable|string|max:200',
             'message' => 'required|string|max:5000',
         ]);
+
+        // P3-19: Verify Turnstile captcha if enabled. When TURNSTILE_SITE_KEY
+        // is not set, TurnstileService::verify() returns true (dev mode).
+        if (! $this->turnstile->verify($request->input('cf-turnstile-response'), $request->ip())) {
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'Captcha verification failed. Please refresh and try again.'], 422);
+            }
+            return back()->withErrors(['captcha' => 'Captcha verification failed. Please refresh and try again.'])->withInput();
+        }
 
         try {
             Mail::raw(

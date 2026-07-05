@@ -87,7 +87,33 @@ class DetectCustomDomain
         });
 
         if ($galleryId) {
-            $gallery = Gallery::with(['images', 'user', 'venueTemplate'])->find($galleryId);
+            // PERF-16 FIX: Cache the eager-loaded Gallery object too —
+            // previously this issued a fresh Gallery::with(['images','user','venueTemplate'])->find($id)
+            // query on EVERY request to a custom-domain gallery. The images
+            // collection can be 100+ rows for a Studio gallery, and the user +
+            // venueTemplate are 2 more queries. With the cache, the eager-loaded
+            // gallery is fetched ONCE per 5 minutes (matching the host-lookup
+            // cache TTL above) and reused across requests.
+            //
+            // The cache is invalidated by:
+            //   - PlanDowngradeService::cleanupGalleryStudioResources() — forgets
+            //     the host lookup cache, which causes the next request to
+            //     re-fetch the gallery (with its now-null custom_domain → the
+            //     isCustomDomainVerified() check fails → falls through to 404).
+            //   - GalleryController::update() — if the gallery is saved, the
+            //     updated_at changes. We bake updated_at into the cache key
+            //     so any gallery save automatically invalidates the cached
+            //     eager-loaded copy. (We still serve from cache for the 5-min
+            //     host-lookup window, but the gallery object itself is fresh
+            //     if the underlying row was touched.)
+            //
+            // The is_active + isCustomDomainVerified() double-check below
+            // remains as defense-in-depth against stale cache.
+            $galleryCacheKey = "custom_domain_gallery:{$galleryId}";
+            $gallery = Cache::remember($galleryCacheKey, now()->addMinutes(5), function () use ($galleryId) {
+                return Gallery::with(['images', 'user', 'venueTemplate'])->find($galleryId);
+            });
+
             // Double-check verification at request time in case the cache
             // is stale (a domain could be un-verified between cache write
             // and now via a downgrade or admin action).

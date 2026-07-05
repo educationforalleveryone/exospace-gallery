@@ -23,10 +23,15 @@ class GalleryEventController extends Controller
     public function index(Gallery $gallery): View
     {
         $this->authorizeGalleryAccess($gallery);
-        $gallery->load(['scheduleEvents.rsvps']);
+        // PERF-15: Use withCount('rsvps') instead of loading full
+        // rsvp rows. The index page only needs the count (for the
+        // "X / Y RSVPs" display), not the full rsvp records. The
+        // RSVPs admin page (rsvps() method below) loads full rsvp
+        // rows when needed.
+        $gallery->load(['scheduleEvents' => fn($q) => $q->withCount('rsvps')]);
 
-        $upcoming = $gallery->scheduleEvents()->upcoming()->get();
-        $past = $gallery->scheduleEvents()->past()->limit(20)->get();
+        $upcoming = $gallery->scheduleEvents()->upcoming()->withCount('rsvps')->get();
+        $past = $gallery->scheduleEvents()->past()->limit(20)->withCount('rsvps')->get();
 
         return view('admin.galleries.events.index', compact('gallery', 'upcoming', 'past'));
     }

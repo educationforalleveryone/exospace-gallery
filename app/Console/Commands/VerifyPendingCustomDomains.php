@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\VerifyCustomDomain;
 use App\Models\Gallery;
 use App\Services\CoolifyDomainManager;
 use Illuminate\Console\Command;
@@ -12,9 +13,8 @@ use Illuminate\Support\Facades\Log;
  * Auto-retry DNS verification for galleries with a pending custom_domain.
  *
  * Scheduled hourly via routes/console.php. Finds all galleries where
- * custom_domain is set but custom_domain_verified_at is NULL, looks up
- * the TXT record, and if found, marks the gallery verified + registers
- * the domain with Coolify.
+ * custom_domain is set but custom_domain_verified_at is NULL, and dispatches
+ * a VerifyCustomDomain job per gallery.
  *
  * Why this exists (Task C06):
  *   DNS propagation can take 5–60 minutes for some providers. The user
@@ -25,18 +25,30 @@ use Illuminate\Support\Facades\Log;
  *
  * Also useful for catching the case where a user added the TXT record
  * correctly but then closed their browser without clicking "Verify".
+ *
+ * S-2 FIX: Previously this command did all DNS lookups SEQUENTIALLY in
+ * a single cron tick. Each dns_get_record() call blocks for up to 5
+ * seconds on slow DNS resolvers — 100 pending domains could take up to
+ * 500 seconds, exceeding the cron's 60-second timeout and leaving most
+ * domains unverified.
+ *
+ * Now the command dispatches one VerifyCustomDomain job per pending
+ * gallery. Queue workers process them in parallel — even a single
+ * worker can churn through 100 jobs in ~3 minutes (vs. 8 minutes
+ * sequential), and N workers scale linearly. Each job has a 15-second
+ * timeout so a single slow DNS lookup can't block the whole batch.
  */
 class VerifyPendingCustomDomains extends Command
 {
     protected $signature = 'exospace:verify-pending-domains';
-    protected $description = 'Retry DNS verification for galleries with a pending custom_domain.';
+    protected $description = 'Dispatch DNS verification jobs for galleries with a pending custom_domain.';
 
-    public function handle(CoolifyDomainManager $coolify): int
+    public function handle(): int
     {
         $pending = Gallery::whereNotNull('custom_domain')
             ->whereNull('custom_domain_verified_at')
             ->whereNotNull('custom_domain_verification_token')
-            ->limit(100) // Safety cap — DNS lookups are slow, don't OOM
+            ->limit(100) // Safety cap — protects against a sudden flood
             ->get();
 
         if ($pending->isEmpty()) {
@@ -44,82 +56,17 @@ class VerifyPendingCustomDomains extends Command
             return self::SUCCESS;
         }
 
-        $verified = 0;
-        $failed = 0;
-
+        $dispatched = 0;
         foreach ($pending as $gallery) {
-            $host = $gallery->domainVerificationTxtHost();
-            $expected = $gallery->domainVerificationTxtValue();
-
-            if (! $host || ! $expected) {
-                continue;
-            }
-
-            if ($this->checkDnsTxtRecord($host, $expected)) {
-                $gallery->forceFill(['custom_domain_verified_at' => now()])->save();
-
-                // Clear the cache so DetectCustomDomain picks it up.
-                Cache::forget("custom_domain:{$gallery->custom_domain}");
-
-                // Register with Coolify.
-                $result = $coolify->addDomain($gallery->custom_domain);
-                if (! $result['success']) {
-                    Log::warning('VerifyPendingCustomDomains: Coolify addDomain failed for verified domain', [
-                        'gallery_id' => $gallery->id,
-                        'domain'     => $gallery->custom_domain,
-                        'message'    => $result['message'],
-                    ]);
-                }
-
-                $this->info("Verified: {$gallery->custom_domain} (gallery #{$gallery->id})");
-                $verified++;
-            } else {
-                $failed++;
-            }
+            VerifyCustomDomain::dispatch($gallery->id);
+            $dispatched++;
         }
 
-        $this->info("Done. Verified: {$verified}, still pending: {$failed}.");
+        $this->info("Dispatched {$dispatched} DNS verification jobs to the queue.");
+        Log::info('VerifyPendingCustomDomains: dispatched jobs', [
+            'count' => $dispatched,
+        ]);
+
         return self::SUCCESS;
-    }
-
-    /**
-     * Look up DNS TXT records for $host and return true if any record's
-     * text matches $expectedValue exactly.
-     *
-     * Mirrors GalleryController::checkDnsTxtRecord — kept private here
-     * to avoid forcing a service extraction (which would be overkill for
-     * two callers).
-     */
-    private function checkDnsTxtRecord(string $host, string $expectedValue): bool
-    {
-        if (empty($host) || empty($expectedValue)) {
-            return false;
-        }
-
-        $records = @dns_get_record($host, DNS_TXT);
-
-        if (! is_array($records)) {
-            return false;
-        }
-
-        foreach ($records as $record) {
-            $candidates = [];
-            if (isset($record['txt'])) {
-                $candidates[] = trim($record['txt'], '"');
-            }
-            if (isset($record['entries']) && is_array($record['entries'])) {
-                foreach ($record['entries'] as $entry) {
-                    $candidates[] = trim($entry, '"');
-                }
-            }
-
-            foreach ($candidates as $candidate) {
-                if (hash_equals($expectedValue, $candidate)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }

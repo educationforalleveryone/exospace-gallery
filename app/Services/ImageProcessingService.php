@@ -32,6 +32,16 @@ class ImageProcessingService
      * PERF-9 FIX: Previously read the image TWICE — once for the main
      * image, once for the thumbnail. Now reads once and clones for the
      * thumbnail, halving peak memory usage for large images.
+     *
+     * P3-12 FIX: Pre-decode dimension check via getimagesize(). A 12000×9000
+     * PNG from a modern camera decodes to ~432MB of RGBA pixels in memory —
+     * enough to OOM a 256MB PHP-FPM worker before Intervention can even
+     * scaleDown() it. We cap total pixel area at 50MP (≈ 7000×7000) and
+     * reject larger images with a clear error before decoding. The cap is
+     * deliberately generous — the 2048px output cap means anything larger
+     * than ~2048×2048 is wasted detail, but we accept up to 50MP so
+     * high-res photographers don't get rejected unnecessarily; the resize
+     * step brings it down to 2048px for storage.
      */
     public function process(UploadedFile $file, int $galleryId): array
     {
@@ -40,6 +50,39 @@ class ImageProcessingService
 
         Storage::disk('public')->makeDirectory($path);
         Storage::disk('public')->makeDirectory("{$path}/thumbnails");
+
+        // P3-12: Pre-decode dimension check.
+        //
+        // getimagesize() reads only the image header (a few KB) — it doesn't
+        // decode the full pixel buffer. This lets us reject oversized images
+        // BEFORE Intervention::read() allocates hundreds of MB of memory.
+        //
+        // The 50 megapixel cap is generous: a 7000×7000 image (49MP) is well
+        // above what any 3D gallery texture needs (Three.js caps at 2048
+        // anyway), but well below the OOM threshold for a 256MB worker.
+        // 50MP × 4 bytes/pixel (RGBA) = 200MB peak decode buffer — leaves
+        // ~56MB for the rest of the request, which is enough for the resize
+        // + thumbnail + save operations.
+        //
+        // If you need to raise this (e.g. for a "raw upload" feature), also
+        // raise PHP's memory_limit and the Imagick policy.xml.
+        $maxPixels = 50_000_000; // 50 megapixels
+        $imageInfo = @getimagesize($file->getRealPath());
+
+        if ($imageInfo !== false && isset($imageInfo[0], $imageInfo[1])) {
+            $width  = (int) $imageInfo[0];
+            $height = (int) $imageInfo[1];
+            $pixels = $width * $height;
+
+            if ($pixels > $maxPixels) {
+                throw new \App\Exceptions\ImageTooLargeException(
+                    $width,
+                    $height,
+                    $pixels,
+                    $maxPixels,
+                );
+            }
+        }
 
         // PERF-9: Read the image ONCE — clone for thumbnail instead of re-reading
         $image = $this->manager->read($file);

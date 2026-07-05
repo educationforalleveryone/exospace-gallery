@@ -68,6 +68,11 @@
                                         <input type="email" name="email" placeholder="Your email" required
                                                class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500">
                                     </div>
+                                    {{-- P3-19: Cloudflare Turnstile captcha (invisible when enabled) --}}
+                                    @if(app('App\Services\TurnstileService')->isEnabled())
+                                        <div class="cf-turnstile mt-3" data-sitekey="{{ config('services.turnstile.site_key') }}"></div>
+                                        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                                    @endif
                                     <button type="submit" class="mt-3 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">
                                         RSVP
                                     </button>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PendingUpgrade;
 use App\Models\User;
+use App\Services\PlanLockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +32,10 @@ use Illuminate\View\View;
  */
 class BillingController extends Controller
 {
+    public function __construct(
+        private readonly PlanLockService $planLock,
+    ) {}
+
     /**
      * Show the user's billing portal.
      */
@@ -134,99 +139,113 @@ class BillingController extends Controller
             ]);
         }
 
-        // Create the pending upgrade
-        $pending = PendingUpgrade::createForUser($user, $plan, $productId);
+        // P3-11 FIX: Acquire a per-user plan lock so concurrent clicks of
+        // "Upgrade" can't create multiple pending_upgrades for the same user.
+        // The lock is also held by WebhookController, SystemController::updatePlan,
+        // and CheckPlanExpiry — so an upgrade-in-progress blocks an admin
+        // downgrade or an expiry-triggered downgrade until the upgrade
+        // completes (or the 60-second TTL expires).
+        $result = $this->planLock->withUserLock($user->id, function () use ($user, $plan, $productId, $request) {
+            // Re-fetch the user inside the lock in case another path changed
+            // their plan between the outer read and the lock acquisition.
+            $user->refresh();
 
-        // Build the 2Checkout buy URL.
-        //
-        // SEC-7 FIX: customer_email is NO LONGER included in the URL.
-        //   Previously the URL had &customer_email=<user_email> which:
-        //     - pre-filled the checkout form (mild convenience)
-        //     - leaked PII into browser history, server access logs, and
-        //       any Referer header 2Checkout's checkout page might send
-        //       to third-party assets
-        //   The webhook matches the user by external-reference (the pending
-        //   upgrade token) first, then falls back to merchant_item_id_1
-        //   (user_id), and only as a LAST resort by customer_email. So
-        //   omitting it from the URL doesn't break the upgrade flow — the
-        //   user types their email at checkout, and the webhook still
-        //   finds them via the token.
-        $sid = config('services.2checkout.account_number');
-        $buyUrl = sprintf(
-            'https://www.2checkout.com/checkout/purchase?sid=%s&product_id=%s&quantity=1&external-reference=%s&merchant_item_id_1=%s',
-            urlencode((string) $sid),
-            urlencode((string) $productId),
-            urlencode($pending->token),
-            urlencode((string) $user->id),
-        );
-
-        // (Task H54) — optional coupon code.
-        // SEC-8 FIX: coupon is now validated against an allowlist configured
-        //   via TWOCHECKOUT_COUPON_ALLOWLIST (comma-separated). Previously
-        //   any string from ?coupon=... was passed straight to 2Checkout,
-        //   which could be abused to:
-        //     - probe for valid coupon codes via 2Checkout's error responses
-        //     - inject unexpected characters into the URL
-        //   When the allowlist is not configured, the site-wide default
-        //   coupon from config('services.2checkout.coupon_code') is still
-        //   applied (it's set by the founder, not the user).
-        $couponCode = $request->query('coupon');
-        if ($couponCode !== null) {
-            $allowlist = array_filter(array_map('trim', explode(
-                ',',
-                (string) config('services.2checkout.coupon_allowlist', '')
-            )));
-            if (! in_array($couponCode, $allowlist, true)) {
-                Log::info('BillingController: rejected coupon not in allowlist', [
-                    'user_id' => $user->id,
-                    'plan'    => $plan,
-                ]);
-                $couponCode = null;
+            // Re-check the plan-rank guard inside the lock — a concurrent
+            // upgrade could have just moved them to a higher plan.
+            $planRank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
+            if (($planRank[$user->plan] ?? 0) > ($planRank[$plan] ?? 0)) {
+                return redirect()->route('billing.index')
+                    ->with('warning', "You're currently on the " . ucfirst($user->plan) . " plan, which is a higher tier than " . ucfirst($plan) . ". Downgrades are not available via the upgrade flow — please contact support if you need to downgrade.");
             }
-        }
-        $couponCode ??= config('services.2checkout.coupon_code');
-        if ($couponCode) {
-            $buyUrl .= '&coupon=' . urlencode($couponCode);
-        }
 
-        // (Task H58) — affiliate/referral tracking. 2Checkout supports an
-        // `affiliate` URL parameter that credits an affiliate account
-        // configured in the merchant dashboard. The affiliate ID can be:
-        //   - Site-wide default: TWOCHECKOUT_AFFILIATE_ID env var
-        //   - Per-campaign: ?ref=AFFILIATE_ID on the billing.upgrade route
-        // The ref param is stored on the pending_upgrade for reporting.
-        //
-        // SEC-8 FIX: ref is now validated against an allowlist configured
-        //   via TWOCHECKOUT_AFFILIATE_ALLOWLIST (comma-separated). Same
-        //   rationale as coupon validation above.
-        $affiliateId = $request->query('ref');
-        if ($affiliateId !== null) {
-            $affiliateAllowlist = array_filter(array_map('trim', explode(
-                ',',
-                (string) config('services.2checkout.affiliate_allowlist', '')
-            )));
-            if (! in_array($affiliateId, $affiliateAllowlist, true)) {
-                Log::info('BillingController: rejected affiliate ref not in allowlist', [
-                    'user_id' => $user->id,
-                    'plan'    => $plan,
-                ]);
-                $affiliateId = null;
+            // Create the pending upgrade
+            $pending = PendingUpgrade::createForUser($user, $plan, $productId);
+
+            // Build the 2Checkout buy URL.
+            //
+            // SEC-7 FIX: customer_email is NO LONGER included in the URL.
+            //   Previously the URL had &customer_email=<user_email> which:
+            //     - pre-filled the checkout form (mild convenience)
+            //     - leaked PII into browser history, server access logs, and
+            //       any Referer header 2Checkout's checkout page might send
+            //       to third-party assets
+            //   The webhook matches the user by external-reference (the pending
+            //   upgrade token) first, then falls back to merchant_item_id_1
+            //   (user_id), and only as a LAST resort by customer_email. So
+            //   omitting it from the URL doesn't break the upgrade flow — the
+            //   user types their email at checkout, and the webhook still
+            //   finds them via the token.
+            $sid = config('services.2checkout.account_number');
+            $buyUrl = sprintf(
+                'https://www.2checkout.com/checkout/purchase?sid=%s&product_id=%s&quantity=1&external-reference=%s&merchant_item_id_1=%s',
+                urlencode((string) $sid),
+                urlencode((string) $productId),
+                urlencode($pending->token),
+                urlencode((string) $user->id),
+            );
+
+            // (Task H54) — optional coupon code.
+            // SEC-8 FIX: coupon is now validated against an allowlist configured
+            //   via TWOCHECKOUT_COUPON_ALLOWLIST (comma-separated).
+            $couponCode = $request->query('coupon');
+            if ($couponCode !== null) {
+                $allowlist = array_filter(array_map('trim', explode(
+                    ',',
+                    (string) config('services.2checkout.coupon_allowlist', '')
+                )));
+                if (! in_array($couponCode, $allowlist, true)) {
+                    Log::info('BillingController: rejected coupon not in allowlist', [
+                        'user_id' => $user->id,
+                        'plan'    => $plan,
+                    ]);
+                    $couponCode = null;
+                }
             }
-        }
-        $affiliateId ??= config('services.2checkout.affiliate_id');
-        if ($affiliateId) {
-            $buyUrl .= '&affiliate=' . urlencode($affiliateId);
-            $pending->forceFill(['affiliate_id' => $affiliateId])->save();
+            $couponCode ??= config('services.2checkout.coupon_code');
+            if ($couponCode) {
+                $buyUrl .= '&coupon=' . urlencode($couponCode);
+            }
+
+            // (Task H58) — affiliate/referral tracking.
+            // SEC-8 FIX: ref is now validated against an allowlist configured
+            //   via TWOCHECKOUT_AFFILIATE_ALLOWLIST (comma-separated).
+            $affiliateId = $request->query('ref');
+            if ($affiliateId !== null) {
+                $affiliateAllowlist = array_filter(array_map('trim', explode(
+                    ',',
+                    (string) config('services.2checkout.affiliate_allowlist', '')
+                )));
+                if (! in_array($affiliateId, $affiliateAllowlist, true)) {
+                    Log::info('BillingController: rejected affiliate ref not in allowlist', [
+                        'user_id' => $user->id,
+                        'plan'    => $plan,
+                    ]);
+                    $affiliateId = null;
+                }
+            }
+            $affiliateId ??= config('services.2checkout.affiliate_id');
+            if ($affiliateId) {
+                $buyUrl .= '&affiliate=' . urlencode($affiliateId);
+                $pending->forceFill(['affiliate_id' => $affiliateId])->save();
+            }
+
+            Log::info('BillingController: redirecting user to 2Checkout', [
+                'user_id'           => $user->id,
+                'plan'              => $plan,
+                'pending_upgrade_id'=> $pending->id,
+                'has_coupon'        => ! empty($couponCode),
+                'has_affiliate'     => ! empty($affiliateId),
+            ]);
+
+            return redirect()->away($buyUrl);
+        });
+
+        // If the lock was busy, surface a friendly message instead of erroring.
+        if ($result === \App\Services\PlanLockService::LOCK_BUSY) {
+            return redirect()->route('billing.index')
+                ->with('warning', 'Another billing operation is in progress on your account. Please wait a moment and try again.');
         }
 
-        Log::info('BillingController: redirecting user to 2Checkout', [
-            'user_id'           => $user->id,
-            'plan'              => $plan,
-            'pending_upgrade_id'=> $pending->id,
-            'has_coupon'        => ! empty($couponCode),
-            'has_affiliate'     => ! empty($affiliateId),
-        ]);
-
-        return redirect()->away($buyUrl);
+        return $result;
     }
 }

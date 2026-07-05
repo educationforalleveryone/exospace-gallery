@@ -450,6 +450,12 @@
                     </button>
                 </div>
                 <p class="newsletter-msg" style="font-size: 0.75rem; margin-top: 0.5rem; min-height: 1rem;"></p>
+                {{-- P3-19: Cloudflare Turnstile captcha (invisible when enabled).
+                     Renders nothing in dev (TurnstileService disabled). --}}
+                @if(app('App\Services\TurnstileService')->isEnabled())
+                    <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.site_key') }}" style="margin-top: 0.5rem;"></div>
+                    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                @endif
             </form>
             @endif
         </div>

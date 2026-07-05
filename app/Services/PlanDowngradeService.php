@@ -162,6 +162,16 @@ class PlanDowngradeService
             // the normalize() helper existed.
             Cache::forget("custom_domain:{$customDomain}");
 
+            // PERF-16: Also forget the eager-loaded gallery-object cache. The
+            // host-lookup cache above returns the gallery ID, then the middleware
+            // fetches the full gallery (with images/user/venueTemplate) under
+            // this second cache key. Without forgetting it, the next request
+            // within 5 minutes would still resolve the gallery via the stale
+            // eager-loaded copy (with custom_domain still set), and the
+            // isCustomDomainVerified() check would still pass — defeating the
+            // immediate-invalidation guarantee we just established.
+            Cache::forget("custom_domain_gallery:{$gallery->id}");
+
             // Clear the column AND the verification fields (task C06).
             // The domain is being unassigned — there's nothing to keep
             // verified. If the user re-upgrades and re-claims the same

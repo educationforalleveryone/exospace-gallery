@@ -6,6 +6,7 @@ use App\Models\Gallery;
 use App\Models\GalleryScheduleEvent;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use App\Services\TurnstileService;
 use Illuminate\Http\RedirectResponse;
 
 /**
@@ -17,12 +18,16 @@ use Illuminate\Http\RedirectResponse;
  */
 class PublicEventController extends Controller
 {
+    public function __construct(
+        private readonly TurnstileService $turnstile,
+    ) {}
+
     public function index(string $slug): View
     {
         $gallery = Gallery::where('slug', $slug)
             ->where('is_active', true)
             ->with(['scheduleEvents' => function ($q) {
-                $q->active()->orderBy('starts_at');
+                $q->active()->orderBy('starts_at')->withCount('rsvps'); // PERF-15: eager-load rsvps_count
             }, 'venueTemplate'])
             ->firstOrFail();
 
@@ -44,6 +49,11 @@ class PublicEventController extends Controller
             'name'  => ['required', 'string', 'max:100'],
             'email' => ['required', 'string', 'max:255', 'email'],
         ]);
+
+        // P3-19: Verify Turnstile captcha if enabled.
+        if (! $this->turnstile->verify($request->input('cf-turnstile-response'), $request->ip())) {
+            return back()->withErrors(['captcha' => 'Captcha verification failed. Please refresh and try again.'])->withInput();
+        }
 
         // Enforce capacity
         if ($event->isAtCapacity()) {

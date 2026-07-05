@@ -100,3 +100,74 @@ jobs:
 
       - name: Run Pint
         run: vendor/bin/pint --test
+
+  preflight:
+    name: Preflight Check (exospace:preflight)
+    runs-on: ubuntu-latest
+    # P3-20 FIX: Run exospace:preflight in CI on every push/PR. This catches
+    # configuration regressions BEFORE they hit production — missing env vars,
+    # missing PHP extensions, broken cache/queue/storage/mail config, etc.
+    #
+    # The preflight command is designed to be non-blocking in dev (warnings
+    # don't exit non-zero), but CRITICAL failures DO exit 1, failing the CI
+    # job. This is the right behavior for CI: critical config issues block
+    # the deploy, warnings are surfaced for visibility.
+    #
+    # The preflight command needs:
+    #   - APP_KEY (generated below)
+    #   - CACHE_STORE=array (so we don't need Redis in CI)
+    #   - QUEUE_CONNECTION=sync (so we don't need a worker in CI)
+    #   - DB_CONNECTION=sqlite (in-memory, no MySQL needed)
+    # All of these are set in .env.example's CI-friendly defaults, but we
+    # override them explicitly here to be safe against future .env.example
+    # edits that might change the defaults.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, json, bcmath, gd, exif, pdo, pdo_sqlite, sqlite3, imagick, redis
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          # Override env vars for CI (preflight checks them)
+          sed -i 's/^CACHE_STORE=.*/CACHE_STORE=array/' .env
+          sed -i 's/^QUEUE_CONNECTION=.*/QUEUE_CONNECTION=sync/' .env
+          sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env
+          sed -i 's/^DB_DATABASE=.*/DB_DATABASE=:memory:/' .env
+          # Run config cache so the env overrides take effect
+          php artisan config:cache
+
+      - name: Run migrations (sqlite in-memory)
+        # Preflight checks for the `migrations` table + the `galleries.custom_domain`
+        # column + the `venue_templates.visual_config` column. Without running
+        # migrations first, those checks would CRITICAL-fail in CI.
+        run: php artisan migrate --force
+
+      - name: Create storage symlink
+        # Preflight checks that public/storage symlink exists (CRITICAL if missing).
+        run: php artisan storage:link
+
+      - name: Seed venue templates
+        # Preflight checks that venue_templates has at least 1 row (else
+        # CRITICAL warning). The seeder is idempotent.
+        run: php artisan db:seed --class=VenueTemplateSeeder --force
+
+      - name: Run preflight
+        run: php artisan exospace:preflight
+        # Preflight exits 1 on CRITICAL failures, 0 on success/warnings-only.
+        # We don't use `continue-on-error` because we WANT critical failures
+        # to fail the CI job — that's the whole point of running preflight
+        # in CI.
+        env:
+          APP_ENV: testing
+          APP_DEBUG: true
