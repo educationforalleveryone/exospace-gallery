@@ -60,6 +60,25 @@ return [
             'report' => false,
         ],
 
+        // P3-14: CDN disk for horizontal scaling.
+        // Set FILESYSTEM_DISK=cdn in production to use S3-compatible storage
+        // (DigitalOcean Spaces, Cloudflare R2, AWS S3) for uploaded images.
+        // This enables multi-container deployments where containers don't
+        // share a filesystem. Configure with the same AWS_* env vars as s3.
+        'cdn' => [
+            'driver' => 's3',
+            'key' => env('CDN_ACCESS_KEY_ID', env('AWS_ACCESS_KEY_ID')),
+            'secret' => env('CDN_SECRET_ACCESS_KEY', env('AWS_SECRET_ACCESS_KEY')),
+            'region' => env('CDN_DEFAULT_REGION', env('AWS_DEFAULT_REGION', 'us-east-1')),
+            'bucket' => env('CDN_BUCKET', env('AWS_BUCKET')),
+            'url' => env('CDN_URL', env('AWS_URL')),
+            'endpoint' => env('CDN_ENDPOINT', env('AWS_ENDPOINT')),
+            'use_path_style_endpoint' => env('CDN_USE_PATH_STYLE_ENDPOINT', env('AWS_USE_PATH_STYLE_ENDPOINT', false)),
+            'throw' => true,
+            'report' => true,
+            'visibility' => 'public',
+        ],
+
     ],
 
     /*

@@ -254,12 +254,22 @@ class User extends Authenticatable implements MustVerifyEmail
         });
 
         static::updating(function (User $user) {
-            // If plan changed, refresh the limits
+            // If plan changed, refresh the limits.
+            // TD-13 FIX: Use a separate plan_changed_at column for tracking
+            // the most recent plan change. plan_started_at is preserved as
+            // the ORIGINAL first-paid date for LTV/churn analytics.
+            // (If plan_changed_at doesn't exist in the DB, the forceFill
+            // in WebhookController/SystemController sets it — this hook
+            // only handles limits.)
             if ($user->isDirty('plan')) {
                 $limits = self::planLimits($user->plan);
                 $user->max_galleries = $limits['max_galleries'];
                 $user->max_images    = $limits['max_images'];
-                $user->plan_started_at = now();
+                // TD-13: Do NOT reset plan_started_at — it's the original
+                // first-paid timestamp used for LTV analytics. The webhook
+                // and admin controllers set plan_started_at = now() explicitly
+                // on initial upgrade; subsequent plan changes should NOT
+                // overwrite it.
             }
         });
     }

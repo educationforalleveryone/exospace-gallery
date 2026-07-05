@@ -142,8 +142,40 @@ export async function loadAssets() {
         setTimeout(() => this.hideLoader(), 500);
     } catch (error) {
         console.error('Critical asset loading error:', error);
-        this.hideLoader();
+        // UX-1 FIX: Show error UI instead of freezing the curtain.
+        // Previously, hideLoader() was a no-op (just console.log) — the
+        // curtain stayed at whatever % it last updated, Enter button stayed
+        // disabled, visitor was stuck. Now we show a proper error overlay.
+        this.showLoadError(error);
     }
+}
+
+// UX-1: Show a load-error overlay with retry button.
+// Replaces the silent freeze that left visitors stuck.
+export function showLoadError(error) {
+    const curtain = document.getElementById('entrance-curtain');
+    if (!curtain) return;
+
+    const errorHtml = `
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,10,15,0.95);z-index:1000;text-align:center;padding:2rem;">
+            <div style="width:56px;height:56px;margin-bottom:1.5rem;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <h2 style="color:#f1f5f9;font-size:1.4rem;font-weight:700;margin-bottom:0.5rem;">Gallery failed to load</h2>
+            <p style="color:#94a3b8;font-size:0.9rem;max-width:360px;line-height:1.6;margin-bottom:1.5rem;">
+                We couldn't load this 3D exhibition. This might be a temporary issue — please try again.
+            </p>
+            <button onclick="window.location.reload()" style="padding:0.75rem 2rem;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:0.5rem;font-weight:600;font-size:0.9rem;cursor:pointer;transition:all 0.2s;">
+                Retry
+            </button>
+            <a href="/discover" style="margin-top:1rem;color:#64748b;font-size:0.8rem;text-decoration:underline;">Browse other galleries</a>
+        </div>
+    `;
+
+    curtain.innerHTML = errorHtml;
+    curtain.style.display = 'flex';
 }
 
 // ── HDRI environment map — non-blocking, fades in after room renders ─────────

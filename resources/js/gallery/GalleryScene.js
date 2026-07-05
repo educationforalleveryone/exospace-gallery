@@ -32,7 +32,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { initRenderer, detectLowEnd, applyLowEndSettings, earlyLowEndCheck } from './Renderer.js';
 import { setupControls, setSpeedMultiplier } from './Controls.js';
-import { loadAssets, loadEnvironmentMap } from './AssetLoader.js';
+import { loadAssets, loadEnvironmentMap, showLoadError } from './AssetLoader.js';
 import { initAudio, playAudio, toggleMute } from './Audio.js';
 import { applyVenueOverrides, applyVenueConfig, applyVisualPatch, loadDecorations, addCustomLights, addVenueStructure } from './VenueDecorator.js';
 import { buildGallery, createRoom, createRoomCorridor, createRoomLShape, createRoomRotunda, createRoomCircular, addVenueCeiling } from './RoomBuilder.js';
@@ -158,6 +158,12 @@ export class GalleryScene {
         setupControls.call(this);
 
         // Start silent preload
+        // UX-2: Check for empty gallery before loading 3D scene
+        if (window.GALLERY_DATA && window.GALLERY_DATA._isEmpty) {
+            this.showEmptyState();
+            return;
+        }
+
         loadAssets.call(this);
     }
 
@@ -198,6 +204,36 @@ export class GalleryScene {
     loadEnvironmentMap()                            { return loadEnvironmentMap.call(this); }
     playAudio()                                     { return playAudio.call(this); }
     toggleMute()                                    { return toggleMute.call(this); }
+    showLoadError(err)                              { return showLoadError.call(this, err); }
+
+    // UX-2: Show empty-state overlay for galleries with zero images.
+    // Replaces the previous behavior of loading an empty 3D room with
+    // no explanation. The visitor sees a clear message + a link back
+    // to Discover.
+    showEmptyState() {
+        const curtain = document.getElementById('entrance-curtain');
+        if (!curtain) return;
+
+        const title = window.GALLERY_DATA?.title || 'This gallery';
+
+        curtain.innerHTML = `
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#16213e 100%);z-index:1000;text-align:center;padding:2rem;">
+                <div style="width:64px;height:64px;margin-bottom:1.5rem;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                </div>
+                <h2 style="color:#f1f5f9;font-size:1.4rem;font-weight:700;margin-bottom:0.5rem;">No artworks yet</h2>
+                <p style="color:#94a3b8;font-size:0.9rem;max-width:380px;line-height:1.6;margin-bottom:1.5rem;">
+                    ${title} hasn't added any artworks to this exhibition yet. Check back soon, or explore other galleries on Exospace.
+                </p>
+                <a href="/discover" style="padding:0.75rem 2rem;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;text-decoration:none;border-radius:0.5rem;font-weight:600;font-size:0.9rem;transition:all 0.2s;">
+                    Explore Galleries →
+                </a>
+            </div>
+        `;
+        curtain.style.display = 'flex';
+    }
 
     // S-6: Dispose all GPU resources to prevent memory leaks.
     // Traverses the scene and disposes every geometry, material, and texture.
