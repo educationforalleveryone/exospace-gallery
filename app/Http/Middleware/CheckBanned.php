@@ -56,6 +56,24 @@ class CheckBanned
             if (! is_null($bannedAt)) {
                 $reason = $user->ban_reason ?: 'Your account has been suspended.';
 
+                // SEC-16 FIX: Sanitize the ban_reason before reflecting it
+                // into the session error message. The ban_reason is set by
+                // a super-admin via the ban form (free-text up to 500 chars)
+                // and was previously reflected verbatim into the login
+                // error bag. Laravel's Blade escaping would neutralize HTML
+                // in the rendered view, but the error bag is also exposed
+                // via:
+                //   - $errors->all() in JSON for AJAX login attempts
+                //   - session: regenerate → flash data → next request
+                //   - any future API endpoint that surfaces auth errors
+                // Stripping tags + controlling the format prevents a malicious
+                // admin (or a compromised admin account) from injecting
+                // markup into the error message, and it normalizes the
+                // display so the user sees a clean reason string.
+                // We also cap the length to 200 chars to prevent the error
+                // message from being used as a data exfiltration channel.
+                $reason = mb_substr(strip_tags($reason), 0, 200);
+
                 // Purge ALL of the user's sessions, not just the current one.
                 // (audit H16) — prevents banned users from continuing to
                 // use the app from other browsers/devices for the remaining

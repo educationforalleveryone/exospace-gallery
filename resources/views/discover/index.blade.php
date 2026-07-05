@@ -11,6 +11,52 @@
         </div>
     </x-slot>
 
+    {{-- CONV-7 FIX: Loading overlay shown when user clicks a pagination link,
+         filter dropdown, or sort link. Without this, the page appears frozen
+         during the navigation delay (especially on slow connections), and
+         users often click pagination links multiple times thinking the first
+         click didn't register. The overlay uses role="status" + aria-live="polite"
+         so screen readers announce "Loading exhibitions" when navigation starts. --}}
+    <div id="discover-loading-overlay"
+         role="status"
+         aria-live="polite"
+         aria-label="Loading exhibitions"
+         style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.7); backdrop-filter:blur(4px); z-index:50; align-items:center; justify-content:center;">
+        <div style="text-align:center;">
+            <div style="display:inline-block; width:40px; height:40px; border:3px solid rgba(167,139,250,0.2); border-top-color:#a78bfa; border-radius:50%; animation: discover-spin 0.8s linear infinite;"></div>
+            <p style="margin-top:12px; color:#a78bfa; font-size:14px; font-weight:500;">Loading exhibitions&hellip;</p>
+        </div>
+    </div>
+    <style>
+        @keyframes discover-spin { to { transform: rotate(360deg); } }
+    </style>
+    <script>
+        // Show the overlay whenever an in-page navigation happens (pagination
+        // link, sort link, or venue filter form submit). Hide it on page load
+        // (which only fires once per full page load — the next navigation
+        // will show it again).
+        (function() {
+            function showLoading() {
+                var el = document.getElementById('discover-loading-overlay');
+                if (el) el.style.display = 'flex';
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                var navLinks = document.querySelectorAll('a[href^="?"], a[href*="page="], a[href*="sort="], a[href*="venue="]');
+                navLinks.forEach(function(link) {
+                    link.addEventListener('click', showLoading);
+                });
+                var venueForm = document.querySelector('form[method="GET"]');
+                if (venueForm) {
+                    venueForm.addEventListener('submit', showLoading);
+                }
+            });
+            window.addEventListener('pageshow', function() {
+                var el = document.getElementById('discover-loading-overlay');
+                if (el) el.style.display = 'none';
+            });
+        })();
+    </script>
+
     <div class="max-w-7xl mx-auto px-4 py-10">
         {{-- Filters bar --}}
         <div class="flex flex-wrap items-center justify-between gap-4 mb-8">

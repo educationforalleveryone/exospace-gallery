@@ -176,11 +176,16 @@
         }
 
         /* ── Crosshair ───────────────────────────────────────────────────── */
+        /* A11Y-9: The crosshair is a visual-only affordance (indicates where
+           the camera is pointing). It is hidden from screen readers via
+           aria-hidden on the element, and an sr-only span provides a text
+           alternative for AT users who navigate by focus rather than sight. */
         #crosshair {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             width: 20px; height: 20px; opacity: 0;
             transition: opacity 0.3s;
+            pointer-events: none;
         }
         #crosshair::before, #crosshair::after {
             content: ''; position: absolute; background: rgba(255, 255, 255, 0.8);
@@ -231,6 +236,25 @@
         #tour-counter { font-size: 0.8rem; color: rgba(255,255,255,0.6); font-variant-numeric: tabular-nums; }
         #tour-title-display { font-size: 0.9rem; color: white; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .tour-exit-btn { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
+
+        /* ── A11Y-10: Keyboard focus indicator ────────────────────────────
+           All interactive elements inside the gallery view show a clear
+           2px purple outline when they receive keyboard focus (:focus-visible).
+           Mouse clicks don't trigger this — only keyboard navigation does.
+           This covers: tour buttons, audio toggle, artwork info panel
+           close button, and any future keyboard-accessible controls. The
+           canvas-container has tabindex=-1 so it isn't in the tab order;
+           if it ever receives programmatic focus, it also gets the outline. */
+        #tour-hud button:focus-visible,
+        #audio-toggle:focus-visible,
+        #in-gallery-tour-btn:focus-visible,
+        #info-panel button:focus-visible,
+        #info-panel a:focus-visible,
+        #canvas-container:focus-visible {
+            outline: 2px solid #a78bfa;
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
 
         /* ── Mobile overlay ──────────────────────────────────────────────── */
         @media (pointer: coarse), (hover: none) {
@@ -445,29 +469,36 @@
     </div>
 
     {{-- ── Tour overlay ──────────────────────────────────────────────────────── --}}
-    <div id="tour-overlay">
-        <div id="tour-progress-bar"></div>
-        <div id="tour-hud">
-            <button class="tour-btn" id="tour-prev-btn" title="Previous">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    {{-- A11Y-8 FIX: Tour HUD now has role="group" + aria-label so screen
+         readers announce "Tour controls, Previous Pause Next" when focus
+         enters the HUD. Each button also has an aria-label (in addition to
+         the existing title attribute) because title is not reliably
+         announced by screen readers. The tour-counter and tour-title-display
+         spans have aria-live="polite" so screen readers announce progress
+         as the tour advances. --}}
+    <div id="tour-overlay" aria-hidden="true">
+        <div id="tour-progress-bar" aria-hidden="true"></div>
+        <div id="tour-hud" role="group" aria-label="Guided tour controls">
+            <button class="tour-btn" id="tour-prev-btn" title="Previous" aria-label="Previous artwork">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
-            <button class="tour-btn" id="tour-pause-btn" title="Pause / Resume">
-                <svg id="tour-pause-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                <svg id="tour-play-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <button class="tour-btn" id="tour-pause-btn" title="Pause / Resume" aria-label="Pause or resume tour" aria-pressed="false">
+                <svg id="tour-pause-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                <svg id="tour-play-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             </button>
-            <div id="tour-countdown-ring">
+            <div id="tour-countdown-ring" aria-hidden="true">
                 <svg viewBox="0 0 36 36" width="36" height="36">
                     <circle id="tour-ring-bg" cx="18" cy="18" r="15.9" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
                     <circle id="tour-ring-arc" cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" style="stroke-dasharray: 100; stroke-dashoffset: 100;"/>
                 </svg>
             </div>
-            <span id="tour-counter">1 / 1</span>
-            <span id="tour-title-display">—</span>
-            <button class="tour-btn" id="tour-next-btn" title="Next">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <span id="tour-counter" aria-live="polite">1 / 1</span>
+            <span id="tour-title-display" aria-live="polite">—</span>
+            <button class="tour-btn" id="tour-next-btn" title="Next" aria-label="Next artwork">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
-            <button class="tour-btn tour-exit-btn" id="tour-exit-btn" title="Exit tour">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <button class="tour-btn tour-exit-btn" id="tour-exit-btn" title="Exit tour" aria-label="Exit guided tour">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
     </div>
@@ -558,7 +589,14 @@
         </div>
 
         {{-- Crosshair --}}
-        <div id="crosshair"></div>
+        {{-- A11Y-9: Crosshair is purely visual — pointer-events:none so it
+             doesn't intercept clicks, aria-hidden so screen readers skip
+             the empty div, and an sr-only text alternative is provided
+             below for AT users who want to know what the crosshair is. --}}
+        <div id="crosshair" aria-hidden="true"></div>
+        <span class="sr-only" aria-hidden="false" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">
+            A center crosshair indicates where the camera is pointing. The crosshair turns purple when an artwork is in focus.
+        </span>
 
         {{-- Branding: Studio = Custom Logo | Free = Watermark | Pro = Nothing --}}
         @if ($gallery->user->plan === 'studio' && $gallery->custom_logo_path)

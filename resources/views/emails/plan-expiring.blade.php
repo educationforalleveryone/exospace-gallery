@@ -27,7 +27,12 @@
         </div>
         <p>After your plan expires, your account will be downgraded to the Free plan (1 gallery, 10 images). Your existing galleries will remain in your account, but only your first gallery will be publicly accessible. Custom domains, logos, and audio will be removed from your galleries.</p>
         <p>To keep all your {{ ucfirst($user->plan) }} features ({{ $user->plan === 'studio' ? 'unlimited galleries, custom domains, white-label' : '5 galleries, background music, no watermark' }}), renew your plan:</p>
-        <a href="{{ config('app.url') }}/billing" class="btn">View Billing & Renew →</a>
+        {{-- CONV-5 FIX: The CTA now deep-links directly to the upgrade flow
+             for the user's CURRENT plan, skipping the billing portal landing
+             page. The user has already paid for this plan once — they want
+             to renew it, not browse other options. One click → 2Checkout. --}}
+        <a href="{{ config('app.url') }}/billing/upgrade/{{ $user->plan }}" class="btn">Renew {{ ucfirst($user->plan) }} Now →</a>
+        <p style="font-size: 13px; color: #6b7280; margin-top: 12px;">Or <a href="{{ config('app.url') }}/billing" style="color: #667eea;">view all billing options</a></p>
         <div class="footer">
             &copy; {{ date('Y') }} Exospace Gallery. All rights reserved.<br>
             <a href="{{ config('app.url') }}/billing" style="color: #667eea; text-decoration: none;">Manage your billing</a> ·

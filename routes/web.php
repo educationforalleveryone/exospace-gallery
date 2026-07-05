@@ -72,8 +72,21 @@ Route::get('/health', [\App\Http\Controllers\HealthController::class, 'check'])-
 // saving it. Without a GET handler, the validation returns 405 and 2Checkout
 // refuses to save the URL. This GET route returns a simple 200 OK.
 Route::get ('webhooks/2checkout',         fn() => response('OK', 200));
-Route::post('/webhooks/2checkout',        [WebhookController::class, 'handle2Checkout'])->name('webhooks.2checkout');
-Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund'])->name('webhooks.2checkout.refund');
+// SEC-15 FIX: Throttle the webhook endpoint to 60 req/min/IP. 2Checkout
+// normally sends one IPN per sale event — well under 1 req/min. A burst
+// from a single IP indicates either a misconfigured 2Checkout retry loop
+// (which 2Checkout's own retry policy shouldn't trigger beyond ~12 retries)
+// or an attack probing the webhook. 60/min is generous enough to absorb
+// 2Checkout's worst-case retry burst (12-15 IPNs in 60 seconds) while
+// stopping a flood. The throttle uses a per-IP key — 2Checkout's INS
+// servers all share a few IP ranges, so the throttle key is effectively
+// "all 2Checkout traffic" in practice.
+//
+// HMAC signature verification (in WebhookController) is still the primary
+// defense — this throttle just protects against floods of unsigned junk
+// that would otherwise waste CPU on hash verification.
+Route::post('/webhooks/2checkout',        [WebhookController::class, 'handle2Checkout'])->name('webhooks.2checkout')->middleware('throttle:60,1');
+Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund'])->name('webhooks.2checkout.refund')->middleware('throttle:60,1');
 
 // ── SEO & discovery endpoints ────────────────────────────────────────────
 // S-4: Sitemap index with pagination — /sitemap.xml is the index,
@@ -158,7 +171,15 @@ Route::post('/gallery/{gallery}/track', [\App\Http\Controllers\Admin\AnalyticsCo
     ->middleware('throttle:30,1');
 
 // ── Team Invitations ─────────────────────────────────────────────────────
-Route::get('/team-invitations/{token}',          [TeamInvitationController::class, 'show'])->name('team-invitations.show');
+// SEC-6 FIX: The show route now requires a signed URL (HMAC with APP_KEY).
+// Previously the URL contained only the plain token — if it leaked via a
+// referrer header, browser history, or email forwarding, anyone could view
+// the invitation page (though they still couldn't accept without being
+// logged in as the matching email). The signed URL adds a second factor:
+// even with the token, an attacker can't forge a valid URL without APP_KEY.
+// Accept/decline routes don't need signed URLs — they require auth + the
+// logged-in user's email must match the invited email (see controller).
+Route::get('/team-invitations/{token}',          [TeamInvitationController::class, 'show'])->name('team-invitations.show')->middleware('signed');
 Route::post('/team-invitations/{token}/accept',  [TeamInvitationController::class, 'accept'])->name('team-invitations.accept');
 Route::post('/team-invitations/{token}/decline', [TeamInvitationController::class, 'decline'])->name('team-invitations.decline');
 

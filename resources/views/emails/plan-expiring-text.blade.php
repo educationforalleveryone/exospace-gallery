@@ -11,6 +11,9 @@ After your plan expires, your account will be downgraded to the Free plan (1 gal
 
 To keep all your {{ ucfirst($user->plan) }} features, renew your plan:
 
+{{ config('app.url') }}/billing/upgrade/{{ $user->plan }}
+
+Or view all billing options:
 {{ config('app.url') }}/billing
 
 ---

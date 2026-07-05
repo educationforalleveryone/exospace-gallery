@@ -170,11 +170,15 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public static function planLimits(string $plan): array
     {
-        return match($plan) {
-            'studio' => ['max_galleries' => 999, 'max_images' => 500],
-            'pro'    => ['max_galleries' => 5,   'max_images' => 100],
-            default  => ['max_galleries' => 1,   'max_images' => 10],
-        };
+        // TD-27 FIX: Plan limits are now defined in config/plans.php (the
+        // single source of truth). Previously they were hardcoded in this
+        // method, with the same values duplicated across the pricing page,
+        // billing portal, venue seeder, and venue config exporter — making
+        // it easy to update one place and forget the others.
+        //
+        // The config returns ['max_galleries' => int, 'max_images' => int]
+        // for each plan. Unknown plans fall back to 'free' limits.
+        return config("plans.limits.{$plan}", config('plans.limits.free'));
     }
 
     public function isPro(): bool

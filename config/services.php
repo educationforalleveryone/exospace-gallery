@@ -83,10 +83,25 @@ return [
         // per-link with ?coupon=XXXX on the billing.upgrade route.
         'coupon_code'            => env('TWOCHECKOUT_COUPON_CODE'),
 
+        // SEC-8 FIX: comma-separated allowlist of coupon codes that may be
+        // passed via ?coupon=XXXX on the billing.upgrade route. When a
+        // user-supplied coupon is not in this list, it is silently dropped
+        // (and the site-wide coupon_code above is used instead, if set).
+        // Example: "SUMMER20,LAUNCH50,VIP10"
+        // When empty (default), NO user-supplied coupons are accepted —
+        // only the site-wide default from coupon_code above is applied.
+        'coupon_allowlist'       => env('TWOCHECKOUT_COUPON_ALLOWLIST', ''),
+
         // (Task H58) — optional default affiliate ID. Set in .env for
         // site-wide affiliate crediting. Override per-link with ?ref=ID
         // on the billing.upgrade route.
         'affiliate_id'           => env('TWOCHECKOUT_AFFILIATE_ID'),
+
+        // SEC-8 FIX: comma-separated allowlist of affiliate IDs that may
+        // be passed via ?ref=ID on the billing.upgrade route. Same
+        // rationale as coupon_allowlist above. When empty, no user-supplied
+        // affiliate IDs are accepted — only the site-wide default.
+        'affiliate_allowlist'    => env('TWOCHECKOUT_AFFILIATE_ALLOWLIST', ''),
     ],
 
     // ── Coolify custom-domain automation (task C14) ──────────────────────

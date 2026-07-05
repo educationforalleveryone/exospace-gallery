@@ -57,15 +57,6 @@ class PendingUpgrade extends Model
     }
 
     /**
-     * Is this pending upgrade still claimable (pending + not expired)?
-     */
-    public function isClaimable(): bool
-    {
-        return $this->status === 'pending'
-            && ($this->expires_at === null || $this->expires_at->isFuture());
-    }
-
-    /**
      * Mark this pending upgrade as converted by the given transaction.
      */
     public function markConverted(int $transactionId): void

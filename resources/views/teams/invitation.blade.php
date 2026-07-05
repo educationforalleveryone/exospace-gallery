@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -96,7 +96,7 @@
                                 Log in to accept this invitation.
                             </p>
                         </div>
-                        <a href="{{ route('login') }}?redirect={{ urlencode(route('team-invitations.show', $token)) }}"
+                        <a href="{{ route('login') }}?redirect={{ urlencode(request()->fullUrl()) }}"
                            class="block w-full text-center py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition">
                             Log In to Accept
                         </a>
@@ -108,7 +108,7 @@
                                class="block w-full text-center py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition">
                                 Create Account &amp; Join
                             </a>
-                            <a href="{{ route('login') }}?redirect={{ urlencode(route('team-invitations.show', $token)) }}"
+                            <a href="{{ route('login') }}?redirect={{ urlencode(request()->fullUrl()) }}"
                                class="block w-full text-center py-3 border border-gray-600 hover:border-gray-500 text-gray-300 font-medium rounded-xl transition text-sm">
                                 Already have an account? Log In
                             </a>
