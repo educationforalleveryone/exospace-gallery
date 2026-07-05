@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Gallery;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -25,6 +26,11 @@ use Illuminate\Support\Facades\Storage;
  *   - Every gallery owned by the user has its image files, audio file,
  *     custom_logo, curtain_logo, and (transitively) artist portraits
  *     deleted from the public disk.
+ *   - P0-4: Spatie Media Library originals + all generated conversions
+ *     (thumb, small, medium, large WebP) are also deleted via
+ *     clearMediaCollection('original'). Previously these persisted on
+ *     disk forever — a GDPR violation (the Spatie originals contained
+ *     unstripped EXIF/GPS data from the raw upload).
  *   - Owned teams' galleries are also cleaned up.
  *   - The user row is deleted last; DB cascade handles galleries, images,
  *     events, transactions, team memberships.
@@ -52,7 +58,8 @@ class UserDeletionService
             'reason'  => $reason,
         ]);
 
-        // 1. Delete files for all personal galleries (images + audio + logos).
+        // 1. Delete files for all personal galleries (images + audio + logos
+        //    + Spatie media originals + conversions).
         $user->galleries()->with('images')->chunkById(50, function ($galleries) {
             foreach ($galleries as $gallery) {
                 $this->deleteGalleryFiles($gallery);
@@ -112,6 +119,13 @@ class UserDeletionService
         //    - transactions (via user_id FK cascade — see audit H24 for
         //      why this is a retention concern)
         //    - admin_audit_logs.actor_id (cascade — same concern)
+        //
+        // NOTE: The Spatie `media` table rows are deleted by Spatie's
+        // own observer when the GalleryImage model is deleted (via the
+        // gallery cascade). The MEDIA FILES on disk were already deleted
+        // in step 1 via clearMediaCollection(). If any media DB rows
+        // remain (e.g. race between step 1 and the cascade), Spatie's
+        // cascade will clean up the DB rows but the files are already gone.
         $user->delete();
 
         Log::info('UserDeletionService: user deleted', [
@@ -122,7 +136,9 @@ class UserDeletionService
 
     /**
      * Delete all files associated with a single gallery:
-     *   - every image file
+     *   - every image file (legacy `path` column)
+     *   - P0-4: every image's Spatie Media Library originals + all
+     *     generated conversions (thumb, small, medium, large WebP)
      *   - audio_path
      *   - custom_logo_path
      *   - curtain_logo_path
@@ -133,6 +149,25 @@ class UserDeletionService
     public function deleteGalleryFiles(Gallery $gallery): void
     {
         foreach ($gallery->images as $image) {
+            // P0-4: Delete the Spatie Media Library files FIRST.
+            // clearMediaCollection('original') deletes:
+            //   - The original file in the 'original' collection
+            //   - All generated conversion files (thumb, small, medium, large)
+            //   - The `media` table DB rows
+            // This is the GDPR-critical cleanup — the Spatie originals
+            // previously contained unstripped EXIF/GPS data and persisted
+            // on disk forever, even after account deletion.
+            try {
+                $image->clearMediaCollection('original');
+            } catch (\Throwable $e) {
+                Log::warning('UserDeletionService: clearMediaCollection failed', [
+                    'image_id' => $image->id,
+                    'error'    => $e->getMessage(),
+                ]);
+            }
+
+            // Delete the legacy `path` column file (the EXIF-stripped
+            // main JPEG saved by ImageProcessingService::process()).
             $this->deletePublicDiskFile($image->getOriginal('path'));
         }
 
@@ -155,7 +190,7 @@ class UserDeletionService
         }
 
         $disk = Storage::disk('public');
-        $clean = str_replace('storage/', '', $path);
+        $clean = \Illuminate\Support\Str::after($path, 'storage/');
 
         try {
             if ($disk->exists($clean)) {

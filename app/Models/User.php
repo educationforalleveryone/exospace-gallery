@@ -44,6 +44,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'password',
+        'marketing_consent',
     ];
 
     // Explicitly guarded — these fields CANNOT be set via fill() / create()
@@ -63,7 +64,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'remember_token',
         'google2fa_secret',   // (Task H56) — encrypted TOTP secret
         'mfa_enabled_at',     // (Task H56) — when MFA was activated
-        'lifecycle_nudged_at',// (Task H55) — last lifecycle email sent
+        'inactive_nudged_at',       // (P0-7) — last inactive-nudge email sent
+        'plan_expiry_reminded_at',  // (P0-7) — last plan-expiry reminder sent
     ];
 
     protected $hidden = [
@@ -81,7 +83,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'plan_expires_at'   => 'datetime',
             'plan_started_at'   => 'datetime',
             'mfa_enabled_at'    => 'datetime',     // (Task H56)
-            'lifecycle_nudged_at' => 'datetime',   // (Task H55)
+            'inactive_nudged_at'       => 'datetime', // (P0-7) — last inactive-nudge
+            'plan_expiry_reminded_at'  => 'datetime', // (P0-7) — last plan-expiry reminder
+            'marketing_consent' => 'boolean',      // (P0-3) — CAN-SPAM/GDPR consent
         ];
     }
 

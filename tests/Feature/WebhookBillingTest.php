@@ -22,15 +22,17 @@ use Tests\TestCase;
  *   - external-reference matching (pending_upgrade token)
  *   - customer_email fallback matching
  *
- * These tests use the LEGACY MD5 signature (which 2Checkout always sends)
- * and do NOT require the optional HMAC SHA-256 layer. The HMAC layer is
- * env-gated and tested separately.
+ * P0-2 FIX (audit): HMAC is now MANDATORY in production. The existing
+ * tests below use the MD5-only path (with allow_md5_only=true) to test
+ * the legacy 2Checkout signature layer. New tests at the bottom verify
+ * the fail-closed behavior when HMAC is not configured in production.
  */
 class WebhookBillingTest extends TestCase
 {
     use RefreshDatabase;
 
     private const SECRET_WORD = 'test-secret-word';
+    private const BUY_LINK_SECRET = 'test-buy-link-secret';
     private const PRODUCT_ID_PRO = 'PRO-1001';
     private const PRODUCT_ID_STUDIO = 'STUDIO-2001';
     private const VENDOR_ID = 'V12345';
@@ -43,6 +45,7 @@ class WebhookBillingTest extends TestCase
         Config::set('services.2checkout.product_id_pro', self::PRODUCT_ID_PRO);
         Config::set('services.2checkout.product_id_studio', self::PRODUCT_ID_STUDIO);
         Config::set('services.2checkout.buy_link_secret_word', null); // disable HMAC layer
+        Config::set('services.2checkout.allow_md5_only', true); // P0-2: explicit escape hatch for MD5-only tests
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
@@ -74,6 +77,27 @@ class WebhookBillingTest extends TestCase
             'item_list_amount_1'=> '29.00',
             'list_currency'     => 'USD',
         ], $overrides);
+    }
+
+    /**
+     * Build a valid HMAC SHA-256 signature for a given payload.
+     */
+    private function signPayloadHmac(array $payload): string
+    {
+        $fields = [
+            'sale_id', 'vendor_id', 'invoice_id', 'message_type', 'message_id',
+            'customer_email', 'customer_name', 'item_count',
+            'item_id_1', 'item_name_1', 'item_usd_amount_1', 'item_list_amount_1',
+            'item_cust_amount_1', 'item_type_1', 'list_currency', 'cust_currency',
+        ];
+
+        $hmacPayload = '';
+        foreach ($fields as $field) {
+            $value = (string) ($payload[$field] ?? '');
+            $hmacPayload .= strlen($value) . $value;
+        }
+
+        return hash_hmac('sha256', $hmacPayload, self::BUY_LINK_SECRET);
     }
 
     private function postWebhook(array $payload)
@@ -394,5 +418,198 @@ class WebhookBillingTest extends TestCase
         // POST without CSRF token — should NOT return 419
         $response = $this->postJson('/webhooks/2checkout', $payload);
         $response->assertOk();
+    }
+
+    // ── P0-2: HMAC mandatory in production ───────────────────────────────
+
+    public function test_hmac_signature_verifies_when_configured(): void
+    {
+        Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
+        Config::set('services.2checkout.allow_md5_only', false);
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]);
+        $payload['signature'] = $this->signPayloadHmac($payload);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('pro', $user->plan);
+    }
+
+    public function test_hmac_signature_failure_returns_403(): void
+    {
+        Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
+        Config::set('services.2checkout.allow_md5_only', false);
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]);
+        $payload['signature'] = 'tampered-signature-that-does-not-match';
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertForbidden();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan); // NOT upgraded
+        $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
+    }
+
+    public function test_hmac_signature_missing_returns_403_when_hmac_configured(): void
+    {
+        Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
+        Config::set('services.2checkout.allow_md5_only', false);
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]);
+        // No 'signature' field
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertForbidden();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan); // NOT upgraded
+    }
+
+    public function test_production_fails_closed_when_hmac_not_configured(): void
+    {
+        // Simulate production environment
+        app()['env'] = 'production';
+
+        Config::set('services.2checkout.buy_link_secret_word', null);
+        Config::set('services.2checkout.allow_md5_only', false);
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertForbidden();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan); // NOT upgraded — fail-closed
+        $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
+    }
+
+    public function test_production_accepts_md5_only_when_escape_hatch_enabled(): void
+    {
+        // Simulate production environment
+        app()['env'] = 'production';
+
+        Config::set('services.2checkout.buy_link_secret_word', null);
+        Config::set('services.2checkout.allow_md5_only', true); // explicit escape hatch
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('pro', $user->plan); // upgraded via MD5-only
+    }
+
+    public function test_tampered_customer_email_is_rejected_by_hmac(): void
+    {
+        // This is the core P0-2 attack: capture a valid IPN, change
+        // customer_email to a victim's email, re-POST. MD5 still
+        // validates (customer_email is not signed by MD5), but HMAC
+        // must fail because customer_email IS signed by HMAC.
+        Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
+        Config::set('services.2checkout.allow_md5_only', false);
+
+        $attacker = User::factory()->create(['email' => 'attacker@example.com']);
+        $victim   = User::factory()->create(['email' => 'victim@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'customer_email' => 'attacker@example.com',
+            'item_id_1'      => self::PRODUCT_ID_STUDIO,
+        ]);
+        // Sign with the ORIGINAL customer_email
+        $payload['signature'] = $this->signPayloadHmac($payload);
+
+        // Now tamper: change customer_email to the victim's email
+        // (MD5 still validates because MD5 doesn't cover customer_email)
+        $payload['customer_email'] = 'victim@example.com';
+
+        $response = $this->postWebhook($payload);
+
+        // HMAC must fail because customer_email was changed after signing
+        $response->assertForbidden();
+
+        $victim->refresh();
+        $this->assertEquals('free', $victim->plan); // victim NOT upgraded
+        $this->assertDatabaseMissing('transactions', ['user_id' => $victim->id]);
+    }
+
+    public function test_tampered_item_id_is_rejected_by_hmac(): void
+    {
+        // Capture a valid Pro IPN, change item_id to Studio product ID,
+        // re-POST. MD5 validates (item_id not signed by MD5), HMAC fails.
+        Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
+        Config::set('services.2checkout.allow_md5_only', false);
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO, // paid for Pro ($29)
+        ]);
+        $payload['signature'] = $this->signPayloadHmac($payload);
+
+        // Tamper: change item_id to Studio ($99) — attacker gets Studio for Pro's price
+        $payload['item_id_1'] = self::PRODUCT_ID_STUDIO;
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertForbidden();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan); // NOT upgraded
+    }
+
+    public function test_tampered_message_type_is_rejected_by_hmac(): void
+    {
+        // Capture a valid ORDER_CREATED IPN, change message_type to
+        // REFUND_ISSUED, re-POST. Without HMAC, this would forge a
+        // refund and downgrade any paying user. With HMAC, the message_type
+        // field is signed and the tamper is detected.
+        Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
+        Config::set('services.2checkout.allow_md5_only', false);
+
+        $user = User::factory()->pro()->create(['email' => 'buyer@example.com']);
+        Transaction::factory()->create([
+            'user_id'   => $user->id,
+            'invoice_id'=> 'INV-TAMPER-001',
+            'plan'      => 'pro',
+            'status'    => 'completed',
+        ]);
+
+        $payload = $this->validIpnPayload([
+            'message_type' => 'ORDER_CREATED',
+            'invoice_id'   => 'INV-TAMPER-001',
+        ]);
+        $payload['signature'] = $this->signPayloadHmac($payload);
+
+        // Tamper: change message_type to REFUND_ISSUED
+        $payload['message_type'] = 'REFUND_ISSUED';
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertForbidden();
+        $user->refresh();
+        $this->assertEquals('pro', $user->plan); // NOT downgraded
     }
 }

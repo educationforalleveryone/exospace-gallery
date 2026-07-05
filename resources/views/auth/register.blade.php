@@ -60,6 +60,21 @@
             <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
         </div>
 
+        <!-- Marketing Consent (P0-3: CAN-SPAM/GDPR opt-in) -->
+        <div class="mt-4">
+            <label class="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox"
+                       name="marketing_consent"
+                       value="1"
+                       @checked(old('marketing_consent'))
+                       class="mt-1 rounded border-gray-600 bg-gray-800 text-purple-600 focus:ring-purple-500 focus:ring-offset-0" />
+                <span class="text-xs text-gray-400 leading-relaxed">
+                    Send me occasional product tips and reminders (e.g. if I start an upgrade but don't finish).
+                    I can unsubscribe at any time via the link in every email.
+                </span>
+            </label>
+        </div>
+
         <div class="flex items-center justify-end mt-4">
             <a class="underline text-sm text-gray-400 hover:text-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" href="{{ route('login') }}">
                 {{ __('Already registered?') }}

@@ -21,5 +21,11 @@ Need help? Reply to this email or visit our Help Center: {{ config('app.url') }}
 
 ---
 
+You're receiving this email because you signed up for Exospace and opted in to product tips.
+Unsubscribe: {{ \Illuminate\Support\Facades\URL::signedRoute('unsubscribe.show', ['user' => $user->id]) }}
+
 © {{ date('Y') }} Exospace Gallery. All rights reserved.
+@if(config('app.business_address'))
+{{ config('app.business_address') }}
+@endif
 Manage your billing: {{ config('app.url') }}/billing

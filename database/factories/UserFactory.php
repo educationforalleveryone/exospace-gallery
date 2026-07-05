@@ -28,6 +28,12 @@ class UserFactory extends Factory
             'max_images'        => 10,
             'plan_started_at'   => now(),
             'plan_expires_at'   => null,
+            // P0-3: marketing consent defaults to false (opt-in required).
+            // Tests that need consented users should use ->create(['marketing_consent' => true]).
+            'marketing_consent' => false,
+            // P0-7: lifecycle email tracking columns (split from lifecycle_nudged_at)
+            'inactive_nudged_at'       => null,
+            'plan_expiry_reminded_at'  => null,
         ];
     }
 

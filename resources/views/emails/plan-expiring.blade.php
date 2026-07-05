@@ -13,6 +13,7 @@
         .alert strong { color: #92400e; }
         .btn { display: block; text-align: center; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white !important; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 1rem; margin: 20px 0; }
         .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 13px; color: #6b7280; text-align: center; }
+        .address { margin-top: 8px; font-size: 12px; color: #9ca3af; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -31,6 +32,14 @@
             &copy; {{ date('Y') }} Exospace Gallery. All rights reserved.<br>
             <a href="{{ config('app.url') }}/billing" style="color: #667eea; text-decoration: none;">Manage your billing</a> ·
             <a href="{{ config('app.url') }}/refund-policy" style="color: #667eea; text-decoration: none;">Refund policy</a>
+
+            <div class="address">
+                @if(config('app.business_address'))
+                    {{ config('app.business_address') }}
+                @else
+                    Exospace Gallery
+                @endif
+            </div>
         </div>
     </div>
 </body>

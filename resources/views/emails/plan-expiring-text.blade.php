@@ -16,5 +16,8 @@ To keep all your {{ ucfirst($user->plan) }} features, renew your plan:
 ---
 
 © {{ date('Y') }} Exospace Gallery. All rights reserved.
+@if(config('app.business_address'))
+{{ config('app.business_address') }}
+@endif
 Manage your billing: {{ config('app.url') }}/billing
 Refund policy: {{ config('app.url') }}/refund-policy

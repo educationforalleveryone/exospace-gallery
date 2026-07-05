@@ -44,15 +44,20 @@ class RegisteredUserController extends Controller
         }
 
         $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'name'              => ['required', 'string', 'max:255'],
+            'email'             => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
+            'password'          => ['required', 'confirmed', Rules\Password::defaults()],
+            // P0-3: marketing consent is optional (opt-in). When checked,
+            // the user agrees to receive abandoned-cart recovery and
+            // lifecycle nudge emails. CAN-SPAM/GDPR require explicit consent.
+            'marketing_consent' => ['nullable', 'boolean'],
         ]);
 
         $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
+            'name'              => $request->name,
+            'email'             => $request->email,
+            'password'          => Hash::make($request->password),
+            'marketing_consent' => $request->boolean('marketing_consent'),
         ]);
 
         if ($invitation) {

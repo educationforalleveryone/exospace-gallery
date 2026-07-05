@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Business Address (CAN-SPAM §316.2 compliance)
+    |--------------------------------------------------------------------------
+    |
+    | CAN-SPAM requires a valid physical postal address in every commercial
+    | email. This value is rendered in the footer of abandoned-cart,
+    | inactive-nudge, and plan-expiring emails. Set EXOSPACE_BUSINESS_ADDRESS
+    | in .env to your business postal address (multi-line with \n).
+    |
+    */
+
+    'business_address' => env('EXOSPACE_BUSINESS_ADDRESS'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

@@ -13,22 +13,32 @@ class WebhookController extends Controller
      *
      * 2Checkout Documentation: https://www.2checkout.com/documentation/notifications/ins
      *
-     * SECURITY MODEL
-     * --------------
+     * SECURITY MODEL (P0-2 — HMAC now MANDATORY in production)
+     * -------------------------------------------------------
      * 1. The legacy `md5_hash` field is verified using `hash_equals()` (timing-safe).
      *    This proves the IPN originated from 2Checkout but only covers
      *    `sale_id + vendor_id + invoice_id + secret_word` — it does NOT cover
-     *    `customer_email`, `item_id_1`, or `item_list_amount_1`.
+     *    `customer_email`, `item_id_1`, `item_list_amount_1`, `message_type`, or
+     *    `external-reference`. MD5 alone is INSUFFICIENT — anyone who captures
+     *    one valid IPN can tamper with the unsigned fields and re-post it.
      *
-     * 2. When `TWOCHECKOUT_BUY_LINK_SECRET_WORD` is configured, an additional
-     *    HMAC SHA-256 signature (`signature` field) is required and verified
-     *    over the security-critical IPN fields. This closes the replay attack
-     *    where a buyer re-signs a captured IPN with a different
-     *    `customer_email` / `item_id_1` to upgrade arbitrary accounts.
+     * 2. HMAC SHA-256 signature (`signature` field) is MANDATORY in production.
+     *    It covers `customer_email`, `item_id_1`, `message_type`, `item_list_amount_1`,
+     *    and 12 other security-critical fields. This closes the replay-tamper
+     *    attack where a buyer re-signs a captured IPN with a different
+     *    `customer_email` / `item_id_1` / `message_type` to upgrade arbitrary
+     *    accounts or forge refund/chargeback notifications.
+     *
+     *    If `TWOCHECKOUT_BUY_LINK_SECRET_WORD` is not set:
+     *    - In production: the webhook FAILS CLOSED (403 on every IPN).
+     *    - In testing/local: accepts MD5-only IF `TWOCHECKOUT_ALLOW_MD5_ONLY=true`
+     *      is explicitly set (escape hatch for 2Checkout account migration).
      *
      * 3. When `TWOCHECKOUT_WEBHOOK_IP_ALLOWLIST` is configured, only requests
-     *    from those IPs are accepted. 2Checkout publishes its INS server IP
-     *    ranges in their merchant documentation.
+     *    from those IPs are accepted. When NOT configured in production, a
+     *    CRITICAL warning is logged on every webhook (but the request is not
+     *    rejected — HMAC is the primary defense, IP allowlist is defense-in-depth).
+     *    2Checkout publishes their INS IP ranges in their merchant documentation.
      *
      * 4. PII (customer_email, customer_name) is redacted from logs.
      */
@@ -658,8 +668,15 @@ class WebhookController extends Controller
      *
      * Three layers (any failure → 403):
      *  1. Legacy MD5 hash (always required) — proves IPN origin.
-     *  2. HMAC SHA-256 signature (env-gated) — covers full payload.
-     *  3. IP allowlist (env-gated) — limits sender IPs.
+     *     Covers ONLY sale_id + vendor_id + invoice_id + secret_word.
+     *     Does NOT cover customer_email, item_id, message_type, amount.
+     *  2. HMAC SHA-256 signature — MANDATORY in production.
+     *     Covers customer_email, item_id_1, message_type, item_list_amount_1,
+     *     and 12 other security-critical fields.
+     *     Fail-closed if TWOCHECKOUT_BUY_LINK_SECRET_WORD is unset, unless
+     *     TWOCHECKOUT_ALLOW_MD5_ONLY=true is explicitly set (escape hatch).
+     *  3. IP allowlist (optional, env-gated) — limits sender IPs.
+     *     Logs a CRITICAL warning in production if not configured.
      *
      * @return bool  true if all enabled layers pass, false otherwise.
      */
@@ -700,21 +717,28 @@ class WebhookController extends Controller
             return false;
         }
 
-        // ── Layer 2: HMAC SHA-256 (optional, env-gated) ─────────────────
-        // When TWOCHECKOUT_BUY_LINK_SECRET_WORD is set, the IPN must also
-        // carry a `signature` field whose HMAC SHA-256 over the documented
-        // INS parameter set we verify below.
+        // ── Layer 2: HMAC SHA-256 (MANDATORY in production) ─────────────
+        // The HMAC SHA-256 signature covers customer_email, item_id_1,
+        // message_type, item_list_amount_1, and 12 other security-critical
+        // fields. This closes the replay-tamper attack where an attacker
+        // captures a valid IPN, then changes customer_email / item_id_1 /
+        // message_type and re-POSTs it. The MD5 hash still validates (those
+        // fields aren't signed by MD5), but the HMAC SHA-256 fails.
         //
-        // This closes the replay-tamper attack where an attacker captures a
-        // valid IPN, then changes `customer_email` / `item_id_1` and re-POSTs.
-        // The MD5 hash still validates (those fields aren't signed), but the
-        // HMAC SHA-256 fails because the changed fields ARE signed.
+        // P0-2 FIX (audit): HMAC is now MANDATORY in production. If
+        // TWOCHECKOUT_BUY_LINK_SECRET_WORD is not set:
+        //   - In production: FAIL CLOSED (return false).
+        //   - In testing/local: accept MD5-only IF TWOCHECKOUT_ALLOW_MD5_ONLY=true.
         $buyLinkSecret   = config('services.2checkout.buy_link_secret_word');
+        $allowMd5Only    = config('services.2checkout.allow_md5_only', false);
         $receivedSig     = $request->input('signature');
+        $isProduction    = app()->environment('production');
 
         if ($buyLinkSecret) {
+            // HMAC is configured — the `signature` field MUST be present
+            // and MUST verify.
             if (! $receivedSig) {
-                Log::warning('2Checkout: signature field missing but HMAC verification enabled', [
+                Log::warning('2Checkout: signature field missing but HMAC verification is configured', [
                     'invoice_id' => $request->input('invoice_id'),
                 ]);
                 return false;
@@ -738,6 +762,27 @@ class WebhookController extends Controller
                 'invoice_id' => $request->input('invoice_id'),
             ]);
             return false;
+        } else {
+            // No buy_link_secret configured AND no signature field present.
+            // This is the MD5-only path — DANGEROUS because MD5 doesn't cover
+            // customer_email, item_id, or message_type.
+            //
+            // P0-2 FIX: fail closed in production unless the operator has
+            // explicitly set TWOCHECKOUT_ALLOW_MD5_ONLY=true as an escape
+            // hatch (e.g. during 2Checkout account migration).
+            if ($isProduction && ! $allowMd5Only) {
+                Log::critical('2Checkout: HMAC secret not configured in production — FAILING CLOSED. Set TWOCHECKOUT_BUY_LINK_SECRET_WORD in .env, or set TWOCHECKOUT_ALLOW_MD5_ONLY=true as an emergency escape hatch.', [
+                    'invoice_id' => $request->input('invoice_id'),
+                ]);
+                return false;
+            }
+
+            // Either non-production, or allow_md5_only is explicitly true.
+            Log::warning('2Checkout: Accepting MD5-only webhook (HMAC not configured). This is insecure — configure TWOCHECKOUT_BUY_LINK_SECRET_WORD immediately.', [
+                'invoice_id'     => $request->input('invoice_id'),
+                'allow_md5_only' => $allowMd5Only ? 'true' : 'false',
+                'environment'    => app()->environment(),
+            ]);
         }
 
         // ── Layer 3: IP allowlist (optional, env-gated) ─────────────────
@@ -752,6 +797,13 @@ class WebhookController extends Controller
                 ]);
                 return false;
             }
+        } elseif ($isProduction) {
+            // Defense-in-depth: the IP allowlist is not the primary defense
+            // (HMAC is), but it blocks casual abuse. Log a critical warning
+            // so ops knows to configure it.
+            Log::critical('2Checkout: TWOCHECKOUT_WEBHOOK_IP_ALLOWLIST not configured in production. HMAC is the primary defense, but the IP allowlist should be set for defense-in-depth. See 2Checkout merchant docs for INS server IP ranges.', [
+                'invoice_id' => $request->input('invoice_id'),
+            ]);
         }
 
         return true;

@@ -50,12 +50,19 @@ Route::get('/health', function () {
     }
 })->name('health');
 
-// ── Installer (REMOVED in task C08) ──────────────────────────────────────
+// ── Installer (REMOVED in task C08, NEUTRALIZED in P0-5) ───────────────────
 // The public /install/ directory and InstallerController have been removed.
 // They were a standing risk: gated only by storage/.installed, the route
 // called Artisan::call('migrate:fresh', ['--force' => true]) which drops
 // every table. A missing lockfile (container rebuild without persistent
 // volume) made the route reproducible — an attacker could wipe the DB.
+//
+// P0-5: The InstallerController.php file has been overwritten with a
+// harmless stub (all methods return 404, no migrate:fresh, no .env
+// writing). The installer views (resources/views/installer/*) and the
+// public/install/ directory have been physically deleted. The founder
+// should also `git rm app/Http/Controllers/InstallerController.php` to
+// remove the stub file entirely.
 //
 // First-run setup is now done via artisan commands:
 //   php artisan migrate --force
@@ -90,6 +97,21 @@ Route::view('/payment-security', 'pages.security')->name('security');
 Route::view('/pricing',          'pages.pricing')->name('pricing');
 Route::view('/contact',          'pages.contact')->name('contact');
 Route::post('/contact', [\App\Http\Controllers\ContactController::class, 'submit'])->name('contact.submit')->middleware('throttle:5,10');
+
+// ── Unsubscribe (P0-3: CAN-SPAM/GDPR one-click unsubscribe) ──────────────
+// BOTH routes are protected by Laravel's `signed` middleware — the
+// signature is HMAC-signed with APP_KEY, so only the app can generate
+// valid unsubscribe links. An attacker cannot forge a link to unsubscribe
+// another user.
+//
+// P0-3 AUDIT FIX: The POST route previously lacked the `signed` middleware,
+// creating an IDOR vulnerability — any visitor with a CSRF token could POST
+// to /unsubscribe/{userId} and unsubscribe any user. The POST route now
+// also requires a valid signature, and the form on the GET page includes
+// the signature as a hidden field so it's submitted with the POST.
+Route::get('/unsubscribe/{user}',      [\App\Http\Controllers\UnsubscribeController::class, 'show'])->name('unsubscribe.show')->middleware('signed');
+Route::post('/unsubscribe/{user}',     [\App\Http\Controllers\UnsubscribeController::class, 'confirm'])->name('unsubscribe.confirm')->middleware('signed');
+Route::get('/unsubscribe-done',        [\App\Http\Controllers\UnsubscribeController::class, 'done'])->name('unsubscribe.done');
 
 // ── Demo redirect ────────────────────────────────────────────────────────
 Route::get('/gallery/demo', function () {

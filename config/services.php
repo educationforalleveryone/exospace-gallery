@@ -9,8 +9,8 @@ return [
     |
     | This file is for storing the credentials for third party services such
     | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
+    | location for this type of information, allowing packages to have a
+    | conventional file to locate these service credentials.
     |
     */
 
@@ -39,16 +39,40 @@ return [
         'account_number'         => env('TWOCHECKOUT_ACCOUNT_NUMBER'),
         'secret_word'            => env('TWOCHECKOUT_SECRET_WORD'),
 
-        // Optional but strongly recommended — see WebhookController::verify2CheckoutSignature()
-        // When set, the webhook's `signature` field is verified via HMAC SHA-256
-        // over the security-critical IPN fields (customer_email, item_id, amount, etc.).
-        // Configure 2Checkout to send the `signature` parameter in your merchant
-        // dashboard (Notification settings → Advanced → HMAC SHA-256 signature).
+        // P0-2 FIX (audit): HMAC SHA-256 signature verification is now
+        // MANDATORY in production. When set, the webhook's `signature`
+        // field is verified via HMAC SHA-256 over the security-critical
+        // IPN fields (customer_email, item_id, message_type, amount, etc.).
+        // This closes the replay-tamper attack where an attacker captures
+        // a valid IPN, then changes customer_email / item_id_1 / message_type
+        // and re-POSTs it — the MD5 hash still validates (those fields
+        // aren't signed by MD5), but the HMAC SHA-256 fails.
+        //
+        // Configure 2Checkout to send the `signature` parameter in your
+        // merchant dashboard (Notification settings → Advanced →
+        // HMAC SHA-256 signature). The buy-link secret word is configured
+        // in the same dashboard section.
+        //
+        // If this is empty in production, the webhook FAILS CLOSED
+        // (returns 403 on every IPN) unless TWOCHECKOUT_ALLOW_MD5_ONLY=true
+        // is explicitly set as an emergency escape hatch.
         'buy_link_secret_word'   => env('TWOCHECKOUT_BUY_LINK_SECRET_WORD'),
+
+        // Emergency escape hatch for MD5-only mode. Defaults to false.
+        // Set to true ONLY during 2Checkout account migration or if the
+        // HMAC signature configuration is temporarily unavailable.
+        // Every webhook received in this mode logs a CRITICAL warning.
+        // filter_var is used because env() returns strings — without it,
+        // the string 'false' would be truthy in PHP.
+        'allow_md5_only'         => filter_var(env('TWOCHECKOUT_ALLOW_MD5_ONLY', false), FILTER_VALIDATE_BOOLEAN),
 
         // Optional comma-separated IP allowlist for 2Checkout INS servers.
         // 2Checkout publishes their INS IP ranges in their merchant docs.
         // Example: "198.61.180.0/22,162.242.218.0/24"
+        //
+        // When NOT set in production, the webhook logs a CRITICAL warning
+        // on every request (but does not reject — HMAC is the primary
+        // defense, IP allowlist is defense-in-depth).
         'webhook_ip_allowlist'   => env('TWOCHECKOUT_WEBHOOK_IP_ALLOWLIST'),
 
         'product_id_pro'         => env('TWOCHECKOUT_PRODUCT_ID_PRO'),

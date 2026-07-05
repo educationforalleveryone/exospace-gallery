@@ -36,7 +36,9 @@ class ImageProcessingService
         // (Task H25 / audit M8) — use .jpg extension since we re-encode to JPEG.
         // Previously used getgetClientOriginalExtension() which trusted the
         // user's filename and could produce .php.jpg polyglot names.
-        $filename = uniqid() . '.jpg';
+        // P0-4: also use Str::random instead of uniqid() to prevent
+        // filename collisions under high concurrency (audit SEC-13).
+        $filename = \Illuminate\Support\Str::random(40) . '.jpg';
         $path = "galleries/{$galleryId}";
 
         Storage::disk('public')->makeDirectory($path);
@@ -50,7 +52,12 @@ class ImageProcessingService
             $image->scaleDown(width: 2048, height: 2048);
         }
 
-        // Save Main Image as JPEG
+        // Save Main Image as JPEG.
+        // P0-4: Re-encoding to JPEG strips ALL EXIF metadata (GPS coordinates,
+        // camera serial numbers, photographer name, etc.). The raw upload is
+        // NEVER stored on disk — only the re-encoded, EXIF-free version.
+        // This is a GDPR privacy requirement: EXIF GPS data can reveal a
+        // photographer's home address.
         $mainPath = "{$path}/{$filename}";
         $mainData = (string) $image->toJpeg(85);
         Storage::disk('public')->put($mainPath, $mainData);
@@ -91,15 +98,49 @@ class ImageProcessingService
      * The Spatie conversions (thumb, small, medium, large — all WebP)
      * are registered in GalleryImage::registerMediaConversions() and
      * run via the queue (except thumb which is nonQueued).
+     *
+     * P0-4 FIX (audit): EXIF stripping.
+     * Previously, the raw $file (UploadedFile) was passed to addMedia(),
+     * which stored the original upload UNTOUCHED — including all EXIF
+     * metadata (GPS coordinates, camera serial numbers, photographer
+     * name). This is a GDPR violation: the Spatie 'original' collection
+     * persisted on disk indefinitely, even after the user deleted their
+     * account (UserDeletionService only deleted the legacy `path` column,
+     * not the Spatie-managed files).
+     *
+     * The fix: read the EXIF-stripped main image from disk (already
+     * re-encoded as JPEG at 85% quality by process()) and add THAT to
+     * Spatie. The re-encoded image has no EXIF metadata. The raw $file
+     * is only used as a fallback if the re-encoded file is missing.
      */
     public function registerMedia(GalleryImage $image, UploadedFile $file): void
     {
         try {
-            $image->addMedia($file)
+            // P0-4: Read the EXIF-stripped main image from disk instead of
+            // the raw upload. The main image was saved by process() at
+            // "galleries/{gallery_id}/{filename}" on the public disk.
+            $mainRelativePath = "galleries/{$image->gallery_id}/{$image->filename}";
+            $mainAbsolutePath = Storage::disk('public')->path($mainRelativePath);
+
+            if (file_exists($mainAbsolutePath)) {
+                $sourceFile = $mainAbsolutePath;
+            } else {
+                // Fallback: use the raw upload if the re-encoded file is
+                // missing (shouldn't happen — process() runs before
+                // registerMedia() — but defensive). Log a warning so we
+                // know EXIF wasn't stripped for this upload.
+                Log::warning('ImageProcessingService: EXIF-stripped main image not found, falling back to raw upload', [
+                    'image_id'   => $image->id,
+                    'expected'   => $mainRelativePath,
+                ]);
+                $sourceFile = $file->getRealPath();
+            }
+
+            $image->addMedia($sourceFile)
                   ->usingFileName($image->filename)
                   ->toMediaCollection('original');
 
-            Log::info('ImageProcessingService: registered Spatie media for image', [
+            Log::info('ImageProcessingService: registered Spatie media for image (EXIF stripped)', [
                 'image_id' => $image->id,
             ]);
         } catch (\Throwable $e) {

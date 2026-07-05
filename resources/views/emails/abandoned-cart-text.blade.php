@@ -29,6 +29,12 @@ This link will resume your checkout with 2Checkout. Your upgrade activates autom
 
 ---
 
+You're receiving this email because you started an upgrade on Exospace.
+Unsubscribe: {{ \Illuminate\Support\Facades\URL::signedRoute('unsubscribe.show', ['user' => $user->id]) }}
+
 © {{ date('Y') }} Exospace Gallery. All rights reserved.
+@if(config('app.business_address'))
+{{ config('app.business_address') }}
+@endif
 Manage your billing: {{ config('app.url') }}/billing
 Refund policy: {{ config('app.url') }}/refund-policy

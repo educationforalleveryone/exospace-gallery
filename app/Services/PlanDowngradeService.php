@@ -75,11 +75,38 @@ class PlanDowngradeService
         // 2. Clean up Studio-only resources on every gallery owned by the user.
         //    Team galleries are also cleaned up because the user is the owner
         //    (team_id != null but user_id still points at the original creator).
+        //
+        //    P0-1 FIX (audit): The four whereNotNull / orWhereNotNull clauses
+        //    MUST be wrapped in a single where(closure) so the user_id
+        //    constraint from $user->galleries() applies to ALL four
+        //    conditions. Without the closure, SQL operator precedence makes
+        //    AND bind tighter than OR, producing:
+        //
+        //      WHERE (user_id = ? AND custom_domain IS NOT NULL)
+        //         OR (custom_logo_path IS NOT NULL)          -- UN_SCOPED!
+        //         OR (curtain_logo_path IS NOT NULL)         -- UN_SCOPED!
+        //         OR (audio_path IS NOT NULL)                -- UN_SCOPED!
+        //
+        //    which matches ANY gallery in the database with any of those
+        //    fields populated — wiping branding across every paying customer
+        //    on every downgrade. The closure produces the correct:
+        //
+        //      WHERE user_id = ?
+        //        AND (custom_domain IS NOT NULL
+        //             OR custom_logo_path IS NOT NULL
+        //             OR curtain_logo_path IS NOT NULL
+        //             OR audio_path IS NOT NULL)
+        //
+        //    The closure is also required for chunkById() correctness:
+        //    chunkById paginates with WHERE id > ?, and an unscoped OR
+        //    would produce an incorrect result set across pages.
         $user->galleries()
-            ->whereNotNull('custom_domain')
-            ->orWhereNotNull('custom_logo_path')
-            ->orWhereNotNull('curtain_logo_path')
-            ->orWhereNotNull('audio_path')
+            ->where(function ($q) {
+                $q->whereNotNull('custom_domain')
+                  ->orWhereNotNull('custom_logo_path')
+                  ->orWhereNotNull('curtain_logo_path')
+                  ->orWhereNotNull('audio_path');
+            })
             ->chunkById(50, function ($galleries) use ($reason) {
                 foreach ($galleries as $gallery) {
                     $this->cleanupGalleryStudioResources($gallery, $reason);
@@ -201,7 +228,9 @@ class PlanDowngradeService
         // Strip a leading "storage/" if present — the public disk's root is
         // already storage/app/public, so "storage/foo.jpg" would resolve to
         // storage/app/public/storage/foo.jpg which doesn't exist.
-        $clean = str_replace('storage/', '', $path);
+        // Use Str::after (preg_match anchored to start) instead of
+        // str_replace (which would over-replace "storage/foo/storage/bar").
+        $clean = \Illuminate\Support\Str::after($path, 'storage/');
 
         try {
             if ($disk->exists($clean)) {
