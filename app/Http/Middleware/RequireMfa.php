@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Controllers\MfaController;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -9,23 +10,10 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Require TOTP MFA verification for super-admin routes. (Task H56)
  *
- * This middleware checks if the authenticated super-admin has completed
- * MFA verification in the current session. If not, they're redirected
- * to the MFA verification page.
- *
- * MFA verification is session-scoped: once verified, the user doesn't
- * need to re-enter their TOTP code for the rest of the session (or
- * until the session expires).
- *
- * Setup flow:
- *   1. Super-admin visits /profile/mfa → sees QR code
- *   2. Scans with Google Authenticator / Authy / 1Password
- *   3. Enters the 6-digit code to verify
- *   4. Secret is stored encrypted in google2fa_secret
- *   5. On next /master-control/* visit, RequireMfa redirects to /mfa/verify
- *   6. User enters 6-digit code → session marked as MFA-verified
- *
- * Prerequisite: `composer require pragmarx/google2fa-qrcode`
+ * P3-8: MFA session expires after 30 minutes. The RequireMfa middleware
+ * now checks both the mfa_verified flag AND the mfa_verified_at timestamp.
+ * If the session is older than 30 minutes, the user must re-enter their
+ * TOTP code (GitHub sudo-mode pattern).
  */
 class RequireMfa
 {
@@ -40,19 +28,22 @@ class RequireMfa
 
         // If MFA is not set up yet, allow access (first-time setup)
         if (! $user->google2fa_secret) {
-            // Redirect to MFA setup if not configured
-            if (! $request->routeIs('mfa.setup') && ! $request->routeIs('mfa.verify')) {
+            if (! $request->routeIs('mfa.setup') && ! $request->routeIs('mfa.verify') && ! $request->routeIs('mfa.backup-codes')) {
                 return redirect()->route('mfa.setup')
                     ->with('warning', 'Multi-factor authentication is required for super-admin accounts. Please set it up now.');
             }
             return $next($request);
         }
 
-        // MFA is set up — check if verified in this session
-        if (! session('mfa_verified')) {
+        // P3-8: Check if MFA session is still valid (within 30-minute TTL)
+        if (! MfaController::isMfaSessionValid($request)) {
+            // Clear stale session flag
+            $request->session()->forget('mfa_verified');
+            $request->session()->forget('mfa_verified_at');
+
             if (! $request->routeIs('mfa.verify')) {
                 return redirect()->route('mfa.verify')
-                    ->with('info', 'Please enter your authenticator code to access the super-admin panel.');
+                    ->with('info', 'Your MFA session has expired. Please re-enter your authenticator code.');
             }
         }
 

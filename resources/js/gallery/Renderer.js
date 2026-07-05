@@ -28,11 +28,6 @@ export function initRenderer() {
         powerPreference: earlyLowEnd ? 'low-power' : 'high-performance',
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    // PERF: Cap pixel ratio at 1.5 (was 2.0). On a 4K display at 2x DPR,
-    // 2.0 means rendering 4× the pixels of 1.0 — a massive fill-rate cost
-    // that drops mid-range GPUs (RX580, GTX1060) to 20fps. 1.5 looks
-    // visually identical to 2.0 but cuts fill rate by 44%.
-    // Low-end devices still get 1.0 (set in applyLowEndSettings).
     this.renderer.setPixelRatio(earlyLowEnd ? 1 : Math.min(window.devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = CONFIG.performance.shadowsEnabled;
     this.renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
@@ -41,6 +36,42 @@ export function initRenderer() {
     this.renderer.outputColorSpace  = THREE.SRGBColorSpace;
 
     this.container.appendChild(this.renderer.domElement);
+
+    // S-7: WebGL context-loss handling.
+    // On Windows with switchable GPUs, driver crashes, or sleep/wake,
+    // the WebGL context can be lost. Without handling, the renderer
+    // silently stops and the visitor sees a frozen frame.
+    this._contextLost = false;
+
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        this._contextLost = true;
+        console.error('WebGL context lost — attempting recovery...');
+
+        // Show a recovery overlay if one exists
+        const overlay = document.getElementById('webgl-recovery');
+        if (overlay) overlay.style.display = 'flex';
+    }, false);
+
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => {
+        console.log('WebGL context restored — rebuilding scene...');
+        this._contextLost = false;
+
+        const overlay = document.getElementById('webgl-recovery');
+        if (overlay) overlay.style.display = 'none';
+
+        // The scene needs to be re-initialized — re-create materials,
+        // re-upload textures, re-set renderer state.
+        // GalleryScene.dispose() was called on context loss (if wired),
+        // so we re-init from scratch.
+        if (this.init) {
+            try {
+                this.init();
+            } catch (e) {
+                console.error('Scene rebuild failed after context restore:', e);
+            }
+        }
+    }, false);
 }
 
 // Full hardware tier detection: CPU + GPU + RAM + runtime FPS benchmark.

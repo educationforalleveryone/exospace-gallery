@@ -66,6 +66,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'mfa_enabled_at',     // (Task H56) — when MFA was activated
         'inactive_nudged_at',       // (P0-7) — last inactive-nudge email sent
         'plan_expiry_reminded_at',  // (P0-7) — last plan-expiry reminder sent
+        'mfa_backup_codes',         // (P3-7) — hashed one-time backup codes
     ];
 
     protected $hidden = [
@@ -86,6 +87,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'inactive_nudged_at'       => 'datetime', // (P0-7) — last inactive-nudge
             'plan_expiry_reminded_at'  => 'datetime', // (P0-7) — last plan-expiry reminder
             'marketing_consent' => 'boolean',      // (P0-3) — CAN-SPAM/GDPR consent
+            'mfa_backup_codes'  => 'array',         // (P3-7) — hashed one-time codes
         ];
     }
 

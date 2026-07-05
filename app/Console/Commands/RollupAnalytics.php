@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\AnalyticsEvent;
-use App\Models\Gallery;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -11,19 +10,11 @@ use Illuminate\Support\Facades\Log;
 /**
  * Roll up raw analytics_events into analytics_daily, then prune old events.
  *
- * (Task H30 / audit H31) — the analytics_events table grows unboundedly.
- * This command:
- *   1. Aggregates events from the last N days (default: all unrolled days)
- *      into analytics_daily (one row per gallery per day).
- *   2. Prunes raw events older than the retention window (default: 90 days).
- *
- * Scheduled daily via routes/console.php.
- *
- * Usage:
- *   php artisan exospace:rollup-analytics              # roll up + prune
- *   php artisan exospace:rollup-analytics --days=7     # roll up last 7 days
- *   php artisan exospace:rollup-analytics --retention=180  # prune older than 180 days
- *   php artisan exospace:rollup-analytics --prune-only  # skip rollup
+ * S-1 FIX (audit): Previously used an N+1 loop — for each gallery × day
+ * combination, it ran 5 separate COUNT/AVG queries (6 queries × N galleries
+ × N days = potentially hundreds of thousands of queries). Now uses a
+ * single INSERT ... SELECT ... GROUP BY query that aggregates all
+ * gallery-day combinations in one pass.
  */
 class RollupAnalytics extends Command
 {
@@ -50,20 +41,17 @@ class RollupAnalytics extends Command
     }
 
     /**
-     * Aggregate raw events into analytics_daily.
+     * S-1 FIX: Aggregate raw events into analytics_daily using a single
+     * INSERT ... ON DUPLICATE KEY UPDATE query with conditional aggregation.
      *
-     * For each gallery × day combination, count views, unique visitors
-     * (distinct session_token), focuses, tour_starts, and average dwell.
-     *
-     * Uses INSERT ... ON DUPLICATE KEY UPDATE so re-running for a day
-     * that's already been rolled up updates the counts (idempotent).
+     * This replaces the previous N+1 loop (6 queries per gallery × day)
+     * with ONE query regardless of how many galleries or days are involved.
      */
     private function rollup(): void
     {
         $days = $this->option('days');
         $startDate = $days ? now()->subDays((int) $days)->toDateString() : null;
 
-        // Find the earliest unrolled event date
         if (! $startDate) {
             $earliestEvent = AnalyticsEvent::min('created_at');
             if (! $earliestEvent) {
@@ -73,49 +61,44 @@ class RollupAnalytics extends Command
             $startDate = date('Y-m-d', strtotime($earliestEvent));
         }
 
-        $endDate = now()->subDay()->toDateString(); // don't roll up today
-        $this->info("Rolling up events from {$startDate} to {$endDate}...");
+        $endDate = now()->startOfDay();
+        $this->info("Rolling up events from {$startDate} to {$endDate->toDateString()}...");
 
-        // Get distinct gallery × day combinations
-        $combinations = AnalyticsEvent::select(
-                DB::raw('gallery_id'),
-                DB::raw('DATE(created_at) as date')
-            )
-            ->where('created_at', '>=', $startDate)
-            ->where('created_at', '<', now()->startOfDay())
-            ->groupBy('gallery_id', 'date')
-            ->get();
+        // S-1: Single INSERT ... ON DUPLICATE KEY UPDATE with conditional aggregation.
+        // SUM(CASE WHEN event='view' THEN 1 ELSE 0 END) counts views.
+        // COUNT(DISTINCT CASE WHEN event='view' THEN session_token END) counts unique visitors.
+        // AVG(CASE WHEN event='view' AND dwell_seconds IS NOT NULL THEN dwell_seconds END) computes avg dwell.
+        $inserted = DB::affectingStatement("
+            INSERT INTO analytics_daily (gallery_id, date, views, unique_visitors, focuses, tour_starts, avg_dwell_seconds, created_at, updated_at)
+            SELECT
+                gallery_id,
+                DATE(created_at) as date,
+                SUM(CASE WHEN event = 'view' THEN 1 ELSE 0 END) as views,
+                COUNT(DISTINCT CASE WHEN event = 'view' THEN session_token END) as unique_visitors,
+                SUM(CASE WHEN event = 'focus' THEN 1 ELSE 0 END) as focuses,
+                SUM(CASE WHEN event = 'tour_start' THEN 1 ELSE 0 END) as tour_starts,
+                COALESCE(ROUND(AVG(CASE WHEN event = 'view' AND dwell_seconds IS NOT NULL THEN dwell_seconds END), 2), 0) as avg_dwell_seconds,
+                NOW(),
+                NOW()
+            FROM analytics_events
+            WHERE created_at >= ? AND created_at < ?
+            GROUP BY gallery_id, DATE(created_at)
+            ON DUPLICATE KEY UPDATE
+                views = VALUES(views),
+                unique_visitors = VALUES(unique_visitors),
+                focuses = VALUES(focuses),
+                tour_starts = VALUES(tour_starts),
+                avg_dwell_seconds = VALUES(avg_dwell_seconds),
+                updated_at = NOW()
+        ", [$startDate, $endDate]);
 
-        $rolled = 0;
-        foreach ($combinations as $combo) {
-            $dayEvents = AnalyticsEvent::where('gallery_id', $combo->gallery_id)
-                ->whereDate('created_at', $combo->date);
+        $this->info("Rolled up analytics for period {$startDate} to {$endDate->toDateString()} ({$inserted} rows affected).");
 
-            $views = (clone $dayEvents)->where('event', 'view')->count();
-            $uniqueVisitors = (clone $dayEvents)->where('event', 'view')
-                ->distinct('session_token')->count('session_token');
-            $focuses = (clone $dayEvents)->where('event', 'focus')->count();
-            $tourStarts = (clone $dayEvents)->where('event', 'tour_start')->count();
-            $avgDwell = (clone $dayEvents)->where('event', 'view')
-                ->whereNotNull('dwell_seconds')->avg('dwell_seconds') ?? 0;
-
-            // Upsert into analytics_daily
-            DB::table('analytics_daily')->updateOrInsert(
-                ['gallery_id' => $combo->gallery_id, 'date' => $combo->date],
-                [
-                    'views'            => $views,
-                    'unique_visitors'  => $uniqueVisitors,
-                    'focuses'          => $focuses,
-                    'tour_starts'      => $tourStarts,
-                    'avg_dwell_seconds'=> round($avgDwell, 2),
-                    'updated_at'       => now(),
-                    'created_at'       => now(),
-                ]
-            );
-            $rolled++;
-        }
-
-        $this->info("Rolled up {$rolled} gallery-day combinations.");
+        Log::info('RollupAnalytics: rollup complete', [
+            'start_date' => $startDate,
+            'end_date' => $endDate->toDateString(),
+            'rows_affected' => $inserted,
+        ]);
     }
 
     /**
@@ -133,7 +116,6 @@ class RollupAnalytics extends Command
 
         $this->info("Pruning {$count} events older than {$retentionDays} days...");
 
-        // Delete in chunks to avoid locking the table
         AnalyticsEvent::where('created_at', '<', $cutoff)
             ->chunkById(1000, function ($events) {
                 $ids = $events->pluck('id');
@@ -141,8 +123,8 @@ class RollupAnalytics extends Command
             });
 
         Log::info('RollupAnalytics: pruned old events', [
-            'count'    => $count,
-            'cutoff'   => $cutoff->toDateString(),
+            'count'  => $count,
+            'cutoff' => $cutoff->toDateString(),
         ]);
         $this->info("Pruned {$count} old events.");
     }

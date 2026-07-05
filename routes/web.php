@@ -39,16 +39,9 @@ Route::get('/db-check', function () {
 });
 
 // ── Healthcheck endpoint for Coolify readiness probe ────────────────────
-// Returns 200 if DB is reachable + a key migration table exists.
-// No auth, no schema leak — safe to expose publicly.
-Route::get('/health', function () {
-    try {
-        \Illuminate\Support\Facades\DB::select('SELECT 1');
-        return response()->json(['status' => 'ok', 'ts' => time()], 200);
-    } catch (\Throwable $e) {
-        return response()->json(['status' => 'down', 'error' => 'db unreachable'], 503);
-    }
-})->name('health');
+// P3-3/P3-4/P3-5: Full subsystem health check (DB, Redis, queue, storage).
+// Returns 200 if all healthy, 503 if any subsystem is down.
+Route::get('/health', [\App\Http\Controllers\HealthController::class, 'check'])->name('health');
 
 // ── Installer (REMOVED in task C08, NEUTRALIZED in P0-5) ───────────────────
 // The public /install/ directory and InstallerController have been removed.
@@ -192,6 +185,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'enable'])->middleware('throttle:6,1');
     Route::get('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'showVerify'])->name('mfa.verify');
     Route::post('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'verify'])->middleware('throttle:6,1');
+    // P3-7: One-time backup codes display after MFA enable
+    Route::get('/mfa/backup-codes', [\App\Http\Controllers\MfaController::class, 'showBackupCodes'])->name('mfa.backup-codes');
 
     // ── Billing portal + upgrade flow (tasks H01 + H02) ────────────────
     // /billing shows current plan, transaction history, pending upgrades.

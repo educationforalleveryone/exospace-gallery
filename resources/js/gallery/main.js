@@ -197,3 +197,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Expose for debugging in the browser console
 window.__exospace = { get scene() { return galleryScene; }, get tour() { return guidedTour; } };
+
+// S-6: Dispose GPU resources when the page is hidden or unloaded.
+// Prevents memory leaks in the admin Live Preview iframe (which reloads
+// on structural changes) and in the public gallery viewer when the
+// visitor navigates away.
+window.addEventListener('pagehide', () => {
+    if (galleryScene) {
+        galleryScene.dispose();
+        galleryScene = null;
+    }
+}, { once: true });
+
+// Also dispose on beforeunload (fallback for older browsers)
+window.addEventListener('beforeunload', () => {
+    if (galleryScene) {
+        galleryScene.dispose();
+        galleryScene = null;
+    }
+}, { once: true });

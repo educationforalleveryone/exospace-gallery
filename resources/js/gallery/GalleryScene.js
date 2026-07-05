@@ -199,11 +199,66 @@ export class GalleryScene {
     playAudio()                                     { return playAudio.call(this); }
     toggleMute()                                    { return toggleMute.call(this); }
 
+    // S-6: Dispose all GPU resources to prevent memory leaks.
+    // Traverses the scene and disposes every geometry, material, and texture.
+    // Called on pagehide/beforeunload and before scene rebuilds.
+    dispose() {
+        if (! this.scene) return;
+
+        this.scene.traverse((obj) => {
+            // Dispose geometry
+            if (obj.geometry) {
+                obj.geometry.dispose();
+            }
+
+            // Dispose material(s) — may be an array or single
+            const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+            materials.forEach((mat) => {
+                if (! mat) return;
+
+                // Dispose all texture maps
+                const textureKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'alphaMap'];
+                textureKeys.forEach((key) => {
+                    if (mat[key] && typeof mat[key].dispose === 'function') {
+                        mat[key].dispose();
+                    }
+                });
+
+                // Dispose the material itself
+                if (typeof mat.dispose === 'function') {
+                    mat.dispose();
+                }
+            });
+        });
+
+        // Dispose the renderer
+        if (this.renderer) {
+            this.renderer.dispose();
+        }
+
+        // Dispose controls
+        if (this.controls && typeof this.controls.dispose === 'function') {
+            this.controls.dispose();
+        }
+
+        // Dispose PostProcessing composer
+        if (this.composer) {
+            this.composer.renderTargets?.forEach(rt => rt?.dispose?.());
+        }
+
+        // Clear the scene
+        this.scene.clear();
+        this.scene = null;
+
+        console.log('GalleryScene: disposed all GPU resources');
+    }
+
     // ── Main animation loop ─────────────────────────────────────────────────
     animate() {
         requestAnimationFrame(() => this.animate());
 
-        if (!this._isVisible) return;
+        // S-7: Skip rendering when context is lost
+        if (this._contextLost || !this._isVisible) return;
 
         // Cap to ~30fps on low-end (skip every other frame)
         if (this.isLowEnd) {
