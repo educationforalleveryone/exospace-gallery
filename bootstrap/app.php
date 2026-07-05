@@ -17,18 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(\App\Http\Middleware\DetectCustomDomain::class);
 
         // 0b. Exempt 2Checkout IPN webhook routes from CSRF protection.
-        //     2Checkout's INS (Instant Notification Service) sends server-to-
-        //     server POSTs that do not carry a Laravel CSRF token. Without
-        //     this exemption every webhook returns HTTP 419 and no paying
-        //     customer is ever upgraded.
-        //
-        //     SECURITY: these routes are instead authenticated by the HMAC
-        //     signature verification in WebhookController::verify2CheckoutHash().
-        //     A request that fails signature verification is rejected with 403
-        //     before any state mutation occurs. See WebhookController for the
-        //     signature algorithm. Do NOT add other routes here lightly.
+        //     SEC-3 FIX: Tightened from 'webhooks/*' (matches ANY path under
+        //     webhooks/) to the exact two routes that 2Checkout uses.
         $middleware->validateCsrfTokens(except: [
-            'webhooks/*',
+            'webhooks/2checkout',
+            'webhooks/2checkout/refund',
         ]);
 
         // 0a. Scope session cookie domain to the request host — runs BEFORE

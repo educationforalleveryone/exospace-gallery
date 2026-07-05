@@ -99,11 +99,22 @@ export async function loadAssets() {
         }
 
         // ── Load artworks ────────────────────────────────────────────────────
+        // PERF-5 FIX: Limit concurrent texture loads to 6 (browser HTTP/2
+        // connection cap per origin). Previously, a 100-image gallery fired
+        // 100 parallel TextureLoader.load() calls — each allocating an Image
+        // element + decode pipeline. Now uses a simple semaphore.
         this.updateProgress(30, 'Loading artwork...');
         this.artworkImages = [];
 
-        const artworkPromises = data.images.map((img, index) => {
+        const MAX_CONCURRENT = 6;
+        let loadIndex = 0;
+        let completedCount = 0;
+        const totalImages = data.images.length;
+
+        const loadNext = () => {
             return new Promise(resolve => {
+                if (loadIndex >= totalImages) { resolve(); return; }
+                const img = data.images[loadIndex++];
                 textureLoader.load(
                     img.url,
                     (texture) => {
@@ -120,19 +131,30 @@ export async function loadAssets() {
                             aspectRatio,
                             title: img.title,
                             description: img.description,
-                            ...img, // keep all metadata (artist, price, medium, etc.)
+                            ...img,
                         });
 
-                        const percent = 30 + ((index + 1) / data.images.length) * 60;
-                        this.updateProgress(percent, `Loading artwork ${index + 1}/${data.images.length}`);
+                        completedCount++;
+                        const percent = 30 + (completedCount / totalImages) * 60;
+                        this.updateProgress(percent, `Loading artwork ${completedCount}/${totalImages}`);
                         resolve();
                     },
                     undefined,
-                    () => resolve() // skip failed images silently
+                    () => { completedCount++; resolve(); } // skip failed
                 );
             });
-        });
-        await Promise.all(artworkPromises);
+        };
+
+        // Launch MAX_CONCURRENT workers that pull from the queue
+        const workers = [];
+        for (let i = 0; i < Math.min(MAX_CONCURRENT, totalImages); i++) {
+            workers.push((async () => {
+                while (loadIndex < totalImages) {
+                    await loadNext();
+                }
+            })());
+        }
+        await Promise.all(workers);
 
         // ── Build the room ───────────────────────────────────────────────────
         this.updateProgress(95, 'Building gallery...');

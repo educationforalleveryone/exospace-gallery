@@ -390,6 +390,18 @@ export class GalleryScene {
     applyLiveOverride(patch) {
         if (!patch || typeof patch !== 'object') return;
 
+        // PERF-4 FIX: Throttle scene.traverse to max 1 call per 100ms.
+        // Previously, every slider drag in the admin Live Preview triggered
+        // a full scene.traverse — could jank on large galleries.
+        const now = performance.now();
+        if (this._lastTraverseTime && (now - this._lastTraverseTime) < 100) {
+            // Queue the patch for the next throttle window
+            this._pendingPatch = patch;
+            return;
+        }
+        this._lastTraverseTime = now;
+        this._pendingPatch = null;
+
         // ── Auto-tag floors + fill lights on first call ──────────────────
         // The Live Preview's material/fill-intensity patchers need to find
         // these meshes cheaply. Rather than modify RoomBuilder.js (which

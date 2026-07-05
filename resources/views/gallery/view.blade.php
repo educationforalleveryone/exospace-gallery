@@ -373,8 +373,8 @@
 
             <div id="curtain-progress" style="width: 300px; margin: 0 auto 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span id="curtain-progress-text" style="font-size: 0.875rem; color: rgba(255,255,255,0.6);">Preparing exhibition...</span>
-                    <span id="curtain-progress-percent" style="font-size: 0.875rem; color: rgba(255,255,255,0.8); font-weight: 600;">0%</span>
+                    <span id="curtain-progress-text" style="font-size: 0.875rem; color: rgba(255,255,255,0.75);">Preparing exhibition...</span>
+                    <span id="curtain-progress-percent" style="font-size: 0.875rem; color: rgba(255,255,255,0.9); font-weight: 600;">0%</span>
                 </div>
                 <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
                     <div id="curtain-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); transition: width 0.3s ease;"></div>
@@ -430,7 +430,17 @@
     </div>
 
     {{-- ── 3D canvas ──────────────────────────────────────────────────────────── --}}
-    <div id="canvas-container"></div>
+    {{-- A11Y-1: ARIA role + label for screen readers. The canvas is an
+         interactive 3D application — screen readers announce it as such
+         and keyboard users can skip past it. --}}
+    <div id="canvas-container"
+         role="application"
+         aria-label="Interactive 3D gallery: {{ $gallery->title }} — Use WASD to move, mouse to look, E to view artwork info, T for guided tour. Press Escape to exit pointer lock."
+         tabindex="-1"
+         aria-describedby="controls-hint"></div>
+    <div id="controls-hint" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">
+        This is an interactive 3D art gallery. Use keyboard: W A S D or arrow keys to move, mouse to look around, E to view artwork information, T for a guided tour, Escape to close dialogs. On mobile, use the on-screen joystick.
+    </div>
 
     {{-- ── Tour overlay ──────────────────────────────────────────────────────── --}}
     <div id="tour-overlay">
@@ -510,7 +520,9 @@
         </div>
 
         {{-- Artwork info panel --}}
-        <div id="info-panel">
+        {{-- A11Y-2: aria-live="polite" so screen readers announce artwork
+             title/description changes when the visitor focuses a new artwork. --}}
+        <div id="info-panel" aria-live="polite" aria-atomic="true">
             <h3 id="artwork-title">Artwork Title</h3>
             <p id="artwork-description">Description will appear here</p>
 
@@ -519,7 +531,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     <span id="artwork-artist-name"></span>
                 </a>
-                <div id="artwork-details" class="text-xs text-gray-500 space-y-0.5"></div>
+                <div id="artwork-details" class="text-xs text-gray-400 space-y-0.5"></div>
                 <div id="artwork-price-row" class="mt-2 flex items-center gap-2" style="display:none;">
                     <span id="artwork-price" class="text-green-400 font-semibold text-sm"></span>
                     <span id="artwork-for-sale-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-green-900/40 text-green-400 border border-green-700/30" style="display:none;">FOR SALE</span>
@@ -538,8 +550,8 @@
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                     Share this artwork
                 </button>
-                <p class="text-xs text-gray-500 desktop-hint">Press E to close</p>
-                <p class="text-xs text-gray-500 mobile-hint hidden">Double-tap to close</p>
+                <p class="text-xs text-gray-400 desktop-hint">Press E to close</p>
+                <p class="text-xs text-gray-400 mobile-hint hidden">Double-tap to close</p>
             </div>
         </div>
 

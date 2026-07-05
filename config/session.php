@@ -47,7 +47,11 @@ return [
     |
     */
 
-    'encrypt' => env('SESSION_ENCRYPT', false),
+    // SEC-11 FIX: Enable session encryption by default. The session stores
+    // security-relevant flags (pin_verified_{gallery-id}, mfa_verified,
+    // mfa_verified_at). Encrypting the session prevents tampering if the
+    // Redis/session store is compromised.
+    'encrypt' => env('SESSION_ENCRYPT', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -169,7 +173,10 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // SEC-12 FIX: Default to true (secure cookie). In production behind HTTPS,
+    // this ensures the session cookie is never transmitted over plaintext HTTP.
+    // Set SESSION_SECURE_COOKIE=false only for local dev over HTTP.
+    'secure' => env('SESSION_SECURE_COOKIE', true),
 
     /*
     |--------------------------------------------------------------------------
