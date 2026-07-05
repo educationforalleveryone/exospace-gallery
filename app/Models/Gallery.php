@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -111,12 +112,16 @@ class Gallery extends Model
         return $this->hasMany(NewsletterSignup::class);
     }
 
-    /** All artists featured in this gallery (via images) */
-    public function artists()
+    /**
+     * All artists featured in this gallery (via images).
+     *
+     * P2-4 FIX: Previously returned a query builder via whereHas, which
+     * broke eager loading. Now uses belongsToMany through the
+     * gallery_images pivot table.
+     */
+    public function artists(): BelongsToMany
     {
-        return Artist::whereHas('images', function ($q) {
-            $q->where('gallery_id', $this->id);
-        })->distinct()->orderBy('name');
+        return $this->belongsToMany(Artist::class, 'gallery_images')->distinct()->orderBy('name');
     }
 
     // ─── Scopes ────────────────────────────────────────────────────────

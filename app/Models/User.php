@@ -202,12 +202,22 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function canCreateGallery(): bool
     {
-        // DB-level count to avoid race conditions in concurrent requests
-        return \DB::table('galleries')
-            ->where('user_id', $this->id)
-            ->whereNull('team_id')
-            ->whereNull('deleted_at')
-            ->count() < $this->max_galleries;
+        // P2-6 FIX: Wrap in a transaction with lockForUpdate on the user row
+        // to prevent the TOCTOU race where two concurrent requests both pass
+        // the count check and both insert, exceeding the limit.
+        return \DB::transaction(function () {
+            // Lock the user row so concurrent requests wait
+            \DB::table('users')
+                ->where('id', $this->id)
+                ->lockForUpdate()
+                ->first();
+
+            return \DB::table('galleries')
+                ->where('user_id', $this->id)
+                ->whereNull('team_id')
+                ->whereNull('deleted_at')
+                ->count() < $this->max_galleries;
+        });
     }
 
     public function currentImageCount(): int

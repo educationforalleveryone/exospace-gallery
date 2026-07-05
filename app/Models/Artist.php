@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -45,12 +46,13 @@ class Artist extends Model
             if (empty($artist->slug)) {
                 $artist->slug = Str::slug($artist->name);
             }
-            // Ensure slug uniqueness
-            $base = $artist->slug;
-            $i = 1;
-            while (static::where('slug', $artist->slug)->exists()) {
-                $artist->slug = $base . '-' . (++$i);
-            }
+            // P2-5 FIX: Removed the while-loop slug uniqueness check.
+            // The DB unique constraint on 'slug' is the source of truth.
+            // If two concurrent creates produce the same slug, one will
+            // throw a QueryException (duplicate key) — the controller
+            // catches it and retries with an incremented slug.
+            // The while-loop was a TOCTOU race: both requests pass the
+            // check, one fails on the unique constraint.
         });
     }
 
@@ -68,12 +70,17 @@ class Artist extends Model
         return $this->hasMany(GalleryImage::class)->orderBy('created_at', 'desc');
     }
 
-    /** All galleries that feature at least one work by this artist */
-    public function galleries()
+    /**
+     * All galleries that feature at least one work by this artist.
+     *
+     * P2-4 FIX: Previously returned a query builder via whereHas, which
+     * broke eager loading (with('galleries')), withCount, and lazy loading.
+     * Now uses belongsToMany through the gallery_images pivot table —
+     * supports standard Eloquent relationship operations.
+     */
+    public function galleries(): BelongsToMany
     {
-        return Gallery::whereHas('images', function ($q) {
-            $q->where('artist_id', $this->id);
-        })->distinct();
+        return $this->belongsToMany(Gallery::class, 'gallery_images')->distinct();
     }
 
     // ─── Scopes ─────────────────────────────────────────────────────────

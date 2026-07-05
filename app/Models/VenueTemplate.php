@@ -130,12 +130,9 @@ class VenueTemplate extends Model
             if (empty($venue->slug)) {
                 $venue->slug = Str::slug($venue->name);
             }
-            // Ensure slug uniqueness
-            $base = $venue->slug;
-            $i = 1;
-            while (static::where('slug', $venue->slug)->exists()) {
-                $venue->slug = $base . '-' . (++$i);
-            }
+            // P2-5 FIX: Removed the while-loop slug uniqueness check.
+            // Same TOCTOU race as Artist — the DB unique constraint is
+            // the source of truth. Controllers catch QueryException and retry.
 
             // If author_id isn't set, leave it null (system-owned template).
             // Set published_at if this isn't a draft.

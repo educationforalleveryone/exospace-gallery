@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * App\Models\Transaction
@@ -41,11 +42,17 @@ class Transaction extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function pendingUpgrade(): BelongsTo
+    /**
+     * The pending_upgrade that was converted by this transaction.
+     *
+     * P2-10 FIX: Previously defined as belongsTo(PendingUpgrade::class),
+     * which expected a `transactions.pending_upgrade_id` column that
+     * doesn't exist. The FK is on `pending_upgrades.transaction_id`
+     * (the inverse direction), so this should be hasOne.
+     */
+    public function pendingUpgrade(): HasOne
     {
-        // Inverse of PendingUpgrade::transaction() — though in practice
-        // only one pending_upgrade ever links to a given transaction.
-        return $this->belongsTo(PendingUpgrade::class);
+        return $this->hasOne(PendingUpgrade::class, 'transaction_id');
     }
 
     /**

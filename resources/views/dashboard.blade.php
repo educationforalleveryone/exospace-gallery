@@ -34,13 +34,14 @@
         </div>
     </x-slot>
 
+    {{-- P2-14 FIX: Removed the welcome modal (System A). The inline "Getting
+         Started" checklist below (System B) is the single source of truth
+         for onboarding state. Both systems used the same localStorage key
+         'exospace_onboarded' — dismissing either suppressed both, which was
+         confusing. Now only the inline checklist controls onboarding display. --}}
     <div class="py-8 sm:py-10"
          x-data="{
-            showWelcome: !localStorage.getItem('exospace_onboarded') && {{ $galleriesCount }} === 0,
-            dismissWelcome() {
-                localStorage.setItem('exospace_onboarded', 'true');
-                this.showWelcome = false;
-            }
+            showUpgradeModal: false
          }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
@@ -311,74 +312,8 @@
 
         </div>
 
-        <!-- Welcome modal (first-time users) -->
-        <div x-show="showWelcome"
-             x-cloak
-             @click.self="dismissWelcome()"
-             class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-             role="dialog" aria-modal="true" aria-labelledby="welcome-heading"
-             x-transition:enter="transition ease-out duration-250"
-             x-transition:enter-start="opacity-0"
-             x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-150"
-             x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0">
-            
-            <div @click.stop
-                 @keydown.escape.window="dismissWelcome()"
-                 class="bg-gray-900 border border-gray-700 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden"
-                 x-transition:enter="transition ease-out duration-250 delay-50"
-                 x-transition:enter-start="opacity-0 scale-95 translate-y-4"
-                 x-transition:enter-end="opacity-100 scale-100 translate-y-0">
-                
-                <!-- Header -->
-                <div class="bg-gradient-to-r from-purple-700 to-indigo-700 p-6 text-center">
-                    <div class="w-14 h-14 bg-white/15 rounded-xl flex items-center justify-center mx-auto mb-3" aria-hidden="true">
-                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
-                        </svg>
-                    </div>
-                    <h2 id="welcome-heading" class="text-xl font-bold text-white mb-1">Welcome to Exospace</h2>
-                    <p class="text-purple-200 text-sm">Your 3D gallery platform is ready</p>
-                </div>
-                
-                <!-- Body -->
-                <div class="p-6">
-                    <div class="space-y-3 mb-6">
-                        <div class="flex items-center gap-3 text-sm">
-                            <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                            <span class="text-gray-300">{{ Auth::user()->max_galleries }} galleries &amp; {{ Auth::user()->max_images }} images per gallery</span>
-                        </div>
-                        <div class="flex items-center gap-3 text-sm">
-                            <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                            <span class="text-gray-300">Immersive 3D walkthrough experience</span>
-                        </div>
-                        <div class="flex items-center gap-3 text-sm">
-                            <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                            <span class="text-gray-300">Shareable links, PIN protection, analytics</span>
-                        </div>
-                    </div>
-
-                    <div class="flex gap-3">
-                        <a href="{{ route('admin.galleries.create') }}"
-                           @click="dismissWelcome()"
-                           class="flex-1 text-center bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-xl transition-all duration-200 active:scale-95 text-sm">
-                            Create First Gallery →
-                        </a>
-                        <button @click="dismissWelcome()"
-                                class="px-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-3 rounded-xl transition text-sm focus-visible:ring-2 focus-visible:ring-gray-500"
-                                aria-label="Dismiss welcome modal">
-                            Later
-                        </button>
-                    </div>
-                    @if(Auth::user()->plan === 'free')
-                    <p class="mt-3 text-center text-xs text-gray-600">
-                        <a href="/pricing" class="text-purple-500 hover:text-purple-400 underline">Upgrade to Pro</a> for unlimited galleries
-                    </p>
-                    @endif
-                </div>
-            </div>
-        </div>
+        {{-- P2-14: Welcome modal removed — inline checklist is the single
+             onboarding source of truth. --}}
 
         <!-- Upgrade limit modal -->
         <div id="upgrade-modal"
