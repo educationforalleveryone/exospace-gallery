@@ -19,9 +19,17 @@ use Illuminate\Support\Facades\Log;
  *
  * Works with:
  *   - SESSION_DRIVER=database: directly deletes from the sessions table
- *   - SESSION_DRIVER=redis: uses Redis SCAN + DEL (if phpredis is available)
+ *   - SESSION_DRIVER=redis: uses Redis SCAN + DEL
  *   - SESSION_DRIVER=file: no-op (file sessions can't be queried by user_id;
  *     the CheckBanned middleware handles it on next request)
+ *
+ * P1-13 FIX (audit): The Redis branch previously had a dead-code bug —
+ * it scanned keys, found matches via substring, but never called
+ * $redis->del($key) and never incremented $deleted. The $deleted counter
+ * stayed at 0 forever. Additionally, the `login_web_` heuristic matched
+ * ANY authenticated session, not just banned users. Both issues are fixed:
+ *   1. The del() call is now wired up
+ *   2. The login_web_ heuristic is removed — only user_id matches trigger deletion
  *
  * Scheduled every 5 minutes via routes/console.php.
  */
@@ -84,20 +92,23 @@ class PurgeBannedUserSessions extends Command
      * Delete sessions from Redis.
      *
      * Laravel's Redis session driver stores sessions with keys like
-     * `{prefix}:sessions:{sessionId}`. The `user_id` is stored as a
-     * field inside the session payload, not as a Redis key — so we
-     * can't directly query by user_id.
+     * `{prefix}:sessions:{sessionId}`. The `user_id` is stored inside
+     * the session payload, not as a Redis key — so we can't directly
+     * query by user_id.
      *
      * Instead, we SCAN all session keys, read each one, check if the
-     * payload contains a banned user_id, and delete matching keys.
+     * payload contains a banned user_id, and DELETE matching keys.
      * This is O(N) over all sessions — acceptable for small-to-medium
-     * session counts (< 10k). For larger deployments, consider a
-     * custom session driver that maintains a user_id → session_id index.
+     * session counts (< 10k).
+     *
+     * P1-13 FIX: The del() call is now wired up, and the broad
+     * `login_web_` heuristic (which matched ANY authenticated session)
+     * has been removed. Only sessions containing a banned user_id
+     * are deleted.
      */
     private function purgeRedis(array $bannedIds): void
     {
         $redis = \Illuminate\Support\Facades\Redis::connection('cache');
-        $prefix = config('database.redis.options.prefix', '');
         $sessionPrefix = config('session.prefix', '') ?: 'sessions';
         $pattern = "{$sessionPrefix}:*";
 
@@ -117,23 +128,32 @@ class PurgeBannedUserSessions extends Command
 
                 // Check if the session payload contains a banned user_id.
                 // Laravel serializes session data as a PHP serialized string.
-                // We do a simple substring match — not perfect but fast.
+                // We do a substring match for each banned user ID.
+                $isBannedSession = false;
                 foreach ($bannedIds as $id) {
+                    // P1-13: Removed the broad "login_web_" heuristic that
+                    // matched ANY authenticated session. Only match on
+                    // the specific banned user_id patterns.
                     if (strpos($payload, "\"user_id\";i:{$id}") !== false ||
-                        strpos($payload, "user_id|i:{$id}") !== false ||
-                        strpos($payload, "\"login_web_") !== false) {
-                        // This is a heuristic — may have false positives.
-                        // To be safe, we only delete if we're confident.
-                        // For production, consider a custom session driver.
+                        strpos($payload, "user_id|i:{$id}") !== false) {
+                        $isBannedSession = true;
                         break;
                     }
+                }
+
+                if ($isBannedSession) {
+                    // P1-13 FIX: Actually delete the key! Previously this
+                    // line was missing — the code found the match but
+                    // never called del(). $deleted stayed at 0 forever.
+                    $redis->del($key);
+                    $deleted++;
                 }
             }
         } while ($iterator > 0);
 
         $this->info("Scanned Redis sessions for " . count($bannedIds) . " banned user(s). Deleted {$deleted} sessions.");
 
-        Log::info('PurgeBannedUserSessions: scanned Redis sessions', [
+        Log::info('PurgeBannedUserSessions: purged Redis sessions', [
             'banned_users' => count($bannedIds),
             'sessions_deleted' => $deleted,
         ]);

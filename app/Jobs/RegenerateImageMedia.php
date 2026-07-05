@@ -15,11 +15,6 @@ use Illuminate\Support\Facades\Storage;
  * Regenerate Spatie Media Library conversions for existing GalleryImage
  * rows that were uploaded before the H21/H25 responsive-image integration.
  *
- * (Task H25 follow-up) — existing images have a `path` column pointing at
- * a JPEG file on the public disk, but no Spatie media record. This job
- * reads the file from disk and registers it with Spatie so the WebP
- * conversions (thumb, small, medium, large) are generated.
- *
  * Usage:
  *   php artisan tinker
  *   >>> App\Models\GalleryImage::whereDoesntHave('media')->chunkById(50, function($images) {
@@ -28,10 +23,14 @@ use Illuminate\Support\Facades\Storage;
  *   ...     }
  *   ... });
  *
- * Or run synchronously:
- *   >>> App\Models\GalleryImage::whereDoesntHave('media')->chunkById(50, function($images) {
- *   ...     foreach ($images as $image) App\Jobs\RegenerateImageMedia::dispatchSync($image);
- *   ... });
+ * P1-10 FIX (audit): Previously, the catch block swallowed ALL exceptions
+ * — the job always reported success and never reached failed_jobs. Failed
+ * regenerations sat silently in laravel.log with no retry path. Now the
+ * exception is re-thrown so the job lands in failed_jobs and can be
+ * retried via `php artisan queue:retry`.
+ *
+ * Also fixed: str_replace → Str::after for path stripping (same fix as
+ * P0-1/P0-4 in PlanDowngradeService/UserDeletionService).
  */
 class RegenerateImageMedia implements ShouldQueue
 {
@@ -54,8 +53,8 @@ class RegenerateImageMedia implements ShouldQueue
             return;
         }
 
-        // Resolve the file path from the legacy `path` column
-        $relativePath = str_replace('storage/', '', $this->image->path);
+        // P1-10: Use Str::after instead of str_replace (same fix as P0-1/P0-4)
+        $relativePath = \Illuminate\Support\Str::after($this->image->path, 'storage/');
         $fullPath = Storage::disk('public')->path($relativePath);
 
         if (! file_exists($fullPath)) {
@@ -63,22 +62,22 @@ class RegenerateImageMedia implements ShouldQueue
                 'image_id' => $this->image->id,
                 'path'     => $fullPath,
             ]);
-            return;
+            // P1-10: Don't swallow — fail the job so it's visible in failed_jobs.
+            // The file may have been deleted by the user; failing the job lets
+            // ops decide whether to clean up the GalleryImage row or re-upload.
+            throw new \RuntimeException("RegenerateImageMedia: file not found on disk for image {$this->image->id}: {$fullPath}");
         }
 
-        try {
-            $this->image->addMedia($fullPath)
-                ->usingFileName($this->image->filename)
-                ->toMediaCollection('original');
+        // P1-10: Re-throw exceptions instead of swallowing them.
+        // The job will land in failed_jobs and can be retried via
+        // `php artisan queue:retry`. Previously, failures were silently
+        // logged and the job reported success — no retry path, no alerting.
+        $this->image->addMedia($fullPath)
+            ->usingFileName($this->image->filename)
+            ->toMediaCollection('original');
 
-            Log::info('RegenerateImageMedia: registered media', [
-                'image_id' => $this->image->id,
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('RegenerateImageMedia: failed', [
-                'image_id' => $this->image->id,
-                'error'    => $e->getMessage(),
-            ]);
-        }
+        Log::info('RegenerateImageMedia: registered media', [
+            'image_id' => $this->image->id,
+        ]);
     }
 }

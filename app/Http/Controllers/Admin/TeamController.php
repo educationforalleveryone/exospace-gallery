@@ -64,7 +64,7 @@ class TeamController extends Controller
 
     public function show(Team $team): View
     {
-        if (! Auth::user()->belongsToTeam($team)) abort(403);
+        $this->authorize('view', $team);
 
         $team->load(['members', 'owner', 'galleries' => fn($q) => $q->latest()->limit(5)]);
         $pendingInvitations = $team->invitations()->where('expires_at', '>', now())->get();
@@ -73,11 +73,13 @@ class TeamController extends Controller
         return view('admin.teams.show', compact('team', 'pendingInvitations', 'userRole'));
     }
 
-    // ── Update team settings (owner only) ────────────────────────────────
+    // ── Update team settings (owner OR editor) ───────────────────────────
 
     public function update(Request $request, Team $team): RedirectResponse
     {
-        $this->authorizeOwner($team);
+        // P1-6 FIX: Use the policy instead of the bypassed authorizeOwner() helper.
+        // TeamPolicy::update() returns $team->canEdit($user) — owner OR editor.
+        $this->authorize('update', $team);
 
         $validated = $request->validate([
             'name'        => 'required|string|max:100',
@@ -93,7 +95,8 @@ class TeamController extends Controller
 
     public function destroy(Team $team): RedirectResponse
     {
-        $this->authorizeOwner($team);
+        // P1-6: TeamPolicy::delete() returns $team->isOwner($user) — owner only.
+        $this->authorize('delete', $team);
 
         // If this was the active team for anyone, reset their current_team_id
         \App\Models\User::where('current_team_id', $team->id)
@@ -105,11 +108,12 @@ class TeamController extends Controller
                          ->with('status', 'Team deleted.');
     }
 
-    // ── Invite a member ───────────────────────────────────────────────────
+    // ── Invite a member (owner OR editor) ────────────────────────────────
 
     public function invite(Request $request, Team $team): RedirectResponse
     {
-        $this->authorizeOwner($team);
+        // P1-6: TeamPolicy::invite() returns $team->canEdit($user) — owner OR editor.
+        $this->authorize('invite', $team);
 
         $validated = $request->validate([
             'email' => 'required|email|max:255',
@@ -142,11 +146,12 @@ class TeamController extends Controller
         return back()->with('status', "Invitation sent to {$validated['email']}.");
     }
 
-    // ── Revoke a pending invitation ───────────────────────────────────────
+    // ── Revoke a pending invitation (owner OR editor) ────────────────────
 
     public function revokeInvitation(Team $team, TeamInvitation $invitation): RedirectResponse
     {
-        $this->authorizeOwner($team);
+        // P1-6: Use 'invite' policy — editors who can invite can also revoke.
+        $this->authorize('invite', $team);
         abort_unless($invitation->team_id === $team->id, 404);
 
         $invitation->delete();
@@ -154,11 +159,12 @@ class TeamController extends Controller
         return back()->with('status', 'Invitation revoked.');
     }
 
-    // ── Remove a member ───────────────────────────────────────────────────
+    // ── Remove a member (owner only) ─────────────────────────────────────
 
     public function removeMember(Request $request, Team $team): RedirectResponse
     {
-        $this->authorizeOwner($team);
+        // P1-6: TeamPolicy::manageMembers() returns $team->isOwner($user) — owner only.
+        $this->authorize('manageMembers', $team);
 
         $validated = $request->validate(['user_id' => 'required|integer|exists:users,id']);
 
@@ -177,11 +183,12 @@ class TeamController extends Controller
         return back()->with('status', 'Member removed.');
     }
 
-    // ── Update a member's role ────────────────────────────────────────────
+    // ── Update a member's role (owner only) ──────────────────────────────
 
     public function updateMemberRole(Request $request, Team $team): RedirectResponse
     {
-        $this->authorizeOwner($team);
+        // P1-6: TeamPolicy::manageMembers() returns $team->isOwner($user) — owner only.
+        $this->authorize('manageMembers', $team);
 
         $validated = $request->validate([
             'user_id' => 'required|integer|exists:users,id',
@@ -203,6 +210,8 @@ class TeamController extends Controller
     {
         $user = Auth::user();
 
+        $this->authorize('view', $team);
+
         if ($team->isOwner($user)) {
             return back()->withErrors(['team' => 'Owners cannot leave their own team. Transfer ownership or delete the team.']);
         }
@@ -221,24 +230,11 @@ class TeamController extends Controller
 
     public function switchTeam(Team $team): RedirectResponse
     {
-        $user = Auth::user();
+        $this->authorize('switch', $team);
 
-        if (! $user->belongsToTeam($team)) {
-            abort(403);
-        }
-
-        $user->switchTeam($team);
+        Auth::user()->switchTeam($team);
 
         return redirect()->intended(route('admin.teams.show', $team))
                          ->with('status', "Switched to team: {$team->name}");
-    }
-
-    // ── Private helpers ───────────────────────────────────────────────────
-
-    private function authorizeOwner(Team $team): void
-    {
-        if (! $team->isOwner(Auth::user())) {
-            abort(403, 'Only the team owner can perform this action.');
-        }
     }
 }

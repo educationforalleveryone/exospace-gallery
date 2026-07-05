@@ -36,12 +36,24 @@ php /app/artisan route:clear
 php /app/artisan storage:link --force
 
 # 4. Start the queue worker in the background
-#    Uses Redis (QUEUE_CONNECTION=redis in .env). Runs with --tries=3
-#    (retry failed jobs 3 times), --timeout=90 (kill jobs that run >90s),
-#    --sleep=3 (sleep 3s when no jobs available). The & backgrounds it
-#    so the web server can start. If the worker crashes, it stays down
-#    until the next container restart (redeploy).
-php /app/artisan queue:work redis --tries=3 --timeout=90 --sleep=3 &
+#    Uses Redis (QUEUE_CONNECTION=redis in .env).
+#
+#    P1-11 FIX (audit): Added --memory=256, --max-jobs=1000, --max-time=3600.
+#    - --memory=256: restart the worker if it exceeds 256MB (prevents OOM
+#      kills that silently stop all job processing)
+#    - --max-jobs=1000: restart after 1000 jobs (recycles leaked memory)
+#    - --max-time=3600: restart after 1 hour (clean periodic restart)
+#    - --timeout=120: aligned with RegenerateImageMedia::$timeout=120
+#      (previously was 90s, which killed the 120s job before its own
+#      timeout fired)
+#    - --tries=3: retry failed jobs 3 times
+#    - --sleep=3: sleep 3s when no jobs available
+#
+#    The & backgrounds it so the web server can start. If the worker
+#    crashes, it stays down until the next container restart (redeploy).
+#    For production, consider creating a separate Coolify application
+#    with supervisor for auto-restart on crash.
+php /app/artisan queue:work redis --tries=3 --timeout=120 --sleep=3 --memory=256 --max-jobs=1000 --max-time=3600 &
 
 # 5. Start PHP-FPM and Nginx
 node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=50M -d post_max_size=50M -d memory_limit=512M & nginx -c /nginx.conf)

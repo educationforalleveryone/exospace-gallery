@@ -322,11 +322,22 @@ class GalleryController extends Controller
     }
 
     // ── Update ────────────────────────────────────────────────────────────
+    //
+    // P1-9 FIX (audit): Previously a 162-line method handling 8 concerns.
+    // Now a thin orchestrator that delegates to well-named private methods:
+    //   - handleFileUploads()      — audio, custom_logo, curtain_logo
+    //   - handlePinAndSchedule()   — PIN set/clear, date normalization
+    //   - handleVenueTemplate()    — empty string to null
+    //   - handleCustomDomain()     — uniqueness check, Coolify, cache, tokens
+    //   - applyPostUpdateGuardedFields() — verification tokens after save
+    //
+    // No behavior change — just extraction for readability + testability.
 
     public function update(Request $request, Gallery $gallery): \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->authorizeGalleryAccess($gallery);
 
+        // Strip emoji from title (Task H22)
         $request->merge([
             'title' => preg_replace('/[\x{1F000}-\x{1FFFF}]|[\x{2600}-\x{27FF}]|[\x{2B00}-\x{2BFF}]|[\x{FE00}-\x{FE0F}]|[\x{1F300}-\x{1F9FF}]|[\x{1FA00}-\x{1FA9F}]|\x{200D}/u', '', $request->input('title', '')),
         ]);
@@ -335,17 +346,52 @@ class GalleryController extends Controller
 
         $planHolder = $this->galleryPlanHolder($gallery);
 
+        // Delegate to extracted helpers
+        $this->handleFileUploads($request, $gallery, $planHolder, $validated);
+        $this->handlePinAndSchedule($request, $validated);
+        $this->handleVenueTemplate($validated);
+        $validated['visual_overrides'] = $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null);
+
+        // Custom domain handling may return early on uniqueness conflict
+        $domainResult = $this->handleCustomDomain($request, $gallery, $planHolder, $validated);
+        if ($domainResult !== null) {
+            return $domainResult; // Redirect back with error
+        }
+
+        // Remove non-fillable keys before update
+        unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo'],
+              $validated['curtain_logo'], $validated['clear_curtain_logo'], $validated['clear_curtain_bg'],
+              $validated['curtain_bg_color_text'], $validated['visual_overrides_json']);
+
+        $gallery->update($validated);
+
+        // Post-update: set guarded custom-domain verification fields
+        $this->applyPostUpdateGuardedFields($request, $gallery);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Gallery settings updated!']);
+        }
+        return back()->with('status', 'Gallery settings updated!');
+    }
+
+    /**
+     * P1-9: Handle audio, custom_logo, and curtain_logo file uploads + clears.
+     */
+    private function handleFileUploads(Request $request, Gallery $gallery, $planHolder, array &$validated): void
+    {
+        // Audio (Pro+)
         if ($request->hasFile('audio') && $planHolder->isPro()) {
             if ($gallery->audio_path) \Storage::disk('public')->delete($gallery->audio_path);
             $validated['audio_path'] = $request->file('audio')->store('audio', 'public');
         }
 
+        // Custom logo (Studio only)
         if ($request->hasFile('custom_logo') && $planHolder->plan === 'studio') {
             if ($gallery->custom_logo_path) \Storage::disk('public')->delete($gallery->custom_logo_path);
             $validated['custom_logo_path'] = $request->file('custom_logo')->store('branding', 'public');
         }
 
-        // NEW (Round 4) — Branded entrance curtain (Studio only)
+        // Curtain logo (Studio only) — upload or clear
         if ($planHolder->plan === 'studio') {
             if ($request->hasFile('curtain_logo')) {
                 if ($gallery->curtain_logo_path) \Storage::disk('public')->delete($gallery->curtain_logo_path);
@@ -355,17 +401,22 @@ class GalleryController extends Controller
                 $validated['curtain_logo_path'] = null;
             }
 
+            // Curtain background color — clear or validate hex
             if ($request->boolean('clear_curtain_bg')) {
                 $validated['curtain_bg_color'] = null;
             } elseif (!empty($validated['curtain_bg_color'])) {
-                // Validate hex color
-                $bg = $validated['curtain_bg_color'];
-                if (!preg_match('/^#[0-9a-fA-F]{6}$/', $bg)) {
+                if (!preg_match('/^#[0-9a-fA-F]{6}$/', $validated['curtain_bg_color'])) {
                     $validated['curtain_bg_color'] = null;
                 }
             }
         }
+    }
 
+    /**
+     * P1-9: Handle PIN set/clear and schedule date normalization.
+     */
+    private function handlePinAndSchedule(Request $request, array &$validated): void
+    {
         if ($request->boolean('clear_pin')) {
             $validated['pin_hash'] = null;
         } elseif (! empty($validated['gallery_pin'])) {
@@ -374,105 +425,96 @@ class GalleryController extends Controller
 
         $validated['opens_at']  = $validated['opens_at']  ?: null;
         $validated['closes_at'] = $validated['closes_at'] ?: null;
+    }
 
+    /**
+     * P1-9: Normalize venue_template_id — empty string to null.
+     */
+    private function handleVenueTemplate(array &$validated): void
+    {
         if (array_key_exists('venue_template_id', $validated)) {
             $validated['venue_template_id'] = !empty($validated['venue_template_id'])
                 ? $validated['venue_template_id']
                 : null;
         }
+    }
 
-        // NEW (Live Preview) — parse the visual_overrides JSON string coming
-        // from the edit page's hidden input. null/empty clears overrides.
-        $validated['visual_overrides'] = $this->parseVisualOverrides(
-            $validated['visual_overrides_json'] ?? null
-        );
-
-        // Custom domain — Studio-plan only, must be unique across galleries.
-        // (Task C06) DNS verification is now required before Coolify routing
-        // is configured. The flow is:
-        //   1. User sets custom_domain → we store it + generate a verification
-        //      token. custom_domain_verified_at stays NULL. Coolify is NOT
-        //      called yet — the domain won't route.
-        //   2. User adds a TXT record to their DNS and clicks "Verify now"
-        //      (or a scheduled job retries hourly).
-        //   3. verifyCustomDomain() checks DNS, sets custom_domain_verified_at,
-        //      and calls CoolifyDomainManager::addDomain().
-        //   4. DetectCustomDomain middleware only routes verified galleries.
-        if (array_key_exists('custom_domain', $validated)) {
-            $cd = $validated['custom_domain'];
-            if (!empty($cd) && $planHolder->plan === 'studio') {
-                $cd = $this->normaliseCustomDomain($cd);
-                $exists = Gallery::where('custom_domain', $cd)
-                    ->where('id', '!=', $gallery->id)
-                    ->exists();
-                if ($exists) {
-                    return back()->withInput()
-                        ->with('error', "The custom domain \"{$cd}\" is already in use.");
-                }
-
-                $oldDomain = $gallery->getOriginal('custom_domain');
-                $domainChanged = $cd !== $oldDomain;
-
-                $validated['custom_domain'] = $cd;
-
-                // Clear the lookup cache for the new domain (and the old one
-                // if it changed) so DetectCustomDomain middleware re-resolves.
-                \Illuminate\Support\Facades\Cache::forget("custom_domain:{$cd}");
-                if ($domainChanged && $oldDomain) {
-                    \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
-                }
-
-                if ($domainChanged) {
-                    // Generate a new verification token; reset verified_at.
-                    // These columns are guarded (not in $fillable) — use
-                    // forceFill on the model after the update() call below.
-                    // We stash the token in the request attributes for the
-                    // post-update forceFill.
-                    $request->attributes->set('_pending_domain_token', \Illuminate\Support\Str::random(32));
-
-                    // If the old domain was previously verified + registered
-                    // with Coolify, remove it now — the new domain must be
-                    // re-verified before re-registering.
-                    if ($oldDomain && $gallery->custom_domain_verified_at) {
-                        $this->coolify->removeDomain($oldDomain);
-                    }
-                }
-            } elseif (empty($cd)) {
-                // Domain was cleared — remove from Coolify if it was verified
-                // and registered, and clear verification fields.
-                if ($gallery->custom_domain) {
-                    $oldDomain = $gallery->custom_domain;
-                    \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
-                    if ($gallery->custom_domain_verified_at) {
-                        $this->coolify->removeDomain($oldDomain);
-                    }
-                }
-                $validated['custom_domain'] = null;
-                // Clear verification fields via forceFill after the update.
-                $request->attributes->set('_clear_domain_verification', true);
-            } else {
-                // Non-Studio plan trying to set a custom domain — block silently
-                unset($validated['custom_domain']);
-            }
+    /**
+     * P1-9: Handle custom domain — uniqueness check, Coolify registration/removal,
+     * cache invalidation, and verification token management.
+     *
+     * Returns a RedirectResponse if the domain is already in use (early return
+     * from the caller). Returns null on success.
+     */
+    private function handleCustomDomain(Request $request, Gallery $gallery, $planHolder, array &$validated): ?\Illuminate\Http\RedirectResponse
+    {
+        if (! array_key_exists('custom_domain', $validated)) {
+            return null;
         }
 
-        unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo'],
-              $validated['curtain_logo'], $validated['clear_curtain_logo'], $validated['clear_curtain_bg'],
-              $validated['curtain_bg_color_text'], $validated['visual_overrides_json']);
+        $cd = $validated['custom_domain'];
 
-        $gallery->update($validated);
+        if (!empty($cd) && $planHolder->plan === 'studio') {
+            // Studio user setting a new domain
+            $cd = $this->normaliseCustomDomain($cd);
+            $exists = Gallery::where('custom_domain', $cd)
+                ->where('id', '!=', $gallery->id)
+                ->exists();
+            if ($exists) {
+                return back()->withInput()
+                    ->with('error', "The custom domain \"{$cd}\" is already in use.");
+            }
 
-        // ── Post-update: set guarded custom-domain verification fields ──────
-        // (Task C06) — these columns are NOT in $fillable, so update() won't
-        // touch them. We use forceFill() to set them based on the flags we
-        // stashed in the request attributes earlier in this method.
+            $oldDomain = $gallery->getOriginal('custom_domain');
+            $domainChanged = $cd !== $oldDomain;
+
+            $validated['custom_domain'] = $cd;
+
+            \Illuminate\Support\Facades\Cache::forget("custom_domain:{$cd}");
+            if ($domainChanged && $oldDomain) {
+                \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
+            }
+
+            if ($domainChanged) {
+                $request->attributes->set('_pending_domain_token', \Illuminate\Support\Str::random(32));
+
+                if ($oldDomain && $gallery->custom_domain_verified_at) {
+                    $this->coolify->removeDomain($oldDomain);
+                }
+            }
+        } elseif (empty($cd)) {
+            // Domain was cleared
+            if ($gallery->custom_domain) {
+                $oldDomain = $gallery->custom_domain;
+                \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
+                if ($gallery->custom_domain_verified_at) {
+                    $this->coolify->removeDomain($oldDomain);
+                }
+            }
+            $validated['custom_domain'] = null;
+            $request->attributes->set('_clear_domain_verification', true);
+        } else {
+            // Non-Studio plan trying to set a custom domain — block silently
+            unset($validated['custom_domain']);
+        }
+
+        return null;
+    }
+
+    /**
+     * P1-9: Apply guarded custom-domain verification fields after the gallery
+     * update has been saved. These columns are NOT in $fillable, so update()
+     * won't touch them — we use forceFill() based on flags stashed in the
+     * request attributes by handleCustomDomain().
+     */
+    private function applyPostUpdateGuardedFields(Request $request, Gallery $gallery): void
+    {
         if ($request->attributes->has('_pending_domain_token')) {
             $gallery->forceFill([
                 'custom_domain_verification_token' => $request->attributes->get('_pending_domain_token'),
                 'custom_domain_verified_at'        => null,
             ])->save();
 
-            // Show the user the DNS instructions in the next response.
             session()->flash('info', 'Custom domain saved. Add the TXT record shown below to your DNS, then click "Verify domain".');
         } elseif ($request->attributes->get('_clear_domain_verification')) {
             $gallery->forceFill([
@@ -480,11 +522,6 @@ class GalleryController extends Controller
                 'custom_domain_verified_at'        => null,
             ])->save();
         }
-
-        if ($request->ajax() || $request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Gallery settings updated!']);
-        }
-        return back()->with('status', 'Gallery settings updated!');
     }
 
     // ── Verify custom domain (Task C06) ───────────────────────────────────
