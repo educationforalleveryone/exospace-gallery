@@ -25,7 +25,7 @@
             <strong>Your {{ ucfirst($user->plan) }} plan expires on {{ $user->plan_expires_at->format('M j, Y') }}.</strong><br>
             That's in {{ now()->diffInDays($user->plan_expires_at) }} days.
         </div>
-        <p>After your plan expires, your account will be downgraded to the Free plan (1 gallery, 10 images). Your galleries and images will remain — they just won't be publicly accessible beyond the Free plan limits.</p>
+        <p>After your plan expires, your account will be downgraded to the Free plan (1 gallery, 10 images). Your existing galleries will remain in your account, but only your first gallery will be publicly accessible. Custom domains, logos, and audio will be removed from your galleries.</p>
         <p>To keep all your {{ ucfirst($user->plan) }} features ({{ $user->plan === 'studio' ? 'unlimited galleries, custom domains, white-label' : '5 galleries, background music, no watermark' }}), renew your plan:</p>
         <a href="{{ config('app.url') }}/billing" class="btn">View Billing & Renew →</a>
         <div class="footer">

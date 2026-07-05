@@ -63,7 +63,7 @@
         </a>
 
         <p style="font-size: 13px; color: #9ca3af; text-align: center;">
-            This link will resume your checkout with 2Checkout.<br>
+            Click the button above to start a new checkout with 2Checkout.<br>
             Your upgrade activates automatically after payment.
         </p>
 

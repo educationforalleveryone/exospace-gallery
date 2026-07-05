@@ -25,7 +25,7 @@ COMPLETE YOUR UPGRADE:
 
 {{ config('app.url') }}/billing/upgrade/{{ $pendingUpgrade->plan }}
 
-This link will resume your checkout with 2Checkout. Your upgrade activates automatically after payment.
+Click the link above to start a new checkout with 2Checkout. Your upgrade activates automatically after payment.
 
 ---
 

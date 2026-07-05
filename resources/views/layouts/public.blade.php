@@ -149,6 +149,8 @@
             info:    '<svg class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
         };
         const el = document.createElement('div');
+        // A11Y-5: Error toasts use role=alert (assertive), others use role=status (polite)
+        el.setAttribute('role', type === 'error' ? 'alert' : 'status');
         el.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium text-gray-100 shadow-2xl backdrop-blur-sm ${colors[type]} transition-all duration-300 translate-y-2 opacity-0 min-w-[260px] max-w-sm`;
         el.innerHTML = `${icons[type]}<span class="flex-1">${message}</span>`;
         document.getElementById('toast-container').appendChild(el);
@@ -164,8 +166,23 @@
     @if(session('status'))  toast("{{ session('status') }}", 'success'); @endif
     @if(session('warning')) toast("{{ session('warning') }}", 'error'); @endif
 
-    function openModal(id)  { const m=document.getElementById(id); m.style.display='flex'; m.classList.add('flex'); }
-    function closeModal(id) { const m=document.getElementById(id); m.style.display='none'; m.classList.remove('flex'); }
+    function openModal(id)  { const m=document.getElementById(id); m.style.display='flex'; m.classList.add('flex');
+        // A11Y-7: Focus the first focusable element in the modal
+        const focusable = m.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusable.length) focusable[0].focus();
+        m._focusTrap = (e) => {
+            if (e.key !== 'Tab') return;
+            const f = m.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (f.length === 0) return;
+            const first = f[0], last = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        };
+        m.addEventListener('keydown', m._focusTrap);
+    }
+    function closeModal(id) { const m=document.getElementById(id); m.style.display='none'; m.classList.remove('flex');
+        if (m._focusTrap) { m.removeEventListener('keydown', m._focusTrap); }
+    }
     document.addEventListener('DOMContentLoaded',()=>{
         document.querySelectorAll('[role="dialog"]').forEach(m=>{
             m.addEventListener('click', e=>{ if(e.target===m) closeModal(m.id); });

@@ -414,9 +414,11 @@
             @if(!request()->boolean('embed'))
             <form onsubmit="return submitNewsletterSignup(this)"
                   style="max-width: 380px; margin: 2.5rem auto 0; padding: 1rem 1.25rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; backdrop-filter: blur(8px);">
-                <p style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-bottom: 0.75rem; letter-spacing: 0.04em;">JOIN THE LIST</p>
+                <p style="font-size: 0.8rem; color: rgba(255,255,255,0.75); margin-bottom: 0.75rem; letter-spacing: 0.04em;">JOIN THE LIST</p>
                 <div style="display: flex; gap: 8px;">
-                    <input type="email" name="email" required placeholder="your@email.com"
+                    {{-- A11Y-4: Added visually-hidden label for screen readers --}}
+                    <label for="newsletter-email-input" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Your email address</label>
+                    <input id="newsletter-email-input" type="email" name="email" required placeholder="your@email.com" aria-label="Your email address"
                            style="flex: 1; padding: 8px 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; font-size: 0.85rem; outline: none;">
                     <button type="submit"
                             style="padding: 8px 16px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; border-radius: 8px; color: white; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s;">

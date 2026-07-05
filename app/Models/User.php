@@ -47,27 +47,12 @@ class User extends Authenticatable implements MustVerifyEmail
         'marketing_consent',
     ];
 
-    // Explicitly guarded — these fields CANNOT be set via fill() / create()
-    // / update() with an array. Use forceFill() in trusted code paths only.
-    protected $guarded = [
-        'id',
-        'is_super_admin',
-        'plan',
-        'max_galleries',
-        'max_images',
-        'plan_started_at',
-        'plan_expires_at',
-        'current_team_id',
-        'banned_at',
-        'ban_reason',
-        'email_verified_at',  // set via markEmailAsVerified() / forceFill()
-        'remember_token',
-        'google2fa_secret',   // (Task H56) — encrypted TOTP secret
-        'mfa_enabled_at',     // (Task H56) — when MFA was activated
-        'inactive_nudged_at',       // (P0-7) — last inactive-nudge email sent
-        'plan_expiry_reminded_at',  // (P0-7) — last plan-expiry reminder sent
-        'mfa_backup_codes',         // (P3-7) — hashed one-time backup codes
-    ];
+    // TD-12 FIX: Removed the $guarded array. When $fillable is set (above),
+    // Laravel ignores $guarded entirely — it was dead code that misled
+    // maintainers into thinking it provided defense-in-depth. The $fillable
+    // allow-list is the single source of truth for mass-assignment safety.
+    // Trusted callers that need to set guarded fields use forceFill() —
+    // see the class docblock above for the list of trusted callers.
 
     protected $hidden = [
         'password',

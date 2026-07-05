@@ -8,6 +8,11 @@
 @section('title', 'Pricing — Exospace 3D Gallery')
 @section('description', 'Create museum-quality 3D art exhibitions. Free to start. Pro $29 one-time. Studio $99 one-time with custom domains and white-label branding.')
 
+@php
+    // CONV-3: Determine the current user's plan for "already on this plan" state
+    $currentPlan = auth()->check() ? auth()->user()->plan : null;
+@endphp
+
 @section('content')
 <style>
     /* ── Pricing page custom styles ─────────────────────── */
@@ -156,6 +161,18 @@
     </div>
     <h1>Two venues free.<br><span class="grad">Unlock them all.</span></h1>
     <p>Each plan unlocks more virtual venues — 11 distinct 3D spaces with their own architecture, scale, and atmosphere.</p>
+    {{-- CONV-1: Social proof badge --}}
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:1.5rem;">
+        <div style="display:flex;">
+            @php
+                // Show 5 star icons
+                for ($i = 0; $i < 5; $i++) {
+                    echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="#fbbf24" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+                }
+            @endphp
+        </div>
+        <span style="font-size:0.8rem;color:#94a3b8;">Loved by artists worldwide</span>
+    </div>
 </section>
 
 <!-- Cards -->
@@ -195,7 +212,9 @@
                 "Created with Exospace" watermark
             </li>
         </ul>
-        <a href="{{ route('register') }}" class="btn btn-outline">Get Started Free</a>
+        <a href="{{ $currentPlan ? route('admin.dashboard') : route('register') }}" class="btn btn-outline">
+            {{ $currentPlan === 'free' ? 'Your Current Plan ✓' : 'Get Started Free' }}
+        </a>
     </div>
 
     <!-- PRO (featured) -->
@@ -232,7 +251,13 @@
                 Priority email support
             </li>
         </ul>
+        @if($currentPlan === 'pro')
+        <span class="btn btn-primary" style="opacity:0.7;cursor:default;pointer-events:none;">Your Current Plan ✓</span>
+        @elseif($currentPlan === 'studio')
+        <span class="btn btn-primary" style="opacity:0.7;cursor:default;pointer-events:none;">Included in Studio ✓</span>
+        @else
         <a href="#" class="btn btn-primary" onclick="document.getElementById('upgrade-modal-pro').style.display='flex'; return false;">Upgrade to Pro — $29</a>
+        @endif
     </div>
 
     <!-- STUDIO -->
@@ -279,7 +304,11 @@
                 <strong>Dedicated account manager</strong>
             </li>
         </ul>
+        @if($currentPlan === 'studio')
+        <span class="btn btn-outline" style="opacity:0.7;cursor:default;pointer-events:none;">Your Current Plan ✓</span>
+        @else
         <a href="#" class="btn btn-outline" onclick="document.getElementById('upgrade-modal-studio').style.display='flex'; return false;">Upgrade to Studio — $99</a>
+        @endif
     </div>
 </div>
 
