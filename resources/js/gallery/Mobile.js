@@ -11,7 +11,12 @@
 import { CONFIG } from './config.js';
 
 export function setupMobileControls() {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    // P2-17 FIX: Use pointer:coarse media query instead of UA-sniffing.
+    // UA-sniffing is fragile — iPad on iOS 13+ reports as Mac desktop.
+    // pointer:coarse reliably detects touch-primary devices.
+    // Fallback to maxTouchPoints for older browsers that don't support
+    // matchMedia('pointer:coarse').
+    const isMobile = window.matchMedia('(pointer: coarse)').matches
         || (navigator.maxTouchPoints > 0 && 'ontouchstart' in window);
 
     if (!isMobile) {

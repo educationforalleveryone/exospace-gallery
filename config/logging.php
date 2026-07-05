@@ -3,7 +3,9 @@
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Processor\PsrLogMessageProcessor;
+use Monolog\Processor\WebProcessor;
 
 return [
 
@@ -121,6 +123,35 @@ return [
         'null' => [
             'driver' => 'monolog',
             'handler' => NullHandler::class,
+        ],
+
+        // P3-2: Structured JSON logging channel for log aggregation
+        // (Datadog, Loki, CloudWatch, ELK). Each log entry is a single
+        // JSON object with timestamp, level, message, context, and
+        // web request metadata (ip, url, http_method). To use, set
+        // LOG_STACK=json in .env, or add 'json' to the stack channels.
+        'json' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_LEVEL', 'debug'),
+            'handler' => StreamHandler::class,
+            'formatter' => JsonFormatter::class,
+            'formatter_with' => [
+                'includeStacktraces' => true,
+                'batchMode' => JsonFormatter::BATCH_MODE_NEWLINES,
+            ],
+            'handlers' => [
+                [
+                    'class' => StreamHandler::class,
+                    'constructor' => [
+                        'stream' => storage_path('logs/exospace.json'),
+                    ],
+                    'formatter' => JsonFormatter::class,
+                ],
+            ],
+            'processors' => [
+                PsrLogMessageProcessor::class,
+                WebProcessor::class,
+            ],
         ],
 
         'emergency' => [

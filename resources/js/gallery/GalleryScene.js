@@ -33,7 +33,7 @@ import { CONFIG } from './config.js';
 import { initRenderer, detectLowEnd, applyLowEndSettings, earlyLowEndCheck } from './Renderer.js';
 import { setupControls, setSpeedMultiplier } from './Controls.js';
 import { loadAssets, loadEnvironmentMap } from './AssetLoader.js';
-import { initAudio, playAudio } from './Audio.js';
+import { initAudio, playAudio, toggleMute } from './Audio.js';
 import { applyVenueOverrides, applyVenueConfig, applyVisualPatch, loadDecorations, addCustomLights, addVenueStructure } from './VenueDecorator.js';
 import { buildGallery, createRoom, createRoomCorridor, createRoomLShape, createRoomRotunda, createRoomCircular, addVenueCeiling } from './RoomBuilder.js';
 import { placeArtworks, makeArtworkGroup, placeAndRegister } from './ArtworkPlacer.js';
@@ -197,6 +197,7 @@ export class GalleryScene {
     setupMobileControls()                           { return setupMobileControls.call(this); }
     loadEnvironmentMap()                            { return loadEnvironmentMap.call(this); }
     playAudio()                                     { return playAudio.call(this); }
+    toggleMute()                                    { return toggleMute.call(this); }
 
     // ── Main animation loop ─────────────────────────────────────────────────
     animate() {

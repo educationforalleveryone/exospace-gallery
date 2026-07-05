@@ -470,8 +470,16 @@
             </p>
         </div>
 
-        {{-- Tour button + speed indicator --}}
+        {{-- Tour button + audio toggle + speed indicator --}}
         <div class="absolute top-6 right-6 flex items-center gap-3">
+            {{-- P2-16: Audio mute/unmute toggle button --}}
+            <button id="audio-toggle"
+                onclick="toggleAudioMute()"
+                aria-label="Mute audio"
+                aria-pressed="false"
+                style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;font-size:1.1rem;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
+                🔊
+            </button>
             <button id="in-gallery-tour-btn"
                 onclick="startGuidedTour()"
                 style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:rgba(255,255,255,0.75);font-size:0.8rem;font-weight:500;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">

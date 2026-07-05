@@ -34,7 +34,7 @@ class OgImageController extends Controller
 {
     public function show(Request $request, string $slug): Response
     {
-        $gallery = Cache::remember("og:gallery:{$slug}", now()->addHour(), function () use ($slug) {
+        $gallery = Cache::flexible("og:gallery:{$slug}", [now()->addHour(), now()->addHours(2)], function () use ($slug) {
             return Gallery::where('slug', $slug)
                 ->with(['coverImage', 'venueTemplate', 'user'])
                 ->firstOrFail();
@@ -54,7 +54,7 @@ class OgImageController extends Controller
             ? "og:image:{$slug}:artwork:{$artworkId}:v1"
             : "og:image:{$slug}:v1";
 
-        $pngBytes = Cache::remember($cacheKey, now()->addHours(6), function () use ($gallery, $artwork) {
+        $pngBytes = Cache::flexible($cacheKey, [now()->addHours(6), now()->addHours(12)], function () use ($gallery, $artwork) {
             return $this->render($gallery, $artwork);
         });
 

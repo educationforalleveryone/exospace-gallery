@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\VenueTemplate;
 use App\Models\Gallery;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Exports venue template configuration as a JSON-safe array consumable
@@ -80,6 +81,19 @@ class VenueConfigExporter
      * @return array|null  null if the gallery has no venue template.
      */
     public function forGallery(Gallery $gallery): ?array
+    {
+        // P2-21: Cache the merged config per gallery. The cache key includes
+        // the gallery's updated_at timestamp so any save (title, visual
+        // overrides, venue template change) automatically busts the cache.
+        // TTL is 1 hour with a 2-hour stale window (flexible = stampede-safe).
+        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}";
+
+        return Cache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery) {
+            return $this->buildConfig($gallery);
+        });
+    }
+
+    private function buildConfig(Gallery $gallery): ?array
     {
         $venue = $gallery->venueTemplate;
         if (!$venue) {

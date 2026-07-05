@@ -57,3 +57,28 @@ export function playAudio() {
     if (this.sound.isPlaying) return;
     try { this.sound.play(); } catch (e) { console.error('Audio play error:', e); }
 }
+
+// P2-16: Audio mute/unmute toggle. Exposed so view.blade.php can wire a button.
+export function toggleMute() {
+    if (!this.sound && !this.sfx.footstep && !this.sfx.click) return;
+
+    this._muted = !this._muted;
+
+    if (this.sound) {
+        this.sound.setVolume(this._muted ? 0 : 0.5);
+    }
+    if (this.sfx.footstep) {
+        this.sfx.footstep.setVolume(this._muted ? 0 : 0.25);
+    }
+    if (this.sfx.click) {
+        this.sfx.click.setVolume(this._muted ? 0 : 0.4);
+    }
+
+    // Update the button UI
+    const btn = document.getElementById('audio-toggle');
+    if (btn) {
+        btn.textContent = this._muted ? '🔇' : '🔊';
+        btn.setAttribute('aria-label', this._muted ? 'Unmute audio' : 'Mute audio');
+        btn.setAttribute('aria-pressed', String(this._muted));
+    }
+}

@@ -84,14 +84,11 @@ class AnalyticsController extends Controller
         }
 
         // ── Top artworks by focus count (Task H66 — cached 10 min) ───────
-        // This still reads from raw events because the rollup doesn't
-        // store per-image data. For galleries with 90+ days of data, this
-        // query only hits events from the last 90 days (pruning keeps the
-        // table bounded). Cached for 10 minutes to avoid re-running on
-        // every page refresh.
-        $topArtworks = \Illuminate\Support\Facades\Cache::remember(
+        // P2-20: Using Cache::flexible() for stampede protection — serves
+        // stale data for up to 5 min while a single worker regenerates.
+        $topArtworks = \Illuminate\Support\Facades\Cache::flexible(
             "analytics:top-artworks:{$gallery->id}",
-            now()->addMinutes(10),
+            [now()->addMinutes(10), now()->addMinutes(15)],
             function () use ($gallery) {
                 return $gallery->events()
                     ->where('event', 'focus')
@@ -106,9 +103,9 @@ class AnalyticsController extends Controller
         );
 
         // ── Traffic sources (Task H66 — cached 10 min) ───────────────────
-        $referrers = \Illuminate\Support\Facades\Cache::remember(
+        $referrers = \Illuminate\Support\Facades\Cache::flexible(
             "analytics:referrers:{$gallery->id}",
-            now()->addMinutes(10),
+            [now()->addMinutes(10), now()->addMinutes(15)],
             function () use ($gallery) {
                 return $gallery->events()
                     ->where('event', 'view')

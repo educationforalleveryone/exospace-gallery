@@ -26,17 +26,7 @@
                 outline-offset: 2px;
                 border-radius: 4px;
             }
-            /* Skeleton shimmer for perceived performance */
-            @keyframes shimmer {
-                0% { background-position: -200% 0; }
-                100% { background-position: 200% 0; }
-            }
-            .skeleton {
-                background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
-                background-size: 200% 100%;
-                animation: shimmer 1.5s infinite;
-                border-radius: 0.375rem;
-            }
+            /* P2-15: Removed unused .skeleton CSS class (defined but never used) */
             /* Smooth page-level fade-in */
             @keyframes pageIn {
                 from { opacity: 0; }

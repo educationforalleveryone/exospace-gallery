@@ -29,7 +29,7 @@ class SitemapController extends Controller
 {
     public function sitemap(): Response
     {
-        $galleries = Cache::remember('sitemap:galleries', now()->addMinutes(30), function () {
+        $galleries = Cache::flexible('sitemap:galleries', [now()->addMinutes(30), now()->addMinutes(60)], function () {
             return Gallery::publiclyViewable()
                 ->with('venueTemplate')
                 ->has('images', '>=', 1)
@@ -42,7 +42,7 @@ class SitemapController extends Controller
         // viewable image. Artists with images only in PIN-protected or
         // scheduled galleries are excluded (their profile page would
         // show no works).
-        $artists = Cache::remember('sitemap:artists', now()->addMinutes(30), function () {
+        $artists = Cache::flexible('sitemap:artists', [now()->addMinutes(30), now()->addMinutes(60)], function () {
             return Artist::whereHas('images.gallery', function ($q) {
                     $q->publiclyViewable();
                 })
@@ -72,7 +72,7 @@ class SitemapController extends Controller
 
     public function feed(): Response
     {
-        $galleries = Cache::remember('feed:galleries', now()->addMinutes(30), function () {
+        $galleries = Cache::flexible('feed:galleries', [now()->addMinutes(30), now()->addMinutes(60)], function () {
             return Gallery::publiclyViewable()
                 ->with(['coverImage', 'user', 'venueTemplate'])
                 ->has('images', '>=', 1)

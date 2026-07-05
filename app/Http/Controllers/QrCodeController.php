@@ -38,7 +38,7 @@ class QrCodeController extends Controller
         $url = $gallery->public_url;
 
         $cacheKey = "qr:{$slug}:{$format}";
-        $content = Cache::remember($cacheKey, now()->addDay(), function () use ($url, $format) {
+        $content = Cache::flexible($cacheKey, [now()->addDay(), now()->addDays(2)], function () use ($url, $format) {
             return $this->build($url, $format);
         });
 

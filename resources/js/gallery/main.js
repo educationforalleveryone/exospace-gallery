@@ -43,6 +43,12 @@ window.startGuidedTour = function startGuidedTour() {
     guidedTour.start(0);
 };
 
+// P2-16: Audio mute/unmute toggle — wired to GalleryScene.toggleMute()
+window.toggleAudioMute = function toggleAudioMute() {
+    if (!galleryScene) return;
+    galleryScene.toggleMute?.();
+};
+
 window.submitNewsletterSignup = async function submitNewsletterSignup(form) {
     const msg = form.querySelector('.newsletter-msg');
     const data = new FormData(form);
