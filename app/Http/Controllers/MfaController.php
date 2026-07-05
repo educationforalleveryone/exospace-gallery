@@ -60,8 +60,15 @@ class MfaController extends Controller
                 'qrCodeData' => $qrCodeInline,
             ]);
         } catch (\Throwable $e) {
+            // P1-5 FIX: Don't leak $e->getMessage() to the user — it can
+            // reveal internal state. Log the full error internally; return
+            // a generic message.
+            \Illuminate\Support\Facades\Log::error('MfaController::setup failed', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
             return redirect()->route('admin.dashboard')
-                ->with('error', 'MFA setup requires the pragmarx/google2fa-qrcode package. Run: composer require pragmarx/google2fa-qrcode. Error: ' . $e->getMessage());
+                ->with('error', 'MFA setup could not be completed. Please ensure the pragmarx/google2fa-qrcode package is installed. Contact support if the problem persists.');
         }
     }
 
@@ -104,7 +111,12 @@ class MfaController extends Controller
                 ->with('success', 'MFA enabled successfully. You\'ll need to enter a code from your authenticator app each time you log in to the super-admin panel.');
 
         } catch (\Throwable $e) {
-            return back()->with('error', 'MFA verification failed: ' . $e->getMessage());
+            // P1-5 FIX: Don't leak $e->getMessage() to the user.
+            \Illuminate\Support\Facades\Log::error('MfaController::enable failed', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+            return back()->with('error', 'MFA verification failed. Please try again or contact support if the problem persists.');
         }
     }
 
@@ -142,7 +154,14 @@ class MfaController extends Controller
                 ->with('success', 'MFA verified. Welcome to the super-admin panel.');
 
         } catch (\Throwable $e) {
-            return back()->with('error', 'MFA verification failed: ' . $e->getMessage());
+            // P1-5 FIX: Don't leak $e->getMessage() to the user — decrypt()
+            // failures reveal "The MAC is invalid" which tells an attacker
+            // the encrypted column was tampered with.
+            \Illuminate\Support\Facades\Log::error('MfaController::verify failed', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+            return back()->with('error', 'MFA verification failed. Please try again or contact support if the problem persists.');
         }
     }
 }

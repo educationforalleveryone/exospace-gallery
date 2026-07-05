@@ -41,6 +41,13 @@ class WebhookController extends Controller
      *    2Checkout publishes their INS IP ranges in their merchant documentation.
      *
      * 4. PII (customer_email, customer_name) is redacted from logs.
+     *
+     * TRANSACTION BOUNDARY (P1-1 / P1-2)
+     * ----------------------------------
+     * External side effects (Mail::send, CoolifyDomainManager::removeDomain,
+     * file deletes) are dispatched via DB::afterCommit() so they only execute
+     * if the DB transaction commits. This prevents state drift where the DB
+     * rolls back but the email/file/Coolify change has already happened.
      */
     public function handle2Checkout(Request $request)
     {
@@ -59,14 +66,6 @@ class WebhookController extends Controller
         // ================================
         $messageType = $request->input('message_type');
 
-        // ORDER_CREATED triggers an upgrade (handled below).
-        // Refunds and chargebacks are dispatched to dedicated handlers so
-        // they cannot be confused with order creation.
-        // Previously these message types were silently 200-OK'd here, which
-        // meant refunds were never applied (the separate /refund route was
-        // never actually hit by 2Checkout's standard INS configuration) and
-        // chargebacks were ignored entirely — a customer could file a
-        // chargeback and keep the paid plan forever.
         if ($messageType === 'REFUND_ISSUED') {
             return $this->applyRefund($request);
         }
@@ -79,9 +78,6 @@ class WebhookController extends Controller
 
         // Other message types (FRAUD_STATUS_CHANGED, REFUND_REQUESTED,
         // INVOICE_STATUS_CHANGED, etc.) are logged but do not mutate state.
-        // REFUND_REQUESTED is explicitly NOT a downgrade trigger — it fires
-        // when the customer merely asks for a refund, before 2Checkout
-        // approves it. Only REFUND_ISSUED is authoritative.
         if ($messageType !== 'ORDER_CREATED') {
             Log::info('2Checkout: Non-mutating message type', [
                 'type'       => $messageType,
@@ -96,16 +92,9 @@ class WebhookController extends Controller
         $customerEmail = $request->input('customer_email');
         $customerName  = $request->input('customer_name');
         $invoiceId     = $request->input('invoice_id');
-        $productId     = $request->input('item_id_1'); // Product ID from 2Checkout
+        $productId     = $request->input('item_id_1');
         $amount        = $request->input('item_list_amount_1', 0);
 
-        // ── Task H01: prefer external-reference for user matching ─────────
-        // The buy URL (BillingController::upgrade) passes external-reference
-        // = <pending_upgrade.token>. This is the authoritative binding —
-        // it proves the payment originated from THIS user's click, even if
-        // they paid with a different email at checkout (PayPal, gift card,
-        // typo, etc.). Without this, customer_email mismatches silently
-        // orphan the payment.
         $externalReference = $request->input('external-reference')
             ?? $request->input('external_reference')
             ?? $request->input('merchant_item_id_1');
@@ -114,25 +103,18 @@ class WebhookController extends Controller
         $pendingUpgrade = null;
 
         if (! empty($externalReference)) {
-            // Try as pending_upgrade token first (preferred path)
             $pendingUpgrade = \App\Models\PendingUpgrade::where('token', $externalReference)
                 ->where('status', 'pending')
                 ->first();
 
             if ($pendingUpgrade) {
                 $user = $pendingUpgrade->user;
-                // Use the user's account email for the transaction record,
-                // NOT the customer_email from 2Checkout — the account email
-                // is what we'll send future notifications to.
                 $customerEmail = $user->email;
             } else {
-                // Fallback: try as a bare user_id (merchant_item_id_1 path)
                 $user = User::find((int) $externalReference);
             }
         }
 
-        // Fallback: match by customer_email (legacy path for buyers who
-        // somehow reached 2Checkout without going through BillingController)
         if (! $user && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
             $user = User::where('email', $customerEmail)->first();
         }
@@ -142,12 +124,10 @@ class WebhookController extends Controller
                 'invoice_id'           => $invoiceId,
                 'has_external_ref'     => ! empty($externalReference),
                 'has_customer_email'   => ! empty($customerEmail),
-                // Do not log the email here — it is PII
             ]);
-            return response('OK', 200); // 200 so 2Checkout does not retry
+            return response('OK', 200);
         }
 
-        // Validate customer_email if we don't have one yet (defensive)
         if (empty($customerEmail)) {
             $customerEmail = $user->email;
         }
@@ -168,28 +148,16 @@ class WebhookController extends Controller
                 'invoice_id' => $invoiceId,
                 'user_id'    => $user->id,
             ]);
-            // Still return 200 so 2Checkout doesn't keep retrying,
-            // but flag it for manual review
             return response('Unknown product - flagged for review', 200);
         }
 
         // ================================
         // STEP 5: Idempotent upgrade (atomic)
         // ================================
-        // The idempotency check MUST run BEFORE the user upgrade, not after.
-        // 2Checkout retries IPNs aggressively (their docs say "retry until
-        // 200 OK, up to several days"). Previously the upgrade ran first and
-        // the duplicate check ran second — so every retry re-stamped
-        // `plan_started_at = now()` and two concurrent webhooks for the same
-        // invoice both passed the upgrade step before either hit the unique
-        // constraint on `transactions.invoice_id`.
-        //
-        // The fix: acquire a per-invoice cache lock (cross-process safe under
-        // Redis/database cache), then run the duplicate check + upgrade +
-        // transaction insert inside a single DB transaction. If the lock
-        // cannot be acquired (another worker is processing the same invoice),
-        // we return 200 'OK' so 2Checkout does not retry immediately — the
-        // in-flight worker will complete the upgrade.
+        // P1-2 FIX: Mail::send is now dispatched via DB::afterCommit()
+        // so the email is only sent if the DB transaction commits. If the
+        // transaction rolls back (deadlock, query error), the email is NOT
+        // sent — preventing the "email says Pro but DB says Free" drift.
         $lock = \Illuminate\Support\Facades\Cache::lock("2co:upgrade:{$invoiceId}", 60);
 
         try {
@@ -202,19 +170,12 @@ class WebhookController extends Controller
                     $request, $customerEmail, $customerName, $pendingUpgrade
                 ) {
                     // ── Idempotency check FIRST ──────────────────────────
-                    // Lock the transactions row for the duration of the
-                    // transaction so a concurrent worker cannot insert a
-                    // duplicate between our SELECT and INSERT. The unique
-                    // index on `transactions.invoice_id` is the final
-                    // safety net — but we want a clean return path, not a
-                    // QueryException.
                     $existing = \DB::table('transactions')
                         ->where('invoice_id', $invoiceId)
                         ->lockForUpdate()
                         ->first();
 
                     if ($existing) {
-                        // Already processed — do NOT re-stamp plan_started_at.
                         Log::info('2Checkout: Duplicate webhook, skipping upgrade', [
                             'invoice_id'     => $invoiceId,
                             'existing_status'=> $existing->status,
@@ -223,16 +184,10 @@ class WebhookController extends Controller
                     }
 
                     // ── Upgrade the user ─────────────────────────────────
-                    // NOTE: max_galleries / max_images are intentionally NOT
-                    // set here. The User model's `updating` hook (boot())
-                    // is the single source of truth for plan limits via
-                    // User::planLimits($plan). Setting them here causes a
-                    // silent conflict where the boot hook overwrites
-                    // whatever values we pass.
                     $user->forceFill([
                         'plan'            => $planConfig['plan'],
                         'plan_started_at' => now(),
-                        'plan_expires_at' => null, // Lifetime / one-time purchase
+                        'plan_expires_at' => null,
                     ])->save();
 
                     // ── Insert transaction record ───────────────────────
@@ -251,10 +206,7 @@ class WebhookController extends Controller
                         'updated_at'     => now(),
                     ]);
 
-                    // ── Mark the pending_upgrade as converted (task H01) ──
-                    // This links the IPN back to the original click, so
-                    // BillingController's "pending upgrades" list knows
-                    // to hide this one.
+                    // ── Mark the pending_upgrade as converted ──────────
                     if ($pendingUpgrade) {
                         $pendingUpgrade->markConverted($transactionId);
                     }
@@ -266,29 +218,29 @@ class WebhookController extends Controller
                         'matched_by' => $pendingUpgrade ? 'external-reference' : 'customer_email',
                     ]);
 
-                    // ── Send confirmation email (task H03 / audit H5) ──────
-                    // Previously users got NO confirmation after a successful
-                    // upgrade. They had to log in and check their dashboard.
-                    // For a $29–$99 purchase, a confirmation email is a basic
-                    // customer expectation and reduces support tickets.
-                    try {
-                        \Illuminate\Support\Facades\Mail::to($user->email)
-                            ->send(new \App\Mail\PlanUpgradedEmail($user, $planConfig['plan'], $invoiceId));
-                    } catch (\Throwable $e) {
-                        Log::warning('2Checkout: PlanUpgradedEmail send failed', [
-                            'user_id' => $user->id,
-                            'error'   => $e->getMessage(),
-                        ]);
-                        // Don't fail the upgrade — the user is upgraded in
-                        // the DB, the email is a nice-to-have.
-                    }
+                    // ── P1-2 FIX: Send confirmation email AFTER commit ──
+                    // Previously, Mail::send was called inside the transaction.
+                    // If the transaction rolled back, the email was still sent
+                    // ("Your Pro plan is active" — but the DB says Free).
+                    // PlanUpgradedEmail implements ShouldQueue, so the queue
+                    // dispatch happens after commit — the queue worker will
+                    // see the committed user state.
+                    \DB::afterCommit(function () use ($user, $planConfig, $invoiceId) {
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($user->email)
+                                ->send(new \App\Mail\PlanUpgradedEmail($user, $planConfig['plan'], $invoiceId));
+                        } catch (\Throwable $e) {
+                            Log::warning('2Checkout: PlanUpgradedEmail send failed', [
+                                'user_id' => $user->id,
+                                'error'   => $e->getMessage(),
+                            ]);
+                        }
+                    });
 
                     return true; // signal "upgraded"
                 });
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
-            // Another worker is processing this same invoice. Tell 2Checkout
-            // "OK" so they stop retrying — the in-flight worker will finish.
             Log::info('2Checkout: Upgrade lock busy, deferring to in-flight worker', [
                 'invoice_id' => $invoiceId,
             ]);
@@ -299,13 +251,10 @@ class WebhookController extends Controller
                 'user_id'    => $user->id,
                 'error'      => $e->getMessage(),
             ]);
-            // Return 500 so 2Checkout retries — transient failures (DB down,
-            // deadlocks, etc.) should not silently lose the upgrade.
             return response('Internal error', 500);
         }
 
         if (! $processed) {
-            // Already processed — return OK without re-upgrading.
             return response('OK', 200);
         }
 
@@ -314,14 +263,6 @@ class WebhookController extends Controller
 
     /**
      * Handle the legacy /webhooks/2checkout/refund route.
-     *
-     * 2Checkout's standard INS configuration sends ALL message types to a
-     * single URL — so refunds arrive at /webhooks/2checkout and are dispatched
-     * by message_type inside handle2Checkout(). The /refund route is kept for
-     * backward compatibility with any 2Checkout account that was historically
-     * configured with two separate URLs.
-     *
-     * SECURITY: Same verification as handle2Checkout — see verify2CheckoutSignature().
      */
     public function handleRefund(Request $request)
     {
@@ -331,9 +272,6 @@ class WebhookController extends Controller
             return response('Hash verification failed', 403);
         }
 
-        // Dispatch by message_type. If 2Checkout sends a REFUND_ISSUED to this
-        // route, we handle it properly. If it sends something else (e.g.
-        // ORDER_CREATED by misconfiguration), we route accordingly.
         $messageType = $request->input('message_type');
 
         if ($messageType === 'REFUND_ISSUED') {
@@ -356,19 +294,18 @@ class WebhookController extends Controller
     /**
      * Apply a confirmed refund (REFUND_ISSUED).
      *
-     * Behavior:
-     *  - Look up the transaction by invoice_id (NOT by customer_email + latest).
-     *  - If the transaction is already marked 'refunded', return OK (idempotent).
-     *  - Mark the transaction 'refunded'.
-     *  - Downgrade the user ONLY IF their current plan matches the plan the
-     *    refunded transaction was for. A user who bought Pro, then later
-     *    upgraded to Studio, then refunds the old Pro purchase should NOT
-     *    lose Studio — they only lose Pro, which they already replaced.
-     *  - Downgrade target is 'free' (we have no concept of "partial refund
-     *    back to Pro from Studio" today).
+     * P1-1 FIX: External side effects (CoolifyDomainManager::removeDomain,
+     * file deletes via PlanDowngradeService) are now dispatched via
+     * DB::afterCommit() so they only execute if the DB transaction commits.
+     * Previously, if the transaction rolled back, the user's plan reverted
+     * to Pro/Studio but their custom domain was already removed from Traefik
+     * and their logo files were already deleted — state drift.
      *
-     * Uses the same per-invoice Cache::lock + DB::transaction pattern as the
-     * upgrade path to prevent concurrent-webhook races.
+     * P1-4 FIX: Parse the refund amount from the IPN. Only downgrade if the
+     * refund is full (≥90% of the original transaction amount). A $5 courtesy
+     * refund on a $99 Studio purchase no longer wipes the user's branding.
+     * Partial refunds mark the transaction as 'partial_refund' and leave the
+     * plan intact.
      */
     private function applyRefund(Request $request)
     {
@@ -383,44 +320,53 @@ class WebhookController extends Controller
         try {
             $lock->block(5, function () use ($invoiceId, $request) {
                 \DB::transaction(function () use ($invoiceId, $request) {
-                    // ── Match the transaction by invoice_id (NOT by email+latest) ──
                     $transaction = \DB::table('transactions')
                         ->where('invoice_id', $invoiceId)
                         ->lockForUpdate()
                         ->first();
 
                     if (! $transaction) {
-                        // Refund for an invoice we never recorded. This can
-                        // happen if the original ORDER_CREATED webhook failed
-                        // (e.g. CSRF before C01 was deployed) but the user was
-                        // manually upgraded. Log for ops review — we have no
-                        // transaction to mark refunded.
                         Log::warning('2Checkout: REFUND_ISSUED for unknown invoice', [
                             'invoice_id' => $invoiceId,
                         ]);
                         return;
                     }
 
-                    if ($transaction->status === 'refunded') {
-                        // Idempotent — already processed.
+                    if ($transaction->status === 'refunded' || $transaction->status === 'partial_refund') {
                         Log::info('2Checkout: Duplicate REFUND_ISSUED, skipping', [
                             'invoice_id' => $invoiceId,
                         ]);
                         return;
                     }
 
-                    // ── Mark the specific transaction as refunded ──
+                    // ── P1-4 FIX: Parse the refund amount ──────────────
+                    // 2Checkout's REFUND_ISSUED IPN includes item_list_amount_1
+                    // which is the REFUND amount (not the original amount).
+                    // Compare against the original transaction amount to
+                    // determine if this is a full or partial refund.
+                    $refundAmount = (float) $request->input('item_list_amount_1', 0);
+                    $originalAmount = (float) $transaction->amount;
+                    $isFullRefund = $originalAmount > 0
+                        && ($refundAmount / $originalAmount) >= 0.90;
+
+                    // Defensive: if we can't determine the refund amount
+                    // (e.g. item_list_amount_1 is missing or 0), OR if the
+                    // original amount was 0, treat it as a full refund.
+                    // Better to downgrade than to let a refunded user keep
+                    // access — the refund IPN was sent for a reason.
+                    if ($originalAmount <= 0 || $refundAmount <= 0) {
+                        $isFullRefund = true;
+                    }
+
+                    $newStatus = $isFullRefund ? 'refunded' : 'partial_refund';
+
                     \DB::table('transactions')
                         ->where('invoice_id', $invoiceId)
                         ->update([
-                            'status'     => 'refunded',
+                            'status'     => $newStatus,
                             'updated_at' => now(),
                         ]);
 
-                    // ── Downgrade only if current plan matches refunded plan ──
-                    // If the user is on a different plan now (e.g. they
-                    // upgraded Pro→Studio and refunded the old Pro), do NOT
-                    // touch their current plan.
                     $user = User::find($transaction->user_id);
 
                     if (! $user) {
@@ -431,6 +377,18 @@ class WebhookController extends Controller
                         return;
                     }
 
+                    // ── P1-4: Partial refunds do NOT downgrade ──────────
+                    if (! $isFullRefund) {
+                        Log::info('2Checkout: Partial refund — not downgrading', [
+                            'invoice_id'      => $invoiceId,
+                            'user_id'         => $user->id,
+                            'original_amount' => $originalAmount,
+                            'refund_amount'   => $refundAmount,
+                        ]);
+                        return;
+                    }
+
+                    // ── Downgrade only if current plan matches ──────────
                     if ($user->plan !== $transaction->plan) {
                         Log::info('2Checkout: REFUND_ISSUED not downgrading — plan changed since purchase', [
                             'invoice_id'        => $invoiceId,
@@ -442,17 +400,28 @@ class WebhookController extends Controller
                     }
 
                     if (! in_array($user->plan, ['pro', 'studio'], true)) {
-                        // Already on free — nothing to downgrade.
                         return;
                     }
 
-                    $this->downgradeUserAndCleanupStudioResources($user, 'Refund issued');
-
-                    Log::info('2Checkout: User downgraded after refund', [
-                        'user_id'    => $user->id,
-                        'invoice_id' => $invoiceId,
-                        'from_plan'  => $transaction->plan,
-                    ]);
+                    // ── P1-1 FIX: External side effects AFTER commit ────
+                    // PlanDowngradeService::downgradeToFree calls
+                    // CoolifyDomainManager::removeDomain (HTTP to Coolify)
+                    // and Storage::disk('public')->delete() (filesystem).
+                    // These MUST NOT run inside the DB transaction — if the
+                    // transaction rolls back, the DB says "Studio" but the
+                    // domain is gone and the files are deleted.
+                    $userId = $user->id;
+                    \DB::afterCommit(function () use ($userId, $invoiceId) {
+                        $user = User::find($userId);
+                        if (! $user) {
+                            return;
+                        }
+                        $this->downgradeUserAndCleanupStudioResources($user, 'Refund issued');
+                        Log::info('2Checkout: User downgraded after refund (afterCommit)', [
+                            'user_id'    => $user->id,
+                            'invoice_id' => $invoiceId,
+                        ]);
+                    });
                 });
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
@@ -474,9 +443,18 @@ class WebhookController extends Controller
     /**
      * Apply a chargeback (CHARGEBACK_REPORTED).
      *
-     * Treat identically to a refund for plan-downgrade purposes, but mark
-     * the transaction as 'chargeback' (not 'refunded') so finance can
-     * distinguish the two in reports.
+     * P1-1 FIX: External side effects now dispatched via DB::afterCommit().
+     *
+     * P1-3 FIX: Only downgrade if the user's current plan matches the
+     * transaction's plan — mirroring the refund path. Previously,
+     * applyChargeback unconditionally downgraded regardless of which
+     * transaction's invoice was being charged back. Scenario: user buys
+     * Pro (invoice A) → refunds (downgraded to Free) → buys Studio
+     * (invoice B) → 6 months later CHARGEBACK_REPORTED for invoice A.
+     * The old code saw plan='studio' and downgraded to Free, losing the
+     * Studio purchase. The fix only downgrades if user.plan ===
+     * transaction.plan, so a chargeback on an old Pro invoice doesn't
+     * affect a current Studio subscription.
      */
     private function applyChargeback(Request $request)
     {
@@ -522,18 +500,39 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    // Chargebacks always downgrade — the cardholder is
-                    // disputing the charge, so we cannot keep the paid plan.
-                    // (Unlike refunds, we do not check plan_match — the
-                    // customer is contesting the purchase itself.)
-                    if (in_array($user->plan, ['pro', 'studio'], true)) {
+                    // ── P1-3 FIX: Only downgrade if plan matches ────────
+                    // Previously, chargebacks unconditionally downgraded.
+                    // Now we mirror the refund path: only downgrade if the
+                    // user's current plan matches the charged-back
+                    // transaction's plan. A chargeback on an old Pro
+                    // invoice does NOT downgrade a current Studio user.
+                    if ($user->plan !== $transaction->plan) {
+                        Log::info('2Checkout: CHARGEBACK_REPORTED not downgrading — plan changed since purchase', [
+                            'invoice_id'        => $invoiceId,
+                            'user_id'           => $user->id,
+                            'current_plan'      => $user->plan,
+                            'charged_back_plan' => $transaction->plan,
+                        ]);
+                        return;
+                    }
+
+                    if (! in_array($user->plan, ['pro', 'studio'], true)) {
+                        return;
+                    }
+
+                    // ── P1-1 FIX: External side effects AFTER commit ────
+                    $userId = $user->id;
+                    \DB::afterCommit(function () use ($userId, $invoiceId) {
+                        $user = User::find($userId);
+                        if (! $user) {
+                            return;
+                        }
                         $this->downgradeUserAndCleanupStudioResources($user, 'Chargeback reported');
-                        Log::info('2Checkout: User downgraded after chargeback', [
+                        Log::info('2Checkout: User downgraded after chargeback (afterCommit)', [
                             'user_id'    => $user->id,
                             'invoice_id' => $invoiceId,
-                            'from_plan'  => $transaction->plan,
                         ]);
-                    }
+                    });
                 });
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
@@ -560,7 +559,8 @@ class WebhookController extends Controller
      * transaction back to 'completed'.
      *
      * This is the only path that re-grants a paid plan outside of an
-     * ORDER_CREATED webhook.
+     * ORDER_CREATED webhook. No external side effects here (no email, no
+     * Coolify call, no file delete) — so no DB::afterCommit needed.
      */
     private function reverseChargeback(Request $request)
     {
@@ -644,13 +644,6 @@ class WebhookController extends Controller
     /**
      * Downgrade a user to 'free' and clean up Studio-only resources.
      *
-     * Used by applyRefund() and applyChargeback() to ensure consistent
-     * post-downgrade state. Delegates to PlanDowngradeService which:
-     *   - downgrades the user's plan + limits + plan_expires_at
-     *   - clears galleries.custom_domain and calls CoolifyDomainManager::removeDomain
-     *   - forgets the cached custom_domain:{host} lookup
-     *   - deletes custom_logo_path / curtain_logo_path / audio_path files
-     *
      * @param  User    $user
      * @param  string  $reason  Short reason for log context (e.g. "Refund issued")
      */
@@ -668,15 +661,8 @@ class WebhookController extends Controller
      *
      * Three layers (any failure → 403):
      *  1. Legacy MD5 hash (always required) — proves IPN origin.
-     *     Covers ONLY sale_id + vendor_id + invoice_id + secret_word.
-     *     Does NOT cover customer_email, item_id, message_type, amount.
      *  2. HMAC SHA-256 signature — MANDATORY in production.
-     *     Covers customer_email, item_id_1, message_type, item_list_amount_1,
-     *     and 12 other security-critical fields.
-     *     Fail-closed if TWOCHECKOUT_BUY_LINK_SECRET_WORD is unset, unless
-     *     TWOCHECKOUT_ALLOW_MD5_ONLY=true is explicitly set (escape hatch).
      *  3. IP allowlist (optional, env-gated) — limits sender IPs.
-     *     Logs a CRITICAL warning in production if not configured.
      *
      * @return bool  true if all enabled layers pass, false otherwise.
      */
@@ -699,9 +685,6 @@ class WebhookController extends Controller
         }
 
         // ── Layer 1: Legacy MD5 ─────────────────────────────────────────
-        // Format: strlen(sale_id) + sale_id + strlen(vendor_id) + vendor_id
-        //       + strlen(invoice_id) + invoice_id + strlen(secret) + secret
-        // This is the algorithm 2Checkout documents for INS `md5_hash`.
         $stringToHash = strlen((string) $request->input('sale_id', ''))   . $request->input('sale_id', '')
                       . strlen((string) $request->input('vendor_id', '')) . $request->input('vendor_id', '')
                       . strlen((string) $request->input('invoice_id', '')) . $request->input('invoice_id', '')
@@ -718,25 +701,12 @@ class WebhookController extends Controller
         }
 
         // ── Layer 2: HMAC SHA-256 (MANDATORY in production) ─────────────
-        // The HMAC SHA-256 signature covers customer_email, item_id_1,
-        // message_type, item_list_amount_1, and 12 other security-critical
-        // fields. This closes the replay-tamper attack where an attacker
-        // captures a valid IPN, then changes customer_email / item_id_1 /
-        // message_type and re-POSTs it. The MD5 hash still validates (those
-        // fields aren't signed by MD5), but the HMAC SHA-256 fails.
-        //
-        // P0-2 FIX (audit): HMAC is now MANDATORY in production. If
-        // TWOCHECKOUT_BUY_LINK_SECRET_WORD is not set:
-        //   - In production: FAIL CLOSED (return false).
-        //   - In testing/local: accept MD5-only IF TWOCHECKOUT_ALLOW_MD5_ONLY=true.
         $buyLinkSecret   = config('services.2checkout.buy_link_secret_word');
         $allowMd5Only    = config('services.2checkout.allow_md5_only', false);
         $receivedSig     = $request->input('signature');
         $isProduction    = app()->environment('production');
 
         if ($buyLinkSecret) {
-            // HMAC is configured — the `signature` field MUST be present
-            // and MUST verify.
             if (! $receivedSig) {
                 Log::warning('2Checkout: signature field missing but HMAC verification is configured', [
                     'invoice_id' => $request->input('invoice_id'),
@@ -754,22 +724,11 @@ class WebhookController extends Controller
                 return false;
             }
         } elseif ($receivedSig) {
-            // 2Checkout is sending a `signature` field but we're not verifying
-            // it — fail closed until the operator configures the buy link
-            // secret word. Otherwise we are silently accepting unsigned data
-            // while 2Checkout tells us signing is available.
             Log::error('2Checkout: signature field present but TWOCHECKOUT_BUY_LINK_SECRET_WORD not configured', [
                 'invoice_id' => $request->input('invoice_id'),
             ]);
             return false;
         } else {
-            // No buy_link_secret configured AND no signature field present.
-            // This is the MD5-only path — DANGEROUS because MD5 doesn't cover
-            // customer_email, item_id, or message_type.
-            //
-            // P0-2 FIX: fail closed in production unless the operator has
-            // explicitly set TWOCHECKOUT_ALLOW_MD5_ONLY=true as an escape
-            // hatch (e.g. during 2Checkout account migration).
             if ($isProduction && ! $allowMd5Only) {
                 Log::critical('2Checkout: HMAC secret not configured in production — FAILING CLOSED. Set TWOCHECKOUT_BUY_LINK_SECRET_WORD in .env, or set TWOCHECKOUT_ALLOW_MD5_ONLY=true as an emergency escape hatch.', [
                     'invoice_id' => $request->input('invoice_id'),
@@ -777,7 +736,6 @@ class WebhookController extends Controller
                 return false;
             }
 
-            // Either non-production, or allow_md5_only is explicitly true.
             Log::warning('2Checkout: Accepting MD5-only webhook (HMAC not configured). This is insecure — configure TWOCHECKOUT_BUY_LINK_SECRET_WORD immediately.', [
                 'invoice_id'     => $request->input('invoice_id'),
                 'allow_md5_only' => $allowMd5Only ? 'true' : 'false',
@@ -798,9 +756,6 @@ class WebhookController extends Controller
                 return false;
             }
         } elseif ($isProduction) {
-            // Defense-in-depth: the IP allowlist is not the primary defense
-            // (HMAC is), but it blocks casual abuse. Log a critical warning
-            // so ops knows to configure it.
             Log::critical('2Checkout: TWOCHECKOUT_WEBHOOK_IP_ALLOWLIST not configured in production. HMAC is the primary defense, but the IP allowlist should be set for defense-in-depth. See 2Checkout merchant docs for INS server IP ranges.', [
                 'invoice_id' => $request->input('invoice_id'),
             ]);
@@ -811,14 +766,6 @@ class WebhookController extends Controller
 
     /**
      * Build the HMAC SHA-256 payload per 2Checkout INS 6.0 documented format.
-     *
-     * Concatenates each field as `strlen(value) + value` (same length-prefix
-     * scheme as the MD5 algorithm) over the security-critical IPN fields.
-     *
-     * If 2Checkout's actual `signature` parameter uses a different field set
-     * for your account (some accounts use a different whitelist), update the
-     * `$fields` array below to match the 2Checkout dashboard's documented
-     * signature parameters for your account.
      */
     private function build2CheckoutHmacPayload(Request $request): string
     {
@@ -852,11 +799,6 @@ class WebhookController extends Controller
 
     /**
      * Return a redacted copy of the webhook payload for logging.
-     *
-     * customer_email and customer_name are PII and must not appear in logs
-     * (GDPR Art. 5(1)(c) data minimisation). We keep the security-relevant
-     * fields (invoice_id, sale_id, message_type, item_id, amount) so ops
-     * can still correlate webhook events to user records via the DB.
      */
     private function redactedPayload(Request $request): array
     {

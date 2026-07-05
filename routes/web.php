@@ -168,7 +168,11 @@ Route::post('/team-invitations/{token}/decline', [TeamInvitationController::clas
 
 // ── Auth ─────────────────────────────────────────────────────────────────
 Route::get('/dashboard', fn() => redirect()->route('admin.dashboard'))->middleware(['auth', 'verified'])->name('dashboard');
-Route::middleware('auth')->group(function () {
+// P1-7 FIX: Added 'verified' middleware — previously only 'auth' was applied,
+// allowing unverified-email users to access /profile/export (GDPR PII export)
+// and /billing/upgrade/{plan} (mint pending_upgrade + redirect to 2Checkout).
+// The /dashboard route above already had 'verified'; this was an inconsistency.
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile',    [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile',  [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -180,10 +184,14 @@ Route::middleware('auth')->group(function () {
     // (Task H56) — MFA setup + verification routes for super-admins.
     // Setup: shows QR code for Google Authenticator / Authy / 1Password.
     // Verify: enters the 6-digit TOTP code to complete MFA for the session.
+    // P1-5 FIX: Added throttle:6,1 to POST routes — a 6-digit TOTP has
+    // only 1M values; without throttle, an attacker with a stolen session
+    // cookie can brute-force it in ~8 hours at 1000 attempts/min. 6
+    // attempts per minute is ample for a human typing codes.
     Route::get('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'setup'])->name('mfa.setup');
-    Route::post('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'enable']);
+    Route::post('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'enable'])->middleware('throttle:6,1');
     Route::get('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'showVerify'])->name('mfa.verify');
-    Route::post('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'verify']);
+    Route::post('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'verify'])->middleware('throttle:6,1');
 
     // ── Billing portal + upgrade flow (tasks H01 + H02) ────────────────
     // /billing shows current plan, transaction history, pending upgrades.

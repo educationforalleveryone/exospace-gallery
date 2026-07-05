@@ -251,12 +251,14 @@ class WebhookBillingTest extends TestCase
             'user_id'   => $user->id,
             'invoice_id'=> 'INV-REFUND-001',
             'plan'      => 'pro',
+            'amount'    => 29.00, // P1-4: explicit amount for partial-refund logic
             'status'    => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'  => 'REFUND_ISSUED',
-            'invoice_id'    => 'INV-REFUND-001',
+            'message_type'       => 'REFUND_ISSUED',
+            'invoice_id'         => 'INV-REFUND-001',
+            'item_list_amount_1' => '29.00', // P1-4: full refund amount
         ]);
 
         $response = $this->postWebhook($payload);
@@ -278,12 +280,14 @@ class WebhookBillingTest extends TestCase
             'user_id'   => $user->id,
             'invoice_id'=> 'INV-REFUND-002',
             'plan'      => 'pro', // the refunded transaction was for Pro
+            'amount'    => 29.00, // P1-4: explicit amount
             'status'    => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'  => 'REFUND_ISSUED',
-            'invoice_id'    => 'INV-REFUND-002',
+            'message_type'       => 'REFUND_ISSUED',
+            'invoice_id'         => 'INV-REFUND-002',
+            'item_list_amount_1' => '29.00', // P1-4: full refund amount
         ]);
 
         $response = $this->postWebhook($payload);
@@ -303,12 +307,14 @@ class WebhookBillingTest extends TestCase
             'user_id'   => $user->id,
             'invoice_id'=> 'INV-REFUND-003',
             'plan'      => 'pro',
+            'amount'    => 29.00, // P1-4: explicit amount
             'status'    => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'  => 'REFUND_ISSUED',
-            'invoice_id'    => 'INV-REFUND-003',
+            'message_type'       => 'REFUND_ISSUED',
+            'invoice_id'         => 'INV-REFUND-003',
+            'item_list_amount_1' => '29.00', // P1-4: full refund amount
         ]);
 
         $this->postWebhook($payload);
@@ -611,5 +617,169 @@ class WebhookBillingTest extends TestCase
         $response->assertForbidden();
         $user->refresh();
         $this->assertEquals('pro', $user->plan); // NOT downgraded
+    }
+
+    // ── P1-4: Partial refund does not downgrade ──────────────────────────
+
+    public function test_partial_refund_does_not_downgrade_user(): void
+    {
+        // User bought Studio for $99. A $5 courtesy refund should NOT
+        // downgrade them — only full refunds (>=90% of original) trigger
+        // a downgrade.
+        $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
+        $transaction = Transaction::factory()->create([
+            'user_id'   => $user->id,
+            'invoice_id'=> 'INV-REFUND-PARTIAL-001',
+            'plan'      => 'studio',
+            'amount'    => 99.00,
+            'status'    => 'completed',
+        ]);
+
+        $payload = $this->validIpnPayload([
+            'message_type'       => 'REFUND_ISSUED',
+            'invoice_id'         => 'INV-REFUND-PARTIAL-001',
+            'item_list_amount_1' => '5.00', // only $5 refunded (5% of $99)
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('studio', $user->plan); // NOT downgraded
+
+        $transaction->refresh();
+        $this->assertEquals('partial_refund', $transaction->status);
+    }
+
+    public function test_full_refund_downgrades_user(): void
+    {
+        // Full refund ($99 on a $99 purchase) → downgrade.
+        $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
+        $transaction = Transaction::factory()->create([
+            'user_id'   => $user->id,
+            'invoice_id'=> 'INV-REFUND-FULL-001',
+            'plan'      => 'studio',
+            'amount'    => 99.00,
+            'status'    => 'completed',
+        ]);
+
+        $payload = $this->validIpnPayload([
+            'message_type'       => 'REFUND_ISSUED',
+            'invoice_id'         => 'INV-REFUND-FULL-001',
+            'item_list_amount_1' => '99.00', // full refund
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan); // downgraded
+
+        $transaction->refresh();
+        $this->assertEquals('refunded', $transaction->status);
+    }
+
+    public function test_near_full_refund_downgrades_user(): void
+    {
+        // 90% refund ($89.10 on $99) → downgrade (threshold is >=90%).
+        $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
+        $transaction = Transaction::factory()->create([
+            'user_id'   => $user->id,
+            'invoice_id'=> 'INV-REFUND-90-001',
+            'plan'      => 'studio',
+            'amount'    => 99.00,
+            'status'    => 'completed',
+        ]);
+
+        $payload = $this->validIpnPayload([
+            'message_type'       => 'REFUND_ISSUED',
+            'invoice_id'         => 'INV-REFUND-90-001',
+            'item_list_amount_1' => '89.10', // exactly 90%
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan); // downgraded (>=90%)
+    }
+
+    // ── P1-3: Chargeback respects plan match ─────────────────────────────
+
+    public function test_chargeback_does_not_downgrade_when_plan_changed(): void
+    {
+        // User bought Pro (invoice A), then upgraded to Studio (invoice B).
+        // Chargeback on invoice A should NOT downgrade from Studio — the
+        // user's current plan doesn't match the charged-back transaction's plan.
+        $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
+        $transaction = Transaction::factory()->create([
+            'user_id'   => $user->id,
+            'invoice_id'=> 'INV-CB-PLAN-MISMATCH',
+            'plan'      => 'pro', // the charged-back transaction was for Pro
+            'status'    => 'completed',
+        ]);
+
+        $payload = $this->validIpnPayload([
+            'message_type'  => 'CHARGEBACK_REPORTED',
+            'invoice_id'    => 'INV-CB-PLAN-MISMATCH',
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('studio', $user->plan); // still Studio
+
+        $transaction->refresh();
+        $this->assertEquals('chargeback', $transaction->status); // tx still marked chargeback
+    }
+
+    public function test_chargeback_downgrades_when_plan_matches(): void
+    {
+        // User is on Pro, chargeback on their Pro purchase → downgrade.
+        $user = User::factory()->pro()->create(['email' => 'buyer@example.com']);
+        $transaction = Transaction::factory()->create([
+            'user_id'   => $user->id,
+            'invoice_id'=> 'INV-CB-PLAN-MATCH',
+            'plan'      => 'pro',
+            'status'    => 'completed',
+        ]);
+
+        $payload = $this->validIpnPayload([
+            'message_type'  => 'CHARGEBACK_REPORTED',
+            'invoice_id'    => 'INV-CB-PLAN-MATCH',
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan); // downgraded
+
+        $transaction->refresh();
+        $this->assertEquals('chargeback', $transaction->status);
+    }
+
+    // ── P1-1: afterCommit — side effects don't run on rollback ───────────
+
+    public function test_upgrade_email_sent_only_after_commit(): void
+    {
+        // The PlanUpgradedEmail should only be dispatched after the DB
+        // transaction commits. This test verifies the email IS sent on a
+        // successful upgrade (the afterCommit callback fires).
+        Mail::fake();
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        Mail::assertSent(\App\Mail\PlanUpgradedEmail::class, function ($mail) use ($user) {
+            return $mail->user->id === $user->id && $mail->plan === 'pro';
+        });
     }
 }

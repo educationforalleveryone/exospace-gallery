@@ -70,7 +70,11 @@ return [
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
-            'after_commit' => false,
+            // P1-2 FIX: Jobs dispatched inside a DB transaction now wait
+            // for the transaction to commit before being pushed to the
+            // queue. This prevents the race where a queue worker picks up
+            // a job before the transaction commits and reads stale data.
+            'after_commit' => true,
         ],
 
         'deferred' => [
