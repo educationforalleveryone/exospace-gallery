@@ -69,3 +69,13 @@ Schedule::command('exospace:prune-transactions')
     ->monthlyOn(1, '05:00')
     ->withoutOverlapping(60)
     ->onOneServer();
+
+// SEC-10: Monthly (1st of each month at 5:30am) — anonymize PII on
+// transactions older than 18 months (GDPR). Runs 30 minutes AFTER the
+// partition prune so that dropped partitions don't waste anonymization
+// effort. Default retention: 18 months (shorter than the 7-year tax
+// retention because PII has stricter GDPR limits than financial records).
+Schedule::command('exospace:anonymize-pii')
+    ->monthlyOn(1, '05:30')
+    ->withoutOverlapping(60)
+    ->onOneServer();

@@ -324,6 +324,131 @@
     </p>
 </div>
 
+{{-- CONV-2: Feature comparison table. Lets visitors scan all features at a
+     glance without re-reading each card. Mobile-friendly: table scrolls
+     horizontally on narrow screens via overflow-x:auto wrapper. --}}
+<section style="max-width: 1100px; margin: 4rem auto; padding: 0 2rem;">
+    <h2 style="font-size:1.6rem; font-weight:700; text-align:center; margin-bottom:2rem; color:#f1f5f9;">
+        Compare All Features
+    </h2>
+    <div style="overflow-x:auto; border-radius:14px; border:1px solid rgba(139,92,246,0.12); background:rgba(255,255,255,0.02);">
+        <table style="width:100%; border-collapse:collapse; font-size:0.88rem; min-width:600px;">
+            <thead>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.15);">
+                    <th style="text-align:left; padding:1rem 1.25rem; color:#94a3b8; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Feature</th>
+                    <th style="text-align:center; padding:1rem 1.25rem; color:#94a3b8; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Free</th>
+                    <th style="text-align:center; padding:1rem 1.25rem; color:#a78bfa; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Pro</th>
+                    <th style="text-align:center; padding:1rem 1.25rem; color:#94a3b8; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Studio</th>
+                </tr>
+            </thead>
+            <tbody>
+                @php
+                    // Helper: renders a checkmark, dash, or value cell.
+                    // $val can be: true (check), false (dash), or a string (literal).
+                    $cell = function($val) {
+                        if ($val === true) {
+                            return '<span style="color:#8b5cf6;" aria-label="Yes">&#10003;</span>';
+                        }
+                        if ($val === false) {
+                            return '<span style="color:#475569;" aria-label="No">&ndash;</span>';
+                        }
+                        return '<span style="color:#cbd5e1;">' . e($val) . '</span>';
+                    };
+                @endphp
+
+                {{-- Row: Galleries --}}
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Galleries</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('1') !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('5') !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('Unlimited') !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Images per gallery</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('10') !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('100') !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('500') !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">3D venues</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('2') !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('7') !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('All 11') !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Custom domain</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">White-label branding</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">No Exospace watermark</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Background music</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Exhibition scheduling</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Guided tour</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Analytics dashboard</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">PIN protection</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Team collaboration</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Priority support</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+                <tr>
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Dedicated account manager</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p style="text-align:center; font-size:0.75rem; color:#64748b; margin-top:1rem;">
+        All plans include: SSL encryption, GDPR-compliant data export, CAN-SPAM unsubscribe, and EXIF metadata stripping.
+    </p>
+</section>
+
 <!-- FAQ -->
 <section class="faq">
     <h2>Questions?</h2>
@@ -368,11 +493,15 @@
             Pay Securely with 2Checkout →
         </a>
         @else
-        <a href="{{ route('register') }}"
+        {{-- CONV-6: Direct deep-link to register with ?redirect=billing/upgrade/pro.
+             After registration + email verification, the user lands directly on
+             the 2Checkout checkout page — 1 fewer step than the previous flow
+             (register → log in → find pricing → click upgrade). --}}
+        <a href="{{ route('register') }}?redirect={{ urlencode('billing/upgrade/pro') }}"
            style="display:block; background:linear-gradient(135deg,#3b82f6,#8b5cf6); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
             Sign up to Upgrade →
         </a>
-        <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}" style="color:#8b5cf6; text-decoration:underline;">Log in</a></p>
+        <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}?redirect={{ urlencode('billing/upgrade/pro') }}" style="color:#8b5cf6; text-decoration:underline;">Log in</a></p>
         @endauth
         <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
         <button onclick="document.getElementById('upgrade-modal-pro').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
@@ -399,11 +528,12 @@
             Pay Securely with 2Checkout →
         </a>
         @else
-        <a href="{{ route('register') }}"
+        {{-- CONV-6: Same deep-link pattern as Pro modal above. --}}
+        <a href="{{ route('register') }}?redirect={{ urlencode('billing/upgrade/studio') }}"
            style="display:block; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
             Sign up to Upgrade →
         </a>
-        <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}" style="color:#f59e0b; text-decoration:underline;">Log in</a></p>
+        <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}?redirect={{ urlencode('billing/upgrade/studio') }}" style="color:#f59e0b; text-decoration:underline;">Log in</a></p>
         @endauth
         <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
         <button onclick="document.getElementById('upgrade-modal-studio').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>

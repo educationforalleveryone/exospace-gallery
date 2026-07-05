@@ -218,13 +218,15 @@
             color: white; pointer-events: auto;
         }
         .tour-btn {
-            width: 36px; height: 36px; border-radius: 50%;
+            /* UX-5: 44×44 minimum for WCAG 2.5.5 Level AAA touch target */
+            min-width: 44px; min-height: 44px;
+            width: 44px; height: 44px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             background: rgba(139,92,246,0.2); border: 1px solid rgba(139,92,246,0.4);
             color: white; cursor: pointer; transition: all 0.2s;
         }
         .tour-btn:hover { background: rgba(139,92,246,0.4); }
-        .tour-btn svg { width: 16px; height: 16px; }
+        .tour-btn svg { width: 18px; height: 18px; }
         #tour-countdown-ring { position: relative; width: 36px; height: 36px; }
         #tour-countdown-ring svg { transform: rotate(-90deg); }
         #tour-ring-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 2; }
@@ -278,15 +280,30 @@
             background: rgba(139,92,246,0.6); border: 2px solid rgba(255,255,255,0.4);
             pointer-events: none; transform: translate(-50%, -50%);
         }
+        /* UX-4 FIX: The look-zone covers the right 50% of the screen on mobile
+           with pointer-events:auto, which intercepts taps on the tour button +
+           audio toggle (top-right). Lower the look-zone z-index so the buttons
+           (z-index: 30 via #ui-layer) sit above it and receive taps first.
+           The look-zone still receives drag gestures for camera look — the
+           buttons are small enough that they don't meaningfully reduce the
+           drag area. */
         #look-zone {
             position: absolute; right: 0; top: 0; width: 50%; height: 100%;
             pointer-events: auto;
+            z-index: 10; /* below #ui-layer (z-index: 30) so buttons are tappable */
         }
+        /* UX-5 FIX: WCAG 2.5.5 (Level AAA) requires touch targets ≥ 44×44 CSS
+           pixels. The tour buttons + audio toggle + sprint/speed buttons were
+           36×36 / 60×36 — barely meeting Level AA (24×24) but not AAA. Bumped
+           to 44×44 minimum. The tour button gets extra horizontal padding so
+           the "TOUR" label + icon hit the 44px height target. */
         #sprint-btn, #speed-dial {
             position: absolute; right: 24px; pointer-events: auto;
+            min-height: 44px; min-width: 44px;
             padding: 12px 18px; border-radius: 999px;
             background: rgba(0,0,0,0.7); border: 1px solid rgba(139,92,246,0.4);
             color: white; font-weight: 700; font-size: 0.85rem;
+            display: flex; align-items: center; justify-content: center;
         }
         #sprint-btn { bottom: 130px; }
         #sprint-btn.active { background: rgba(139,92,246,0.4); }
@@ -526,13 +543,13 @@
                 onclick="toggleAudioMute()"
                 aria-label="Mute audio"
                 aria-pressed="false"
-                style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;font-size:1.1rem;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
+                style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;width:44px;height:44px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;font-size:1.1rem;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
                 🔊
             </button>
             <button id="in-gallery-tour-btn"
                 onclick="startGuidedTour()"
-                style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:rgba(255,255,255,0.75);font-size:0.8rem;font-weight:500;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
-                <svg style="width:13px;height:13px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                style="display:flex;align-items:center;gap:6px;min-height:44px;padding:10px 16px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:rgba(255,255,255,0.75);font-size:0.8rem;font-weight:500;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
+                <svg style="width:14px;height:14px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 TOUR
             </button>
             <div class="bg-black/70 backdrop-blur-md px-4 py-2 rounded-lg border border-white/10" id="speed-indicator">

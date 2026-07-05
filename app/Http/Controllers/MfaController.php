@@ -176,7 +176,25 @@ class MfaController extends Controller
             // P3-8: Mark MFA verified with timestamp
             $this->markMfaVerified($request);
 
-            return redirect()->intended(route('super.index'))
+            // SEC-4: Redirect target depends on user role.
+            //   - Super-admins → /master-control (super-admin panel)
+            //   - Regular users → intended URL (set by middleware) or
+            //     /billing (the most common MFA-gated route for regular
+            //     users — they typically enable MFA right before changing
+            //     their plan).
+            $intended = redirect()->intended(route('super.index'));
+
+            if (! $user->is_super_admin) {
+                // For regular users, redirect()->intended() falls back to
+                // /billing if no intended URL is set (i.e. they visited
+                // /mfa/verify directly). If they were redirected from
+                // /billing by the mfa middleware, intended() returns
+                // /billing — perfect.
+                return redirect()->intended(route('billing.index'))
+                    ->with('success', 'MFA verified. You can now access billing.');
+            }
+
+            return $intended
                 ->with('success', 'MFA verified. Welcome to the super-admin panel.');
 
         } catch (\Throwable $e) {

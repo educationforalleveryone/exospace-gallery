@@ -199,6 +199,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile/export', [ProfileController::class, 'export'])->name('profile.export');
 
     // (Task H56) — MFA setup + verification routes for super-admins.
+    // SEC-4: Now also available to regular users (opt-in).
     // Setup: shows QR code for Google Authenticator / Authy / 1Password.
     // Verify: enters the 6-digit TOTP code to complete MFA for the session.
     // P1-5 FIX: Added throttle:6,1 to POST routes — a 6-digit TOTP has
@@ -218,9 +219,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // redirects to 2Checkout with external-reference=<token> + pre-filled
     // customer_email — closes the silent-revenue-leak bug where email
     // mismatches orphaned payments.
-    Route::get('/billing',                [\App\Http\Controllers\BillingController::class, 'index'])->name('billing.index');
-    Route::get('/billing/upgrade/{plan}', [\App\Http\Controllers\BillingController::class, 'upgrade'])->name('billing.upgrade')
-          ->where('plan', 'pro|studio');
+    //
+    // SEC-4/5: Billing routes are gated behind the 'mfa' middleware so
+    // regular users who have opted into MFA must re-verify before changing
+    // their plan. Users who haven't enabled MFA pass through unaffected
+    // (the RequireMfa middleware short-circuits for them).
+    Route::middleware(['mfa'])->group(function () {
+        Route::get('/billing',                [\App\Http\Controllers\BillingController::class, 'index'])->name('billing.index');
+        Route::get('/billing/upgrade/{plan}', [\App\Http\Controllers\BillingController::class, 'upgrade'])->name('billing.upgrade')
+              ->where('plan', 'pro|studio');
+    });
 });
 
 // ── Admin ────────────────────────────────────────────────────────────────
