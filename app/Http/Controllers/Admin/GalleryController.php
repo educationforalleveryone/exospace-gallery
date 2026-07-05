@@ -368,6 +368,20 @@ class GalleryController extends Controller
         // Post-update: set guarded custom-domain verification fields
         $this->applyPostUpdateGuardedFields($request, $gallery);
 
+        // P3-16: Bulk-invalidate all caches tagged with this gallery's ID.
+        // Gallery title/description changes affect: analytics displays,
+        // OG image, sitemap, custom-domain gallery cache. Without bulk
+        // invalidation, we'd need to track each cache key individually —
+        // error-prone and incomplete. CacheTagService handles both Redis
+        // native tags (production) and key-tracking fallback (dev/CI).
+        $cacheTags = app(\App\Services\CacheTagService::class);
+        $cacheTags->invalidateTags([
+            "analytics:gallery:{$gallery->id}",
+            "gallery:{$gallery->id}",
+            'og',
+            'sitemap',
+        ]);
+
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Gallery settings updated!']);
         }

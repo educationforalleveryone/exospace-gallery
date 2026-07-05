@@ -86,7 +86,12 @@ class AnalyticsController extends Controller
         // ── Top artworks by focus count (Task H66 — cached 10 min) ───────
         // P2-20: Using Cache::flexible() for stampede protection — serves
         // stale data for up to 5 min while a single worker regenerates.
-        $topArtworks = \Illuminate\Support\Facades\Cache::flexible(
+        // P3-16: Now tagged with ['analytics', "analytics:gallery:{$gallery->id}"]
+        // so the cache can be bulk-invalidated when the gallery is updated or
+        // when RollupAnalytics runs.
+        $cacheTags = app(\App\Services\CacheTagService::class);
+        $topArtworks = $cacheTags->flexibleTagged(
+            ['analytics', "analytics:gallery:{$gallery->id}"],
             "analytics:top-artworks:{$gallery->id}",
             [now()->addMinutes(10), now()->addMinutes(15)],
             function () use ($gallery) {
@@ -103,7 +108,8 @@ class AnalyticsController extends Controller
         );
 
         // ── Traffic sources (Task H66 — cached 10 min) ───────────────────
-        $referrers = \Illuminate\Support\Facades\Cache::flexible(
+        $referrers = $cacheTags->flexibleTagged(
+            ['analytics', "analytics:gallery:{$gallery->id}"],
             "analytics:referrers:{$gallery->id}",
             [now()->addMinutes(10), now()->addMinutes(15)],
             function () use ($gallery) {

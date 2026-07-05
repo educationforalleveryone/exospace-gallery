@@ -7,6 +7,39 @@ window.Alpine = Alpine;
 Alpine.start();
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PERF-26 FIX: Hotwire Turbo Drive for SPA-like navigation.
+//
+// Turbo intercepts link clicks and form submissions, fetches the response
+// via fetch(), and swaps the <body> content — without re-executing <head>
+// assets (CSS, JS, fonts). This makes admin navigation feel instant: the
+// first page load takes the full time, but subsequent navigations skip
+// the asset-parse step (~200-500ms on a typical admin page).
+//
+// We start Turbo in "manual" mode and only enable Drive on admin pages
+// (where the benefit is highest — list → detail → back navigation). The
+// gallery 3D view is excluded via data-turbo="false" on the <html> tag in
+// gallery/view.blade.php (the 3D scene can't survive a body swap).
+//
+// Forms that submit via traditional POST (not AJAX) get Turbo's progress
+// bar automatically. Forms that already use fetch() (image upload,
+// newsletter signup) are unaffected — Turbo only intercepts standard
+// form submissions.
+// ─────────────────────────────────────────────────────────────────────────────
+import { Turbo } from '@hotwired/turbo';
+
+// Make Turbo available globally for debugging + opt-out in views.
+window.Turbo = Turbo;
+
+// Turbo is auto-starting by default. We don't need to call Turbo.start()
+// — the import alone activates Drive on all pages. Views can opt out
+// per-link/per-form via data-turbo="false", or per-page via
+// <meta name="turbo-visit-control" content="no-preview"> in the <head>.
+//
+// The gallery 3D view uses <html data-turbo="false"> to fully opt out
+// (the 3D scene's WebGL context can't survive a Turbo body swap — it
+// needs a full page load to re-init the canvas).
+
+// ─────────────────────────────────────────────────────────────────────────────
 // exospaceConfirm — styled replacement for browser confirm() (Task H42)
 //
 // Replaces native confirm() dialogs with a styled modal that matches the

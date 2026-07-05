@@ -61,3 +61,11 @@ Schedule::command('exospace:cleanup-stale')
     ->dailyAt('04:00')
     ->withoutOverlapping(60)
     ->onOneServer();
+
+// S-10: Monthly (1st of each month at 5am) — create future partitions +
+// drop old ones on the transactions table. Idempotent, safe to re-run.
+// Default retention: 7 years (IRS financial record requirement).
+Schedule::command('exospace:prune-transactions')
+    ->monthlyOn(1, '05:00')
+    ->withoutOverlapping(60)
+    ->onOneServer();

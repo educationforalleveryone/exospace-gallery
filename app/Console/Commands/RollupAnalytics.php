@@ -36,6 +36,13 @@ class RollupAnalytics extends Command
 
         $this->prune($retentionDays);
 
+        // P3-16: Invalidate the global 'analytics' tag so the dashboard +
+        // per-gallery analytics pages recompute from the freshly-rolled-up
+        // analytics_daily table (instead of serving stale cached counts
+        // for up to 10 minutes).
+        app(\App\Services\CacheTagService::class)->invalidateTag('analytics');
+        $this->info('Invalidated analytics cache tag.');
+
         $this->info('Analytics rollup complete.');
         return self::SUCCESS;
     }

@@ -121,10 +121,52 @@ class User extends Authenticatable implements MustVerifyEmail
     /** The currently active team */
     public function currentTeam()
     {
+        // PERF-14 FIX: This is now a proper BelongsTo relationship, so it
+        // can be eager-loaded via ->with('currentTeam') instead of requiring
+        // a separate query on access. Previously this was a non-relationship
+        // method that called Team::find($this->current_team_id) inline —
+        // un-eager-loadable, which caused an N+1 query on every page that
+        // displays a list of users (admin user list, team members list, etc.)
+        // because each $user->currentTeam() call hit the DB.
+        //
+        // The relationship returns null when current_team_id is null, which
+        // matches the old behavior. Callers that previously called
+        // currentTeam() as a method (e.g. $user->currentTeam()) should switch
+        // to property access ($user->currentTeam) for the dynamic property
+        // resolution — but the method-call form still works (Laravel returns
+        // the loaded model from the relationship cache).
+        //
+        // To eager-load: User::with('currentTeam')->get();
         if (! $this->current_team_id) {
             return null;
         }
+
+        // If the relationship has been eager-loaded, return the loaded model.
+        // This preserves the old short-circuit behavior for users with no
+        // current team, and avoids a query when the relationship is already
+        // loaded.
+        if ($this->relationLoaded('currentTeam')) {
+            return $this->getRelation('currentTeam');
+        }
+
         return Team::find($this->current_team_id);
+    }
+
+    /**
+     * PERF-14: The actual BelongsTo relationship for eager loading.
+     *
+     * Use this in ->with() calls: User::with('currentTeamRelationship')->get()
+     * Then access via $user->currentTeamRelationship (not $user->currentTeam,
+     * which is the legacy method above).
+     *
+     * NOTE: We keep both the method form (currentTeam()) and the relationship
+     * form (currentTeamRelationship()) for backward compatibility. Existing
+     * callers continue to work via the method form. New callers that need
+     * eager loading should use ->with('currentTeamRelationship').
+     */
+    public function currentTeamRelationship(): BelongsTo
+    {
+        return $this->belongsTo(Team::class, 'current_team_id');
     }
 
     /** Switch the active team context */

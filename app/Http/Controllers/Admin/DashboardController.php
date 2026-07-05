@@ -16,7 +16,12 @@ class DashboardController extends Controller
     public function index(): View
     {
         $user = Auth::user();
-        $team = $user->currentTeam();
+        // PERF-14: Eager-load currentTeamRelationship to avoid the N+1 query
+        // that the legacy currentTeam() method form would issue. The legacy
+        // method still works (it returns the loaded relation from the cache),
+        // but this way we don't pay the query cost on the first access.
+        $user->loadMissing('currentTeamRelationship');
+        $team = $user->current_team_id ? $user->currentTeamRelationship : null;
 
         // ── Gallery scope ───────────────────────────────────────────────────
         $galleriesScope = $team

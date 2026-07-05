@@ -190,7 +190,29 @@ class WebhookController extends Controller
         // so the email is only sent if the DB transaction commits. If the
         // transaction rolls back (deadlock, query error), the email is NOT
         // sent — preventing the "email says Pro but DB says Free" drift.
-        $lock = \Illuminate\Support\Facades\Cache::lock("2co:upgrade:{$invoiceId}", 60);
+        //
+        // S-9 FIX: Lock TTL bumped from 60s to 120s. The worst-case DB
+        // transaction here includes:
+        //   - SELECT ... FOR UPDATE on transactions (idempotency check)
+        //   - UPDATE users SET plan=pro (fast)
+        //   - INSERT INTO transactions (fast)
+        //   - UPDATE pending_upgrades SET status=converted (fast)
+        //   - DB::afterCommit dispatches PlanUpgradedEmail to queue (fast)
+        //
+        // Under normal conditions the whole transaction is <100ms. But under
+        // contention (many concurrent webhooks from a 2Checkout batch), MySQL
+        // row-lock waits can stack up. A 60s lock would expire if the
+        // transaction took >60s due to lock waits, allowing a retry to
+        // acquire the lock and start a duplicate upgrade. 120s gives 2×
+        // headroom — generous enough to absorb lock waits, still short enough
+        // that a crashed holder doesn't block retries for too long.
+        //
+        // The block(5) call still waits up to 5 seconds to acquire the lock.
+        // If the lock is held by an in-flight webhook for the same invoice_id,
+        // the retry sees the lock busy and returns 200 (deferred) — the
+        // in-flight webhook's idempotency check (SELECT FOR UPDATE on
+        // transactions.invoice_id) ensures the retry is a no-op anyway.
+        $lock = \Illuminate\Support\Facades\Cache::lock("2co:upgrade:{$invoiceId}", 120);
 
         try {
             $processed = $lock->block(5, function () use (
@@ -347,7 +369,9 @@ class WebhookController extends Controller
             return response('OK', 200);
         }
 
-        $lock = \Illuminate\Support\Facades\Cache::lock("2co:refund:{$invoiceId}", 60);
+        // S-9 FIX: Lock TTL bumped from 60s to 120s - see upgrade path above
+        // for rationale. Same worst-case DB transaction shape applies.
+        $lock = \Illuminate\Support\Facades\Cache::lock("2co:refund:{$invoiceId}", 120);
 
         try {
             $lock->block(5, function () use ($invoiceId, $request) {
@@ -496,7 +520,9 @@ class WebhookController extends Controller
             return response('OK', 200);
         }
 
-        $lock = \Illuminate\Support\Facades\Cache::lock("2co:chargeback:{$invoiceId}", 60);
+        // S-9 FIX: Lock TTL bumped from 60s to 120s - see upgrade path above
+        // for rationale. Same worst-case DB transaction shape applies.
+        $lock = \Illuminate\Support\Facades\Cache::lock("2co:chargeback:{$invoiceId}", 120);
 
         try {
             $lock->block(5, function () use ($invoiceId) {
@@ -602,7 +628,9 @@ class WebhookController extends Controller
             return response('OK', 200);
         }
 
-        $lock = \Illuminate\Support\Facades\Cache::lock("2co:cb_reverse:{$invoiceId}", 60);
+        // S-9 FIX: Lock TTL bumped from 60s to 120s - see upgrade path above
+        // for rationale. Same worst-case DB transaction shape applies.
+        $lock = \Illuminate\Support\Facades\Cache::lock("2co:cb_reverse:{$invoiceId}", 120);
 
         try {
             $lock->block(5, function () use ($invoiceId) {
