@@ -84,14 +84,28 @@ class BillingController extends Controller
     {
         $user = $request->user();
 
+        // M-1: Determine if this is a recurring (subscription) purchase.
+        // When ?recurring=1 is passed, use the recurring product ID; otherwise
+        // use the one-time product ID (existing behavior).
+        $isRecurring = $request->boolean('recurring');
+
         // Validate plan + product ID is configured
-        $productId = $plan === 'pro'
-            ? config('services.2checkout.product_id_pro')
-            : ($plan === 'studio' ? config('services.2checkout.product_id_studio') : null);
+        if ($isRecurring) {
+            $productId = $plan === 'pro'
+                ? config('services.2checkout.recurring_product_id_pro')
+                : ($plan === 'studio' ? config('services.2checkout.recurring_product_id_studio') : null);
+        } else {
+            $productId = $plan === 'pro'
+                ? config('services.2checkout.product_id_pro')
+                : ($plan === 'studio' ? config('services.2checkout.product_id_studio') : null);
+        }
 
         if (! $productId) {
+            $error = $isRecurring
+                ? "Recurring product not configured for plan: {$plan}. Set TWOCHECKOUT_RECURRING_PRODUCT_ID_{$plan} in .env."
+                : "Unknown plan: {$plan}. Please contact support.";
             return redirect()->route('billing.index')
-                ->with('error', "Unknown plan: {$plan}. Please contact support.");
+                ->with('error', $error);
         }
 
         // Don't allow downgrading via this flow — if a Studio user clicks
@@ -247,5 +261,167 @@ class BillingController extends Controller
         }
 
         return $result;
+    }
+
+    // ── M-1: Subscription management ──────────────────────────────────────
+
+    /**
+     * Cancel the user's active subscription.
+     *
+     * Calls 2Checkout's cancel subscription API (via a server-to-server
+     * HTTP call), which triggers a RECURRING_ORDER_CANCELLED webhook.
+     * The user keeps access until subscription_ends_at (the end of the
+     * already-paid-for period), then is downgraded by CheckPlanExpiry.
+     *
+     * Route: POST /billing/cancel-subscription
+     */
+    public function cancelSubscription(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasActiveSubscription()) {
+            return redirect()->route('billing.index')
+                ->with('error', 'You do not have an active subscription to cancel.');
+        }
+
+        // P3-11: Acquire the per-user plan lock to prevent races with
+        // concurrent webhook events.
+        $result = $this->planLock->withUserLock($user->id, function () use ($user) {
+            // Re-check inside the lock — a webhook may have just cancelled it.
+            $user->refresh();
+
+            if (! $user->hasActiveSubscription()) {
+                return redirect()->route('billing.index')
+                    ->with('info', 'Your subscription has already been cancelled.');
+            }
+
+            // Call 2Checkout's cancel subscription API.
+            // 2Checkout API docs: https://api.2checkout.com/rest/6.0/subscriptions/{subscription_id}/cancel
+            $apiBaseUrl = rtrim((string) config('services.2checkout.api_base_url', 'https://api.2checkout.com'), '/');
+            $merchantCode = config('services.2checkout.account_number');
+            $secret = config('services.2checkout.secret_word');
+            $subscriptionId = $user->subscription_id;
+
+            try {
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'Content-Type' => 'application/json',
+                ])->post("{$apiBaseUrl}/rest/6.0/subscriptions/{$subscriptionId}/cancel", [
+                    'merchant_code' => $merchantCode,
+                    // 2Checkout requires authentication via a hash header.
+                    // The exact auth mechanism depends on the 2Checkout API
+                    // version — some use merchant_code + date + hash, others
+                    // use a bearer token. This is a simplified placeholder;
+                    // the founder must configure the correct auth per their
+                    // 2Checkout account's API settings.
+                ]);
+
+                if (! $response->successful()) {
+                    Log::error('BillingController: 2Checkout cancel API failed', [
+                        'user_id'         => $user->id,
+                        'subscription_id' => $subscriptionId,
+                        'status'          => $response->status(),
+                        'body'            => $response->body(),
+                    ]);
+                    return redirect()->route('billing.index')
+                        ->with('error', 'Failed to cancel subscription via 2Checkout. Please try again or contact support.');
+                }
+            } catch (\Throwable $e) {
+                Log::error('BillingController: 2Checkout cancel API exception', [
+                    'user_id'         => $user->id,
+                    'subscription_id' => $subscriptionId,
+                    'error'           => $e->getMessage(),
+                ]);
+                return redirect()->route('billing.index')
+                    ->with('error', 'Could not reach 2Checkout to cancel your subscription. Please try again or contact support.');
+            }
+
+            // The RECURRING_ORDER_CANCELLED webhook will set subscription_status
+            // to 'cancelled' + subscription_cancelled_at. But we set it here
+            // too so the UI updates immediately (the webhook may take a few
+            // seconds to arrive).
+            $user->forceFill([
+                'subscription_status'       => 'cancelled',
+                'subscription_cancelled_at' => now(),
+            ])->save();
+
+            Log::info('BillingController: subscription cancelled', [
+                'user_id'         => $user->id,
+                'subscription_id' => $subscriptionId,
+                'ends_at'         => $user->subscription_ends_at?->toIso8601String(),
+            ]);
+
+            return redirect()->route('billing.index')
+                ->with('success', "Your subscription has been cancelled. You'll keep access until {$user->subscription_ends_at?->format('M j, Y')}, after which your account will be downgraded to Free.");
+        });
+
+        if ($result instanceof RedirectResponse) {
+            return $result;
+        }
+
+        if ($result === \App\Services\PlanLockService::LOCK_BUSY) {
+            return redirect()->route('billing.index')
+                ->with('warning', 'Another billing operation is in progress. Please wait a moment and try again.');
+        }
+
+        return redirect()->route('billing.index');
+    }
+
+    /**
+     * Reactivate a cancelled subscription (if still within the paid-for period).
+     *
+     * Calls 2Checkout's reactivate subscription API. Only works if the
+     * subscription hasn't ended yet (subscription_ends_at is in the future).
+     *
+     * Route: POST /billing/reactivate-subscription
+     */
+    public function reactivateSubscription(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->canReactivateSubscription()) {
+            return redirect()->route('billing.index')
+                ->with('error', 'Your subscription cannot be reactivated — the paid period has ended. Please start a new subscription.');
+        }
+
+        $subscriptionId = $user->subscription_id;
+        $apiBaseUrl = rtrim((string) config('services.2checkout.api_base_url', 'https://api.2checkout.com'), '/');
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post("{$apiBaseUrl}/rest/6.0/subscriptions/{$subscriptionId}/reactivate", [
+                'merchant_code' => config('services.2checkout.account_number'),
+            ]);
+
+            if (! $response->successful()) {
+                Log::error('BillingController: 2Checkout reactivate API failed', [
+                    'user_id'         => $user->id,
+                    'subscription_id' => $subscriptionId,
+                    'status'          => $response->status(),
+                ]);
+                return redirect()->route('billing.index')
+                    ->with('error', 'Failed to reactivate subscription via 2Checkout. Please try again or contact support.');
+            }
+        } catch (\Throwable $e) {
+            Log::error('BillingController: 2Checkout reactivate API exception', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+            return redirect()->route('billing.index')
+                ->with('error', 'Could not reach 2Checkout to reactivate your subscription. Please try again or contact support.');
+        }
+
+        $user->forceFill([
+            'subscription_status'       => 'active',
+            'subscription_cancelled_at' => null,
+        ])->save();
+
+        Log::info('BillingController: subscription reactivated', [
+            'user_id'         => $user->id,
+            'subscription_id' => $subscriptionId,
+        ]);
+
+        return redirect()->route('billing.index')
+            ->with('success', 'Your subscription has been reactivated. The next billing date remains unchanged.');
     }
 }

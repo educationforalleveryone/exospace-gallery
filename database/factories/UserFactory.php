@@ -39,6 +39,11 @@ class UserFactory extends Factory
             'google2fa_secret'  => null,
             'mfa_enabled_at'    => null,
             'mfa_backup_codes'  => null,
+            // M-1: Subscription fields — null = no subscription (one-time purchase or free).
+            'subscription_id'            => null,
+            'subscription_status'        => null,
+            'subscription_cancelled_at'  => null,
+            'subscription_ends_at'       => null,
         ];
     }
 
@@ -99,6 +104,44 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'google2fa_secret' => encrypt(\PragmaRX\Google2FA\Google2FA::generateSecretKey()),
             'mfa_enabled_at'   => now(),
+        ]);
+    }
+
+    /**
+     * M-1: Active subscription state. Sets a fake subscription_id + active
+     * status + subscription_ends_at 30 days from now (monthly billing).
+     * For tests that need users with active recurring subscriptions.
+     */
+    public function withSubscription(string $plan = 'pro'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'plan'                    => $plan,
+            'max_galleries'           => $plan === 'studio' ? 999 : 5,
+            'max_images'              => $plan === 'studio' ? 500 : 100,
+            'plan_started_at'         => now(),
+            'plan_expires_at'         => now()->addMonth(),
+            'subscription_id'         => 'SUB-' . \Illuminate\Support\Str::random(10),
+            'subscription_status'     => 'active',
+            'subscription_ends_at'    => now()->addMonth(),
+            'subscription_cancelled_at' => null,
+        ]);
+    }
+
+    /**
+     * M-1: Cancelled subscription state (still within paid period).
+     */
+    public function withCancelledSubscription(string $plan = 'pro'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'plan'                    => $plan,
+            'max_galleries'           => $plan === 'studio' ? 999 : 5,
+            'max_images'              => $plan === 'studio' ? 500 : 100,
+            'plan_started_at'         => now()->subMonths(3),
+            'plan_expires_at'         => now()->addDays(10), // 10 days left in paid period
+            'subscription_id'         => 'SUB-' . \Illuminate\Support\Str::random(10),
+            'subscription_status'     => 'cancelled',
+            'subscription_ends_at'    => now()->addDays(10),
+            'subscription_cancelled_at' => now()->subDays(2),
         ]);
     }
 }

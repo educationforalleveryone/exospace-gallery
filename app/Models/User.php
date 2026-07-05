@@ -73,6 +73,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'plan_expiry_reminded_at'  => 'datetime', // (P0-7) — last plan-expiry reminder
             'marketing_consent' => 'boolean',      // (P0-3) — CAN-SPAM/GDPR consent
             'mfa_backup_codes'  => 'array',         // (P3-7) — hashed one-time codes
+            // M-1: Subscription tracking columns (recurring billing)
+            'subscription_cancelled_at' => 'datetime',
+            'subscription_ends_at'      => 'datetime',
         ];
     }
 
@@ -231,6 +234,50 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isStudio(): bool
     {
         return $this->plan === 'studio';
+    }
+
+    // ── M-1: Subscription helpers ────────────────────────────────────────
+
+    /**
+     * Does this user have an active recurring subscription?
+     * (vs. a one-time purchase where plan_expires_at = null)
+     */
+    public function hasSubscription(): bool
+    {
+        return ! empty($this->subscription_id);
+    }
+
+    /**
+     * Is the subscription currently active (not cancelled, not past_due)?
+     */
+    public function hasActiveSubscription(): bool
+    {
+        return $this->hasSubscription()
+            && $this->subscription_status === 'active';
+    }
+
+    /**
+     * Has the subscription been cancelled but still within the paid-for period?
+     * (The user keeps access until subscription_ends_at, then is downgraded.)
+     */
+    public function hasCancelledSubscription(): bool
+    {
+        return $this->hasSubscription()
+            && $this->subscription_status === 'cancelled'
+            && $this->subscription_ends_at
+            && $this->subscription_ends_at->isFuture();
+    }
+
+    /**
+     * Can the user reactivate their cancelled subscription?
+     * Only if the subscription hasn't ended yet (still in the paid-for period).
+     */
+    public function canReactivateSubscription(): bool
+    {
+        return $this->hasSubscription()
+            && $this->subscription_status === 'cancelled'
+            && $this->subscription_ends_at
+            && $this->subscription_ends_at->isFuture();
     }
 
     public function canCreateGallery(): bool

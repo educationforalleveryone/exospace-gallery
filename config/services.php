@@ -78,6 +78,26 @@ return [
         'product_id_pro'         => env('TWOCHECKOUT_PRODUCT_ID_PRO'),
         'product_id_studio'      => env('TWOCHECKOUT_PRODUCT_ID_STUDIO'),
 
+        // M-1: Recurring (subscription) product IDs. When set, the billing
+        // portal offers BOTH a one-time purchase AND a monthly/yearly
+        // subscription option. When empty, only one-time purchases are
+        // offered (the existing behavior).
+        //
+        // In 2Checkout, recurring products are created separately from
+        // one-time products in the merchant dashboard. The recurring
+        // product's "Billing Cycle" determines the interval (monthly,
+        // yearly, etc.). Exospace reads the interval from the webhook's
+        // item_billing_cycle_* fields — it doesn't need to know the
+        // interval ahead of time.
+        'recurring_product_id_pro'    => env('TWOCHECKOUT_RECURRING_PRODUCT_ID_PRO'),
+        'recurring_product_id_studio' => env('TWOCHECKOUT_RECURRING_PRODUCT_ID_STUDIO'),
+
+        // M-1: Subscription pricing display (shown on the pricing page +
+        // billing portal). These are display-only — the actual price is
+        // set in the 2Checkout merchant dashboard. Keep in sync.
+        'recurring_price_pro_monthly'    => env('TWOCHECKOUT_RECURRING_PRICE_PRO_MONTHLY', '4.99'),
+        'recurring_price_studio_monthly' => env('TWOCHECKOUT_RECURRING_PRICE_STUDIO_MONTHLY', '14.99'),
+
         // (Task H54) — optional default coupon code applied to every
         // upgrade. Set in .env to run a site-wide promotion. Override
         // per-link with ?coupon=XXXX on the billing.upgrade route.

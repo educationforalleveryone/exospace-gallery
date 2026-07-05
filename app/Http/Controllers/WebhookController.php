@@ -108,6 +108,18 @@ class WebhookController extends Controller
             return $this->reverseChargeback($request);
         }
 
+        // M-1: Recurring (subscription) webhook events.
+        // These are sent by 2Checkout for recurring billing lifecycle events.
+        if ($messageType === 'RECURRING_INSTALLMENT_SUCCESS') {
+            return $this->handleRecurringSuccess($request);
+        }
+        if ($messageType === 'RECURRING_INSTALLMENT_FAILED') {
+            return $this->handleRecurringFailure($request);
+        }
+        if ($messageType === 'RECURRING_ORDER_CANCELLED') {
+            return $this->handleRecurringCancelled($request);
+        }
+
         // Other message types (FRAUD_STATUS_CHANGED, REFUND_REQUESTED,
         // INVOICE_STATUS_CHANGED, etc.) are logged but do not mutate state.
         if ($messageType !== 'ORDER_CREATED') {
@@ -238,11 +250,36 @@ class WebhookController extends Controller
                     }
 
                     // ── Upgrade the user ─────────────────────────────────
-                    $user->forceFill([
-                        'plan'            => $planConfig['plan'],
-                        'plan_started_at' => now(),
-                        'plan_expires_at' => null,
-                    ])->save();
+                    // M-1: Detect if this is a recurring (subscription) purchase.
+                    // 2Checkout sends recurring_order_id for recurring products.
+                    // If present, set subscription fields + plan_expires_at to
+                    // the first billing cycle end. If absent, it's a one-time
+                    // purchase (lifetime access, plan_expires_at = null).
+                    $recurringOrderId = $request->input('recurring_order_id');
+                    $nextBillingDate  = $request->input('item_billing_cycle_next_date');
+
+                    if ($recurringOrderId) {
+                        $subscriptionEndsAt = $nextBillingDate
+                            ? \Carbon\Carbon::parse($nextBillingDate)->endOfDay()
+                            : now()->addMonth(); // fallback
+
+                        $user->forceFill([
+                            'plan'                    => $planConfig['plan'],
+                            'plan_started_at'         => now(),
+                            'plan_expires_at'         => $subscriptionEndsAt,
+                            'subscription_id'         => $recurringOrderId,
+                            'subscription_status'     => 'active',
+                            'subscription_ends_at'    => $subscriptionEndsAt,
+                            'subscription_cancelled_at' => null,
+                        ])->save();
+                    } else {
+                        // One-time purchase (existing behavior)
+                        $user->forceFill([
+                            'plan'            => $planConfig['plan'],
+                            'plan_started_at' => now(),
+                            'plan_expires_at' => null,
+                        ])->save();
+                    }
 
                     // ── Insert transaction record ───────────────────────
                     $transactionId = \DB::table('transactions')->insertGetId([
@@ -874,5 +911,248 @@ class WebhookController extends Controller
             'has_email'    => $request->filled('customer_email') ? 'yes' : 'no',
             'has_name'     => $request->filled('customer_name') ? 'yes' : 'no',
         ];
+    }
+
+    // ── M-1: Recurring (subscription) handlers ───────────────────────────
+    //
+    // 2Checkout sends these message types for recurring billing lifecycle:
+    //
+    //   RECURRING_INSTALLMENT_SUCCESS — a recurring payment succeeded
+    //     (monthly/yearly renewal). Extends the user's subscription_ends_at
+    //     to the next billing date + records a transaction row.
+    //
+    //   RECURRING_INSTALLMENT_FAILED — a recurring payment failed
+    //     (expired card, insufficient funds, etc.). Sets subscription_status
+    //     to 'past_due'. 2Checkout will retry per their dunning schedule;
+    //     if all retries fail, they send RECURRING_ORDER_CANCELLED.
+    //
+    //   RECURRING_ORDER_CANCELLED — the subscription was cancelled (by the
+    //     user via BillingController::cancelSubscription, by the system
+    //     after all dunning retries failed, or by the admin in the 2Checkout
+    //     dashboard). Sets subscription_status to 'cancelled'. The user
+    //     keeps access until subscription_ends_at (the end of the
+    //     already-paid-for period), then is downgraded by CheckPlanExpiry.
+
+    /**
+     * Handle RECURRING_INSTALLMENT_SUCCESS — a recurring payment succeeded.
+     *
+     * Extends the user's subscription_ends_at to the next billing date
+     * (from the webhook's item_billing_cycle_next_date field) and records
+     * a transaction row for the renewal payment.
+     */
+    private function handleRecurringSuccess(Request $request)
+    {
+        $invoiceId = $request->input('invoice_id');
+        $saleId    = $request->input('sale_id');
+        $productId = $request->input('item_id_1');
+        $amount    = $request->input('item_list_amount_1', 0);
+
+        // The next billing date tells us when the subscription's access
+        // expires (i.e. when the NEXT payment is due). 2Checkout sends
+        // this as item_billing_cycle_next_date in YYYY-MM-DD format.
+        $nextBillingDate = $request->input('item_billing_cycle_next_date');
+        $subscriptionId  = $request->input('recurring_order_id') ?? $saleId;
+
+        Log::info('2Checkout: RECURRING_INSTALLMENT_SUCCESS received', [
+            'invoice_id'      => $invoiceId,
+            'subscription_id' => $subscriptionId,
+            'product_id'      => $productId,
+            'amount'          => $amount,
+            'next_billing'    => $nextBillingDate,
+        ]);
+
+        // Find the user by subscription_id (most reliable) or by
+        // customer_email (fallback).
+        $user = $this->findUserForRecurringEvent($request, $subscriptionId);
+
+        if (! $user) {
+            Log::warning('2Checkout: RECURRING_INSTALLMENT_SUCCESS — user not found', [
+                'invoice_id'      => $invoiceId,
+                'subscription_id' => $subscriptionId,
+            ]);
+            return response('OK', 200);
+        }
+
+        $lock = \Illuminate\Support\Facades\Cache::lock("2co:recurring:{$invoiceId}", 120);
+
+        try {
+            $lock->block(5, function () use (
+                $user, $invoiceId, $saleId, $productId, $amount,
+                $nextBillingDate, $subscriptionId, $request
+            ) {
+                \DB::transaction(function () use (
+                    $user, $invoiceId, $saleId, $productId, $amount,
+                    $nextBillingDate, $subscriptionId, $request
+                ) {
+                    // Idempotency: skip if this invoice is already recorded.
+                    $existing = \DB::table('transactions')
+                        ->where('invoice_id', $invoiceId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($existing) {
+                        Log::info('2Checkout: Duplicate recurring webhook, skipping', [
+                            'invoice_id' => $invoiceId,
+                        ]);
+                        return;
+                    }
+
+                    // Extend the subscription's access period.
+                    $endsAt = $nextBillingDate
+                        ? \Carbon\Carbon::parse($nextBillingDate)->endOfDay()
+                        : now()->addMonth(); // fallback if 2Checkout doesn't send the date
+
+                    $user->forceFill([
+                        'subscription_status' => 'active',
+                        'subscription_ends_at' => $endsAt,
+                        'plan_expires_at'     => $endsAt, // sync plan_expires_at for CheckPlanExpiry
+                    ])->save();
+
+                    // Record the renewal transaction.
+                    \DB::table('transactions')->insert([
+                        'user_id'        => $user->id,
+                        'invoice_id'     => $invoiceId,
+                        'sale_id'        => $saleId,
+                        'product_id'     => $productId,
+                        'plan'           => $user->plan,
+                        'amount'         => $amount,
+                        'currency'       => $request->input('list_currency', 'USD'),
+                        'customer_email' => $user->email,
+                        'customer_name'  => $user->name,
+                        'status'         => 'completed',
+                        'created_at'     => now(),
+                        'updated_at'     => now(),
+                    ]);
+
+                    Log::info('2Checkout: Recurring installment processed', [
+                        'user_id'         => $user->id,
+                        'subscription_id' => $subscriptionId,
+                        'invoice_id'      => $invoiceId,
+                        'amount'          => $amount,
+                        'next_billing'    => $nextBillingDate,
+                    ]);
+                });
+            });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            Log::info('2Checkout: Recurring lock busy, deferring', [
+                'invoice_id' => $invoiceId,
+            ]);
+        }
+
+        return response('OK', 200);
+    }
+
+    /**
+     * Handle RECURRING_INSTALLMENT_FAILED — a recurring payment failed.
+     *
+     * Sets subscription_status to 'past_due'. 2Checkout will retry per
+     * their dunning schedule; if all retries fail, they send
+     * RECURRING_ORDER_CANCELLED. The user keeps access during the
+     * dunning period (subscription_ends_at is NOT changed — it stays
+     * at the end of the last successful billing period).
+     */
+    private function handleRecurringFailure(Request $request)
+    {
+        $invoiceId       = $request->input('invoice_id');
+        $subscriptionId  = $request->input('recurring_order_id') ?? $request->input('sale_id');
+
+        Log::warning('2Checkout: RECURRING_INSTALLMENT_FAILED received', [
+            'invoice_id'      => $invoiceId,
+            'subscription_id' => $subscriptionId,
+        ]);
+
+        $user = $this->findUserForRecurringEvent($request, $subscriptionId);
+
+        if (! $user) {
+            Log::warning('2Checkout: RECURRING_INSTALLMENT_FAILED — user not found', [
+                'subscription_id' => $subscriptionId,
+            ]);
+            return response('OK', 200);
+        }
+
+        $user->forceFill([
+            'subscription_status' => 'past_due',
+        ])->save();
+
+        Log::info('2Checkout: Subscription marked past_due', [
+            'user_id'         => $user->id,
+            'subscription_id' => $subscriptionId,
+        ]);
+
+        // TODO (M-9 dunning): send a "payment failed — update your card"
+        // email here. 2Checkout's dunning sequence handles retries, but
+        // a user-facing email increases recovery rate. Deferred to the
+        // M-9 (dunning management) iteration.
+
+        return response('OK', 200);
+    }
+
+    /**
+     * Handle RECURRING_ORDER_CANCELLED — the subscription was cancelled.
+     *
+     * Sets subscription_status to 'cancelled'. The user keeps access until
+     * subscription_ends_at (the end of the already-paid-for period), then
+     * is downgraded by CheckPlanExpiry middleware on their next request.
+     *
+     * Cancellation can be triggered by:
+     *   - The user via BillingController::cancelSubscription (which calls
+     *     2Checkout's cancel API → 2Checkout sends this webhook)
+     *   - The system after all dunning retries failed
+     *   - An admin in the 2Checkout merchant dashboard
+     */
+    private function handleRecurringCancelled(Request $request)
+    {
+        $subscriptionId = $request->input('recurring_order_id') ?? $request->input('sale_id');
+
+        Log::info('2Checkout: RECURRING_ORDER_CANCELLED received', [
+            'subscription_id' => $subscriptionId,
+        ]);
+
+        $user = $this->findUserForRecurringEvent($request, $subscriptionId);
+
+        if (! $user) {
+            Log::warning('2Checkout: RECURRING_ORDER_CANCELLED — user not found', [
+                'subscription_id' => $subscriptionId,
+            ]);
+            return response('OK', 200);
+        }
+
+        $user->forceFill([
+            'subscription_status'      => 'cancelled',
+            'subscription_cancelled_at' => now(),
+            // subscription_ends_at is NOT changed — it stays at the end of
+            // the last paid period. CheckPlanExpiry will downgrade when it
+            // passes.
+        ])->save();
+
+        Log::info('2Checkout: Subscription cancelled', [
+            'user_id'         => $user->id,
+            'subscription_id' => $subscriptionId,
+            'ends_at'         => $user->subscription_ends_at?->toIso8601String(),
+        ]);
+
+        return response('OK', 200);
+    }
+
+    /**
+     * Find the user associated with a recurring webhook event.
+     *
+     * Tries (in order):
+     *   1. subscription_id match (most reliable — set on initial purchase)
+     *   2. customer_email match (fallback if subscription_id wasn't stored)
+     */
+    private function findUserForRecurringEvent(Request $request, ?string $subscriptionId): ?User
+    {
+        if ($subscriptionId) {
+            $user = User::where('subscription_id', $subscriptionId)->first();
+            if ($user) return $user;
+        }
+
+        $customerEmail = $request->input('customer_email');
+        if ($customerEmail && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+            return User::where('email', $customerEmail)->first();
+        }
+
+        return null;
     }
 }

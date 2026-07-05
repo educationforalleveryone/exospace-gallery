@@ -228,6 +228,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/billing',                [\App\Http\Controllers\BillingController::class, 'index'])->name('billing.index');
         Route::get('/billing/upgrade/{plan}', [\App\Http\Controllers\BillingController::class, 'upgrade'])->name('billing.upgrade')
               ->where('plan', 'pro|studio');
+
+        // M-1: Subscription management routes
+        Route::post('/billing/cancel-subscription',     [\App\Http\Controllers\BillingController::class, 'cancelSubscription'])->name('billing.cancel-subscription');
+        Route::post('/billing/reactivate-subscription', [\App\Http\Controllers\BillingController::class, 'reactivateSubscription'])->name('billing.reactivate-subscription');
     });
 });
 

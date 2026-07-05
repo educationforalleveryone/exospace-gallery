@@ -69,19 +69,92 @@
                         <dd class="text-gray-300">Lifetime (one-time purchase)</dd>
                     </div>
                     @endif
+
+                    {{-- M-1: Subscription status (only shown for recurring subscriptions) --}}
+                    @if($user->hasSubscription())
+                    <div>
+                        <dt class="text-gray-500">Subscription</dt>
+                        <dd>
+                            @if($user->subscription_status === 'active')
+                                <span class="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-400">Active</span>
+                                @if($user->subscription_ends_at)
+                                    <span class="text-gray-400 text-xs ml-2">Renews {{ $user->subscription_ends_at->format('M j, Y') }}</span>
+                                @endif
+                            @elseif($user->subscription_status === 'past_due')
+                                <span class="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">Past Due</span>
+                                <span class="text-gray-400 text-xs ml-2">Payment failed — 2Checkout is retrying</span>
+                            @elseif($user->subscription_status === 'cancelled')
+                                <span class="inline-flex items-center rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-400">Cancelled</span>
+                                @if($user->subscription_ends_at && $user->subscription_ends_at->isFuture())
+                                    <span class="text-gray-400 text-xs ml-2">Access until {{ $user->subscription_ends_at->format('M j, Y') }}</span>
+                                @else
+                                    <span class="text-red-400 text-xs ml-2">Expired</span>
+                                @endif
+                            @else
+                                <span class="text-gray-300">{{ ucfirst($user->subscription_status ?? 'unknown') }}</span>
+                            @endif
+                        </dd>
+                    </div>
+                    @endif
                 </dl>
+
+                {{-- M-1: Subscription management buttons --}}
+                @if($user->hasActiveSubscription())
+                <div class="mt-4">
+                    <form action="{{ route('billing.cancel-subscription') }}" method="POST"
+                          onsubmit="return confirm('Cancel your subscription? You\'ll keep access until {{ $user->subscription_ends_at?->format('M j, Y') }}, then be downgraded to Free.');">
+                        @csrf
+                        <button type="submit"
+                                class="w-full bg-transparent border border-red-600/40 hover:bg-red-600/10 text-red-400 font-medium py-2 rounded-xl transition text-sm">
+                            Cancel Subscription
+                        </button>
+                    </form>
+                </div>
+                @elseif($user->canReactivateSubscription())
+                <div class="mt-4">
+                    <form action="{{ route('billing.reactivate-subscription') }}" method="POST">
+                        @csrf
+                        <button type="submit"
+                                class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold py-2 rounded-xl transition text-sm">
+                            Reactivate Subscription
+                        </button>
+                    </form>
+                    <p class="text-xs text-gray-500 mt-2 text-center">
+                        Reactivate before {{ $user->subscription_ends_at?->format('M j, Y') }} to avoid losing access.
+                    </p>
+                </div>
+                @endif
 
                 {{-- Upgrade CTAs --}}
                 @if($user->plan === 'free')
                 <div class="mt-6 space-y-2">
+                    {{-- M-1: Offer both one-time + recurring (subscription) options --}}
+                    @php
+                        $recurringProPrice = config('services.2checkout.recurring_price_pro_monthly', '4.99');
+                        $recurringStudioPrice = config('services.2checkout.recurring_price_studio_monthly', '14.99');
+                        $hasRecurringPro = config('services.2checkout.recurring_product_id_pro');
+                        $hasRecurringStudio = config('services.2checkout.recurring_product_id_studio');
+                    @endphp
                     <a href="{{ route('billing.upgrade', 'pro') }}"
                        class="block w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2.5 rounded-xl transition text-sm text-center">
-                        Upgrade to Pro — $29
+                        Pro — $29 one-time
                     </a>
+                    @if($hasRecurringPro)
+                    <a href="{{ route('billing.upgrade', 'pro') }}?recurring=1"
+                       class="block w-full bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-2 rounded-xl transition text-sm text-center border border-gray-600">
+                        Pro — ${{ $recurringProPrice }}/month
+                    </a>
+                    @endif
                     <a href="{{ route('billing.upgrade', 'studio') }}"
                        class="block w-full bg-gradient-to-r from-amber-500 to-red-500 hover:from-amber-400 hover:to-red-400 text-white font-bold py-2.5 rounded-xl transition text-sm text-center">
-                        Upgrade to Studio — $99
+                        Studio — $99 one-time
                     </a>
+                    @if($hasRecurringStudio)
+                    <a href="{{ route('billing.upgrade', 'studio') }}?recurring=1"
+                       class="block w-full bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-2 rounded-xl transition text-sm text-center border border-gray-600">
+                        Studio — ${{ $recurringStudioPrice }}/month
+                    </a>
+                    @endif
                 </div>
                 @elseif($user->plan === 'pro')
                 <div class="mt-6">
