@@ -123,6 +123,8 @@ class DashboardController extends Controller
         $totalImages = !$team ? \DB::table('gallery_images')
             ->join('galleries', 'galleries.id', '=', 'gallery_images.gallery_id')
             ->where('galleries.user_id', $user->id)
+            ->whereNull('galleries.deleted_at')
+            ->whereNull('gallery_images.deleted_at')
             ->count() : 0;
         $hasPublishedGallery = !$team && $activeCount > 0;
 

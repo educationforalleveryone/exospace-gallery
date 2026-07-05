@@ -206,6 +206,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return \DB::table('galleries')
             ->where('user_id', $this->id)
             ->whereNull('team_id')
+            ->whereNull('deleted_at')
             ->count() < $this->max_galleries;
     }
 
@@ -214,6 +215,8 @@ class User extends Authenticatable implements MustVerifyEmail
         return \DB::table('gallery_images')
             ->join('galleries', 'galleries.id', '=', 'gallery_images.gallery_id')
             ->where('galleries.user_id', $this->id)
+            ->whereNull('galleries.deleted_at')
+            ->whereNull('gallery_images.deleted_at')
             ->count();
     }
 

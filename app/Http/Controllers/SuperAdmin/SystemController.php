@@ -22,7 +22,7 @@ class SystemController extends Controller
             ->paginate(50);
 
         // Calculate total images once and reuse
-        $totalImages = DB::table('gallery_images')->count();
+        $totalImages = DB::table('gallery_images')->whereNull('deleted_at')->count();
 
         $stats = [
             'total_users'     => User::count(),

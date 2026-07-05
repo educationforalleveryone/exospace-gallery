@@ -38,6 +38,66 @@
 
     <title>{{ $gallery->title }} | Exospace 3D Gallery</title>
 
+    {{-- P2-11: JSON-LD structured data for search engines (schema.org) --}}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "ExhibitionEvent",
+        "name": {{ json_encode($gallery->title) }},
+        "description": {{ json_encode(Str::limit($gallery->description, 300)) }},
+        "url": {{ json_encode($publicUrl) }},
+        "image": {{ json_encode($ogImageUrl) }},
+        "organizer": {
+            "@type": "Organization",
+            "name": "Exospace",
+            "url": {{ json_encode(config('app.url')) }}
+        },
+        "eventStatus": @if($gallery->opens_at && $gallery->opens_at->isFuture()) "https://schema.org/EventScheduled" @else "https://schema.org/EventInProgress" @endif,
+        @if($gallery->opens_at)"startDate": {{ json_encode($gallery->opens_at->toIso8601String()) }},@endif
+        @if($gallery->closes_at)"endDate": {{ json_encode($gallery->closes_at->toIso8601String()) }},@endif
+        "location": {
+            "@type": "VirtualLocation",
+            "url": {{ json_encode($publicUrl) }}
+        }
+    }
+    </script>
+    @if($galleryData['images']->isNotEmpty())
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": {{ json_encode($gallery->title . ' — Artworks') }},
+        "url": {{ json_encode($publicUrl) }},
+        "numberOfItems": {{ $galleryData['imageCount'] }},
+        "itemListElement": [
+            @foreach($galleryData['images'] as $i => $img)
+            {
+                "@type": "ListItem",
+                "position": {{ $i + 1 }},
+                "item": {
+                    "@type": "VisualArtwork",
+                    "name": {{ json_encode($img['title'] ?? $img['original_name'] ?? 'Untitled') }}@if(!empty($img['artist'])),
+                    "creator": {
+                        "@type": "Person",
+                        "name": {{ json_encode($img['artist']['name']) }},
+                        "url": {{ json_encode($img['artist']['url']) }}
+                    }@endif@if(!empty($img['medium'])),
+                    "artMedium": {{ json_encode($img['medium']) }}@endif@if(!empty($img['year'])),
+                    "dateCreated": {{ json_encode((string)$img['year']) }}@endif@if(!empty($img['dimensions'])),
+                    "artworkSurface": {{ json_encode($img['dimensions']) }}@endif@if($img['forSale'] && !empty($img['price'])),
+                    "offers": {
+                        "@type": "Offer",
+                        "price": {{ json_encode((string)$img['price']) }},
+                        "priceCurrency": {{ json_encode($img['currency'] ?? 'USD') }}
+                    }@endif
+                }
+            }@if(!$loop->last),@endif
+            @endforeach
+        ]
+    }
+    </script>
+    @endif
+
     @vite(['resources/css/app.css', 'resources/js/gallery/main.js'])
 
     <style>
