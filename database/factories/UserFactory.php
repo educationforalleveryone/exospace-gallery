@@ -34,6 +34,11 @@ class UserFactory extends Factory
             // P0-7: lifecycle email tracking columns (split from lifecycle_nudged_at)
             'inactive_nudged_at'       => null,
             'plan_expiry_reminded_at'  => null,
+            // TD-17: MFA fields (P3-7/P3-8) — null = MFA not enabled.
+            // Tests that need MFA-enabled users should use the withMfa() state.
+            'google2fa_secret'  => null,
+            'mfa_enabled_at'    => null,
+            'mfa_backup_codes'  => null,
         ];
     }
 
@@ -76,6 +81,24 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'banned_at'  => now(),
             'ban_reason' => $reason,
+        ]);
+    }
+
+    /**
+     * TD-17: MFA-enabled state. Sets a fake (but valid-format) TOTP secret
+     * + enabled timestamp. The secret is encrypted the same way the
+     * MfaController does it (encrypt() with APP_KEY).
+     *
+     * Tests that need to verify MFA flows (setup, verify, backup codes)
+     * should use a real pragmarx/google2fa secret instead of this state —
+     * this state is for tests that just need the user to HAVE MFA enabled
+     * (e.g. testing the RequireMfa middleware gating).
+     */
+    public function withMfa(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'google2fa_secret' => encrypt(\PragmaRX\Google2FA\Google2FA::generateSecretKey()),
+            'mfa_enabled_at'   => now(),
         ]);
     }
 }

@@ -22,6 +22,32 @@ class AdminAuditLog extends Model
 
     public static function record(string $action, Model $target, array $payload = []): void
     {
+        // TD-19 FIX: Auto-capture the target model's changed (dirty) attributes
+        // and merge them with the caller-supplied payload. This ensures the
+        // audit log always records WHAT changed, even if the developer forgot
+        // to pass it explicitly.
+        //
+        // For example, when SystemController::updatePlan calls:
+        //   AdminAuditLog::record('plan_changed', $user, ['from' => $oldPlan, 'to' => $plan]);
+        //
+        // The auto-captured dirty attributes would include:
+        //   { "plan": "pro", "max_galleries": 5, "max_images": 100, "plan_started_at": "..." }
+        //
+        // These are stored under the `_changed` key in the payload, so they're
+        // clearly separated from the caller-supplied context. If the model
+        // has no dirty attributes (e.g. a "view" action), `_changed` is omitted.
+        //
+        // PII note: the dirty attributes may include customer_email etc. for
+        // User models. This is acceptable because the audit log is admin-only
+        // (super-admins) and the PII is already in the users table. For
+        // transaction-related audit logs, the SEC-10 anonymization command
+        // (AnonymizeTransactionPii) runs on the transactions table, not the
+        // audit log — but a future iteration could extend it to scrub audit
+        // log payloads too.
+        if ($target->exists && $target->isDirty()) {
+            $payload['_changed'] = $target->getDirty();
+        }
+
         $log = static::create([
             'actor_id'    => Auth::id(),
             'action'      => $action,
