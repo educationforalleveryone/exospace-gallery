@@ -27,6 +27,61 @@ use Illuminate\Support\Facades\Cache;
  */
 class SitemapController extends Controller
 {
+    /**
+     * S-4 FIX: Sitemap index — paginates galleries into chunks of 500 URLs
+     * per sub-sitemap. Google's per-sitemap cap is 50,000 URLs.
+     * Route: GET /sitemap.xml (index) → links to /sitemap-{page}.xml
+     * Route: GET /sitemap-{page}.xml (sub-sitemap with galleries)
+     */
+    public function sitemapIndex(): Response
+    {
+        $totalGalleries = Cache::flexible('sitemap:gallery-count', [now()->addMinutes(30), now()->addMinutes(60)], function () {
+            return Gallery::publiclyViewable()->has('images', '>=', 1)->count();
+        });
+
+        $perPage = 500;
+        $pages = (int) ceil($totalGalleries / $perPage);
+
+        return response()
+            ->view('sitemap-index', ['pages' => $pages, 'perPage' => $perPage])
+            ->header('Content-Type', 'application/xml; charset=UTF-8');
+    }
+
+    public function sitemapPage(int $page): Response
+    {
+        $perPage = 500;
+        $offset = ($page - 1) * $perPage;
+
+        $galleries = Cache::flexible("sitemap:galleries:{$page}", [now()->addMinutes(30), now()->addMinutes(60)], function () use ($perPage, $offset) {
+            return Gallery::publiclyViewable()
+                ->with('venueTemplate')
+                ->has('images', '>=', 1)
+                ->orderByDesc('updated_at')
+                ->skip($offset)
+                ->take($perPage)
+                ->get(['slug', 'title', 'updated_at']);
+        });
+
+        $staticPages = [
+            ['url' => route('welcome'), 'priority' => '1.0', 'changefreq' => 'weekly'],
+            ['url' => route('discover'), 'priority' => '0.9', 'changefreq' => 'daily'],
+            ['url' => route('pricing'), 'priority' => '0.8', 'changefreq' => 'monthly'],
+            ['url' => route('about'), 'priority' => '0.6', 'changefreq' => 'monthly'],
+            ['url' => route('contact'), 'priority' => '0.6', 'changefreq' => 'monthly'],
+            ['url' => route('privacy'), 'priority' => '0.3', 'changefreq' => 'yearly'],
+            ['url' => route('terms'), 'priority' => '0.3', 'changefreq' => 'yearly'],
+            ['url' => route('refund'), 'priority' => '0.3', 'changefreq' => 'yearly'],
+            ['url' => route('security'), 'priority' => '0.3', 'changefreq' => 'yearly'],
+        ];
+
+        // Include static pages only on page 1
+        $includeStatic = ($page === 1);
+
+        return response()
+            ->view('sitemap', compact('galleries', 'staticPages', 'includeStatic'))
+            ->header('Content-Type', 'application/xml; charset=UTF-8');
+    }
+
     public function sitemap(): Response
     {
         $galleries = Cache::flexible('sitemap:galleries', [now()->addMinutes(30), now()->addMinutes(60)], function () {

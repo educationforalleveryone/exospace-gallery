@@ -161,24 +161,27 @@ class PreflightAssets extends Command
         $this->newLine();
 
         // ── 4. Per-gallery: check audio, logos, curtain assets ───────────────
+        // S-3 FIX: Use chunkById instead of limit(100) — checks ALL galleries,
+        // not just the first 100. Processes in batches of 50 to avoid memory issues.
         $this->info('Checking galleries...');
-        $galleries = Gallery::with('user')->limit(100)->get();
-        foreach ($galleries as $gallery) {
-            $issues = [];
-            if ($gallery->audio_path && ! Storage::disk('public')->exists($gallery->audio_path)) {
-                $issues[] = "audio";
+        Gallery::with('user')->chunkById(50, function ($galleries) use (&$errors) {
+            foreach ($galleries as $gallery) {
+                $issues = [];
+                if ($gallery->audio_path && ! Storage::disk('public')->exists($gallery->audio_path)) {
+                    $issues[] = "audio";
+                }
+                if ($gallery->custom_logo_path && ! Storage::disk('public')->exists($gallery->custom_logo_path)) {
+                    $issues[] = "custom_logo";
+                }
+                if ($gallery->curtain_logo_path && ! Storage::disk('public')->exists($gallery->curtain_logo_path)) {
+                    $issues[] = "curtain_logo";
+                }
+                if (! empty($issues)) {
+                    $this->error("  ✗ Gallery #{$gallery->id} ({$gallery->title}): missing " . implode(', ', $issues));
+                    $errors++;
+                }
             }
-            if ($gallery->custom_logo_path && ! Storage::disk('public')->exists($gallery->custom_logo_path)) {
-                $issues[] = "custom_logo";
-            }
-            if ($gallery->curtain_logo_path && ! Storage::disk('public')->exists($gallery->curtain_logo_path)) {
-                $issues[] = "curtain_logo";
-            }
-            if (! empty($issues)) {
-                $this->error("  ✗ Gallery #{$gallery->id} ({$gallery->title}): missing " . implode(', ', $issues));
-                $errors++;
-            }
-        }
+        });
         $this->newLine();
 
         // ── 5. Core textures referenced by viewer config ─────────────────────

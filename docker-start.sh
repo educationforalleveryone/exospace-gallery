@@ -24,14 +24,16 @@ else
     sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
 fi
 
-# 3. TD-2 FIX: Build caches (was clearing them on every boot — killed performance).
-#    config:cache compiles all config into a single PHP file for O(1) lookup.
-#    route:cache compiles all routes. view:cache pre-compiles Blade templates.
-#    storage:link ensures the public/storage symlink exists.
+# 3. TD-2/TD-4: Caches are now built in nixpacks.toml build phase (deploy time).
+#    Here we only run storage:link (needs to run at container start because
+#    the symlink is per-container) and migrate (TD-3: was missing — migrations
+#    had to be run manually after each deploy).
 php /app/artisan storage:link --force
-php /app/artisan config:cache
-php /app/artisan route:cache
-php /app/artisan view:cache
+
+# TD-3: Run migrations on deploy — previously the founder had to SSH in
+# and run `php artisan migrate --force` manually after each deploy.
+# --force skips the confirmation prompt in production.
+php /app/artisan migrate --force
 
 # 4. P3-17: Run PreflightCheck — exit(1) if critical config is wrong.
 #    This catches issues like missing 2Checkout secrets, wrong APP_ENV, etc.

@@ -204,10 +204,15 @@ class SystemController extends Controller
 
     public function userGalleries(User $user)
     {
+        // S-5 FIX: Paginate instead of loading ALL galleries + ALL images.
+        // Previously: $user->galleries()->with(['images' => ...])->get()
+        // — a Studio user with 50 galleries × 500 images = 25,000 rows in memory.
+        // Now: paginated 15 per page, images limited to first 10 per gallery.
         $galleries = $user->galleries()
             ->withCount('images')
-            ->with(['images' => fn($q) => $q->orderBy('position_order')])
-            ->get();
+            ->with(['images' => fn($q) => $q->orderBy('position_order')->limit(10)])
+            ->latest()
+            ->paginate(15);
 
         return view('super-admin.user-galleries', compact('user', 'galleries'));
     }

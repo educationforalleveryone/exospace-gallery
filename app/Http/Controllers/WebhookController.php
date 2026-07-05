@@ -62,6 +62,38 @@ class WebhookController extends Controller
         }
 
         // ================================
+        // STEP 1b: Replay Protection (SEC-9)
+        // ================================
+        // Check if this message_id + message_type has already been processed.
+        // Prevents replay attacks where a captured IPN is re-POSTed with
+        // a different message_type (only works in MD5-only mode, but
+        // defense-in-depth).
+        $messageId = $request->input('message_id');
+        $messageType = $request->input('message_type');
+        if ($messageId && $messageType) {
+            $alreadyProcessed = \DB::table('processed_webhooks')
+                ->where('message_id', $messageId)
+                ->where('message_type', $messageType)
+                ->exists();
+
+            if ($alreadyProcessed) {
+                Log::info('2Checkout: Duplicate message_id+type, skipping (replay protection)', [
+                    'message_id' => $messageId,
+                    'message_type' => $messageType,
+                ]);
+                return response('OK', 200);
+            }
+
+            // Record this webhook as processed
+            \DB::table('processed_webhooks')->insert([
+                'message_id'   => $messageId,
+                'message_type' => $messageType,
+                'invoice_id'   => $request->input('invoice_id'),
+                'processed_at' => now(),
+            ]);
+        }
+
+        // ================================
         // STEP 2: Route by message_type
         // ================================
         $messageType = $request->input('message_type');

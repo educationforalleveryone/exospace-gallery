@@ -45,6 +45,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:5,60') // SEC-14: 5 per hour per IP
         ->name('password.store');
 });
 
@@ -65,7 +66,10 @@ Route::middleware('auth')->group(function () {
 
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
 
-    Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+    // SEC-14: Add throttle to password update — prevents brute-force via CSRF
+    Route::put('password', [PasswordController::class, 'update'])
+        ->middleware('throttle:5,1') // 5 per minute per user
+        ->name('password.update');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');

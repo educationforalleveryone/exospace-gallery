@@ -2,9 +2,8 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 
-    {{-- (Task H13) — static pages. Previously hardcoded in the view;
-         now passed from the controller so all public-facing pages are
-         included. --}}
+    {{-- S-4: Static pages only on page 1 (when called from sitemapPage controller) --}}
+    @if($includeStatic ?? true)
     @foreach($staticPages as $page)
     <url>
         <loc>{{ $page['url'] }}</loc>
@@ -12,6 +11,7 @@
         <priority>{{ $page['priority'] }}</priority>
     </url>
     @endforeach
+    @endif
 
     {{-- Public galleries --}}
     @foreach($galleries as $gallery)

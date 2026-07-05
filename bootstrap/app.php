@@ -67,11 +67,18 @@ return Application::configure(basePath: dirname(__DIR__))
         //      - CIDR ranges: "172.16.0.0/12"
         //      - "*" (legacy permissive — logs a warning in PreflightCheck)
         //
-        //    Leaving empty/unset is FAIL-OPEN to '*' for backward
-        //    compatibility — existing deployments that haven't set the
-        //    env var keep working. New deployments should set it.
-        $trustedProxies = env('TRUSTED_PROXIES', '*');
+    //    SEC-1 FIX: Default changed from '*' to null (fail-closed).
+    //    If TRUSTED_PROXIES is not set, Laravel trusts NO proxies.
+    //    Behind Coolify/Traefik, set TRUSTED_PROXIES to the Traefik
+    //    subnet (e.g. "10.0.1.0/24") for correct IP detection.
+    $trustedProxies = env('TRUSTED_PROXIES');
+    if ($trustedProxies && $trustedProxies !== '*') {
         $middleware->trustProxies(at: $trustedProxies);
+    } elseif ($trustedProxies === '*') {
+        \Illuminate\Support\Facades\Log::critical('TRUSTED_PROXIES=* is set — host-header spoofing attacks are possible. Set TRUSTED_PROXIES to your Coolify Traefik subnet immediately.');
+        $middleware->trustProxies(at: '*');
+    }
+    // If null/empty: trust no proxies (fail-closed)
 
         // 5. Middleware aliases
         $middleware->alias([

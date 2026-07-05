@@ -76,7 +76,10 @@ Route::post('/webhooks/2checkout',        [WebhookController::class, 'handle2Che
 Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund'])->name('webhooks.2checkout.refund');
 
 // ── SEO & discovery endpoints ────────────────────────────────────────────
-Route::get('/sitemap.xml', [SitemapController::class, 'sitemap'])->name('sitemap');
+// S-4: Sitemap index with pagination — /sitemap.xml is the index,
+// /sitemap-{page}.xml are the sub-sitemaps (500 URLs each).
+Route::get('/sitemap.xml', [SitemapController::class, 'sitemapIndex'])->name('sitemap');
+Route::get('/sitemap-{page}.xml', [SitemapController::class, 'sitemapPage'])->where('page', '[0-9]+')->name('sitemap.page');
 Route::get('/feed.xml',    [SitemapController::class, 'feed'])->name('feed');
 Route::get('/discover',    [DiscoverController::class, 'index'])->name('discover');
 

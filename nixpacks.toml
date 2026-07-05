@@ -1,11 +1,18 @@
 [phases.setup]
-nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer"]
+nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer", "phpPackages.imagick"]
 
 [phases.build]
 cmds = [
     "npm install",
     "npm run build",
-    "composer install --no-dev --optimize-autoloader"
+    "composer install --no-dev --optimize-autoloader",
+    # TD-4: Build caches at deploy time so the container starts fast.
+    # Previously, docker-start.sh was clearing caches on every boot (TD-2).
+    # Now caches are built here (deploy time) and docker-start.sh just
+    # runs storage:link + preflight.
+    "php artisan config:cache",
+    "php artisan route:cache",
+    "php artisan view:cache"
 ]
 
 [start]
