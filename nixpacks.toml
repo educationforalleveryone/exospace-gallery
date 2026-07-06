@@ -1,5 +1,10 @@
 [phases.setup]
-nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer", "phpPackages.imagick"]
+# Removed "phpPackages.imagick" — the pinned nixpkgs archive
+# (e24b4c09e963677b1beea49d411cd315a024ad3a) no longer ships it,
+# which broke the Docker image build at step 4/18 ("attribute 'imagick' missing").
+# Image processing in this app uses GD (already enabled via
+# NIXPACKS_PHP_EXTENSIONS=gd in .env), so imagick is not required.
+nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer"]
 
 [phases.build]
 cmds = [
