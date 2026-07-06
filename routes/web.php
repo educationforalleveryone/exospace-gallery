@@ -391,4 +391,10 @@ Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->
 Route::post('/feedback', [\App\Http\Controllers\FeedbackController::class, 'store'])->name('feedback.store')
       ->middleware(['auth', 'throttle:10,1']);
 
+// M-24: OAuth/SSO routes (Google + GitHub)
+Route::get('/auth/{provider}/redirect',  [\App\Http\Controllers\OAuthController::class, 'redirect'])->name('oauth.redirect');
+Route::get('/auth/{provider}/callback',  [\App\Http\Controllers\OAuthController::class, 'callback'])->name('oauth.callback');
+Route::post('/auth/{provider}/unlink',   [\App\Http\Controllers\OAuthController::class, 'unlink'])->name('oauth.unlink')
+      ->middleware(['auth']);
+
 require __DIR__.'/auth.php';

@@ -150,4 +150,22 @@ return [
         'secret_key' => env('TURNSTILE_SECRET_KEY'),
     ],
 
+    // ── M-24: OAuth/SSO providers (Google + GitHub) ───────────────────────
+    // When client_id is empty, the provider is disabled (OAuth buttons hidden).
+    // Create credentials at:
+    //   Google:  https://console.cloud.google.com/apis/credentials
+    //   GitHub:  https://github.com/settings/developers
+    // Set the redirect URI to: https://yourdomain.com/auth/{provider}/callback
+    'google' => [
+        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect'      => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+    ],
+
+    'github' => [
+        'client_id'     => env('GITHUB_CLIENT_ID'),
+        'client_secret' => env('GITHUB_CLIENT_SECRET'),
+        'redirect'      => env('GITHUB_REDIRECT_URI', '/auth/github/callback'),
+    ],
+
 ];

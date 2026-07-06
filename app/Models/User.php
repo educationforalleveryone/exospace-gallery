@@ -81,6 +81,27 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+    // ── M-24: OAuth helpers ──────────────────────────────────────────────
+
+    /**
+     * Is this OAuth provider linked to the user's account?
+     */
+    public function hasOAuthProvider(string $provider): bool
+    {
+        return ! empty($this->{"{$provider}_id"});
+    }
+
+    /**
+     * Get the list of linked OAuth providers.
+     */
+    public function linkedOAuthProviders(): array
+    {
+        $linked = [];
+        if ($this->google_id) $linked[] = 'google';
+        if ($this->github_id) $linked[] = 'github';
+        return $linked;
+    }
+
     // ── Existing relationships ────────────────────────────────────────────
 
     /** Galleries the user personally owns */

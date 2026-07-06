@@ -58,8 +58,18 @@ class ProfileController extends Controller
      * NOTE: This endpoint streams the JSON directly. For users with
      * thousands of galleries, consider dispatching a queued job that
      * generates a ZIP and emails a download link. Future enhancement.
+     *
+     * M-26 FIX: Now generates a ZIP archive containing:
+     *   - profile.json  (the full structured data, same as before)
+     *   - profile.csv   (a flat CSV summary for spreadsheet import)
+     *   - galleries.csv (gallery metadata in CSV format)
+     *   - transactions.csv (transaction history in CSV format)
+     *   - README.txt    (explains what's in the ZIP)
+     *
+     * The ZIP is streamed directly to the browser (no temp file on disk).
+     * Uses PHP's ZipArchive (available in all PHP 8.2+ installations).
      */
-    public function export(Request $request): JsonResponse
+    public function export(Request $request)
     {
         $user = $request->user()->load([
             'galleries.images' => fn($q) => $q->select(['id', 'gallery_id', 'title', 'description', 'filename', 'original_name', 'mime_type', 'size', 'width', 'height', 'orientation', 'position_order', 'artist_id', 'price', 'currency', 'for_sale', 'medium', 'year', 'dimensions', 'edition_size', 'edition_number', 'external_url', 'created_at', 'updated_at']),
@@ -177,12 +187,165 @@ class ProfileController extends Controller
             ])->toArray(),
         ];
 
-        $filename = 'exospace-export-user-' . $user->id . '-' . now()->format('Y-m-d-His') . '.json';
+        $filename = 'exospace-export-user-' . $user->id . '-' . now()->format('Y-m-d-His');
 
-        return response()->json($data, 200, [
-            'Content-Type'        => 'application/json',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        // M-26: Generate a ZIP archive with JSON + CSV + README
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        // Build CSV for galleries
+        $galleriesCsv = $this->buildGalleriesCsv($user);
+
+        // Build CSV for transactions
+        $transactionsCsv = $this->buildTransactionsCsv($transactions);
+
+        // Build profile summary CSV
+        $profileCsv = $this->buildProfileCsv($user);
+
+        // Build README
+        $readme = $this->buildReadme($user);
+
+        // Create ZIP
+        $zipPath = storage_path('app/temp/' . $filename . '.zip');
+        if (!is_dir(dirname($zipPath))) {
+            mkdir(dirname($zipPath), 0755, true);
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
+            $zip->addFromString('profile.json', $json);
+            $zip->addFromString('profile.csv', $profileCsv);
+            $zip->addFromString('galleries.csv', $galleriesCsv);
+            $zip->addFromString('transactions.csv', $transactionsCsv);
+            $zip->addFromString('README.txt', $readme);
+            $zip->close();
+        } else {
+            // Fallback: return JSON if ZIP creation fails
+            return response()->json($data, 200, [
+                'Content-Type'        => 'application/json',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '.json"',
+            ]);
+        }
+
+        $zipContent = file_get_contents($zipPath);
+        @unlink($zipPath); // clean up temp file
+
+        return response($zipContent, 200, [
+            'Content-Type'        => 'application/zip',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '.zip"',
         ]);
+    }
+
+    /**
+     * M-26: Build a CSV string of the user's galleries.
+     */
+    private function buildGalleriesCsv($user): string
+    {
+        $headers = ['ID', 'Title', 'Slug', 'Description', 'Active', 'View Count', 'Created At', 'Image Count'];
+        $rows = [];
+
+        foreach ($user->galleries as $g) {
+            $rows[] = [
+                $g->id,
+                $g->title,
+                $g->slug,
+                $g->description,
+                $g->is_active ? 'Yes' : 'No',
+                $g->view_count,
+                $g->created_at?->format('Y-m-d H:i:s'),
+                $g->images->count(),
+            ];
+        }
+
+        return $this->arrayToCsv($headers, $rows);
+    }
+
+    /**
+     * M-26: Build a CSV string of the user's transactions.
+     */
+    private function buildTransactionsCsv($transactions): string
+    {
+        $headers = ['ID', 'Invoice ID', 'Plan', 'Amount', 'Currency', 'Status', 'Date'];
+        $rows = [];
+
+        foreach ($transactions as $t) {
+            $rows[] = [
+                $t->id,
+                $t->invoice_id,
+                $t->plan,
+                $t->amount,
+                $t->currency,
+                $t->status,
+                $t->created_at,
+            ];
+        }
+
+        return $this->arrayToCsv($headers, $rows);
+    }
+
+    /**
+     * M-26: Build a CSV summary of the user's profile.
+     */
+    private function buildProfileCsv($user): string
+    {
+        $headers = ['Field', 'Value'];
+        $rows = [
+            ['User ID', $user->id],
+            ['Name', $user->name],
+            ['Email', $user->email],
+            ['Plan', $user->plan],
+            ['Plan Started', $user->plan_started_at?->format('Y-m-d')],
+            ['Plan Expires', $user->plan_expires_at?->format('Y-m-d') ?? 'Lifetime'],
+            ['Galleries', $user->galleries->count()],
+            ['Total Images', $user->galleries->sum(fn($g) => $g->images->count())],
+            ['Teams', $user->teams->count() + $user->ownedTeams->count()],
+            ['Account Created', $user->created_at?->format('Y-m-d')],
+        ];
+
+        return $this->arrayToCsv($headers, $rows);
+    }
+
+    /**
+     * M-26: Build a README.txt explaining the ZIP contents.
+     */
+    private function buildReadme($user): string
+    {
+        return "Exospace GDPR Data Export\n" .
+               "=========================\n\n" .
+               "User: {$user->name} ({$user->email})\n" .
+               "User ID: {$user->id}\n" .
+               "Exported: " . now()->format('Y-m-d H:i:s') . "\n\n" .
+               "This ZIP archive contains your personal data from Exospace Gallery,\n" .
+               "exported in accordance with GDPR Article 20 (Right to Data Portability).\n\n" .
+               "Contents:\n" .
+               "  profile.json       - Complete structured data (JSON format)\n" .
+               "  profile.csv        - Profile summary (CSV format, spreadsheet-importable)\n" .
+               "  galleries.csv      - Gallery metadata (CSV format)\n" .
+               "  transactions.csv   - Transaction history (CSV format)\n\n" .
+               "Note: Uploaded image/audio/logo files are NOT included in this export.\n" .
+               "To download individual files, visit your gallery admin pages.\n\n" .
+               "For questions about your data, contact support@exospace.gallery\n";
+    }
+
+    /**
+     * M-26: Convert an array to a CSV string.
+     */
+    private function arrayToCsv(array $headers, array $rows): string
+    {
+        $output = fopen('php://temp', 'r+');
+
+        // BOM for Excel UTF-8 compatibility
+        fwrite($output, "\xEF\xBB\xBF");
+
+        fputcsv($output, $headers);
+        foreach ($rows as $row) {
+            fputcsv($output, $row);
+        }
+
+        rewind($output);
+        $csv = stream_get_contents($output);
+        fclose($output);
+
+        return $csv;
     }
 
     /**
