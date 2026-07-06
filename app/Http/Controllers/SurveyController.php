@@ -1,0 +1,93 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\SurveyResponse;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+
+/**
+ * M-18: NPS/CSAT survey controller.
+ *
+ * Handles survey submission (AJAX) + admin NPS dashboard.
+ */
+class SurveyController extends Controller
+{
+    /**
+     * Submit an NPS survey response.
+     * POST /survey/nps
+     */
+    public function submitNps(Request $request): JsonResponse|RedirectResponse
+    {
+        $validated = $request->validate([
+            'score'    => ['required', 'integer', 'min:0', 'max:10'],
+            'feedback' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $user = $request->user();
+
+        // Check if user already responded (one NPS per user)
+        $existing = SurveyResponse::where('user_id', $user->id)
+            ->where('survey_type', 'nps')
+            ->whereNotNull('responded_at')
+            ->exists();
+
+        if ($existing) {
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'You have already submitted an NPS response.'], 422);
+            }
+            return back()->with('info', 'You have already submitted a survey response.');
+        }
+
+        $survey = SurveyResponse::create([
+            'user_id'      => $user->id,
+            'survey_type'  => 'nps',
+            'score'        => $validated['score'],
+            'feedback'     => $validated['feedback'] ?? null,
+            'triggered_at' => now(),
+            'responded_at' => now(),
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Thank you for your feedback!']);
+        }
+
+        return back()->with('status', 'Thank you for your feedback!');
+    }
+
+    /**
+     * Admin: NPS dashboard.
+     * GET /master-control/nps
+     */
+    public function npsDashboard(Request $request)
+    {
+        $responses = SurveyResponse::where('survey_type', 'nps')
+            ->whereNotNull('responded_at')
+            ->with('user')
+            ->latest('responded_at')
+            ->paginate(25);
+
+        // Calculate NPS score
+        $allResponses = SurveyResponse::where('survey_type', 'nps')
+            ->whereNotNull('responded_at')
+            ->get();
+
+        $total = $allResponses->count();
+        $promoters = $allResponses->where('score', '>=', 9)->count();
+        $detractors = $allResponses->where('score', '<=', 6)->count();
+
+        $npsScore = $total > 0 ? round((($promoters - $detractors) / $total) * 100) : 0;
+
+        $stats = [
+            'total' => $total,
+            'promoters' => $promoters,
+            'passives' => $allResponses->where('score', '>=', 7)->where('score', '<=', 8)->count(),
+            'detractors' => $detractors,
+            'nps_score' => $npsScore,
+            'avg_score' => $total > 0 ? round($allResponses->avg('score'), 1) : 0,
+        ];
+
+        return view('super-admin.nps.index', compact('responses', 'stats'));
+    }
+}

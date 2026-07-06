@@ -376,6 +376,12 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     // M-19: Feedback management (super-admin triage)
     Route::get('/feedback',                              [\App\Http\Controllers\FeedbackController::class, 'index'])->name('feedback.index');
     Route::patch('/feedback/{feedback}/status',          [\App\Http\Controllers\FeedbackController::class, 'updateStatus'])->name('feedback.update-status');
+
+    // M-18: NPS dashboard
+    Route::get('/nps',                                   [\App\Http\Controllers\SurveyController::class, 'npsDashboard'])->name('nps.index');
+
+    // M-5: Affiliate dashboard
+    Route::get('/affiliates',                            [\App\Http\Controllers\AffiliateDashboardController::class, 'index'])->name('affiliates.index');
 });
 
 // M-13: Admin impersonation — stop (outside super-admin group because the
@@ -397,6 +403,10 @@ Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->
 // M-19: Feedback widget submission (authenticated users only)
 Route::post('/feedback', [\App\Http\Controllers\FeedbackController::class, 'store'])->name('feedback.store')
       ->middleware(['auth', 'throttle:10,1']);
+
+// M-18: NPS survey submission (authenticated users)
+Route::post('/survey/nps', [\App\Http\Controllers\SurveyController::class, 'submitNps'])->name('survey.nps')
+      ->middleware(['auth', 'throttle:5,1']);
 
 // M-24: OAuth/SSO routes (Google + GitHub)
 Route::get('/auth/{provider}/redirect',  [\App\Http\Controllers\OAuthController::class, 'redirect'])->name('oauth.redirect');

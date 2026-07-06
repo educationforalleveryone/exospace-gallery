@@ -35,6 +35,12 @@
                     <a href="{{ route('super.feedback.index') }}" class="px-4 py-2 bg-teal-800 hover:bg-teal-700 rounded-lg transition text-sm">
                         💬 Feedback
                     </a>
+                    <a href="{{ route('super.nps.index') }}" class="px-4 py-2 bg-pink-800 hover:bg-pink-700 rounded-lg transition text-sm">
+                        📊 NPS
+                    </a>
+                    <a href="{{ route('super.affiliates.index') }}" class="px-4 py-2 bg-green-800 hover:bg-green-700 rounded-lg transition text-sm">
+                        🤝 Affiliates
+                    </a>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition text-sm">Logout</button>
