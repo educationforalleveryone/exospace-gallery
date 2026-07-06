@@ -341,6 +341,16 @@ class WebhookController extends Controller
                                 'error'          => $e->getMessage(),
                             ]);
                         }
+
+                        // M-12: Create in-app notification for the upgrade
+                        \App\Services\NotificationService::create(
+                            $user,
+                            'billing',
+                            ucfirst($planConfig['plan']) . ' plan activated!',
+                            'Your ' . ucfirst($planConfig['plan']) . ' plan is now active. Enjoy the new features!',
+                            '/billing',
+                            'View billing'
+                        );
                     });
 
                     return true; // signal "upgraded"
@@ -1137,6 +1147,16 @@ class WebhookController extends Controller
                     'error'   => $e->getMessage(),
                 ]);
             }
+
+            // M-12: Create in-app notification for the payment failure
+            \App\Services\NotificationService::create(
+                $user,
+                'dunning',
+                'Subscription payment failed',
+                'Your recent payment for the ' . ucfirst($user->plan) . ' plan failed. Please update your payment method to avoid losing access.',
+                '/billing',
+                'Update payment method'
+            );
         }
 
         return response('OK', 200);
@@ -1185,6 +1205,16 @@ class WebhookController extends Controller
             'subscription_id' => $subscriptionId,
             'ends_at'         => $user->subscription_ends_at?->toIso8601String(),
         ]);
+
+        // M-12: Create in-app notification for the cancellation
+        \App\Services\NotificationService::create(
+            $user,
+            'subscription',
+            'Subscription cancelled',
+            'Your ' . ucfirst($user->plan) . ' subscription has been cancelled. You\'ll keep access until ' . ($user->subscription_ends_at?->format('M j, Y') ?? 'the end of your billing period') . '.',
+            '/billing',
+            'View billing'
+        );
 
         return response('OK', 200);
     }

@@ -36,6 +36,7 @@
                     <li><a href="/about" class="hover:text-white transition">About Us</a></li>
                     <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
                     <li><a href="mailto:support@exospace.gallery" class="hover:text-white transition">Support</a></li>
+                    <li><a href="{{ route('status') }}" class="hover:text-white transition">System Status</a></li>
                 </ul>
             </div>
 

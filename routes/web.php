@@ -373,6 +373,13 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
 // it's a no-op.)
 Route::middleware(['auth'])->group(function () {
     Route::post('/master-control/stop-impersonating',  [\App\Http\Controllers\SuperAdmin\SystemController::class, 'stopImpersonating'])->name('super.stop-impersonating');
+
+    // M-12: In-app notifications
+    Route::post('/notifications/{notification}/read',     [\App\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('/notifications/mark-all-read',            [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
 });
+
+// M-20: Public status page (no auth required)
+Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->name('status');
 
 require __DIR__.'/auth.php';

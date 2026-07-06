@@ -56,8 +56,75 @@
                 </div>
             </div>
 
-            <!-- Right side: Active Team Switcher + User Dropdown -->
+            <!-- Right side: Active Team Switcher + Notifications + User Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6 gap-3">
+
+                {{-- M-12: Notification bell --}}
+                @auth
+                @php
+                    $navNotifications = \App\Services\NotificationService::recent(auth()->user(), 5);
+                    $navUnreadCount = \App\Services\NotificationService::unreadCount(auth()->user());
+                @endphp
+                <div x-data="{ notifOpen: false }" class="relative" @keydown.escape.window="notifOpen = false">
+                    <button @click="notifOpen = !notifOpen"
+                            class="relative inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-700 hover:border-gray-600 bg-gray-800/80 hover:bg-gray-750 text-gray-400 hover:text-white transition"
+                            aria-label="Notifications">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                        @if($navUnreadCount > 0)
+                            <span class="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
+                                {{ $navUnreadCount > 9 ? '9+' : $navUnreadCount }}
+                            </span>
+                        @endif
+                    </button>
+
+                    <div x-show="notifOpen" @click.outside="notifOpen = false" x-cloak
+                         style="display: none;"
+                         class="absolute right-0 mt-2 w-80 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+
+                        <div class="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+                            <p class="text-gray-300 text-sm font-semibold">Notifications</p>
+                            @if($navUnreadCount > 0)
+                                <form method="POST" action="{{ route('notifications.mark-all-read') }}">
+                                    @csrf
+                                    <button type="submit" class="text-xs text-purple-400 hover:text-purple-300 transition">Mark all read</button>
+                                </form>
+                            @endif
+                        </div>
+
+                        <div class="max-h-96 overflow-y-auto">
+                            @if($navNotifications->isEmpty())
+                                <div class="px-4 py-8 text-center text-gray-500 text-sm">
+                                    No notifications yet
+                                </div>
+                            @else
+                                @foreach($navNotifications as $notif)
+                                    <div class="px-4 py-3 border-b border-gray-700/50 {{ $notif->isUnread() ? 'bg-purple-900/10' : '' }}">
+                                        <form method="POST" action="{{ route('notifications.read', $notif) }}">
+                                            @csrf
+                                            <button type="submit" class="w-full text-left">
+                                                <div class="flex items-start gap-2">
+                                                    @if($notif->isUnread())
+                                                        <span class="w-2 h-2 rounded-full bg-purple-400 mt-1.5 flex-shrink-0"></span>
+                                                    @else
+                                                        <span class="w-2 h-2 rounded-full bg-gray-600 mt-1.5 flex-shrink-0"></span>
+                                                    @endif
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm font-medium text-gray-200">{{ $notif->title }}</p>
+                                                        @if($notif->body)
+                                                            <p class="text-xs text-gray-400 mt-0.5 line-clamp-2">{{ $notif->body }}</p>
+                                                        @endif
+                                                        <p class="text-[10px] text-gray-600 mt-1">{{ $notif->created_at->diffForHumans() }}</p>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        </form>
+                                    </div>
+                                @endforeach
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                @endauth
 
                 {{-- Active Team Badge / Switcher --}}
                 @auth
