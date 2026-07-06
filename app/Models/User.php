@@ -79,6 +79,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'subscription_ends_at'      => 'datetime',
             // M-9: Dunning tracking columns (failed payment recovery)
             'dunning_last_sent_at'      => 'datetime',
+            // M-7: Trial period
+            'trial_ends_at'             => 'datetime',
         ];
     }
 
@@ -101,6 +103,41 @@ class User extends Authenticatable implements MustVerifyEmail
         if ($this->google_id) $linked[] = 'google';
         if ($this->github_id) $linked[] = 'github';
         return $linked;
+    }
+
+    // ── M-7: Trial helpers ────────────────────────────────────────────────
+
+    /**
+     * Is this user currently in a trial period?
+     */
+    public function isInTrial(): bool
+    {
+        return $this->trial_ends_at !== null && $this->trial_ends_at->isFuture();
+    }
+
+    /**
+     * Has this user ever used a trial? (prevents multiple trials)
+     */
+    public function hasUsedTrial(): bool
+    {
+        return $this->trial_ends_at !== null;
+    }
+
+    /**
+     * Start a 14-day trial for the given plan.
+     */
+    public function startTrial(string $plan): void
+    {
+        $limits = self::planLimits($plan);
+
+        $this->forceFill([
+            'plan'            => $plan,
+            'max_galleries'   => $limits['max_galleries'],
+            'max_images'      => $limits['max_images'],
+            'plan_started_at' => now(),
+            'plan_expires_at' => now()->addDays(14),
+            'trial_ends_at'   => now()->addDays(14),
+        ])->save();
     }
 
     // ── Existing relationships ────────────────────────────────────────────

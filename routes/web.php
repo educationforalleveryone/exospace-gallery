@@ -234,6 +234,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/billing/cancel-subscription',     [\App\Http\Controllers\BillingController::class, 'cancelSubscription'])->name('billing.cancel-subscription');
         Route::post('/billing/reactivate-subscription', [\App\Http\Controllers\BillingController::class, 'reactivateSubscription'])->name('billing.reactivate-subscription');
 
+        // M-2: Self-serve downgrade
+        Route::post('/billing/downgrade',               [\App\Http\Controllers\BillingController::class, 'downgrade'])->name('billing.downgrade');
+
+        // M-7: Trial period
+        Route::post('/billing/start-trial/{plan}',      [\App\Http\Controllers\BillingController::class, 'startTrial'])->name('billing.start-trial')
+              ->where('plan', 'pro|studio');
+
         // M-10: Invoice download
         Route::get('/billing/invoice/{invoice}',        [\App\Http\Controllers\BillingController::class, 'downloadInvoice'])->name('billing.invoice');
     });

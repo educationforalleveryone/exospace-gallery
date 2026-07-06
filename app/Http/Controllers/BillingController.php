@@ -425,6 +425,155 @@ class BillingController extends Controller
             ->with('success', 'Your subscription has been reactivated. The next billing date remains unchanged.');
     }
 
+    // ── M-2: Self-serve downgrade flow ─────────────────────────────────────
+
+    /**
+     * Downgrade the user's plan to a lower tier.
+     *
+     * For one-time purchases: immediately changes the plan (no refund —
+     * the user paid for lifetime access, they're choosing to use less).
+     * For subscriptions: cancels the subscription via 2Checkout, access
+     * continues until the end of the paid period.
+     *
+     * Route: POST /billing/downgrade
+     */
+    public function downgrade(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'plan' => ['required', 'in:free,pro'],
+        ]);
+
+        $user = $request->user();
+        $targetPlan = $validated['plan'];
+
+        // Can't downgrade to the same plan
+        if ($user->plan === $targetPlan) {
+            return redirect()->route('billing.index')
+                ->with('info', "You're already on the {$targetPlan} plan.");
+        }
+
+        // Can't downgrade to a higher tier
+        $planRank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
+        if (($planRank[$targetPlan] ?? 0) > ($planRank[$user->plan] ?? 0)) {
+            return redirect()->route('billing.index')
+                ->with('error', 'Use the upgrade buttons to move to a higher tier.');
+        }
+
+        // Use the plan lock to prevent races
+        $result = $this->planLock->withUserLock($user->id, function () use ($user, $targetPlan) {
+            $user->refresh();
+
+            // If the user has an active subscription, cancel it via 2Checkout
+            if ($user->hasActiveSubscription()) {
+                try {
+                    $apiBaseUrl = rtrim((string) config('services.2checkout.api_base_url', 'https://api.2checkout.com'), '/');
+                    $response = \Illuminate\Support\Facades\Http::withHeaders([
+                        'Content-Type' => 'application/json',
+                    ])->post("{$apiBaseUrl}/rest/6.0/subscriptions/{$user->subscription_id}/cancel", [
+                        'merchant_code' => config('services.2checkout.account_number'),
+                    ]);
+
+                    if (! $response->successful()) {
+                        Log::error('BillingController: downgrade cancel API failed', [
+                            'user_id' => $user->id,
+                            'status'  => $response->status(),
+                        ]);
+                        return redirect()->route('billing.index')
+                            ->with('error', 'Failed to cancel subscription via 2Checkout. Please contact support.');
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('BillingController: downgrade cancel API exception', [
+                        'user_id' => $user->id,
+                        'error'   => $e->getMessage(),
+                    ]);
+                    return redirect()->route('billing.index')
+                        ->with('error', 'Could not reach 2Checkout. Please try again or contact support.');
+                }
+
+                $user->forceFill([
+                    'subscription_status'       => 'cancelled',
+                    'subscription_cancelled_at' => now(),
+                ])->save();
+
+                // Subscription downgrades: access continues until subscription_ends_at
+                // then CheckPlanExpiry will handle the actual downgrade
+                return redirect()->route('billing.index')
+                    ->with('success', "Your subscription has been cancelled. You'll keep access until {$user->subscription_ends_at?->format('M j, Y')}, then be downgraded to " . ucfirst($targetPlan) . '.');
+            }
+
+            // One-time purchase: downgrade immediately
+            if ($targetPlan === 'free') {
+                app(\App\Services\PlanDowngradeService::class)
+                    ->downgradeToFree($user, 'Self-serve downgrade');
+            } else {
+                $limits = \App\Models\User::planLimits($targetPlan);
+                $user->forceFill([
+                    'plan'          => $targetPlan,
+                    'max_galleries' => $limits['max_galleries'],
+                    'max_images'    => $limits['max_images'],
+                ])->save();
+            }
+
+            return redirect()->route('billing.index')
+                ->with('success', 'Your plan has been downgraded to ' . ucfirst($targetPlan) . '.');
+        });
+
+        if ($result instanceof RedirectResponse) {
+            return $result;
+        }
+
+        if ($result === \App\Services\PlanLockService::LOCK_BUSY) {
+            return redirect()->route('billing.index')
+                ->with('warning', 'Another billing operation is in progress. Please wait and try again.');
+        }
+
+        return redirect()->route('billing.index');
+    }
+
+    // ── M-7: Trial period ──────────────────────────────────────────────────
+
+    /**
+     * Start a 14-day free trial for a plan.
+     *
+     * Route: POST /billing/start-trial/{plan}
+     */
+    public function startTrial(Request $request, string $plan): RedirectResponse
+    {
+        if (! in_array($plan, ['pro', 'studio'], true)) {
+            return redirect()->route('billing.index')
+                ->with('error', 'Invalid plan for trial.');
+        }
+
+        $user = $request->user();
+
+        // Can't start trial if already on a paid plan
+        if ($user->plan !== 'free') {
+            return redirect()->route('billing.index')
+                ->with('error', 'Trials are only available for Free plan users.');
+        }
+
+        // Can't start trial if already used one
+        if ($user->hasUsedTrial()) {
+            return redirect()->route('billing.index')
+                ->with('error', 'You\'ve already used your free trial. Choose a plan to continue.');
+        }
+
+        $user->startTrial($plan);
+
+        // M-12: Notification
+        \App\Services\NotificationService::create(
+            $user,
+            'subscription',
+            'Free trial started!',
+            "Your 14-day free trial of the {$plan} plan is now active. Enjoy all the features!",
+            '/billing',
+            'View billing'
+        );
+
+        return redirect()->route('admin.dashboard')
+            ->with('status', "Your 14-day free trial of " . ucfirst($plan) . " has started! You have full access to all {$plan} features until " . $user->trial_ends_at->format('M j, Y') . '.');
+    }
+
     // ── M-10: Invoice download ────────────────────────────────────────────
 
     /**
