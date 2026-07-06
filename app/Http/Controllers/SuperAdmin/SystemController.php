@@ -329,4 +329,55 @@ class SystemController extends Controller
             abort(403, "You cannot {$action} your own account.");
         }
     }
+
+    // ── M-13: Admin impersonation ─────────────────────────────────────────
+
+    /**
+     * Start impersonating a user.
+     *
+     * Route: POST /master-control/users/{user}/impersonate
+     * Middleware: auth, verified, super_admin, mfa, password.confirm, feature_flag:admin_impersonation
+     */
+    public function impersonate(Request $request, User $user)
+    {
+        $admin = $request->user();
+
+        // M-14: Check feature flag
+        if (! \App\Services\FeatureFlag::isEnabled('admin_impersonation')) {
+            abort(404);
+        }
+
+        $impersonationService = app(\App\Services\ImpersonationService::class);
+
+        if (! $impersonationService->start($admin, $user)) {
+            return redirect()->route('super.index')
+                ->with('error', 'Cannot impersonate this user (self, super-admin, or already impersonating).');
+        }
+
+        return redirect()->route('admin.dashboard')
+            ->with('status', "You are now viewing the site as {$user->name}. Click 'Return to admin' to stop.");
+    }
+
+    /**
+     * Stop impersonating and return to the admin session.
+     *
+     * Route: POST /master-control/stop-impersonating
+     * Middleware: auth (no super_admin required — the impersonated user
+     *             needs to be able to call this, and the ImpersonationService
+     *             checks the session key to verify impersonation is active).
+     */
+    public function stopImpersonating(Request $request)
+    {
+        $impersonationService = app(\App\Services\ImpersonationService::class);
+
+        if (! $impersonationService->isImpersonating()) {
+            return redirect()->route('admin.dashboard')
+                ->with('error', 'You are not currently impersonating anyone.');
+        }
+
+        $impersonationService->stop();
+
+        return redirect()->route('super.index')
+            ->with('status', 'Impersonation ended. You are back to your admin account.');
+    }
 }

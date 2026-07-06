@@ -360,6 +360,19 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     Route::get   ('pending-upgrades',                  [SystemController::class, 'pendingUpgrades'])->name('pending-upgrades.index');
     Route::post  ('pending-upgrades/{pending}/manual-upgrade', [SystemController::class, 'manualUpgrade'])->name('pending-upgrades.manual-upgrade')
           ->middleware('password.confirm');
+
+    // M-13: Admin impersonation — start (requires super-admin + password.confirm + feature flag)
+    Route::post('/users/{user}/impersonate',           [SystemController::class, 'impersonate'])->name('impersonate')
+          ->middleware('password.confirm', 'feature_flag:admin_impersonation');
+});
+
+// M-13: Admin impersonation — stop (outside super-admin group because the
+// impersonated user is NOT a super-admin. The ImpersonationService checks
+// the session key to verify impersonation is active, so this route is safe
+// to be accessible by any authenticated user — if they're not impersonating,
+// it's a no-op.)
+Route::middleware(['auth'])->group(function () {
+    Route::post('/master-control/stop-impersonating',  [\App\Http\Controllers\SuperAdmin\SystemController::class, 'stopImpersonating'])->name('super.stop-impersonating');
 });
 
 require __DIR__.'/auth.php';

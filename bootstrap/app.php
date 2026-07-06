@@ -75,8 +75,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // 5. Middleware aliases
         $middleware->alias([
-            'super_admin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
-            'mfa'         => \App\Http\Middleware\RequireMfa::class, // (Task H56)
+            'super_admin'   => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
+            'mfa'           => \App\Http\Middleware\RequireMfa::class, // (Task H56)
+            'feature_flag'  => \App\Http\Middleware\EnsureFeatureFlagEnabled::class, // M-14
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

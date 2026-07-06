@@ -77,6 +77,25 @@
             @endforeach
         </div>
 
+        {{-- M-14: Feature Flags status panel --}}
+        <div class="mb-8 bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">🚩 Feature Flags</h3>
+            <div class="flex flex-wrap gap-2">
+                @php $flags = \App\Services\FeatureFlag::all(); @endphp
+                @foreach($flags as $name => $enabled)
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                                 {{ $enabled ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/30' : 'bg-gray-800 text-gray-500 border border-gray-700' }}">
+                        @if($enabled)
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                        @else
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                        @endif
+                        {{ $name }}
+                    </span>
+                @endforeach
+            </div>
+        </div>
+
         <!-- Search / Filter -->
         <div class="flex gap-3 mb-4">
             <input type="text" id="userSearch" placeholder="Search by name or email..."
@@ -250,6 +269,20 @@
                                         👑 Revoke Admin
                                     </button>
                                 @endif
+
+                                {{-- M-13: Impersonate (Login As User) --}}
+                                @featureFlag('admin_impersonation')
+                                @if(! $user->is_super_admin)
+                                    <form method="POST" action="{{ route('super.impersonate', $user) }}">
+                                        @csrf
+                                        <button type="submit"
+                                                onclick="return confirm('Log in as {{ addslashes($user->name) }}? You will see the site from their perspective. Click &quot;Return to admin&quot; to stop.')"
+                                                class="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 rounded-lg text-xs transition">
+                                            🔑 Login As
+                                        </button>
+                                    </form>
+                                @endif
+                                @endfeatureFlag
 
                                 {{-- Delete --}}
                                 @if(! $user->is_super_admin)
