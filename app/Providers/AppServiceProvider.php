@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\FeatureFlag;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,6 +26,15 @@ class AppServiceProvider extends ServiceProvider
         // This forces the site to use HTTPS when live, fixing the broken styles and login error.
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
+        }
+
+        // Runtime warning for TRUSTED_PROXIES=* (moved here from bootstrap/app.php).
+        // The Log facade cannot be used safely during bootstrap (causes
+        // "Target class [env] does not exist" during package:discover),
+        // but it is safe here because boot() runs after the container is
+        // fully booted and all service providers are registered.
+        if (env('TRUSTED_PROXIES') === '*') {
+            Log::critical('TRUSTED_PROXIES=* is set — host-header spoofing attacks are possible. Set TRUSTED_PROXIES to your Coolify Traefik subnet immediately.');
         }
 
         // M-14: Register Blade directives for feature flags.

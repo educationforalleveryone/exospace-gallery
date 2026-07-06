@@ -59,20 +59,35 @@ return Application::configure(basePath: dirname(__DIR__))
         //    Acceptable values:
         //      - specific IPs: "10.0.0.5,10.0.0.6"
         //      - CIDR ranges: "172.16.0.0/12"
-        //      - "*" (legacy permissive — logs a warning in PreflightCheck)
+        //      - "*" (legacy permissive — PreflightCheck logs a warning)
         //
-    //    SEC-1 FIX: Default changed from '*' to null (fail-closed).
-    //    If TRUSTED_PROXIES is not set, Laravel trusts NO proxies.
-    //    Behind Coolify/Traefik, set TRUSTED_PROXIES to the Traefik
-    //    subnet (e.g. "10.0.1.0/24") for correct IP detection.
-    $trustedProxies = env('TRUSTED_PROXIES');
-    if ($trustedProxies && $trustedProxies !== '*') {
-        $middleware->trustProxies(at: $trustedProxies);
-    } elseif ($trustedProxies === '*') {
-        \Illuminate\Support\Facades\Log::critical('TRUSTED_PROXIES=* is set — host-header spoofing attacks are possible. Set TRUSTED_PROXIES to your Coolify Traefik subnet immediately.');
-        $middleware->trustProxies(at: '*');
-    }
-    // If null/empty: trust no proxies (fail-closed)
+        //    SEC-1 FIX: Default changed from '*' to null (fail-closed).
+        //    If TRUSTED_PROXIES is not set, Laravel trusts NO proxies.
+        //    Behind Coolify/Traefik, set TRUSTED_PROXIES to the Traefik
+        //    subnet (e.g. "10.0.1.0/24") for correct IP detection.
+        //
+        //    BOOTSTRAP-SAFETY FIX: The previous version called
+        //    Log::critical() here when TRUSTED_PROXIES=*. That breaks
+        //    `php artisan package:discover` and every artisan command
+        //    during local development / fresh installs, because the Log
+        //    facade is not yet bound to the container during the bootstrap
+        //    phase. The deferred-provider resolution chain ends up
+        //    trying to resolve the `env` binding, which doesn't exist
+        //    yet, producing: "Target class [env] does not exist".
+        //
+        //    The warning for TRUSTED_PROXIES=* is now handled at runtime
+        //    by App\Providers\AppServiceProvider::boot() and by the
+        //    PreflightCheck artisan command — both of which run after
+        //    the container is fully booted and the Log facade is safe
+        //    to use.
+        $trustedProxies = env('TRUSTED_PROXIES');
+        if ($trustedProxies && $trustedProxies !== '*') {
+            $middleware->trustProxies(at: $trustedProxies);
+        } elseif ($trustedProxies === '*') {
+            // Permissive mode — warn later (AppServiceProvider / PreflightCheck).
+            $middleware->trustProxies(at: '*');
+        }
+        // If null/empty: trust no proxies (fail-closed)
 
         // 5. Middleware aliases
         $middleware->alias([
