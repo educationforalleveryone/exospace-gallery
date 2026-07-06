@@ -1,0 +1,98 @@
+{{-- M-19: In-app feedback widget.
+    Floating "Feedback" button (bottom-right) that opens a modal form.
+    Included in layouts/app.blade.php so it appears on all admin pages.
+    Uses Alpine.js for show/hide + fetch() for AJAX submission. --}}
+
+@auth
+<div x-data="{ open: false, submitting: false, success: false, category: 'bug', message: '' }"
+     x-cloak
+     style="position: fixed; bottom: 24px; right: 24px; z-index: 100;">
+
+    {{-- Floating button --}}
+    <button @click="open = true; success = false; message = ''"
+            x-show="!open"
+            x-transition
+            class="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold rounded-full shadow-lg shadow-purple-900/30 transition-all duration-200 hover:scale-105"
+            aria-label="Send feedback">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+        <span class="text-sm">Feedback</span>
+    </button>
+
+    {{-- Modal --}}
+    <div x-show="open"
+         x-transition
+         class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+         style="z-index: 200;"
+         @keydown.escape.window="open = false"
+         @click="if($event.target === $el) open = false">
+
+        <div class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl max-w-md w-full p-6"
+             @click.stop>
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white">Send Feedback</h3>
+                <button @click="open = false" class="text-gray-500 hover:text-gray-300 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            {{-- Success state --}}
+            <div x-show="success" x-transition class="text-center py-8">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <p class="text-white font-semibold text-lg mb-1">Thank you!</p>
+                <p class="text-gray-400 text-sm">Your feedback has been sent to our team.</p>
+                <button @click="open = false" class="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm transition">Close</button>
+            </div>
+
+            {{-- Form --}}
+            <form x-show="!success"
+                  @submit.prevent="submitting = true; fetch('{{ route('feedback.store') }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '', 'Accept': 'application/json' }, body: JSON.stringify({ category: category, message: message }) }).then(r => r.json()).then(data => { if(data.success) { success = true; } else { alert(data.error || 'Failed to submit'); } }).catch(e => alert('Network error')).finally(() => submitting = false)"
+                  class="space-y-4">
+
+                {{-- Category --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Type</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        @foreach(\App\Models\UserFeedback::CATEGORIES as $value => $label)
+                        <button type="button"
+                                @click="category = '{{ $value }}'"
+                                :class="category === '{{ $value }}' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-gray-700/50 border-gray-600 text-gray-400'"
+                                class="px-3 py-2 rounded-lg border text-sm font-medium transition text-left">
+                            {{ $label }}
+                        </button>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Message --}}
+                <div>
+                    <label for="feedback-message" class="block text-sm font-medium text-gray-300 mb-2">Message</label>
+                    <textarea x-model="message"
+                              id="feedback-message"
+                              rows="4"
+                              required
+                              maxlength="5000"
+                              placeholder="Tell us what's on your mind..."
+                              class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none resize-none"></textarea>
+                    <p class="text-xs text-gray-500 mt-1" x-text="message.length + '/5000'"></p>
+                </div>
+
+                {{-- Submit --}}
+                <button type="submit"
+                        :disabled="submitting || !message.trim()"
+                        class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition text-sm">
+                    <span x-show="!submitting">Send Feedback</span>
+                    <span x-show="submitting">Sending...</span>
+                </button>
+
+                <p class="text-xs text-gray-500 text-center">
+                    Your feedback is sent to the Exospace team. We read every message.
+                </p>
+            </form>
+        </div>
+    </div>
+</div>
+@endauth

@@ -34,6 +34,7 @@
                 <h4 class="font-semibold mb-4 text-gray-200">Company</h4>
                 <ul class="space-y-2 text-gray-400 text-sm">
                     <li><a href="/about" class="hover:text-white transition">About Us</a></li>
+                    <li><a href="{{ route('changelog') }}" class="hover:text-white transition">Changelog</a></li>
                     <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
                     <li><a href="mailto:support@exospace.gallery" class="hover:text-white transition">Support</a></li>
                     <li><a href="{{ route('status') }}" class="hover:text-white transition">System Status</a></li>

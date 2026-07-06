@@ -174,5 +174,7 @@
         // alias for existing calls
         function showUpgradeModal(){ openModal('upgrade-modal'); }
         </script>
+        {{-- M-19: In-app feedback widget (floating button on all admin pages) --}}
+        @include('components.feedback-widget')
     </body>
 </html>

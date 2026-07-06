@@ -105,6 +105,7 @@ Route::view('/about',            'pages.about')->name('about');
 Route::view('/payment-security', 'pages.security')->name('security');
 Route::view('/pricing',          'pages.pricing')->name('pricing');
 Route::view('/contact',          'pages.contact')->name('contact');
+Route::get ('/changelog',        [\App\Http\Controllers\ChangelogController::class, 'show'])->name('changelog');
 Route::post('/contact', [\App\Http\Controllers\ContactController::class, 'submit'])->name('contact.submit')->middleware('throttle:5,10');
 
 // ── Unsubscribe (P0-3: CAN-SPAM/GDPR one-click unsubscribe) ──────────────
@@ -364,6 +365,10 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     // M-13: Admin impersonation — start (requires super-admin + password.confirm + feature flag)
     Route::post('/users/{user}/impersonate',           [SystemController::class, 'impersonate'])->name('impersonate')
           ->middleware('password.confirm', 'feature_flag:admin_impersonation');
+
+    // M-19: Feedback management (super-admin triage)
+    Route::get('/feedback',                              [\App\Http\Controllers\FeedbackController::class, 'index'])->name('feedback.index');
+    Route::patch('/feedback/{feedback}/status',          [\App\Http\Controllers\FeedbackController::class, 'updateStatus'])->name('feedback.update-status');
 });
 
 // M-13: Admin impersonation — stop (outside super-admin group because the
@@ -381,5 +386,9 @@ Route::middleware(['auth'])->group(function () {
 
 // M-20: Public status page (no auth required)
 Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->name('status');
+
+// M-19: Feedback widget submission (authenticated users only)
+Route::post('/feedback', [\App\Http\Controllers\FeedbackController::class, 'store'])->name('feedback.store')
+      ->middleware(['auth', 'throttle:10,1']);
 
 require __DIR__.'/auth.php';
