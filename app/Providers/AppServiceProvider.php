@@ -47,5 +47,13 @@ class AppServiceProvider extends ServiceProvider
                 ? ! FeatureFlag::isEnabled($flag)
                 : FeatureFlag::isEnabled($flag);
         });
+
+        // M-15: Register Blade directive for A/B testing.
+        // Usage: @abVariant('pricing_cta', 'B') ... @endabVariant
+        // Renders the block only if the current user is assigned to variant B
+        // of the 'pricing_cta' experiment.
+        Blade::if('abVariant', function (string $experiment, string $variant) {
+            return \App\Services\ABTest::isVariant($experiment, $variant);
+        });
     }
 }
