@@ -232,6 +232,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // M-1: Subscription management routes
         Route::post('/billing/cancel-subscription',     [\App\Http\Controllers\BillingController::class, 'cancelSubscription'])->name('billing.cancel-subscription');
         Route::post('/billing/reactivate-subscription', [\App\Http\Controllers\BillingController::class, 'reactivateSubscription'])->name('billing.reactivate-subscription');
+
+        // M-10: Invoice download
+        Route::get('/billing/invoice/{invoice}',        [\App\Http\Controllers\BillingController::class, 'downloadInvoice'])->name('billing.invoice');
     });
 });
 

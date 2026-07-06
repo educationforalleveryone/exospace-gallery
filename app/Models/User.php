@@ -76,6 +76,8 @@ class User extends Authenticatable implements MustVerifyEmail
             // M-1: Subscription tracking columns (recurring billing)
             'subscription_cancelled_at' => 'datetime',
             'subscription_ends_at'      => 'datetime',
+            // M-9: Dunning tracking columns (failed payment recovery)
+            'dunning_last_sent_at'      => 'datetime',
         ];
     }
 

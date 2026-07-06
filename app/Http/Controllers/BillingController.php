@@ -424,4 +424,49 @@ class BillingController extends Controller
         return redirect()->route('billing.index')
             ->with('success', 'Your subscription has been reactivated. The next billing date remains unchanged.');
     }
+
+    // ── M-10: Invoice download ────────────────────────────────────────────
+
+    /**
+     * Download an invoice PDF (or HTML fallback).
+     *
+     * Only the invoice's owner can download it — the route is behind the
+     * 'auth' + 'verified' + 'mfa' middleware (same as other billing routes).
+     *
+     * Route: GET /billing/invoice/{invoice}
+     */
+    public function downloadInvoice(Request $request, \App\Models\Invoice $invoice)
+    {
+        $user = $request->user();
+
+        // Authorization: only the invoice's owner can download it.
+        if ($invoice->user_id !== $user->id) {
+            abort(403, 'You do not have access to this invoice.');
+        }
+
+        if (! $invoice->pdf_path) {
+            abort(404, 'Invoice PDF not available.');
+        }
+
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+
+        if (! $disk->exists($invoice->pdf_path)) {
+            Log::warning('BillingController: invoice file missing on disk', [
+                'invoice_id' => $invoice->id,
+                'pdf_path'   => $invoice->pdf_path,
+            ]);
+            abort(404, 'Invoice file not found.');
+        }
+
+        // Serve the file. Currently stored as HTML (see InvoiceGenerator);
+        // when the founder adds a PDF library, this will serve a real PDF.
+        $mimeType = str_ends_with($invoice->pdf_path, '.pdf') ? 'application/pdf' : 'text/html';
+        $filename = "{$invoice->invoice_number}." . (str_ends_with($invoice->pdf_path, '.pdf') ? 'pdf' : 'html');
+
+        return response($disk->get($invoice->pdf_path), 200, [
+            'Content-Type'        => $mimeType,
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'private, no-cache, no-store, must-revalidate',
+        ]);
+    }
 }

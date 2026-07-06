@@ -316,7 +316,7 @@ class WebhookController extends Controller
                     // PlanUpgradedEmail implements ShouldQueue, so the queue
                     // dispatch happens after commit — the queue worker will
                     // see the committed user state.
-                    \DB::afterCommit(function () use ($user, $planConfig, $invoiceId) {
+                    \DB::afterCommit(function () use ($user, $planConfig, $invoiceId, $transactionId) {
                         try {
                             \Illuminate\Support\Facades\Mail::to($user->email)
                                 ->send(new \App\Mail\PlanUpgradedEmail($user, $planConfig['plan'], $invoiceId));
@@ -324,6 +324,21 @@ class WebhookController extends Controller
                             Log::warning('2Checkout: PlanUpgradedEmail send failed', [
                                 'user_id' => $user->id,
                                 'error'   => $e->getMessage(),
+                            ]);
+                        }
+
+                        // M-10: Generate an invoice for this transaction.
+                        // Done afterCommit so the transaction row is visible.
+                        try {
+                            $transaction = \App\Models\Transaction::find($transactionId);
+                            if ($transaction) {
+                                app(\App\Services\InvoiceGenerator::class)
+                                    ->generateForTransaction($transaction, $user);
+                            }
+                        } catch (\Throwable $e) {
+                            Log::warning('2Checkout: Invoice generation failed', [
+                                'transaction_id' => $transactionId,
+                                'error'          => $e->getMessage(),
                             ]);
                         }
                     });
@@ -1006,10 +1021,14 @@ class WebhookController extends Controller
                         'subscription_status' => 'active',
                         'subscription_ends_at' => $endsAt,
                         'plan_expires_at'     => $endsAt, // sync plan_expires_at for CheckPlanExpiry
+                        // M-9: Reset dunning tracking — payment succeeded,
+                        // so the user is no longer in the dunning window.
+                        'dunning_step'         => null,
+                        'dunning_last_sent_at' => null,
                     ])->save();
 
                     // Record the renewal transaction.
-                    \DB::table('transactions')->insert([
+                    $transactionId = \DB::table('transactions')->insertGetId([
                         'user_id'        => $user->id,
                         'invoice_id'     => $invoiceId,
                         'sale_id'        => $saleId,
@@ -1031,6 +1050,22 @@ class WebhookController extends Controller
                         'amount'          => $amount,
                         'next_billing'    => $nextBillingDate,
                     ]);
+
+                    // M-10: Generate an invoice for this renewal transaction.
+                    \DB::afterCommit(function () use ($transactionId, $user) {
+                        try {
+                            $transaction = \App\Models\Transaction::find($transactionId);
+                            if ($transaction) {
+                                app(\App\Services\InvoiceGenerator::class)
+                                    ->generateForTransaction($transaction, $user);
+                            }
+                        } catch (\Throwable $e) {
+                            Log::warning('2Checkout: Recurring invoice generation failed', [
+                                'transaction_id' => $transactionId,
+                                'error'          => $e->getMessage(),
+                            ]);
+                        }
+                    });
                 });
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
@@ -1079,10 +1114,30 @@ class WebhookController extends Controller
             'subscription_id' => $subscriptionId,
         ]);
 
-        // TODO (M-9 dunning): send a "payment failed — update your card"
-        // email here. 2Checkout's dunning sequence handles retries, but
-        // a user-facing email increases recovery rate. Deferred to the
-        // M-9 (dunning management) iteration.
+        // M-9: Send dunning step 1 email immediately (if not already sent).
+        // Only send if this is the first failure (dunning_step is null or 0)
+        // — subsequent failures within the same dunning window don't re-send
+        // step 1 (the user already knows their payment is failing).
+        if (! $user->dunning_step || $user->dunning_step < 1) {
+            $user->forceFill([
+                'dunning_step'         => 1,
+                'dunning_last_sent_at' => now(),
+            ])->save();
+
+            try {
+                \Illuminate\Support\Facades\Mail::to($user->email)
+                    ->send(new \App\Mail\DunningEmail($user, 1));
+
+                Log::info('Dunning: sent step 1 email (immediate)', [
+                    'user_id' => $user->id,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Dunning: step 1 email send failed', [
+                    'user_id' => $user->id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+        }
 
         return response('OK', 200);
     }

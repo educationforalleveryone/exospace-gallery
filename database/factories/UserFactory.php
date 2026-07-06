@@ -44,6 +44,9 @@ class UserFactory extends Factory
             'subscription_status'        => null,
             'subscription_cancelled_at'  => null,
             'subscription_ends_at'       => null,
+            // M-9: Dunning tracking — null = not in dunning window.
+            'dunning_step'               => null,
+            'dunning_last_sent_at'       => null,
         ];
     }
 

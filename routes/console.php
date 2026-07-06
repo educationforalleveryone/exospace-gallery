@@ -79,3 +79,12 @@ Schedule::command('exospace:anonymize-pii')
     ->monthlyOn(1, '05:30')
     ->withoutOverlapping(60)
     ->onOneServer();
+
+// M-9: Daily at 11am — send dunning emails (steps 2 + 3) for subscriptions
+// with failed payments. Step 1 is sent immediately by the webhook handler
+// (WebhookController::handleRecurringFailure) — this command handles the
+// time-delayed steps 2 (3 days) and 3 (7 days, final notice).
+Schedule::command('exospace:send-dunning')
+    ->dailyAt('11:00')
+    ->withoutOverlapping(60)
+    ->onOneServer();

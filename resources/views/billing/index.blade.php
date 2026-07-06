@@ -208,6 +208,7 @@
                                     <th class="py-2 pr-4">Amount</th>
                                     <th class="py-2 pr-4">Invoice ID</th>
                                     <th class="py-2 pr-4">Status</th>
+                                    <th class="py-2 pr-4">Invoice</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -226,6 +227,21 @@
                                             <span class="inline-flex items-center rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-400">Chargeback</span>
                                         @else
                                             <span class="inline-flex items-center rounded-full bg-gray-500/20 px-2 py-0.5 text-xs text-gray-400">{{ ucfirst($tx->status) }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="py-3 pr-4">
+                                        @php
+                                            $invoice = \App\Models\Invoice::where('transaction_id', $tx->id)->first();
+                                        @endphp
+                                        @if($invoice && $invoice->pdf_path)
+                                            <a href="{{ route('billing.invoice', $invoice) }}"
+                                               class="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition"
+                                               target="_blank" rel="noopener">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                                Download
+                                            </a>
+                                        @else
+                                            <span class="text-xs text-gray-600">—</span>
                                         @endif
                                     </td>
                                 </tr>
