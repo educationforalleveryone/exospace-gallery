@@ -25,7 +25,7 @@ Alpine.start();
 // newsletter signup) are unaffected — Turbo only intercepts standard
 // form submissions.
 // ─────────────────────────────────────────────────────────────────────────────
-import { Turbo } from '@hotwired/turbo';
+import * as Turbo from '@hotwired/turbo';
 
 // Make Turbo available globally for debugging + opt-out in views.
 window.Turbo = Turbo;
