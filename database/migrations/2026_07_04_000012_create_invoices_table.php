@@ -26,6 +26,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Idempotency: an earlier failed deploy attempt got far enough to
+        // run CREATE TABLE before a later statement in this migration
+        // failed (MySQL DDL auto-commits per statement, so the table
+        // persisted even though the migration was never marked as run).
+        if (Schema::hasTable('invoices')) {
+            return;
+        }
+
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
