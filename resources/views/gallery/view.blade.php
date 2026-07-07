@@ -81,10 +81,10 @@
                         "@type": "Person",
                         "name": {{ json_encode($img['artist']['name']) }},
                         "url": {{ json_encode($img['artist']['url']) }}
-                    }@endif@if(!empty($img['medium'])),
-                    "artMedium": {{ json_encode($img['medium']) }}@endif@if(!empty($img['year'])),
-                    "dateCreated": {{ json_encode((string)$img['year']) }}@endif@if(!empty($img['dimensions'])),
-                    "artworkSurface": {{ json_encode($img['dimensions']) }}@endif@if($img['forSale'] && !empty($img['price'])),
+                    }@endif @if(!empty($img['medium'])),
+                    "artMedium": {{ json_encode($img['medium']) }}@endif @if(!empty($img['year'])),
+                    "dateCreated": {{ json_encode((string)$img['year']) }}@endif @if(!empty($img['dimensions'])),
+                    "artworkSurface": {{ json_encode($img['dimensions']) }}@endif @if($img['forSale'] && !empty($img['price'])),
                     "offers": {
                         "@type": "Offer",
                         "price": {{ json_encode((string)$img['price']) }},
