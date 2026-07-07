@@ -101,6 +101,22 @@ return new class extends Migration
             });
         }
 
+        // MySQL requires every unique key — including the PRIMARY KEY — to
+        // contain the partitioning column (error 1503 otherwise). The
+        // default primary key is just `id`; extend it to (id, created_at).
+        // `id` stays AUTO_INCREMENT and remains the leading column, so this
+        // does not allow duplicate ids — it's still effectively unique on id.
+        $primaryKeyIncludesCreatedAt = DB::table('information_schema.KEY_COLUMN_USAGE')
+            ->where('TABLE_SCHEMA', DB::connection()->getDatabaseName())
+            ->where('TABLE_NAME', 'transactions')
+            ->where('CONSTRAINT_NAME', 'PRIMARY')
+            ->where('COLUMN_NAME', 'created_at')
+            ->exists();
+
+        if (! $primaryKeyIncludesCreatedAt) {
+            DB::statement('ALTER TABLE transactions DROP PRIMARY KEY, ADD PRIMARY KEY (id, created_at)');
+        }
+
         // Check if the table is already partitioned (idempotency).
         $alreadyPartitioned = DB::table('information_schema.PARTITIONS')
             ->where('TABLE_SCHEMA', DB::connection()->getDatabaseName())
@@ -150,6 +166,9 @@ return new class extends Migration
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
             // Remove partitioning — keeps the data but flattens to a single table.
             DB::statement('ALTER TABLE transactions REMOVE PARTITIONING');
+
+            // Restore the original single-column primary key.
+            DB::statement('ALTER TABLE transactions DROP PRIMARY KEY, ADD PRIMARY KEY (id)');
 
             // Restore the foreign key that was dropped in up() to allow partitioning.
             Schema::table('transactions', function (Blueprint $table) {
