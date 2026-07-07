@@ -86,7 +86,7 @@ return [
             // When DB_READ_HOST is empty (the default), Laravel falls back to
             // the primary host for both reads and writes — no behavior change.
             'read' => [
-                'host' => array_filter(array_map('trim', explode(',', (string) env('DB_READ_HOST', '')))),
+                'host' => array_filter(array_map('trim', explode(',', (string) env('DB_READ_HOST', '')))) ?: [env('DB_HOST', '127.0.0.1')],
             ],
             'write' => [
                 'host' => env('DB_HOST', '127.0.0.1'),
@@ -122,7 +122,7 @@ return [
                 \PDO::ATTR_PERSISTENT => filter_var(env('DB_PERSISTENT', false), \FILTER_VALIDATE_BOOLEAN),
             ]) : [],
             'read' => [
-                'host' => array_filter(array_map('trim', explode(',', (string) env('DB_READ_HOST', '')))),
+                'host' => array_filter(array_map('trim', explode(',', (string) env('DB_READ_HOST', '')))) ?: [env('DB_HOST', '127.0.0.1')],
             ],
             'write' => [
                 'host' => env('DB_HOST', '127.0.0.1'),
