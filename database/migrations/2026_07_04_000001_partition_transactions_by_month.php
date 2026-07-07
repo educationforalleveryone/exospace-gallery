@@ -108,7 +108,7 @@ return new class extends Migration
             $month = $start->copy()->addMonths($i);
             $partitionName = 'p' . $month->format('Ym');
             $lessThan = $month->copy()->addMonth()->format('Y-m-d');
-            $partitions[] = "PARTITION {$partitionName} VALUES LESS THAN ('{$lessThan}')";
+            $partitions[] = "PARTITION {$partitionName} VALUES LESS THAN (TO_DAYS('{$lessThan}'))";
         }
 
         // Add a catch-all partition for any rows that fall outside the
