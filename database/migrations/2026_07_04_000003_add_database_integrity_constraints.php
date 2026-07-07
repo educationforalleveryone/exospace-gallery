@@ -13,6 +13,11 @@ use Illuminate\Support\Facades\Schema;
  *
  * All changes are additive — no existing columns are dropped or renamed.
  * The migration is reversible (down() drops the added columns/indexes/constraints).
+ *
+ * NOTE: All existence checks use the Schema facade directly (Schema::getForeignKeys(),
+ * Schema::hasIndex()) rather than $table->getConnection()->getSchemaBuilder() — Blueprint
+ * has no getConnection() method, and Laravel 11+'s getForeignKeys() returns plain arrays
+ * (with a 'columns' key), not objects with a getLocalColumns() method.
  */
 return new class extends Migration
 {
@@ -22,9 +27,8 @@ return new class extends Migration
         // Previously, transaction_id was a bare foreignId with no constraint.
         // A pending_upgrade could point to a non-existent transaction.
         Schema::table('pending_upgrades', function (Blueprint $table) {
-            $sm = $table->getConnection()->getSchemaBuilder();
-            $hasFk = collect($sm->getForeignKeys('pending_upgrades'))
-                ->contains(fn($fk) => in_array('transaction_id', $fk->getLocalColumns()));
+            $hasFk = collect(Schema::getForeignKeys('pending_upgrades'))
+                ->contains(fn($fk) => in_array('transaction_id', $fk['columns']));
 
             if (! $hasFk) {
                 $table->foreign('transaction_id')
@@ -41,11 +45,8 @@ return new class extends Migration
         // The CheckBanned + PlanDowngradeService code already nulls
         // current_team_id before team deletion, but the FK is defense-in-depth.
         Schema::table('users', function (Blueprint $table) {
-            // Check if the FK already exists (defensive — the consolidated
-            // users migration may have already added it in some paths)
-            $sm = $table->getConnection()->getSchemaBuilder();
-            $hasFk = collect($sm->getForeignKeys('users'))
-                ->contains(fn($fk) => in_array('current_team_id', $fk->getLocalColumns()));
+            $hasFk = collect(Schema::getForeignKeys('users'))
+                ->contains(fn($fk) => in_array('current_team_id', $fk['columns']));
 
             if (! $hasFk) {
                 $table->foreign('current_team_id')
@@ -54,8 +55,7 @@ return new class extends Migration
                       ->nullOnDelete();
             }
 
-            // Add index if it doesn't exist
-            if (! $sm->hasIndex('users', 'users_current_team_id_index')) {
+            if (! Schema::hasIndex('users', 'users_current_team_id_index')) {
                 $table->index('current_team_id');
             }
         });
@@ -86,8 +86,7 @@ return new class extends Migration
         // (gallery_id, session_token, event, created_at) lets MySQL use a
         // single index scan.
         Schema::table('analytics_events', function (Blueprint $table) {
-            $sm = $table->getConnection()->getSchemaBuilder();
-            if (! $sm->hasIndex('analytics_events', 'analytics_events_gallery_id_session_token_event_created_at_index')) {
+            if (! Schema::hasIndex('analytics_events', 'analytics_events_gallery_id_session_token_event_created_at_index')) {
                 $table->index(['gallery_id', 'session_token', 'event', 'created_at'], 'analytics_dwell_index');
             }
         });
@@ -98,8 +97,7 @@ return new class extends Migration
         // (WHERE user_id = ?) do a full table scan. Adding a standalone
         // user_id index makes this O(log N).
         Schema::table('team_user', function (Blueprint $table) {
-            $sm = $table->getConnection()->getSchemaBuilder();
-            if (! $sm->hasIndex('team_user', 'team_user_user_id_index')) {
+            if (! Schema::hasIndex('team_user', 'team_user_user_id_index')) {
                 $table->index('user_id');
             }
         });
@@ -109,16 +107,14 @@ return new class extends Migration
     {
         // P2-8: Drop team_user user_id index
         Schema::table('team_user', function (Blueprint $table) {
-            $sm = $table->getConnection()->getSchemaBuilder();
-            if ($sm->hasIndex('team_user', 'team_user_user_id_index')) {
+            if (Schema::hasIndex('team_user', 'team_user_user_id_index')) {
                 $table->dropIndex('team_user_user_id_index');
             }
         });
 
         // P2-7: Drop analytics_events composite index
         Schema::table('analytics_events', function (Blueprint $table) {
-            $sm = $table->getConnection()->getSchemaBuilder();
-            if ($sm->hasIndex('analytics_events', 'analytics_dwell_index')) {
+            if (Schema::hasIndex('analytics_events', 'analytics_dwell_index')) {
                 $table->dropIndex('analytics_dwell_index');
             }
         });
@@ -138,22 +134,20 @@ return new class extends Migration
 
         // P2-2: Drop users.current_team_id FK + index
         Schema::table('users', function (Blueprint $table) {
-            $sm = $table->getConnection()->getSchemaBuilder();
-            $hasFk = collect($sm->getForeignKeys('users'))
-                ->contains(fn($fk) => in_array('current_team_id', $fk->getLocalColumns()));
+            $hasFk = collect(Schema::getForeignKeys('users'))
+                ->contains(fn($fk) => in_array('current_team_id', $fk['columns']));
             if ($hasFk) {
                 $table->dropForeign(['current_team_id']);
             }
-            if ($sm->hasIndex('users', 'users_current_team_id_index')) {
+            if (Schema::hasIndex('users', 'users_current_team_id_index')) {
                 $table->dropIndex('users_current_team_id_index');
             }
         });
 
         // P2-1: Drop pending_upgrades.transaction_id FK
         Schema::table('pending_upgrades', function (Blueprint $table) {
-            $sm = $table->getConnection()->getSchemaBuilder();
-            $hasFk = collect($sm->getForeignKeys('pending_upgrades'))
-                ->contains(fn($fk) => in_array('transaction_id', $fk->getLocalColumns()));
+            $hasFk = collect(Schema::getForeignKeys('pending_upgrades'))
+                ->contains(fn($fk) => in_array('transaction_id', $fk['columns']));
             if ($hasFk) {
                 $table->dropForeign(['transaction_id']);
             }

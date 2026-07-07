@@ -30,10 +30,14 @@ fi
 #    had to be run manually after each deploy).
 php /app/artisan storage:link --force
 
-# Config must be cached here, at container start — not during the Docker
-# build — because DB_HOST/DB_PASSWORD/etc. are only available as runtime
-# env vars in Coolify.
-php /app/artisan config:cache
+# NOTE: Do NOT run `php artisan config:cache` anywhere in this pipeline.
+# Once config is cached, Laravel's LoadEnvironmentVariables bootstrapper
+# skips loading .env entirely (by design). In this Coolify setup, secrets
+# like DB_HOST only ever exist in the .env file Coolify writes at deploy
+# time — they are not real container-level env vars. Caching config
+# permanently bakes in empty values for them with no recovery until the
+# cache is cleared. Route/view caching (in nixpacks.toml) is unaffected
+# and stays in place; only config:cache is unsafe here.
 
 # TD-3: Run migrations on deploy — previously the founder had to SSH in
 # and run `php artisan migrate --force` manually after each deploy.
