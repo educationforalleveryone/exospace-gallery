@@ -19,7 +19,7 @@ return [
     'release' => env('SENTRY_RELEASE'),
 
     // Set the environment
-    'environment' => env('SENTRY_ENVIRONMENT', app()->environment()),
+    'environment' => env('SENTRY_ENVIRONMENT', env('APP_ENV', 'production')),
 
     // When left empty or `null` the Laravel logging level will be used
     'log_level' => env('SENTRY_LOG_LEVEL', 'error'),
