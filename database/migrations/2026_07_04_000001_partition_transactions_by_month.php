@@ -125,7 +125,7 @@ return new class extends Migration
             $month = $start->copy()->addMonths($i);
             $partitionName = 'p' . $month->format('Ym');
             $lessThan = $month->copy()->addMonth()->format('Y-m-d');
-            $partitions[] = "PARTITION {$partitionName} VALUES LESS THAN (TO_DAYS('{$lessThan}'))";
+            $partitions[] = "PARTITION {$partitionName} VALUES LESS THAN (UNIX_TIMESTAMP('{$lessThan}'))";
         }
 
         // Add a catch-all partition for any rows that fall outside the
@@ -137,7 +137,7 @@ return new class extends Migration
 
         DB::statement("
             ALTER TABLE transactions
-            PARTITION BY RANGE (TO_DAYS(created_at)) (
+            PARTITION BY RANGE (UNIX_TIMESTAMP(created_at)) (
                 {$partitionDdl}
             )
         ");
