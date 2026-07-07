@@ -62,9 +62,19 @@ return new class extends Migration
             }
         }
 
-        Schema::table('transactions', function (Blueprint $table) {
-            $table->unique(['invoice_id', 'created_at'], 'transactions_invoice_id_created_at_unique');
-        });
+        $driver = DB::getDriverName();
+
+        $uniqueKeyExists = in_array($driver, ['mysql', 'mariadb'], true) && DB::table('information_schema.STATISTICS')
+            ->where('TABLE_SCHEMA', DB::connection()->getDatabaseName())
+            ->where('TABLE_NAME', 'transactions')
+            ->where('INDEX_NAME', 'transactions_invoice_id_created_at_unique')
+            ->exists();
+
+        if (! $uniqueKeyExists) {
+            Schema::table('transactions', function (Blueprint $table) {
+                $table->unique(['invoice_id', 'created_at'], 'transactions_invoice_id_created_at_unique');
+            });
+        }
 
         // Step 2: Apply RANGE partitioning on MySQL/MariaDB only.
         // SQLite (used in tests/CI) doesn't support partitioning.
