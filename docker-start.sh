@@ -30,6 +30,11 @@ fi
 #    had to be run manually after each deploy).
 php /app/artisan storage:link --force
 
+# Config must be cached here, at container start — not during the Docker
+# build — because DB_HOST/DB_PASSWORD/etc. are only available as runtime
+# env vars in Coolify.
+php /app/artisan config:cache
+
 # TD-3: Run migrations on deploy — previously the founder had to SSH in
 # and run `php artisan migrate --force` manually after each deploy.
 # --force skips the confirmation prompt in production.
