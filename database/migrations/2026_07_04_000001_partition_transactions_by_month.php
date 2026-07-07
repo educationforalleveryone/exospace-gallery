@@ -84,6 +84,23 @@ return new class extends Migration
             return;
         }
 
+        // MySQL/MariaDB do not allow partitioning a table that has foreign
+        // key constraints (error 1506). Drop the FK here — the user_id
+        // column and its index remain in place, so lookups and joins are
+        // unaffected. Referential integrity for user_id is enforced at the
+        // application level from this point on instead of by the database.
+        $userForeignKeyExists = DB::table('information_schema.KEY_COLUMN_USAGE')
+            ->where('TABLE_SCHEMA', DB::connection()->getDatabaseName())
+            ->where('TABLE_NAME', 'transactions')
+            ->where('CONSTRAINT_NAME', 'transactions_user_id_foreign')
+            ->exists();
+
+        if ($userForeignKeyExists) {
+            Schema::table('transactions', function (Blueprint $table) {
+                $table->dropForeign('transactions_user_id_foreign');
+            });
+        }
+
         // Check if the table is already partitioned (idempotency).
         $alreadyPartitioned = DB::table('information_schema.PARTITIONS')
             ->where('TABLE_SCHEMA', DB::connection()->getDatabaseName())
@@ -133,6 +150,11 @@ return new class extends Migration
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
             // Remove partitioning — keeps the data but flattens to a single table.
             DB::statement('ALTER TABLE transactions REMOVE PARTITIONING');
+
+            // Restore the foreign key that was dropped in up() to allow partitioning.
+            Schema::table('transactions', function (Blueprint $table) {
+                $table->foreign('user_id')->references('id')->on('users');
+            });
         }
 
         // Restore the original unique(invoice_id) constraint.
