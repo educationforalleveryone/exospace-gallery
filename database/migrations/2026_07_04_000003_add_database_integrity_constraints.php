@@ -22,10 +22,16 @@ return new class extends Migration
         // Previously, transaction_id was a bare foreignId with no constraint.
         // A pending_upgrade could point to a non-existent transaction.
         Schema::table('pending_upgrades', function (Blueprint $table) {
-            $table->foreign('transaction_id')
-                  ->references('id')
-                  ->on('transactions')
-                  ->nullOnDelete();
+            $sm = $table->getConnection()->getSchemaBuilder();
+            $hasFk = collect($sm->getForeignKeys('pending_upgrades'))
+                ->contains(fn($fk) => in_array('transaction_id', $fk->getLocalColumns()));
+
+            if (! $hasFk) {
+                $table->foreign('transaction_id')
+                      ->references('id')
+                      ->on('transactions')
+                      ->nullOnDelete();
+            }
         });
 
         // ── P2-2: FK + index on users.current_team_id ────────────────────
