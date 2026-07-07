@@ -29,7 +29,13 @@ return new class extends Migration
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('transaction_id')->nullable()->constrained()->onDelete('set null');
+            // No ->constrained() here: MySQL/InnoDB forbids foreign keys
+            // pointing at a partitioned table (error 1506, unconditional —
+            // see 2026_07_04_000001_partition_transactions_by_month). The
+            // column + index below still give fast lookups/joins;
+            // referential integrity for transaction_id is enforced in
+            // application code instead.
+            $table->foreignId('transaction_id')->nullable();
 
             // Human-readable invoice number (e.g. INV-2026-00001).
             // Sequential per year, unique across the whole table.

@@ -23,18 +23,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // ── P2-1: FK on pending_upgrades.transaction_id ──────────────────
-        // Previously, transaction_id was a bare foreignId with no constraint.
-        // A pending_upgrade could point to a non-existent transaction.
+        // ── P2-1: index on pending_upgrades.transaction_id ───────────────
+        // Originally this added a real FK to transactions.id. MySQL/InnoDB
+        // forbids foreign keys pointing at a partitioned table (error 1506,
+        // unconditional — see 2026_07_04_000001), so this only adds a plain
+        // index for lookup/join performance. Referential integrity for
+        // transaction_id is enforced in application code instead.
         Schema::table('pending_upgrades', function (Blueprint $table) {
-            $hasFk = collect(Schema::getForeignKeys('pending_upgrades'))
-                ->contains(fn($fk) => in_array('transaction_id', $fk['columns']));
-
-            if (! $hasFk) {
-                $table->foreign('transaction_id')
-                      ->references('id')
-                      ->on('transactions')
-                      ->nullOnDelete();
+            if (! Schema::hasIndex('pending_upgrades', 'pending_upgrades_transaction_id_index')) {
+                $table->index('transaction_id');
             }
         });
 
@@ -144,12 +141,10 @@ return new class extends Migration
             }
         });
 
-        // P2-1: Drop pending_upgrades.transaction_id FK
+        // P2-1: Drop pending_upgrades.transaction_id index
         Schema::table('pending_upgrades', function (Blueprint $table) {
-            $hasFk = collect(Schema::getForeignKeys('pending_upgrades'))
-                ->contains(fn($fk) => in_array('transaction_id', $fk['columns']));
-            if ($hasFk) {
-                $table->dropForeign(['transaction_id']);
+            if (Schema::hasIndex('pending_upgrades', 'pending_upgrades_transaction_id_index')) {
+                $table->dropIndex('pending_upgrades_transaction_id_index');
             }
         });
     }

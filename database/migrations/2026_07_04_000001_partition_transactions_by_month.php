@@ -114,13 +114,17 @@ return new class extends Migration
             ->exists();
 
         if (! $primaryKeyIncludesCreatedAt) {
-            // MySQL also refuses to drop the PRIMARY KEY while any *other*
-            // table has a foreign key pointing at transactions.id (error
-            // 1553) — even though we're only reshaping the key, not removing
-            // it. invoices.transaction_id and pending_upgrades.transaction_id
-            // both do this. Drop those inbound FKs first, then recreate them
-            // (with their original ON DELETE behaviour) once the primary key
-            // change is done.
+            // MySQL/InnoDB has a hard, unconditional rule (error 1506):
+            // a partitioned InnoDB table can never be the target of a
+            // foreign key, from any other table, under any circumstances.
+            // This isn't a syntax problem to work around — invoices.transaction_id
+            // and pending_upgrades.transaction_id can never point at a
+            // partitioned transactions table again. Drop those inbound FKs
+            // for good here (same trade-off already made for the user_id FK
+            // above): keep the column and its index for lookups/joins, and
+            // enforce referential integrity in application code instead.
+            // (See the matching change in 2026_07_04_000003 and
+            // 2026_07_04_000012, which stop adding these FKs on fresh installs.)
             $inboundForeignKeys = DB::table('information_schema.KEY_COLUMN_USAGE as kcu')
                 ->join('information_schema.REFERENTIAL_CONSTRAINTS as rc', function ($join) {
                     $join->on('rc.CONSTRAINT_SCHEMA', '=', 'kcu.CONSTRAINT_SCHEMA')
@@ -129,21 +133,20 @@ return new class extends Migration
                 ->where('kcu.CONSTRAINT_SCHEMA', DB::connection()->getDatabaseName())
                 ->where('kcu.REFERENCED_TABLE_NAME', 'transactions')
                 ->where('kcu.REFERENCED_COLUMN_NAME', 'id')
-                ->select('kcu.TABLE_NAME', 'kcu.COLUMN_NAME', 'kcu.CONSTRAINT_NAME', 'rc.DELETE_RULE')
+                ->select('kcu.TABLE_NAME', 'kcu.COLUMN_NAME', 'kcu.CONSTRAINT_NAME')
                 ->get();
 
             foreach ($inboundForeignKeys as $fk) {
                 DB::statement("ALTER TABLE {$fk->TABLE_NAME} DROP FOREIGN KEY {$fk->CONSTRAINT_NAME}");
+
+                if (! Schema::hasIndex($fk->TABLE_NAME, "{$fk->TABLE_NAME}_{$fk->COLUMN_NAME}_index")) {
+                    Schema::table($fk->TABLE_NAME, function (Blueprint $table) use ($fk) {
+                        $table->index($fk->COLUMN_NAME);
+                    });
+                }
             }
 
             DB::statement('ALTER TABLE transactions DROP PRIMARY KEY, ADD PRIMARY KEY (id, created_at)');
-
-            foreach ($inboundForeignKeys as $fk) {
-                $onDelete = ($fk->DELETE_RULE && $fk->DELETE_RULE !== 'NO ACTION')
-                    ? " ON DELETE {$fk->DELETE_RULE}"
-                    : '';
-                DB::statement("ALTER TABLE {$fk->TABLE_NAME} ADD CONSTRAINT {$fk->CONSTRAINT_NAME} FOREIGN KEY ({$fk->COLUMN_NAME}) REFERENCES transactions (id){$onDelete}");
-            }
         }
 
         // Check if the table is already partitioned (idempotency).
@@ -196,32 +199,10 @@ return new class extends Migration
             // Remove partitioning — keeps the data but flattens to a single table.
             DB::statement('ALTER TABLE transactions REMOVE PARTITIONING');
 
-            // Restore the original single-column primary key. Same 1553
-            // restriction applies here — drop any inbound FKs pointing at
-            // transactions.id first, then recreate them afterward.
-            $inboundForeignKeys = DB::table('information_schema.KEY_COLUMN_USAGE as kcu')
-                ->join('information_schema.REFERENTIAL_CONSTRAINTS as rc', function ($join) {
-                    $join->on('rc.CONSTRAINT_SCHEMA', '=', 'kcu.CONSTRAINT_SCHEMA')
-                         ->on('rc.CONSTRAINT_NAME', '=', 'kcu.CONSTRAINT_NAME');
-                })
-                ->where('kcu.CONSTRAINT_SCHEMA', DB::connection()->getDatabaseName())
-                ->where('kcu.REFERENCED_TABLE_NAME', 'transactions')
-                ->where('kcu.REFERENCED_COLUMN_NAME', 'id')
-                ->select('kcu.TABLE_NAME', 'kcu.COLUMN_NAME', 'kcu.CONSTRAINT_NAME', 'rc.DELETE_RULE')
-                ->get();
-
-            foreach ($inboundForeignKeys as $fk) {
-                DB::statement("ALTER TABLE {$fk->TABLE_NAME} DROP FOREIGN KEY {$fk->CONSTRAINT_NAME}");
-            }
-
+            // Restore the original single-column primary key. No inbound-FK
+            // juggling needed here — 2026_07_04_000003 and 2026_07_04_000012
+            // now own the decision not to add those FKs, permanently.
             DB::statement('ALTER TABLE transactions DROP PRIMARY KEY, ADD PRIMARY KEY (id)');
-
-            foreach ($inboundForeignKeys as $fk) {
-                $onDelete = ($fk->DELETE_RULE && $fk->DELETE_RULE !== 'NO ACTION')
-                    ? " ON DELETE {$fk->DELETE_RULE}"
-                    : '';
-                DB::statement("ALTER TABLE {$fk->TABLE_NAME} ADD CONSTRAINT {$fk->CONSTRAINT_NAME} FOREIGN KEY ({$fk->COLUMN_NAME}) REFERENCES transactions (id){$onDelete}");
-            }
 
             // Restore the foreign key that was dropped in up() to allow partitioning.
             Schema::table('transactions', function (Blueprint $table) {
