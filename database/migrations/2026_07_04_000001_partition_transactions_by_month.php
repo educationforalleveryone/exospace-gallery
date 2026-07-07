@@ -114,7 +114,36 @@ return new class extends Migration
             ->exists();
 
         if (! $primaryKeyIncludesCreatedAt) {
+            // MySQL also refuses to drop the PRIMARY KEY while any *other*
+            // table has a foreign key pointing at transactions.id (error
+            // 1553) — even though we're only reshaping the key, not removing
+            // it. invoices.transaction_id and pending_upgrades.transaction_id
+            // both do this. Drop those inbound FKs first, then recreate them
+            // (with their original ON DELETE behaviour) once the primary key
+            // change is done.
+            $inboundForeignKeys = DB::table('information_schema.KEY_COLUMN_USAGE as kcu')
+                ->join('information_schema.REFERENTIAL_CONSTRAINTS as rc', function ($join) {
+                    $join->on('rc.CONSTRAINT_SCHEMA', '=', 'kcu.CONSTRAINT_SCHEMA')
+                         ->on('rc.CONSTRAINT_NAME', '=', 'kcu.CONSTRAINT_NAME');
+                })
+                ->where('kcu.CONSTRAINT_SCHEMA', DB::connection()->getDatabaseName())
+                ->where('kcu.REFERENCED_TABLE_NAME', 'transactions')
+                ->where('kcu.REFERENCED_COLUMN_NAME', 'id')
+                ->select('kcu.TABLE_NAME', 'kcu.COLUMN_NAME', 'kcu.CONSTRAINT_NAME', 'rc.DELETE_RULE')
+                ->get();
+
+            foreach ($inboundForeignKeys as $fk) {
+                DB::statement("ALTER TABLE {$fk->TABLE_NAME} DROP FOREIGN KEY {$fk->CONSTRAINT_NAME}");
+            }
+
             DB::statement('ALTER TABLE transactions DROP PRIMARY KEY, ADD PRIMARY KEY (id, created_at)');
+
+            foreach ($inboundForeignKeys as $fk) {
+                $onDelete = ($fk->DELETE_RULE && $fk->DELETE_RULE !== 'NO ACTION')
+                    ? " ON DELETE {$fk->DELETE_RULE}"
+                    : '';
+                DB::statement("ALTER TABLE {$fk->TABLE_NAME} ADD CONSTRAINT {$fk->CONSTRAINT_NAME} FOREIGN KEY ({$fk->COLUMN_NAME}) REFERENCES transactions (id){$onDelete}");
+            }
         }
 
         // Check if the table is already partitioned (idempotency).
@@ -167,8 +196,32 @@ return new class extends Migration
             // Remove partitioning — keeps the data but flattens to a single table.
             DB::statement('ALTER TABLE transactions REMOVE PARTITIONING');
 
-            // Restore the original single-column primary key.
+            // Restore the original single-column primary key. Same 1553
+            // restriction applies here — drop any inbound FKs pointing at
+            // transactions.id first, then recreate them afterward.
+            $inboundForeignKeys = DB::table('information_schema.KEY_COLUMN_USAGE as kcu')
+                ->join('information_schema.REFERENTIAL_CONSTRAINTS as rc', function ($join) {
+                    $join->on('rc.CONSTRAINT_SCHEMA', '=', 'kcu.CONSTRAINT_SCHEMA')
+                         ->on('rc.CONSTRAINT_NAME', '=', 'kcu.CONSTRAINT_NAME');
+                })
+                ->where('kcu.CONSTRAINT_SCHEMA', DB::connection()->getDatabaseName())
+                ->where('kcu.REFERENCED_TABLE_NAME', 'transactions')
+                ->where('kcu.REFERENCED_COLUMN_NAME', 'id')
+                ->select('kcu.TABLE_NAME', 'kcu.COLUMN_NAME', 'kcu.CONSTRAINT_NAME', 'rc.DELETE_RULE')
+                ->get();
+
+            foreach ($inboundForeignKeys as $fk) {
+                DB::statement("ALTER TABLE {$fk->TABLE_NAME} DROP FOREIGN KEY {$fk->CONSTRAINT_NAME}");
+            }
+
             DB::statement('ALTER TABLE transactions DROP PRIMARY KEY, ADD PRIMARY KEY (id)');
+
+            foreach ($inboundForeignKeys as $fk) {
+                $onDelete = ($fk->DELETE_RULE && $fk->DELETE_RULE !== 'NO ACTION')
+                    ? " ON DELETE {$fk->DELETE_RULE}"
+                    : '';
+                DB::statement("ALTER TABLE {$fk->TABLE_NAME} ADD CONSTRAINT {$fk->CONSTRAINT_NAME} FOREIGN KEY ({$fk->COLUMN_NAME}) REFERENCES transactions (id){$onDelete}");
+            }
 
             // Restore the foreign key that was dropped in up() to allow partitioning.
             Schema::table('transactions', function (Blueprint $table) {
