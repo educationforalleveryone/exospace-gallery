@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Providers;
 
 use App\Services\FeatureFlag;
@@ -28,13 +30,62 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
-        // Runtime warning for TRUSTED_PROXIES=* (moved here from bootstrap/app.php).
-        // The Log facade cannot be used safely during bootstrap (causes
-        // "Target class [env] does not exist" during package:discover),
-        // but it is safe here because boot() runs after the container is
-        // fully booted and all service providers are registered.
-        if (env('TRUSTED_PROXIES') === '*') {
-            Log::critical('TRUSTED_PROXIES=* is set — host-header spoofing attacks are possible. Set TRUSTED_PROXIES to your Coolify Traefik subnet immediately.');
+        // ── CR-5 FIX: TRUSTED_PROXIES hard-fail in production ──────────────
+        //
+        // Previously: only a Log::critical() warning when TRUSTED_PROXIES=*.
+        // The warning was advisory — bad deploys still shipped. The .env.example
+        // default was TRUSTED_PROXIES=*, so every fresh clone/deploys shipped
+        // with the permissive default.
+        //
+        // Consequences of TRUSTED_PROXIES=* in production:
+        //   - Rate-limit bypass: every throttle keys on $request->ip(). With
+        //     TRUSTED_PROXIES=*, $request->ip() returns whatever the client
+        //     puts in X-Forwarded-For. An attacker rotates that header to
+        //     bypass every auth throttle (login, MFA, PIN, forgot-password,
+        //     reset-password, webhook, API).
+        //   - Host-header spoofing: DetectCustomDomain and ScopeSessionDomain
+        //     read $request->getHost(). An attacker sends X-Forwarded-Host:
+        //     evil.com and Laravel thinks the request is for evil.com.
+        //   - Audit-log IP poisoning: every Log::info(... request->ip()) is
+        //     attacker-controlled.
+        //
+        // FIX:
+        //   1. .env.example default changed from '*' to '' (empty = fail-closed).
+        //   2. In production, throw a RuntimeException if TRUSTED_PROXIES is
+        //      empty or '*'. The exception fires during container boot, which
+        //      (combined with the CR-1 preflight fix) prevents the container
+        //      from serving traffic with a permissive proxy config.
+        //   3. In non-production environments, log a warning but don't throw
+        //      (local dev often uses TRUSTED_PROXIES=* for convenience).
+        //
+        // The correct production value is the Traefik subnet (typically
+        // 172.16.0.0/12). Find it via:
+        //   docker network inspect coolify-network | grep Subnet
+        $trustedProxies = env('TRUSTED_PROXIES');
+
+        if ($this->app->environment('production')) {
+            if (empty($trustedProxies) || $trustedProxies === '*') {
+                $message = sprintf(
+                    "FATAL: TRUSTED_PROXIES is set to '%s' in production. " .
+                    "This enables host-header spoofing and rate-limit bypass attacks. " .
+                    "Set TRUSTED_PROXIES to your Coolify Traefik subnet " .
+                    "(find via: docker network inspect coolify-network | grep Subnet). " .
+                    "Typical value: 172.16.0.0/12",
+                    $trustedProxies ?: '(empty)',
+                );
+
+                Log::critical($message);
+
+                // Throw to prevent the container from serving traffic.
+                // The CR-1 preflight fix in docker-start.sh will catch this
+                // and exit 1, marking the deploy as failed.
+                throw new \RuntimeException($message);
+            }
+        } else {
+            // Non-production: log a warning but don't throw (local dev convenience).
+            if ($trustedProxies === '*') {
+                Log::warning('TRUSTED_PROXIES=* is set — acceptable in non-production, but set a specific subnet in production.');
+            }
         }
 
         // M-14: Register Blade directives for feature flags.

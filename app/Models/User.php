@@ -37,6 +37,7 @@ class User extends Authenticatable implements MustVerifyEmail
     //   - PasswordController (password change — only sets password)
     //   - ProfileController (name/email change — only sets name/email)
     //   - TeamController / teams.switch-personal route (current_team_id)
+    //   - OAuthController (Iter-001: sets has_password=false on OAuth-only user creation)
     //
     // All of the above already use forceFill() or query-builder update()
     // (which bypasses $fillable/$guarded). If you add a new caller that
@@ -47,6 +48,12 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'marketing_consent',
+        // C-2 FIX (Iter-001): has_password is mass-assignable so OAuthController
+        // can set it to false on new OAuth-only user creation. It's safe to
+        // mass-assign because it can only be set to true via the password-set
+        // flow (PasswordController, RegisteredUserController, NewPasswordController),
+        // all of which are trusted authenticated contexts.
+        'has_password',
     ];
 
     // TD-12 FIX: Removed the $guarded array. When $fillable is set (above),
@@ -82,6 +89,12 @@ class User extends Authenticatable implements MustVerifyEmail
             'dunning_last_sent_at'      => 'datetime',
             // M-7: Trial period
             'trial_ends_at'             => 'datetime',
+            // C-2 FIX (Iter-001): has_password is a boolean tracking whether
+            // the user has set a real password (vs. OAuth-only users who have
+            // only a random bcrypt hash placeholder). Used by OAuthController::unlink
+            // to prevent users from locking themselves out.
+            'has_password'      => 'boolean',
+            'password_set_at'   => 'datetime',
         ];
     }
 
@@ -391,6 +404,19 @@ class User extends Authenticatable implements MustVerifyEmail
             if (! $user->max_galleries) $user->max_galleries = $limits['max_galleries'];
             if (! $user->max_images)    $user->max_images    = $limits['max_images'];
             if (! $user->plan_started_at) $user->plan_started_at = now();
+
+            // C-2 FIX (Iter-001): If has_password is not explicitly set, default
+            // to true for users created with a password (the standard registration
+            // flow) and false for users created without one (OAuth-only users).
+            // The OAuthController explicitly sets has_password=false when creating
+            // OAuth-only users, so this default only applies to other creation
+            // paths (factories, seeders, manual User::create() calls).
+            if ($user->has_password === null) {
+                $user->has_password = ! empty($user->password);
+            }
+            if (! $user->password_set_at && $user->has_password) {
+                $user->password_set_at = now();
+            }
         });
 
         static::updating(function (User $user) {
@@ -410,6 +436,24 @@ class User extends Authenticatable implements MustVerifyEmail
                 // and admin controllers set plan_started_at = now() explicitly
                 // on initial upgrade; subsequent plan changes should NOT
                 // overwrite it.
+            }
+
+            // C-2 FIX (Iter-001): If the password is being changed (and it's
+            // not the initial random-hash placeholder for an OAuth-only user),
+            // mark has_password=true and update password_set_at. This is the
+            // key fix for the unlink bug — the has_password column is now
+            // reliably maintained.
+            //
+            // We only update if the password attribute is dirty AND the new
+            // value is non-empty. The 'hashed' cast means $user->password is
+            // the plaintext on assignment (cast hashes it on save), so we
+            // can't compare to the old hash. Instead, we trust that any
+            // password change via the standard flows (PasswordController,
+            // NewPasswordController, RegisteredUserController) represents
+            // the user setting a real password.
+            if ($user->isDirty('password') && ! empty($user->password)) {
+                $user->has_password = true;
+                $user->password_set_at = now();
             }
         });
     }

@@ -4,9 +4,27 @@ set -e
 # ──────────────────────────────────────────────────────────────────────────
 # Container start script for Exospace on Coolify / Nixpacks.
 #
-# P1-11: Queue worker with memory/job/time limits.
-# TD-2: Build caches on startup (was clearing them — killed performance).
-# P3-17: Run PreflightCheck as post-deploy health gate.
+# ITERATION-001 CHANGES (audit CR-1 + CR-2 + K-10):
+#   - Preflight check now FAILS the container on critical errors.
+#     Previously: `php artisan exospace:preflight || echo "WARNING..."`
+#     The `||` short-circuit meant the container ALWAYS exited 0, so the
+#     590-line PreflightCheck command was theater. Bad deploys shipped
+#     undetected. Now we hard-fail with exit 1.
+#   - Scheduler loop now runs in the background (cron replacement).
+#     Previously: NO scheduler process was started — zero scheduled
+#     commands ever fired (dunning, abandoned-cart, lifecycle, rollups,
+#     cleanup, partitioning, anonymization all dead).
+#   - Queue worker --memory bumped from 256 to 512 to match PHP-FPM
+#     and accommodate ImageProcessingService peak (50MP decode + scaleDown
+#     + thumbnail = ~350-450MB).
+#
+# PRESERVED FROM PRIOR VERSION:
+#   - PHP upload limits (50M)
+#   - Nginx client_max_body_size patch
+#   - storage:link on every container start
+#   - migrate --force on every container start
+#   - queue:work with --tries=3 --timeout=120 --max-jobs=1000 --max-time=3600
+#   - php-fpm + nginx start
 # ──────────────────────────────────────────────────────────────────────────
 
 # 1. Configure PHP upload limits
@@ -42,16 +60,100 @@ php /app/artisan storage:link --force
 # TD-3: Run migrations on deploy — previously the founder had to SSH in
 # and run `php artisan migrate --force` manually after each deploy.
 # --force skips the confirmation prompt in production.
+#
+# K-4 (deferred to Iteration-003 database batch): deploy lock to prevent
+# concurrent migrations when Coolify scales to multiple containers.
+# For now, single-container deploy is safe.
 php /app/artisan migrate --force
 
-# 4. P3-17: Run PreflightCheck — exit(1) if critical config is wrong.
-#    This catches issues like missing 2Checkout secrets, wrong APP_ENV, etc.
-#    before the container starts serving traffic.
-php /app/artisan exospace:preflight || echo "WARNING: Preflight check failed — see logs above. Container will start but may have issues."
+# 5. CR-1 FIX: Run PreflightCheck — exit(1) if critical config is wrong.
+#    Previously this line was `php /app/artisan exospace:preflight || echo "WARNING..."`
+#    The `||` short-circuit meant the container ALWAYS exited 0, so the preflight
+#    safety net was theater. Bad deploys shipped undetected. Now we hard-fail.
+#    This catches issues like missing 2Checkout secrets, wrong APP_ENV, missing
+#    business address (CAN-SPAM), TRUSTED_PROXIES=* in prod, etc. before the
+#    container starts serving traffic.
+#
+#    The PreflightCheck command returns:
+#      - exit 0: all checks passed OR only warnings (advisory)
+#      - exit 1: one or more CRITICAL failures (must fix before serving traffic)
+#
+#    If a soft-fail mode is desired for non-critical warnings, the PreflightCheck
+#    command already returns 0 for warnings-only — only CRITICAL failures exit
+#    non-zero, and those should always block startup.
+if [ "${BYPASS_PREFLIGHT:-false}" != "true" ]; then
+    if ! php /app/artisan exospace:preflight; then
+        echo "================================================================" >&2
+        echo "FATAL: Preflight check failed — aborting container start." >&2
+        echo "================================================================" >&2
+        echo "The PreflightCheck command reported one or more CRITICAL failures." >&2
+        echo "Review the output above to identify which env var or config is wrong." >&2
+        echo "Common causes:" >&2
+        echo "  - Missing TWOCHECKOUT_SECRET_WORD / TWOCHECKOUT_BUY_LINK_SECRET_WORD" >&2
+        echo "  - APP_DEBUG=true in production" >&2
+        echo "  - APP_ENV != 'production' in production" >&2
+        echo "  - TRUSTED_PROXIES=* in production (host-header spoofing risk)" >&2
+        echo "  - Missing EXOSPACE_BUSINESS_ADDRESS (CAN-SPAM §316.2)" >&2
+        echo "  - Missing APP_KEY" >&2
+        echo "" >&2
+        echo "To override (NOT RECOMMENDED in production):" >&2
+        echo "  Set BYPASS_PREFLIGHT=true in .env — but file an issue immediately." >&2
+        echo "================================================================" >&2
+        exit 1
+    fi
+else
+    echo "WARNING: BYPASS_PREFLIGHT=true — preflight check skipped. NOT RECOMMENDED in production." >&2
+fi
 
-# 5. Start the queue worker in the background
-#    P1-11: --memory=256 --max-jobs=1000 --max-time=3600 --timeout=120
-php /app/artisan queue:work redis --tries=3 --timeout=120 --sleep=3 --memory=256 --max-jobs=1000 --max-time=3600 &
+# 6. CR-2 FIX: Start the Laravel scheduler in the background (cron replacement).
+#    Previously NO scheduler process was started — zero scheduled commands ever fired.
+#    This silently broke: dunning emails, abandoned-cart recovery, lifecycle nudges,
+#    analytics rollups, banned-session purges, transaction partitioning, PII anonymization,
+#    and pending custom-domain re-verification.
+#
+#    The scheduler loop runs `schedule:run` every 60 seconds; Laravel itself
+#    decides what to fire based on the schedule defined in routes/console.php.
+#    Log output goes to /app/storage/logs/scheduler.log (persistent volume).
+#
+#    ALTERNATIVE DEPLOYMENT: If you prefer a separate Coolify cron service
+#    running `php artisan schedule:work` (long-running scheduler), delete
+#    this block and document the Coolify service in DEPLOYMENT.md. Either
+#    approach works; this in-container loop is simpler to deploy.
+if [ "${BYPASS_SCHEDULER:-false}" != "true" ]; then
+    (
+        while true; do
+            php /app/artisan schedule:run --no-interaction >> /app/storage/logs/scheduler.log 2>&1
+            sleep 60
+        done
+    ) &
+    SCHEDULER_PID=$!
+    echo "Scheduler started (PID $SCHEDULER_PID). Logs: /app/storage/logs/scheduler.log"
+else
+    echo "BYPASS_SCHEDULER=true — scheduler NOT started (assuming external Coolify cron service)."
+    SCHEDULER_PID=""
+fi
 
-# 6. Start PHP-FPM and Nginx
+# 7. Start the queue worker in the background.
+#    P1-11: --tries=3 --timeout=120 --max-jobs=1000 --max-time=3600
+#    K-10 FIX: --memory bumped from 256 to 512 to match PHP-FPM and accommodate
+#    ImageProcessingService peak (50MP decode + scaleDown + thumbnail = ~350-450MB).
+#    The 50MP cap is enforced in ImageProcessingService::process(); under GD
+#    the actual peak can be 2-3x the decode buffer due to Intervention keeping
+#    source + destination alive during scaleDown.
+#
+#    N-6 (deferred to future iteration): queue prioritization. Currently a
+#    single queue. Future iteration will add --queue=high,default,low and
+#    a dedicated high-priority worker.
+php /app/artisan queue:work redis --tries=3 --timeout=120 --sleep=3 --memory=512 --max-jobs=1000 --max-time=3600 &
+QUEUE_PID=$!
+echo "Queue worker started (PID $QUEUE_PID, memory=512MB)."
+
+# 8. Trap signals to clean up child processes on container shutdown.
+#    This ensures the scheduler and queue worker don't become zombies
+#    when Coolify stops the container.
+if [ -n "$SCHEDULER_PID" ] || [ -n "$QUEUE_PID" ]; then
+    trap "echo 'Shutting down container...'; kill $SCHEDULER_PID $QUEUE_PID 2>/dev/null; exit 0" SIGTERM SIGINT
+fi
+
+# 9. Start PHP-FPM and Nginx (foreground — keeps the container alive).
 node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=50M -d post_max_size=50M -d memory_limit=512M & nginx -c /nginx.conf)
