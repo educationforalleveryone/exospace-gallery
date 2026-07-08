@@ -21,14 +21,8 @@ return [
     // Set the environment
     'environment' => env('SENTRY_ENVIRONMENT', env('APP_ENV', 'production')),
 
-    // When left empty or `null` the Laravel logging level will be used
-    'log_level' => env('SENTRY_LOG_LEVEL', 'error'),
-
     // Capture login stack traces
     'traces_sample_rate' => (float) env('SENTRY_TRACES_SAMPLE_RATE', 0.0),
-
-    // Capture silenced errors
-    'silence_errors' => false,
 
     // Breadcrumbs
     'breadcrumbs' => [
