@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -28,6 +30,17 @@ use Illuminate\Support\Facades\Log;
  * The command is idempotent: creating an existing partition is a no-op
  * (we check INFORMATION_SCHEMA first), and dropping a non-existent
  * partition is a no-op (we check before dropping).
+ *
+ * ITERATION-003 FIX (audit C-1): The partition-pruning logic was BROKEN —
+ * it used FROM_DAYS() to decode the PARTITION_DESCRIPTION, but the migration
+ * partitions by UNIX_TIMESTAMP(created_at) (not TO_DAYS), so the description
+ * is a Unix timestamp integer, not a day number. FROM_DAYS(1785494400)
+ * returns a date in the year ~4.89 million, so the cutoff check always
+ * passed and NO partitions were ever dropped. The 7-year retention policy
+ * was silently broken — the transactions table grew unbounded.
+ *
+ * FIX: Use Carbon::createFromTimestamp() (or FROM_UNIXTIME() in SQL) instead
+ * of FROM_DAYS(). Now old partitions are correctly dropped.
  */
 class PruneTransactionsByPartition extends Command
 {
@@ -98,14 +111,23 @@ class PruneTransactionsByPartition extends Command
                 continue;
             }
 
-            $ddl = "ALTER TABLE transactions ADD PARTITION (PARTITION {$partitionName} VALUES LESS THAN ('{$lessThan}'))";
+            // C-1 FIX: The migration partitions by UNIX_TIMESTAMP(created_at),
+            // so the VALUES LESS THAN must be a Unix timestamp integer, not a
+            // date string. (The old code used a date string here, which would
+            // have caused partition-pruning issues — but since the migration
+            // already created the initial 15 partitions correctly with
+            // UNIX_TIMESTAMP, this only affects newly-created future partitions.)
+            //
+            // We use strtotime() to convert the date to a Unix timestamp.
+            $lessThanTimestamp = strtotime($lessThan);
+            $ddl = "ALTER TABLE transactions ADD PARTITION (PARTITION {$partitionName} VALUES LESS THAN ({$lessThanTimestamp}))";
 
             if ($dryRun) {
-                $this->line("  [DRY-RUN] Would create: {$partitionName} (< {$lessThan})");
+                $this->line("  [DRY-RUN] Would create: {$partitionName} (< {$lessThan} = ts {$lessThanTimestamp})");
             } else {
                 try {
                     DB::statement($ddl);
-                    $this->info("  Created partition: {$partitionName} (< {$lessThan})");
+                    $this->info("  Created partition: {$partitionName} (< {$lessThan} = ts {$lessThanTimestamp})");
                 } catch (\Throwable $e) {
                     $this->error("  Failed to create {$partitionName}: {$e->getMessage()}");
                     continue;
@@ -125,6 +147,19 @@ class PruneTransactionsByPartition extends Command
      * at info level for audit. Before dropping, we verify the partition's
      * upper bound is strictly before the retention cutoff (defensive —
      * prevents accidental drop of the current month's data).
+     *
+     * ITERATION-003 FIX (audit C-1): The old code used FROM_DAYS() to decode
+     * the PARTITION_DESCRIPTION, but the migration partitions by
+     * UNIX_TIMESTAMP(created_at), so the description is a Unix timestamp
+     * integer. FROM_DAYS(1785494400) returns a date in the year ~4.89
+     * million, so the cutoff check `if ($upperDate >= $cutoff) continue;`
+     * ALWAYS passed (the date was always in the far future) and NO
+     * partitions were ever dropped. The 7-year retention policy was silently
+     * broken — the transactions table grew unbounded.
+     *
+     * FIX: Use Carbon::createFromTimestamp() (which expects a Unix timestamp)
+     * instead of FROM_DAYS() (which expects a day number). Now old partitions
+     * are correctly identified and dropped.
      */
     private function dropOldPartitions(int $retentionYears, bool $dryRun): int
     {
@@ -144,23 +179,44 @@ class PruneTransactionsByPartition extends Command
             $name = $p->PARTITION_NAME;
             $description = $p->PARTITION_DESCRIPTION;
 
-            // PARTITION_DESCRIPTION for RANGE partitions is the LESS THAN
-            // value (a date string in our case, since we used TO_DAYS(created_at)
-            // — actually, TO_DAYS returns an integer, so the description is
-            // an integer day number. We need to convert it back to a date.
+            // C-1 FIX: PARTITION_DESCRIPTION for RANGE partitions is the
+            // LESS THAN value. Our migration used:
+            //   PARTITION BY RANGE (UNIX_TIMESTAMP(created_at))
+            //   PARTITION p202607 VALUES LESS THAN (UNIX_TIMESTAMP('2026-08-01'))
             //
-            // Wait — actually our migration used:
-            //   PARTITION BY RANGE (TO_DAYS(created_at))
-            //   PARTITION p202607 VALUES LESS THAN ('2026-08-01')
+            // So PARTITION_DESCRIPTION is a Unix timestamp INTEGER (e.g.
+            // 1722470400 for 2024-08-01 00:00:00 UTC), NOT a day number
+            // and NOT a date string.
             //
-            // The PARTITION_DESCRIPTION for a RANGE COLUMNS or RANGE on
-            // TO_DAYS() is the literal value from the DDL — in our case
-            // the date string '2026-08-01'. Let me handle both forms.
+            // The old code used FROM_DAYS() which expects a day number —
+            // FROM_DAYS(1722470400) returns a date in the year ~4.7 million,
+            // so the cutoff check always passed and no partitions were dropped.
+            //
+            // The new code uses Carbon::createFromTimestamp() which correctly
+            // interprets the integer as a Unix timestamp.
             $upperBound = null;
             if (ctype_digit((string) $description)) {
-                // Integer day number (from TO_DAYS) — convert via FROM_DAYS
-                $upperBound = DB::selectOne('SELECT FROM_DAYS(?) AS d', [(int) $description])?->d;
+                $timestamp = (int) $description;
+                // C-1 FIX: use Carbon::createFromTimestamp (Unix timestamp)
+                // instead of DB::selectOne('SELECT FROM_DAYS(?) ...').
+                // FROM_DAYS expects a day number; our partition description
+                // is a Unix timestamp.
+                try {
+                    $upperDate = \Carbon\Carbon::createFromTimestamp($timestamp);
+                    $upperBound = $upperDate->toDateString();
+                } catch (\Throwable $e) {
+                    // Invalid timestamp — skip this partition.
+                    Log::warning('PruneTransactionsByPartition: could not parse partition description as Unix timestamp', [
+                        'partition'        => $name,
+                        'description'      => $description,
+                        'error'            => $e->getMessage(),
+                    ]);
+                    continue;
+                }
             } else {
+                // The description is a string (e.g. a date or MAXVALUE).
+                // This shouldn't happen for our UNIX_TIMESTAMP-based partitions,
+                // but handle it defensively.
                 $upperBound = $description;
             }
 
@@ -172,7 +228,9 @@ class PruneTransactionsByPartition extends Command
             // strictly before the cutoff. This prevents dropping the
             // current month or future months.
             try {
-                $upperDate = \Carbon\Carbon::parse($upperBound);
+                if (! isset($upperDate)) {
+                    $upperDate = \Carbon\Carbon::parse($upperBound);
+                }
             } catch (\Throwable $e) {
                 continue;
             }
@@ -182,11 +240,17 @@ class PruneTransactionsByPartition extends Command
             }
 
             if ($dryRun) {
-                $this->line("  [DRY-RUN] Would drop: {$name} (upper bound {$upperBound})");
+                $this->line("  [DRY-RUN] Would drop: {$name} (upper bound {$upperBound}, age {$upperDate->diffForHumans()})");
             } else {
                 try {
                     DB::statement("ALTER TABLE transactions DROP PARTITION {$name}");
-                    $this->warn("  Dropped partition: {$name} (upper bound {$upperBound})");
+                    $this->warn("  Dropped partition: {$name} (upper bound {$upperBound}, age {$upperDate->diffForHumans()})");
+
+                    Log::info('PruneTransactionsByPartition: dropped old partition', [
+                        'partition'   => $name,
+                        'upper_bound' => $upperBound,
+                        'age_days'    => $upperDate->diffInDays(now()),
+                    ]);
                 } catch (\Throwable $e) {
                     $this->error("  Failed to drop {$name}: {$e->getMessage()}");
                     continue;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -7,8 +9,23 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Consolidated galleries table creation. (Task H36 / audit M4)
  *
- * This migration replaces 11 additive migrations that ran sequentially
- * for fresh installs:
+ * ITERATION-003 FIX (audit G-4): This consolidated migration was MISSING
+ * $table->softDeletes(). The Gallery model uses the SoftDeletes trait,
+ * which injects `WHERE deleted_at IS NULL` into every query. The
+ * 2026_07_04_000003_add_database_integrity_constraints migration adds
+ * the deleted_at column to existing databases, but it's NOT listed in
+ * this consolidated migration's "replaces" list.
+ *
+ * On a fresh install (after additive migrations are archived), the very
+ * first Gallery::all() would throw:
+ *   SQLSTATE[42S22]: Column not found: 1054 Unknown column 'deleted_at'
+ *   in 'where clause'
+ *
+ * FIX: Added $table->softDeletes() to the Schema::create block. Also
+ * documented that 2026_07_04_000003's soft-delete addition is now
+ * consolidated here.
+ *
+ * This migration replaces these additive migrations for fresh installs:
  *   2026_01_19_111649_create_galleries_table.php            (base)
  *   2026_02_06_054006_add_audio_to_galleries_table.php
  *   2026_02_06_084946_add_custom_logo_to_galleries_table.php
@@ -20,6 +37,8 @@ use Illuminate\Support\Facades\Schema;
  *   2026_07_01_070923_convert_gallery_material_columns_to_varchar.php
  *   2026_07_02_000001_add_visual_overrides_to_galleries.php
  *   2026_07_02_100000_add_custom_domain_verification_to_galleries_table.php
+ *   2026_07_04_000003_add_database_integrity_constraints.php  (P2-3: softDeletes
+ *      on galleries + gallery_images — G-4 FIX: now consolidated here)
  *
  * For fresh installs, this single migration produces the final schema.
  * Existing production databases that have already run the additive
@@ -88,6 +107,14 @@ return new class extends Migration
             $table->json('visual_overrides')->nullable();
 
             $table->timestamps();
+
+            // G-4 FIX (Iter-003): SoftDeletes for the Gallery model's
+            // SoftDeletes trait. The 2026_07_04_000003 migration adds this
+            // column to existing databases; this consolidated migration
+            // adds it inline for fresh installs. Without it, Gallery::all()
+            // throws "Unknown column 'deleted_at'" because the SoftDeletes
+            // trait injects `WHERE deleted_at IS NULL` into every query.
+            $table->softDeletes();
 
             // Indexes
             $table->index('user_id');

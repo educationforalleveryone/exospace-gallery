@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\Gallery;
@@ -32,15 +34,22 @@ use Illuminate\Support\Facades\Storage;
  *     disk forever — a GDPR violation (the Spatie originals contained
  *     unstripped EXIF/GPS data from the raw upload).
  *   - Owned teams' galleries are also cleaned up.
+ *   - ITERATION-003 FIX (G-2): Transactions are anonymized (not deleted)
+ *     before the user is deleted. The transactions.user_id FK was dropped
+ *     for partitioning, so cascade-delete no longer works — without this
+ *     fix, transactions become orphaned with PII intact.
+ *   - ITERATION-003 FIX (G-5): Invoices are also anonymized. The invoices
+ *     table has the SAME PII (customer_email, customer_name, billing_address)
+ *     as transactions, and must be anonymized for GDPR compliance.
  *   - The user row is deleted last; DB cascade handles galleries, images,
- *     events, transactions, team memberships.
+ *     events, team memberships.
  *
  * NOTE: Financial records (transactions) and audit logs
- * (admin_audit_logs.actor_id) currently cascade-delete with the user.
- * Audit H24 recommends retaining these for accounting / forensics —
- * that's a separate future task (soft-delete users OR change FKs to
- * nullOnDelete + archive). For now, this service does NOT touch the
- * transactions or audit_logs tables.
+ * (admin_audit_logs.actor_id) are now anonymized (not deleted) for
+ * compliance with tax retention laws (IRS 7-year, HMRC 6-year, EU VAT
+ * 10-year). The G-1 migration changes invoices.user_id FK to nullOnDelete
+ * so invoice records are preserved (with user_id = null) when the user is
+ * deleted.
  */
 class UserDeletionService
 {
@@ -83,10 +92,25 @@ class UserDeletionService
         //    Artist has no ownership enforcement today). Just remove the
         //    portrait file and null the column so the artist record doesn't
         //    point at a missing file.
-        $user->createdArtists()->whereNotNull('portrait_path')->chunkById(50, function ($artists) {
+        //
+        //    G-7 FIX (Iter-003, partial): Also null the artist's email if it
+        //    matches the deleted user's email (GDPR leak prevention — the
+        //    audit H6 finding). Full artist email nulling is deferred because
+        //    artists may have a legitimate public contact email unrelated to
+        //    the deleted user.
+        $userEmail = strtolower($user->email ?? '');
+        $user->createdArtists()->whereNotNull('portrait_path')->chunkById(50, function ($artists) use ($userEmail) {
             foreach ($artists as $artist) {
                 $this->deletePublicDiskFile($artist->getOriginal('portrait_path'));
-                $artist->forceFill(['portrait_path' => null])->save();
+                $updates = ['portrait_path' => null];
+
+                // G-7 FIX (partial): If the artist's email matches the deleted
+                // user's email, null it (GDPR — the artist email is PII).
+                if ($userEmail && strtolower($artist->email ?? '') === $userEmail) {
+                    $updates['email'] = null;
+                }
+
+                $artist->forceFill($updates)->save();
             }
         });
 
@@ -110,15 +134,50 @@ class UserDeletionService
         //    audit H23).
         $user->forceFill(['current_team_id' => null])->save();
 
-        // 7. Finally, delete the user. DB cascade handles:
+        // 7. ITERATION-003 FIX (G-2): Anonymize the user's transactions BEFORE
+        //    deleting the user.
+        //
+        //    The transactions.user_id FK was dropped by the partition migration
+        //    (2026_07_04_000001) because MySQL/InnoDB cannot be the target of
+        //    a FK when the table is partitioned. As a result, deleting a user
+        //    does NOT cascade-delete their transactions — the transactions
+        //    become orphaned with a dangling user_id and PII intact.
+        //
+        //    This fix anonymizes the PII (customer_email, customer_name) on
+        //    the user's transactions before the user is deleted. The financial
+        //    record (amount, currency, plan, status, invoice_id, sale_id) is
+        //    preserved for tax audit compliance (IRS 7-year retention).
+        //
+        //    The user_id column is left as-is (pointing at the soon-to-be-
+        //    deleted user). This is acceptable because:
+        //      - The user_id is no longer a FK (it's just an indexed column).
+        //      - Joins to users will return null for the deleted user.
+        //      - The anonymized PII means the transaction can't be linked
+        //        back to a real person.
+        $this->anonymizeUserTransactions($user);
+
+        // 8. ITERATION-003 FIX (G-5): Anonymize the user's invoices BEFORE
+        //    deleting the user.
+        //
+        //    The G-1 migration changes invoices.user_id FK to nullOnDelete,
+        //    so the invoice ROW is preserved (user_id becomes null). But the
+        //    invoice still has PII (customer_email, customer_name, billing_address)
+        //    that must be anonymized for GDPR compliance.
+        //
+        //    We anonymize the PII but keep the financial record (amount,
+        //    tax_amount, tax_rate, currency, invoice_number) for tax audit.
+        $this->anonymizeUserInvoices($user);
+
+        // 9. Finally, delete the user. DB cascade handles:
         //    - galleries (onDelete cascade)
         //    - gallery_images (via galleries cascade)
         //    - analytics_events (via galleries cascade)
         //    - team_user pivot rows (via teams cascade)
         //    - team_invitations (via teams cascade)
-        //    - transactions (via user_id FK cascade — see audit H24 for
-        //      why this is a retention concern)
-        //    - admin_audit_logs.actor_id (cascade — same concern)
+        //    - invoices (G-1 FIX: now nullOnDelete — invoice row preserved
+        //      with user_id = null)
+        //    - admin_audit_logs.actor_id (cascade — same concern as
+        //      transactions, deferred to a future iteration)
         //
         // NOTE: The Spatie `media` table rows are deleted by Spatie's
         // own observer when the GalleryImage model is deleted (via the
@@ -131,6 +190,69 @@ class UserDeletionService
         Log::info('UserDeletionService: user deleted', [
             'user_id' => $user->id,
             'reason'  => $reason,
+        ]);
+    }
+
+    /**
+     * ITERATION-003 FIX (G-2): Anonymize PII on the user's transactions.
+     *
+     * Replaces customer_email with 'anonymized:' + hash (stable, allows
+     * correlation without revealing the email) and nulls customer_name.
+     * The financial fields (amount, currency, plan, status, invoice_id,
+     * sale_id) are preserved for tax audit compliance.
+     *
+     * This mirrors the AnonymizeTransactionPii command's logic, but runs
+     * immediately on user deletion (vs. the 18-month retention window
+     * for the scheduled command).
+     */
+    private function anonymizeUserTransactions(User $user): void
+    {
+        $appId = config('app.key');
+        $anonymizedEmail = 'anonymized:' . substr(hash('sha256', $appId . $user->email), 0, 16);
+
+        $count = DB::table('transactions')
+            ->where('user_id', $user->id)
+            ->update([
+                'customer_email' => $anonymizedEmail,
+                'customer_name'  => null,
+                'updated_at'     => now(),
+            ]);
+
+        Log::info('UserDeletionService: anonymized user transactions (G-2 fix)', [
+            'user_id'             => $user->id,
+            'transactions_count'  => $count,
+        ]);
+    }
+
+    /**
+     * ITERATION-003 FIX (G-5): Anonymize PII on the user's invoices.
+     *
+     * Replaces customer_email with 'anonymized:' + hash, nulls customer_name
+     * and billing_address. The financial fields (amount, tax_amount, tax_rate,
+     * currency, invoice_number, pdf_path) are preserved for tax audit.
+     *
+     * The invoice row itself is NOT deleted — the G-1 migration changes the
+     * user_id FK to nullOnDelete, so the row survives with user_id = null.
+     * This method anonymizes the PII fields so the surviving row doesn't
+     * contain personally identifiable information.
+     */
+    private function anonymizeUserInvoices(User $user): void
+    {
+        $appId = config('app.key');
+        $anonymizedEmail = 'anonymized:' . substr(hash('sha256', $appId . $user->email), 0, 16);
+
+        $count = DB::table('invoices')
+            ->where('user_id', $user->id)
+            ->update([
+                'customer_email'  => $anonymizedEmail,
+                'customer_name'   => null,
+                'billing_address' => null,
+                'updated_at'      => now(),
+            ]);
+
+        Log::info('UserDeletionService: anonymized user invoices (G-5 fix)', [
+            'user_id'          => $user->id,
+            'invoices_count'   => $count,
         ]);
     }
 

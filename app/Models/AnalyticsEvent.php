@@ -17,6 +17,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * Stores: view, focus, tour_start, tour_complete, dwell events.
  * Used by the AnalyticsController for the curator's analytics dashboard.
+ *
+ * ITERATION-003 FIX (audit C-3): Removed 'country' from $fillable.
+ *
+ * The 'country' column was dropped by migration
+ * 2026_07_04_000004_drop_country_from_analytics_events.php (it was never
+ * populated — geo-IP lookup was never implemented). The model still listed
+ * 'country' in $fillable, which meant any future code that did
+ * AnalyticsEvent::create(['country' => $geoipCountry, ...]) or
+ * fill($request->validated()) would trigger a MySQL INSERT that fails
+ * with "Unknown column 'country'".
+ *
+ * The fix removes 'country' from $fillable. If geo-IP tracking is ever
+ * re-added, the column must be re-added in a migration AND the model
+ * updated in the same PR.
  */
 class AnalyticsEvent extends Model
 {
@@ -26,8 +40,11 @@ class AnalyticsEvent extends Model
 
     protected $fillable = [
         'gallery_id', 'image_id', 'event',
-        'session_token', 'dwell_seconds', 'referrer', 'country',
+        'session_token', 'dwell_seconds', 'referrer',
         'created_at',
+        // C-3 FIX (Iter-003): 'country' removed — column was dropped by
+        // 2026_07_04_000004_drop_country_from_analytics_events.php.
+        // Re-add only if the column is re-added in a future migration.
     ];
 
     protected $casts = [
