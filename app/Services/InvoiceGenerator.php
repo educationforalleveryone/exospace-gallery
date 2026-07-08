@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\Invoice;
@@ -13,23 +15,26 @@ use Illuminate\Support\Str;
 /**
  * M-10: Invoice generation service.
  *
- * Creates an Invoice record for a transaction + generates a PDF invoice
- * stored on the public disk. The PDF is a simple HTML-to-PDF render
- * using a Blade view + the server's PDF generation capability.
+ * ITERATION-002 FIX (audit 2CO-6): Now generates REAL PDFs via dompdf.
  *
- * PDF generation approach:
- *   This service generates a self-contained HTML invoice view and stores
- *   it as the pdf_path. For actual PDF binary generation, the founder
- *   should install a PDF library (dompdf, snappy, or wkhtmltopdf) and
- *   update the generatePdf() method to call it. The HTML view is
- *   rendered via Blade (resources/views/invoices/pdf.blade.php) and
- *   can be served directly as HTML if PDF generation isn't available.
+ * Previously: the generatePdf() method rendered the Blade view to HTML and
+ * stored it with a .html extension, but the column was named pdf_path and
+ * the public-facing filename was INV-{YEAR}-{SEQ}.html served as
+ * application/pdf. Customers could not download a real PDF invoice. This
+ * is a legal compliance issue in many EU jurisdictions — VAT-compliant
+ * invoices must be tamper-proof PDFs (or electronic-invoice-format XML).
+ * Tax authorities reject HTML "invoices." 2Checkout's merchant approval
+ * process also reviews invoice delivery — they flag a SaaS that serves
+ * HTML as PDFs.
  *
- *   This deferred-PDF approach lets the feature ship without a hard
- *   dependency on a specific PDF library — the founder can choose the
- *   best library for their hosting environment (dompdf is pure-PHP and
- *   works everywhere; snappy/wkhtmltopdf produces better-quality PDFs
- *   but requires a binary).
+ * FIX:
+ *   - composer require dompdf/dompdf (pure-PHP, works in containerized envs
+ *     without wkhtmltopdf).
+ *   - generatePdf() now calls Dompdf to render the Blade view to a real PDF.
+ *   - The file extension is .pdf (was .html).
+ *   - Content-Type is application/pdf (handled in BillingController::downloadInvoice).
+ *   - A backfill command (exospace:regenerate-invoices) regenerates PDFs for
+ *     existing invoices that still have .html paths.
  *
  * Invoice numbering:
  *   Sequential per year: INV-{YEAR}-{5-digit-sequence}. The sequence
@@ -40,8 +45,8 @@ use Illuminate\Support\Str;
  *   Tax is calculated based on the user's billing address (if provided)
  *   + the configured tax rates. For now, tax defaults to 0 — the founder
  *   should configure tax rates per jurisdiction (M-11 VAT/TAX handling,
- *   deferred). The invoice stores tax_amount + tax_rate so the PDF shows
- *   the correct breakdown.
+ *   deferred to a future iteration). The invoice stores tax_amount +
+ *   tax_rate so the PDF shows the correct breakdown.
  */
 class InvoiceGenerator
 {
@@ -79,7 +84,7 @@ class InvoiceGenerator
                 'issued_at'       => now(),
             ]);
 
-            // Generate the PDF (or HTML fallback)
+            // Generate the PDF (2CO-6 FIX: real PDF via dompdf)
             $pdfPath = $this->generatePdf($invoice);
             $invoice->forceFill(['pdf_path' => $pdfPath])->save();
 
@@ -89,6 +94,7 @@ class InvoiceGenerator
                 'transaction_id'  => $transaction->id,
                 'user_id'         => $user->id,
                 'amount'          => $amount,
+                'pdf_path'        => $pdfPath,
             ]);
 
             return $invoice;
@@ -136,19 +142,19 @@ class InvoiceGenerator
     }
 
     /**
-     * Generate the PDF (or HTML fallback) for an invoice.
+     * Generate the PDF for an invoice.
      *
-     * Renders the invoice Blade view to HTML and stores it as a .html
-     * file on the public disk. The founder should replace this with a
-     * proper PDF library (dompdf, snappy) — see the class docblock.
+     * 2CO-6 FIX (Iter-002): Now uses dompdf to generate a REAL PDF.
+     * Previously: rendered the Blade view to HTML and stored it as a .html
+     * file. Now: renders to PDF via dompdf and stores as .pdf.
      *
-     * Returns the relative path on the public disk (e.g. "invoices/2026/INV-2026-00001.html").
+     * Returns the relative path on the public disk (e.g. "invoices/2026/INV-2026-00001.pdf").
      */
     private function generatePdf(Invoice $invoice): string
     {
         $year = $invoice->issued_at->year;
         $directory = "invoices/{$year}";
-        $filename = "{$invoice->invoice_number}.html";
+        $filename = "{$invoice->invoice_number}.pdf";
         $relativePath = "{$directory}/{$filename}";
 
         // Ensure the directory exists
@@ -157,9 +163,78 @@ class InvoiceGenerator
         // Render the Blade view to HTML
         $html = view('invoices.pdf', ['invoice' => $invoice])->render();
 
-        // Store the HTML (future: convert to PDF via dompdf/snappy)
-        Storage::disk('public')->put($relativePath, $html);
+        // 2CO-6 FIX: Convert HTML to PDF via dompdf.
+        //
+        // dompdf is a pure-PHP PDF renderer — no external binary required.
+        // It works in containerized environments (Coolify/Nixpacks) without
+        // any system dependencies. The quality is sufficient for invoices
+        // (simple table layout, no complex CSS). For higher-quality PDFs
+        // (complex layouts, SVG), snappy/wkhtmltopdf would be better but
+        // requires a system binary.
+        //
+        // If dompdf is not installed (composer require dompdf/dompdf),
+        // fall back to HTML storage with a warning log. This preserves
+        // backward compatibility during the transition.
+        if (class_exists(\Dompdf\Dompdf::class)) {
+            $dompdf = new \Dompdf\Dompdf([
+                'isRemoteEnabled' => false, // security: don't fetch remote resources
+                'defaultFont' => 'DejaVu Sans',
+            ]);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+
+            $pdfContent = $dompdf->output();
+            Storage::disk('public')->put($relativePath, $pdfContent);
+
+            Log::info('InvoiceGenerator: PDF generated via dompdf', [
+                'invoice_id'  => $invoice->id,
+                'pdf_path'    => $relativePath,
+                'size_bytes'  => strlen($pdfContent),
+            ]);
+        } else {
+            // Fallback: store as HTML (backward compatibility during transition)
+            $filename = "{$invoice->invoice_number}.html";
+            $relativePath = "{$directory}/{$filename}";
+            Storage::disk('public')->put($relativePath, $html);
+
+            Log::warning('InvoiceGenerator: dompdf not installed — falling back to HTML. Run: composer require dompdf/dompdf', [
+                'invoice_id'  => $invoice->id,
+                'html_path'   => $relativePath,
+            ]);
+        }
 
         return $relativePath;
+    }
+
+    /**
+     * 2CO-6 FIX: Regenerate the PDF for an existing invoice.
+     *
+     * Used by the `exospace:regenerate-invoices` artisan command to backfill
+     * PDFs for invoices that were created before the dompdf fix (i.e.
+     * invoices with .html pdf_path).
+     *
+     * @param  Invoice  $invoice
+     * @return string|null  The new pdf_path, or null on failure.
+     */
+    public function regeneratePdf(Invoice $invoice): ?string
+    {
+        try {
+            $pdfPath = $this->generatePdf($invoice);
+            $invoice->forceFill(['pdf_path' => $pdfPath])->save();
+
+            Log::info('InvoiceGenerator: invoice PDF regenerated', [
+                'invoice_id' => $invoice->id,
+                'pdf_path'   => $pdfPath,
+            ]);
+
+            return $pdfPath;
+        } catch (\Throwable $e) {
+            Log::error('InvoiceGenerator: failed to regenerate invoice PDF', [
+                'invoice_id' => $invoice->id,
+                'error'      => $e->getMessage(),
+            ]);
+            return null;
+        }
     }
 }

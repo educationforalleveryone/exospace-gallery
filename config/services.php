@@ -39,6 +39,12 @@ return [
         'account_number'         => env('TWOCHECKOUT_ACCOUNT_NUMBER'),
         'secret_word'            => env('TWOCHECKOUT_SECRET_WORD'),
 
+        // Iter-002 (2CO-1): Sandbox mode for the TwoCheckoutApiClient.
+        // When true, API calls go to https://api-sandbox.2checkout.com
+        // instead of the production https://api.2checkout.com. Set to true
+        // for testing cancel/reactivate flows before going live.
+        'sandbox'                => filter_var(env('TWOCHECKOUT_SANDBOX', false), FILTER_VALIDATE_BOOLEAN),
+
         // P0-2 FIX (audit): HMAC SHA-256 signature verification is now
         // MANDATORY in production. When set, the webhook's `signature`
         // field is verified via HMAC SHA-256 over the security-critical
@@ -91,6 +97,18 @@ return [
         // interval ahead of time.
         'recurring_product_id_pro'    => env('TWOCHECKOUT_RECURRING_PRODUCT_ID_PRO'),
         'recurring_product_id_studio' => env('TWOCHECKOUT_RECURRING_PRODUCT_ID_STUDIO'),
+
+        // Iter-002 (2CO-2): One-time product prices for signed buy links.
+        // These MUST match the prices configured in the 2Checkout merchant
+        // dashboard. If they don't match, 2Checkout rejects the signed buy
+        // link (the signature won't validate). Format: plain decimal string
+        // (e.g. "29.00", "99.00") — no currency symbol, no thousands separator.
+        //
+        // When these are not set, the signed buy link is SKIPPED (with a
+        // warning log) and the buy link is unsigned — 2Checkout still
+        // processes it, but without tamper protection.
+        'price_pro'                   => env('TWOCHECKOUT_PRICE_PRO'),
+        'price_studio'                => env('TWOCHECKOUT_PRICE_STUDIO'),
 
         // M-1: Subscription pricing display (shown on the pricing page +
         // billing portal). These are display-only — the actual price is

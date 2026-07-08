@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
@@ -90,6 +92,19 @@ class RegisteredUserController extends Controller
             // Do NOT fire the Registered event here — it would trigger
             // the verification email. The welcome email boot hook also
             // skips invited users. Everything is intentionally silent.
+            //
+            // CR-4 FIX (Iter-002, deferred from Iter-001): Regenerate the
+            // session ID to prevent session fixation. The invitation-accept
+            // flow is a high-privilege transition (anonymous → authenticated),
+            // and without session ID rotation, a session cookie planted on
+            // the victim's browser before they click the invitation link
+            // survives the login, allowing the attacker to ride the same
+            // session post-authentication.
+            //
+            // This completes the CR-4 fix that was partially shipped in
+            // Iteration-001 (which fixed the OAuth login paths but deferred
+            // this path to Iteration-002).
+            $request->session()->regenerate();
             Auth::login($user);
 
             return redirect()->route('admin.teams.show', $team)
@@ -98,6 +113,10 @@ class RegisteredUserController extends Controller
 
         // Normal registration — send verification email
         event(new Registered($user));
+
+        // CR-4 FIX (Iter-002, deferred from Iter-001): Regenerate the session
+        // ID to prevent session fixation on normal registration.
+        $request->session()->regenerate();
         Auth::login($user);
 
         return redirect(route('verification.notice'));

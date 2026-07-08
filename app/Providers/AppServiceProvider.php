@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Services\FeatureFlag;
+use App\Services\TwoCheckoutApiClient;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
@@ -17,7 +18,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Iter-002 (2CO-1): Register TwoCheckoutApiClient as a singleton.
+        // The client is configured from config('services.2checkout') which
+        // reads env vars. Singleton so the HTTP client pool is reused.
+        $this->app->singleton(TwoCheckoutApiClient::class, function ($app) {
+            return new TwoCheckoutApiClient(
+                merchantCode: (string) config('services.2checkout.account_number', ''),
+                secretWord: (string) config('services.2checkout.secret_word', ''),
+                sandbox: (bool) config('services.2checkout.sandbox', false),
+            );
+        });
     }
 
     /**
@@ -30,7 +40,7 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
-        // ── CR-5 FIX: TRUSTED_PROXIES hard-fail in production ──────────────
+        // ── CR-5 FIX (Iter-001): TRUSTED_PROXIES hard-fail in production ──────
         //
         // Previously: only a Log::critical() warning when TRUSTED_PROXIES=*.
         // The warning was advisory — bad deploys still shipped. The .env.example

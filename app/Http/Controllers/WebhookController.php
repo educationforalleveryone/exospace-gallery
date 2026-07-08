@@ -62,35 +62,44 @@ class WebhookController extends Controller
         }
 
         // ================================
-        // STEP 1b: Replay Protection (SEC-9)
+        // STEP 1b: Replay Protection (SEC-9 + 2CO-4)
         // ================================
         // Check if this message_id + message_type has already been processed.
         // Prevents replay attacks where a captured IPN is re-POSTed with
         // a different message_type (only works in MD5-only mode, but
         // defense-in-depth).
+        //
+        // 2CO-4 FIX (Iter-002): The exists() + insert() pattern had a race
+        // window — two concurrent requests could both pass the exists() check
+        // and both attempt insert(). The unique index on [message_id,
+        // message_type] would reject the second insert with a duplicate-key
+        // exception, but the code didn't catch it — the exception bubbled up
+        // and the webhook returned 500. 2Checkout retries 500s, producing a
+        // third request that hits the exists() check and returns 200.
+        // Functionally correct, but noisy (spurious 500s in logs and Sentry).
+        //
+        // New approach: use insertOrIgnore() which atomically inserts OR
+        // silently no-ops on duplicate. Check the return value (1 = inserted,
+        // 0 = already existed → duplicate → return 200).
         $messageId = $request->input('message_id');
         $messageType = $request->input('message_type');
         if ($messageId && $messageType) {
-            $alreadyProcessed = \DB::table('processed_webhooks')
-                ->where('message_id', $messageId)
-                ->where('message_type', $messageType)
-                ->exists();
-
-            if ($alreadyProcessed) {
-                Log::info('2Checkout: Duplicate message_id+type, skipping (replay protection)', [
-                    'message_id' => $messageId,
-                    'message_type' => $messageType,
-                ]);
-                return response('OK', 200);
-            }
-
-            // Record this webhook as processed
-            \DB::table('processed_webhooks')->insert([
+            $inserted = \DB::table('processed_webhooks')->insertOrIgnore([
                 'message_id'   => $messageId,
                 'message_type' => $messageType,
                 'invoice_id'   => $request->input('invoice_id'),
                 'processed_at' => now(),
             ]);
+
+            if (! $inserted) {
+                // insertOrIgnore returned 0 rows — the row already existed
+                // (unique constraint hit). This is a duplicate/replay.
+                Log::info('2Checkout: Duplicate message_id+type, skipping (replay protection)', [
+                    'message_id'   => $messageId,
+                    'message_type' => $messageType,
+                ]);
+                return response('OK', 200);
+            }
         }
 
         // ================================
@@ -457,15 +466,46 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    // ── P1-4 FIX: Parse the refund amount ──────────────
-                    // 2Checkout's REFUND_ISSUED IPN includes item_list_amount_1
-                    // which is the REFUND amount (not the original amount).
-                    // Compare against the original transaction amount to
-                    // determine if this is a full or partial refund.
-                    $refundAmount = (float) $request->input('item_list_amount_1', 0);
+                    // ── P1-4 FIX + 2CO-5 FIX (Iter-002): Parse the refund amount ──
+                    // 2Checkout's REFUND_ISSUED IPN includes item_list_amount_1.
+                    // The original audit (P1-4) assumed this is the REFUND amount
+                    // (not the original amount). 2CO-5 flags this assumption as
+                    // unverified — if wrong, the 90% threshold check classifies
+                    // every refund as full (because item_list_amount_1 on a
+                    // refund IPN is actually the original sale amount), and a
+                    // $5 courtesy refund on a $99 Studio purchase would trigger
+                    // a full plan downgrade.
+                    //
+                    // 2CO-5 FIX: Add debug logging of both amounts so the
+                    // assumption can be verified in production via a sandbox
+                    // refund test. Once verified, update this comment with the
+                    // doc URL as evidence. If the assumption is wrong, fix the
+                    // field name (likely `refund_value` or `item_refunded_amount_1`
+                    // per 2Checkout INS 6.0 docs) and add a regression test.
+                    //
+                    // The defensive fallback (treat as full refund if amount
+                    // can't be determined) is preserved — better to downgrade
+                    // than to let a refunded user keep access.
+                    $rawRefundField = $request->input('item_list_amount_1', 0);
+                    $refundAmount = (float) $rawRefundField;
                     $originalAmount = (float) $transaction->amount;
                     $isFullRefund = $originalAmount > 0
                         && ($refundAmount / $originalAmount) >= 0.90;
+
+                    // 2CO-5 FIX: debug logging for assumption verification.
+                    // This log line is INFO level so it appears in production
+                    // logs without enabling DEBUG. Once the assumption is
+                    // verified via a sandbox refund test, this log can be
+                    // downgraded to DEBUG or removed.
+                    Log::info('2Checkout: REFUND_ISSUED amount analysis', [
+                        'invoice_id'           => $invoiceId,
+                        'raw_refund_field'     => $rawRefundField,
+                        'parsed_refund_amount' => $refundAmount,
+                        'original_amount'      => $originalAmount,
+                        'ratio'                => $originalAmount > 0 ? round($refundAmount / $originalAmount, 4) : null,
+                        'is_full_refund'       => $isFullRefund,
+                        'note'                 => 'Verify item_list_amount_1 is the refund amount (not original). See audit 2CO-5.',
+                    ]);
 
                     // Defensive: if we can't determine the refund amount
                     // (e.g. item_list_amount_1 is missing or 0), OR if the
@@ -851,9 +891,23 @@ class WebhookController extends Controller
             ]);
             return false;
         } else {
-            if ($isProduction && ! $allowMd5Only) {
-                Log::critical('2Checkout: HMAC secret not configured in production — FAILING CLOSED. Set TWOCHECKOUT_BUY_LINK_SECRET_WORD in .env, or set TWOCHECKOUT_ALLOW_MD5_ONLY=true as an emergency escape hatch.', [
-                    'invoice_id' => $request->input('invoice_id'),
+            // 2CO-3 FIX (Iter-002): Use an explicit env allowlist instead of
+            // APP_ENV === 'production'. The old gate was:
+            //     if ($isProduction && ! $allowMd5Only) { ... fail closed ... }
+            // which meant any non-'production' env (staging, prod, live,
+            // production-eu) accepted MD5-only — a forgery risk.
+            //
+            // New gate: MD5-only is accepted ONLY in 'local' and 'testing'
+            // environments. Every other environment (including staging) fails
+            // closed unless TWOCHECKOUT_ALLOW_MD5_ONLY=true is explicitly set.
+            $md5OnlyAllowedEnvs = ['local', 'testing'];
+            $md5OnlyAllowed = in_array(app()->environment(), $md5OnlyAllowedEnvs, true)
+                || $allowMd5Only;
+
+            if (! $md5OnlyAllowed) {
+                Log::critical('2Checkout: HMAC secret not configured in a non-local environment — FAILING CLOSED. Set TWOCHECKOUT_BUY_LINK_SECRET_WORD in .env, or set TWOCHECKOUT_ALLOW_MD5_ONLY=true as an emergency escape hatch.', [
+                    'invoice_id'   => $request->input('invoice_id'),
+                    'environment'  => app()->environment(),
                 ]);
                 return false;
             }
