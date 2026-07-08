@@ -114,6 +114,10 @@ return new class extends Migration
         $fks = $this->getForeignKeysOnColumn('invoices', 'user_id');
 
         if (empty($fks)) {
+            // Column must be nullable BEFORE a SET NULL foreign key can be
+            // attached — MySQL rejects the FK otherwise (error 1830).
+            DB::statement('ALTER TABLE invoices MODIFY user_id BIGINT UNSIGNED NULL');
+
             // No FK exists — add it with the correct onDelete behavior.
             Schema::table('invoices', function (Blueprint $table) {
                 $table->foreign('user_id')
@@ -133,8 +137,14 @@ return new class extends Migration
                 continue;
             }
 
-            // Drop the existing FK and re-add with set null.
+            // Drop the existing FK first.
             DB::statement("ALTER TABLE invoices DROP FOREIGN KEY {$fk->CONSTRAINT_NAME}");
+
+            // Make user_id nullable BEFORE attaching the new FK — MySQL
+            // rejects a SET NULL foreign key on a NOT NULL column (error
+            // 1830). The original migration created user_id as NOT NULL
+            // (via foreignId()); this must run first.
+            DB::statement('ALTER TABLE invoices MODIFY user_id BIGINT UNSIGNED NULL');
 
             Schema::table('invoices', function (Blueprint $table) {
                 $table->foreign('user_id')
@@ -142,11 +152,6 @@ return new class extends Migration
                     ->on('users')
                     ->onDelete('set null');
             });
-
-            // Also make user_id nullable (required for SET NULL to work).
-            // The original migration created user_id as NOT NULL (via
-            // foreignId()). We need to change it to nullable.
-            DB::statement('ALTER TABLE invoices MODIFY user_id BIGINT UNSIGNED NULL');
         }
     }
 
