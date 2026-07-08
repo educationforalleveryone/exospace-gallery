@@ -52,8 +52,18 @@ class ProcessPlanDowngrade implements ShouldQueue
     /** Number of times to retry on failure */
     public int $tries = 3;
 
-    /** Backoff in seconds: 60s, 180s, 540s */
-    public int $backoff = 60;
+    /** C-5 FIX (Iter-005): Backoff in seconds: 60s, 180s, 540s (exponential).
+     *
+     * Previously: `public int $backoff = 60;` — a single integer applies the
+     * same delay to every retry (60s, 60s, 60s). The docblock claimed "60s,
+     * 180s, 540s" but the implementation never produced that schedule.
+     *
+     * Laravel accepts an array for per-try backoff: [60, 180, 540] means
+     * try 1 fails → wait 60s → try 2 fails → wait 180s → try 3 fails →
+     * wait 540s → mark as failed. This gives Coolify (the most common
+     * failure cause) time to recover between retries.
+     */
+    public array $backoff = [60, 180, 540];
 
     public function __construct(
         public readonly int $userId,

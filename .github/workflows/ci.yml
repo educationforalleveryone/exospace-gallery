@@ -129,7 +129,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: mbstring, xml, ctype, json, bcmath, gd, exif, pdo, pdo_sqlite, sqlite3, imagick, redis
+          extensions: mbstring, xml, ctype, json, bcmath, gd, exif, pdo, pdo_sqlite, sqlite3, redis
           coverage: none
 
       - name: Install PHP dependencies
@@ -206,7 +206,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: mbstring, xml, ctype, json, bcmath, gd, exif, pdo, pdo_mysql, mysql, imagick, redis
+          extensions: mbstring, xml, ctype, json, bcmath, gd, exif, pdo, pdo_mysql, mysql, redis
           coverage: none
 
       - name: Install PHP dependencies

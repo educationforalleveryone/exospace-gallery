@@ -7,7 +7,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 
 class ImageProcessingService
@@ -16,14 +15,26 @@ class ImageProcessingService
 
     public function __construct()
     {
-        // PERF-8 FIX: Use Imagick if available — better memory handling,
-        // supports more formats (animated GIF, TIFF, WebP decode).
-        // Falls back to GD if Imagick extension is not loaded.
-        if (extension_loaded('imagick')) {
-            $this->manager = new ImageManager(new ImagickDriver());
-        } else {
-            $this->manager = new ImageManager(new GdDriver());
-        }
+        // K-1 FIX (Iter-005): Removed the Imagick branch entirely.
+        //
+        // nixpacks.toml documents that phpPackages.imagick was removed from
+        // the pinned nixpkgs archive. The production Docker image does NOT
+        // have imagick installed. But CI (.github/workflows/ci.yml) DOES
+        // install imagick — so CI tests exercise the Imagick code path while
+        // production exercises the GD code path. This environmental drift
+        // means CI cannot catch GD-specific bugs.
+        //
+        // FIX: Commit to GD-only. Remove the Imagick import + branch. CI
+        // should also remove imagick (see the .github/workflows/ci.yml fix
+        // in this iteration). Add ext-gd to composer.json require block
+        // (see the composer.json fix in this iteration).
+        //
+        // GD has different memory behavior than Imagick (GD allocates the
+        // full uncompressed RGBA buffer for imagecreatefrom*), but the
+        // 50MP cap in process() accounts for this. GD doesn't support
+        // animated GIF or TIFF decode — acceptable for an art gallery SaaS
+        // (artists upload JPEG/PNG/WebP, not GIF/TIFF).
+        $this->manager = new ImageManager(new GdDriver());
     }
 
     /**

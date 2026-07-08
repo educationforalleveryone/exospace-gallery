@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -13,17 +15,18 @@ Artisan::command('inspire', function () {
 // P1-12 FIX (audit): All scheduled commands now use:
 //   - ->withoutOverlapping(60): prevents a second instance from starting
 //     while the first is still running (60-minute overlap lock TTL).
-//     Without this, two overlapping cron runs (multi-container Coolify
-//     or a long run + a new cron tick) would both process the same data
-//     — e.g. double-sending abandoned-cart emails.
 //   - ->onOneServer(): ensures the command runs on only ONE container
-//     even in a multi-container Coolify deployment. Requires
-//     CACHE_STORE=redis (which the production env has). Without this,
-//     every container fires every scheduled task — N containers = N
-//     duplicate emails/jobs.
+//     even in a multi-container Coolify deployment.
 //
-// Coolify deployment: a separate `schedule:run` cron service must be
-// configured in Coolify for these to fire.
+// CR-2 FIX (Iter-001): The scheduler process is now started by
+// docker-start.sh (a background loop running schedule:run every 60s).
+// Previously NO scheduler process was started.
+//
+// K-5 FIX (Iter-005): Added queue:prune-failed (daily) — prevents the
+// failed_jobs table from growing unbounded.
+//
+// K-9 FIX (Iter-005): Added cohort-retention + onboarding-analytics (weekly)
+// — provides trend tracking data for product decisions.
 
 // Hourly: retry DNS verification for galleries with a pending custom_domain.
 Schedule::command('exospace:verify-pending-domains')
@@ -65,26 +68,47 @@ Schedule::command('exospace:cleanup-stale')
 // S-10: Monthly (1st of each month at 5am) — create future partitions +
 // drop old ones on the transactions table. Idempotent, safe to re-run.
 // Default retention: 7 years (IRS financial record requirement).
+// C-1 FIX (Iter-003): The partition pruning now correctly drops old
+// partitions (was silently broken by FROM_DAYS bug).
 Schedule::command('exospace:prune-transactions')
     ->monthlyOn(1, '05:00')
-    ->withoutOverlapping(60)
+    ->withoutOverlapping(120)
     ->onOneServer();
 
 // SEC-10: Monthly (1st of each month at 5:30am) — anonymize PII on
-// transactions older than 18 months (GDPR). Runs 30 minutes AFTER the
-// partition prune so that dropped partitions don't waste anonymization
-// effort. Default retention: 18 months (shorter than the 7-year tax
-// retention because PII has stricter GDPR limits than financial records).
+// transactions AND invoices (G-5 FIX from Iter-003) older than 18 months.
 Schedule::command('exospace:anonymize-pii')
     ->monthlyOn(1, '05:30')
-    ->withoutOverlapping(60)
+    ->withoutOverlapping(120)
     ->onOneServer();
 
 // M-9: Daily at 11am — send dunning emails (steps 2 + 3) for subscriptions
-// with failed payments. Step 1 is sent immediately by the webhook handler
-// (WebhookController::handleRecurringFailure) — this command handles the
-// time-delayed steps 2 (3 days) and 3 (7 days, final notice).
+// with failed payments.
 Schedule::command('exospace:send-dunning')
     ->dailyAt('11:00')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
+// K-5 FIX (Iter-005): Prune failed jobs older than 7 days.
+// Without this, the failed_jobs table grows unbounded. HealthController::check
+// flags degraded if failed_jobs > 100 — without pruning, the health check
+// eventually always reports degraded.
+Schedule::command('queue:prune-failed --hours=168')
+    ->dailyAt('02:30')
+    ->onOneServer();
+
+// K-9 FIX (Iter-005): Weekly cohort retention analytics.
+// Provides trend tracking data for product decisions. The command prints
+// results to STDOUT and logs them. A future iteration could persist results
+// to an analytics_reports table for dashboard visualization.
+Schedule::command('exospace:cohort-retention --weeks=8')
+    ->weeklyOn(1, '06:00')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
+// K-9 FIX (Iter-005): Weekly onboarding funnel analytics.
+// Tracks signup -> first gallery -> first publish -> first share conversion.
+Schedule::command('exospace:onboarding-analytics --days=30')
+    ->weeklyOn(1, '06:30')
     ->withoutOverlapping(60)
     ->onOneServer();

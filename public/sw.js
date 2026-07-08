@@ -20,12 +20,23 @@ const EXOSPACE_SW_VERSION = 'v1';
 const CACHE_NAME = `exospace-${EXOSPACE_SW_VERSION}`;
 
 // App shell — the essential assets for the gallery experience
+// C-9 FIX (Iter-005): Removed the literal '/build/assets/app.css' path.
+//
+// The actual built CSS is content-hashed (e.g. assets/app-_q6yfwqq.css)
+// per the Vite manifest. The literal path /build/assets/app.css 404s —
+// the SW was pre-caching a 404 response, then serving it from cache on
+// the next visit, breaking styles site-wide.
+//
+// The runtime caching strategy (Strategy 2 below) already caches /build/*
+// assets on-demand with stale-while-revalidate. That handles CSS, JS, and
+// other build artifacts correctly — no need to pre-cache them.
+//
+// Only pre-cache HTML routes (which have stable URLs).
 const APP_SHELL = [
     '/',
     '/discover',
     '/pricing',
-    '/build/assets/app.css',
-    // JS and other assets are cached on-demand via runtime caching
+    // CSS/JS are cached on-demand via runtime caching (Strategy 2 below)
 ];
 
 // ── Install: pre-cache the app shell ───────────────────────────────────────
