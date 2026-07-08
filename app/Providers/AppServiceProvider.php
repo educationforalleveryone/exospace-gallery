@@ -144,14 +144,10 @@ class AppServiceProvider extends ServiceProvider
             return '<?php echo csp_nonce(); ?>';
         });
 
-        // D-8 FIX: Register the csp_nonce() helper function.
-        // This is a global function so it can be called from anywhere
-        // (Blade, controllers, etc.) without importing a facade.
-        if (! function_exists('csp_nonce')) {
-            function csp_nonce(): string {
-                $request = app(\Illuminate\Http\Request::class);
-                return (string) $request->attributes->get('csp_nonce', '');
-            }
-        }
+        // D-8: csp_nonce() now lives in app/helpers.php (Composer
+        // "autoload.files"), NOT here. route:cache/event:cache boot the
+        // application a second time in-process, which was redeclaring this
+        // function when it lived inside boot(). See app/helpers.php for
+        // the full explanation.
     }
 }
