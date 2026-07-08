@@ -119,6 +119,64 @@ class User extends Authenticatable implements MustVerifyEmail
         return $linked;
     }
 
+    // ── D-4 FIX (Iter-004): Password history helper ──────────────────────
+
+    /**
+     * Check if the given password matches one of the user's recent passwords.
+     *
+     * D-4 FIX (Iter-004): Previously, the password-history reuse check only
+     * existed in PasswordController::update() (the profile password-change
+     * flow). The NewPasswordController::store() (the forgot-password reset
+     * flow) did NOT check password_histories — an attacker (or a user
+     * complying with a rotation policy) could bypass the reuse check by
+     * going through /forgot-password.
+     *
+     * This shared helper is called from BOTH controllers to ensure the
+     * reuse check is enforced consistently.
+     *
+     * @param  string  $password  The plaintext password to check
+     * @return bool  True if the password matches one of the last 5 historical passwords
+     */
+    public function isPasswordInHistory(string $password): bool
+    {
+        $recentHashes = \Illuminate\Support\Facades\DB::table('password_histories')
+            ->where('user_id', $this->id)
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->pluck('password_hash');
+
+        foreach ($recentHashes as $oldHash) {
+            if (\Illuminate\Support\Facades\Hash::check($password, $oldHash)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Store the user's current password hash in the password_histories table.
+     *
+     * D-4 FIX (Iter-004): Called before updating the password in both
+     * PasswordController::update() and NewPasswordController::store().
+     * Also prunes the history to the last 10 entries (5 for checking + buffer).
+     */
+    public function storePasswordInHistory(): void
+    {
+        \Illuminate\Support\Facades\DB::table('password_histories')->insert([
+            'user_id'       => $this->id,
+            'password_hash' => $this->getOriginal('password'),
+            'created_at'    => now(),
+        ]);
+
+        // Prune history to last 10 entries (keep 5 for checking + buffer)
+        \Illuminate\Support\Facades\DB::table('password_histories')
+            ->where('user_id', $this->id)
+            ->orderByDesc('created_at')
+            ->offset(10)
+            ->delete();
+    }
+
     // ── M-7: Trial helpers ────────────────────────────────────────────────
 
     /**

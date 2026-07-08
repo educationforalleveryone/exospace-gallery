@@ -46,7 +46,7 @@
         </p>
 
         <div class="actions">
-            <a href="{{ Illuminate\Support\Facades\URL::signedRoute('team-invitations.show', ['token' => $invitation->token]) }}" class="btn">
+            <a href="{{ Illuminate\Support\Facades\URL::signedRoute('team-invitations.show', ['token' => $invitation->plaintext_token ?? $invitation->token]) }}" class="btn">
                 View &amp; Respond to Invitation
             </a>
         </div>

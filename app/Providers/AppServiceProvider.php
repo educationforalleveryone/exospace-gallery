@@ -126,5 +126,32 @@ class AppServiceProvider extends ServiceProvider
         Blade::if('abVariant', function (string $experiment, string $variant) {
             return \App\Services\ABTest::isVariant($experiment, $variant);
         });
+
+        // D-8 FIX (Iter-004): Register @nonce Blade directive for CSP nonces.
+        //
+        // Usage in Blade:
+        //   <script nonce="@nonce">
+        //     // inline JS here
+        //   </script>
+        //
+        // The nonce is generated per-request by SecurityHeaders middleware
+        // and stored in the request attributes. The directive reads it and
+        // outputs the nonce value. If the middleware didn't run (e.g. in
+        // tests), the directive outputs an empty string (no nonce — the
+        // script won't execute under strict CSP, but that's correct for
+        // tests which don't enforce CSP).
+        Blade::directive('nonce', function () {
+            return '<?php echo csp_nonce(); ?>';
+        });
+
+        // D-8 FIX: Register the csp_nonce() helper function.
+        // This is a global function so it can be called from anywhere
+        // (Blade, controllers, etc.) without importing a facade.
+        if (! function_exists('csp_nonce')) {
+            function csp_nonce(): string {
+                $request = app(\Illuminate\Http\Request::class);
+                return (string) $request->attributes->get('csp_nonce', '');
+            }
+        }
     }
 }

@@ -64,7 +64,16 @@ Route::middleware('auth')->group(function () {
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 
-    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
+    // D-3 FIX (Iter-004): Add throttle to POST /confirm-password.
+    // Previously: no throttle. An attacker with a stolen session cookie
+    // could brute-force the password-confirmation endpoint. Once successful,
+    // the session is marked auth.password_confirmed_at = time(), granting
+    // 3 hours of sudo-mode access to every password.confirm-gated route —
+    // including plan changes, user bans, super-admin toggles, and impersonation.
+    // 5 per minute per IP is generous for legitimate users (who rarely
+    // confirm more than once per session) and stops brute-force.
+    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->middleware('throttle:5,1');
 
     // SEC-14: Add throttle to password update — prevents brute-force via CSRF
     Route::put('password', [PasswordController::class, 'update'])

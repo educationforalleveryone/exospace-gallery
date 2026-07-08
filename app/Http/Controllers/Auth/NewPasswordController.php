@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
@@ -11,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class NewPasswordController extends Controller
@@ -25,6 +28,13 @@ class NewPasswordController extends Controller
 
     /**
      * Handle an incoming new password request.
+     *
+     * D-4 FIX (Iter-004): Now checks password history (reuse prevention)
+     * AND stores the old password in history. Previously, the forgot-password
+     * reset flow did NOT check password_histories — an attacker (or a user
+     * complying with a rotation policy) could bypass the reuse check by
+     * going through /forgot-password and setting their new password to be
+     * identical to their last 5 passwords.
      *
      * @throws \Illuminate\Validation\ValidationException
      */
@@ -42,9 +52,26 @@ class NewPasswordController extends Controller
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user) use ($request) {
+                // D-4 FIX: Check new password against last 5 historical passwords.
+                // This mirrors the check in PasswordController::update() (the
+                // profile password-change flow). Without this, the forgot-password
+                // flow bypasses the reuse-prevention rule.
+                if ($user->isPasswordInHistory($request->password)) {
+                    throw ValidationException::withMessages([
+                        'password' => 'You cannot reuse one of your last 5 passwords. Please choose a different password.',
+                    ])->redirectTo(back()->getTargetUrl());
+                }
+
+                // D-4 FIX: Store the current password hash in history BEFORE
+                // updating. This mirrors the behavior in PasswordController.
+                $user->storePasswordInHistory();
+
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
+                    // C-2 FIX (Iter-001): maintain has_password column
+                    'has_password' => true,
+                    'password_set_at' => now(),
                 ])->save();
 
                 event(new PasswordReset($user));

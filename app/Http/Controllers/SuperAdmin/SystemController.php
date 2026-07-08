@@ -209,9 +209,61 @@ class SystemController extends Controller
 
     // ── Toggle super admin ────────────────────────────────────────────────
 
+    /**
+     * D-10 FIX (Iter-004): Two safeguards added.
+     *
+     * 1. Last-admin guard: if the target user is currently a super-admin
+     *    AND they are the ONLY super-admin, refuse to revoke. This prevents
+     *    a super-admin from demoting themselves (preventSelfAction blocks
+     *    this) OR demoting the only other super-admin, which would lock
+     *    the system out of all super-admin access.
+     *
+     * 2. Cooldown: if the target user was granted super-admin within the
+     *    last 24 hours, refuse to revoke. This prevents a compromised
+     *    super-admin from granting super-admin to an attacker account and
+     *    then immediately revoking their own access (covering tracks).
+     *    The cooldown gives other super-admins time to notice the new
+     *    grant (via the SendSuperAdminActionAlert email) and respond.
+     *
+     * The full two-person approval flow (request → second admin approves)
+     * is documented as a future recommendation in the Iteration_Report —
+     * it's a larger feature requiring a pending_super_admin_grants table
+     * and a separate approval route. The last-admin guard + cooldown are
+     * the minimum viable protections for this iteration.
+     */
     public function toggleSuperAdmin(User $user)
     {
         $this->preventSelfAction($user, 'change super admin status for');
+
+        // D-10 FIX: Last-admin guard.
+        // If revoking super-admin AND the target is the only super-admin, refuse.
+        if ($user->is_super_admin) {
+            $superAdminCount = User::where('is_super_admin', true)->count();
+            if ($superAdminCount <= 1) {
+                return back()->with('error', "Cannot revoke super admin for {$user->name} — they are the only super-admin. Promote another user to super-admin first.");
+            }
+        }
+
+        // D-10 FIX: Cooldown on recently-granted super-admin.
+        // If the target was granted super-admin within the last 24 hours,
+        // refuse to revoke. This prevents a compromised super-admin from
+        // granting + revoking in quick succession to cover tracks.
+        //
+        // We check the admin_audit_logs for the most recent 'super_admin_toggled'
+        // action on this user where the new state was is_super_admin=true.
+        // If that log entry is less than 24 hours old, refuse.
+        if ($user->is_super_admin) {
+            $recentGrant = AdminAuditLog::where('target_type', User::class)
+                ->where('target_id', $user->id)
+                ->where('action', 'super_admin_toggled')
+                ->where('created_at', '>=', now()->subHours(24))
+                ->orderByDesc('created_at')
+                ->first();
+
+            if ($recentGrant) {
+                return back()->with('error', "Cannot revoke super admin for {$user->name} — they were granted super-admin less than 24 hours ago. Wait at least 24 hours before revoking (cooldown to prevent track-covering).");
+            }
+        }
 
         $user->forceFill(['is_super_admin' => ! $user->is_super_admin])->save();
 

@@ -1,129 +1,63 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #f3f4f6; 
-            padding: 20px; 
-            margin: 0;
-        }
-        .container { 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background: #ffffff; 
-            padding: 40px 30px; 
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 28px;
-            font-weight: bold;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        h2 {
-            color: #1f2937;
-            margin-bottom: 20px;
-        }
-        p {
-            color: #4b5563;
-            line-height: 1.6;
-            margin-bottom: 15px;
-        }
-        .btn { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            color: white !important; 
-            padding: 14px 28px; 
-            text-decoration: none; 
-            border-radius: 6px; 
-            display: inline-block; 
-            font-weight: 600;
-            margin: 20px 0;
-        }
-        .btn:hover {
-            opacity: 0.9;
-        }
-        .features {
-            background: #f9fafb;
-            padding: 20px;
-            border-radius: 6px;
-            margin: 25px 0;
-        }
-        .features ul {
-            margin: 10px 0;
-            padding-left: 20px;
-        }
-        .features li {
-            color: #4b5563;
-            margin: 8px 0;
-        }
-        .footer { 
-            margin-top: 40px; 
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-            font-size: 13px; 
-            color: #6b7280; 
-            text-align: center; 
-            line-height: 1.5;
-        }
-        .footer a {
-            color: #667eea;
-            text-decoration: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">EXOSPACE</div>
-        
-        <h2>Welcome to Exospace, {{ $user->name }}!</h2>
-        
-        <p>
-            We're thrilled to have you on board. You are now part of a community of artists and curators 
-            transforming how the world experiences digital art in immersive 3D galleries.
-        </p>
+{{-- B-9 + B-10 FIX (Iter-004): Welcome email — now uses shared table-based layout
+    with inline CSS (Outlook/Gmail compatible) + preheader text (5-15% open rate lift). --}}
+@extends('emails.partials.layout')
 
-        <div class="features">
-            <strong style="color: #1f2937;">What you can do with Exospace:</strong>
-            <ul>
-                <li>Build immersive 3D galleries in minutes</li>
-                <li>Share your art with a single link</li>
-                <li>Beautiful templates, custom lighting & music</li>
-                <li>Real-time visitor analytics</li>
-            </ul>
-        </div>
+@section('title', 'Welcome to Exospace')
 
-        <div style="text-align: center;">
-            <a href="{{ config('app.url') }}/admin/dashboard" class="btn">Go to My Dashboard</a>
-        </div>
-
-        <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: -10px;">
-            Check your inbox for a separate email to verify your address.
-        </p>
-
-        <p style="margin-top: 30px;">
-            <strong>What's next?</strong><br>
-            Head to your dashboard and start building your first immersive gallery. 
-            It takes just a few minutes to create something spectacular.
-        </p>
-
-        <p style="font-size: 14px; color: #6b7280;">
-            Need help getting started? Reply to this email or visit our 
-            <a href="{{ config('app.url') }}/contact" style="color: #667eea; text-decoration: none;">Help Center</a>.
-        </p>
-
-        <div class="footer">
-            &copy; {{ date('Y') }} Exospace Gallery. All rights reserved.<br>
-            Building the future of digital art exhibitions.<br>
-            <a href="{{ config('app.url') }}">exospace.gallery</a>
-        </div>
+@section('preheader')
+    {{-- B-10 FIX: Preheader text — hidden but visible in inbox preview. Max 85 chars. --}}
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">
+        Your 3D gallery awaits — create your first exhibition in 5 minutes.
     </div>
-</body>
-</html>
+@endsection
+
+@section('content')
+    <h2 class="email-text" style="color:#1f2937;font-size:24px;margin:0 0 20px 0;">Welcome to Exospace, {{ $user->name }}!</h2>
+
+    <p class="email-text" style="color:#4b5563;line-height:1.6;margin:0 0 15px 0;">
+        We're thrilled to have you on board. You are now part of a community of artists and curators
+        transforming how the world experiences digital art in immersive 3D galleries.
+    </p>
+
+    {{-- Features box --}}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:6px;margin:25px 0;">
+        <tr>
+            <td style="padding:20px;">
+                <p class="email-text" style="color:#1f2937;font-weight:bold;margin:0 0 10px 0;">What you can do with Exospace:</p>
+                <ul class="email-text" style="color:#4b5563;margin:10px 0;padding-left:20px;line-height:1.8;">
+                    <li>Build immersive 3D galleries in minutes</li>
+                    <li>Share your art with a single link</li>
+                    <li>Beautiful templates, custom lighting &amp; music</li>
+                    <li>Real-time visitor analytics</li>
+                </ul>
+            </td>
+        </tr>
+    </table>
+
+    {{-- CTA button — table-based for Outlook --}}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center" style="padding:20px 0;">
+                <a href="{{ config('app.url') }}/admin/dashboard"
+                   style="background-color:#667eea;color:#ffffff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:600;display:inline-block;">
+                    Go to My Dashboard
+                </a>
+            </td>
+        </tr>
+    </table>
+
+    <p class="email-muted" style="font-size:13px;color:#9ca3af;text-align:center;margin:0 0 20px 0;">
+        Check your inbox for a separate email to verify your address.
+    </p>
+
+    <p class="email-text" style="color:#4b5563;margin:20px 0;">
+        <strong>What's next?</strong><br>
+        Head to your dashboard and start building your first immersive gallery.
+        It takes just a few minutes to create something spectacular.
+    </p>
+
+    <p class="email-muted" style="font-size:14px;color:#6b7280;margin:0;">
+        Need help getting started? Reply to this email or visit our
+        <a href="{{ config('app.url') }}/contact" style="color:#667eea;text-decoration:none;">Help Center</a>.
+    </p>
+@endsection

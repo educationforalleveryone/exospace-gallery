@@ -132,14 +132,27 @@ class TeamController extends Controller
         }
 
         // Upsert invitation (reset token + expiry if re-inviting)
+        // D-6 FIX (Iter-004): Generate a PLAINTEXT token for the email link,
+        // but store the HASHED token in the DB. The plaintext token is passed
+        // to the mailable via a runtime attribute (not persisted) so the
+        // email link contains the plaintext. The DB stores only the sha256
+        // hash — a DB dump doesn't reveal usable tokens.
+        $plaintextToken = TeamInvitation::generateToken();
+        $hashedToken = TeamInvitation::hashToken($plaintextToken);
+
         $invitation = TeamInvitation::updateOrCreate(
             ['team_id' => $team->id, 'email' => $validated['email']],
             [
                 'role'       => $validated['role'],
-                'token'      => TeamInvitation::generateToken(),
+                'token'      => $hashedToken, // D-6 FIX: store the HASH, not the plaintext
                 'expires_at' => now()->addDays(7),
             ]
         );
+
+        // D-6 FIX: Attach the plaintext token as a runtime attribute so the
+        // mailable can use it in the email link. This attribute is NOT
+        // persisted to the DB — it exists only for this request.
+        $invitation->plaintext_token = $plaintextToken;
 
         Mail::to($validated['email'])->send(new TeamInvitationMail($invitation));
 
