@@ -41,7 +41,7 @@
     {{-- P2-11: JSON-LD structured data for search engines (schema.org) --}}
     <script type="application/ld+json">
     {
-        "@context": "https://schema.org",
+        "@@context": "https://schema.org",
         "@type": "ExhibitionEvent",
         "name": {{ json_encode($gallery->title) }},
         "description": {{ json_encode(Str::limit($gallery->description, 300)) }},
@@ -64,7 +64,7 @@
     @if($galleryData['images']->isNotEmpty())
     <script type="application/ld+json">
     {
-        "@context": "https://schema.org",
+        "@@context": "https://schema.org",
         "@type": "ItemList",
         "name": {{ json_encode($gallery->title . ' — Artworks') }},
         "url": {{ json_encode($publicUrl) }},
