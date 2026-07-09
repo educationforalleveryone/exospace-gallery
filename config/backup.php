@@ -96,7 +96,7 @@ return [
 
     'monitor_backups' => [
         [
-            'name' => env('APP_NAME', 'Exospace'),
+            'name' => env('APP_NAME', 'Exospace') . ' Backup',
             'disks' => ['local'],
             'health_checks' => [
                 MaximumAgeInDays::class => 1,
