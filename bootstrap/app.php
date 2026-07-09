@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         //    GalleryViewController will render it regardless of the URL path.
         $middleware->prepend(\App\Http\Middleware\DetectCustomDomain::class);
 
+        // A-9 FIX (Iter-006): Assign a per-request UUID early, before anything
+        // else runs, so it's available in logs/Sentry for the whole request.
+        $middleware->prepend(\App\Http\Middleware\RequestId::class);
+
         // 0b. Exempt 2Checkout IPN webhook routes from CSRF protection.
         //     SEC-3 FIX: Tightened from 'webhooks/*' (matches ANY path under
         //     webhooks/) to the exact two routes that 2Checkout uses.

@@ -400,6 +400,11 @@ Route::middleware(['auth'])->group(function () {
 // M-20: Public status page (no auth required)
 Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->name('status');
 
+// A-8 FIX (Iter-006): Observability endpoint, rate-limited to prevent abuse.
+Route::get('/metrics', [\App\Http\Controllers\MetricsController::class, 'index'])
+    ->name('metrics')
+    ->middleware('throttle:10,1');
+
 // M-19: Feedback widget submission (authenticated users only)
 Route::post('/feedback', [\App\Http\Controllers\FeedbackController::class, 'store'])->name('feedback.store')
       ->middleware(['auth', 'throttle:10,1']);
