@@ -36,7 +36,29 @@ class OperationalAlertService
     {
         $webhookUrl = config('services.operational_alerts.webhook_url');
 
+        $emoji = match ($severity) {
+            'critical' => '🔴',
+            'error'    => '🟠',
+            'warning'  => '🟡',
+            'info'     => '🔵',
+            default    => '⚪',
+        };
+
         $payload = [
+            // 'text' is required for Slack's legacy Incoming Webhooks to
+            // render anything at all — without it, Slack accepts the POST
+            // (200 OK) but displays nothing in the channel.
+            'text' => sprintf(
+                "%s *%s* [%s/%s]\n%s",
+                $emoji,
+                $title,
+                app()->environment(),
+                strtoupper($severity),
+                $message
+            ),
+
+            // Kept for any future non-Slack endpoint (PagerDuty, custom
+            // receiver, etc.) that may want the structured fields instead.
             'title'    => $title,
             'message'  => $message,
             'severity' => $severity,
