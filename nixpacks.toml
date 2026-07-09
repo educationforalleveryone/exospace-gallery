@@ -4,7 +4,7 @@
 # which broke the Docker image build at step 4/18 ("attribute 'imagick' missing").
 # Image processing in this app uses GD (already enabled via
 # NIXPACKS_PHP_EXTENSIONS=gd in .env), so imagick is not required.
-nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer"]
+nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer", "mariadb"]
 
 [phases.build]
 cmds = [
