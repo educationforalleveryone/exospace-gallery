@@ -35,6 +35,11 @@ return [
         ],
     ],
 
+    // ── A-10: Operational alerting webhook (Slack/Discord/PagerDuty) ──────
+    'operational_alerts' => [
+        'webhook_url' => env('OPERATIONAL_ALERT_WEBHOOK'),
+    ],
+
     '2checkout' => [
         'account_number'         => env('TWOCHECKOUT_ACCOUNT_NUMBER'),
         'secret_word'            => env('TWOCHECKOUT_SECRET_WORD'),
