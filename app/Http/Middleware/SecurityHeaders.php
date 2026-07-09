@@ -51,8 +51,6 @@ class SecurityHeaders
         $response = $next($request);
 
         // ── Standard hardening headers ───────────────────────────────────────
-        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
-        $response->headers->set('X-Content-Type-Options', 'nosniff');
         // SEC-2: Added preload directive for HSTS preload list eligibility
         $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
         $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
