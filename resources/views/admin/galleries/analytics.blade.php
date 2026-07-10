@@ -117,7 +117,7 @@
                                 @endphp
                                 <div class="flex items-center gap-3">
                                     @if($img)
-                                        <img src="{{ asset($img->path) }}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-700">
+                                        <img src="{{ asset($img->path) }}" alt="{{ $img->title ?: $img->original_name ?: 'Artwork' }}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-700">
                                     @else
                                         <div class="w-10 h-10 rounded-lg bg-gray-700 flex-shrink-0"></div>
                                     @endif

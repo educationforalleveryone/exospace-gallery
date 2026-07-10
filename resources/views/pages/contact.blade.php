@@ -1,10 +1,11 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact — Exospace 3D Gallery</title>
-    <style>
+@extends('layouts.public')
+@section('title', 'Contact — Exospace Gallery')
+@section('description', 'Get in touch with the Exospace Gallery team — support, billing, partnerships, and general inquiries. We respond within 12-24 hours.')
+
+@section('content')
+
+<!-- H-1 FIX (Iter-012): Contact page now extends layouts.public for shared nav, footer, SEO meta, cookie banner, and skip-link. Custom styles are scoped to this page only. -->
+<style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
@@ -198,19 +199,6 @@
         .field.has-error textarea { border-color: #f87171; }
         .field.has-error .error-text { display: block; }
     </style>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body>
-
-<!-- Nav -->
-<nav>
-    <a href="/" class="nav-logo">EXOSPACE</a>
-    <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/gallery/demo">Demo</a>
-        <a href="/pricing">Pricing</a>
-    </div>
-</nav>
 
 <!-- Main -->
 <div class="page">
@@ -247,13 +235,7 @@
             <div>
                 <div class="label">Business Address</div>
                 <div class="value">
-                    <!-- REPLACE THIS WITH YOUR ACTUAL ADDRESS -->
-                    Exospace Technologies<br>
-                    27 Innovation Drive, Suite 4B<br>
-                    Islamabad, Islamabad Capital Territory 44000<br>
-                    Pakistan<br>
-                    [Country]
-                </div>
+                    <!-- The business address is rendered in the shared footer from EXOSPACE_BUSINESS_ADDRESS --></div>
             </div>
         </div>
     </div>
@@ -425,5 +407,4 @@ function showErrorToast(message) {
 }
 </script>
 
-</body>
-</html>
+@endsection

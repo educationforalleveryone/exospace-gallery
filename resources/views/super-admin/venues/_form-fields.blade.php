@@ -133,7 +133,7 @@
             <p class="text-xs text-gray-500 mt-1">PNG / JPG / WEBP, max 2 MB. Shown in the admin venue list and on the create-gallery venue picker.</p>
             @error('thumbnail_image')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
             @if($isEdit && $venue->thumbnail_url)
-                <div class="mt-2"><img src="{{ $venue->thumbnail_url }}" alt="" class="h-16 rounded border border-gray-700"></div>
+                <div class="mt-2"><img src="{{ $venue->thumbnail_url }}" alt="{{ $venue->name ?: 'Venue thumbnail' }}" class="h-16 rounded border border-gray-700"></div>
             @endif
         </div>
 

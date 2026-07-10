@@ -67,8 +67,12 @@
                 @endphp
                 <div x-data="{ notifOpen: false }" class="relative" @keydown.escape.window="notifOpen = false">
                     <button @click="notifOpen = !notifOpen"
-                            class="relative inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-700 hover:border-gray-600 bg-gray-800/80 hover:bg-gray-750 text-gray-400 hover:text-white transition"
-                            aria-label="Notifications">
+                            class="relative inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-700 hover:border-gray-600 bg-gray-800/80 hover:bg-gray-750 text-gray-400 hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            aria-label="Notifications"
+                            id="notif-dropdown-trigger"
+                            aria-haspopup="true"
+                            :aria-expanded="notifOpen.toString()"
+                            aria-controls="notif-dropdown-panel">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                         @if($navUnreadCount > 0)
                             <span class="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
@@ -78,6 +82,9 @@
                     </button>
 
                     <div x-show="notifOpen" @click.outside="notifOpen = false" x-cloak
+                         id="notif-dropdown-panel"
+                         role="menu"
+                         aria-labelledby="notif-dropdown-trigger"
                          style="display: none;"
                          class="absolute right-0 mt-2 w-80 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
 
@@ -142,7 +149,12 @@
                 --}}
                 <div x-data="{ teamOpen: false }" class="relative" @keydown.escape.window="teamOpen = false">
                     <button @click="teamOpen = !teamOpen"
-                            class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-300 transition">
+                            class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-300 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            id="team-dropdown-trigger"
+                            aria-label="Switch team context"
+                            aria-haspopup="true"
+                            :aria-expanded="teamOpen.toString()"
+                            aria-controls="team-dropdown-panel">
                         @if($currentTeam)
                             <span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
                             <span class="max-w-[120px] truncate font-medium">{{ $currentTeam->name }}</span>
@@ -156,6 +168,9 @@
                     </button>
 
                     <div x-show="teamOpen" @click.outside="teamOpen = false" x-cloak
+                         id="team-dropdown-panel"
+                         role="menu"
+                         aria-labelledby="team-dropdown-trigger"
                          style="display: none;"
                          class="absolute right-0 mt-2 w-52 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
 
@@ -251,7 +266,12 @@
 
             <!-- Hamburger -->
             <div class="-me-2 flex items-center sm:hidden">
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-700 focus:outline-none focus:bg-gray-700 focus:text-gray-500 transition duration-150 ease-in-out">
+                <button @click="open = ! open"
+                        class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-700 focus:outline-none focus:bg-gray-700 focus:text-gray-500 focus-visible:ring-2 focus-visible:ring-indigo-500 transition duration-150 ease-in-out"
+                        id="mobile-nav-toggle"
+                        :aria-label="open ? 'Close menu' : 'Open menu'"
+                        :aria-expanded="open.toString()"
+                        aria-controls="mobile-nav">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                         <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -262,7 +282,7 @@
     </div>
 
     <!-- Responsive Navigation Menu -->
-    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
+    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden" id="mobile-nav" role="menu" aria-labelledby="mobile-nav-toggle">
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.dashboard')">
                 {{ __('Dashboard') }}

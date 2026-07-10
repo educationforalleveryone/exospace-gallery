@@ -1,6 +1,11 @@
-<x-guest-layout>
-    <x-slot name="header">
-        <div class="bg-gradient-to-br from-gray-900 via-purple-950/30 to-gray-900 border-b border-gray-800">
+@extends('layouts.public')
+@section('title', 'Discover 3D Art Exhibitions — Exospace')
+@section('description', 'Walk through virtual galleries curated by artists, photographers, and institutions from around the world. Featured 3D exhibitions on Exospace.')
+
+@section('content')
+
+<!-- H-2 FIX (Iter-012): Discover page now extends layouts.public for proper SEO meta, public nav, footer, cookie banner, skip-link. Was previously using layouts.guest (auth sidebar nav). -->
+    <div class="bg-gradient-to-br from-gray-900 via-purple-950/30 to-gray-900 border-b border-gray-800">
             <div class="max-w-7xl mx-auto px-4 py-16">
                 <div class="text-center">
                     <p class="text-purple-400 text-sm font-semibold tracking-widest uppercase mb-3">Discover</p>
@@ -9,7 +14,6 @@
                 </div>
             </div>
         </div>
-    </x-slot>
 
     {{-- CONV-7 FIX: Loading overlay shown when user clicks a pagination link,
          filter dropdown, or sort link. Without this, the page appears frozen
@@ -132,4 +136,4 @@
             </div>
         @endif
     </div>
-</x-guest-layout>
+@endsection

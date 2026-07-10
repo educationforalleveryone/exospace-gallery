@@ -16,7 +16,7 @@ $isEmpty = ($gallery->images_count ?? 0) === 0;
     {{-- Thumbnail --}}
     <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden flex-shrink-0 bg-gray-700/80 border border-gray-700">
         @if($coverPath)
-            <img src="{{ asset($coverPath) }}" alt="" class="w-full h-full object-cover">
+            <img src="{{ asset($coverPath) }}" alt="{{ $gallery->title ?: 'Gallery cover' }}" class="w-full h-full object-cover">
         @else
             <div class="w-full h-full flex items-center justify-center">
                 <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

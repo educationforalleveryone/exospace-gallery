@@ -28,7 +28,7 @@
         @error('portrait')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         @if($isEdit && $artist->portrait_url)
             <div class="mt-2 flex items-center gap-3">
-                <img src="{{ $artist->portrait_url }}" alt="" class="w-16 h-16 rounded-full object-cover border border-gray-700">
+                <img src="{{ $artist->portrait_url }}" alt="{{ $artist->name ?: 'Artist portrait' }}" class="w-16 h-16 rounded-full object-cover border border-gray-700">
                 <a href="{{ $artist->portrait_url }}" target="_blank" class="text-xs text-blue-400 hover:underline">View current</a>
             </div>
         @endif
