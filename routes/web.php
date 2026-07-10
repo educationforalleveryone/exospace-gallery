@@ -123,6 +123,24 @@ Route::get('/unsubscribe/{user}',      [\App\Http\Controllers\UnsubscribeControl
 Route::post('/unsubscribe/{user}',     [\App\Http\Controllers\UnsubscribeController::class, 'confirm'])->name('unsubscribe.confirm')->middleware('signed');
 Route::get('/unsubscribe-done',        [\App\Http\Controllers\UnsubscribeController::class, 'done'])->name('unsubscribe.done');
 
+// ── RFC 8058 One-Click Unsubscribe (Iter-007 / audit issue 9) ────────────
+// Gmail/Yahoo enforce RFC 8058 for bulk senders since Feb 2024. The
+// List-Unsubscribe + List-Unsubscribe-Post headers (set by the
+// HasMarketingUnsubscribe trait on every marketing mailable) point at
+// these routes. The POST route is hit by Gmail's automated unsubscribe
+// machinery — it MUST NOT require CSRF (the request comes from Gmail's
+// servers, not the user's browser, and has no CSRF token). The signed
+// URL is the only auth.
+//
+// The POST route is added to the $except array of VerifyCsrfToken in
+// bootstrap/app.php. The `signed` middleware verifies the URL signature.
+//
+// The same URL also serves a GET — a user who copies the header URL
+// into a browser sees a simple "unsubscribed" page (no confirmation
+// step, per RFC 8058 §3 which expects a single round-trip).
+Route::get('/unsubscribe/one-click/{user}',  [\App\Http\Controllers\UnsubscribeController::class, 'oneClickShow'])->name('unsubscribe.one-click')->middleware('signed');
+Route::post('/unsubscribe/one-click/{user}', [\App\Http\Controllers\UnsubscribeController::class, 'oneClickPost'])->name('unsubscribe.one-click.post')->middleware('signed');
+
 // ── Demo redirect ────────────────────────────────────────────────────────
 Route::get('/gallery/demo', function () {
     $gallery = \App\Models\Gallery::where('is_active', true)->first();

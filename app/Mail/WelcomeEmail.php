@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Mail;
 
+use App\Mail\Concerns\HasMarketingUnsubscribe;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -12,6 +15,13 @@ use Illuminate\Queue\SerializesModels;
 
 /**
  * Welcome email sent to new users after registration.
+ *
+ * Iteration-007 (audit issue 10 / CAN-SPAM): Now emits RFC 8058
+ * List-Unsubscribe + List-Unsubscribe-Post headers and passes
+ * $unsubscribeUrl to the layout so the footer "Unsubscribe" link
+ * renders. Gmail/Yahoo will display the one-click "Unsubscribe"
+ * button in the inbox preview, satisfying the Feb-2024 bulk-sender
+ * requirement.
  *
  * (Task H03 / audit H4) — previously this mailable existed but no listener
  * ever sent it. The RegisteredUserController comment said "the welcome
@@ -27,6 +37,7 @@ use Illuminate\Queue\SerializesModels;
 class WelcomeEmail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
+    use HasMarketingUnsubscribe;
 
     public function __construct(public User $user) {}
 
@@ -34,6 +45,7 @@ class WelcomeEmail extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: 'Welcome to Exospace — Let\'s Create Your First Gallery',
+            headers: $this->unsubscribeHeaders($this->user),
         );
     }
 
@@ -42,6 +54,9 @@ class WelcomeEmail extends Mailable implements ShouldQueue
         return new Content(
             view: 'emails.welcome',
             text: 'emails.welcome-text',
+            with: [
+                'unsubscribeUrl' => $this->unsubscribeUrl($this->user),
+            ],
         );
     }
 }

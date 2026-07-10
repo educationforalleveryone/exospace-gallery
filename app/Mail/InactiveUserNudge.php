@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Mail;
 
+use App\Mail\Concerns\HasMarketingUnsubscribe;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,12 +16,16 @@ use Illuminate\Queue\SerializesModels;
 /**
  * "You haven't published in 7 days" nudge email. (Task H55)
  *
+ * Iteration-007 (audit issue 10 / CAN-SPAM): Added RFC 8058 one-click
+ * unsubscribe headers + visible footer unsubscribe link.
+ *
  * Sent to users who registered >7 days ago but have 0 published
  * galleries. Encourages them to create + publish their first gallery.
  */
 class InactiveUserNudge extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
+    use HasMarketingUnsubscribe;
 
     public function __construct(public User $user) {}
 
@@ -26,6 +33,7 @@ class InactiveUserNudge extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: 'Your 3D gallery is waiting — let\'s publish your first exhibition',
+            headers: $this->unsubscribeHeaders($this->user),
         );
     }
 
@@ -34,6 +42,9 @@ class InactiveUserNudge extends Mailable implements ShouldQueue
         return new Content(
             view: 'emails.inactive-nudge',
             text: 'emails.inactive-nudge-text',
+            with: [
+                'unsubscribeUrl' => $this->unsubscribeUrl($this->user),
+            ],
         );
     }
 }
