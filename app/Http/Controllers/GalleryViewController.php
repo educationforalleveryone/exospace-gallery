@@ -50,14 +50,23 @@ class GalleryViewController extends Controller
             return redirect()->route('gallery.pin', $gallery->slug);
         }
 
-        // Don't double-count views on embed loads (the host page already counts)
+        // C-7 FIX (Iter-009): Defer the view-count increment to a job that
+        // runs after the HTTP response is sent. Previously this was two
+        // synchronous UPDATE statements on hot rows per page view, causing
+        // InnoDB row-lock contention under viral spikes.
+        //
+        // dispatch()->afterResponse() runs the job in the same PHP process
+        // AFTER the response is flushed to the client — the user sees zero
+        // added latency, and the galleries row is no longer locked during
+        // the request lifecycle.
+        //
+        // The view_count column is a denormalized cache; analytics_events
+        // is the source of truth. A missed increment here is acceptable.
         if (!$isEmbed) {
-            $gallery->increment('view_count');
-        }
-
-        // Increment venue template view count (cheap, no events)
-        if ($gallery->venueTemplate) {
-            $gallery->venueTemplate->incrementViewCount();
+            \App\Jobs\IncrementGalleryViews::dispatch(
+                $gallery->id,
+                $gallery->venueTemplate?->id,
+            )->afterResponse();
         }
 
         // Build venue config via the exporter (data-driven path).

@@ -354,16 +354,75 @@ document.getElementById('contact-form').addEventListener('submit', function(e) {
         method: 'POST',
         body: formData,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    }).then(function() {
-        // Show success regardless of backend status for now
-        document.getElementById('contact-form-wrap').style.display = 'none';
-        document.getElementById('success-msg').style.display = 'block';
-    }).catch(function() {
-        // Still show success — the form data is captured
-        document.getElementById('contact-form-wrap').style.display = 'none';
-        document.getElementById('success-msg').style.display = 'block';
+    }).then(async function(response) {
+        // C-8 FIX (Iter-009): Previously this handler showed the success UI
+        // regardless of the backend response — a 422 validation error or 500
+        // server error would silently drop the lead and show 'Message sent!'.
+        // Now we parse the response and branch on success/failure.
+        let data = null;
+        try { data = await response.json(); } catch (e) { /* not JSON */ }
+        if (response.ok && data && (data.success === true || data.success === undefined)) {
+            // Real success — backend returned 2xx.
+            document.getElementById('contact-form-wrap').style.display = 'none';
+            document.getElementById('success-msg').style.display = 'block';
+            return;
+        }
+        // Failure path — show inline error toast and re-enable the button.
+        let errorMsg = 'Your message could not be sent. ';
+        if (response.status === 422 && data && data.errors) {
+            // Laravel validation error — show first field error.
+            const firstField = Object.keys(data.errors)[0];
+            errorMsg = data.errors[firstField][0];
+        } else if (response.status === 422 && data && data.error) {
+            // ContactController's Turnstile-fail shape: {error: '...'}
+            errorMsg = data.error;
+        } else if (response.status >= 500) {
+            errorMsg += 'The server had an error. Please try again or email support@exospace.gallery directly.';
+        } else if (data && data.error) {
+            errorMsg = data.error;
+        } else if (data && data.message) {
+            errorMsg += data.message;
+        } else {
+            errorMsg += 'Please try again.';
+        }
+        showErrorToast(errorMsg);
+        btn.textContent = 'Send Message';
+        btn.disabled = false;
+    }).catch(function(networkErr) {
+        // Network error (DNS, offline, CORS) — distinctly different from
+        // a server-returned failure. Show a network-specific message.
+        showErrorToast('Network error — please check your connection and try again. Or email support@exospace.gallery directly.');
+        btn.textContent = 'Send Message';
+        btn.disabled = false;
     });
 });
+/**
+ * C-8 FIX: Inline error toast (no external dep). Auto-dismisses after 6s.
+ * Replaces the silent 'show success on failure' behaviour that silently
+ * dropped customer leads.
+ */
+function showErrorToast(message) {
+    let toast = document.getElementById('contact-error-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'contact-error-toast';
+        toast.style.cssText = [
+            'position:fixed', 'top:20px', 'right:20px',
+            'max-width:380px', 'padding:16px 20px',
+            'background:#fef2f2', 'color:#991b1b',
+            'border:1px solid #fecaca', 'border-radius:6px',
+            'box-shadow:0 4px 12px rgba(0,0,0,0.1)',
+            'font-size:14px', 'line-height:1.5', 'z-index:9999',
+        ].join(';');
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.display = 'block';
+    clearTimeout(window.__contactToastTimer);
+    window.__contactToastTimer = setTimeout(function() {
+        toast.style.display = 'none';
+    }, 6000);
+}
 </script>
 
 </body>
