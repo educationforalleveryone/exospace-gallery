@@ -6,6 +6,7 @@ use App\Models\SurveyResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * M-18: NPS/CSAT survey controller.
@@ -59,6 +60,12 @@ class SurveyController extends Controller
     /**
      * Admin: NPS dashboard.
      * GET /master-control/nps
+     *
+     * E-5 FIX (Iter-011): Replaced the `SurveyResponse::...->get()` call (which
+     * loaded EVERY NPS response into a PHP Collection — 5-10MB at 10k responses)
+     * with a single SQL aggregate query. The math (count promoters/passives/
+     * detractors, avg score) now happens in the DB, not PHP. One row returned
+     * instead of N rows.
      */
     public function npsDashboard(Request $request)
     {
@@ -68,24 +75,33 @@ class SurveyController extends Controller
             ->latest('responded_at')
             ->paginate(25);
 
-        // Calculate NPS score
-        $allResponses = SurveyResponse::where('survey_type', 'nps')
+        // E-5 FIX: Single aggregate query — one row, ~7 columns.
+        // SUM(CASE WHEN ...) is portable across MySQL, PostgreSQL, SQLite.
+        // AVG(score) returns a string from MySQL (decimal type) — cast to float.
+        $agg = DB::table('survey_responses')
+            ->where('survey_type', 'nps')
             ->whereNotNull('responded_at')
-            ->get();
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('SUM(CASE WHEN score >= 9 THEN 1 ELSE 0 END) AS promoters')
+            ->selectRaw('SUM(CASE WHEN score BETWEEN 7 AND 8 THEN 1 ELSE 0 END) AS passives')
+            ->selectRaw('SUM(CASE WHEN score <= 6 THEN 1 ELSE 0 END) AS detractors')
+            ->selectRaw('COALESCE(AVG(score), 0) AS avg_score')
+            ->first();
 
-        $total = $allResponses->count();
-        $promoters = $allResponses->where('score', '>=', 9)->count();
-        $detractors = $allResponses->where('score', '<=', 6)->count();
-
-        $npsScore = $total > 0 ? round((($promoters - $detractors) / $total) * 100) : 0;
+        $total     = (int) ($agg->total ?? 0);
+        $promoters = (int) ($agg->promoters ?? 0);
+        $passives  = (int) ($agg->passives ?? 0);
+        $detractors = (int) ($agg->detractors ?? 0);
+        $avgScore  = round((float) ($agg->avg_score ?? 0), 1);
+        $npsScore  = $total > 0 ? (int) round((($promoters - $detractors) / $total) * 100) : 0;
 
         $stats = [
-            'total' => $total,
-            'promoters' => $promoters,
-            'passives' => $allResponses->where('score', '>=', 7)->where('score', '<=', 8)->count(),
+            'total'      => $total,
+            'promoters'  => $promoters,
+            'passives'   => $passives,
             'detractors' => $detractors,
-            'nps_score' => $npsScore,
-            'avg_score' => $total > 0 ? round($allResponses->avg('score'), 1) : 0,
+            'nps_score'  => $npsScore,
+            'avg_score'  => $avgScore,
         ];
 
         return view('super-admin.nps.index', compact('responses', 'stats'));

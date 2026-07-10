@@ -57,6 +57,16 @@ class DashboardController extends Controller
         // FIXED (Round 4): uses AnalyticsEvent instead of the deleted GalleryEvent.
         // The table was renamed from gallery_events to analytics_events by
         // migration 2026_06_22_000001.
+        //
+        // E-2 FIX (Iter-011): Mirrors the AnalyticsController::show pattern —
+        // read from analytics_daily for days 1-6 (pre-aggregated, fast) and
+        // raw analytics_events ONLY for today (not yet rolled up). Previously
+        // every dashboard load ran 3 COUNT queries + 1 DATE() GROUP BY query
+        // against the raw events table — slow at scale (1000+ galleries ×
+        // 100+ views/day × 7 days = 700k+ rows scanned per dashboard load).
+        //
+        // Also cached for 5 minutes via Cache::flexible — the dashboard is
+        // the most-visited admin page; making it the slowest was backwards.
         $galleryIds = (clone $galleriesScope)->pluck('id');
 
         $viewsToday = 0;
@@ -66,37 +76,56 @@ class DashboardController extends Controller
 
         if ($galleryIds->isNotEmpty()) {
             $now    = now();
-            $day0   = $now->copy()->startOfDay();
-            $day7   = $now->copy()->subDays(7);
-            $day14  = $now->copy()->subDays(14);
+            $today  = $now->toDateString();
+            $day7   = $now->copy()->subDays(7)->toDateString();
+            $day14  = $now->copy()->subDays(14)->toDateString();
 
-            $viewsToday = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
-                ->where('event', 'view')
-                ->where('created_at', '>=', $day0)
-                ->count();
+            $cacheKey = "dashboard:analytics:u{$user->id}:" . ($team ? "t{$team->id}" : 'personal');
 
-            $views7 = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
-                ->where('event', 'view')
-                ->where('created_at', '>=', $day7)
-                ->count();
+            $cached = \Illuminate\Support\Facades\Cache::flexible($cacheKey, [now()->addMinutes(5), now()->addMinutes(10)], function () use ($galleryIds, $now, $today, $day7, $day14) {
+                // Today's views from raw events (today is not yet in the rollup).
+                $viewsToday = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
+                    ->where('event', 'view')
+                    ->whereDate('created_at', $today)
+                    ->count();
 
-            $viewsPrev7 = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
-                ->where('event', 'view')
-                ->whereBetween('created_at', [$day14, $day7])
-                ->count();
+                // Last 7 days from rollup (days 1-6) + today from raw events.
+                $views7Rollup = DB::table('analytics_daily')
+                    ->whereIn('gallery_id', $galleryIds)
+                    ->where('date', '>=', $day7)
+                    ->where('date', '<', $today)
+                    ->sum('views');
+                $views7 = $views7Rollup + $viewsToday;
 
-            $rawChart = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
-                ->where('event', 'view')
-                ->where('created_at', '>=', $now->copy()->subDays(6)->startOfDay())
-                ->selectRaw('DATE(created_at) as date, COUNT(*) as count')
-                ->groupBy('date')
-                ->pluck('count', 'date');
+                // Prior 7 days from rollup.
+                $viewsPrev7 = DB::table('analytics_daily')
+                    ->whereIn('gallery_id', $galleryIds)
+                    ->whereBetween('date', [$day14, $day7])
+                    ->sum('views');
 
-            $viewsChart = collect(range(6, 0))->mapWithKeys(function ($d) use ($rawChart, $now) {
-                $date  = $now->copy()->subDays($d)->toDateString();
-                $label = $now->copy()->subDays($d)->format('D');
-                return [$label => (int) ($rawChart->get($date, 0))];
+                // 7-day chart: 6 days from rollup + today from raw events.
+                $rollupDays = DB::table('analytics_daily')
+                    ->whereIn('gallery_id', $galleryIds)
+                    ->where('date', '>=', $now->copy()->subDays(6)->toDateString())
+                    ->where('date', '<', $today)
+                    ->selectRaw('date, SUM(views) as views')
+                    ->groupBy('date')
+                    ->pluck('views', 'date');
+
+                $viewsChart = collect(range(6, 0))->mapWithKeys(function ($d) use ($rollupDays, $now, $viewsToday) {
+                    $date  = $now->copy()->subDays($d)->toDateString();
+                    $label = $now->copy()->subDays($d)->format('D');
+                    $count = $d === 0 ? $viewsToday : (int) ($rollupDays[$date] ?? 0);
+                    return [$label => $count];
+                });
+
+                return compact('viewsToday', 'views7', 'viewsPrev7', 'viewsChart');
             });
+
+            $viewsToday = $cached['viewsToday'];
+            $views7     = $cached['views7'];
+            $viewsPrev7 = $cached['viewsPrev7'];
+            $viewsChart = collect($cached['viewsChart']);
         }
 
         $viewsTrend = $viewsPrev7 > 0

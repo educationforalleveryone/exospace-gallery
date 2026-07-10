@@ -148,16 +148,24 @@ class GalleryImage extends Model implements HasMedia
      *
      * Falls back to the legacy `path` column if no Spatie media exists
      * or if Spatie throws (corrupted media record, missing file, etc.).
+     *
+     * E-1 FIX (Iter-011): Memoizes the resolved Media object on the model
+     * instance so repeated calls within the same request are free, even
+     * if the controller forgot to eager-load 'media'. Spatie's
+     * InteractsWithMedia::loadMedia() already caches per-model, but only
+     * after the first call. We make the FIRST call memoize to a local
+     * property too, so getSrcsetAttribute + conversionUrl + getPublicUrl
+     * in the same render share a single resolution.
      */
     public function getPublicUrlAttribute(): string
     {
-        try {
-            $media = $this->getFirstMedia('original');
-            if ($media) {
+        $media = $this->getMemoizedMedia();
+        if ($media) {
+            try {
                 return $media->getUrl();
+            } catch (\Throwable $e) {
+                // Fall through to legacy path
             }
-        } catch (\Throwable $e) {
-            // Spatie media record is broken — fall back to legacy path
         }
         return asset($this->path);
     }
@@ -170,13 +178,15 @@ class GalleryImage extends Model implements HasMedia
      */
     public function conversionUrl(string $conversion): string
     {
-        try {
-            $media = $this->getFirstMedia('original');
-            if ($media && $media->hasGeneratedConversion($conversion)) {
-                return $media->getUrl($conversion);
+        $media = $this->getMemoizedMedia();
+        if ($media) {
+            try {
+                if ($media->hasGeneratedConversion($conversion)) {
+                    return $media->getUrl($conversion);
+                }
+            } catch (\Throwable $e) {
+                // Fall back to public_url
             }
-        } catch (\Throwable $e) {
-            // Spatie media record is broken — fall back
         }
         return $this->public_url;
     }
@@ -188,12 +198,12 @@ class GalleryImage extends Model implements HasMedia
      */
     public function getSrcsetAttribute(): string
     {
-        try {
-            $media = $this->getFirstMedia('original');
-            if (! $media) {
-                return $this->public_url . ' 2048w';
-            }
+        $media = $this->getMemoizedMedia();
+        if (! $media) {
+            return $this->public_url . ' 2048w';
+        }
 
+        try {
             $srcset = [];
             foreach (['small' => 768, 'medium' => 1024, 'large' => 2048] as $name => $width) {
                 if ($media->hasGeneratedConversion($name)) {
@@ -206,6 +216,36 @@ class GalleryImage extends Model implements HasMedia
             // Any Spatie error — fall back to legacy path
             return asset($this->path) . ' 2048w';
         }
+    }
+
+    /**
+     * E-1 FIX (Iter-011): Memoize the resolved Spatie Media object on this
+     * model instance. The first call resolves the media (either from the
+     * eager-loaded relation or via a DB query); subsequent calls return
+     * the cached object. Spatie's InteractsWithMedia has its own caching,
+     * but it's keyed differently and can re-query if the relation wasn't
+     * eager-loaded. This memo guarantees one resolution per model instance
+     * per request.
+     *
+     * Returns null if no media exists in the 'original' collection.
+     */
+    private ?Media $memoizedMedia = null;
+    private bool $memoizedMediaResolved = false;
+
+    private function getMemoizedMedia(): ?Media
+    {
+        if ($this->memoizedMediaResolved) {
+            return $this->memoizedMedia;
+        }
+
+        try {
+            $this->memoizedMedia = $this->getFirstMedia('original');
+        } catch (\Throwable $e) {
+            $this->memoizedMedia = null;
+        }
+        $this->memoizedMediaResolved = true;
+
+        return $this->memoizedMedia;
     }
 
     /**

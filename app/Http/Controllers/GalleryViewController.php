@@ -18,10 +18,19 @@ class GalleryViewController extends Controller
         // Allow resolution by slug OR by custom domain (Studio plan).
         // The DetectCustomDomain middleware may have populated
         // request()->attributes->get('resolved_gallery') for CNAME requests.
+        //
+        // E-1 FIX (Iter-011): Added 'images.media' to the eager-load chain.
+        // Previously only 'images.artist' was eager-loaded — every call to
+        // $image->getSrcsetAttribute() or $image->conversionUrl() (which
+        // both call $this->getFirstMedia('original')) issued a separate DB
+        // query. On a 20-image gallery, that's 20+ extra queries per render.
+        // Spatie's InteractsWithMedia caches media on the model instance
+        // once loaded, so eager-loading 'media' here means all subsequent
+        // getFirstMedia() calls in the view are free.
         $gallery = $request->attributes->get('resolved_gallery')
             ?? Gallery::where('slug', $slug)
                 ->where('is_active', true)
-                ->with(['images.artist', 'user', 'venueTemplate'])
+                ->with(['images.artist', 'images.media', 'user', 'venueTemplate'])
                 ->firstOrFail();
 
         // If the resolved-by-domain gallery's slug doesn't match the URL slug,
