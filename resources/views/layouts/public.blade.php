@@ -44,6 +44,13 @@
     <link rel="manifest" href="{{ asset('site.webmanifest') }}">
     <meta name="theme-color" content="#0f1117">
 
+    {{-- I-6 FIX (Iter-013): RSS auto-discovery link.
+        RSS readers (Feedly, Inoreader, NetNewsWire) look for this <link>
+        tag in the page <head> to auto-discover the feed. Without it, users
+        have to manually paste the /feed.xml URL. The feed exists at
+        /feed.xml (SitemapController::feed) but readers couldn't find it. --}}
+    <link rel="alternate" type="application/rss+xml" title="Exospace — Featured 3D Exhibitions" href="{{ url('/feed.xml') }}">
+
     <style>
         html { scroll-behavior: smooth; }
         @media (prefers-reduced-motion: reduce) {

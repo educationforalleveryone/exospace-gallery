@@ -149,4 +149,8 @@
     </div>
 </section>
 
+{{-- I-2 FIX (Iter-013): Organization JSON-LD for rich results in Google SERPs.
+    Renders the company name, logo, and description in Google's knowledge panel. --}}
+<x-json-ld type="organization" />
+
 @endsection

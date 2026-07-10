@@ -72,6 +72,11 @@ class SitemapController extends Controller
             ['url' => route('terms'), 'priority' => '0.3', 'changefreq' => 'yearly'],
             ['url' => route('refund'), 'priority' => '0.3', 'changefreq' => 'yearly'],
             ['url' => route('security'), 'priority' => '0.3', 'changefreq' => 'yearly'],
+            // I-3 FIX (Iter-013): /changelog and /status were missing from the
+            // sitemap. Both are public, crawlable routes. /changelog changes
+            // monthly (release notes); /status changes hourly (uptime display).
+            ['url' => route('changelog'), 'priority' => '0.5', 'changefreq' => 'monthly'],
+            ['url' => route('status'), 'priority' => '0.3', 'changefreq' => 'hourly'],
         ];
 
         // Include static pages only on page 1
@@ -108,6 +113,7 @@ class SitemapController extends Controller
 
         // (Task H13) — static pages. Previously only /, /discover, /pricing
         // were in the sitemap. Now all public-facing pages are included.
+        // I-3 FIX (Iter-013): Added /changelog and /status (were missing).
         $staticPages = [
             ['url' => route('welcome'), 'priority' => '1.0', 'changefreq' => 'weekly'],
             ['url' => route('discover'), 'priority' => '0.9', 'changefreq' => 'daily'],
@@ -118,6 +124,8 @@ class SitemapController extends Controller
             ['url' => route('terms'), 'priority' => '0.3', 'changefreq' => 'yearly'],
             ['url' => route('refund'), 'priority' => '0.3', 'changefreq' => 'yearly'],
             ['url' => route('security'), 'priority' => '0.3', 'changefreq' => 'yearly'],
+            ['url' => route('changelog'), 'priority' => '0.5', 'changefreq' => 'monthly'],
+            ['url' => route('status'), 'priority' => '0.3', 'changefreq' => 'hourly'],
         ];
 
         return response()

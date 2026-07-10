@@ -539,4 +539,19 @@
         <button onclick="document.getElementById('upgrade-modal-studio').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
     </div>
 </div>
+
+{{-- I-2 FIX (Iter-013): Product + FAQPage JSON-LD for rich results in Google SERPs.
+    Renders price snippets (Free/Pro/Studio) + FAQ accordion directly in
+    search results. Without these schemas, Google won't show the FAQ
+    accordion or the price range in SERPs. --}}
+<x-json-ld type="product" :product="['name' => 'Pro', 'price' => 29.00, 'currency' => 'USD', 'description' => 'Exospace Pro plan — unlimited galleries, custom domains, advanced analytics.']" />
+<x-json-ld type="product" :product="['name' => 'Studio', 'price' => 99.00, 'currency' => 'USD', 'description' => 'Exospace Studio plan — everything in Pro plus priority support and white-label branding.']" />
+<x-json-ld type="faq-page" :faqs="[
+    ['question' => 'Is there a free trial for Pro?', 'answer' => 'The Free plan is your trial — create a gallery, upload images, and experience the full 3D viewer with two venues. Upgrade anytime when you\'re ready.'],
+    ['question' => 'Can I upgrade later?', 'answer' => 'Yes. Start Free and upgrade to Pro or Studio at any time. Your existing gallery and images carry over instantly.'],
+    ['question' => 'What payment methods do you accept?', 'answer' => 'We accept all major credit cards, PayPal, and other methods available through 2Checkout at checkout.'],
+    ['question' => 'What happens to my gallery if I don\'t upgrade?', 'answer' => 'Nothing. Your gallery stays live and public. The only difference is the small "Created with Exospace" watermark in the corner.'],
+    ['question' => 'Are the 3D venues pre-built or can I customize them?', 'answer' => 'Each venue is a fully-realized 3D environment with its own architecture, lighting, and atmosphere. Within a venue, you can customize wall material, floor material, frame style, and lighting preset to fine-tune the look.'],
+]" />
+
 @endsection

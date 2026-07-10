@@ -5,6 +5,13 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
+        {{-- I-1 FIX (Iter-013): noindex,nofollow on all admin/auth pages.
+            Covers ~80 admin views (dashboard, galleries, billing, profile,
+            teams, super-admin) with one line. Prevents Google from indexing
+            authenticated user content (gallery lists, billing history, etc.)
+            that may leak through weak auth or session-token-in-URL bugs. --}}
+        <meta name="robots" content="noindex,nofollow">
+
         <title>{{ config('app.name', 'Exospace') }} — {{ isset($pageTitle) ? $pageTitle : 'Dashboard' }}</title>
 
         <!-- Fonts: Inter for body, display weight for headings -->

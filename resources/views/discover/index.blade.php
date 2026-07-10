@@ -136,4 +136,12 @@
             </div>
         @endif
     </div>
+
+{{-- I-2 FIX (Iter-013): ItemList JSON-LD for the discover page.
+    Renders the top 10 featured galleries as a structured list in Google
+    search results. Improves discoverability and CTR from SERPs. --}}
+@if($galleries->isNotEmpty())
+    <x-json-ld type="item-list" :items="$galleries->take(10)" />
+@endif
+
 @endsection

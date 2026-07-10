@@ -5,6 +5,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
+        {{-- I-1 FIX (Iter-013): noindex,nofollow on all auth pages.
+            robots.txt is a hint, not enforcement — Google can still index
+            URLs linked from public pages. This meta tag tells Googlebot
+            explicitly NOT to index or follow links on auth pages (login,
+            register, forgot-password, etc.). One-line change covers all
+            ~12 auth views that extend this layout. --}}
+        <meta name="robots" content="noindex,nofollow">
+
         <title>{{ config('app.name', 'Exospace') }}</title>
 
         <!-- Fonts -->
