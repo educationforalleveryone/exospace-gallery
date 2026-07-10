@@ -121,6 +121,14 @@ Schedule::command('exospace:anonymize-pii')
     ->withoutOverlapping(120)
     ->onOneServer();
 
+// G-6 FIX (Iter-010): Scrub PII from old admin_audit_logs.payload.
+// Runs after exospace:anonymize-pii so all PII retention happens in
+// one monthly batch (predictable operator schedule).
+Schedule::command('exospace:anonymize-audit-pii')
+    ->monthlyOn(1, '06:00')
+    ->withoutOverlapping(120)
+    ->onOneServer();
+
 // A-5 FIX (Iter-006): Process scheduled GDPR deletion requests.
 // Deletes users whose 30-day grace period has expired.
 Schedule::call(function () {

@@ -93,26 +93,56 @@ class UserDeletionService
         //    portrait file and null the column so the artist record doesn't
         //    point at a missing file.
         //
-        //    G-7 FIX (Iter-003, partial): Also null the artist's email if it
-        //    matches the deleted user's email (GDPR leak prevention — the
-        //    audit H6 finding). Full artist email nulling is deferred because
-        //    artists may have a legitimate public contact email unrelated to
-        //    the deleted user.
+        //    G-7 FIX (Iter-003 partial, Iter-010 complete): Also null the
+        //    artist's email AND replace the name with "Anonymous Artist" if
+        //    the artist's email matches the deleted user's email (GDPR leak
+        //    prevention — audit G-7). Iter-003 only nulled the email; Iter-010
+        //    also nulls the name per the audit recommendation ("replace name
+        //    with 'Anonymous Artist' or similar").
+        //
+        //    Rationale: artists may have a legitimate public contact email
+        //    unrelated to the deleted user (e.g. an artist represented by
+        //    multiple curators). We only null when the email matches the
+        //    deleted user's email — at that point, the artist record's email
+        //    is the deleted user's PII and must be removed. The name is also
+        //    nulled because curators often use their own name as the artist
+        //    name (same person = same PII).
         $userEmail = strtolower($user->email ?? '');
         $user->createdArtists()->whereNotNull('portrait_path')->chunkById(50, function ($artists) use ($userEmail) {
             foreach ($artists as $artist) {
                 $this->deletePublicDiskFile($artist->getOriginal('portrait_path'));
                 $updates = ['portrait_path' => null];
 
-                // G-7 FIX (partial): If the artist's email matches the deleted
-                // user's email, null it (GDPR — the artist email is PII).
+                // G-7 FIX (Iter-010): If the artist's email matches the deleted
+                // user's email, null email + replace name with "Anonymous Artist"
+                // (GDPR — both fields are PII when they match the deleted user).
                 if ($userEmail && strtolower($artist->email ?? '') === $userEmail) {
                     $updates['email'] = null;
+                    $updates['name']  = 'Anonymous Artist';
                 }
 
                 $artist->forceFill($updates)->save();
             }
         });
+
+        // 3b. G-7 FIX (Iter-010): Also process artists where the email matches
+        //     the deleted user's email BUT portrait_path is already null
+        //     (the Iter-003 fix only ran on artists with non-null portrait_path).
+        //     This catches artists whose portrait was already removed in a
+        //     prior cleanup but whose email + name still match the deleted user.
+        if ($userEmail) {
+            $user->createdArtists()
+                ->whereNull('portrait_path')
+                ->whereRaw('LOWER(email) = ?', [$userEmail])
+                ->chunkById(50, function ($artists) {
+                    foreach ($artists as $artist) {
+                        $artist->forceFill([
+                            'email' => null,
+                            'name'  => 'Anonymous Artist',
+                        ])->save();
+                    }
+                });
+        }
 
         // 4. Coolify custom-domain cleanup for any Studio galleries.
         //    Delegates to PlanDowngradeService which calls
