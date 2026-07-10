@@ -1,8 +1,17 @@
-{{-- M-10: Invoice PDF/HTML template.
+{{-- M-10 + Iter-008 (2CO-7 + O-10): VAT-compliant Invoice PDF template.
+
+    Iter-008 changes:
+      - Now renders customer VAT number (B2B)
+      - Now renders supplier VAT number (always shown if configured)
+      - Now renders tax_country_code alongside the tax line
+      - Now renders "Reverse charge — VAT accounted for by customer"
+        notation when reverse_charge=true (B2B intra-EU / EU→UK)
+      - Tax block hidden entirely when no tax AND no reverse charge
+        (avoids showing a meaningless "Tax (0%): $0.00" line on US invoices)
+
     Rendered by InvoiceGenerator::generatePdf() and stored on the public disk.
-    The founder should replace the HTML storage with a proper PDF library
-    (dompdf/snappy) — this Blade view is structured to be PDF-compatible
-    (simple table layout, no external CSS/JS, print-friendly). --}}
+    Uses dompdf-compatible HTML (simple table layout, no external CSS/JS).
+--}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,7 +20,7 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; margin: 0; padding: 40px; font-size: 14px; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
-        .logo { font-size: 24px; font-weight: bold; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .logo { font-size: 24px; font-weight: bold; color: #667eea; }
         .invoice-meta { text-align: right; }
         .invoice-meta h1 { font-size: 28px; margin: 0 0 8px 0; color: #1f2937; }
         .invoice-meta .number { font-size: 14px; color: #6b7280; }
@@ -23,9 +32,10 @@
         .table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; padding: 12px 16px; border-bottom: 2px solid #e5e7eb; }
         .table td { padding: 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
         .table .amount { text-align: right; font-variant-numeric: tabular-nums; }
-        .totals { margin-left: auto; width: 300px; }
+        .totals { margin-left: auto; width: 320px; }
         .totals-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
         .totals-row.total { border-top: 2px solid #e5e7eb; margin-top: 8px; padding-top: 16px; font-size: 18px; font-weight: bold; }
+        .reverse-charge-note { margin-top: 12px; padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; font-size: 12px; color: #92400e; }
         .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center; }
         @media print { body { padding: 20px; } }
     </style>
@@ -39,6 +49,9 @@
                     {{ config('app.business_address') }}
                 @else
                     Exospace Gallery
+                @endif
+                @if($invoice->supplier_vat_number)
+                    <br>Supplier VAT: {{ $invoice->supplier_vat_number }}
                 @endif
             </p>
         </div>
@@ -58,6 +71,9 @@
                 @if($invoice->billing_address)
                     <br>{{ $invoice->billing_address }}
                 @endif
+                @if($invoice->customer_vat_number)
+                    <br>VAT/Tax ID: {{ $invoice->customer_vat_number }}
+                @endif
             </div>
         </div>
         <div class="section" style="text-align: right;">
@@ -65,6 +81,9 @@
             <div class="section-content">
                 Plan: <strong style="text-transform: capitalize;">{{ $invoice->plan }}</strong><br>
                 Currency: {{ $invoice->currency }}<br>
+                @if($invoice->tax_country_code)
+                    Tax Country: {{ $invoice->tax_country_code }}<br>
+                @endif
                 @if($invoice->transaction_id)
                     Transaction: {{ $invoice->transaction->invoice_id ?? 'N/A' }}
                 @endif
@@ -97,15 +116,25 @@
     </table>
 
     <div class="totals">
-        @if($invoice->tax_amount > 0)
         <div class="totals-row">
             <span>Subtotal</span>
             <span>{{ $invoice->formattedSubtotal() }}</span>
         </div>
-        <div class="totals-row">
-            <span>Tax ({{ $invoice->tax_rate }}%)</span>
-            <span>{{ $invoice->formattedTax() }}</span>
-        </div>
+        @if($invoice->reverse_charge)
+            <div class="totals-row">
+                <span>VAT (Reverse charge)</span>
+                <span>{{ $invoice->currency }} 0.00</span>
+            </div>
+            <div class="reverse-charge-note">
+                <strong>Reverse charge — VAT accounted for by customer.</strong><br>
+                Pursuant to Article 194 of Council Directive 2006/112/EC, the liability
+                to pay VAT is transferred to the taxable customer.
+            </div>
+        @elseif($invoice->tax_amount > 0)
+            <div class="totals-row">
+                <span>Tax ({{ $invoice->tax_rate }}%{{ $invoice->tax_country_code ? ' · ' . $invoice->tax_country_code : '' }})</span>
+                <span>{{ $invoice->formattedTax() }}</span>
+            </div>
         @endif
         <div class="totals-row total">
             <span>Total</span>

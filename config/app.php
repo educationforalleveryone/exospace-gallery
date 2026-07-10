@@ -70,6 +70,44 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Supplier VAT Number + Country (Iter-008 / audit 2CO-7 + O-10)
+    |--------------------------------------------------------------------------
+    |
+    | The supplier's own VAT/GST/Tax ID. Rendered on every invoice PDF.
+    | Used by TaxService to determine reverse-charge applicability:
+    | if the supplier is in the EU and the customer is in another EU
+    | country (B2B), reverse charge applies. If the supplier is outside
+    | the EU (e.g. US), reverse charge never applies for EU customers.
+    |
+    | Set EXOSPACE_SUPPLIER_VAT_NUMBER to your registered VAT/GST ID.
+    | Set EXOSPACE_SUPPLIER_COUNTRY to your 2-letter ISO country code
+    | (default 'US'). For a UK supplier: GB + GB VAT number. For an
+    | EU supplier: e.g. DE + DE VAT number.
+    |
+    | Leave both empty if you have no VAT registration — invoices will
+    | be issued with 0% tax and no supplier VAT number.
+    |
+    */
+
+    'supplier_vat_number' => env('EXOSPACE_SUPPLIER_VAT_NUMBER'),
+    'supplier_country'    => env('EXOSPACE_SUPPLIER_COUNTRY', 'US'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tax Default Country (Iter-008 / audit 2CO-7)
+    |--------------------------------------------------------------------------
+    |
+    | Fallback country code when GeoIP cannot determine the customer's
+    | country. Defaults to 'US' (no VAT charged on US sales for non-US
+    | suppliers). Override with a real GeoIP package (stevebauman/location
+    | or torann/geoip) for production accuracy.
+    |
+    */
+
+    'tax_default_country' => env('EXOSPACE_TAX_DEFAULT_COUNTRY', 'US'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

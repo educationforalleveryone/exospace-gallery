@@ -42,20 +42,40 @@ use Illuminate\Support\Str;
  *   a DB-level SELECT FOR UPDATE on the invoices table's MAX(invoice_number).
  *
  * Tax handling:
- *   Tax is calculated based on the user's billing address (if provided)
- *   + the configured tax rates. For now, tax defaults to 0 — the founder
- *   should configure tax rates per jurisdiction (M-11 VAT/TAX handling,
- *   deferred to a future iteration). The invoice stores tax_amount +
- *   tax_rate so the PDF shows the correct breakdown.
+ *   Iteration-008 (audit 2CO-7): Tax is now calculated via TaxService
+ *   based on the customer's country (from billing_address or GeoIP) and
+ *   optional VAT number (for B2B reverse charge). Supports EU VAT (MOSS),
+ *   UK VAT, Norway VAT, Switzerland VAT, Australia GST, Singapore GST,
+ *   India GST. VIES validation for EU B2B reverse charge.
+ *
+ *   The InvoiceGenerator accepts optional $overrides for tax_rate and
+ *   tax_amount (back-compat with callers that pre-computed tax) but if
+ *   neither is provided, TaxService is called with the customer's IP,
+ *   billing country, and VAT number to compute tax live. This closes
+ *   the "every invoice has tax_amount=0" gap (audit 2CO-7).
+ *
+ *   The invoice stores tax_amount + tax_rate + customer_vat_number +
+ *   supplier_vat_number + tax_country_code + reverse_charge so the PDF
+ *   can render a fully VAT-compliant invoice (audit O-10).
  */
 class InvoiceGenerator
 {
+    public function __construct(
+        private readonly TaxService $taxService,
+    ) {}
+
     /**
      * Generate an invoice for a transaction.
      *
      * @param  Transaction  $transaction
      * @param  User         $user
-     * @param  array        $overrides  Optional field overrides (e.g. billing_address)
+     * @param  array        $overrides  Optional field overrides:
+     *     - billing_address: string — customer's billing address
+     *     - customer_vat_number: string — customer's VAT/GST ID (B2B)
+     *     - customer_country: string — 2-letter ISO country code
+     *     - customer_ip: string — IP for GeoIP fallback
+     *     - tax_rate: float — pre-computed tax rate (skips TaxService)
+     *     - tax_amount: float — pre-computed tax amount (skips TaxService)
      * @return Invoice|null  The created Invoice, or null on failure.
      */
     public function generateForTransaction(Transaction $transaction, User $user, array $overrides = []): ?Invoice
@@ -63,25 +83,52 @@ class InvoiceGenerator
         try {
             $invoiceNumber = $this->generateInvoiceNumber();
 
-            // Calculate tax (defaults to 0 — M-11 will add jurisdiction-based rates)
             $amount = (float) $transaction->amount;
+
+            // Iter-008: compute tax via TaxService (audit 2CO-7 fix).
+            // Callers can still pre-compute tax via $overrides for backward
+            // compat, but the default path now produces real tax amounts.
             $taxRate = (float) ($overrides['tax_rate'] ?? 0);
             $taxAmount = $taxRate > 0 ? round($amount * $taxRate / 100, 2) : 0;
+            $reverseCharge = false;
+            $taxCountryCode = $overrides['customer_country'] ?? null;
+            $customerVatNumber = $overrides['customer_vat_number'] ?? null;
+            $supplierVatNumber = TaxService::supplierVatNumber();
+
+            // If no tax_rate override was passed, ask TaxService.
+            // This is the path that closes the "tax_amount=0" gap.
+            if ($taxRate === 0.0 && empty($overrides['tax_rate'])) {
+                $customerIp = $overrides['customer_ip'] ?? request()?->ip() ?? '0.0.0.0';
+                $taxBreakdown = $this->taxService->calculateTax(
+                    $customerIp,
+                    $amount,
+                    $overrides['customer_country'] ?? null,
+                    $customerVatNumber,
+                );
+                $taxRate = $taxBreakdown['rate'];
+                $taxAmount = $taxBreakdown['amount'];
+                $reverseCharge = $taxBreakdown['is_reverse_charge'];
+                $taxCountryCode = $taxBreakdown['country'];
+            }
 
             $invoice = Invoice::create([
-                'user_id'         => $user->id,
-                'transaction_id'  => $transaction->id,
-                'invoice_number'  => $invoiceNumber,
-                'amount'          => $amount,
-                'tax_amount'      => $taxAmount,
-                'tax_rate'        => $taxRate,
-                'currency'        => $transaction->currency,
-                'plan'            => $transaction->plan,
-                'customer_name'   => $transaction->customer_name ?? $user->name,
-                'customer_email'  => $transaction->customer_email ?? $user->email,
-                'billing_address' => $overrides['billing_address'] ?? null,
-                'pdf_path'        => null, // set after PDF generation
-                'issued_at'       => now(),
+                'user_id'              => $user->id,
+                'transaction_id'       => $transaction->id,
+                'invoice_number'       => $invoiceNumber,
+                'amount'               => $amount,
+                'tax_amount'           => $taxAmount,
+                'tax_rate'             => $taxRate,
+                'currency'             => $transaction->currency,
+                'plan'                 => $transaction->plan,
+                'customer_name'        => $transaction->customer_name ?? $user->name,
+                'customer_email'       => $transaction->customer_email ?? $user->email,
+                'billing_address'      => $overrides['billing_address'] ?? null,
+                'customer_vat_number'  => $customerVatNumber,
+                'supplier_vat_number'  => $supplierVatNumber,
+                'tax_country_code'     => $taxCountryCode,
+                'reverse_charge'       => $reverseCharge,
+                'pdf_path'             => null, // set after PDF generation
+                'issued_at'            => now(),
             ]);
 
             // Generate the PDF (2CO-6 FIX: real PDF via dompdf)
@@ -89,12 +136,16 @@ class InvoiceGenerator
             $invoice->forceFill(['pdf_path' => $pdfPath])->save();
 
             Log::info('InvoiceGenerator: invoice created', [
-                'invoice_id'      => $invoice->id,
-                'invoice_number'  => $invoiceNumber,
-                'transaction_id'  => $transaction->id,
-                'user_id'         => $user->id,
-                'amount'          => $amount,
-                'pdf_path'        => $pdfPath,
+                'invoice_id'        => $invoice->id,
+                'invoice_number'    => $invoiceNumber,
+                'transaction_id'    => $transaction->id,
+                'user_id'           => $user->id,
+                'amount'            => $amount,
+                'tax_rate'          => $taxRate,
+                'tax_amount'        => $taxAmount,
+                'reverse_charge'    => $reverseCharge,
+                'tax_country_code'  => $taxCountryCode,
+                'pdf_path'          => $pdfPath,
             ]);
 
             return $invoice;
