@@ -951,7 +951,18 @@
         }
 
         // ─── Dropzone Config ────────────────────────────────────
-        Dropzone.options.imageUploadDropzone = {
+        // FIX (Iter-002): this used to be assigned directly to
+        // `Dropzone.options.imageUploadDropzone`, which threw
+        // "Dropzone is not defined" whenever this script ran before the
+        // async @vite('admin-vendor.js') module (which sets window.Dropzone)
+        // had finished loading — a plain classic <script> doesn't wait for a
+        // type="module" script to finish. Made this a plain object (no
+        // reference to the Dropzone global) and moved the actual
+        // Dropzone.autoDiscover / instantiation into a ready-check bootstrap
+        // below, which also re-attaches correctly after Turbo navigations
+        // instead of relying on Dropzone's own one-shot DOMContentLoaded
+        // auto-discovery.
+        const exospaceDropzoneOptions = {
             paramName: "file",
             maxFilesize: 10,
             maxFiles: 100,
@@ -1032,6 +1043,35 @@
                 });
             }
         };
+
+        // ─── Dropzone bootstrap ───────────────────────────────
+        // Waits for admin-vendor.js to finish loading (window.Dropzone),
+        // then manually attaches to #image-upload-dropzone. Runs on initial
+        // load and on every turbo:load so it also works after navigating to
+        // this page via Turbo (Dropzone's built-in autoDiscover only ever
+        // runs once, on the page's first DOMContentLoaded).
+        (function initGalleryDropzone(attemptsLeft) {
+            if (typeof Dropzone === 'undefined') {
+                if (attemptsLeft === undefined) attemptsLeft = 30;
+                if (attemptsLeft <= 0) {
+                    console.error('Dropzone.js failed to load — image upload widget not initialized.');
+                    return;
+                }
+                setTimeout(() => initGalleryDropzone(attemptsLeft - 1), 100);
+                return;
+            }
+            Dropzone.autoDiscover = false;
+            const el = document.getElementById('image-upload-dropzone');
+            if (el && !el.dropzone) {
+                new Dropzone(el, exospaceDropzoneOptions);
+            }
+        })();
+        document.addEventListener('turbo:load', () => {
+            const el = document.getElementById('image-upload-dropzone');
+            if (el && !el.dropzone && typeof Dropzone !== 'undefined') {
+                new Dropzone(el, exospaceDropzoneOptions);
+            }
+        });
 
         // ── CSP-safe helper functions for data-click / data-input attributes ──
         // These replace inline onclick="..." / oninput="..." handlers that CSP blocks.
@@ -1474,10 +1514,21 @@
         }, true);
 
         // ─── BUGFIX: SortableJS init + saveOrder/discardOrder (Round 4) ────
-        (function() {
+        // FIX (Iter-002): Sortable is loaded async via @vite('admin-vendor.js').
+        // The old code did a single check and permanently gave up ("Reorder
+        // init skipped") if that module hadn't finished loading yet — which
+        // also meant window.saveOrder/discardOrder never got defined for the
+        // rest of the page's life. Retry for a few seconds instead of
+        // bailing on the first attempt.
+        (function initReorder(attemptsLeft) {
             const grid = document.getElementById('gallery-grid');
             if (!grid || typeof Sortable === 'undefined') {
-                console.warn('Reorder init skipped: grid or Sortable not available');
+                if (attemptsLeft === undefined) attemptsLeft = 30;
+                if (attemptsLeft <= 0) {
+                    console.warn('Reorder init skipped: grid or Sortable not available');
+                    return;
+                }
+                setTimeout(() => initReorder(attemptsLeft - 1), 100);
                 return;
             }
 
