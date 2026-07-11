@@ -152,32 +152,60 @@
         @if(session('warning')) toast("{{ session('warning') }}", 'error'); @endif
 
         // Keyboard shortcut: G+D = dashboard, G+G = galleries
-        let lastKey = null, lastTime = 0;
-        document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            const now = Date.now();
-            if (e.key === 'g' && lastKey === 'g' && now - lastTime < 600) {
-                window.location.href = '{{ route('admin.dashboard') }}';
-                return;
-            }
-            if (lastKey === 'g' && now - lastTime < 600) {
-                if (e.key === 'd') { window.location.href = '{{ route('admin.dashboard') }}'; return; }
-                if (e.key === 'l') { window.location.href = '{{ route('admin.galleries.index') }}'; return; }
-                if (e.key === 'n') { window.location.href = '{{ route('admin.galleries.create') }}'; return; }
-            }
-            lastKey = e.key; lastTime = now;
-        });
+        // FIX (Iter-002): Turbo Drive re-inserts/re-executes this <script>
+        // block's contents on every navigation. A top-level `let lastKey` is
+        // fine on a real full page load, but on the SECOND Turbo navigation
+        // the browser throws "Identifier 'lastKey' has already been declared"
+        // because the previous `let` is still alive in this same JS realm —
+        // Turbo never reloads the document. That uncaught SyntaxError was
+        // aborting Turbo's body-swap mid-flight, which is also why dropdowns,
+        // modals, and other page elements appeared to "randomly pop"/freeze
+        // after navigating. Wrapping in an IIFE + a one-time guard fixes the
+        // redeclaration and stops us from stacking a fresh keydown listener
+        // on `document` (which persists across Turbo navigations) every visit.
+        if (!window.__exospaceShortcutsInit) {
+            window.__exospaceShortcutsInit = true;
+            (function() {
+                let lastKey = null, lastTime = 0;
+                document.addEventListener('keydown', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                    const now = Date.now();
+                    if (e.key === 'g' && lastKey === 'g' && now - lastTime < 600) {
+                        window.location.href = '{{ route('admin.dashboard') }}';
+                        return;
+                    }
+                    if (lastKey === 'g' && now - lastTime < 600) {
+                        if (e.key === 'd') { window.location.href = '{{ route('admin.dashboard') }}'; return; }
+                        if (e.key === 'l') { window.location.href = '{{ route('admin.galleries.index') }}'; return; }
+                        if (e.key === 'n') { window.location.href = '{{ route('admin.galleries.create') }}'; return; }
+                    }
+                    lastKey = e.key; lastTime = now;
+                });
+            })();
+        }
         </script>
         <script nonce="@nonce">
         function openModal(id)  { const m=document.getElementById(id); m.style.display='flex'; m.classList.add('flex'); }
         function closeModal(id) { const m=document.getElementById(id); m.style.display='none'; m.classList.remove('flex'); }
         // close on backdrop click
-        document.addEventListener('DOMContentLoaded',()=>{
-            document.querySelectorAll('[role="dialog"]').forEach(m=>{
-                m.addEventListener('click', e=>{ if(e.target===m) closeModal(m.id); });
+        // FIX (Iter-002): this used to query [role="dialog"] and bind a click
+        // listener directly to each modal found at DOMContentLoaded time.
+        // DOMContentLoaded fires once per real page load — Turbo Drive swaps
+        // in new pages (with new modals) without ever firing it again, so
+        // any modal on a Turbo-navigated page had no backdrop-click or
+        // Escape-to-close behavior. Switched to delegated listeners on
+        // `document` (bound once, guarded) which work for modals present now
+        // or added to any future page.
+        if (!window.__exospaceModalHandlersInit) {
+            window.__exospaceModalHandlersInit = true;
+            document.addEventListener('click', e => {
+                const m = e.target.closest('[role="dialog"]');
+                if (m && e.target === m) closeModal(m.id);
             });
-            document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('[role="dialog"]').forEach(m=>closeModal(m.id)); });
-        });
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') document.querySelectorAll('[role="dialog"]').forEach(m => closeModal(m.id));
+            });
+        }
         // alias for existing calls
         function showUpgradeModal(){ openModal('upgrade-modal'); }
         </script>
@@ -187,18 +215,35 @@
         // CSP blocks. Any <img> tagged with class `venue-thumb-img` (or any
         // img carrying `data-fallback-hide`) that fails to load is hidden so
         // the CSS gradient / placeholder sibling shows through.
-        document.addEventListener('DOMContentLoaded', () => {
+        // FIX (Iter-002): this used to bind an 'error' listener directly to
+        // each matching <img> found at DOMContentLoaded time. DOMContentLoaded
+        // only fires once (Turbo Drive swaps <body> on later navigations
+        // without reloading the document), so images on every page after the
+        // first never got this handler at all — broken thumbnails stayed
+        // visible as browser broken-image icons instead of being hidden.
+        // 'error' doesn't bubble, so we listen on `document` with
+        // capture=true instead: bound once, survives every Turbo navigation,
+        // and covers images added at any point in the future.
+        if (!window.__exospaceImgFallbackInit) {
+            window.__exospaceImgFallbackInit = true;
             const hide = (img) => {
                 img.style.visibility = 'hidden';
                 img.setAttribute('aria-hidden', 'true');
             };
-            document.querySelectorAll('img.venue-thumb-img, img[data-fallback-hide]').forEach(img => {
-                // If the browser already tried and failed before our listener
-                // attached (cached 404), check complete/naturalWidth.
-                if (img.complete && img.naturalWidth === 0) hide(img);
-                img.addEventListener('error', () => hide(img));
-            });
-        });
+            const scanForCached404s = () => {
+                document.querySelectorAll('img.venue-thumb-img, img[data-fallback-hide]').forEach(img => {
+                    // If the browser already tried and failed before our listener
+                    // attached (cached 404), check complete/naturalWidth.
+                    if (img.complete && img.naturalWidth === 0) hide(img);
+                });
+            };
+            document.addEventListener('error', (e) => {
+                const img = e.target;
+                if (img.tagName === 'IMG' && img.matches('.venue-thumb-img, [data-fallback-hide]')) hide(img);
+            }, true);
+            document.addEventListener('turbo:load', scanForCached404s);
+            scanForCached404s();
+        }
 
         // ── CSP-safe logout links ─────────────────────────────────────────────
         // The navigation has <a href="/logout" onclick="event.preventDefault();

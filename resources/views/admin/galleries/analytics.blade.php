@@ -178,11 +178,25 @@
     {{-- Chart.js ──────────────────────────────────────────────────────── --}}
     @vite(['resources/js/admin-vendor.js'])
     <script nonce="@nonce">
-        // Show skeleton briefly then reveal real content
+        // Show skeleton briefly then reveal real content.
+        // FIX (Iter-002): Chart.js is loaded async via @vite('admin-vendor.js'),
+        // a <script type="module">. Under Turbo Drive, that module script can
+        // still be fetching/evaluating when this classic script runs after a
+        // page swap, so `new Chart(...)` was sometimes called before
+        // window.Chart existed ("Chart is not defined"). Poll for window.Chart
+        // instead of assuming a fixed delay is always enough.
+        function waitForChartThenInit(attemptsLeft) {
+            if (window.Chart) { initChart(); return; }
+            if (attemptsLeft <= 0) {
+                console.error('Chart.js failed to load (admin-vendor.js) — views chart not rendered.');
+                return;
+            }
+            setTimeout(function() { waitForChartThenInit(attemptsLeft - 1); }, 100);
+        }
         setTimeout(function() {
             document.getElementById('analytics-skeleton').style.display = 'none';
             document.getElementById('analytics-content').style.display = 'block';
-            initChart();
+            waitForChartThenInit(30);
         }, 1200);
 
         function initChart() {
