@@ -91,7 +91,7 @@
             </button>
             <button type="button" id="lp-open-public"
                     class="text-xs text-purple-300 hover:text-purple-200 border border-purple-700/50 hover:border-purple-500 rounded-lg px-3 py-1.5 transition"
-                    onclick="window.open('{{ route('gallery.view', $gallery->slug) }}', '_blank')">
+                    data-click="openNewTab" data-arg="{{ route('gallery.view', $gallery->slug) }}">
                 Open public view
             </button>
         </div>
@@ -313,7 +313,10 @@
 </div>
 
 {{-- ── Inline script: postMessage host + slider state management ─────── --}}
-<script>
+<script nonce="@nonce">
+// CSP-safe helper for "open in new tab" buttons (replaced inline onclick)
+window.openNewTab = function(url, e) { window.open(url, '_blank'); };
+
 (function () {
     const iframe = document.getElementById('live-preview-iframe');
     const overlay = document.getElementById('lp-iframe-overlay');

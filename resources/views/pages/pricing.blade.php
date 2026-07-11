@@ -256,7 +256,7 @@
         @elseif($currentPlan === 'studio')
         <span class="btn btn-primary" style="opacity:0.7;cursor:default;pointer-events:none;">Included in Studio ✓</span>
         @else
-        <a href="#" class="btn btn-primary" onclick="document.getElementById('upgrade-modal-pro').style.display='flex'; return false;">Upgrade to Pro — $29</a>
+        <a href="#" class="btn btn-primary" data-click="openModalAnchor" data-arg="upgrade-modal-pro">Upgrade to Pro — $29</a>
         @endif
     </div>
 
@@ -307,7 +307,7 @@
         @if($currentPlan === 'studio')
         <span class="btn btn-outline" style="opacity:0.7;cursor:default;pointer-events:none;">Your Current Plan ✓</span>
         @else
-        <a href="#" class="btn btn-outline" onclick="document.getElementById('upgrade-modal-studio').style.display='flex'; return false;">Upgrade to Studio — $99</a>
+        <a href="#" class="btn btn-outline" data-click="openModalAnchor" data-arg="upgrade-modal-studio">Upgrade to Studio — $99</a>
         @endif
     </div>
 </div>
@@ -475,7 +475,7 @@
 </section>
 
 <!-- Pro Upgrade Modal -->
-<div id="upgrade-modal-pro" role="dialog" aria-modal="true" aria-labelledby="modal-pro-title" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+<div id="upgrade-modal-pro" role="dialog" aria-modal="true" aria-labelledby="modal-pro-title" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
     <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
 
         <h3 id="modal-pro-title" style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Pro — $29</h3>
@@ -504,12 +504,12 @@
         <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}?redirect={{ urlencode('billing/upgrade/pro') }}" style="color:#8b5cf6; text-decoration:underline;">Log in</a></p>
         @endauth
         <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
-        <button onclick="document.getElementById('upgrade-modal-pro').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
+        <button data-click="closeModal" data-arg="upgrade-modal-pro" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
     </div>
 </div>
 
 <!-- Studio Upgrade Modal -->
-<div id="upgrade-modal-studio" role="dialog" aria-modal="true" aria-labelledby="modal-studio-title" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+<div id="upgrade-modal-studio" role="dialog" aria-modal="true" aria-labelledby="modal-studio-title" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
     <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
 
         <h3 id="modal-studio-title" style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Studio — $99</h3>
@@ -536,9 +536,20 @@
         <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}?redirect={{ urlencode('billing/upgrade/studio') }}" style="color:#f59e0b; text-decoration:underline;">Log in</a></p>
         @endauth
         <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
-        <button onclick="document.getElementById('upgrade-modal-studio').style.display='none'" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
+        <button data-click="closeModal" data-arg="upgrade-modal-studio" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
     </div>
 </div>
+
+{{-- CSP-safe helper for opening modals from <a href="#"> anchors
+    (replaced inline onclick). Calls preventDefault so the anchor
+    doesn't navigate to "#", then defers to the public layout's
+    openModal(). --}}
+<script nonce="@nonce">
+window.openModalAnchor = function(id, e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (window.openModal) window.openModal(id);
+};
+</script>
 
 {{-- I-2 FIX (Iter-013): Product + FAQPage JSON-LD for rich results in Google SERPs.
     Renders price snippets (Free/Pro/Studio) + FAQ accordion directly in

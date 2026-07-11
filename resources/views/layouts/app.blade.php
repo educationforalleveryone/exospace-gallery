@@ -123,7 +123,7 @@
         <!-- Toast notification system -->
         <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
 
-        <script>
+        <script nonce="@nonce">
         // Global toast utility
         window.toast = function(message, type = 'success') {
             const colors = { success: 'bg-gray-900 border-green-500/40', error: 'bg-gray-900 border-red-500/40', info: 'bg-gray-900 border-gray-600' };
@@ -168,7 +168,7 @@
             lastKey = e.key; lastTime = now;
         });
         </script>
-        <script>
+        <script nonce="@nonce">
         function openModal(id)  { const m=document.getElementById(id); m.style.display='flex'; m.classList.add('flex'); }
         function closeModal(id) { const m=document.getElementById(id); m.style.display='none'; m.classList.remove('flex'); }
         // close on backdrop click
@@ -180,6 +180,99 @@
         });
         // alias for existing calls
         function showUpgradeModal(){ openModal('upgrade-modal'); }
+        </script>
+        <script nonce="@nonce">
+        // ── CSP-safe image fallback ────────────────────────────────────────────
+        // Replaces inline `onerror="this.style.display='none'"` handlers that
+        // CSP blocks. Any <img> tagged with class `venue-thumb-img` (or any
+        // img carrying `data-fallback-hide`) that fails to load is hidden so
+        // the CSS gradient / placeholder sibling shows through.
+        document.addEventListener('DOMContentLoaded', () => {
+            const hide = (img) => {
+                img.style.visibility = 'hidden';
+                img.setAttribute('aria-hidden', 'true');
+            };
+            document.querySelectorAll('img.venue-thumb-img, img[data-fallback-hide]').forEach(img => {
+                // If the browser already tried and failed before our listener
+                // attached (cached 404), check complete/naturalWidth.
+                if (img.complete && img.naturalWidth === 0) hide(img);
+                img.addEventListener('error', () => hide(img));
+            });
+        });
+
+        // ── CSP-safe logout links ─────────────────────────────────────────────
+        // The navigation has <a href="/logout" onclick="event.preventDefault();
+        //   this.closest('form').submit();">Sign out</a> wrapped in a <form>.
+        // CSP blocks the inline onclick. We replace it with a delegated
+        // listener: any element with [data-logout-link] inside a <form> will
+        // submit that form instead of navigating.
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('[data-logout-link]').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const form = el.closest('form');
+                    if (form) form.submit();
+                });
+            });
+
+            // ── CSP-safe confirm-on-submit forms ──────────────────────────────
+            // Replaces inline onsubmit="return confirm('...')" with a delegated
+            // listener. Any form carrying data-confirm="..." will prompt.
+            document.querySelectorAll('form[data-confirm]').forEach(form => {
+                form.addEventListener('submit', (e) => {
+                    if (!window.confirm(form.dataset.confirm)) {
+                        e.preventDefault();
+                    }
+                });
+            });
+
+            // ── CSP-safe confirm-on-click buttons/links ───────────────────────
+            document.querySelectorAll('[data-confirm-click]').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    if (!window.confirm(el.dataset.confirmClick)) {
+                        e.preventDefault();
+                    }
+                });
+            });
+
+            // ── CSP-safe delegated action handlers ────────────────────────────
+            // Replaces inline onclick="fn(arg)" / onchange="fn(this)" /
+            // oninput="fn(this, event)" with declarative attributes:
+            //
+            //   <button data-click="deleteImage" data-arg="42">Delete</button>
+            //   <button data-click="dashboardShare" data-args='["https://...", "Title"]'>Share</button>
+            //   <input data-change="uploadAudioFile">
+            //   <input data-input="syncCurtainColor">
+            //
+            // The handler resolves window[fn] and calls it.
+            //   - data-arg (string):  fn(arg, event)
+            //   - data-args (JSON):   fn(...args, event)
+            //   - neither:            fn(el, event)
+            const delegate = (eventName, attr) => {
+                document.addEventListener(eventName, (e) => {
+                    const el = e.target.closest(`[${attr}]`);
+                    if (!el) return;
+                    const fn = window[el.getAttribute(attr)];
+                    if (typeof fn !== 'function') return;
+                    if (el.dataset.args) {
+                        try {
+                            const args = JSON.parse(el.dataset.args);
+                            fn.call(el, ...args, e);
+                        } catch (err) {
+                            console.warn('[data-action] invalid JSON args:', el.dataset.args, err);
+                        }
+                    } else if (el.dataset.arg !== undefined) {
+                        fn.call(el, el.dataset.arg, e);
+                    } else {
+                        fn.call(el, el, e);
+                    }
+                });
+            };
+            delegate('click', 'data-click');
+            delegate('change', 'data-change');
+            delegate('input', 'data-input');
+            delegate('submit', 'data-submit');
+        });
         </script>
         {{-- M-19: In-app feedback widget (floating button on all admin pages) --}}
         @include('components.feedback-widget')

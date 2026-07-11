@@ -7,7 +7,7 @@
      *   - No entrance curtain (auto-enters on load)
      *   - No PIN gate / time-gate / view-count bump
      *   - Hides newsletter + share UI (curator preview, not a visitor session)
-     *   - Loads an extra <script> block that listens for postMessage patches
+     *   - Loads an extra <script nonce="@nonce"> block that listens for postMessage patches
      *     from the parent window and forwards them to GalleryScene.applyLiveOverride()
      *
      * The parent window (admin/galleries/edit page) sends two message types:
@@ -100,14 +100,14 @@
 
     {{-- Pass gallery data to the 3D viewer.
         Same shape as view.blade.php so GalleryScene doesn't need a special path. --}}
-    <script>
+    <script nonce="@nonce">
         window.GALLERY_DATA = @json($galleryData);
         window.EXOSPACE_PREVIEW_MODE = true;
     </script>
 
     {{-- Preview client: listens for postMessage patches from the parent
         window and forwards them to the running GalleryScene. --}}
-    <script>
+    <script nonce="@nonce">
     (function () {
         const ALLOWED_ORIGIN = window.location.origin;
 

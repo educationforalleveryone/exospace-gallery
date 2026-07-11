@@ -48,7 +48,7 @@
                             </div>
                             <div class="flex gap-2 flex-shrink-0">
                                 <a href="{{ route('admin.galleries.events.edit', [$gallery, $event]) }}" class="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-medium transition">Edit</a>
-                                <form method="POST" action="{{ route('admin.galleries.events.destroy', [$gallery, $event]) }}" onsubmit="return confirm('Delete this event? All RSVPs will also be deleted.');">
+                                <form method="POST" action="{{ route('admin.galleries.events.destroy', [$gallery, $event]) }}" data-confirm="Delete this event? All RSVPs will also be deleted.">
                                     @csrf @method('DELETE')
                                     <button class="px-3 py-1.5 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-300 text-xs font-medium transition border border-red-800/40">Delete</button>
                                 </form>

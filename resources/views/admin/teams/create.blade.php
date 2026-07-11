@@ -53,7 +53,7 @@
                         </a>
                     </div>
 
-                    <script>
+                    <script nonce="@nonce">
                     document.querySelector('form').addEventListener('submit', function() {
                         const btn = document.getElementById('create-team-btn');
                         btn.disabled = true;

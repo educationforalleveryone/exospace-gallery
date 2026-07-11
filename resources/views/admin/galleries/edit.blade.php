@@ -360,7 +360,8 @@
                                         <div class="venue-preview" style="background: {{ $atm['bg'] }};">
                                             <img src="/assets/thumbnails/{{ $venue->slug }}.jpg"
                                                  alt="{{ $venue->name }}"
-                                                 onerror="this.style.display='none'">
+                                                 class="venue-thumb-img"
+                                                 loading="lazy">
                                             <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
                                                 <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.7);">{{ $atm['emoji'] }}</span>
                                                 <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:32px;height:3px;border-radius:2px;background:{{ $atm['accent'] }};opacity:0.6;box-shadow:0 0 8px {{ $atm['accent'] }};"></div>
@@ -476,7 +477,7 @@
                                 <!-- Upload Input -->
                                 <div class="relative">
                                     <input type="file" id="audio-upload-input" accept=".mp3,.wav,.m4a"
-                                        onchange="uploadAudioFile(this)"
+                                        data-change="uploadAudioFile"
                                         class="block w-full text-sm text-gray-300
                                             file:mr-4 file:py-2 file:px-4
                                             file:rounded-lg file:border-0
@@ -507,7 +508,7 @@
                                             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                             <span id="audio-error-message">Upload failed</span>
                                         </div>
-                                        <button type="button" onclick="document.getElementById('audio-upload-input').click()"
+                                        <button type="button" data-click="triggerFileInput" data-arg="audio-upload-input"
                                                 class="flex-shrink-0 text-xs bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-700/50 px-2.5 py-1 rounded-lg transition">
                                             Retry
                                         </button>
@@ -553,7 +554,7 @@
                                 <!-- Upload Input -->
                                 <div class="relative">
                                     <input type="file" id="logo-upload-input" accept=".png,.svg,.jpg,.jpeg"
-                                        onchange="uploadLogoFile(this)"
+                                        data-change="uploadLogoFile"
                                         class="block w-full text-sm text-gray-300
                                             file:mr-4 file:py-2 file:px-4
                                             file:rounded-lg file:border-0
@@ -584,7 +585,7 @@
                                             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                             <span id="logo-error-message">Upload failed</span>
                                         </div>
-                                        <button type="button" onclick="document.getElementById('logo-upload-input').click()"
+                                        <button type="button" data-click="triggerFileInput" data-arg="logo-upload-input"
                                                 class="flex-shrink-0 text-xs bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-700/50 px-2.5 py-1 rounded-lg transition">
                                             Retry
                                         </button>
@@ -765,7 +766,7 @@
                                                value="{{ old('curtain_bg_color', $gallery->curtain_bg_color) }}"
                                                placeholder="#0a0a14"
                                                class="flex-1 rounded-md bg-gray-700 border-gray-600 text-gray-100 px-3 py-2 text-sm font-mono"
-                                               oninput="document.querySelector('input[name=curtain_bg_color]').value = this.value">
+                                               data-input="syncCurtainColorPreview">
                                     </div>
                                     <p class="text-xs text-gray-500 mt-1">Override the default dark gradient with a solid color.</p>
                                     <label class="text-xs text-gray-400 flex items-center gap-1 mt-2">
@@ -869,13 +870,13 @@
                         </h3>
                         @if($gallery->images->count() > 0)
                             <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer hover:text-purple-400 transition-colors select-none">
-                                <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()"
+                                <input type="checkbox" id="select-all-checkbox" data-change="toggleSelectAll"
                                        class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-2 focus:ring-purple-500 focus:ring-offset-0 focus:ring-offset-gray-800">
                                 <span>Select All</span>
                             </label>
                         @endif
                     </div>
-                    <button id="bulk-delete-btn" onclick="bulkDelete()" style="display: none;"
+                    <button id="bulk-delete-btn" data-click="bulkDelete" style="display: none;"
                             class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-all shadow-lg shadow-red-900/20 flex items-center gap-2 transform hover:scale-[1.02]">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -892,7 +893,7 @@
                                 <!-- 3B: Selection Checkbox -->
                                 <div class="absolute top-3 left-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                     <input type="checkbox" value="{{ $image->id }}"
-                                           onchange="updateSelection()"
+                                           data-change="updateSelection"
                                            class="image-checkbox w-5 h-5 rounded border-gray-600 bg-gray-700 text-purple-600 shadow-lg focus:ring-2 focus:ring-purple-500 cursor-pointer transition-all">
                                 </div>
 
@@ -907,7 +908,7 @@
                                 </div>
 
                                 <!-- Delete Button: Pro Style -->
-                                <button onclick="deleteImage({{ $image->id }})"
+                                <button data-click="deleteImage" data-arg="{{ $image->id }}"
                                         type="button"
                                         class="absolute top-3 right-3 bg-red-600/80 hover:bg-red-600 text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100"
                                         title="Delete Image">
@@ -938,7 +939,7 @@
 
     <!-- Dropzone & Scripts -->
     
-    <script>
+    <script nonce="@nonce">
         // ─── Toast Notification System ───────────────────────────
         function toast(message, type = 'info') {
             const container = document.getElementById('toast-container');
@@ -1032,6 +1033,36 @@
             }
         };
 
+        // ── CSP-safe helper functions for data-click / data-input attributes ──
+        // These replace inline onclick="..." / oninput="..." handlers that CSP blocks.
+        // The delegated listener in layouts/app.blade.php dispatches to these.
+        window.triggerFileInput = function(inputId) {
+            const el = document.getElementById(inputId);
+            if (el) el.click();
+        };
+        window.syncCurtainColorPreview = function(input) {
+            // Sync the text color input to the hidden color input (and vice-versa)
+            const colorInput = document.querySelector('input[name="curtain_bg_color"]');
+            if (colorInput && input.value) colorInput.value = input.value;
+        };
+        window.closestOverlayRemove = function(el) {
+            // Used by Cancel buttons inside dynamically-inserted confirm overlays
+            const overlay = el.closest('.absolute');
+            if (overlay) overlay.remove();
+        };
+        window.removeBulkConfirmBar = function() {
+            const bar = document.getElementById('bulk-confirm-bar');
+            if (bar) bar.remove();
+        };
+        window.closeUnsavedChangesModal = function() {
+            const m = document.getElementById('unsaved-changes-modal');
+            if (m) m.style.display = 'none';
+        };
+        window.closeUnsavedChangesModalIfBackdrop = function(el, e) {
+            // Only close if the click landed directly on the backdrop (not modal content)
+            if (e.target === el) el.style.display = 'none';
+        };
+
         // ─── Delete Single Image (inline confirm overlay) ───────
         function deleteImage(id) {
             const el = document.getElementById(`image-${id}`);
@@ -1041,8 +1072,8 @@
             overlay.innerHTML = `
                 <p class="text-xs text-gray-300 text-center px-2">Delete permanently?</p>
                 <div class="flex gap-2">
-                    <button onclick="confirmDeleteImage(${id})" class="bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">Delete</button>
-                    <button onclick="this.closest('.absolute').remove()" class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-medium px-3 py-1.5 rounded-lg transition">Cancel</button>
+                    <button data-click="confirmDeleteImage" data-arg="${id}" class="bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">Delete</button>
+                    <button data-click="closestOverlayRemove" class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-medium px-3 py-1.5 rounded-lg transition">Cancel</button>
                 </div>`;
             el.style.position = 'relative';
             el.appendChild(overlay);
@@ -1143,12 +1174,16 @@
             bar.innerHTML = `
                 <svg class="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 <p class="flex-1 text-sm text-red-200">Delete <strong>${ids.length} image${ids.length > 1 ? 's' : ''}</strong> permanently? This cannot be undone.</p>
-                <button onclick="executeBulkDelete([${ids.join(',')}])" class="flex-shrink-0 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">Confirm Delete</button>
-                <button onclick="document.getElementById('bulk-confirm-bar').remove()" class="flex-shrink-0 text-xs text-gray-400 hover:text-gray-200 px-2 py-1.5 transition">Cancel</button>`;
+                <button data-click="executeBulkDelete" data-arg="${ids.join(',')}" class="flex-shrink-0 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">Confirm Delete</button>
+                <button data-click="removeBulkConfirmBar" class="flex-shrink-0 text-xs text-gray-400 hover:text-gray-200 px-2 py-1.5 transition">Cancel</button>`;
             document.getElementById('bulk-delete-btn').after(bar);
         }
 
         function executeBulkDelete(ids) {
+            // Accept either an array (legacy) or a comma-separated string (CSP-safe data-arg)
+            if (typeof ids === 'string') {
+                ids = ids.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+            }
             const bar = document.getElementById('bulk-confirm-bar');
             if (bar) bar.remove();
             const btn = document.getElementById('bulk-delete-btn');
@@ -1407,11 +1442,11 @@
     <div id="reorder-save-bar">
         <svg class="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
         <span>Order changed</span>
-        <button class="save-btn" onclick="saveOrder()">Save Order</button>
-        <button class="discard-btn" onclick="discardOrder()">Discard</button>
+        <button class="save-btn" data-click="saveOrder">Save Order</button>
+        <button class="discard-btn" data-click="discardOrder">Discard</button>
     </div>
 
-    <script>
+    <script nonce="@nonce">
         // Warn on navigate if order changed but not saved — use custom modal, not native dialog
         window._reorderHandler = e => {
             const reorderBar = document.getElementById('reorder-save-bar');
@@ -1536,7 +1571,7 @@
         })();
     </script>
 
-<script>
+<script nonce="@nonce">
 const editVenueDescriptions = {
     'white-cube':       'Minimal contemporary exhibition space.',
     'industrial-loft':  'Concrete, steel and large open spaces.',
@@ -1645,7 +1680,7 @@ if (preselectedCard) {
     }
 }
 </script>
-<script>
+<script nonce="@nonce">
 // Show inline save feedback next to the Update Settings button
 function showSaveFeedback(message, isSuccess) {
     const fb = document.getElementById('save-feedback');
@@ -1669,7 +1704,7 @@ function showSaveFeedback(message, isSuccess) {
 <!-- Custom "Unsaved changes" modal — replaces native browser dialog -->
 <div id="unsaved-changes-modal"
      style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); align-items:center; justify-content:center;"
-     onclick="if(event.target===this) this.style.display='none'">
+     data-click="closeUnsavedChangesModalIfBackdrop">
     <div style="background:#1f2937; border:1px solid #374151; border-radius:16px; padding:2rem; max-width:400px; width:90%; box-shadow:0 25px 60px rgba(0,0,0,0.5);">
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:1rem;">
             <div style="width:40px; height:40px; border-radius:10px; background:rgba(245,158,11,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
@@ -1681,7 +1716,7 @@ function showSaveFeedback(message, isSuccess) {
             </div>
         </div>
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:1.5rem;">
-            <button onclick="document.getElementById('unsaved-changes-modal').style.display='none'"
+            <button data-click="closeUnsavedChangesModal"
                     style="background:#374151; border:none; color:#d1d5db; font-size:0.875rem; font-weight:600; padding:0.6rem 1.25rem; border-radius:8px; cursor:pointer;">
                 Keep editing
             </button>

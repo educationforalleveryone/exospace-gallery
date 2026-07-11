@@ -299,7 +299,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="@nonce">
 document.getElementById('contact-form').addEventListener('submit', function(e) {
     e.preventDefault();
     let valid = true;

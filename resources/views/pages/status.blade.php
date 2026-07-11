@@ -78,10 +78,20 @@
 
     {{-- Back link --}}
     <div style="text-align: center; margin-top: 2rem;">
-        <a href="/" style="font-size: 0.85rem; color: #64748b; text-decoration: none; transition: color 0.2s;"
-           onmouseover="this.style.color='#8b5cf6'" onmouseout="this.style.color='#64748b'">
+        <a href="/" class="status-back-link" style="font-size: 0.85rem; color: #64748b; text-decoration: none; transition: color 0.2s;">
             ← Back to Exospace
         </a>
     </div>
+
+    <script nonce="@nonce">
+    // CSP-safe hover for back link (replaces inline onmouseover/onmouseout)
+    document.addEventListener('DOMContentLoaded', () => {
+        const link = document.querySelector('.status-back-link');
+        if (link) {
+            link.addEventListener('mouseenter', () => { link.style.color = '#8b5cf6'; });
+            link.addEventListener('mouseleave', () => { link.style.color = '#64748b'; });
+        }
+    });
+    </script>
 </div>
 @endsection

@@ -113,7 +113,7 @@
             @else
                 <svg class="w-4 h-4 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>
                 <span class="text-purple-400 hover:text-purple-300 transition cursor-pointer"
-                      onclick="navigator.clipboard?.writeText('{{ request()->schemeAndHttpHost() }}/gallery/' + '{{ $user->galleries()->where('is_active', true)->first()?->slug }}').then(() => window.toast?.('Gallery link copied!', 'success'))">
+                      data-click="copyGalleryLink" data-arg="{{ request()->schemeAndHttpHost() }}/gallery/{{ $user->galleries()->where('is_active', true)->first()?->slug }}">
                     Share your gallery link
                 </span>
             @endif
@@ -130,4 +130,15 @@
     </div>
     @endif
 </div>
+
+{{-- CSP-safe helper for the copy-to-clipboard step (replaced inline onclick) --}}
+<script nonce="@nonce">
+window.copyGalleryLink = function(url, e) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(function() {
+            if (window.toast) window.toast('Gallery link copied!', 'success');
+        });
+    }
+};
+</script>
 @endif

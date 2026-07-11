@@ -153,7 +153,7 @@
                                         </button>
                                     </form>
                                     <form method="POST" action="{{ route('super.venues.destroy', $venue) }}"
-                                          onsubmit="return confirm('Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue.');"
+                                          data-confirm="Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue."
                                           class="inline">
                                         @csrf @method('DELETE')
                                         <button class="text-xs text-red-500 hover:text-red-400 transition">Delete</button>

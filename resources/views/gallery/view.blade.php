@@ -325,7 +325,7 @@
         body.embed-mode #focus-exit-hint { display: none !important; }
         body.embed-mode #entrance-curtain { transition: opacity 0.3s ease !important; }
     </style>
-    <script>window.EXOSPACE_EMBED_MODE = true;</script>
+    <script nonce="@nonce">window.EXOSPACE_EMBED_MODE = true;</script>
     @endif
 </head>
 <body @if($isEmbed) class="embed-mode" @endif>
@@ -438,9 +438,7 @@
                  button is always visible (not gated by loading progress)
                  so visitors on slow connections aren't held hostage. --}}
             <a href="#" id="skip-intro-link"
-               style="display: block; margin-top: 1rem; font-size: 0.8rem; color: rgba(255,255,255,0.35); text-decoration: none; transition: color 0.2s;"
-               onmouseover="this.style.color='rgba(255,255,255,0.6)'"
-               onmouseout="this.style.color='rgba(255,255,255,0.35)'">
+               style="display: block; margin-top: 1rem; font-size: 0.8rem; color: rgba(255,255,255,0.35); text-decoration: none; transition: color 0.2s;">
                 Skip intro →
             </a>
 
@@ -453,7 +451,7 @@
             @endif
 
             @if(!request()->boolean('embed'))
-            <form onsubmit="return submitNewsletterSignup(this)"
+            <form id="newsletter-signup-form"
                   style="max-width: 380px; margin: 2.5rem auto 0; padding: 1rem 1.25rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; backdrop-filter: blur(8px);">
                 <p style="font-size: 0.8rem; color: rgba(255,255,255,0.75); margin-bottom: 0.75rem; letter-spacing: 0.04em;">JOIN THE LIST</p>
                 <div style="display: flex; gap: 8px;">
@@ -540,14 +538,12 @@
         <div class="absolute top-6 right-6 flex items-center gap-3">
             {{-- P2-16: Audio mute/unmute toggle button --}}
             <button id="audio-toggle"
-                onclick="toggleAudioMute()"
                 aria-label="Mute audio"
                 aria-pressed="false"
                 style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;width:44px;height:44px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;font-size:1.1rem;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
                 🔊
             </button>
             <button id="in-gallery-tour-btn"
-                onclick="startGuidedTour()"
                 style="display:flex;align-items:center;gap:6px;min-height:44px;padding:10px 16px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:rgba(255,255,255,0.75);font-size:0.8rem;font-weight:500;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
                 <svg style="width:14px;height:14px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 TOUR
@@ -602,7 +598,7 @@
                 {{-- (Task H45 / audit MX8) — Share this artwork button.
                      Generates a deep-link URL with ?artwork=<id> that
                      auto-focuses this artwork when visited. --}}
-                <button id="share-artwork-btn" onclick="shareArtwork()" class="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition mb-2" style="display:none;">
+                <button id="share-artwork-btn" class="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition mb-2" style="display:none;">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                     Share this artwork
                 </button>
@@ -659,7 +655,7 @@
     </div>
 
     {{-- ── Gallery data injection (consumed by main.js) ──────────────────────── --}}
-    <script>
+    <script nonce="@nonce">
         // (Task H35 / audit C4) — WebGL detection. If WebGL is unavailable,
         // show the fallback div and hide the curtain. The 3D viewer won't
         // try to boot.
@@ -821,6 +817,49 @@
                 });
             }
         };
+
+        // ── CSP-safe event wiring (replaces inline onclick / onsubmit / onmouseover) ──
+        // All UI buttons in the gallery viewer used to use inline event
+        // handlers (onclick="toggleAudioMute()", etc.) which CSP blocks.
+        // Wire them up here via addEventListener on DOMContentLoaded.
+        document.addEventListener('DOMContentLoaded', () => {
+            // Audio mute toggle
+            const audioBtn = document.getElementById('audio-toggle');
+            if (audioBtn && typeof window.toggleAudioMute === 'function') {
+                audioBtn.addEventListener('click', () => window.toggleAudioMute());
+            }
+            // Tour button (the one inside the gallery UI, not the curtain)
+            const tourBtn = document.getElementById('in-gallery-tour-btn');
+            if (tourBtn && typeof window.startGuidedTour === 'function') {
+                tourBtn.addEventListener('click', () => window.startGuidedTour());
+            }
+            // Share artwork button
+            const shareBtn = document.getElementById('share-artwork-btn');
+            if (shareBtn) {
+                shareBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.shareArtwork();
+                });
+            }
+            // Newsletter signup form
+            const newsletterForm = document.getElementById('newsletter-signup-form');
+            if (newsletterForm && typeof window.submitNewsletterSignup === 'function') {
+                newsletterForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    window.submitNewsletterSignup(newsletterForm);
+                });
+            }
+            // Skip-intro hover state (replaces inline onmouseover / onmouseout)
+            const skipLink = document.getElementById('skip-intro-link');
+            if (skipLink) {
+                skipLink.addEventListener('mouseenter', () => {
+                    skipLink.style.color = 'rgba(255,255,255,0.6)';
+                });
+                skipLink.addEventListener('mouseleave', () => {
+                    skipLink.style.color = 'rgba(255,255,255,0.35)';
+                });
+            }
+        });
     </script>
 </body>
 </html>

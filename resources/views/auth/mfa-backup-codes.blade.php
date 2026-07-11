@@ -31,7 +31,7 @@
                            class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg transition text-sm">
                             I've saved my codes — Continue →
                         </a>
-                        <button onclick="window.print()"
+                        <button data-click="windowPrint"
                                 class="inline-flex items-center px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition text-sm">
                             Print codes
                         </button>
@@ -40,4 +40,9 @@
             </div>
         </div>
     </div>
+
+    {{-- CSP-safe helper for the Print button (replaced inline onclick) --}}
+    <script nonce="@nonce">
+    window.windowPrint = function() { window.print(); };
+    </script>
 </x-app-layout>

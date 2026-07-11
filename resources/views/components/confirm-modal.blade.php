@@ -99,7 +99,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="@nonce">
 // Helper to open the modal from a button's onclick
 window.openConfirmModal = function(id) {
     const modal = document.getElementById(id);

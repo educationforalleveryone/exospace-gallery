@@ -241,7 +241,8 @@ $venueAtmospheres = [
                 <div class="venue-preview" style="background: {{ $atm['bg'] }};">
                     <img src="/assets/thumbnails/{{ $venue->slug }}.jpg"
                          alt="{{ $venue->name }}"
-                         onerror="this.style.display='none'">
+                         class="venue-thumb-img"
+                         loading="lazy">
                     <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
                         <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.7);">{{ $atm['emoji'] }}</span>
                         {{-- Accent glow dot --}}
@@ -384,7 +385,7 @@ $venueAtmospheres = [
         </div>
     </div>
 
-<script>
+<script nonce="@nonce">
 // Venue descriptions (matches slug)
 const venueDescriptions = {
     'white-cube':       'Minimal contemporary exhibition space. The professional standard.',

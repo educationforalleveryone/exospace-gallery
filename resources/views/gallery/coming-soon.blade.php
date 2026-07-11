@@ -143,7 +143,7 @@
         <a href="/" class="back">← Back to Exospace</a>
     </div>
 
-    <script>
+    <script nonce="@nonce">
         const opensAt = new Date('{{ \Carbon\Carbon::parse($gallery->opens_at)->toIso8601String() }}').getTime();
 
         function tick() {

@@ -24,12 +24,27 @@
  *
  * Dropdown-link items get role="menuitem" via the dropdown-link component.
  *
- * Backward compatibility: $trigger slot is still rendered inside the button.
- * Existing callers that pass a styled <button> as $trigger will nest buttons
- * (HTML allows this only for <button><span>...</span></button>; nested
- * <button> elements are technically invalid HTML but browsers render them).
- * Callers should now pass an <a> or <span> as the trigger — the outer
- * <button> element provides the click target.
+ * CSP FIX (Iter-014): The previous x-data attribute used `\\'` to escape
+ * single quotes inside a single-quoted JS string inside an HTML attribute.
+ * Blade passed the backslashes through verbatim, so the browser received
+ * `'[role=\\'menuitem\\']'` — JS parsed this as the string `[role=\`
+ * followed by an unexpected identifier `menuitem`, producing
+ * `SyntaxError: missing ) after argument list`. This single error
+ * killed Alpine.js initialization for the entire page, cascading into
+ * "cookieBanner is not defined" and every other Alpine expression on the
+ * page (because Alpine's evaluator runs in a try/catch and one bad
+ * expression can poison the rest of the walk).
+ *
+ * Fix: use HTML entity &quot; for the double quotes that wrap the
+ * menuitem value. HTML attribute parsing decodes &quot; back to ",
+ * so Alpine.js receives the JS expression
+ * `querySelectorAll('[role="menuitem"]')` — a single-quoted JS string
+ * containing a valid CSS attribute selector. No backslash escaping,
+ * no quote-collision, no Blade fight.
+ *
+ * Also fixed: `aria-expanded="open"` was a literal string, not a binding.
+ * Now `:aria-expanded="open.toString()"` so screen readers hear the
+ * actual open/closed state.
  */
 
 $alignmentClasses = match ($align) {
@@ -59,7 +74,7 @@ $dropdownId = 'dd-' . uniqid();
              this.$watch('open', (value) => {
                  if (value) {
                      this.$nextTick(() => {
-                         this.items = Array.from(this.$refs.panel.querySelectorAll('[role=\\'menuitem\\']'));
+                         this.items = Array.from(this.$refs.panel.querySelectorAll('[role=&quot;menuitem&quot;]'));
                      });
                  } else {
                      this.focusIndex = -1;
@@ -85,7 +100,7 @@ $dropdownId = 'dd-' . uniqid();
     <button type="button"
             id="{{ $dropdownId }}-trigger"
             aria-haspopup="true"
-            aria-expanded="open"
+            :aria-expanded="open.toString()"
             :aria-controls="'{{ $dropdownId }}-panel'"
             @click="open = ! open"
             class="focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">

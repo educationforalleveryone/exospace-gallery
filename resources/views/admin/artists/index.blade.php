@@ -52,7 +52,7 @@
                     <div class="px-4 pb-3 flex gap-2">
                         <a href="{{ route('admin.artists.edit', $artist) }}" class="flex-1 text-center bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-medium py-2 rounded-lg transition">Edit</a>
                         <form method="POST" action="{{ route('admin.artists.destroy', $artist) }}"
-                              onsubmit="return confirm('Delete artist &quot;{{ addslashes($artist->name) }}&quot;? Their artworks will remain but become unattributed.');"
+                              data-confirm="Delete artist &quot;{{ addslashes($artist->name) }}&quot;? Their artworks will remain but become unattributed."
                               class="inline">
                             @csrf @method('DELETE')
                             <button class="bg-red-900/40 hover:bg-red-900/60 text-red-300 text-xs font-medium py-2 px-3 rounded-lg transition border border-red-800/40">Delete</button>

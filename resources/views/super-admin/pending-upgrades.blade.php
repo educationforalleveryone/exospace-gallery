@@ -72,7 +72,7 @@
                         <form method="POST" action="{{ route('super.pending-upgrades.manual-upgrade', $pending) }}" class="inline">
                             @csrf
                             <button type="submit"
-                                    onclick="return exospaceConfirm(event, 'Manually upgrade {{ $pending->user->name }} to {{ ucfirst($pending->plan) }}? This bypasses 2Checkout payment verification.')"
+                                    data-submit="exospaceConfirmWrapper" data-arg="Manually upgrade {{ $pending->user->name }} to {{ ucfirst($pending->plan) }}? This bypasses 2Checkout payment verification."
                                     class="text-xs bg-purple-600 hover:bg-purple-500 text-white font-medium px-3 py-1.5 rounded-lg transition">
                                 Manual Upgrade
                             </button>
@@ -93,4 +93,12 @@
         {{ $pendingUpgrades->links() }}
     </div>
 </div>
+
+{{-- CSP-safe wrapper so exospaceConfirm receives (event, message) — the
+    delegated data-submit handler calls fn(arg, event). --}}
+<script nonce="@nonce">
+window.exospaceConfirmWrapper = function(arg, e) {
+    return window.exospaceConfirm(e, arg);
+};
+</script>
 </x-app-layout>

@@ -31,7 +31,7 @@
             <h3 class="text-red-300 font-semibold text-sm mb-2">Danger zone</h3>
             <p class="text-xs text-red-400/70 mb-3">Deleting a venue resets every gallery using it back to the default "white-cube" venue. This cannot be undone.</p>
             <form method="POST" action="{{ route('super.venues.destroy', $venue) }}"
-                  onsubmit="return confirm('Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue.');">
+                  data-confirm="Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue.">
                 @csrf @method('DELETE')
                 <button type="submit" class="px-4 py-2 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-300 text-sm font-medium transition border border-red-800/40">
                     Delete this venue

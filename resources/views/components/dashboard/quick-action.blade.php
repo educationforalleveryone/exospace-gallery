@@ -23,7 +23,7 @@ $cls = $disabled
 
 <a
     href="{{ $disabled ? '#' : $href }}"
-    @if($disabled) onclick="return false;" aria-disabled="true" @endif
+    @if($disabled) data-click="noopDisabled" aria-disabled="true" @endif
     class="flex flex-col items-center text-center p-3.5 rounded-xl border {{ $cls }}"
 >
     <div class="w-9 h-9 rounded-lg flex items-center justify-center mb-2.5 bg-current/10">

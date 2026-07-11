@@ -51,7 +51,7 @@
 
             {{-- Export helper --}}
             <div class="mt-4 text-right">
-                <button onclick="copyEmails()" class="text-xs text-purple-400 hover:text-purple-300 transition">Copy all emails</button>
+                <button data-click="copyEmails" class="text-xs text-purple-400 hover:text-purple-300 transition">Copy all emails</button>
             </div>
         @else
             <div class="text-center py-12 bg-gray-800/50 rounded-xl border border-gray-700/50">
@@ -60,7 +60,7 @@
         @endif
     </div>
 
-    <script>
+    <script nonce="@nonce">
         function copyEmails() {
             const emails = @json($rsvps->pluck('email')->unique()->values());
             const text = emails.join(', ');

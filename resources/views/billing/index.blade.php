@@ -102,7 +102,7 @@
                 @if($user->hasActiveSubscription())
                 <div class="mt-4">
                     <form action="{{ route('billing.cancel-subscription') }}" method="POST"
-                          onsubmit="return confirm('Cancel your subscription? You\'ll keep access until {{ $user->subscription_ends_at?->format('M j, Y') }}, then be downgraded to Free.');">
+                          data-confirm="Cancel your subscription? You'll keep access until {{ $user->subscription_ends_at?->format('M j, Y') }}, then be downgraded to Free.">
                         @csrf
                         <button type="submit"
                                 class="w-full bg-transparent border border-red-600/40 hover:bg-red-600/10 text-red-400 font-medium py-2 rounded-xl transition text-sm">

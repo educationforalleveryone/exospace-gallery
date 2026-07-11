@@ -48,7 +48,7 @@
                         New Gallery
                     </a>
                 @else
-                    <button onclick="showUpgradeModal()"
+                    <button data-click="showUpgradeModal"
                             class="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-300 font-semibold px-4 py-2 rounded-lg transition text-sm">
                         <svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
@@ -103,7 +103,7 @@
                     <span class="text-indigo-400 text-xs ml-1">Anyone with the link can explore it in 3D.</span>
                 </p>
                 @if($topGallery)
-                <button onclick="dashboardShare('{{ route('gallery.view', $topGallery->slug) }}', '{{ addslashes($topGallery->title) }}')"
+                <button data-click="dashboardShare" data-args='[{{ json_encode([route('gallery.view', $topGallery->slug), $topGallery->title]) }}]'
                         class="flex-shrink-0 inline-flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-2 rounded-lg transition">
                     Copy link
                 </button>
@@ -250,7 +250,7 @@
                                     </p>
                                 </div>
                                 @if($activeCount > 0 && $topGallery)
-                                    <button onclick="dashboardShare('{{ route('gallery.view', $topGallery->slug) }}', '{{ addslashes($topGallery->title) }}')"
+                                    <button data-click="dashboardShare" data-args='[{{ json_encode([route('gallery.view', $topGallery->slug), $topGallery->title]) }}]'
                                             class="flex-shrink-0 inline-flex items-center gap-1.5 text-xs bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-600/30 px-3 py-2 rounded-lg transition">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                                         Share gallery
@@ -407,7 +407,7 @@
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                 View
                             </a>
-                            <button onclick="dashboardShare('{{ route('gallery.view', $topGallery->slug) }}', '{{ addslashes($topGallery->title) }}')"
+                            <button data-click="dashboardShare" data-args='[{{ json_encode([route('gallery.view', $topGallery->slug), $topGallery->title]) }}]'
                                     class="flex items-center justify-center gap-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 rounded-lg transition">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                                 Share
@@ -498,11 +498,11 @@
     {{-- ── Share Modal (reuses the same pattern as galleries/index) ──────── --}}
     <div id="dashboard-share-modal"
          style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:50;align-items:center;justify-content:center;backdrop-filter:blur(4px);"
-         onclick="if(event.target===this)closeDashboardShare()">
+         data-click="closeBackdropIfTarget">
         <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold text-gray-100">Share Gallery</h3>
-                <button onclick="closeDashboardShare()" class="text-gray-400 hover:text-gray-200 transition p-1">
+                <button data-click="closeDashboardShare" class="text-gray-400 hover:text-gray-200 transition p-1">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
@@ -510,7 +510,7 @@
             <div class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2.5 mb-4">
                 <input id="ds-url" type="text" readonly
                        class="bg-transparent text-gray-300 flex-1 outline-none text-sm font-mono min-w-0"/>
-                <button onclick="copyDashboardUrl()"
+                <button data-click="copyDashboardUrl"
                         class="flex-shrink-0 flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                     <span id="ds-copy-label">Copy</span>
@@ -523,7 +523,7 @@
     {{-- ── Upgrade Modal ────────────────────────────────────────────────── --}}
     <div id="upgrade-modal"
          style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:50;align-items:center;justify-content:center;backdrop-filter:blur(4px);"
-         onclick="if(event.target===this)this.style.display='none'">
+         data-click="closeBackdropIfTarget">
         <div class="bg-gray-800 border border-purple-500/30 rounded-2xl p-8 max-w-sm w-full mx-4 text-center shadow-2xl">
             <div class="w-14 h-14 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
@@ -533,7 +533,7 @@
             <a href="/pricing" class="block w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-xl transition mb-2">
                 View Plans
             </a>
-            <button onclick="this.closest('#upgrade-modal').style.display='none'"
+            <button data-click="closeModalById" data-arg="upgrade-modal"
                     class="block w-full bg-gray-700 hover:bg-gray-600 text-gray-400 text-sm py-2.5 rounded-xl transition">
                 Maybe later
             </button>
@@ -592,7 +592,7 @@
     </div>
     @endif
 
-    <script>
+    <script nonce="@nonce">
     // ── Share modal ──────────────────────────────────────────────────────────
     function dashboardShare(url, title) {
         document.getElementById('ds-url').value   = url;
@@ -619,6 +619,10 @@
     function showUpgradeModal() {
         document.getElementById('upgrade-modal').style.display = 'flex';
     }
+
+    // CSP-safe delegated modal helpers (replaced inline onclick handlers)
+    window.closeModalById = function(id) { const m = document.getElementById(id); if (m) m.style.display = 'none'; };
+    window.closeBackdropIfTarget = function(el, e) { if (e.target === el) el.style.display = 'none'; };
 
     // ── ESC to close any modal ───────────────────────────────────────────────
     document.addEventListener('keydown', e => {

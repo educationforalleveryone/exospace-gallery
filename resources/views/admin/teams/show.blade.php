@@ -91,7 +91,7 @@
                                         <form action="{{ route('admin.teams.update-role', $team) }}" method="POST" class="role-form">
                                             @csrf @method('PATCH')
                                             <input type="hidden" name="user_id" value="{{ $member->id }}">
-                                            <select name="role" onchange="submitRoleChange(this)"
+                                            <select name="role" data-change="submitRoleChange"
                                                     class="text-xs bg-gray-700/80 border border-gray-600 text-gray-300 rounded-lg px-2.5 py-1.5 focus:border-purple-500 outline-none cursor-pointer hover:border-gray-500 transition">
                                                 <option value="editor" {{ $role === 'editor' ? 'selected' : '' }}>Editor</option>
                                                 <option value="viewer" {{ $role === 'viewer' ? 'selected' : '' }}>Viewer</option>
@@ -138,7 +138,7 @@
                         <p class="text-gray-500 text-xs mb-5">They'll receive an email with an invitation link valid for 7 days.</p>
 
                         <form action="{{ route('admin.teams.invite', $team) }}" method="POST" class="space-y-4"
-                              onsubmit="const btn=this.querySelector('button[type=submit]');btn.disabled=true;btn.innerHTML='<svg class=\'animate-spin w-4 h-4\' fill=\'none\' viewBox=\'0 0 24 24\'><circle class=\'opacity-25\' cx=\'12\' cy=\'12\' r=\'10\' stroke=\'currentColor\' stroke-width=\'4\'></circle><path class=\'opacity-75\' fill=\'currentColor\' d=\'M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z\'></path></svg> Sending…';">
+                              data-submit="disableSubmitButton">
                             @csrf
                             <div>
                                 <label for="invite-email" class="block text-xs font-medium text-gray-400 mb-1.5">Email address</label>
@@ -357,7 +357,7 @@
             </div>
         </div>
     </div>
-    <script>
+    <script nonce="@nonce">
     function submitRoleChange(select) {
         const form = select.closest('form');
         const original = select.dataset.original || select.querySelector('option:checked')?.textContent;
@@ -369,5 +369,14 @@
     document.querySelectorAll('.role-form select').forEach(s => {
         s.dataset.original = s.value;
     });
+
+    // CSP-safe delegated submit handler: disable button + show spinner
+    window.disableSubmitButton = function(form, e) {
+        const btn = form.querySelector('button[type=submit]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = "<svg class='animate-spin w-4 h-4' fill='none' viewBox='0 0 24 24'><circle class='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' stroke-width='4'></circle><path class='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z'></path></svg> Sending…";
+        }
+    };
     </script>
 </x-app-layout>

@@ -37,7 +37,7 @@
                         <form method="POST" action="{{ route('super.feedback.update-status', $item) }}" class="flex gap-1">
                             @csrf
                             @method('PATCH')
-                            <select name="status" onchange="this.form.submit()"
+                            <select name="status" data-change="submitForm"
                                     class="text-xs bg-gray-800 border border-gray-600 rounded-lg px-2 py-1 text-gray-300 focus:border-purple-500 outline-none">
                                 @foreach(['new', 'reviewed', 'resolved'] as $status)
                                     <option value="{{ $status }}" {{ $item->status === $status ? 'selected' : '' }}>{{ ucfirst($status) }}</option>
@@ -67,4 +67,11 @@
             </div>
         @endif
     </div>
+
+    {{-- CSP-safe delegated change handler: submit the parent form --}}
+    <script nonce="@nonce">
+    window.submitForm = function(el, e) {
+        if (el.form) el.form.submit();
+    };
+    </script>
 </x-app-layout>

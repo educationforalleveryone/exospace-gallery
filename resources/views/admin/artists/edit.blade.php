@@ -22,7 +22,7 @@
             <h3 class="text-red-300 font-semibold text-sm mb-2">Danger zone</h3>
             <p class="text-xs text-red-400/70 mb-3">Deleting an artist leaves their artworks intact but removes attribution.</p>
             <form method="POST" action="{{ route('admin.artists.destroy', $artist) }}"
-                  onsubmit="return confirm('Delete artist &quot;{{ addslashes($artist->name) }}&quot;?');">
+                  data-confirm="Delete artist &quot;{{ addslashes($artist->name) }}&quot;?">
                 @csrf @method('DELETE')
                 <button type="submit" class="px-4 py-2 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-300 text-sm font-medium transition border border-red-800/40">Delete artist</button>
             </form>

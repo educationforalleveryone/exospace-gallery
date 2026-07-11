@@ -115,7 +115,7 @@
         <p class="hint">Contact the gallery owner if you don't have the PIN.</p>
     </div>
 
-    <script>
+    <script nonce="@nonce">
         const digits  = document.querySelectorAll('.pin-digit');
         const hidden  = document.getElementById('pin-hidden');
         const submit  = document.getElementById('submit-btn');

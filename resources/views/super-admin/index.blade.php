@@ -191,7 +191,7 @@
                             @if(! $isSelf)
                             <form method="POST" action="{{ route('super.updatePlan', $user) }}">
                                 @csrf
-                                <select name="plan" onchange="if(confirm('Change plan for {{ addslashes($user->name) }}?')) this.form.submit();"
+                                <select name="plan" data-change="confirmChangePlan" data-arg="Change plan for {{ $user->name }}?"
                                         class="bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-white focus:border-red-500 outline-none">
                                     <option value="free"   {{ $user->plan === 'free'   ? 'selected' : '' }}>FREE</option>
                                     <option value="pro"    {{ $user->plan === 'pro'    ? 'selected' : '' }}>PRO</option>
@@ -231,13 +231,13 @@
                                     <form method="POST" action="{{ route('super.unbanUser', $user) }}">
                                         @csrf
                                         <button type="submit"
-                                                onclick="return confirm('Unban {{ addslashes($user->name) }}?')"
+                                                data-confirm-click="Unban {{ $user->name }}?"
                                                 class="px-3 py-1.5 bg-green-700 hover:bg-green-600 rounded-lg text-xs transition">
                                             ✅ Unban
                                         </button>
                                     </form>
                                 @else
-                                    <button onclick="openBanModal({{ $user->id }}, '{{ addslashes($user->name) }}')"
+                                    <button data-click="openBanModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}]'
                                             class="px-3 py-1.5 bg-orange-700 hover:bg-orange-600 rounded-lg text-xs transition">
                                         🚫 Ban
                                     </button>
@@ -248,7 +248,7 @@
                                     <form method="POST" action="{{ route('super.verifyEmail', $user) }}">
                                         @csrf
                                         <button type="submit"
-                                                onclick="return confirm('Manually verify email for {{ addslashes($user->name) }}?')"
+                                                data-confirm-click="Manually verify email for {{ $user->name }}?"
                                                 class="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 rounded-lg text-xs transition">
                                             ✉ Verify
                                         </button>
@@ -257,7 +257,7 @@
                                     <form method="POST" action="{{ route('super.unverifyEmail', $user) }}">
                                         @csrf
                                         <button type="submit"
-                                                onclick="return confirm('Revoke email verification for {{ addslashes($user->name) }}? They will need to verify again.')"
+                                                data-confirm-click="Revoke email verification for {{ $user->name }}? They will need to verify again."
                                                 class="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded-lg text-xs transition">
                                             ✉ Unverify
                                         </button>
@@ -267,13 +267,13 @@
                                 {{-- Toggle Super Admin --}}
                                 @if(! $user->is_super_admin)
                                     <button type="button"
-                                            onclick="openAdminModal({{ $user->id }}, '{{ addslashes($user->name) }}', 'grant')"
+                                            data-click="openAdminModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}, "grant"]'
                                             class="px-3 py-1.5 bg-purple-800 hover:bg-purple-700 rounded-lg text-xs transition">
                                         👑 Make Admin
                                     </button>
                                 @else
                                     <button type="button"
-                                            onclick="openAdminModal({{ $user->id }}, '{{ addslashes($user->name) }}', 'revoke')"
+                                            data-click="openAdminModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}, "revoke"]'
                                             class="px-3 py-1.5 bg-purple-900/50 border border-purple-700 hover:bg-purple-800 rounded-lg text-xs transition text-purple-300">
                                         👑 Revoke Admin
                                     </button>
@@ -285,7 +285,7 @@
                                     <form method="POST" action="{{ route('super.impersonate', $user) }}">
                                         @csrf
                                         <button type="submit"
-                                                onclick="return confirm('Log in as {{ addslashes($user->name) }}? You will see the site from their perspective. Click &quot;Return to admin&quot; to stop.')"
+                                                data-confirm-click="Log in as {{ $user->name }}? You will see the site from their perspective. Click &quot;Return to admin&quot; to stop."
                                                 class="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 rounded-lg text-xs transition">
                                             🔑 Login As
                                         </button>
@@ -296,7 +296,7 @@
                                 {{-- Delete --}}
                                 @if(! $user->is_super_admin)
                                     <button type="button"
-                                            onclick="openDeleteModal({{ $user->id }}, '{{ addslashes($user->name) }}')"
+                                            data-click="openDeleteModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}]'
                                             class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs transition">
                                         🗑 Delete
                                     </button>
@@ -337,7 +337,7 @@
                     <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 py-2.5 rounded-lg font-medium transition text-sm">
                         🚫 Confirm Ban
                     </button>
-                    <button type="button" onclick="closeBanModal()" class="px-5 bg-gray-700 hover:bg-gray-600 py-2.5 rounded-lg transition text-sm">
+                    <button type="button" data-click="closeBanModal" class="px-5 bg-gray-700 hover:bg-gray-600 py-2.5 rounded-lg transition text-sm">
                         Cancel
                     </button>
                 </div>
@@ -345,7 +345,50 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="@nonce">
+        // ── CSP-safe delegated action handlers (mirrors layouts/app.blade.php) ──
+        // Replaces inline onclick/onchange/onsubmit with declarative data-* attrs.
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('form[data-confirm]').forEach(form => {
+                form.addEventListener('submit', (e) => {
+                    if (!window.confirm(form.dataset.confirm)) e.preventDefault();
+                });
+            });
+            document.querySelectorAll('[data-confirm-click]').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    if (!window.confirm(el.dataset.confirmClick)) e.preventDefault();
+                });
+            });
+            const delegate = (eventName, attr) => {
+                document.addEventListener(eventName, (e) => {
+                    const el = e.target.closest(`[${attr}]`);
+                    if (!el) return;
+                    const fn = window[el.getAttribute(attr)];
+                    if (typeof fn !== 'function') return;
+                    if (el.dataset.args) {
+                        try { fn.call(el, ...JSON.parse(el.dataset.args), e); }
+                        catch (err) { console.warn('[data-action] invalid JSON args:', el.dataset.args, err); }
+                    } else if (el.dataset.arg !== undefined) {
+                        fn.call(el, el.dataset.arg, e);
+                    } else {
+                        fn.call(el, el, e);
+                    }
+                });
+            };
+            delegate('click', 'data-click');
+            delegate('change', 'data-change');
+            delegate('input', 'data-input');
+            delegate('submit', 'data-submit');
+        });
+
+        // CSP-safe delegated change handler: confirm + submit form
+        window.confirmChangePlan = function(message, e) {
+            if (window.confirm(message)) {
+                const form = e.target.closest('form');
+                if (form) form.submit();
+            }
+        };
+
         // Ban modal
         function openBanModal(userId, userName) {
             document.getElementById('banUserName').textContent = userName;
@@ -477,7 +520,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="@nonce">
     // (Task H32) Modal openers for type-to-confirm destructive actions
     function openDeleteModal(userId, userName) {
         const modal = document.getElementById('deleteConfirmModal');

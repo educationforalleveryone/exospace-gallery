@@ -70,7 +70,7 @@
     </a>
 
     {{-- Public nav (simplified version of the admin nav) --}}
-    <nav class="border-b border-gray-800/60 bg-[#0f1117]/95 backdrop-blur sticky top-0 z-40" aria-label="Main navigation">
+    <nav x-data="{ mobileMenuOpen: false }" class="border-b border-gray-800/60 bg-[#0f1117]/95 backdrop-blur sticky top-0 z-40" aria-label="Main navigation">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-8">
@@ -147,7 +147,7 @@
 
     {{-- Toast notifications + modal helpers (same as app layout) --}}
     <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
-    <script>
+    <script nonce="@nonce">
     window.toast = function(message, type = 'success') {
         const colors = { success: 'bg-gray-900 border-green-500/40', error: 'bg-gray-900 border-red-500/40', info: 'bg-gray-900 border-gray-600' };
         const icons  = {
@@ -207,6 +207,61 @@
             });
         });
     }
+
+    // ── CSP-safe image fallback ────────────────────────────────────────────
+    // Replaces inline `onerror="this.style.display='none'"` handlers that
+    // CSP blocks. Any <img> tagged with class `venue-thumb-img` (or any
+    // img carrying `data-fallback-hide`) that fails to load is hidden so
+    // the CSS gradient / placeholder sibling shows through.
+    document.addEventListener('DOMContentLoaded', () => {
+        const hide = (img) => {
+            img.style.visibility = 'hidden';
+            img.setAttribute('aria-hidden', 'true');
+        };
+        document.querySelectorAll('img.venue-thumb-img, img[data-fallback-hide]').forEach(img => {
+            if (img.complete && img.naturalWidth === 0) hide(img);
+            img.addEventListener('error', () => hide(img));
+        });
+    });
+
+    // ── CSP-safe delegated action handlers (mirrors layouts/app.blade.php) ──
+    // Replaces inline onclick/onchange/oninput/onsubmit with declarative
+    // data-* attributes. See layouts/app.blade.php for full docs.
+    document.addEventListener('DOMContentLoaded', () => {
+        // CSP-safe confirm-on-submit forms
+        document.querySelectorAll('form[data-confirm]').forEach(form => {
+            form.addEventListener('submit', (e) => {
+                if (!window.confirm(form.dataset.confirm)) e.preventDefault();
+            });
+        });
+        // CSP-safe confirm-on-click buttons/links
+        document.querySelectorAll('[data-confirm-click]').forEach(el => {
+            el.addEventListener('click', (e) => {
+                if (!window.confirm(el.dataset.confirmClick)) e.preventDefault();
+            });
+        });
+        // Delegated data-click / data-change / data-input / data-submit
+        const delegate = (eventName, attr) => {
+            document.addEventListener(eventName, (e) => {
+                const el = e.target.closest(`[${attr}]`);
+                if (!el) return;
+                const fn = window[el.getAttribute(attr)];
+                if (typeof fn !== 'function') return;
+                if (el.dataset.args) {
+                    try { fn.call(el, ...JSON.parse(el.dataset.args), e); }
+                    catch (err) { console.warn('[data-action] invalid JSON args:', el.dataset.args, err); }
+                } else if (el.dataset.arg !== undefined) {
+                    fn.call(el, el.dataset.arg, e);
+                } else {
+                    fn.call(el, el, e);
+                }
+            });
+        };
+        delegate('click', 'data-click');
+        delegate('change', 'data-change');
+        delegate('input', 'data-input');
+        delegate('submit', 'data-submit');
+    });
     </script>
 </body>
 </html>

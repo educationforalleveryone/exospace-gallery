@@ -35,7 +35,7 @@
                     View only
                 </span>
             @else
-                <button onclick="openModal('upgrade-modal')"
+                <button data-click="openModal" data-arg="upgrade-modal"
                         class="bg-gradient-to-r from-purple-600/80 to-indigo-600/80 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold py-2 px-5 rounded-lg transition inline-flex items-center cursor-pointer gap-2 flex-shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                     Upgrade for more
@@ -48,7 +48,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
             @if(session('upgrade'))
-                <script>document.addEventListener('DOMContentLoaded', () => openModal('upgrade-modal'));</script>
+                <script nonce="@nonce">document.addEventListener('DOMContentLoaded', () => openModal('upgrade-modal'));</script>
             @endif
 
             @if(!auth()->user()->canCreateGallery() && !$activeTeam)
@@ -144,7 +144,7 @@
                                        class="bg-gray-700 hover:bg-gray-600 text-center text-gray-100 font-medium py-2 px-3 rounded-lg transition text-sm">
                                         View
                                     </a>
-                                    <button onclick="shareGallery('{{ route('gallery.view', $gallery->slug) }}', '{{ $gallery->title }}')"
+                                    <button data-click="shareGallery" data-args='[{{ json_encode([route('gallery.view', $gallery->slug), $gallery->title]) }}]'
                                        class="bg-blue-600 hover:bg-blue-700 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">
                                         Share
                                     </button>
@@ -155,7 +155,7 @@
                                         Edit
                                     </a>
                                     @if($canEdit)
-                                    <button onclick="confirmDelete({{ $gallery->id }}, '{{ addslashes($gallery->title) }}')"
+                                    <button data-click="confirmDelete" data-args='[{{ $gallery->id }}, {{ json_encode($gallery->title) }}]'
                                        class="bg-red-700/80 hover:bg-red-600 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">
                                         Delete
                                     </button>
@@ -163,7 +163,7 @@
                                 </div>
                                 @if($canEdit)
                                 <form action="{{ route('admin.galleries.duplicate', $gallery) }}" method="POST" class="mt-2"
-                                      onsubmit="return confirm('Duplicate this gallery? A copy with all images will be created.');">
+                                      data-confirm="Duplicate this gallery? A copy with all images will be created.">
                                     @csrf
                                     <button type="submit"
                                             class="w-full bg-gray-700 hover:bg-gray-600 text-center text-gray-200 font-medium py-2 px-3 rounded-lg transition text-sm flex items-center justify-center gap-1.5">
@@ -305,11 +305,11 @@
     </div>
 
     <!-- Share Modal -->
-    <div id="share-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div id="share-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
         <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 max-w-lg w-full mx-4">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-2xl font-bold text-gray-100">Share Gallery</h3>
-                <button onclick="document.getElementById('share-modal').style.display='none'" class="text-gray-400 hover:text-gray-200">
+                <button data-click="closeModalById" data-arg="share-modal" class="text-gray-400 hover:text-gray-200">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -321,7 +321,7 @@
             <div class="bg-gray-900 border border-gray-700 rounded-lg p-4 mb-4">
                 <div class="flex items-center justify-between gap-3">
                     <input type="text" id="share-url" readonly class="bg-transparent text-gray-300 flex-1 outline-none text-sm" value="">
-                    <button onclick="copyShareUrl()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition text-sm font-medium flex items-center gap-2">
+                    <button data-click="copyShareUrl" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition text-sm font-medium flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                         </svg>
@@ -341,12 +341,12 @@
 
             {{-- Quick-share shortcuts: QR code + embed snippet --}}
             <div class="grid grid-cols-2 gap-3 mt-4">
-                <a href="#" onclick="openQrCode(); return false;"
+                <a href="#" data-click="openQrCode"
                    class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium py-2.5 px-4 rounded-lg transition text-center flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h.01M4 20h4M12 8a4 4 0 100-8 4 4 0 000 8zm8-4a4 4 0 11-8 0 4 4 0 018 0zM4 4h4v4H4V4z"/></svg>
                     QR Code
                 </a>
-                <a href="#" onclick="copyEmbedSnippet(); return false;"
+                <a href="#" data-click="copyEmbedSnippet"
                    class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium py-2.5 px-4 rounded-lg transition text-center flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
                     Embed code
@@ -356,7 +356,7 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div id="delete-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div id="delete-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
         <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
             <div class="flex items-center gap-4 mb-4">
                 <div class="w-12 h-12 rounded-xl bg-red-900/30 flex items-center justify-center flex-shrink-0">
@@ -374,7 +374,7 @@
                 @csrf
                 @method('DELETE')
                 <div class="flex gap-3 justify-end">
-                    <button type="button" onclick="document.getElementById('delete-modal').style.display='none'"
+                    <button type="button" data-click="closeModalById" data-arg="delete-modal"
                             class="bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold px-5 py-2.5 rounded-lg transition text-sm">
                         Cancel
                     </button>
@@ -389,7 +389,7 @@
 
     <x-upgrade-modal />
 
-    <script>
+    <script nonce="@nonce">
         function confirmDelete(galleryId, galleryTitle) {
             document.getElementById('delete-gallery-name').textContent = galleryTitle;
             document.getElementById('delete-form').action = '/admin/galleries/' + galleryId;
@@ -430,8 +430,13 @@
             }
         });
 
+        // CSP-safe delegated modal helpers (replaced inline onclick handlers)
+        window.closeModalById = function(id) { const m = document.getElementById(id); if (m) m.style.display = 'none'; };
+        window.closeBackdropIfTarget = function(el, e) { if (e.target === el) el.style.display = 'none'; };
+
         // Open QR code in new tab — the route returns a PNG
-        function openQrCode() {
+        function openQrCode(el, e) {
+            if (e && e.preventDefault) e.preventDefault();
             const url = document.getElementById('share-url').value;
             // Extract the slug from the share URL
             const match = url.match(/\/gallery\/([^\/?#]+)/);
@@ -441,11 +446,12 @@
         }
 
         // Copy an iframe embed snippet for embedding the gallery elsewhere
-        function copyEmbedSnippet() {
+        function copyEmbedSnippet(el, e) {
+            if (e && e.preventDefault) e.preventDefault();
             const url = document.getElementById('share-url').value + '?embed=1';
             const snippet = `<iframe src="${url}" width="1024" height="640" style="border:0;max-width:100%;" allow="fullscreen; autoplay" loading="lazy" title="Exospace 3D Gallery"></iframe>`;
             navigator.clipboard.writeText(snippet).then(() => {
-                const btn = event.target.closest('a');
+                const btn = el;
                 const original = btn.innerHTML;
                 btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Copied!';
                 setTimeout(() => { btn.innerHTML = original; }, 2000);

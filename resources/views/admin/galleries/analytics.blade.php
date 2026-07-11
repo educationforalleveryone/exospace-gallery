@@ -177,7 +177,7 @@
 
     {{-- Chart.js ──────────────────────────────────────────────────────── --}}
     @vite(['resources/js/admin-vendor.js'])
-    <script>
+    <script nonce="@nonce">
         // Show skeleton briefly then reveal real content
         setTimeout(function() {
             document.getElementById('analytics-skeleton').style.display = 'none';
