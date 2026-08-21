@@ -156,12 +156,29 @@ class GalleryApiController extends Controller
 
     private function formatImage($img): array
     {
+        // AUDIT-P0-1.7 FIX: Previously referenced $img->thumbnail which is
+        // neither a column on gallery_images nor an accessor on GalleryImage
+        // — so thumbnail_url was always null in API responses. Now uses
+        // GalleryImage::conversionUrl('thumb') which is the Spatie Media Library
+        // conversion registered in GalleryImage::registerMediaConversions().
+        // Falls back to the original asset URL if Spatie throws (corrupted
+        // media record, missing file, etc.) or if no media is registered.
+        $thumbUrl = null;
+        try {
+            $thumbUrl = $img->conversionUrl('thumb');
+        } catch (\Throwable $e) {
+            $thumbUrl = null;
+        }
+        if (! $thumbUrl) {
+            $thumbUrl = asset($img->path);
+        }
+
         return [
             'id'             => $img->id,
             'title'          => $img->title,
             'description'    => $img->description,
             'url'            => asset($img->path),
-            'thumbnail_url'  => $img->thumbnail ? asset($img->thumbnail) : null,
+            'thumbnail_url'  => $thumbUrl,
             'original_name'  => $img->original_name,
             'width'          => $img->width,
             'height'         => $img->height,

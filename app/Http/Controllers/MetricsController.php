@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Queue;
 
 /**
  * A-8 FIX (Iter-006): /metrics endpoint for observability.
@@ -16,22 +15,44 @@ use Illuminate\Support\Facades\Queue;
  * (Coolify, Datadog, Prometheus via a scraper). Coolify can scrape this
  * endpoint to track application health over time.
  *
- * The endpoint is public (no auth) but rate-limited to prevent abuse.
- * It does NOT expose sensitive data (no user emails, no gallery titles).
+ * AUDIT-P0-1.5 FIX: Previously public (rate-limited only). The endpoint
+ * exposes PHP version, environment name, top 5 DB tables by row count, and
+ * disk usage — sufficient information for an attacker to fingerprint the
+ * deployment and target known vulnerabilities. Now requires a token
+ * passed via the `?token=` query param. The expected token is read from
+ * the `METRICS_TOKEN` env var. When that env var is empty (the default),
+ * the endpoint FAILS CLOSED (returns 404) — premium SaaS default.
  *
- * Metrics exposed:
+ * To enable scraping:
+ *   1. Set `METRICS_TOKEN=<random-32-char-hex>` in .env (generate with
+ *      `openssl rand -hex 16`).
+ *   2. Configure your scraper to hit `/metrics?token=<your-token>`.
+ *
+ * Metrics exposed (when token matches):
  *   - queue: pending jobs, failed jobs
  *   - cache: hit/miss ratio (if available)
  *   - db: connection status, table sizes (approximate)
  *   - storage: disk usage (approximate)
  *   - app: PHP version, Laravel version, uptime (approximate)
  *
- * Route: GET /metrics (rate-limited: 10/min/IP)
+ * Route: GET /metrics?token=<token> (rate-limited: 10/min/IP)
  */
 class MetricsController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        // AUDIT-P0-1.5 FIX: Token-gate the metrics endpoint. Fail-closed
+        // (404) when METRICS_TOKEN env var is not set OR when the supplied
+        // token does not match. hash_equals() for timing safety.
+        $expectedToken = config('app.metrics_token');
+        if (! is_string($expectedToken) || $expectedToken === '') {
+            abort(404);
+        }
+        $suppliedToken = $request->query('token', '');
+        if (! is_string($suppliedToken) || ! hash_equals($expectedToken, $suppliedToken)) {
+            abort(404);
+        }
+
         $metrics = [
             'timestamp' => now()->toIso8601String(),
             'app' => $this->appMetrics(),

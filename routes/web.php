@@ -16,14 +16,13 @@ use App\Http\Controllers\PublicEventController;
 use App\Http\Controllers\NewsletterSignupController;
 use Illuminate\Support\Facades\Route;
 
-// ── Bare DB check (locked down to non-production) ───────────────────────
-// WARNING: this route exposes the full schema + migration list. Disable
-// it in production by setting APP_ENV=production (the env check below
-// returns 404). Use `/health` for Coolify's readiness probe instead.
+// ── Bare DB check (locked down to super-admins) ────────────────────────
+// AUDIT-P0-1.4 FIX: Previously only gated by `app()->environment('production')`
+// returning 404 — which still leaked the full schema + migration list in
+// staging. Now requires super_admin middleware (auth + verified + super_admin
+// + mfa) in ALL environments, including local. Use `/health` for Coolify's
+// readiness probe instead.
 Route::get('/db-check', function () {
-    if (app()->environment('production')) {
-        abort(404);
-    }
     try {
         $tables = \Illuminate\Support\Facades\DB::select("SHOW TABLES");
         $names = array_map(fn($t) => array_values((array)$t)[0], $tables);
@@ -36,7 +35,7 @@ Route::get('/db-check', function () {
         return response('<pre style="background:#1a0000;color:#ff6b6b;padding:20px">'
             . "DB FAILED: " . $e->getMessage() . '</pre>', 200)->header('Content-Type', 'text/html');
     }
-});
+})->middleware(['auth', 'verified', 'super_admin', 'mfa'])->name('db-check');
 
 // ── Healthcheck endpoint for Coolify readiness probe ────────────────────
 // P3-3/P3-4/P3-5: Full subsystem health check (DB, Redis, queue, storage).

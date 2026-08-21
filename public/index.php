@@ -1,16 +1,4 @@
 <?php
-// TEMP DEBUG
-register_shutdown_function(function() {
-    $e = error_get_last();
-    if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        http_response_code(200);
-        header('Content-Type: text/html');
-        echo '<pre style="background:#1a0000;color:#ff6b6b;padding:20px;font-size:13px">';
-        echo "FATAL: {$e['message']}\nFile: {$e['file']}:{$e['line']}";
-        echo '</pre>';
-    }
-});
-// END TEMP DEBUG
 
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;

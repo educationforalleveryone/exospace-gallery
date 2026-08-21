@@ -30,7 +30,12 @@ class InfrastructureTest extends TestCase
 
     public function test_a8_metrics_returns_json(): void
     {
-        $response = $this->get('/metrics');
+        // AUDIT-P0-1.5 FIX: /metrics now requires a token. The previous
+        // version of this test hit /metrics without a token and expected 200.
+        // Now the endpoint fails closed (404) when METRICS_TOKEN is empty,
+        // and returns 404 for a wrong/missing token when METRICS_TOKEN is set.
+        config(['app.metrics_token' => 'correct-test-token']);
+        $response = $this->get('/metrics?token=correct-test-token');
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'application/json');
         $response->assertJsonStructure([
@@ -44,10 +49,47 @@ class InfrastructureTest extends TestCase
 
     public function test_a8_metrics_includes_app_info(): void
     {
-        $response = $this->get('/metrics');
+        config(['app.metrics_token' => 'correct-test-token']);
+        $response = $this->get('/metrics?token=correct-test-token');
         $response->assertJsonStructure([
             'app' => ['php_version', 'laravel_version', 'environment', 'memory_usage_mb'],
         ]);
+    }
+
+    /**
+     * AUDIT-P0-1.5 FIX: When METRICS_TOKEN is empty, /metrics returns 404.
+     * This is the fail-closed default for premium SaaS — no fingerprinting.
+     */
+    public function test_audit_p01_5_metrics_fail_closed_when_token_unset(): void
+    {
+        config(['app.metrics_token' => null]);
+        $response = $this->get('/metrics');
+        $response->assertStatus(404);
+
+        // Even with a token query param, should still 404 if env token unset.
+        $response = $this->get('/metrics?token=anything');
+        $response->assertStatus(404);
+    }
+
+    /**
+     * AUDIT-P0-1.5 FIX: When METRICS_TOKEN is set, /metrics requires the
+     * correct token via ?token=. Wrong token → 404. Missing token → 404.
+     */
+    public function test_audit_p01_5_metrics_rejects_wrong_token(): void
+    {
+        config(['app.metrics_token' => 'correct-test-token']);
+
+        // No token at all
+        $this->get('/metrics')->assertStatus(404);
+
+        // Wrong token
+        $this->get('/metrics?token=wrong-token')->assertStatus(404);
+
+        // Empty token
+        $this->get('/metrics?token=')->assertStatus(404);
+
+        // Correct token succeeds
+        $this->get('/metrics?token=correct-test-token')->assertStatus(200);
     }
 
     public function test_a9_request_id_middleware_sets_header(): void

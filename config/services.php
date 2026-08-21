@@ -40,6 +40,23 @@ return [
         'webhook_url' => env('OPERATIONAL_ALERT_WEBHOOK'),
     ],
 
+    // ── AUDIT-P0-1.3 FIX: Outbound webhooks (M-23) ───────────────────────
+    // Centralized env reads so that `php artisan config:cache` is safe.
+    // Previously OutboundWebhookService read env() directly in dispatch(),
+    // which returns null outside config files once the config is cached.
+    //
+    // When `url` is empty (the default), the service silently skips — no
+    // outbound webhooks are dispatched. Set both values in production to
+    // enable outbound event notifications.
+    //
+    // The `secret` is used to HMAC-SHA256-sign each payload (X-Exospace-Signature
+    // header). The receiver verifies the signature to authenticate the payload.
+    // Generate with: openssl rand -hex 16
+    'outbound_webhook' => [
+        'url'    => env('OUTBOUND_WEBHOOK_URL'),
+        'secret' => env('OUTBOUND_WEBHOOK_SECRET'),
+    ],
+
     '2checkout' => [
         'account_number'         => env('TWOCHECKOUT_ACCOUNT_NUMBER'),
         'secret_word'            => env('TWOCHECKOUT_SECRET_WORD'),

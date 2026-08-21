@@ -56,6 +56,27 @@ class Transaction extends Model
     }
 
     /**
+     * The Invoice generated for this transaction (if any).
+     *
+     * AUDIT-P0-1.6 FIX: Previously the billing portal queried
+     * `Invoice::where('transaction_id', $tx->id)->first()` inside a foreach
+     * loop — an N+1 query that fired once per row on the transactions table.
+     * Defining this relationship lets the controller eager-load via
+     * `$user->transactions()->with('invoice')->paginate(20)` and the view
+     * read `$tx->invoice` directly.
+     *
+     * NOTE: `invoices.transaction_id` is NOT a database FK — the `transactions`
+     * table is partitioned by month, and MySQL InnoDB forbids FKs targeting
+     * partitioned tables (error 1506). Referential integrity is enforced at
+     * the application layer (InvoiceGenerator creates the Invoice inside a
+     * DB::transaction with `lockForUpdate` on the parent Transaction row).
+     */
+    public function invoice(): HasOne
+    {
+        return $this->hasOne(Invoice::class, 'transaction_id');
+    }
+
+    /**
      * Format the amount with currency for display.
      * E.g. "29.00 USD", "99.00 USD".
      */

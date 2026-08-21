@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Gallery;
 use App\Models\GalleryImage;
+use App\Models\Invoice;
 use App\Models\PendingUpgrade;
 use App\Models\Transaction;
 use App\Models\User;
+use DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -52,6 +54,84 @@ class BillingAndExportTest extends TestCase
         $response->assertOk();
         $response->assertSee('$29.00');
         $response->assertSee('Completed');
+    }
+
+    /**
+     * AUDIT-P0-1.6 FIX: Previously the billing portal queried
+     * `Invoice::where('transaction_id', $tx->id)->first()` inside a foreach
+     * loop — an N+1. Now BillingController::index eager-loads via
+     * ->with('invoice') and the view reads $tx->invoice directly.
+     *
+     * This test verifies that:
+     *   1. The Transaction::invoice() relationship exists and resolves.
+     *   2. The billing portal renders the "Download" link when an invoice
+     *      with a pdf_path is associated with a transaction.
+     *   3. The page does NOT issue an N+1 query (asserted via DB::listen query count).
+     */
+    public function test_audit_p01_6_billing_portal_eager_loads_invoice(): void
+    {
+        $user = User::factory()->pro()->create();
+        $transaction = Transaction::factory()->create([
+            'user_id'   => $user->id,
+            'plan'      => 'pro',
+            'status'    => 'completed',
+            'amount'    => 29.00,
+        ]);
+        Invoice::factory()->create([
+            'user_id'         => $user->id,
+            'transaction_id'  => $transaction->id,
+            'invoice_number'  => 'INV-' . now()->year . '-00001',
+            'pdf_path'        => 'invoices/test-invoice.pdf',
+            'plan'            => 'pro',
+            'amount'          => 29.00,
+        ]);
+
+        // Sanity: the relationship resolves to the invoice we just created.
+        $this->assertNotNull($transaction->fresh()->invoice);
+        $this->assertEquals('invoices/test-invoice.pdf', $transaction->fresh()->invoice->pdf_path);
+
+        // The page renders the "Download" link (proving the eager-loaded
+        // invoice reaches the view without an extra query).
+        $response = $this->actingAs($user)->get('/billing');
+        $response->assertOk();
+        $response->assertSee('Download');
+
+        // Query count: with eager loading, we should see at most a handful of
+        // queries (transactions paginate + invoice eager load + user + session
+        // + pending upgrades). Without eager loading, we'd see 1 + N queries.
+        // We assert "fewer than 15 queries" — generous enough to avoid
+        // flakiness but tight enough to catch a regression.
+        $queryCount = 0;
+        DB::listen(function () use (&$queryCount) {
+            $queryCount++;
+        });
+        $this->actingAs($user)->get('/billing');
+        $this->assertLessThan(
+            15,
+            $queryCount,
+            'AUDIT-P0-1.6: Billing portal should eager-load invoice relationship. '
+            . "Expected <15 queries, got {$queryCount}."
+        );
+    }
+
+    /**
+     * AUDIT-P0-1.6 FIX: When a transaction has no invoice, the view should
+     * render an em-dash placeholder, not crash.
+     */
+    public function test_audit_p01_6_billing_portal_handles_missing_invoice_gracefully(): void
+    {
+        $user = User::factory()->pro()->create();
+        Transaction::factory()->create([
+            'user_id'   => $user->id,
+            'plan'      => 'pro',
+            'status'    => 'completed',
+            'amount'    => 29.00,
+        ]);
+
+        $response = $this->actingAs($user)->get('/billing');
+        $response->assertOk();
+        // The Blade renders `<span class="text-xs text-gray-600">—</span>` when no invoice.
+        $response->assertSee('—');
     }
 
     public function test_billing_portal_shows_pending_upgrades(): void

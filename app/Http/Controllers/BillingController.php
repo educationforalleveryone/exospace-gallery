@@ -71,12 +71,20 @@ class BillingController extends Controller
 
     /**
      * Show the user's billing portal.
+     *
+     * AUDIT-P0-1.6 FIX: Previously the transactions query was a plain
+     * `->orderBy('created_at', 'desc')->paginate(20)` and the Blade view
+     * called `Invoice::where('transaction_id', $tx->id)->first()` inside a
+     * foreach loop — a classic N+1 (one extra query per row, 20 rows per
+     * page = 21 queries instead of 2). Now eager-loads the `invoice`
+     * relationship so the view reads `$tx->invoice` directly.
      */
     public function index(Request $request): View
     {
         $user = $request->user();
 
         $transactions = $user->transactions()
+            ->with('invoice')
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 

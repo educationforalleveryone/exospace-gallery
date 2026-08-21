@@ -231,7 +231,10 @@
                                     </td>
                                     <td class="py-3 pr-4">
                                         @php
-                                            $invoice = \App\Models\Invoice::where('transaction_id', $tx->id)->first();
+                                            // AUDIT-P0-1.6 FIX: Previously queried Invoice::where('transaction_id', $tx->id)->first()
+                                            // inside this foreach — an N+1 query. Now eager-loaded in BillingController::index
+                                            // via ->with('invoice'). Reads the loaded relationship directly.
+                                            $invoice = $tx->invoice;
                                         @endphp
                                         @if($invoice && $invoice->pdf_path)
                                             <a href="{{ route('billing.invoice', $invoice) }}"

@@ -56,6 +56,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Metrics Endpoint Token (AUDIT-P0-1.5 FIX)
+    |--------------------------------------------------------------------------
+    |
+    | The /metrics endpoint is fail-closed by default. To enable scraping,
+    | set METRICS_TOKEN to a random 32-char hex string (generate with
+    | `openssl rand -hex 16`). The scraper must then hit /metrics?token=<...>.
+    |
+    | When this is empty, /metrics returns 404 for all callers — the safe
+    | default for premium SaaS. See app/Http/Controllers/MetricsController.php
+    | for the enforcement logic.
+    */
+
+    'metrics_token' => env('METRICS_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Business Address (CAN-SPAM §316.2 compliance)
     |--------------------------------------------------------------------------
     |

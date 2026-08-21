@@ -22,11 +22,15 @@ What this script does:
 
 Idempotent: running it twice produces the same output.
 """
+import argparse
 import re
 import sys
 from pathlib import Path
 
-VIEWS_DIR = Path("/home/z/my-project/work/resources/views")
+# AUDIT-P0-1.2 FIX: Previously hardcoded to "/home/z/my-project/work/resources/views"
+# which does not exist in the project tree. Now resolved relative to this script.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+VIEWS_DIR = PROJECT_ROOT / "resources" / "views"
 
 # Match <script ...> opening tags.
 # We capture attributes to inspect them.
@@ -66,7 +70,7 @@ def inject_nonce(attrs_str: str) -> str:
     return ' nonce="@nonce"' + attrs_str
 
 
-def process_file(path: Path) -> int:
+def process_file(path: Path, dry_run: bool = False) -> int:
     """Process one blade file. Returns the number of nonces added."""
     text = path.read_text(encoding="utf-8")
     original = text
@@ -86,26 +90,42 @@ def process_file(path: Path) -> int:
         return "<script" + inject_nonce(attrs) + ">"
 
     new_text = SCRIPT_OPEN_RE.sub(repl, text)
-    if new_text != original:
+    if new_text != original and not dry_run:
         path.write_text(new_text, encoding="utf-8")
     return added
 
 
 def main() -> int:
-    if not VIEWS_DIR.is_dir():
-        print(f"ERROR: {VIEWS_DIR} not found", file=sys.stderr)
+    parser = argparse.ArgumentParser(description="Inject CSP nonces into inline Blade <script> tags.")
+    parser.add_argument(
+        "--views-dir",
+        type=Path,
+        default=VIEWS_DIR,
+        help=f"Path to resources/views directory (default: {VIEWS_DIR})",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would change without modifying files.",
+    )
+    args = parser.parse_args()
+
+    views_dir: Path = args.views_dir
+    if not views_dir.is_dir():
+        print(f"ERROR: {views_dir} not found", file=sys.stderr)
         return 1
 
     total = 0
     files_changed = 0
-    for blade in sorted(VIEWS_DIR.rglob("*.blade.php")):
-        n = process_file(blade)
+    for blade in sorted(views_dir.rglob("*.blade.php")):
+        n = process_file(blade, dry_run=args.dry_run)
         if n:
             files_changed += 1
             total += n
-            print(f"  {n:3d} nonces added  {blade.relative_to(VIEWS_DIR)}")
+            print(f"  {n:3d} nonces added  {blade.relative_to(views_dir)}")
 
-    print(f"\nDone. {total} nonces added across {files_changed} files.")
+    suffix = " (dry-run, no files written)" if args.dry_run else ""
+    print(f"\nDone.{suffix} {total} nonces added across {files_changed} files.")
     return 0
 
 

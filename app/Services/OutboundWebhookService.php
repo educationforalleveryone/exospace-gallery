@@ -22,11 +22,12 @@ use Illuminate\Support\Facades\Log;
  *   - subscription.renewed  — when a recurring payment succeeds
  *
  * Endpoint configuration:
- *   Set OUTBOUND_WEBHOOK_URL in .env to receive ALL events at a single
- *   endpoint. The payload includes the event type + entity data.
+ *   Set OUTBOUND_WEBHOOK_URL + OUTBOUND_WEBHOOK_SECRET in .env (read via
+ *   config('services.outbound_webhook.*') — see config/services.php).
+ *   The payload includes the event type + entity data.
  *
  *   For per-event endpoints, extend this service with a config map:
- *   config('outbound_webhooks.gallery.published') => 'https://...'
+ *   config('services.outbound_webhooks.events.gallery.published') => 'https://...'
  *
  * Security:
  *   - Each webhook includes an HMAC-SHA256 signature header (X-Exospace-Signature)
@@ -34,6 +35,11 @@ use Illuminate\Support\Facades\Log;
  *     signature to authenticate the payload.
  *   - Webhooks are retried 3 times with exponential backoff on failure.
  *   - Timeouts at 10 seconds to prevent hanging.
+ *
+ * AUDIT-P0-1.3 FIX: Previously read env() directly, which breaks under
+ * `php artisan config:cache` (env() returns null outside config files when
+ * the config is cached). Now reads from config('services.outbound_webhook.*')
+ * — see config/services.php for the centralized env reads.
  */
 class OutboundWebhookService
 {
@@ -45,12 +51,13 @@ class OutboundWebhookService
      *
      * @param  string $eventType  The event name (e.g. 'gallery.published')
      * @param  array  $payload    The event data
-     * @param  string|null $url    Override URL (uses env OUTBOUND_WEBHOOK_URL by default)
+     * @param  string|null $url    Override URL (uses config default if null)
      */
     public static function dispatch(string $eventType, array $payload, ?string $url = null): void
     {
-        $url = $url ?? config('app.outbound_webhook_url') ?? env('OUTBOUND_WEBHOOK_URL');
-        $secret = env('OUTBOUND_WEBHOOK_SECRET');
+        // AUDIT-P0-1.3 FIX: Read from config (config:cache-safe) instead of env().
+        $url = $url ?? config('services.outbound_webhook.url');
+        $secret = config('services.outbound_webhook.secret');
 
         if (! $url) {
             return; // No webhook URL configured — silently skip

@@ -205,4 +205,53 @@ class FrontendQueueAndApiTest extends TestCase
         // K-9 FIX: exospace:onboarding-analytics should be in the schedule
         Schedule::assertScheduled('exospace:onboarding-analytics');
     }
+
+    /**
+     * AUDIT-P0-1.7 FIX: GalleryApiController::formatImage previously referenced
+     * `$img->thumbnail` which is neither a column nor an accessor on
+     * GalleryImage — so thumbnail_url was always null. Now uses
+     * GalleryImage::conversionUrl('thumb') with a fallback to the original
+     * asset URL when no Spatie media conversion exists.
+     *
+     * This test verifies that thumbnail_url is non-null in API responses
+     * for galleries with at least one image.
+     */
+    public function test_audit_p01_7_gallery_api_returns_non_null_thumbnail_url(): void
+    {
+        $user = User::factory()->create();
+        $gallery = \App\Models\Gallery::factory()->create([
+            'user_id'  => $user->id,
+            'is_active' => true,
+            'pin_hash'  => null,
+            'opens_at'  => null,
+            'closes_at' => null,
+        ]);
+        \App\Models\GalleryImage::factory()->create([
+            'gallery_id' => $gallery->id,
+            'path'       => 'galleries/' . $gallery->id . '/test.jpg',
+        ]);
+
+        // Hit the API endpoint (no auth needed for publicly-viewable galleries).
+        $response = $this->getJson("/api/v1/galleries/{$gallery->slug}");
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            'data' => ['id', 'title', 'slug'],
+            'images' => [
+                ['id', 'url', 'thumbnail_url'],
+            ],
+        ]);
+
+        $firstImage = $response->json('images.0');
+        $this->assertNotNull(
+            $firstImage['thumbnail_url'],
+            'AUDIT-P0-1.7: thumbnail_url should be non-null after the fix. '
+            . 'Either Spatie media conversion resolved, or the original asset URL fallback was used.'
+        );
+        $this->assertStringStartsWith(
+            'http',
+            $firstImage['thumbnail_url'],
+            'AUDIT-P0-1.7: thumbnail_url should be an absolute URL.'
+        );
+    }
 }
