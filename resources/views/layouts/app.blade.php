@@ -297,5 +297,13 @@
         </script>
         {{-- M-19: In-app feedback widget (floating button on all admin pages) --}}
         @include('components.feedback-widget')
+
+        {{-- ITERATION-3 (AUDIT-P1-3.2): ⌘K command palette. --}}
+        {{-- Triggered by ⌘K (Mac) or Ctrl+K (Windows/Linux) or "/" when not in
+             an input. Progressive enhancement — no impact when JS fails.
+             Disable via FEATURE_FLAG_COMMAND_PALETTE=false in .env. --}}
+        @if(\App\Services\FeatureFlag::isEnabled('command_palette'))
+            <x-command-palette />
+        @endif
     </body>
 </html>

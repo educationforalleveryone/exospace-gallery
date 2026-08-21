@@ -30,6 +30,7 @@
  *   - 'feature_comparison_table' — CONV-2 pricing comparison table (default: true)
  *   - 'turnstile_captcha' — P3-19 Cloudflare Turnstile on public forms (default: true)
  *   - 'turbo_drive' — PERF-26 Hotwire Turbo on admin pages (default: true)
+ *   - 'command_palette' — ITERATION-3 ⌘K command palette in admin (default: true)
  */
 
 return [
@@ -55,6 +56,11 @@ return [
 
         // M-13: Admin impersonation ("Login As User")
         'admin_impersonation' => filter_var(env('FEATURE_FLAG_ADMIN_IMPERSONATION', true), \FILTER_VALIDATE_BOOLEAN),
+
+        // ITERATION-3 (AUDIT-P1-3.2): ⌘K command palette — fuzzy-search
+        // navigation + actions from any admin page. Progressive enhancement
+        // (no impact when disabled or when JS fails). Default true.
+        'command_palette' => filter_var(env('FEATURE_FLAG_COMMAND_PALETTE', true), \FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];
