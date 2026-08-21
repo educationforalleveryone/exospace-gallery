@@ -18,17 +18,32 @@ use App\Models\User;
  *
  * The actual charge adjustment is done by 2Checkout when the user
  * completes checkout. This service is informational only.
+ *
+ * ITERATION-2 (AUDIT-P1-2.7 FIX): Previously had a hardcoded
+ * `PLAN_PRICES` constant that duplicated prices from `config/plans.php`
+ * and `config/services.php`. Three sources of truth for prices = drift
+ * risk. Now reads from `config('plans.display.{plan}.price')`.
  */
 class ProrationService
 {
     /**
-     * Plan prices (display-only — must match 2Checkout product prices).
+     * Resolve the display price for a plan from config/plans.php.
+     *
+     * AUDIT-P1-2.7 FIX: Reads from `config('plans.display.{plan}.price')`
+     * instead of the old hardcoded `PLAN_PRICES` constant. The config is
+     * the single source of truth — when prices change in 2Checkout + the
+     * pricing page, they update in one place.
+     *
+     * Returns 0.00 for unknown plans or free plan (no proration possible).
      */
-    private const PLAN_PRICES = [
-        'free'   => 0,
-        'pro'    => 29.00,
-        'studio' => 99.00,
-    ];
+    private function planPrice(string $plan): float
+    {
+        $price = config("plans.display.{$plan}.price");
+        if (! is_numeric($price)) {
+            return 0.00;
+        }
+        return (float) $price;
+    }
 
     /**
      * Calculate the proration credit for upgrading from one plan to another.
@@ -40,8 +55,8 @@ class ProrationService
     public function calculateUpgradeCredit(User $user, string $newPlan): array
     {
         $currentPlan = $user->plan;
-        $currentPrice = self::PLAN_PRICES[$currentPlan] ?? 0;
-        $newPrice = self::PLAN_PRICES[$newPlan] ?? 0;
+        $currentPrice = $this->planPrice($currentPlan);
+        $newPrice = $this->planPrice($newPlan);
 
         // No credit if upgrading from free (free has no payment to prorate)
         if ($currentPlan === 'free' || $currentPrice === 0) {

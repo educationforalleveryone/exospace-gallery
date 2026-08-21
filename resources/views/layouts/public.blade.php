@@ -145,34 +145,13 @@
     {{-- Cookie banner --}}
     @include('layouts.partials.cookie-banner')
 
-    {{-- Toast notifications + modal helpers (same as app layout) --}}
-    <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
-    <script nonce="@nonce">
-    window.toast = function(message, type = 'success') {
-        const colors = { success: 'bg-gray-900 border-green-500/40', error: 'bg-gray-900 border-red-500/40', info: 'bg-gray-900 border-gray-600' };
-        const icons  = {
-            success: '<svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>',
-            error:   '<svg class="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>',
-            info:    '<svg class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
-        };
-        const el = document.createElement('div');
-        // A11Y-5: Error toasts use role=alert (assertive), others use role=status (polite)
-        el.setAttribute('role', type === 'error' ? 'alert' : 'status');
-        el.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium text-gray-100 shadow-2xl backdrop-blur-sm ${colors[type]} transition-all duration-300 translate-y-2 opacity-0 min-w-[260px] max-w-sm`;
-        el.innerHTML = `${icons[type]}<span class="flex-1">${message}</span>`;
-        document.getElementById('toast-container').appendChild(el);
-        requestAnimationFrame(() => { el.classList.remove('translate-y-2','opacity-0'); });
-        setTimeout(() => {
-            el.classList.add('translate-y-2','opacity-0');
-            setTimeout(() => el.remove(), 300);
-        }, 3500);
-    };
-    @if(session('success')) toast("{{ session('success') }}", 'success'); @endif
-    @if(session('error'))   toast("{{ session('error') }}", 'error'); @endif
-    @if(session('info'))    toast("{{ session('info') }}", 'info'); @endif
-    @if(session('status'))  toast("{{ session('status') }}", 'success'); @endif
-    @if(session('warning')) toast("{{ session('warning') }}", 'error'); @endif
+    {{-- ITERATION-2 (AUDIT-P1-2.5): Unified toast component. --}}
+    {{-- Previously the toast container + window.toast() function were
+         inlined in BOTH app.blade.php and public.blade.php — the two
+         copies had drifted. Now this is the single source of truth. --}}
+    <x-toast />
 
+    <script nonce="@nonce">
     function openModal(id)  { const m=document.getElementById(id); m.style.display='flex'; m.classList.add('flex');
         // A11Y-7: Focus the first focusable element in the modal
         const focusable = m.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
