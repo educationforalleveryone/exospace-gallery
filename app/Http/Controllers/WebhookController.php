@@ -156,9 +156,19 @@ class WebhookController extends Controller
         $pendingUpgrade = null;
 
         if (! empty($externalReference)) {
-            $pendingUpgrade = \App\Models\PendingUpgrade::where('token', $externalReference)
-                ->where('status', 'pending')
-                ->first();
+            // AUDIT-P1-8.1: Look up by hashed token. Previously the column
+            // stored the plaintext + matched directly. Now the column stores
+            // a sha256 hash, so we use findByToken() (which hashes the
+            // incoming plaintext before querying). We keep the status='pending'
+            // constraint inline — findByToken() intentionally doesn't filter
+            // by status so it can be reused for non-pending lookups elsewhere.
+            $pendingUpgrade = \App\Models\PendingUpgrade::findByToken($externalReference);
+
+            if ($pendingUpgrade && $pendingUpgrade->status !== 'pending') {
+                // Found by token but already converted/expired — treat as not found
+                // so we fall through to the customer_email lookup below.
+                $pendingUpgrade = null;
+            }
 
             if ($pendingUpgrade) {
                 $user = $pendingUpgrade->user;

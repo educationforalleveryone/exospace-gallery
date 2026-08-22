@@ -151,7 +151,8 @@ class WebhookBillingTest extends TestCase
 
         $payload = $this->validIpnPayload([
             'customer_email'    => 'different-paypal@example.com', // doesn't match account email
-            'external-reference'=> $pending->token,
+            // AUDIT-P1-8.1: Use the plaintext_token runtime attribute (not the stored hash)
+            'external-reference'=> $pending->plaintext_token,
             'item_id_1'         => self::PRODUCT_ID_PRO,
         ]);
 

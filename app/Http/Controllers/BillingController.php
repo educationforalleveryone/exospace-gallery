@@ -284,7 +284,7 @@ class BillingController extends Controller
                 'https://www.2checkout.com/checkout/purchase?sid=%s&product_id=%s&quantity=1&external-reference=%s&merchant_item_id_1=%s',
                 urlencode((string) $sid),
                 urlencode((string) $productId),
-                urlencode($pending->token),
+                urlencode($pending->plaintext_token), // AUDIT-P1-8.1: plaintext token (runtime attr, not the stored hash)
                 urlencode((string) $user->id),
             );
 
