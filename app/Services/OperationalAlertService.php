@@ -23,17 +23,56 @@ use Illuminate\Support\Facades\Log;
  * If no webhook is configured, alerts are logged at CRITICAL level —
  * Sentry picks them up (if Sentry is configured).
  *
+ * ITERATION-7 (AUDIT-P1-7.1): Alert deduplication. Previously a persistent
+ * condition (e.g. disk at 91%) fired a Slack alert every 5 minutes forever —
+ * noise that trains operators to ignore the channel. Now callers can pass a
+ * `dedupKey` to suppress repeat alerts within a severity-based TTL window:
+ *   - critical: 30 min (re-alerts every 30 min if still critical)
+ *   - warning:  2 hours
+ *   - info:     6 hours
+ *
+ * Dedup is opt-in (only when `dedupKey` is non-null). Existing callers that
+ * don't pass `dedupKey` behave exactly as before — no behavior change.
+ *
  * Usage:
  *   app(OperationalAlertService::class)->alert(
  *       'Queue backup detected',
  *       'Failed jobs: 25 (threshold: 10)',
- *       'warning'
+ *       'warning',
+ *       'failed_jobs_warning'  // ← dedup key
  *   );
  */
 class OperationalAlertService
 {
-    public function alert(string $title, string $message, string $severity = 'warning'): void
+    /**
+     * Dedup TTLs (in seconds) per severity.
+     * Critical re-alerts every 30 min so a real problem doesn't go silent.
+     * Warning re-alerts every 2 hours — enough to be noticed, not spammy.
+     * Info re-alerts every 6 hours.
+     */
+    private const DEDUP_TTL_SECONDS = [
+        'critical' => 1800,  // 30 min
+        'error'    => 3600,  // 1 hour
+        'warning'  => 7200,  // 2 hours
+        'info'     => 21600, // 6 hours
+    ];
+
+    public function alert(string $title, string $message, string $severity = 'warning', ?string $dedupKey = null): void
     {
+        // ITERATION-7 (AUDIT-P1-7.1): Dedup. If a dedupKey is provided AND
+        // a recent alert with the same key was sent within the TTL, skip
+        // this alert. The alert is still logged at debug level so the
+        // condition is traceable in logs without spamming Slack.
+        if ($dedupKey !== null && $this->isRecentlyAlerted($dedupKey, $severity)) {
+            Log::debug("OperationalAlertService: suppressed duplicate alert '{$title}' (dedupKey='{$dedupKey}')");
+            return;
+        }
+
+        // Record that we sent this alert so future calls within the TTL are suppressed.
+        if ($dedupKey !== null) {
+            $this->markAlertSent($dedupKey, $severity);
+        }
+
         $webhookUrl = config('services.operational_alerts.webhook_url');
 
         $emoji = match ($severity) {
@@ -95,6 +134,50 @@ class OperationalAlertService
     }
 
     /**
+     * ITERATION-7 (AUDIT-P1-7.1): Check if an alert with the given dedupKey
+     * was sent recently (within the severity-based TTL).
+     *
+     * Uses the cache (Redis in production, array/file in tests). The cache
+     * key is `alert:last_sent:{dedupKey}`. If the key exists, the alert
+     * was recently sent and should be suppressed.
+     */
+    private function isRecentlyAlerted(string $dedupKey, string $severity): bool
+    {
+        $cacheKey = $this->dedupCacheKey($dedupKey);
+        $ttl = self::DEDUP_TTL_SECONDS[$severity] ?? self::DEDUP_TTL_SECONDS['warning'];
+
+        // Cache::has() returns true if the key exists (even with null value).
+        // We store a truthy value (timestamp) so has() works correctly.
+        return \Illuminate\Support\Facades\Cache::has($cacheKey);
+    }
+
+    /**
+     * ITERATION-7 (AUDIT-P1-7.1): Mark that an alert was just sent, so
+     * future calls with the same dedupKey within the TTL are suppressed.
+     */
+    private function markAlertSent(string $dedupKey, string $severity): void
+    {
+        $cacheKey = $this->dedupCacheKey($dedupKey);
+        $ttl = self::DEDUP_TTL_SECONDS[$severity] ?? self::DEDUP_TTL_SECONDS['warning'];
+
+        try {
+            \Illuminate\Support\Facades\Cache::put($cacheKey, now()->toIso8601String(), $ttl);
+        } catch (\Throwable $e) {
+            // Cache unavailable (Redis down, etc.) — don't block the alert.
+            // The worst case is duplicate alerts, which is better than no alerts.
+            Log::debug('OperationalAlertService: cache unavailable for dedup tracking', [
+                'dedupKey' => $dedupKey,
+                'error'    => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function dedupCacheKey(string $dedupKey): string
+    {
+        return "alert:last_sent:{$dedupKey}";
+    }
+
+    /**
      * Check operational health and fire alerts if thresholds are exceeded.
      * Called by a scheduled command (e.g. every 5 minutes).
      *
@@ -119,13 +202,15 @@ class OperationalAlertService
                 $this->alert(
                     'Queue backup detected',
                     "Failed jobs: {$failedCount} (threshold: 50). Check the queue worker and failed_jobs table.",
-                    'critical'
+                    'critical',
+                    'failed_jobs_critical' // AUDIT-P1-7.1: dedup key
                 );
             } elseif ($failedCount > 10) {
                 $this->alert(
                     'Queue warning: failed jobs accumulating',
                     "Failed jobs: {$failedCount} (threshold: 10). Monitor the queue.",
-                    'warning'
+                    'warning',
+                    'failed_jobs_warning' // AUDIT-P1-7.1: dedup key
                 );
             }
         } catch (\Throwable $e) {
@@ -149,13 +234,15 @@ class OperationalAlertService
                     $this->alert(
                         'Disk space critical',
                         sprintf('Disk usage: %.1f%% — less than 10%% free. Clean up storage immediately.', $usedPct),
-                        'critical'
+                        'critical',
+                        'disk_usage_critical' // AUDIT-P1-7.1: dedup key
                     );
                 } elseif ($usedPct > 80) {
                     $this->alert(
                         'Disk space warning',
                         sprintf('Disk usage: %.1f%% — less than 20%% free. Plan cleanup.', $usedPct),
-                        'warning'
+                        'warning',
+                        'disk_usage_warning' // AUDIT-P1-7.1: dedup key
                     );
                 }
             }
@@ -189,7 +276,8 @@ class OperationalAlertService
             $this->alert(
                 'Scheduler appears to be down',
                 sprintf('scheduler.log last updated %.0f minutes ago — the scheduler loop may have died. Check docker-start.sh and container logs.', $ageMinutes),
-                'critical'
+                'critical',
+                'scheduler_stale' // AUDIT-P1-7.1: dedup key
             );
         }
     }
@@ -239,7 +327,8 @@ class OperationalAlertService
                         'Oldest job in the queue has been waiting %.0f minutes (threshold: 10 min). The queue worker may have died. Check container logs and restart if needed.',
                         $ageSeconds / 60
                     ),
-                    'critical'
+                    'critical',
+                    'queue_worker_stale' // AUDIT-P1-7.1: dedup key
                 );
             }
         } catch (\Throwable $e) {
@@ -294,7 +383,8 @@ class OperationalAlertService
                 $this->alert(
                     'No backups found',
                     "No backup zip files found on disk '{$diskName}' under '{$backupPath}'. Backups may have never run, or the backup destination is misconfigured. Check the spatie/laravel-backup schedule + the BACKUP_PASSWORD env var.",
-                    'critical'
+                    'critical',
+                    'backup_none_found' // AUDIT-P1-7.1: dedup key
                 );
                 return;
             }
@@ -320,7 +410,8 @@ class OperationalAlertService
                         $ageHours,
                         basename($newestFile)
                     ),
-                    'critical'
+                    'critical',
+                    'backup_stale' // AUDIT-P1-7.1: dedup key
                 );
             }
         } catch (\Throwable $e) {
