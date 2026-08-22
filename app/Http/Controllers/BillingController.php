@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\AdminAuditLog;
 use App\Models\PendingUpgrade;
 use App\Models\User;
 use App\Services\PlanLockService;
@@ -483,6 +484,13 @@ class BillingController extends Controller
                 'subscription_cancelled_at' => now(),
             ])->save();
 
+            // AUDIT-P1-4.4: Log subscription cancellation. Billing mutation
+            // by the user themselves — silent-logged (no super-admin email).
+            AdminAuditLog::record('subscription.cancelled', $user, [
+                'subscription_id' => $subscriptionId,
+                'ends_at'         => $user->subscription_ends_at?->toIso8601String(),
+            ]);
+
             Log::info('BillingController: subscription cancelled', [
                 'user_id'         => $user->id,
                 'subscription_id' => $subscriptionId,
@@ -548,6 +556,11 @@ class BillingController extends Controller
             'subscription_status'       => 'active',
             'subscription_cancelled_at' => null,
         ])->save();
+
+        // AUDIT-P1-4.5: Log subscription reactivation.
+        AdminAuditLog::record('subscription.reactivated', $user, [
+            'subscription_id' => $subscriptionId,
+        ]);
 
         Log::info('BillingController: subscription reactivated', [
             'user_id'         => $user->id,
@@ -624,6 +637,13 @@ class BillingController extends Controller
                     'subscription_cancelled_at' => now(),
                 ])->save();
 
+                // AUDIT-P1-4.6: Log subscription-cancel downgrade path.
+                AdminAuditLog::record('subscription.cancelled', $user, [
+                    'subscription_id'      => $user->subscription_id,
+                    'downgrade_target_plan' => $targetPlan,
+                    'ends_at'              => $user->subscription_ends_at?->toIso8601String(),
+                ]);
+
                 // Subscription downgrades: access continues until subscription_ends_at
                 // then CheckPlanExpiry will handle the actual downgrade
                 return redirect()->route('billing.index')
@@ -631,6 +651,7 @@ class BillingController extends Controller
             }
 
             // One-time purchase: downgrade immediately
+            $oldPlan = $user->plan; // Capture before mutation
             if ($targetPlan === 'free') {
                 app(\App\Services\PlanDowngradeService::class)
                     ->downgradeToFree($user, 'Self-serve downgrade');
@@ -642,6 +663,13 @@ class BillingController extends Controller
                     'max_images'    => $limits['max_images'],
                 ])->save();
             }
+
+            // AUDIT-P1-4.7: Log immediate plan downgrade (one-time purchase path).
+            // Covers both PlanDowngradeService::downgradeToFree and inline forceFill.
+            AdminAuditLog::record('plan.downgraded', $user, [
+                'from' => $oldPlan,
+                'to'   => $targetPlan,
+            ]);
 
             return redirect()->route('billing.index')
                 ->with('success', 'Your plan has been downgraded to ' . ucfirst($targetPlan) . '.');
@@ -723,6 +751,14 @@ class BillingController extends Controller
         RateLimiter::hit($ipKey, $decayMinutes * 60);
 
         $user->startTrial($plan);
+
+        // AUDIT-P1-4.8: Log trial start. 'trial_ends_at' is on the PII list
+        // and will be auto-scrubbed to a pii:hash by AdminAuditLog::scrubPii.
+        AdminAuditLog::record('trial.started', $user, [
+            'plan'              => $plan,
+            'trial_ends_at'     => $user->fresh()->trial_ends_at?->toIso8601String(),
+            'trial_count_for_ip' => RateLimiter::attempts($ipKey),
+        ]);
 
         // M-12: Notification
         \App\Services\NotificationService::create(

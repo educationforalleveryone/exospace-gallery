@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
+use App\Models\AdminAuditLog;
 use App\Models\Gallery;
 use App\Models\Team;
 use App\Services\CoolifyDomainManager;
@@ -671,6 +672,15 @@ class GalleryController extends Controller
         }
 
         $gallery->delete();
+
+        // AUDIT-P1-4.14: Log gallery deletion. 'name' is PII — auto-scrubbed.
+        AdminAuditLog::record('gallery.deleted', $gallery, [
+            'name'                  => $gallery->name,
+            'team_id'               => $teamId,
+            'had_custom_domain'     => ! empty($gallery->custom_domain),
+            'custom_domain_verified' => ! empty($gallery->custom_domain_verified_at),
+        ]);
+
         return redirect()->route('admin.galleries.index', $teamId ? ['team' => $teamId] : [])
                          ->with('status', 'Gallery deleted.');
     }

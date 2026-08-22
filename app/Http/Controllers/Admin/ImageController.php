@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
+use App\Models\AdminAuditLog;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
 use App\Services\ImageProcessingService;
@@ -203,6 +204,18 @@ class ImageController extends Controller
                 }
             });
         }
+
+        // AUDIT-P1-4.15: Log bulk image deletion. Single audit entry per
+        // request (not per image) to avoid log flooding. Placed OUTSIDE the
+        // per-gallery DB::transaction calls so the audit entry survives even
+        // if a batch rolls back — critical for forensic visibility.
+        AdminAuditLog::record('gallery.images.bulk_deleted', auth()->user(), [
+            'gallery_ids'     => $byGallery->keys()->toArray(),
+            'image_ids'       => $images->keys()->toArray(),
+            'requested_count' => count($request->ids),
+            'deleted_count'   => $count,
+            'error_count'     => count($errors),
+        ]);
 
         return response()->json(['success' => $count > 0, 'deleted' => $count, 'errors' => $errors]);
     }

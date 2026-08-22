@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AdminAuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Hash;
@@ -101,6 +102,15 @@ class MfaController extends Controller
                 'mfa_enabled_at'   => now(),
                 'mfa_backup_codes' => $backupCodes['hashed'],
             ])->save();
+
+            // AUDIT-P1-4.2: Log MFA enable + backup code generation.
+            // Security-relevant: MFA is the primary defense against
+            // credential stuffing. Enabling it (and generating backup
+            // codes) should be audited for forensic visibility.
+            AdminAuditLog::record('mfa.enabled', $user, [
+                'backup_codes_generated' => 10,
+                'mfa_enabled_at'         => now()->toIso8601String(),
+            ]);
 
             session()->forget('mfa_pending_secret');
             $this->markMfaVerified($request);
@@ -243,6 +253,14 @@ class MfaController extends Controller
                 // Consume the code — set to null in the array
                 $backupCodes[$index] = null;
                 $user->forceFill(['mfa_backup_codes' => $backupCodes])->save();
+
+                // AUDIT-P1-4.3: Log backup code consumption. Each backup
+                // code is a one-time bypass of MFA — usage is security-
+                // relevant (could indicate lost device OR account takeover).
+                AdminAuditLog::record('mfa.backup_code_used', $user, [
+                    'code_index'      => $index,
+                    'remaining_codes' => count(array_filter($backupCodes, fn ($c) => $c !== null)),
+                ]);
 
                 \Illuminate\Support\Facades\Log::info('MFA: backup code used', [
                     'user_id' => $user->id,

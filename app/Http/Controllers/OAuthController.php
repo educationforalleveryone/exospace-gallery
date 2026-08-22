@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\AdminAuditLog;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -317,6 +318,15 @@ class OAuthController extends Controller
         }
 
         $user->forceFill([$providerColumn => null])->save();
+
+        // AUDIT-P1-4.1: Log OAuth provider unlink — security-relevant because
+        // unlinking OAuth + forcing a password reset is an account-takeover
+        // vector. Logging gives forensic visibility.
+        AdminAuditLog::record('oauth.unlinked', $user, [
+            'provider'           => $provider,
+            'has_password'       => $hasPassword,
+            'had_other_provider' => ! empty($otherProviders),
+        ]);
 
         Log::info('OAuth: provider unlinked', [
             'user_id'    => $user->id,

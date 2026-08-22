@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminAuditLog;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Mail\TeamInvitationMail;
@@ -149,6 +150,14 @@ class TeamController extends Controller
             ]
         );
 
+        // AUDIT-P1-4.9: Log team invitation. 'email' is PII — auto-scrubbed.
+        AdminAuditLog::record('team.invited', $team, [
+            'email'         => $validated['email'],
+            'role'          => $validated['role'],
+            'invitation_id' => $invitation->id,
+            'expires_at'    => $invitation->expires_at->toIso8601String(),
+        ]);
+
         // D-6 FIX: Attach the plaintext token as a runtime attribute so the
         // mailable can use it in the email link. This attribute is NOT
         // persisted to the DB — it exists only for this request.
@@ -168,6 +177,13 @@ class TeamController extends Controller
         abort_unless($invitation->team_id === $team->id, 404);
 
         $invitation->delete();
+
+        // AUDIT-P1-4.10: Log invitation revocation.
+        AdminAuditLog::record('team.invitation_revoked', $invitation, [
+            'team_id' => $team->id,
+            'email'   => $invitation->email,
+            'role'    => $invitation->role,
+        ]);
 
         return back()->with('status', 'Invitation revoked.');
     }
@@ -193,6 +209,11 @@ class TeamController extends Controller
                         ->where('current_team_id', $team->id)
                         ->update(['current_team_id' => null]);
 
+        // AUDIT-P1-4.11: Log team member removal.
+        AdminAuditLog::record('team.member_removed', $team, [
+            'user_id' => $validated['user_id'],
+        ]);
+
         return back()->with('status', 'Member removed.');
     }
 
@@ -212,7 +233,18 @@ class TeamController extends Controller
             return back()->withErrors(['role' => 'Cannot change the owner\'s role.']);
         }
 
+        // AUDIT-P1-4.12: Capture old role before mutation for role-change forensics.
+        $oldRole = $team->members()->where('user_id', $validated['user_id'])->first()?->pivot->role;
+
         $team->members()->updateExistingPivot($validated['user_id'], ['role' => $validated['role']]);
+
+        // AUDIT-P1-4.12: Log team member role change. Security-relevant:
+        // escalating a viewer to editor grants invite/billing access.
+        AdminAuditLog::record('team.member_role_changed', $team, [
+            'user_id'  => $validated['user_id'],
+            'old_role' => $oldRole,
+            'new_role' => $validated['role'],
+        ]);
 
         return back()->with('status', 'Member role updated.');
     }
@@ -234,6 +266,9 @@ class TeamController extends Controller
         if ($user->current_team_id === $team->id) {
             $user->forceFill(['current_team_id' => null])->save();
         }
+
+        // AUDIT-P1-4.13: Log user leaving a team.
+        AdminAuditLog::record('team.left', $team);
 
         return redirect()->route('admin.teams.index')
                          ->with('status', "You've left {$team->name}.");
