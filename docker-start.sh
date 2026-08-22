@@ -115,6 +115,14 @@ fi
 #    decides what to fire based on the schedule defined in routes/console.php.
 #    Log output goes to /app/storage/logs/scheduler.log (persistent volume).
 #
+#    ITERATION-6 (AUDIT-P1-6.1) FIX: scheduler.log rotation. Previously the
+#    log grew unboundedly — the bare `>>` append had no rotation, so a
+#    long-running container could fill the disk. Now we rotate the log before
+#    each schedule:run tick: keep the last 5 rotations (scheduler.log.1
+#    through scheduler.log.5), each capped at 10MB. This mirrors the
+#    supervisord.conf pattern (10MB max, 5 backups) that was documented but
+#    never applied to the bare `&` loop.
+#
 #    ALTERNATIVE DEPLOYMENT: If you prefer a separate Coolify cron service
 #    running `php artisan schedule:work` (long-running scheduler), delete
 #    this block and document the Coolify service in DEPLOYMENT.md. Either
@@ -122,12 +130,26 @@ fi
 if [ "${BYPASS_SCHEDULER:-false}" != "true" ]; then
     (
         while true; do
+            # AUDIT-P1-6.1: Rotate scheduler.log if it exceeds 10MB.
+            # Keeps last 5 rotations. Prevents unbounded growth.
+            SCHED_LOG="/app/storage/logs/scheduler.log"
+            if [ -f "$SCHED_LOG" ]; then
+                LOG_SIZE=$(stat -c%s "$SCHED_LOG" 2>/dev/null || echo 0)
+                if [ "$LOG_SIZE" -gt 10485760 ]; then
+                    # Rotate: .4 → .5, .3 → .4, ... .1 → .2, current → .1
+                    for i in 4 3 2 1; do
+                        [ -f "$SCHED_LOG.$i" ] && mv "$SCHED_LOG.$i" "$SCHED_LOG.$((i+1))"
+                    done
+                    mv "$SCHED_LOG" "$SCHED_LOG.1"
+                fi
+            fi
+
             php /app/artisan schedule:run --no-interaction >> /app/storage/logs/scheduler.log 2>&1
             sleep 60
         done
     ) &
     SCHEDULER_PID=$!
-    echo "Scheduler started (PID $SCHEDULER_PID). Logs: /app/storage/logs/scheduler.log"
+    echo "Scheduler started (PID $SCHEDULER_PID). Logs: /app/storage/logs/scheduler.log (rotated at 10MB, 5 backups)"
 else
     echo "BYPASS_SCHEDULER=true — scheduler NOT started (assuming external Coolify cron service)."
     SCHEDULER_PID=""
@@ -140,6 +162,12 @@ fi
 #    The 50MP cap is enforced in ImageProcessingService::process(); under GD
 #    the actual peak can be 2-3x the decode buffer due to Intervention keeping
 #    source + destination alive during scaleDown.
+#
+#    ITERATION-6 (AUDIT-P1-6.2): queue-worker.log. The queue worker's stdout/stderr
+#    is captured by Coolify's log driver (not written to a file), so no rotation
+#    needed here. The OperationalAlertService::checkQueueWorkerHealth() method
+#    (added in this iteration) monitors the worker indirectly via the failed_jobs
+#    table + the queue-worker.log staleness check (if the file exists).
 #
 #    N-6 (deferred to future iteration): queue prioritization. Currently a
 #    single queue. Future iteration will add --queue=high,default,low and

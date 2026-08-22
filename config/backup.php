@@ -81,6 +81,25 @@ return [
                 \Spatie\Backup\Notifications\Notifications\CleanupWasSuccessfulNotification::class => [],
             ],
 
+            // ITERATION-6 (AUDIT-P1-6.4): The above notifications go to mail
+            // only. For a premium SaaS, backup failures should ALSO fire an
+            // operational alert to Slack (via OperationalAlertService) so
+            // they're visible in the same channel as other critical alerts
+            // (queue backup, disk full, scheduler down).
+            //
+            // We can't add 'slack' directly to the Spatie notification channels
+            // above because that would use Laravel's notification Slack driver
+            // (which requires a separate LOG_SLACK_WEBHOOK_URL config) instead
+            // of the OperationalAlertService (which uses OPERATIONAL_ALERT_WEBHOOK).
+            //
+            // Instead, the OperationalAlertService::checkBackupHealth() method
+            // (added in this iteration) checks the backup destination disk
+            // every 5 minutes as part of the existing checkAndAlert() schedule.
+            // If no backup exists OR the newest backup is older than 26 hours,
+            // it fires a critical alert to Slack. This is simpler than wiring
+            // a custom Spatie notification listener and gives us the same
+            // operational outcome: backup failures appear in Slack.
+
             'notifiable' => \Spatie\Backup\Notifications\Notifiable::class,
 
             'mail' => [

@@ -56,7 +56,23 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            // ITERATION-6 (AUDIT-P1-6.3): Default changed from 'single' to
+            // 'daily,json' for production-grade logging:
+            //   - daily: 14-day rotated Laravel logs (human-readable, for
+            //     quick `tail -f` during incidents)
+            //   - json: structured JSON logs at storage/logs/exospace.json
+            //     (for Loki/Datadog/CloudWatch ingestion)
+            //
+            // Operators can override via LOG_STACK env var (e.g. set to
+            // 'daily' for dev, 'daily,json,slack' for production with Slack
+            // critical alerts). The env var is comma-separated.
+            //
+            // Note: the user's production .env already has LOG_STACK=daily,
+            // so this change only affects the DEFAULT when the env var is
+            // absent (fresh installs, tests). To get structured JSON logs
+            // in production, the operator should set LOG_STACK=daily,json
+            // in Coolify's env vars.
+            'channels' => explode(',', (string) env('LOG_STACK', 'daily,json')),
             'ignore_exceptions' => false,
         ],
 
