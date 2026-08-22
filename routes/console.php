@@ -129,6 +129,30 @@ Schedule::command('exospace:anonymize-audit-pii')
     ->withoutOverlapping(120)
     ->onOneServer();
 
+// ── ITERATION-5 (AUDIT-P1-5.1/5.2/5.3): PII retention for the 3 tables ──
+// that were missing anonymization jobs (flagged in the original audit).
+// These run after exospace:anonymize-audit-pii so ALL PII retention
+// (transactions, invoices, audit logs, feedback, RSVPs, newsletter signups)
+// completes in one monthly batch before any morning traffic.
+//
+// Each command anonymizes PII on rows older than 18 months (default),
+// preserving the non-PII fields (category, status, gallery_id, etc.) for
+// aggregate analytics. Idempotent — re-running is a no-op.
+Schedule::command('exospace:anonymize-feedback-pii')
+    ->monthlyOn(1, '06:30')
+    ->withoutOverlapping(120)
+    ->onOneServer();
+
+Schedule::command('exospace:anonymize-rsvp-pii')
+    ->monthlyOn(1, '06:45')
+    ->withoutOverlapping(120)
+    ->onOneServer();
+
+Schedule::command('exospace:anonymize-newsletter-pii')
+    ->monthlyOn(1, '07:00')
+    ->withoutOverlapping(120)
+    ->onOneServer();
+
 // A-5 FIX (Iter-006): Process scheduled GDPR deletion requests.
 // Deletes users whose 30-day grace period has expired.
 Schedule::call(function () {
