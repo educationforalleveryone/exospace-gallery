@@ -406,6 +406,17 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     Route::get   ('featured',                          [FeaturedExhibitionsController::class, 'index'])->name('featured.index');
     Route::patch ('featured/{gallery}',                [FeaturedExhibitionsController::class, 'toggle'])->name('featured.toggle');
 
+    // ── SEO Operations (SEO OS Iteration 6) ─────────────────────────────────
+    // Health dashboard, seo_profiles overrides, redirect manager, SEO page
+    // publishing. Mirrors the audit log conventions of the other super-admin
+    // controllers (every mutation recorded via AdminAuditLog::record).
+    Route::get   ('seo',                               [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'index'])->name('seo.index');
+    Route::post  ('seo/profile/{type}/{id}',           [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'updateProfile'])->name('seo.profile.update');
+    Route::post  ('seo/redirects',                     [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'storeRedirect'])->name('seo.redirects.store');
+    Route::delete('seo/redirects/{redirect}',          [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'destroyRedirect'])->name('seo.redirects.destroy');
+    Route::post  ('seo/pages/{page}/toggle',           [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'togglePage'])->name('seo.pages.toggle');
+    Route::post  ('seo/rebuild',                       [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'rebuild'])->name('seo.rebuild');
+
     // ── Pending Upgrades (Task H67) ────────────────────────────────────────
     Route::get   ('pending-upgrades',                  [SystemController::class, 'pendingUpgrades'])->name('pending-upgrades.index');
     Route::post  ('pending-upgrades/{pending}/manual-upgrade', [SystemController::class, 'manualUpgrade'])->name('pending-upgrades.manual-upgrade')

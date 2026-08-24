@@ -49,6 +49,14 @@ Schedule::command('exospace:rollup-analytics')
     ->withoutOverlapping(60)
     ->onOneServer();
 
+// ── SEO OS (Iteration 6): daily SEO health audit ──────────────────────────
+// Platform-data-only report (never fabricated search data). Posts to Slack
+// via OPERATIONAL_ALERT_WEBHOOK when warnings exist.
+Schedule::command('exospace:seo-audit')
+    ->dailyAt('04:30')
+    ->withoutOverlapping(30)
+    ->onOneServer();
+
 Schedule::command('exospace:abandoned-cart')
     ->dailyAt('10:00')
     ->withoutOverlapping(60)

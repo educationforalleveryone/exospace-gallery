@@ -295,6 +295,26 @@
                             <textarea name="description" id="edit-description" rows="3" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">{{ old('description', $gallery->description) }}</textarea>
                         </div>
 
+                        {{-- SEO OS (Iteration 6): curator-facing SEO overrides.
+                             Leave blank to use the automatic titles/descriptions
+                             generated from the gallery's real content. --}}
+                        <div class="mb-4">
+                            <label for="edit-seo-title" class="block text-sm font-medium text-gray-400 mb-2">
+                                SEO title <span class="text-gray-600 font-normal">(optional — auto-generated when empty)</span>
+                            </label>
+                            <input type="text" id="edit-seo-title" name="seo_title" value="{{ old('seo_title', $gallery->seoProfile?->title_override) }}" maxlength="200"
+                                   placeholder="{{ $gallery->title }} — 3D Virtual Exhibition"
+                                   class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">
+                        </div>
+                        <div class="mb-4">
+                            <label for="edit-seo-description" class="block text-sm font-medium text-gray-400 mb-2">
+                                SEO description <span class="text-gray-600 font-normal">(optional — max 300 chars)</span>
+                            </label>
+                            <textarea name="seo_description" id="edit-seo-description" rows="2" maxlength="300"
+                                      placeholder="Shown in search results and social cards. Auto-generated from your description when empty."
+                                      class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">{{ old('seo_description', $gallery->seoProfile?->description_override) }}</textarea>
+                        </div>
+
                         </div>
 
                     {{-- Hidden fields — populated by venue picker OR advanced overrides --}}

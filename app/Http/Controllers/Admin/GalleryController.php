@@ -363,6 +363,18 @@ class GalleryController extends Controller
             return $domainResult; // Redirect back with error
         }
 
+        // SEO OS (Iteration 6): persist curator SEO overrides into the
+        // gallery's seo_profile (creates on demand).
+        if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
+            $profile = $gallery->seoProfileOrCreate();
+            $profile->fill([
+                'title_override'       => $validated['seo_title'] ?? null,
+                'description_override' => $validated['seo_description'] ?? null,
+                'updated_by'           => $request->user()->id,
+            ])->save();
+            unset($validated['seo_title'], $validated['seo_description']);
+        }
+
         // Remove non-fillable keys before update
         unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo'],
               $validated['curtain_logo'], $validated['clear_curtain_logo'], $validated['clear_curtain_bg'],
@@ -933,6 +945,11 @@ class GalleryController extends Controller
         $rules = [
             'title'           => 'required|string|max:255',
             'description'     => 'nullable|string|max:1000',
+            // SEO OS (Iteration 6): curator-facing SEO overrides. Only
+            // title/description — robots/canonical/sitemap controls stay
+            // in the super-admin SEO console (legitimate-use split).
+            'seo_title'       => 'nullable|string|max:200',
+            'seo_description' => 'nullable|string|max:300',
             // NOTE: validation is intentionally a whitelist. If you want to
             // allow custom material slugs (e.g. from your own 3D model
             // pipeline), broaden these to 'string|max:50' and add a

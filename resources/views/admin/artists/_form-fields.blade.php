@@ -43,6 +43,27 @@
         @error('bio')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
     </div>
 
+    {{-- SEO OS (Iteration 6): curator-facing SEO overrides. Leave blank to
+         use the automatic title/description generated from real data. --}}
+    <div>
+        <label class="block text-sm font-medium text-gray-300 mb-1">
+            SEO title <span class="text-gray-600 font-normal text-xs">(optional — auto-generated when empty)</span>
+        </label>
+        <input type="text" name="seo_title" value="{{ old('seo_title', $artist->seoProfile?->title_override) }}" maxlength="200"
+               placeholder="{{ $artist->name }} — Artist Profile & 3D Exhibitions"
+               class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500">
+        @error('seo_title')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+    </div>
+    <div>
+        <label class="block text-sm font-medium text-gray-300 mb-1">
+            SEO description <span class="text-gray-600 font-normal text-xs">(optional — max 300 chars)</span>
+        </label>
+        <textarea name="seo_description" rows="2" maxlength="300"
+                  placeholder="Shown in search results. Auto-generated from the bio when empty."
+                  class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500">{{ old('seo_description', $artist->seoProfile?->description_override) }}</textarea>
+        @error('seo_description')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+    </div>
+
     {{-- Location --}}
     <div>
         <label class="block text-sm font-medium text-gray-300 mb-1">Location</label>

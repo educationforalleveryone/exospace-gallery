@@ -70,6 +70,9 @@ class ArtistController extends Controller
             'name'      => ['required', 'string', 'max:100'],
             'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/'],
             'bio'       => ['nullable', 'string', 'max:2000'],
+            // SEO OS (Iteration 6): curator-facing SEO overrides.
+            'seo_title'       => ['nullable', 'string', 'max:200'],
+            'seo_description' => ['nullable', 'string', 'max:300'],
             'website'   => ['nullable', 'string', 'max:500', 'url'],
             'instagram' => ['nullable', 'string', 'max:255'],
             'twitter'   => ['nullable', 'string', 'max:255'],
@@ -83,6 +86,18 @@ class ArtistController extends Controller
             if (!empty($validated[$field])) {
                 $validated[$field] = ltrim($validated[$field], '@');
             }
+        }
+
+        // SEO OS (Iteration 6): persist curator SEO overrides into the
+        // artist's seo_profile (creates on demand).
+        if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
+            $profile = $artist->seoProfileOrCreate();
+            $profile->fill([
+                'title_override'       => $validated['seo_title'] ?? null,
+                'description_override' => $validated['seo_description'] ?? null,
+                'updated_by'           => $request->user()->id,
+            ])->save();
+            unset($validated['seo_title'], $validated['seo_description']);
         }
 
         $validated['created_by'] = Auth::id();
@@ -134,6 +149,9 @@ class ArtistController extends Controller
             'name'      => ['required', 'string', 'max:100'],
             'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/'],
             'bio'       => ['nullable', 'string', 'max:2000'],
+            // SEO OS (Iteration 6): curator-facing SEO overrides.
+            'seo_title'       => ['nullable', 'string', 'max:200'],
+            'seo_description' => ['nullable', 'string', 'max:300'],
             'website'   => ['nullable', 'string', 'max:500', 'url'],
             'instagram' => ['nullable', 'string', 'max:255'],
             'twitter'   => ['nullable', 'string', 'max:255'],
@@ -146,6 +164,18 @@ class ArtistController extends Controller
             if (!empty($validated[$field])) {
                 $validated[$field] = ltrim($validated[$field], '@');
             }
+        }
+
+        // SEO OS (Iteration 6): persist curator SEO overrides into the
+        // artist's seo_profile (creates on demand).
+        if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
+            $profile = $artist->seoProfileOrCreate();
+            $profile->fill([
+                'title_override'       => $validated['seo_title'] ?? null,
+                'description_override' => $validated['seo_description'] ?? null,
+                'updated_by'           => $request->user()->id,
+            ])->save();
+            unset($validated['seo_title'], $validated['seo_description']);
         }
 
         // `created_by` is intentionally NOT in $validated — it is locked

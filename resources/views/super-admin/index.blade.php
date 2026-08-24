@@ -29,6 +29,9 @@
                     <a href="{{ route('super.featured.index') }}" class="px-4 py-2 bg-amber-700 hover:bg-amber-600 rounded-lg transition text-sm">
                         ⭐ Featured
                     </a>
+                    <a href="{{ route('super.seo.index') }}" class="px-4 py-2 bg-indigo-800 hover:bg-indigo-700 rounded-lg transition text-sm">
+                        🔍 SEO Operations
+                    </a>
                     <a href="{{ route('super.pending-upgrades.index') }}" class="px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded-lg transition text-sm">
                         💳 Pending Upgrades
                     </a>
