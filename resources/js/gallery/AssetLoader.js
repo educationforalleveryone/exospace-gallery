@@ -84,6 +84,22 @@ export function pickTextureUrl(img, scene) {
 }
 
 // ── Main asset load — runs on GalleryScene boot ──────────────────────────────
+//
+// PERF-C9 (3D audit F9): PROGRESSIVE LOADING. The old flow blocked the Enter
+// button until 100% of artwork textures had downloaded + decoded — on a
+// 30-image gallery over a slow connection that was a minute of staring at a
+// progress bar while the room itself was ready in seconds.
+//
+// New two-phase flow:
+//   Phase A (blocking):  PBR materials → blur-up thumbnails (desktop) → the
+//                        first FIRST_BATCH artwork textures (deep-linked
+//                        artwork prioritised) → room builds → ENTER UNLOCKS.
+//   Phase B (background): remaining textures stream in with the same 6-way
+//                        concurrency pool and swap into their slots live.
+//
+// Every canvas material is created with a map from the very start (thumb or
+// a shared 1×1 dark placeholder) so a texture swap never changes the shader
+// program — the pop-in costs zero recompiles (see ArtworkPlacer).
 export async function loadAssets() {
     const textureLoader = new THREE.TextureLoader();
     const data = window.GALLERY_DATA;
@@ -100,13 +116,6 @@ export async function loadAssets() {
             ? this._maxAnisotropy
             : Math.min(this.renderer.capabilities.getMaxAnisotropy(), 4);
 
-        const configureTexture = (tex) => {
-            tex.colorSpace      = THREE.SRGBColorSpace;
-            tex.generateMipmaps = !this.isLowEnd;
-            tex.anisotropy      = safeAnisotropy;
-            return tex;
-        };
-
         // ── Preload PBR sets for the gallery's wall + floor types ────────────
         this.updateProgress(10, 'Loading wall + floor materials...');
         await preloadMaterialTextures(textureLoader, data.wall_texture, data.floor_material);
@@ -122,67 +131,147 @@ export async function loadAssets() {
             });
         }
 
-        // ── Load artworks ────────────────────────────────────────────────────
-        // PERF-5 FIX: Limit concurrent texture loads to 6 (browser HTTP/2
-        // connection cap per origin). Previously, a 100-image gallery fired
-        // 100 parallel TextureLoader.load() calls — each allocating an Image
-        // element + decode pipeline. Now uses a simple semaphore.
-        this.updateProgress(30, 'Loading artwork...');
-        this.artworkImages = [];
-
-        const MAX_CONCURRENT = 6;
-        let loadIndex = 0;
-        let completedCount = 0;
         const totalImages = data.images.length;
 
-        const loadNext = () => {
-            return new Promise(resolve => {
-                if (loadIndex >= totalImages) { resolve(); return; }
-                const img = data.images[loadIndex++];
-                textureLoader.load(
-                    pickTextureUrl(img, this),
-                    (texture) => {
-                        texture.colorSpace      = THREE.SRGBColorSpace;
-                        texture.generateMipmaps = !this.isLowEnd;
-                        texture.anisotropy      = safeAnisotropy;
+        // ── Create placeholder entries for ALL artworks up-front ────────────
+        // Wall geometry is sized from the total count, every slot is framed,
+        // and textures attach as they arrive. (Previously, an image whose
+        // download failed was skipped entirely and the wall had a hole.)
+        this.artworkImages = data.images.map(img => ({
+            texture: null,      // full-quality variant — filled on arrival
+            thumbTexture: null, // blur-up placeholder (desktop high-end)
+            aspectRatio: img.aspectRatio || (img.width && img.height ? img.width / img.height : 1),
+            ...img,              // backend fields: id, url, textures, metadata…
+        }));
 
-                        const aspectRatio = img.aspectRatio ||
-                            (texture.image.width / texture.image.height) || 1;
+        // Loading order — a deep-linked artwork (?artwork=<id>) jumps the
+        // queue so the shared link's target is inside the first batch.
+        const deepLinkArtworkId = data.deepLinkArtworkId;
+        const order = data.images.map((_, i) => i);
+        if (deepLinkArtworkId) {
+            const di = order.find(i => data.images[i].id === deepLinkArtworkId);
+            if (di !== undefined && di > 0) {
+                order.splice(order.indexOf(di), 1);
+                order.unshift(di);
+            }
+        }
 
-                        this.artworkImages.push({
-                            id: img.id,
-                            texture,
-                            aspectRatio,
-                            title: img.title,
-                            description: img.description,
-                            ...img,
-                        });
+        const MAX_CONCURRENT = 6;  // PERF-5: browser HTTP/2 connection cap
+        const FIRST_BATCH    = Math.min(6, totalImages);
 
-                        completedCount++;
-                        const percent = 30 + (completedCount / totalImages) * 60;
-                        this.updateProgress(percent, `Loading artwork ${completedCount}/${totalImages}`);
-                        resolve();
-                    },
-                    undefined,
-                    () => { completedCount++; resolve(); } // skip failed
-                );
-            });
+        // Configure + (rarely) downscale a freshly loaded artwork texture.
+        // PERF-C19 (3D audit): uploads are capped at 2048px server-side, but
+        // legacy galleries may still reference larger originals — those would
+        // be uploaded to the GPU at full size. CONFIG.performance.textureMaxSize
+        // existed but was never wired; it is now the enforced ceiling.
+        const finalizeTexture = (tex) => {
+            tex.colorSpace      = THREE.SRGBColorSpace;
+            tex.generateMipmaps = !this.isLowEnd;
+            tex.anisotropy      = safeAnisotropy;
+
+            const maxDim = CONFIG.performance.textureMaxSize || 2048;
+            const image  = tex.image;
+            if (image && image.width && Math.max(image.width, image.height) > maxDim) {
+                const scale = maxDim / Math.max(image.width, image.height);
+                const w = Math.max(1, Math.round(image.width * scale));
+                const h = Math.max(1, Math.round(image.height * scale));
+                const cv = document.createElement('canvas');
+                cv.width = w; cv.height = h;
+                cv.getContext('2d').drawImage(image, 0, 0, w, h);
+                tex.dispose(); // never reached the GPU — release the decode buffer
+                const resized = new THREE.CanvasTexture(cv);
+                resized.colorSpace      = THREE.SRGBColorSpace;
+                resized.generateMipmaps = !this.isLowEnd;
+                resized.anisotropy      = safeAnisotropy;
+                return resized;
+            }
+            return tex;
         };
 
-        // Launch MAX_CONCURRENT workers that pull from the queue
-        const workers = [];
-        for (let i = 0; i < Math.min(MAX_CONCURRENT, totalImages); i++) {
-            workers.push((async () => {
-                while (loadIndex < totalImages) {
-                    await loadNext();
-                }
-            })());
-        }
-        await Promise.all(workers);
+        const loadTextureFor = (index) => new Promise(resolve => {
+            const img = this.artworkImages[index];
+            textureLoader.load(
+                pickTextureUrl(img, this),
+                (tex) => {
+                    img.texture = finalizeTexture(tex);
+                    resolve(true);
+                },
+                undefined,
+                () => resolve(false) // network/decode failure — placeholder stays
+            );
+        });
 
-        // ── Build the room ───────────────────────────────────────────────────
-        this.updateProgress(95, 'Building gallery...');
+        const loadThumbFor = (index) => new Promise(resolve => {
+            const img = this.artworkImages[index];
+            const thumbUrl = img.textures?.thumb;
+            // No real thumbnail available (legacy gallery) — skip silently.
+            if (!thumbUrl || thumbUrl === img.url) { resolve(); return; }
+            textureLoader.load(thumbUrl, (tex) => {
+                tex.colorSpace      = THREE.SRGBColorSpace;
+                tex.generateMipmaps = false; // 1px-to-400px blur-up needs no mips
+                tex.anisotropy      = 1;
+                img.thumbTexture = tex;
+                resolve();
+            }, undefined, () => resolve());
+        });
+
+        // Generic bounded-concurrency queue runner.
+        const runPooled = async (indices, loaderFn, basePct, spanPct, label) => {
+            const total = indices.length;
+            if (total === 0) return;
+            let cursor = 0;
+            let completed = 0;
+            const worker = async () => {
+                while (cursor < total) {
+                    const idx = indices[cursor++];
+                    await loaderFn(idx);
+                    completed++;
+                    this.updateProgress(
+                        basePct + (completed / total) * spanPct,
+                        `${label} ${completed}/${total}`
+                    );
+                }
+            };
+            const n = Math.min(MAX_CONCURRENT, total);
+            await Promise.all(Array.from({ length: n }, () => worker()));
+        };
+
+        // ── PHASE A ──────────────────────────────────────────────────────────
+        // Blur-up thumbnails: desktop high-end only — mobile/low-end spend
+        // their bytes on the real (medium/small) variants instead.
+        const useThumbs = !this.isLowEnd && !this.isMobile;
+        if (useThumbs && totalImages > FIRST_BATCH) {
+            this.updateProgress(12, 'Preparing exhibition...');
+            await runPooled(order, loadThumbFor, 12, 8, 'Preparing');
+        }
+
+        this.updateProgress(22, 'Loading first artworks...');
+        await runPooled(order.slice(0, FIRST_BATCH), loadTextureFor, 22, 33, 'Loading artwork');
+
+        // ── Build the room — walkable NOW, remaining art streams in ─────────
+        this.updateProgress(60, 'Building gallery...');
         this.buildGallery();
+
+        if (totalImages <= FIRST_BATCH) {
+            // Small gallery — everything is already loaded; classic behaviour.
+            this.updateProgress(100, 'Complete!');
+            setTimeout(() => this.hideLoader(), 500);
+            return;
+        }
+
+        // Enter unlocks with the room built — the entire point of PERF-C9.
+        // updateProgress() reads this flag to enable the button early.
+        this._enterReady = true;
+        this.updateProgress(62, 'Ready — enter now, remaining artworks still loading');
+
+        // ── PHASE B — stream the rest in the background ─────────────────────
+        await runPooled(
+            order.slice(FIRST_BATCH),
+            (idx) => loadTextureFor(idx).then(loaded => {
+                if (loaded) this.applyArtworkTexture(this.artworkImages[idx]);
+            }),
+            62, 38, 'Streaming artwork'
+        );
 
         this.updateProgress(100, 'Complete!');
         setTimeout(() => this.hideLoader(), 500);
@@ -192,6 +281,8 @@ export async function loadAssets() {
         // Previously, hideLoader() was a no-op (just console.log) — the
         // curtain stayed at whatever % it last updated, Enter button stayed
         // disabled, visitor was stuck. Now we show a proper error overlay.
+        // (PERF-C9: if the visitor already entered, the curtain is gone and
+        // this is a no-op — the room stays usable with placeholders.)
         this.showLoadError(error);
     }
 }

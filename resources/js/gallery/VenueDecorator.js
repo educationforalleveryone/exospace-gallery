@@ -517,7 +517,8 @@ function addInfiniteVoidParticles(radius) {
     points.userData.baseY = positions;
     this.scene.add(points);
     this._particleSystems = this._particleSystems || [];
-    this._particleSystems.push({ obj: points, type: 'drift' });
+    // PERF-C16: phase gives each system a distinct point in the bob cycle
+    this._particleSystems.push({ obj: points, type: 'drift', phase: Math.random() * Math.PI * 2 });
 }
 
 // CRYSTAL CATHEDRAL — floating glass shards catching refracted light
@@ -563,7 +564,7 @@ function addCrystalCathedralStructure(radius) {
 
         // Register for slow rotation animation in animate()
         this._particleSystems = this._particleSystems || [];
-        this._particleSystems.push({ obj: shard, type: 'rotate-slow' });
+        this._particleSystems.push({ obj: shard, type: 'rotate-slow', phase: Math.random() * Math.PI * 2 });
     }
 
     // Floor: crystal — high metalness, mirror-like
@@ -629,7 +630,7 @@ function addNebulaDriftStructure(radius) {
     this.scene.add(nebPoints);
 
     this._particleSystems = this._particleSystems || [];
-    this._particleSystems.push({ obj: nebPoints, type: 'drift' });
+    this._particleSystems.push({ obj: nebPoints, type: 'drift', phase: Math.random() * Math.PI * 2 });
 
     // 3. Soft purple backlight
     const backLight = new THREE.PointLight(0x8844ff, 0.5, radius * 2);
@@ -677,5 +678,5 @@ function addMirrorLakeStructure(radius) {
     const mist = new THREE.Points(geo, mat);
     this.scene.add(mist);
     this._particleSystems = this._particleSystems || [];
-    this._particleSystems.push({ obj: mist, type: 'drift' });
+    this._particleSystems.push({ obj: mist, type: 'drift', phase: Math.random() * Math.PI * 2 });
 }

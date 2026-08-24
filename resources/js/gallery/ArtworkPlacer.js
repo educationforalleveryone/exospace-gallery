@@ -6,6 +6,22 @@
 import * as THREE from 'three';
 import { CONFIG, CIRCULAR_VENUES } from './config.js';
 
+// ── Shared placeholder texture (PERF-C9) ─────────────────────────────────────
+// A 1×1 dark-tinted texture used when neither the real artwork nor a
+// thumbnail has arrived yet. Every canvas material is created WITH a map so
+// that later swapping in the real texture never changes the shader program
+// (map presence is part of the program cache key — creating materials
+// map-less and adding maps later would recompile once per artwork).
+let _placeholderTexture = null;
+function getPlaceholderTexture() {
+    if (!_placeholderTexture) {
+        _placeholderTexture = new THREE.DataTexture(new Uint8Array([16, 16, 20, 255]), 1, 1);
+        _placeholderTexture.colorSpace = THREE.SRGBColorSpace;
+        _placeholderTexture.needsUpdate = true;
+    }
+    return _placeholderTexture;
+}
+
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function placeArtworks(data) {
     if (this.artworkImages.length === 0) return;
@@ -199,6 +215,11 @@ export function _addEasel(x, z, angle) {
 }
 
 // ── Build a single artwork group (canvas + frame + light) ────────────────────
+// PERF-C9 (3D audit F9): the canvas material may be created from the real
+// texture, the blur-up thumbnail, or the dark placeholder — depending on
+// where we are in the progressive load. The mesh is named + registered in
+// group.userData._canvasMesh so applyArtworkTexture() can find it when the
+// full-quality texture streams in.
 export function makeArtworkGroup(img, data) {
     const aspectRatio = img.aspectRatio || 1;
     const maxHeight   = 2.0;
@@ -207,18 +228,21 @@ export function makeArtworkGroup(img, data) {
     let width  = height * aspectRatio;
     if (width > maxWidth) { width = maxWidth; height = width / aspectRatio; }
 
-    // Canvas (the artwork itself)
+    // Canvas (the artwork itself) — real texture → thumb → dark placeholder
+    const tex = img.texture || img.thumbTexture || getPlaceholderTexture();
+
     const canvasGeo = new THREE.PlaneGeometry(width, height);
     const canvasMat = this.isLowEnd
-        ? new THREE.MeshBasicMaterial({ map: img.texture })
+        ? new THREE.MeshBasicMaterial({ map: tex })
         : new THREE.MeshStandardMaterial({
-            map: img.texture,
+            map: tex,
             roughness: 0.7,
             metalness: 0.0,
             // Add canvas normal map for tactile art texture
             ...(this.textures.canvasNormal ? { normalMap: this.textures.canvasNormal, normalScale: new THREE.Vector2(0.3, 0.3) } : {}),
         });
     const canvas = new THREE.Mesh(canvasGeo, canvasMat);
+    canvas.name = 'artwork-canvas';
     canvas.castShadow    = !this.isLowEnd;
     canvas.receiveShadow = !this.isLowEnd;
 
@@ -234,11 +258,30 @@ export function makeArtworkGroup(img, data) {
         id: img.id,
         title: img.title || img.original_name || 'Untitled',
         description: img.description,
+        // Lookup handle for progressive texture swaps (AssetLoader phase B)
+        _canvasMesh: canvas,
         // Round-trip metadata for the info panel
         ...img,
     };
 
     return { group };
+}
+
+// ── Progressive texture swap (PERF-C9) ───────────────────────────────────────
+// Called by AssetLoader when a background-streamed artwork texture arrives.
+// Swaps the map on the existing canvas material — same material class, same
+// map slot → no shader recompile, the artwork simply sharpens into place.
+export function applyArtworkTexture(img) {
+    if (!img || !img.texture || !this.artworks) return;
+
+    const group = this.artworks.find(a => a.userData.id === img.id);
+    const canvasMesh = group?.userData?._canvasMesh;
+    if (!canvasMesh || !canvasMesh.material) return;
+
+    canvasMesh.material.map = img.texture;
+    // Safe no-op when a map was already present (thumb/placeholder); forces
+    // uniform rebind if the placeholder path ever changes.
+    canvasMesh.material.needsUpdate = true;
 }
 
 // ── Register artwork in the scene + add proximity light ──────────────────────

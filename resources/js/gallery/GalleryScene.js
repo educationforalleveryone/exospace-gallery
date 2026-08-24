@@ -37,7 +37,7 @@ import { loadAssets, loadEnvironmentMap, showLoadError } from './AssetLoader.js'
 import { initAudio, playAudio, toggleMute, loadAudioAssets } from './Audio.js';
 import { applyVenueOverrides, applyVenueConfig, applyVisualPatch, loadDecorations, addVenueStructure } from './VenueDecorator.js';
 import { buildGallery, createRoom, createRoomCorridor, createRoomLShape, createRoomRotunda, createRoomCircular, addVenueCeiling } from './RoomBuilder.js';
-import { placeArtworks, makeArtworkGroup, placeAndRegister } from './ArtworkPlacer.js';
+import { placeArtworks, makeArtworkGroup, placeAndRegister, applyArtworkTexture } from './ArtworkPlacer.js';
 import { setupLighting, addArtworkLight, updateProximityLighting, addCustomLights } from './Lighting.js';
 import { getWallMaterial, getFloorMaterial, createFrame } from './Materials.js';
 import { enforceRoomBounds, registerObstacle, clearObstacles } from './Collisions.js';
@@ -198,6 +198,7 @@ export class GalleryScene {
     placeArtworks(data)                             { return placeArtworks.call(this, data); }
     makeArtworkGroup(img, data)                     { return makeArtworkGroup.call(this, img, data); }
     placeAndRegister(group, data)                   { return placeAndRegister.call(this, group, data); }
+    applyArtworkTexture(img)                        { return applyArtworkTexture.call(this, img); }
     setupLighting(preset)                           { return setupLighting.call(this, preset); }
     addArtworkLight(group, preset)                  { return addArtworkLight.call(this, group, preset); }
     updateProximityLighting()                       { return updateProximityLighting.call(this); }
@@ -370,6 +371,26 @@ export class GalleryScene {
         if (this._lightingFrameCount % lightThrottle === 0) this.updateProximityLighting();
         if (this._lightingFrameCount % focusThrottle === 0) this.checkArtworkFocus();
 
+        // PERF-C16 (3D audit F16): animate the registered particle systems.
+        // VenueDecorator has pushed _particleSystems entries since the void
+        // venues shipped — but nothing ever consumed them, so void-venue dust,
+        // nebula clouds, mirror-lake mist and cathedral shards rendered
+        // perfectly STATIC. Two cheap motion types, skipped for reduced-motion
+        // users (vestibular safety) and low-end devices (frame budget).
+        if (this._particleSystems?.length && !this.reducedMotion && !this.isLowEnd) {
+            const t = performance.now() * 0.001;
+            for (let i = 0; i < this._particleSystems.length; i++) {
+                const ps = this._particleSystems[i];
+                if (ps.type === 'drift') {
+                    // Gentle vertical bob — the whole Points object floats
+                    ps.obj.position.y = Math.sin(t * 0.35 + ps.phase) * 0.35;
+                } else if (ps.type === 'rotate-slow') {
+                    ps.obj.rotation.y += 0.0025;
+                    ps.obj.rotation.x += 0.0012;
+                }
+            }
+        }
+
         // Render — with or without post-processing
         if (this._postFx && !this.isLowEnd) {
             this._postFx.render();
@@ -379,6 +400,9 @@ export class GalleryScene {
     }
 
     // ── Progress bar (called by AssetLoader) ────────────────────────────────
+    // PERF-C9 (3D audit F9): the Enter button unlocks at 100% OR as soon as
+    // AssetLoader sets _enterReady (phase-A complete — room built, first
+    // artworks loaded, rest streaming in the background).
     updateProgress(percent, text) {
         this.loadingProgress = percent;
 
@@ -389,7 +413,7 @@ export class GalleryScene {
         if (percentTxt) percentTxt.textContent = `${Math.round(percent)}%`;
         if (statusTxt)  statusTxt.textContent  = text;
 
-        if (percent >= 100) {
+        if (percent >= 100 || this._enterReady) {
             const enterBtn = document.getElementById('enter-btn');
             if (enterBtn) {
                 enterBtn.style.opacity      = '1';
@@ -397,8 +421,11 @@ export class GalleryScene {
                 enterBtn.style.transition   = 'all 0.3s ease';
                 enterBtn.style.animation    = 'pulse 2s ease-in-out infinite';
             }
-            if (statusTxt) statusTxt.textContent = 'Ready to enter';
-            if (window.EXOSPACE_EMBED_MODE) {
+            if (percent >= 100 && statusTxt) statusTxt.textContent = 'Ready to enter';
+            // Embeds auto-enter as soon as the room is walkable (phase A) —
+            // not at 100% — since embeds skip the curtain experience anyway.
+            if (window.EXOSPACE_EMBED_MODE && !this._embedAutoEntered) {
+                this._embedAutoEntered = true;
                 setTimeout(() => enterBtn?.click(), 400);
             }
         }

@@ -442,7 +442,10 @@
                 Skip intro →
             </a>
 
-            @if($gallery->scheduleEvents()->active()->upcoming()->exists())
+            {{-- (PERF-C15 / 3D audit F15) — uses the $hasUpcomingEvents variable
+                 computed once in the controller instead of re-running the
+                 exists() query a second time per page view. --}}
+            @if($hasUpcomingEvents)
             <a href="{{ route('gallery.events.index', $gallery->slug) }}"
                style="display: inline-flex; align-items: center; gap: 8px; margin-top: 1.5rem; padding: 8px 16px; background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.4); border-radius: 999px; color: rgba(195,180,255,0.95); font-size: 0.8rem; font-weight: 500; text-decoration: none; transition: all 0.2s ease;">
                 <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>

@@ -85,6 +85,12 @@ class GalleryViewController extends Controller
             ? $this->venueExporter->forGallery($gallery)
             : null;
 
+        // PERF-C15 (3D audit F15): this query used to run TWICE per page view
+        // — once here for galleryData and once directly inside the Blade
+        // curtain (@if($gallery->scheduleEvents()…exists())). Compute once,
+        // pass to both consumers.
+        $hasUpcomingEvents = $gallery->scheduleEvents()->active()->upcoming()->exists();
+
         $galleryData = [
             'id'          => $gallery->id,
             'title'       => $gallery->title,
@@ -154,7 +160,7 @@ class GalleryViewController extends Controller
             'newsletterUrl'  => route('gallery.newsletter', $gallery->slug),
             // NEW (Round 4) — events page link
             'eventsUrl'      => route('gallery.events.index', $gallery->slug),
-            'hasUpcomingEvents' => $gallery->scheduleEvents()->active()->upcoming()->exists(),
+            'hasUpcomingEvents' => $hasUpcomingEvents,
 
             // (Task H41 / audit MX8) — deep-link target artwork. If the
             // URL has ?artwork=<id>, the 3D viewer's main.js will
@@ -163,6 +169,6 @@ class GalleryViewController extends Controller
             'deepLinkArtworkId' => $request->integer('artwork'),
         ];
 
-        return view('gallery.view', compact('gallery', 'galleryData'));
+        return view('gallery.view', compact('gallery', 'galleryData', 'hasUpcomingEvents'));
     }
 }
