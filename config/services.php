@@ -36,8 +36,34 @@ return [
     ],
 
     // ── A-10: Operational alerting webhook (Slack/Discord/PagerDuty) ──────
+    //
+    // ITERATION-10 (AUDIT-P1-10.1): Per-severity alert routing.
+    //
+    // Previously ALL alerts (critical + warning + info) went to a single
+    // webhook (OPERATIONAL_ALERT_WEBHOOK). For a premium SaaS, critical
+    // alerts (disk full, scheduler dead, backup missing) should optionally
+    // route to a different channel (e.g. PagerDuty or a dedicated
+    // #exospace-critical Slack channel) while warnings stay in the general
+    // channel.
+    //
+    // Config precedence (per severity):
+    //   critical → OPERATIONAL_ALERT_CRITICAL_WEBHOOK → fall back to OPERATIONAL_ALERT_WEBHOOK
+    //   error    → OPERATIONAL_ALERT_ERROR_WEBHOOK    → fall back to OPERATIONAL_ALERT_WEBHOOK
+    //   warning  → OPERATIONAL_ALERT_WARNING_WEBHOOK  → fall back to OPERATIONAL_ALERT_WEBHOOK
+    //   info     → OPERATIONAL_ALERT_INFO_WEBHOOK     → fall back to OPERATIONAL_ALERT_WEBHOOK
+    //
+    // When the per-severity env vars are absent, ALL alerts go to the
+    // default OPERATIONAL_ALERT_WEBHOOK — fully backward-compatible.
+    //
+    // Example .env for split routing:
+    //   OPERATIONAL_ALERT_WEBHOOK=https://hooks.slack.com/services/T0.../B0.../...  (general)
+    //   OPERATIONAL_ALERT_CRITICAL_WEBHOOK=https://hooks.slack.com/services/T0.../B1.../...  (#exospace-critical)
     'operational_alerts' => [
-        'webhook_url' => env('OPERATIONAL_ALERT_WEBHOOK'),
+        'webhook_url'           => env('OPERATIONAL_ALERT_WEBHOOK'),
+        'critical_webhook_url'  => env('OPERATIONAL_ALERT_CRITICAL_WEBHOOK'),
+        'error_webhook_url'     => env('OPERATIONAL_ALERT_ERROR_WEBHOOK'),
+        'warning_webhook_url'   => env('OPERATIONAL_ALERT_WARNING_WEBHOOK'),
+        'info_webhook_url'      => env('OPERATIONAL_ALERT_INFO_WEBHOOK'),
     ],
 
     // ── AUDIT-P0-1.3 FIX: Outbound webhooks (M-23) ───────────────────────

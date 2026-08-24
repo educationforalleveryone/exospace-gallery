@@ -34,6 +34,13 @@ use Illuminate\Support\Facades\Log;
  * Dedup is opt-in (only when `dedupKey` is non-null). Existing callers that
  * don't pass `dedupKey` behave exactly as before — no behavior change.
  *
+ * ITERATION-10 (AUDIT-P1-10.1): Per-severity alert routing. Previously ALL
+ * alerts went to a single webhook (OPERATIONAL_ALERT_WEBHOOK). Now each
+ * severity can optionally route to its own webhook (e.g. critical →
+ * PagerDuty or #exospace-critical, warning → #exospace-alerts). Falls back
+ * to the default webhook when the per-severity env var is absent — fully
+ * backward-compatible.
+ *
  * Usage:
  *   app(OperationalAlertService::class)->alert(
  *       'Queue backup detected',
@@ -73,7 +80,11 @@ class OperationalAlertService
             $this->markAlertSent($dedupKey, $severity);
         }
 
-        $webhookUrl = config('services.operational_alerts.webhook_url');
+        // ITERATION-10 (AUDIT-P1-10.1): Per-severity webhook routing.
+        // Picks the per-severity webhook if configured, falls back to the
+        // default webhook. When neither is set, the alert is logged only
+        // (Sentry picks up via Log::critical).
+        $webhookUrl = $this->resolveWebhookUrl($severity);
 
         $emoji = match ($severity) {
             'critical' => '🔴',
@@ -175,6 +186,46 @@ class OperationalAlertService
     private function dedupCacheKey(string $dedupKey): string
     {
         return "alert:last_sent:{$dedupKey}";
+    }
+
+    /**
+     * ITERATION-10 (AUDIT-P1-10.1): Resolve the webhook URL for a given
+     * severity.
+     *
+     * Precedence (per severity):
+     *   1. The per-severity webhook (e.g. OPERATIONAL_ALERT_CRITICAL_WEBHOOK)
+     *      if configured.
+     *   2. The default webhook (OPERATIONAL_ALERT_WEBHOOK) as fallback.
+     *   3. null if neither is set (alert is logged only — Sentry picks up
+     *      via Log::critical).
+     *
+     * This lets the operator route critical alerts to a dedicated channel
+     * (PagerDuty, #exospace-critical) while warnings stay in the general
+     * channel. Fully backward-compatible — when the per-severity env vars
+     * are absent, all alerts go to the default webhook (current behavior).
+     */
+    private function resolveWebhookUrl(string $severity): ?string
+    {
+        // Map severity → config key for the per-severity webhook.
+        $severityConfigKey = match ($severity) {
+            'critical' => 'critical_webhook_url',
+            'error'    => 'error_webhook_url',
+            'warning'   => 'warning_webhook_url',
+            'info'     => 'info_webhook_url',
+            default    => null,
+        };
+
+        // Try the per-severity webhook first.
+        if ($severityConfigKey !== null) {
+            $perSeverityUrl = config("services.operational_alerts.{$severityConfigKey}");
+            if (is_string($perSeverityUrl) && $perSeverityUrl !== '') {
+                return $perSeverityUrl;
+            }
+        }
+
+        // Fall back to the default webhook.
+        $defaultUrl = config('services.operational_alerts.webhook_url');
+        return is_string($defaultUrl) && $defaultUrl !== '' ? $defaultUrl : null;
     }
 
     /**
