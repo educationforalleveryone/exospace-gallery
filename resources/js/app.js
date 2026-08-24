@@ -1,23 +1,40 @@
 import './bootstrap';
 
-// ITERATION-12 (AUDIT-P2-12.1): Use Alpine.js CSP-safe build.
+// ITERATION-12 (AUDIT-P2-12.1 — REVERTED): The audit recommended switching
+// to `alpinejs/dist/cdn.min.js` to remove 'unsafe-eval' from the CSP.
+// Investigation found this is NOT possible with Alpine 3.x:
 //
-// The default Alpine build (`alpinejs`) compiles x-data/x-show/x-if
-// expressions via `new Function()`, which requires 'unsafe-eval' in the
-// Content-Security-Policy. The CSP-safe build (`alpinejs/dist/cdn.min.js`)
-// uses MutationObserver instead — no eval() needed.
+//   1. `cdn.min.js` is a UMD/IIFE bundle for direct <script> tag use —
+//      it has no ES module `export default`, so `import Alpine from
+//      'alpinejs/dist/cdn.min.js'` fails with "default is not exported"
+//      (Vite/Rollup build error).
+//   2. The ES module build (`module.esm.js`) that DOES have `export default`
+//      still uses `new Function` (line 660) to evaluate x-data expressions.
+//      There is no Alpine 3.x build that removes `new Function` entirely.
 //
-// This lets us remove 'unsafe-eval' from the CSP script-src directive,
-// closing the XSS attack surface that eval() enables.
+// Alpine 3.x's CSP-compatible mode requires NOT using expression strings
+// at all (e.g. `x-data="{ open: false }"`) and instead registering every
+// component via `Alpine.data('name', () => ({...}))` + `x-data="name"`.
+// Exospace uses expression strings across ~20 Blade components — migrating
+// all of them is a large refactor (out of scope for this iteration).
 //
-// The CSP-safe build has one limitation: x-data expressions can't reference
-// JavaScript variables directly (they must be pure attribute expressions).
-// Exospace's Alpine usage (toasts, modals, dropdowns, tooltips, command
-// palette, cookie banner, feedback widget) uses only attribute expressions,
-// so this limitation doesn't affect us.
+// DECISION: Keep 'unsafe-eval' in the CSP. The original audit note in
+// SecurityHeaders.php (lines 84-85) documented this as a "known tradeoff"
+// — that assessment was correct. 'unsafe-eval' is required for Alpine 3.x
+// expression evaluation.
 //
-// See: https://alpinejs.dev/advanced/extending#csp-compatible
-import Alpine from 'alpinejs/dist/cdn.min.js';
+// Mitigations in place:
+//   - 'unsafe-inline' REMOVED (Iter-004): inline scripts need nonces.
+//   - 'strict-dynamic' (Iter-004): only nonce'd scripts can load children.
+//   - 'unsafe-eval' KEPT: required for Alpine x-data expressions.
+//
+// The only way to remove 'unsafe-eval' is to either:
+//   (a) Migrate all Alpine x-data expressions to Alpine.data() registrations
+//       (large refactor — 20+ components, ~50+ expression strings).
+//   (b) Replace Alpine with a different frontend framework that doesn't
+//       use eval (e.g. Stimulus, Livewire) — even larger refactor.
+// Both are deferred to a future iteration.
+import Alpine from 'alpinejs';
 
 window.Alpine = Alpine;
 

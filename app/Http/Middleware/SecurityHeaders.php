@@ -28,18 +28,28 @@ use Symfony\Component\HttpFoundation\Response;
  *     CSP pattern for apps that use bundlers (Vite) that inject child
  *     scripts dynamically.
  *
- * ITERATION-12 (AUDIT-P2-12.1): 'unsafe-eval' REMOVED. The Alpine.js import
- * in resources/js/app.js now uses the CSP-safe build
- * (`alpinejs/dist/cdn.min.js`) which uses MutationObserver instead of
- * `new Function()` to evaluate x-data expressions. This closes the XSS
- * attack surface that `eval()` and `new Function()` enable — the one CSP
- * relaxation that defeats most of the point of having a CSP.
+ * ITERATION-12 (AUDIT-P2-12.1 — INVESTIGATED, KEPT 'unsafe-eval'):
  *
- *   - 'unsafe-eval' removed from script-src. This is the security win.
- *   - 'unsafe-inline' remains REMOVED (was removed in Iter-004).
- *   - style-src still has 'unsafe-inline' (Blade generates inline <style>
- *     blocks; style nonces are more complex to implement; style-based XSS
- *     is much rarer than script-based XSS — accepted tradeoff).
+ * The audit recommended removing 'unsafe-eval' by switching to Alpine's
+ * CSP-safe build. Investigation found this is NOT possible with Alpine 3.x:
+ *   - The `cdn.min.js` build has no ES module `export default` (build fails).
+ *   - The `module.esm.js` build (which has `export default`) STILL uses
+ *     `new Function` (line 660) to evaluate x-data expressions.
+ *   - There is no Alpine 3.x build that removes `new Function` entirely.
+ *
+ * Alpine 3.x's CSP-compatible mode requires NOT using expression strings
+ * (e.g. `x-data="{ open: false }"`) and instead registering every component
+ * via `Alpine.data('name', () => ({...}))` + `x-data="name"`. Exospace uses
+ * expression strings across ~20 Blade components — migrating all of them is
+ * a large refactor (deferred to a future iteration).
+ *
+ * DECISION: Keep 'unsafe-eval'. The original audit note (lines 84-85)
+ * documented this as a "known tradeoff" — that assessment was correct.
+ *
+ * Mitigations in place:
+ *   - 'unsafe-inline' REMOVED (Iter-004): inline scripts need nonces.
+ *   - 'strict-dynamic' (Iter-004): only nonce'd scripts can load children.
+ *   - 'unsafe-eval' KEPT: required for Alpine 3.x expression evaluation.
  *
  * The nonce is stored in the request attributes so the Blade @nonce
  * directive and the csp_nonce() helper can access it during view rendering.
@@ -90,10 +100,12 @@ class SecurityHeaders
         // - 'strict-dynamic': scripts loaded by a trusted (nonce'd) script also
         //   execute. This handles Vite's dynamic imports without listing every
         //   chunk in the CSP.
-        // - 'unsafe-eval' REMOVED (ITERATION-12 / AUDIT-P2-12.1): the Alpine.js
-        //   CSP-safe build (alpinejs/dist/cdn.min.js) imported in resources/js/app.js
-        //   uses MutationObserver instead of new Function(), so 'unsafe-eval' is
-        //   no longer needed. This closes the XSS attack surface that eval() enables.
+        // - 'unsafe-eval' KEPT (ITERATION-12 investigation): required by Alpine 3.x
+        //   to evaluate x-data expressions via new Function(). The audit
+        //   recommended removing it, but Alpine 3.x has no build that removes
+        //   new Function() entirely (see class docblock above for details).
+        //   Removing 'unsafe-eval' would break ALL Alpine x-data/x-show/x-if
+        //   expressions across ~20 Blade components. Kept as a known tradeoff.
         // - 'unsafe-inline' REMOVED: replaced by nonces.
         //
         // style-src still has 'unsafe-inline' because Laravel's Blade
@@ -102,7 +114,7 @@ class SecurityHeaders
         // tradeoff — style-based XSS is much rarer than script-based XSS.
         $csp = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'nonce-{$nonce}' 'strict-dynamic'",
+            "script-src 'self' 'nonce-{$nonce}' 'strict-dynamic' 'unsafe-eval'",
             "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
             "img-src 'self' data: blob:",
             "font-src 'self' data: https://fonts.bunny.net",
