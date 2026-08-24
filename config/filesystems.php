@@ -79,6 +79,39 @@ return [
             'visibility' => 'public',
         ],
 
+        // ITERATION-9 (AUDIT-P1-9.1): Off-site backup destination.
+        //
+        // Cloudflare R2 is S3-compatible object storage. Backups written
+        // here survive even if the entire Coolify container + persistent volume
+        // are destroyed. The disk is defined but NOT used until the operator:
+        //   1. Creates an R2 bucket (see docs/AI_MANUAL_TASKS.md → I9-1)
+        //   2. Sets the R2_* env vars in Coolify
+        //   3. Sets BACKUP_DISKS=local,r2 in Coolify (see config/backup.php)
+        //
+        // When the env vars are absent, the disk config resolves to null values
+        // and the disk is never accessed (no error). It only activates when the
+        // operator explicitly adds 'r2' to BACKUP_DISKS.
+        //
+        // R2 has no regions in the S3 sense (buckets are globally addressable),
+        // so 'region' is set to 'auto' per Cloudflare's S3-compat docs — this
+        // is required by the AWS SDK's request signing even though R2 ignores it.
+        //
+        // Cost: R2 charges ~$0.015/GB/month storage and, notably, ZERO egress
+        // fees (unlike DO Spaces / AWS S3) — meaning a restore never incurs a
+        // bandwidth bill. Exospace's backup retention (7 daily + 4 weekly + 2
+        // yearly = ~13 zips, each <500MB = ~6.5GB total) costs well under $1/mo.
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_BUCKET'),
+            'endpoint' => env('R2_ENDPOINT'), // e.g. https://<account_id>.r2.cloudflarestorage.com
+            'use_path_style_endpoint' => true, // required by R2's S3-compat API
+            'throw' => true,
+            'report' => true,
+        ],
+
     ],
 
     /*

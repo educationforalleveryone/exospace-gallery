@@ -342,13 +342,11 @@ class OperationalAlertService
      *
      * The spatie/laravel-backup package sends email notifications on failure,
      * but for a premium SaaS, backup failures should ALSO appear in the same
-     * Slack channel as other operational alerts (queue backup, disk full,
-     * scheduler down). This check runs every 5 minutes as part of the
-     * existing checkAndAlert() schedule.
+     * Slack channel as other operational alerts. This check runs every 5
+     * minutes as part of the existing checkAndAlert() schedule.
      *
      * Logic:
-     *   - Scans the backup destination disk (config: 'backup.backup.destination.disks[0]')
-     *     for backup zip files.
+     *   - Scans the backup destination disk(s) for backup zip files.
      *   - If NO backup files exist at all → critical alert (backups have never run
      *     or the disk is misconfigured).
      *   - If the newest backup is older than 26 hours → critical alert (the daily
@@ -356,14 +354,43 @@ class OperationalAlertService
      *     1-hour buffer past the 24-hour daily schedule.
      *   - Otherwise: healthy (no alert).
      *
-     * The check is defensive: if the disk doesn't exist or can't be read, it
+     * ITERATION-9 (AUDIT-P1-9.1): Now checks ALL configured backup disks
+     * (not just the first). When the operator adds 'r2' via
+     * BACKUP_DISKS=local,r2, this method checks both. Each disk gets
+     * its own dedup key (e.g. 'backup_none_found:local',
+     * 'backup_none_found:r2') so a failure on one disk doesn't
+     * suppress the alert for the other.
+     *
+     * The check is defensive: if a disk doesn't exist or can't be read, it
      * skips silently (the existing checkDiskUsage() provides redundant coverage
      * for disk-level issues).
      */
     private function checkBackupHealth(): void
     {
+        // ITERATION-9: Get ALL configured backup disks (env-driven via BACKUP_DISKS).
+        $diskNames = config('backup.backup.destination.disks', ['local']);
+
+        // Handle both array and single-string configs (defensive).
+        if (! is_array($diskNames)) {
+            $diskNames = [$diskNames];
+        }
+
+        if (empty($diskNames)) {
+            $diskNames = ['local'];
+        }
+
+        foreach ($diskNames as $diskName) {
+            $this->checkSingleBackupDisk($diskName);
+        }
+    }
+
+    /**
+     * ITERATION-9 (AUDIT-P1-9.1): Check a single backup disk for health.
+     * Extracted from checkBackupHealth() to support multi-disk configs.
+     */
+    private function checkSingleBackupDisk(string $diskName): void
+    {
         try {
-            $diskName = config('backup.backup.destination.disks.0', 'local');
             $disk = \Illuminate\Support\Facades\Storage::disk($diskName);
 
             // Spatie backups are stored under a folder named after the app
@@ -384,7 +411,7 @@ class OperationalAlertService
                     'No backups found',
                     "No backup zip files found on disk '{$diskName}' under '{$backupPath}'. Backups may have never run, or the backup destination is misconfigured. Check the spatie/laravel-backup schedule + the BACKUP_PASSWORD env var.",
                     'critical',
-                    'backup_none_found' // AUDIT-P1-7.1: dedup key
+                    "backup_none_found:{$diskName}" // AUDIT-P1-9.1: per-disk dedup key
                 );
                 return;
             }
@@ -406,12 +433,13 @@ class OperationalAlertService
                 $this->alert(
                     'Backup is stale',
                     sprintf(
-                        "Newest backup is %.1f hours old (threshold: 26 hours). File: %s. The daily 1am backup may have failed. Check the spatie/laravel-backup logs and the backup:run schedule.",
+                        "Newest backup on disk '%s' is %.1f hours old (threshold: 26 hours). File: %s. The daily 1am backup may have failed. Check the spatie/laravel-backup logs and the backup:run schedule.",
+                        $diskName,
                         $ageHours,
                         basename($newestFile)
                     ),
                     'critical',
-                    'backup_stale' // AUDIT-P1-7.1: dedup key
+                    "backup_stale:{$diskName}" // AUDIT-P1-9.1: per-disk dedup key
                 );
             }
         } catch (\Throwable $e) {

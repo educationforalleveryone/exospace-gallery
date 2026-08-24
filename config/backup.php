@@ -6,7 +6,7 @@ declare(strict_types=1);
  * A-1 FIX (Iter-006): Backup configuration for spatie/laravel-backup.
  *
  * Backups are stored on the local disk initially, then the operator should
- * configure an S3-compatible destination (DigitalOcean Spaces) for off-site
+ * configure an S3-compatible destination (Cloudflare R2) for off-site
  * storage. See docs/DR.md for the full backup/restore runbook.
  *
  * Schedule (in routes/console.php):
@@ -59,9 +59,25 @@ return [
 
             'filename_prefix' => '',
 
-            'disks' => [
-                'local', // Change to 's3' or 'do-spaces' for off-site storage
-            ],
+            // ITERATION-9 (AUDIT-P1-9.1): Backup destination disks are now
+            // env-driven via BACKUP_DISKS (comma-separated). Default: 'local'
+            // (backward-compatible — existing behavior unchanged).
+            //
+            // To enable off-site backups, the operator:
+            //   1. Creates an R2 bucket (see docs/AI_MANUAL_TASKS.md → I9-1)
+            //   2. Sets R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET/R2_ENDPOINT env vars
+            //   3. Sets BACKUP_DISKS=local,r2 in Coolify
+            //
+            // Spatie writes to ALL listed disks — so 'local,r2' means
+            // each backup is written to both the local disk AND R2.
+            // This provides redundancy: if the local volume dies, the R2
+            // copy survives — with no egress fee if you ever need to restore.
+            //
+            // The r2 disk is defined in config/filesystems.php and
+            // reads from R2_* env vars. When those env vars are absent,
+            // the disk resolves to null config values and is never accessed
+            // (no error) unless explicitly listed here.
+            'disks' => array_filter(array_map('trim', explode(',', (string) env('BACKUP_DISKS', 'local')))),
         ],
 
         'temporary_directory' => storage_path('app/backup-temp'),
@@ -116,7 +132,10 @@ return [
     'monitor_backups' => [
         [
             'name' => env('APP_NAME', 'Exospace') . ' Backup',
-            'disks' => ['local'],
+            // ITERATION-9 (AUDIT-P1-9.1): Monitor ALL configured backup disks
+            // (mirrors the destination.disks config). When the operator adds
+            // 'r2' via BACKUP_DISKS, the monitor checks both disks.
+            'disks' => array_filter(array_map('trim', explode(',', (string) env('BACKUP_DISKS', 'local')))),
             'health_checks' => [
                 MaximumAgeInDays::class => 1,
                 MaximumStorageInMegabytes::class => 5000,
