@@ -15,7 +15,20 @@
 //   Medium: pixelRatio=1.25, bloom on,  max 6 active lights, HDRI on
 //   Low:    pixelRatio=1.0,  bloom off, max 4 active lights, HDRI off
 //   Auto:   uses detectLowEnd() result (high-end → High, low-end → Low)
+//
+// PERF-F31 (3D audit — iteration 6): REAL-USER PERF TELEMETRY.
+// Five iterations of performance work were verified by logic + automated
+// tests, but every frame-rate claim lacked field data (Sentry traces are
+// disabled). startPerfSampling() — invoked by main.js at the Enter click —
+// collects 500 ms FPS samples for 15 s alongside draw calls, triangles,
+// pixel ratio (including any adaptive downscale), device tier, JS heap and
+// network class, then sends ONE 'perf' beacon through the existing
+// /gallery/{id}/track pipeline. Visitors who leave early flush a partial
+// sample on pagehide (sendBeacon). One request per engaged visit — the
+// 30/min throttle is untouched.
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { Analytics } from './Analytics.js';
 
 const QUALITY_LEVELS = {
     high:   { pixelRatio: 1.5,  bloom: true,  maxLights: 8, hdri: true,  label: 'High' },
@@ -125,7 +138,64 @@ export class PerformanceControls {
             this._lastFpsUpdate = now;
             this._updateDisplay();
             this._maybeAdapt(this._currentFps, now);
+            this._maybeSamplePerf(this._currentFps);
         }
+    }
+
+    // ── PERF-F31: real-user perf sampling ─────────────────────────────────
+    // Started at the Enter click (engaged session). Collects 30 × 500 ms FPS
+    // samples (~15 s), then fires one beacon. pagehide flushes a partial
+    // sample once ≥ 5 samples exist (sendBeacon — survives unload).
+    startPerfSampling(enterMs) {
+        if (this._perfState) return; // once per page load
+        this._perfState = {
+            enterMs: enterMs || Math.round(performance.now()),
+            samples: [],
+            sent: false,
+            listener: () => this._flushPerf(true),
+        };
+        window.addEventListener('pagehide', this._perfState.listener, { once: true });
+    }
+
+    _maybeSamplePerf(fps) {
+        if (!this._perfState || this._perfState.sent) return;
+        this._perfState.samples.push(fps);
+        if (this._perfState.samples.length >= 30) {
+            this._flushPerf(false);
+        }
+    }
+
+    _flushPerf(early) {
+        const st = this._perfState;
+        if (!st || st.sent) return;
+        // Early flush needs enough data to mean anything (≥ 2.5 s).
+        if (early && st.samples.length < 5) return;
+
+        st.sent = true;
+        window.removeEventListener('pagehide', st.listener);
+
+        const s = st.samples;
+        const scene = this.scene;
+        const info = scene.renderer?.info;
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+
+        Analytics.send('perf', {
+            perf: {
+                tier: scene.isLowEnd ? 'low' : (scene._isMobileTier ? 'mobile' : 'high'),
+                q: String(this._quality).slice(0, 8),
+                fps: s.length ? Math.round(s.reduce((a, b) => a + b, 0) / s.length) : null,
+                fps_min: s.length ? Math.min(...s) : null,
+                draws: info?.render?.calls ?? null,
+                tris: info?.render ? Math.round(info.render.triangles / 1000) : null,
+                pr: scene.renderer?.getPixelRatio ? Math.round(scene.renderer.getPixelRatio() * 100) / 100 : null,
+                adapt: this._prScale ?? 1,
+                n: scene.artworks?.length ?? null,
+                heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null,
+                net: conn?.effectiveType ? String(conn.effectiveType).slice(0, 8) : null,
+                ms: st.enterMs,
+                partial: early ? 1 : 0,
+            },
+        });
     }
 
     /**

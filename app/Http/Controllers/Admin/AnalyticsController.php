@@ -185,10 +185,27 @@ class AnalyticsController extends Controller
         }
 
         $validated = $request->validate([
-            'event'          => 'required|in:view,focus,tour_start,tour_complete,dwell',
+            // PERF-F31: 'perf' = one beacon per engaged visit (15 s of FPS
+            // samples + render stats). Stored in perf_data, ignored by the
+            // daily rollup, aged out by the existing retention prune.
+            'event'          => 'required|in:view,focus,tour_start,tour_complete,dwell,perf',
             'session_token'  => 'required|string|max:64',
             'image_id'       => 'nullable|integer',
             'dwell_seconds'  => 'nullable|integer|min:1|max:86400',
+            'perf'           => 'nullable|array', // beacon payload — fields bounded below
+            'perf.tier'      => 'nullable|in:high,mobile,low',
+            'perf.q'         => 'nullable|string|max:8',
+            'perf.fps'       => 'nullable|integer|min:0|max:240',
+            'perf.fps_min'   => 'nullable|integer|min:0|max:240',
+            'perf.draws'     => 'nullable|integer|min:0|max:10000',
+            'perf.tris'      => 'nullable|integer|min:0|max:100000',
+            'perf.pr'        => 'nullable|numeric|min:0.1|max:8',
+            'perf.adapt'     => 'nullable|numeric|min:0.1|max:1',
+            'perf.n'         => 'nullable|integer|min:0|max:10000',
+            'perf.heap'      => 'nullable|integer|min:0|max:16384',
+            'perf.net'       => 'nullable|string|max:8',
+            'perf.ms'        => 'nullable|integer|min:0|max:3600000',
+            'perf.partial'   => 'nullable|integer|in:0,1',
         ]);
 
         // ── Hash session_token before storage (audit M9) ──────────────────
@@ -230,6 +247,8 @@ class AnalyticsController extends Controller
                 'event'         => $validated['event'],
                 'session_token' => $sessionTokenHash,
                 'referrer'      => $referrer,
+                // PERF-F31: perf beacon payload (null for every other event)
+                'perf_data'     => $validated['perf'] ?? null,
                 'created_at'    => now(),
             ]);
         }

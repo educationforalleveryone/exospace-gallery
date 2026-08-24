@@ -214,6 +214,8 @@ export class GalleryScene {
     focusNearestArtwork()                           { return focusNearestArtwork.call(this); }
     checkArtworkFocus()                             { return checkArtworkFocus.call(this); }
     setupMobileControls()                           { return setupMobileControls.call(this); }
+    // PERF-F31: delegate to PerformanceControls (owns the FPS sampler).
+    startPerfSampling(enterMs)                      { return this._perfControls?.startPerfSampling?.(enterMs); }
     loadEnvironmentMap()                            { return loadEnvironmentMap.call(this); }
     playAudio()                                     { return playAudio.call(this); }
     loadAudioAssets()                               { return loadAudioAssets.call(this); }

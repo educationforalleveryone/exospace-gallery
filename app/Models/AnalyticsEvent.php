@@ -40,7 +40,7 @@ class AnalyticsEvent extends Model
 
     protected $fillable = [
         'gallery_id', 'image_id', 'event',
-        'session_token', 'dwell_seconds', 'referrer',
+        'session_token', 'dwell_seconds', 'perf_data', 'referrer',
         'created_at',
         // C-3 FIX (Iter-003): 'country' removed — column was dropped by
         // 2026_07_04_000004_drop_country_from_analytics_events.php.
@@ -49,6 +49,8 @@ class AnalyticsEvent extends Model
 
     protected $casts = [
         'created_at' => 'datetime',
+        // PERF-F31: perf telemetry beacon payload (JSON column, nullable)
+        'perf_data'  => 'array',
     ];
 
     public function gallery(): BelongsTo

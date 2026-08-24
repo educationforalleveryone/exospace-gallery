@@ -13,8 +13,9 @@ export const Analytics = {
         if (!url) return;
         const body = { event, session_token: window.EXOSPACE_SESSION, ...extra };
 
-        // Dwell is fired on page unload — use sendBeacon for reliability
-        if (event === 'dwell' && navigator.sendBeacon) {
+        // Dwell (page unload) and perf (partial sample flush on pagehide)
+        // fire at navigation time — sendBeacon is the reliable transport.
+        if ((event === 'dwell' || event === 'perf') && navigator.sendBeacon) {
             navigator.sendBeacon(url, JSON.stringify(body));
             return;
         }

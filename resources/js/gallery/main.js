@@ -115,6 +115,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // textures while the curtain is up.
         galleryScene?.loadAudioAssets?.();
 
+        // PERF-F31 (3D audit — iteration 6): start real-user perf sampling at
+        // the moment of engagement. performance.now() here = ms from navigation
+        // start to Enter (curtain + boot + asset gate) — the load-time metric
+        // in the beacon. Sampler sends ONE 'perf' event after 15 s (or a
+        // partial flush on pagehide) through the existing track pipeline.
+        galleryScene?.startPerfSampling?.(Math.round(performance.now()));
+
         // Resume audio context — browsers block autoplay until a gesture
         if (galleryScene?.listener?.context) {
             if (galleryScene.listener.context.state === 'suspended') {
