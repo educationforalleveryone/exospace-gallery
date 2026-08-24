@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Gallery;
+use App\Services\Seo\InternalLinkingService;
+use App\Services\Seo\SchemaBuilder;
 use App\Services\VenueConfigExporter;
 use App\Support\Seo\SeoManager;
 use Illuminate\Http\Request;
@@ -13,6 +15,8 @@ class GalleryViewController extends Controller
     public function __construct(
         private VenueConfigExporter $venueExporter,
         private SeoManager $seo,
+        private SchemaBuilder $schema,
+        private InternalLinkingService $linking,
     ) {}
 
     public function show(Request $request, string $slug): View|\Illuminate\Http\RedirectResponse
@@ -189,6 +193,33 @@ class GalleryViewController extends Controller
         }
         $gallerySeo = $gallerySeo->with(['robots' => $robots]);
 
-        return view('gallery.view', compact('gallery', 'galleryData', 'hasUpcomingEvents', 'gallerySeo'));
+        // ── SEO OS (Iteration 3): structured data via the central builder.
+        // A dated gallery is an ExhibitionEvent; an undated one is better
+        // described as a CollectionPage (no fake dates). The artwork list
+        // is capped to keep JSON-LD small on large exhibitions.
+        $graphs = [];
+        if (!$isEmbed) {
+            $graphs[] = ($gallery->opens_at || $gallery->closes_at)
+                ? $this->schema->exhibitionEvent($gallery)
+                : $this->schema->collectionPage($gallery);
+
+            if ($gallery->images->isNotEmpty()) {
+                $graphs[] = $this->schema->artworkItemList(
+                    $gallery,
+                    $gallery->images->take(60),
+                    $gallery->images->count(),
+                );
+            }
+            $gallerySeo = $gallerySeo->with(['jsonLd' => $graphs]);
+        }
+
+        // ── SEO OS (Iteration 3): related exhibitions (internal linking).
+        $relatedGalleries = (!$isEmbed && $gallery->images->isNotEmpty())
+            ? $this->linking->relatedGalleries($gallery)
+            : collect();
+
+        return view('gallery.view', compact(
+            'gallery', 'galleryData', 'hasUpcomingEvents', 'gallerySeo', 'relatedGalleries'
+        ));
     }
 }

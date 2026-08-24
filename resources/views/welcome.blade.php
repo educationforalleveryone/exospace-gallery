@@ -35,14 +35,38 @@ $stats = [
     ['label' => 'Visitors this month',    'value' => '50,000+', 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>'],
 ];
 
-// Featured galleries — fallback to curated sample data. A future iteration
-// can replace this with `Gallery::publiclyViewable()->featured()->take(6)->get()`
-// cached via Cache::remember.
-$featuredGalleries = [
-    ['title' => 'Echoes of the Void', 'artist' => 'Maya Chen',     'venue' => 'Dark Museum',    'views' => '12.4k', 'gradient' => 'from-purple-600/40 to-indigo-900/60'],
-    ['title' => 'Light & Shadow',     'artist' => 'David Okonkwo', 'venue' => 'Industrial Loft', 'views' => '8.7k',  'gradient' => 'from-amber-600/40 to-red-900/60'],
-    ['title' => 'Coastal Memories',   'artist' => 'Sofia Lindqvist','venue' => 'Sculpture Garden','views' => '6.2k', 'gradient' => 'from-blue-500/40 to-cyan-900/60'],
-];
+// Featured galleries - REAL data (SEO OS Iteration 3, audit M10): featured
+// exhibitions first, then most viewed, cached 15 min. The curated sample
+// cards remain ONLY as a fresh-install fallback before real content exists.
+$featuredGalleries = \Illuminate\Support\Facades\Cache::remember('welcome:featured-galleries', 900, function () {
+    $galleries = \App\Models\Gallery::publiclyViewable()
+        ->with(['coverImage', 'venueTemplate', 'user'])
+        ->has('images', '>=', 1)
+        ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
+        ->orderByDesc('is_featured')
+        ->orderByDesc('view_count')
+        ->take(3)
+        ->get();
+
+    return $galleries->map(fn ($g) => [
+        'title'    => $g->title,
+        'artist'   => $g->user?->name ?? 'Exospace curator',
+        'venue'    => $g->venueTemplate?->name ?? '3D Gallery',
+        'views'    => number_format($g->view_count) . ' views',
+        'url'      => $g->public_url,
+        'cover'    => $g->coverImage?->public_url,
+        'gradient' => 'from-purple-600/40 to-indigo-900/60',
+    ])->all();
+});
+
+if (count($featuredGalleries) === 0) {
+    // Fresh-install fallback: sample cards (clearly placeholder content).
+    $featuredGalleries = [
+        ['title' => 'Echoes of the Void', 'artist' => 'Maya Chen',     'venue' => 'Dark Museum',    'views' => '12.4k', 'url' => '/gallery/demo', 'cover' => null, 'gradient' => 'from-purple-600/40 to-indigo-900/60'],
+        ['title' => 'Light & Shadow',     'artist' => 'David Okonkwo', 'venue' => 'Industrial Loft', 'views' => '8.7k',  'url' => '/gallery/demo', 'cover' => null, 'gradient' => 'from-amber-600/40 to-red-900/60'],
+        ['title' => 'Coastal Memories',   'artist' => 'Sofia Lindqvist','venue' => 'Sculpture Garden','views' => '6.2k', 'url' => '/gallery/demo', 'cover' => null, 'gradient' => 'from-blue-500/40 to-cyan-900/60'],
+    ];
+}
 
 // Testimonials — placeholder content. Replace with real customer quotes
 // once enough customers have given consent + we have proper attribution.
@@ -168,9 +192,12 @@ $testimonials = [
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             @foreach($featuredGalleries as $gallery)
-                <a href="/gallery/demo" class="block group bg-gradient-to-br from-ink-800 to-ink-900 rounded-2xl overflow-hidden border border-gray-700 hover:border-brand-500/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
-                    {{-- Cover art (gradient placeholder) --}}
+                <a href="{{ $gallery['url'] }}" class="block group bg-gradient-to-br from-ink-800 to-ink-900 rounded-2xl overflow-hidden border border-gray-700 hover:border-brand-500/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
+                    {{-- Cover art (real image when available, gradient otherwise) --}}
                     <div class="aspect-[4/3] relative bg-gradient-to-br {{ $gallery['gradient'] }} flex items-end p-4">
+                        @if($gallery['cover'])
+                            <img src="{{ $gallery['cover'] }}" alt="{{ $gallery['title'] }} - 3D exhibition" loading="lazy" decoding="async" class="absolute inset-0 w-full h-full object-cover">
+                        @endif
                         <div class="absolute inset-0 bg-gradient-to-t from-ink-950/80 to-transparent"></div>
                         <div class="relative z-10">
                             <span class="inline-block px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-sm text-xs text-gray-200 mb-2">{{ $gallery['venue'] }}</span>
@@ -374,8 +401,11 @@ $testimonials = [
     </div>
 </section>
 
-{{-- I-2 FIX (Iter-013): Organization JSON-LD for rich results in Google SERPs.
-    Renders the company name, logo, and description in Google's knowledge panel. --}}
-<x-json-ld type="organization" />
+{{-- I-2 FIX (Iter-013) → SEO OS (Iteration 3): Organization + WebSite graphs
+    built by the central SchemaBuilder. SearchAction is deliberately omitted —
+    the platform has no site-wide search today (no dead links in schema). --}}
+@php $seoSchema = app(\App\Services\Seo\SchemaBuilder::class); @endphp
+<x-json-ld :schema="$seoSchema->organization()" />
+<x-json-ld :schema="$seoSchema->webSite()" />
 
 @endsection

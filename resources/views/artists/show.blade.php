@@ -127,6 +127,30 @@
             </div>
         @endif
 
+        {{-- Related artists (Iteration 3: internal linking via shared exhibitions) --}}
+        @if($relatedArtists->isNotEmpty())
+            <section class="mt-14" aria-label="Related artists">
+                <h2 class="text-xl font-bold text-white mb-5">Artists exhibiting alongside {{ $artist->name }}</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                    @foreach($relatedArtists as $relatedArtist)
+                        <a href="{{ route('artist.profile', $relatedArtist->slug) }}" class="group text-center">
+                            <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-900/40 to-gray-900 border border-gray-700 group-hover:border-purple-500 transition flex items-center justify-center overflow-hidden">
+                                @if($relatedArtist->portrait_url)
+                                    <img src="{{ $relatedArtist->portrait_url }}" alt="{{ $relatedArtist->name }}" loading="lazy" class="w-full h-full object-cover">
+                                @else
+                                    <span class="text-gray-500 font-bold">{{ $relatedArtist->initials }}</span>
+                                @endif
+                            </div>
+                            <p class="text-gray-300 text-sm font-medium mt-2 truncate group-hover:text-purple-300 transition">{{ $relatedArtist->name }}</p>
+                            @if($relatedArtist->public_works_count)
+                                <p class="text-gray-600 text-xs">{{ $relatedArtist->public_works_count }} shared</p>
+                            @endif
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+
         {{-- Cross-links to discovery hubs --}}
         <nav class="mt-12 pt-8 border-t border-gray-800 flex flex-wrap gap-4 text-sm" aria-label="More on Exospace">
             <a href="{{ route('discover') }}" class="text-purple-400 hover:text-purple-300 transition">Browse 3D exhibitions</a>

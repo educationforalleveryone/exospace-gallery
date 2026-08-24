@@ -6,8 +6,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Gallery;
 use App\Models\VenueTemplate;
+use App\Services\Seo\SchemaBuilder;
 use App\Support\Seo\Breadcrumb;
 use App\Support\Seo\CanonicalUrl;
+use App\Support\Seo\SeoData;
 use App\Support\Seo\SeoManager;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -35,6 +37,7 @@ class PublicVenueController extends Controller
 
     public function __construct(
         private SeoManager $seo,
+        private SchemaBuilder $schema,
     ) {}
 
     public function index(): View
@@ -53,7 +56,12 @@ class PublicVenueController extends Controller
             templateKey: 'venues_hub',
             description: 'Explore 3D venue templates for virtual exhibitions — museums, warehouses, lofts, and galleries. See live exhibitions built with each venue on ' . config('seo.site_name', 'Exospace') . '.',
             canonicalPath: '/venues',
-        );
+        )->with(['jsonLd' => [
+            $this->schema->hubCollectionPage(
+                '3D Venue Templates',
+                CanonicalUrl::path('/venues'),
+            ),
+        ]]);
 
         $breadcrumbs = Breadcrumb::trail([
             ['Home', url('/')],
@@ -93,7 +101,7 @@ class PublicVenueController extends Controller
             ? \Illuminate\Support\Str::limit($venue->description, 155)
             : 'Walk through 3D virtual exhibitions built with the ' . $venue->name . ' venue template on ' . config('seo.site_name', 'Exospace') . '.';
 
-        $seo = (new \App\Support\Seo\SeoData(
+        $seo = (new SeoData(
             title: $title,
             description: $description,
             canonicalUrl: $page > 1 ? $baseUrl . '?page=' . $page : $baseUrl,
@@ -104,6 +112,17 @@ class PublicVenueController extends Controller
             prevUrl: $pagination['prev'],
             nextUrl: $pagination['next'],
         ));
+
+        // Iteration 3: CollectionPage graph with the venue's live exhibitions.
+        if ($galleries->isNotEmpty()) {
+            $seo = $seo->with(['jsonLd' => [
+                $this->schema->hubCollectionPage(
+                    ($venue->name ?: 'Venue') . ' — Live 3D Exhibitions',
+                    $baseUrl,
+                    $galleries->getCollection(),
+                ),
+            ]]);
+        }
 
         $breadcrumbs = Breadcrumb::trail([
             ['Home', url('/')],

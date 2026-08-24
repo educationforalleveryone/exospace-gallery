@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Artist;
 use App\Models\GalleryImage;
+use App\Services\Seo\SchemaBuilder;
 use App\Support\Seo\Breadcrumb;
 use App\Support\Seo\CanonicalUrl;
 use App\Support\Seo\SeoManager;
@@ -30,6 +31,7 @@ class ArtistDirectoryController extends Controller
 
     public function __construct(
         private SeoManager $seo,
+        private SchemaBuilder $schema,
     ) {}
 
     public function index(Request $request): View
@@ -72,6 +74,17 @@ class ArtistDirectoryController extends Controller
             'prevUrl' => $pagination['prev'],
             'nextUrl' => $pagination['next'],
         ]);
+
+        // Iteration 3: CollectionPage graph on the first page only.
+        if ($page === 1) {
+            $seo = $seo->with(['jsonLd' => [
+                $this->schema->hubCollectionPage(
+                    'Artists Exhibiting in 3D',
+                    $baseUrl,
+                    $artists->getCollection(),
+                ),
+            ]]);
+        }
 
         $breadcrumbs = Breadcrumb::trail([
             ['Home', url('/')],

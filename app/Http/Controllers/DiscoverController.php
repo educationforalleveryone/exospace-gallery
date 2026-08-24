@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Gallery;
 use App\Models\VenueTemplate;
+use App\Services\Seo\SchemaBuilder;
 use App\Support\Seo\CanonicalUrl;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -102,6 +103,20 @@ class DiscoverController extends Controller
             prevUrl: $prev,
             nextUrl: $next,
         );
+
+        // Iteration 3: CollectionPage graph (replaces the template-level
+        // ItemList component usage — one graph, built centrally, real data
+        // only, first page of results).
+        if (!$isFilteredView && $page === 1) {
+            $schema = app(SchemaBuilder::class);
+            $seo = $seo->with(['jsonLd' => [
+                $schema->hubCollectionPage(
+                    'Discover 3D Art Exhibitions',
+                    $baseUrl,
+                    $galleries->getCollection(),
+                ),
+            ]]);
+        }
 
         return view('discover.index', [
             'galleries' => $galleries,

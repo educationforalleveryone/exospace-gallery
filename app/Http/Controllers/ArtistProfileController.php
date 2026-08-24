@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Artist;
+use App\Services\Seo\InternalLinkingService;
+use App\Services\Seo\SchemaBuilder;
 use App\Support\Seo\Breadcrumb;
 use App\Support\Seo\SeoManager;
 use Illuminate\Http\Request;
@@ -33,6 +35,8 @@ class ArtistProfileController extends Controller
 {
     public function __construct(
         private SeoManager $seo,
+        private SchemaBuilder $schema,
+        private InternalLinkingService $linking,
     ) {}
 
     public function show(Request $request, string $slug): View
@@ -73,36 +77,14 @@ class ArtistProfileController extends Controller
         $seo = $this->seo->forArtist($artist, $workCount, $exhibitionCount)
             ->with(['robots' => $robots]);
 
-        // Person schema — REAL data only. jobType is not fabricated; we
-        // only include properties that map to actual columns.
-        $personSchema = [
-            '@context' => 'https://schema.org',
-            '@type' => 'Person',
-            'name' => $artist->name,
-            'url' => $seo->canonicalUrl,
-        ];
-        if ($artist->bio) {
-            $personSchema['description'] = \Illuminate\Support\Str::limit($artist->bio, 300);
-        }
-        if ($artist->portrait_url) {
-            $personSchema['image'] = $artist->portrait_url;
-        }
-        if ($artist->location) {
-            $personSchema['homeLocation'] = [
-                '@type' => 'Place',
-                'name' => $artist->location,
-            ];
-        }
-        $sameAs = array_filter([
-            $artist->website,
-            $artist->instagram_url,
-            $artist->twitter_url,
-        ]);
-        if ($sameAs !== []) {
-            $personSchema['sameAs'] = array_values($sameAs);
-        }
+        // Person schema — REAL data only, built by the central SchemaBuilder
+        // (Iteration 3). The ItemList of works is appended when public works
+        // exist, capped at 25 to keep the graph small.
+        $graphs = [$this->schema->person($artist, $seo->canonicalUrl)];
+
         if ($workCount > 0) {
-            $personSchema['hasPart'] = [
+            $graphs[] = [
+                '@context' => 'https://schema.org',
                 '@type' => 'ItemList',
                 'name' => 'Artworks by ' . $artist->name . ' on ' . config('seo.site_name', 'Exospace'),
                 'numberOfItems' => $workCount,
@@ -115,7 +97,11 @@ class ArtistProfileController extends Controller
             ];
         }
 
-        $seo = $seo->with(['jsonLd' => [$personSchema]]);
+        $seo = $seo->with(['jsonLd' => $graphs]);
+
+        // Iteration 3: related artists (shared exhibitions) — internal
+        // linking between artist profiles.
+        $relatedArtists = $workCount > 0 ? $this->linking->relatedArtists($artist) : collect();
 
         $breadcrumbs = Breadcrumb::trail([
             ['Home', url('/')],
@@ -130,6 +116,7 @@ class ArtistProfileController extends Controller
             'breadcrumbs' => $breadcrumbs,
             'workCount' => $workCount,
             'exhibitionCount' => $exhibitionCount,
+            'relatedArtists' => $relatedArtists,
         ]);
     }
 }

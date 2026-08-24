@@ -145,6 +145,30 @@
     </section>
     @endif
 
+    {{-- More by this artist in other exhibitions (Iteration 3: cross-gallery
+         internal linking from the artwork leaf node) --}}
+    @if($alsoByArtist->isNotEmpty())
+    <section class="max-w-6xl mx-auto px-4 py-12 border-t border-gray-800" aria-label="More by {{ $artwork->artist?->name }}">
+        <h2 class="text-xl font-bold text-white mb-6">More by {{ $artwork->artist->name }}</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
+            @foreach($alsoByArtist as $img)
+                <a href="{{ url('/gallery/' . $img->gallery->slug . '/artwork/' . $img->id) }}" class="group block">
+                    <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-800 group-hover:border-purple-500 transition">
+                        <img src="{{ $img->public_url }}"
+                             srcset="{{ $img->srcset }}"
+                             sizes="(max-width: 640px) 50vw, 16vw"
+                             alt="{{ $img->title ?: $img->original_name ?: 'Artwork' }} by {{ $img->artist->name }}"
+                             loading="lazy" decoding="async"
+                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    </div>
+                    <p class="text-gray-300 text-sm font-medium mt-2 truncate group-hover:text-purple-300 transition">{{ $img->title ?: $img->original_name ?: 'Untitled' }}</p>
+                    <p class="text-gray-500 text-xs truncate">in {{ $img->gallery->title }}</p>
+                </a>
+            @endforeach
+        </div>
+    </section>
+    @endif
+
     <nav class="max-w-6xl mx-auto px-4 py-8 border-t border-gray-800 flex flex-wrap gap-4 text-sm" aria-label="More on Exospace">
         @if($artwork->artist)
             <a href="{{ route('artist.profile', $artwork->artist->slug) }}" class="text-purple-400 hover:text-purple-300 transition">More by {{ $artwork->artist->name }}</a>
