@@ -37,8 +37,13 @@ export default function copyDecodersPlugin() {
         name: 'exospace-copy-decoders',
         // Runs once at the start of every dev server start + every build
         buildStart() {
-            const threeLibsDir = resolve(__dirname, 'node_modules/three/examples/jsm/libs');
-            const outDir       = resolve(__dirname, 'public/decoders');
+            // PERF-A3 (3D audit F3): BOTH paths were resolved against scripts/
+            // (__dirname) instead of the project root, so this plugin has
+            // silently no-op'd since it was written — production only worked
+            // because decoders were manually placed in public/decoders/.
+            // Resolve from the project root (one level up from scripts/).
+            const threeLibsDir = resolve(__dirname, '..', 'node_modules/three/examples/jsm/libs');
+            const outDir       = resolve(__dirname, '..', 'public/decoders');
 
             if (!existsSync(threeLibsDir)) {
                 this.warn('three/examples/jsm/libs not found — skipping decoder copy. Run `npm install` first.');

@@ -25,6 +25,10 @@ window.startGuidedTour = function startGuidedTour() {
     if (!galleryScene) return;
     if (!guidedTour) guidedTour = new GuidedTour(galleryScene);
 
+    // PERF-A6: first user gesture — start fetching audio buffers (deferred
+    // from page load so they never compete with texture bandwidth).
+    galleryScene.loadAudioAssets?.();
+
     // Resume audio context on first user gesture (browser autoplay policy)
     if (galleryScene.listener?.context?.state === 'suspended') {
         galleryScene.listener.context.resume().then(() => {
@@ -106,6 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     enterBtn.addEventListener('click', () => {
+        // PERF-A6 (3D audit F6): audio buffers are fetched on this first
+        // gesture instead of at page load — frees bandwidth for the artwork
+        // textures while the curtain is up.
+        galleryScene?.loadAudioAssets?.();
+
         // Resume audio context — browsers block autoplay until a gesture
         if (galleryScene?.listener?.context) {
             if (galleryScene.listener.context.state === 'suspended') {

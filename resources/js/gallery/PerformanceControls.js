@@ -135,7 +135,12 @@ export class PerformanceControls {
         if (!cfg) return;
 
         // Pixel ratio
-        this.scene.renderer.setPixelRatio(cfg.pixelRatio);
+        // PERF-A8 (3D audit F8): clamp to the device's actual devicePixelRatio.
+        // Previously this called setPixelRatio(cfg.pixelRatio) directly, so the
+        // default 'auto' (→ high = 1.5) FORCED 1.5x rendering on standard
+        // DPR-1 desktop monitors — 2.25x the fragment cost for invisible
+        // supersampling. On high-DPI screens the cap still applies as intended.
+        this.scene.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cfg.pixelRatio));
 
         // Max active lights
         this.scene._maxActiveLights = cfg.maxLights;

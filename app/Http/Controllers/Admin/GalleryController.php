@@ -296,7 +296,11 @@ class GalleryController extends Controller
     public function preview(Request $request, Gallery $gallery): View
     {
         $this->authorizeGalleryAccess($gallery);
-        $gallery->load(['images.artist', 'user', 'venueTemplate']);
+        // PERF-A1 (3D audit F1): 'images.media' eager-loaded so the new
+        // per-artwork texture variant URLs (see buildGalleryData) read the
+        // memoized Spatie media relation instead of issuing one query per
+        // image. Matches the public GalleryViewController::show eager-load.
+        $gallery->load(['images.artist', 'images.media', 'user', 'venueTemplate']);
 
         $runtimeOverrides = [];
         if ($request->filled('override')) {
@@ -870,6 +874,15 @@ class GalleryController extends Controller
             'images' => $gallery->images->map(fn($img) => [
                 'id'             => $img->id,
                 'url'            => asset($img->path),
+                // PERF-A1 (3D audit F1): WebP conversion variants for the 3D
+                // viewer — mirrors GalleryViewController::show. 'url' stays
+                // the legacy fallback.
+                'textures'       => [
+                    'thumb'  => $img->conversionUrl('thumb'),
+                    'small'  => $img->conversionUrl('small'),
+                    'medium' => $img->conversionUrl('medium'),
+                    'large'  => $img->conversionUrl('large'),
+                ],
                 'width'          => $img->width,
                 'height'         => $img->height,
                 'aspectRatio'    => $img->width / max($img->height, 1),

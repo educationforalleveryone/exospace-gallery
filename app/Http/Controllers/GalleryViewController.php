@@ -99,6 +99,21 @@ class GalleryViewController extends Controller
             'images' => $gallery->images->map(fn($img) => [
                 'id'             => $img->id,
                 'url'            => asset($img->path),
+                // PERF-A1 (3D audit F1): capability-appropriate texture variants.
+                // The 3D viewer previously loaded the ORIGINAL file for every
+                // artwork — the Spatie WebP conversions (thumb/small/medium/
+                // large) that already exist on disk were never referenced.
+                // These URLs are additive: 'url' above is unchanged and remains
+                // the fallback when a conversion hasn't been generated yet
+                // (conversionUrl() falls back to public_url, which is the
+                // original). With 'images.media' eager-loaded above, these
+                // calls read the memoized media relation — no extra queries.
+                'textures'       => [
+                    'thumb'  => $img->conversionUrl('thumb'),
+                    'small'  => $img->conversionUrl('small'),
+                    'medium' => $img->conversionUrl('medium'),
+                    'large'  => $img->conversionUrl('large'),
+                ],
                 'width'          => $img->width,
                 'height'         => $img->height,
                 'aspectRatio'    => $img->width / max($img->height, 1),

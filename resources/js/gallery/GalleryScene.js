@@ -33,11 +33,11 @@ import { CONFIG } from './config.js';
 import { initRenderer, detectLowEnd, applyLowEndSettings, earlyLowEndCheck } from './Renderer.js';
 import { setupControls, setSpeedMultiplier } from './Controls.js';
 import { loadAssets, loadEnvironmentMap, showLoadError } from './AssetLoader.js';
-import { initAudio, playAudio, toggleMute } from './Audio.js';
-import { applyVenueOverrides, applyVenueConfig, applyVisualPatch, loadDecorations, addCustomLights, addVenueStructure } from './VenueDecorator.js';
+import { initAudio, playAudio, toggleMute, loadAudioAssets } from './Audio.js';
+import { applyVenueOverrides, applyVenueConfig, applyVisualPatch, loadDecorations, addVenueStructure } from './VenueDecorator.js';
 import { buildGallery, createRoom, createRoomCorridor, createRoomLShape, createRoomRotunda, createRoomCircular, addVenueCeiling } from './RoomBuilder.js';
 import { placeArtworks, makeArtworkGroup, placeAndRegister } from './ArtworkPlacer.js';
-import { setupLighting, addArtworkLight, updateProximityLighting } from './Lighting.js';
+import { setupLighting, addArtworkLight, updateProximityLighting, addCustomLights } from './Lighting.js';
 import { getWallMaterial, getFloorMaterial, createFrame } from './Materials.js';
 import { enforceRoomBounds, registerObstacle, clearObstacles } from './Collisions.js';
 import { updateMovement, updateMovementMobile } from './Movement.js';
@@ -203,6 +203,7 @@ export class GalleryScene {
     setupMobileControls()                           { return setupMobileControls.call(this); }
     loadEnvironmentMap()                            { return loadEnvironmentMap.call(this); }
     playAudio()                                     { return playAudio.call(this); }
+    loadAudioAssets()                               { return loadAudioAssets.call(this); }
     toggleMute()                                    { return toggleMute.call(this); }
     showLoadError(err)                              { return showLoadError.call(this, err); }
 

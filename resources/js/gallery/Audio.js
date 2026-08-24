@@ -13,6 +13,24 @@ export function initAudio() {
     this.listener = new THREE.AudioListener();
     this.camera.add(this.listener);
 
+    // PERF-A6 (3D audit F6): SFX + music buffers are NOT fetched here anymore.
+    // They used to download at page load — competing for bandwidth with the
+    // artwork textures that gate the Enter button, even though autoplay
+    // policies mean nothing can play before the first user gesture anyway.
+    // loadAudioAssets() is now called from main.js on the Enter click /
+    // tour start — the first moment audio is actually reachable.
+    // Consumers already guard on `this.sfx.footstep` / `this.audioReady`
+    // being undefined, so the gap between gesture and buffer-ready is safe.
+    this._audioLoadStarted = false;
+    this._audioUrl = galleryData.audioUrl || null;
+}
+
+// Fetch SFX (+ optional gallery music) buffers. Idempotent — safe to call
+// from every gesture handler (Enter button, tour start).
+export function loadAudioAssets() {
+    if (this._audioLoadStarted) return;
+    this._audioLoadStarted = true;
+
     const sfxLoader = new THREE.AudioLoader();
 
     // Footstep SFX
@@ -31,17 +49,20 @@ export function initAudio() {
     }, undefined, () => console.warn('⚠️ interaction_click.mp3 failed'));
 
     // Background music (per-gallery, optional)
-    if (!galleryData.audioUrl) return;
+    if (!this._audioUrl) return;
 
     this.sound = new THREE.Audio(this.listener);
     const audioLoader = new THREE.AudioLoader();
     audioLoader.load(
-        galleryData.audioUrl,
+        this._audioUrl,
         (buffer) => {
             this.sound.setBuffer(buffer);
             this.sound.setLoop(true);
             this.sound.setVolume(0.5);
             this.audioReady = true;
+            // If the user already pressed Enter (playAudio was a no-op before
+            // the buffer arrived), start now that we're ready.
+            if (this._autoplayWhenReady) this.playAudio();
         },
         (progress) => {
             if (progress.total) {
@@ -53,7 +74,13 @@ export function initAudio() {
 }
 
 export function playAudio() {
-    if (!this.audioReady || !this.sound) return;
+    if (!this.audioReady || !this.sound) {
+        // Buffer not decoded yet (audio loading is deferred to first gesture —
+        // PERF-A6). Remember the intent so music fades in as soon as it's
+        // ready instead of staying silent for the whole visit.
+        if (this.sound) this._autoplayWhenReady = true;
+        return;
+    }
     if (this.sound.isPlaying) return;
     try { this.sound.play(); } catch (e) { console.error('Audio play error:', e); }
 }

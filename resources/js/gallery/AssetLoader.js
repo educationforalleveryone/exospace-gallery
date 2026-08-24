@@ -32,7 +32,11 @@ function getDracoLoader(renderer) {
         // Decoder wasm files live in /decoders/ — copied by Vite plugin or
         // manually placed from node_modules/three/examples/jsm/libs/draco/.
         _dracoLoader.setDecoderPath('/decoders/');
-        _dracoLoader.setDecoderConfig({ type: 'js' });
+        // PERF-A5 (3D audit F5): was { type: 'js' } — the asm.js decoder.
+        // The wasm decoder decodes the same GLBs 2-4x faster. Both files
+        // ship in /decoders/draco/ (draco_wasm_wrapper.js + draco_decoder.wasm),
+        // so switching is purely a speed win with identical output.
+        _dracoLoader.setDecoderConfig({ type: 'wasm' });
     }
     return _dracoLoader;
 }
@@ -57,6 +61,26 @@ export function getGltfLoader() {
         }
     }
     return _gltfLoader;
+}
+
+// ── Capability-based artwork texture selection ─────────────────────────────
+// PERF-A1 (3D audit F1): the backend now ships a `textures` map per artwork
+// (thumb 400 / small 768 / medium 1024 / large 2048 WebP conversions,
+// falling back to the original URL when a conversion is missing).
+// Pick the variant that matches what the device can actually display:
+//
+//   low-end  → small  (768px)   — pixelRatio 1, short fog, small far plane
+//   mobile   → medium (1024px)  — artwork occupies ~600-900 device px at most
+//   desktop  → large  (2048px)  — headroom for focus-mode close inspection
+//
+// Every tier falls back through the chain to img.url (the original), so
+// legacy galleries without Spatie conversions behave exactly as before.
+export function pickTextureUrl(img, scene) {
+    const t = img.textures;
+    if (!t) return img.url; // legacy payload (pre-iteration-1 galleries)
+    if (scene.isLowEnd)  return t.small  || t.medium || t.large || img.url;
+    if (scene.isMobile)   return t.medium || t.large  || t.small || img.url;
+    return t.large || t.medium || t.small || img.url;
 }
 
 // ── Main asset load — runs on GalleryScene boot ──────────────────────────────
@@ -116,7 +140,7 @@ export async function loadAssets() {
                 if (loadIndex >= totalImages) { resolve(); return; }
                 const img = data.images[loadIndex++];
                 textureLoader.load(
-                    img.url,
+                    pickTextureUrl(img, this),
                     (texture) => {
                         texture.colorSpace      = THREE.SRGBColorSpace;
                         texture.generateMipmaps = !this.isLowEnd;

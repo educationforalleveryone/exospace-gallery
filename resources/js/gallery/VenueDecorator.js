@@ -179,11 +179,17 @@ function legacyVenueSwitch(slug) {
 }
 
 // ── Load 3D decoration props (GLB) asynchronously ─────────────────────────────
+// PERF-A13 (3D audit F13): decorations now load in PARALLEL via
+// Promise.allSettled. The old `for…of await` sequence downloaded each GLB
+// one after another — on venues with several props (benches, pedestals,
+// plants) the last prop waited for every previous download + parse before
+// its request even started. Failures are still per-prop (allSettled), and
+// obstacle registration order is irrelevant to the collision system.
 export async function loadDecorations(decorations) {
-    for (const dec of decorations) {
+    const place = async (dec) => {
         try {
             const url = dec.model_url || dec.model_path;
-            if (!url) continue;
+            if (!url) return;
             const obj = await loadGlb.call(this, url);
             if (dec.position) obj.position.set(dec.position[0], dec.position[1], dec.position[2]);
             if (dec.rotation) obj.rotation.set(dec.rotation[0], dec.rotation[1], dec.rotation[2]);
@@ -202,27 +208,15 @@ export async function loadDecorations(decorations) {
         } catch (err) {
             console.warn('Decoration load failed:', dec.model_path || dec.model_url, err);
         }
-    }
+    };
+
+    await Promise.allSettled(decorations.map(place));
 }
 
-// ── Add custom lighting fixtures (from lighting_fixtures JSON) ────────────────
-export function addCustomLights(fixtures) {
-    for (const f of fixtures) {
-        let light;
-        const color = f.color ? parseColor(f.color) : 0xffffff;
-        const intensity = f.intensity ?? 1;
-        switch (f.type) {
-            case 'point':       light = new THREE.PointLight(color, intensity, f.distance ?? 0, f.decay ?? 2); break;
-            case 'spot':        light = new THREE.SpotLight(color, intensity, f.distance ?? 0); break;
-            case 'directional': light = new THREE.DirectionalLight(color, intensity); break;
-            case 'strip':       light = new THREE.PointLight(color, intensity, f.distance ?? 10, f.decay ?? 1.5); break;
-            default: continue;
-        }
-        if (f.position) light.position.set(f.position[0], f.position[1], f.position[2]);
-        if (f.cast_shadow !== false && light.castShadow !== undefined) light.castShadow = true;
-        this.scene.add(light);
-    }
-}
+// NOTE (PERF-A14 / 3D audit F14): addCustomLights() used to be duplicated
+// here AND in Lighting.js — identical function bodies. GalleryScene now
+// imports the Lighting.js copy only; this file's duplicate is deleted to
+// keep a single source of truth (smaller bundle, no drift risk).
 
 // ── Venue structure (in-room details: beams, dividers, hedges, particles) ────
 // This is the venue-specific decoration that's NOT a GLB — it's procedural
