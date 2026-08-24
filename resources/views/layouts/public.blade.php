@@ -7,13 +7,19 @@
     public pages use the same Vite-built CSS as the admin app, plus
     a shared nav + footer + SEO head.
 
-    Usage:
+    Usage (string mode — static pages):
         @extends('layouts.public')
         @section('title', 'Pricing — Exospace')
         @section('description', '...')
         @section('content')
             ... page content ...
         @endsection
+
+    Usage (SEO OS mode — controllers build a SeoData object):
+        return view('discover.index', ['seoData' => $seo, ...]);
+    The <x-seo> component renders from the object when present; string
+    sections act as the fallback. Controllers should prefer SeoData —
+    it carries robots directives, prev/next, image metadata and JSON-LD.
 --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
@@ -22,11 +28,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    {{-- SEO meta tags (Task H13) --}}
+    @php
+        // SEO OS (Iteration 1): controllers may pass a SeoData value object.
+        $seoData = $seoData ?? null;
+    @endphp
+
+    {{-- SEO meta tags (Task H13 → SEO OS v2) --}}
     <x-seo
+        :seo="$seoData"
         title="@yield('title', config('app.name', 'Exospace'))"
-        description="@yield('description', 'Create museum-quality 3D art exhibitions in minutes. Upload your images, pick a venue, share a link. Free to start.')"
-        canonical-url="@yield('canonical', url()->current())"
+        description="@yield('description', config('seo.default_description'))"
+        canonical-url="@yield('canonical', '')"
     />
 
     {{-- Fonts --}}

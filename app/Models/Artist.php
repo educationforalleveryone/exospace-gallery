@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSeoProfile;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +28,7 @@ use Illuminate\Support\Str;
 class Artist extends Model
 {
     use HasFactory;
+    use HasSeoProfile; // SEO OS (Iteration 1) — admin overrides via seo_profiles
     protected $fillable = [
         'name', 'slug', 'bio', 'portrait_path',
         'website', 'instagram', 'twitter', 'email', 'location',

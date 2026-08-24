@@ -1,45 +1,121 @@
 {{--
-    SEO head component (Task H13 / audit H38, H39).
+    SEO head component v2 (SEO Operating System, Iteration 1).
 
-    Centralizes meta tags for title, description, canonical URL, and
-    Open Graph / Twitter Card tags. Previously these existed ONLY on
-    gallery/view.blade.php — the homepage, pricing, discover, artist
-    profiles, and all legal pages had no description, no canonical,
-    and broken social cards.
+    Renders the full meta layer from a SeoData value object when given one:
 
-    Usage:
-        <x-seo
-            title="Exospace — Immersive 3D Art Galleries"
-            description="Create museum-quality 3D exhibitions in minutes..."
-            :og-image="asset('img/og-default.png')"
-            canonical-url="{{ url()->current() }}"
-        />
+        @php $seo = app(\App\Support\Seo\SeoManager::class)->forGallery($gallery); @endphp
+        <x-seo :seo="$seo" />
 
-    All props are optional — defaults are provided.
+    Legacy string-props mode still works (public pages pass plain strings):
+
+        <x-seo title="..." description="..." canonical-url="..." />
+
+    New capabilities in v2 (all optional):
+      - robots directive emission (noindex handling)
+      - og:image dimensions + type + alt
+      - og:locale
+      - rel=prev/next for paginated sequences
+      - JSON-LD graphs carried on the SeoData object
+
+    Canonical policy: when no canonical is provided the component does NOT
+    fall back to url()->current() anymore (that produced query-string
+    self-canonicals — audit C4). It falls back to CanonicalUrl::clean() of
+    the current URL so tracking params are always stripped, and paginated
+    listings pass an explicit canonical.
 --}}
 @php
-    $title = $title ?? config('app.name', 'Exospace') . ' — Immersive 3D Art Galleries';
-    $description = $description ?? 'Create museum-quality 3D art exhibitions in minutes. Upload your images, pick a venue, share a link. Free to start.';
-    $ogImage = $ogImage ?? asset('img/og-default.png');
-    $canonicalUrl = $canonicalUrl ?? url()->current();
-    $ogType = $ogType ?? 'website';
-    $twitterCard = $twitterCard ?? 'summary_large_image';
+    use App\Support\Seo\SeoData;
+    use App\Support\Seo\CanonicalUrl;
+
+    /** @var \App\Support\Seo\SeoData|null $seo */
+    $data = $seo ?? null;
+
+    $siteName = config('seo.site_name', config('app.name', 'Exospace'));
+
+    if ($data instanceof SeoData) {
+        $title       = $data->title ?? ($siteName . ' — Immersive 3D Art Galleries');
+        $description = $data->description ?? config('seo.default_description');
+        $canonical   = $data->canonicalUrl ?: CanonicalUrl::clean(url()->current());
+        $robots      = $data->robots;
+        $ogTitle     = $data->ogTitle ?? $title;
+        $ogDesc      = $data->ogDescription ?? $description;
+        $ogImage     = $data->ogImage ?? asset((string) config('seo.og.default_image', 'img/og-default.png'));
+        $ogImageW    = $data->ogImageWidth ?? config('seo.og.default_image_width', 1200);
+        $ogImageH    = $data->ogImageHeight ?? config('seo.og.default_image_height', 630);
+        $ogImageAlt  = $data->ogImageAlt;
+        $ogType      = $data->ogType;
+        $twitterCard = $data->twitterCard ?? config('seo.og.twitter_card', 'summary_large_image');
+        $prevUrl     = $data->prevUrl;
+        $nextUrl     = $data->nextUrl;
+        $locale      = $data->locale;
+        $jsonLd      = $data->jsonLd;
+    } else {
+        // Legacy string-props mode
+        $title       = $title ?? $siteName . ' — Immersive 3D Art Galleries';
+        $description = $description ?? config('seo.default_description');
+        // Note: ?: (not ??) so an empty-string canonical falls back too.
+        $canonical   = $canonicalUrl ?: CanonicalUrl::clean(url()->current());
+        $robots      = $robots ?? null;
+        $ogTitle     = $ogTitle ?? $title;
+        $ogDesc      = $ogDescription ?? $description;
+        $ogImage     = $ogImage ?? asset((string) config('seo.og.default_image', 'img/og-default.png'));
+        $ogImageW    = $ogImageWidth ?? config('seo.og.default_image_width', 1200);
+        $ogImageH    = $ogImageHeight ?? config('seo.og.default_image_height', 630);
+        $ogImageAlt  = $ogImageAlt ?? null;
+        $ogType      = $ogType ?? 'website';
+        $twitterCard = $twitterCard ?? config('seo.og.twitter_card', 'summary_large_image');
+        $prevUrl     = $prevUrl ?? null;
+        $nextUrl     = $nextUrl ?? null;
+        $locale      = $locale ?? config('seo.og.locale', 'en_US');
+        $jsonLd      = $jsonLd ?? null;
+    }
 @endphp
 
 <title>{{ $title }}</title>
 <meta name="description" content="{{ $description }}">
-<link rel="canonical" href="{{ $canonicalUrl }}">
+
+@if($robots)
+<meta name="robots" content="{{ $robots }}">
+@endif
+
+<link rel="canonical" href="{{ $canonical }}">
+
+@if($prevUrl)
+<link rel="prev" href="{{ $prevUrl }}">
+@endif
+@if($nextUrl)
+<link rel="next" href="{{ $nextUrl }}">
+@endif
 
 {{-- Open Graph (Facebook, LinkedIn, Slack) --}}
 <meta property="og:type" content="{{ $ogType }}">
-<meta property="og:title" content="{{ $title }}">
-<meta property="og:description" content="{{ $description }}">
+<meta property="og:title" content="{{ $ogTitle }}">
+<meta property="og:description" content="{{ $ogDesc }}">
 <meta property="og:image" content="{{ $ogImage }}">
-<meta property="og:url" content="{{ $canonicalUrl }}">
-<meta property="og:site_name" content="{{ config('app.name', 'Exospace') }}">
+<meta property="og:image:width" content="{{ (int) $ogImageW }}">
+<meta property="og:image:height" content="{{ (int) $ogImageH }}">
+@if($ogImageAlt)
+<meta property="og:image:alt" content="{{ $ogImageAlt }}">
+@endif
+<meta property="og:image:type" content="{{ config('seo.og.image_type', 'image/png') }}">
+<meta property="og:url" content="{{ $canonical }}">
+<meta property="og:site_name" content="{{ $siteName }}">
+<meta property="og:locale" content="{{ $locale }}">
 
 {{-- Twitter Card --}}
 <meta name="twitter:card" content="{{ $twitterCard }}">
-<meta name="twitter:title" content="{{ $title }}">
-<meta name="twitter:description" content="{{ $description }}">
+<meta name="twitter:title" content="{{ $ogTitle }}">
+<meta name="twitter:description" content="{{ $ogDesc }}">
 <meta name="twitter:image" content="{{ $ogImage }}">
+@if($ogImageAlt)
+<meta name="twitter:image:alt" content="{{ $ogImageAlt }}">
+@endif
+
+{{-- Structured data carried by the SeoData object --}}
+@if(!empty($jsonLd))
+@foreach($jsonLd as $graph)
+<script type="application/ld+json">
+{!! json_encode($graph, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+</script>
+@endforeach
+@endif
