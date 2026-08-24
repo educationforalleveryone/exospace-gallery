@@ -22,6 +22,7 @@
 
 import * as THREE from 'three';
 import { CONFIG, OPEN_AIR_VENUES, CIRCULAR_VENUES } from './config.js';
+import { mergeParts } from './GeometryUtils.js';
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function buildGallery() {
@@ -430,18 +431,21 @@ export function addVenueCeiling(roomWidth, roomDepth, wallHeight) {
     ceiling.receiveShadow = false;
     this.scene.add(ceiling);
 
-    // Industrial Loft — steel beams across ceiling
+    // Industrial Loft — steel beams across ceiling (PERF-D21: merged into a
+    // single mesh — one draw call instead of one per beam)
     if (this._venueSlug === 'industrial-loft') {
         const beamMat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.8, metalness: 0.6 });
         const beamCount = Math.max(2, Math.floor(roomDepth / 4));
+        const beamGeo = new THREE.BoxGeometry(roomWidth, 0.18, 0.22);
+        const beamParts = [];
         for (let i = 0; i < beamCount; i++) {
-            const beam = new THREE.Mesh(
-                new THREE.BoxGeometry(roomWidth, 0.18, 0.22),
-                beamMat
-            );
-            beam.position.set(0, wallHeight - 0.1, -roomDepth / 2 + (i + 1) * (roomDepth / (beamCount + 1)));
-            this.scene.add(beam);
+            beamParts.push({
+                geo: beamGeo,
+                pos: [0, wallHeight - 0.1, -roomDepth / 2 + (i + 1) * (roomDepth / (beamCount + 1))],
+            });
         }
+        this.scene.add(new THREE.Mesh(mergeParts(beamParts), beamMat));
+        beamGeo.dispose();
     }
 
     // Cyber Gallery — neon strip lights along ceiling edges

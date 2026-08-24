@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { MATERIAL_PRESETS, FRAME_STYLES, TEXTURE_PATHS, parseColor } from './config.js';
+import { mergeParts } from './GeometryUtils.js';
 
 // Cache loaded textures per material directory so we don't re-fetch the same
 // PBR set when a venue uses the same material twice (e.g. wall + ceiling).
@@ -138,8 +139,17 @@ export async function preloadMaterialTextures(loader, wallType, floorType) {
     ]);
 }
 
-// Frame factory — produces a 4-piece rectangular frame around the artwork.
+// Frame factory — a single merged mesh framing the artwork.
 // Frame style can be overridden per venue (e.g. dark museum → gold).
+//
+// PERF-D21 (3D audit F21): the frame used to be a Group of 4 scaled unit-box
+// Meshes = 4 draw calls per artwork (120 draw calls for a 30-piece gallery,
+// before even counting the canvases). The four pieces now merge into ONE
+// geometry at build time — visually identical, one draw call per frame.
+//
+// PERF-D23: the material carries an emissive channel locked at intensity 0.
+// FocusMode tweens emissiveIntensity when the visitor aims at an artwork —
+// premium focus feedback for zero per-frame cost when idle.
 export function createFrame(width, height, style) {
     const frameDepth = 0.08;
     const frameWidth = 0.10;
@@ -161,31 +171,24 @@ export function createFrame(width, height, style) {
             roughness: styleProps.roughness,
             metalness: styleProps.metalness,
             envMapIntensity: 1.5 * (lightingConfig.envIntensity || 1.0),
+            // PERF-D23: highlight-ready emissive (0 until focused — see
+            // FocusMode._setFrameHighlight)
+            emissive: new THREE.Color(styleProps.color),
+            emissiveIntensity: 0,
         });
 
-    const frame = new THREE.Group();
-
-    // Shared unit box geometry, scaled per piece — saves GPU memory
-    if (!this._frameGeoH) {
-        this._frameGeoH = new THREE.BoxGeometry(1, 1, 1);
-        this._frameGeoV = new THREE.BoxGeometry(1, 1, 1);
-    }
-    const hGeo = this._frameGeoH;
-    const vGeo = this._frameGeoV;
-
     const pieces = [
-        { geo: hGeo, sx: width + frameWidth * 2, sy: frameWidth, sz: frameDepth, px: 0, py:  height/2 + frameWidth/2, pz: 0 },
-        { geo: hGeo, sx: width + frameWidth * 2, sy: frameWidth, sz: frameDepth, px: 0, py: -height/2 - frameWidth/2, pz: 0 },
-        { geo: vGeo, sx: frameWidth, sy: height, sz: frameDepth, px: -width/2 - frameWidth/2, py: 0, pz: 0 },
-        { geo: vGeo, sx: frameWidth, sy: height, sz: frameDepth, px:  width/2 + frameWidth/2, py: 0, pz: 0 },
+        { geo: new THREE.BoxGeometry(width + frameWidth * 2, frameWidth, frameDepth), pos: [0,  height / 2 + frameWidth / 2, 0] },
+        { geo: new THREE.BoxGeometry(width + frameWidth * 2, frameWidth, frameDepth), pos: [0, -height / 2 - frameWidth / 2, 0] },
+        { geo: new THREE.BoxGeometry(frameWidth, height, frameDepth), pos: [-width / 2 - frameWidth / 2, 0, 0] },
+        { geo: new THREE.BoxGeometry(frameWidth, height, frameDepth), pos: [ width / 2 + frameWidth / 2, 0, 0] },
     ];
-    pieces.forEach(({ geo, sx, sy, sz, px, py, pz }) => {
-        const mesh = new THREE.Mesh(geo, frameMat);
-        mesh.scale.set(sx, sy, sz);
-        mesh.position.set(px, py, pz);
-        mesh.castShadow = !this.isLowEnd;
-        frame.add(mesh);
-    });
+    const frameGeo = mergeParts(pieces);
+    pieces.forEach(p => p.geo.dispose());
+
+    const frame = new THREE.Mesh(frameGeo, frameMat);
+    frame.name = 'artwork-frame';
+    frame.castShadow = !this.isLowEnd;
 
     return frame;
 }

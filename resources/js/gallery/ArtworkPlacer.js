@@ -5,6 +5,7 @@
 
 import * as THREE from 'three';
 import { CONFIG, CIRCULAR_VENUES } from './config.js';
+import { mergeParts } from './GeometryUtils.js';
 
 // ── Shared placeholder texture (PERF-C9) ─────────────────────────────────────
 // A 1×1 dark-tinted texture used when neither the real artwork nor a
@@ -177,40 +178,41 @@ export function _placeArtworksCircular(data) {
     });
 }
 
-// ── Easel — three angled legs + horizontal crossbar ──────────────────────────
+// ── Easel — three angled legs + horizontal crossbar, merged ─────────────────
 // Pure geometry — no external GLB dependency.
+// PERF-D21 (3D audit F21): was 4 separate Meshes per easel (3 legs + bar) —
+// a 30-artwork sculpture garden paid 120 draw calls for easels alone. Now
+// one merged mesh per easel = 30 draw calls, identical silhouette.
 export function _addEasel(x, z, angle) {
     const woodMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x6b4a2a })
         : new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.85, metalness: 0.05 });
 
-    const easel = new THREE.Group();
-
-    // Three legs angled outward
     const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.0, 6);
+    const barGeo = new THREE.BoxGeometry(0.7, 0.04, 0.04);
+
+    // Three legs angled outward + crossbar under the canvas — one geometry
+    const parts = [];
     for (let i = 0; i < 3; i++) {
         const legAngle = (i / 3) * Math.PI * 2;
-        const leg = new THREE.Mesh(legGeo, woodMat);
-        // Tilt each leg outward at the bottom
-        leg.position.set(
-            Math.sin(legAngle) * 0.25,
-            1.0,
-            Math.cos(legAngle) * 0.25
-        );
-        leg.rotation.x = Math.cos(legAngle) * 0.15;
-        leg.rotation.z = -Math.sin(legAngle) * 0.15;
-        easel.add(leg);
+        parts.push({
+            geo: legGeo,
+            // Tilt each leg outward at the bottom
+            pos: [Math.sin(legAngle) * 0.25, 1.0, Math.cos(legAngle) * 0.25],
+            rot: [Math.cos(legAngle) * 0.15, 0, -Math.sin(legAngle) * 0.15],
+        });
     }
+    parts.push({ geo: barGeo, pos: [0, 1.2, 0] });
 
-    // Crossbar — horizontal support under the canvas
-    const barGeo = new THREE.BoxGeometry(0.7, 0.04, 0.04);
-    const bar = new THREE.Mesh(barGeo, woodMat);
-    bar.position.set(0, 1.2, 0);
-    easel.add(bar);
+    const merged = mergeParts(parts);
+    legGeo.dispose();
+    barGeo.dispose();
 
+    const easel = new THREE.Mesh(merged, woodMat);
     easel.position.set(x, 0, z);
     easel.rotation.y = -angle + Math.PI;
-    easel.traverse(c => { if (c.isMesh) { c.castShadow = !this.isLowEnd; c.receiveShadow = !this.isLowEnd; } });
+    easel.castShadow    = !this.isLowEnd;
+    easel.receiveShadow = !this.isLowEnd;
     this.scene.add(easel);
 }
 
@@ -258,8 +260,10 @@ export function makeArtworkGroup(img, data) {
         id: img.id,
         title: img.title || img.original_name || 'Untitled',
         description: img.description,
-        // Lookup handle for progressive texture swaps (AssetLoader phase B)
+        // Lookup handles for progressive swaps (AssetLoader phase B) and
+        // the focus highlight (FocusMode)
         _canvasMesh: canvas,
+        _frameMesh: frame,
         // Round-trip metadata for the info panel
         ...img,
     };
@@ -282,6 +286,16 @@ export function applyArtworkTexture(img) {
     // Safe no-op when a map was already present (thumb/placeholder); forces
     // uniform rebind if the placeholder path ever changes.
     canvasMesh.material.needsUpdate = true;
+
+    // PERF-D22 (3D audit F22): the blur-up thumbnail was uploaded to the GPU
+    // while it served as the material map. Once the full-quality texture
+    // replaces it, nothing references it — but a THREE.Texture keeps its GPU
+    // copy until disposed. Free it now: on a 30-artwork gallery that's 30
+    // ~400px textures returned to the browser's GPU memory pool.
+    if (img.thumbTexture) {
+        img.thumbTexture.dispose();
+        img.thumbTexture = null;
+    }
 }
 
 // ── Register artwork in the scene + add proximity light ──────────────────────

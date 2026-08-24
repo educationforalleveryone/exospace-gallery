@@ -64,14 +64,43 @@ export function checkArtworkFocus() {
     }
 
     const crosshair = document.getElementById('crosshair');
+    const prev = this.focusedArtwork;
 
-    if (focused && focused !== this.focusedArtwork) {
+    if (focused && focused !== prev) {
         this.focusedArtwork = focused;
+        _setFrameHighlight.call(this, prev, focused);
         if (crosshair && !this.isInspecting) crosshair.classList.add('focused');
-    } else if (!focused) {
+    } else if (!focused && prev) {
         this.focusedArtwork = null;
+        _setFrameHighlight.call(this, prev, null);
         if (crosshair && !this.isInspecting) crosshair.classList.remove('focused');
     }
+}
+
+// ── Frame highlight (PERF-D23 / 3D audit F23) ─────────────────────────────
+// Premium interaction feedback: the artwork under the crosshair takes on a
+// soft emissive glow in its own frame colour (gold frames glow gold, modern
+// black frames glow faintly). The frame materials already carry an emissive
+// channel locked at intensity 0 (Materials.createFrame), so this costs one
+// uniform write per transition — zero per-frame cost while idle, and none of
+// the shader-recompile risk that a material-swap approach would carry.
+// Reduced-motion users get an instant set instead of a tween.
+function _setFrameHighlight(fromArt, toArt) {
+    if (this.isLowEnd) return; // Lambert path stays cheap
+
+    const apply = (art, intensity) => {
+        const mat = art?.userData?._frameMesh?.material;
+        if (!mat || mat.emissiveIntensity === undefined) return;
+        if (intensity > 0) this._highlightMat = mat;
+        if (this.reducedMotion) {
+            mat.emissiveIntensity = intensity;
+        } else {
+            gsap.to(mat, { emissiveIntensity: intensity, duration: 0.35, ease: 'power2.out', overwrite: true });
+        }
+    };
+
+    if (fromArt && fromArt !== toArt) apply(fromArt, 0);
+    if (toArt) apply(toArt, 0.4);
 }
 
 // Toggle: if focused, tween camera to artwork. If inspecting, tween back.

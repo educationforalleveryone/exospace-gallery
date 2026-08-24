@@ -42,6 +42,41 @@ else
     sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
 fi
 
+# 2b. PERF-A4b (3D audit F4, iteration-4): static-asset caching + gzip.
+#
+#     WHY THIS RUNS HERE (and not in nginx.template.conf): production
+#     verification (2026-08-24) proved that nixpacks generates
+#     /assets/nginx.template.conf from ITS OWN internal template — the
+#     repo's nginx.template.conf is never used (evidence: static files
+#     carry X-Frame-Options, which the repo template intentionally does
+#     not set and Laravel middleware cannot set for static files; and no
+#     Cache-Control header was emitted after the repo file was edited).
+#     The reliable injection point is the same runtime-sed mechanism the
+#     client_max_body_size patch above uses, which is proven live.
+#
+#     What this adds, inside the server block:
+#       - gzip for text assets (JS/CSS/JSON/SVG)
+#       - /build|assets|decoders|img/  -> 30d + "public, immutable"
+#         (Vite output is content-hashed; decoders are version-locked)
+#       - /storage/                    -> 7d + "public"
+#         (artwork media; paths stable per artwork, revalidated weekly so
+#          curator re-uploads still flow)
+#     The two security headers are re-added inside the locations because
+#     nginx's add_header inheritance drops parent-level headers when a
+#     location defines its own (observed in production: X-Frame-Options +
+#     X-Content-Type-Options are set at server level by the nixpacks
+#     template — without re-adding them here they would vanish for static
+#     assets).
+#
+#     Idempotent: the marker comment guards against double insertion.
+NGINX_TPL="/assets/nginx.template.conf"
+if [ -f "$NGINX_TPL" ] && ! grep -q "exospace-static-cache" "$NGINX_TPL"; then
+    # Anchor on "server {" — the same anchor the client_max_body_size patch
+    # uses, verified to exist in the nixpacks-generated template.
+    sed -i 's@server {@server {\n\n        # exospace-static-cache: gzip + immutable static caching (PERF-A4b)\n        gzip on;\n        gzip_comp_level 5;\n        gzip_min_length 256;\n        gzip_proxied any;\n        gzip_vary on;\n        gzip_types text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml;\n\n        location ~* ^/(build|assets|decoders|img)/ {\n            expires 30d;\n            add_header Cache-Control "public, immutable";\n            add_header X-Content-Type-Options nosniff;\n            add_header X-Frame-Options SAMEORIGIN;\n            access_log off;\n            log_not_found off;\n            try_files $uri =404;\n        }\n\n        location ~* ^/storage/ {\n            expires 7d;\n            add_header Cache-Control "public";\n            add_header X-Content-Type-Options nosniff;\n            add_header X-Frame-Options SAMEORIGIN;\n            access_log off;\n            log_not_found off;\n            try_files $uri =404;\n        }@' "$NGINX_TPL"
+    echo "Injected static-asset caching + gzip into nginx template (PERF-A4b)."
+fi
+
 # 3. TD-2/TD-4: Caches are now built in nixpacks.toml build phase (deploy time).
 #    Here we only run storage:link (needs to run at container start because
 #    the symlink is per-container) and migrate (TD-3: was missing — migrations

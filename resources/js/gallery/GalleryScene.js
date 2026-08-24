@@ -271,11 +271,14 @@ export class GalleryScene {
             cancelAnimationFrame(this._rafId);
             this._rafId = undefined;
         }
+        this._rafActive = false;
 
         // 2. Kill camera tweens (gsap tweens outlive the objects they animate)
         try {
             if (this.focusTween) this.focusTween.kill();
             gsap.killTweensOf(this.camera?.position);
+            // PERF-D23: the focused-frame highlight tween
+            if (this._highlightMat) gsap.killTweensOf(this._highlightMat);
         } catch (e) { /* camera may already be gone */ }
 
         // 3. Stop audio
@@ -340,7 +343,24 @@ export class GalleryScene {
         // PERF-B10: stop scheduling after dispose() — the old loop kept
         // requesting frames forever (and crashed on the null scene).
         if (this._disposed) return;
-        this._rafId = requestAnimationFrame(() => this.animate());
+
+        // PERF-D20 (3D audit F20): a WebGL context restore calls init() →
+        // loadAssets() → buildGallery() → animate() while the ORIGINAL rAF
+        // chain is still alive — the old code silently ran TWO render loops
+        // (double renders, double lighting updates, half the frame budget).
+        // The guard admits exactly one chain; the chain is late-bound to
+        // `this`, so it survives scene rebuilds with fresh camera/renderer.
+        if (this._rafActive) return;
+        this._rafActive = true;
+        this._rafId = requestAnimationFrame(() => {
+            this._rafActive = false;
+            this.animate();
+        });
+
+        // PERF-D24: renderer.info autoReset is disabled (Renderer.js) so the
+        // debug panel can report TRUE per-frame draw calls across all composer
+        // passes. Reset the counters at the top of each frame ourselves.
+        if (this.renderer?.info) this.renderer.info.reset();
 
         // S-7: Skip rendering when context is lost
         if (this._contextLost || !this._isVisible || !this.scene) return;

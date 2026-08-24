@@ -24,6 +24,7 @@
 import * as THREE from 'three';
 import { CONFIG, OPEN_AIR_VENUES, parseColor } from './config.js';
 import { loadGlb } from './AssetLoader.js';
+import { mergeParts } from './GeometryUtils.js';
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function applyVenueOverrides(slug) {
@@ -248,37 +249,35 @@ function addIndustrialLoftStructure(data) {
     const length = meta.length || 20;
     const width  = meta.width  || 6;
 
+    // PERF-D21 (3D audit F21): beams, columns and grates each merge into ONE
+    // mesh — the old per-piece Meshes cost (beamCount + columns + beamCount)
+    // draw calls for identical materials with static transforms.
     const beamCount = Math.max(3, Math.floor(length / 5));
     const beamStep  = length / (beamCount + 1);
     const beamGeo   = new THREE.BoxGeometry(width + 0.4, 0.25, 0.3);
-
-    for (let i = 1; i <= beamCount; i++) {
-        const beam = new THREE.Mesh(beamGeo, beamMat);
-        beam.position.set(-length / 2 + i * beamStep, CONFIG.room.wallHeight - 0.12, 0);
-        this.scene.add(beam);
-    }
-
-    // Vertical column supports at every other beam
-    const colGeo = new THREE.BoxGeometry(0.18, CONFIG.room.wallHeight, 0.18);
-    for (let i = 1; i <= beamCount; i += 2) {
-        const xPos = -length / 2 + i * beamStep;
-        [-width / 2 + 0.09, width / 2 - 0.09].forEach(zPos => {
-            const col = new THREE.Mesh(colGeo, beamMat);
-            col.position.set(xPos, CONFIG.room.wallHeight / 2, zPos);
-            this.scene.add(col);
-        });
-    }
-
-    // Floor grate strips
-    const grateMat = this.isLowEnd
+    const colGeo    = new THREE.BoxGeometry(0.18, CONFIG.room.wallHeight, 0.18);
+    const grateMat  = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x111111 })
         : new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 1.0, metalness: 0.3 });
-    const grateGeo = new THREE.BoxGeometry(width + 0.3, 0.02, 0.15);
+    const grateGeo  = new THREE.BoxGeometry(width + 0.3, 0.02, 0.15);
+
+    const beamParts = [], colParts = [], grateParts = [];
     for (let i = 1; i <= beamCount; i++) {
-        const grate = new THREE.Mesh(grateGeo, grateMat);
-        grate.position.set(-length / 2 + i * beamStep, 0.01, 0);
-        this.scene.add(grate);
+        const x = -length / 2 + i * beamStep;
+        beamParts.push({ geo: beamGeo, pos: [x, CONFIG.room.wallHeight - 0.12, 0] });
+        grateParts.push({ geo: grateGeo, pos: [x, 0.01, 0] });
+        // Vertical column supports at every other beam
+        if (i % 2 === 1) {
+            [-width / 2 + 0.09, width / 2 - 0.09].forEach(z => {
+                colParts.push({ geo: colGeo, pos: [x, CONFIG.room.wallHeight / 2, z] });
+            });
+        }
     }
+
+    this.scene.add(new THREE.Mesh(mergeParts(beamParts), beamMat));
+    this.scene.add(new THREE.Mesh(mergeParts(colParts),  beamMat));
+    this.scene.add(new THREE.Mesh(mergeParts(grateParts), grateMat));
+    beamGeo.dispose(); colGeo.dispose(); grateGeo.dispose();
 }
 
 // ── DARK MUSEUM — dividers + skirting board (with collision) ────────────────
@@ -319,17 +318,15 @@ function addDarkMuseumStructure(data) {
         : new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.8, metalness: 0.4 });
     const skirtH   = 0.12;
     const skirtGeo = new THREE.BoxGeometry(wl, skirtH, 0.06);
-    [
-        { x: 0,      z: -wl / 2, ry: 0          },
-        { x: 0,      z:  wl / 2, ry: Math.PI    },
-        { x: -wl/2,  z: 0,       ry: Math.PI/2  },
-        { x:  wl/2,  z: 0,       ry: -Math.PI/2 },
-    ].forEach(cfg => {
-        const mesh = new THREE.Mesh(skirtGeo, skirtMat);
-        mesh.position.set(cfg.x, skirtH / 2 + 0.01, cfg.z);
-        mesh.rotation.y = cfg.ry;
-        this.scene.add(mesh);
-    });
+    // PERF-D21: one merged skirting mesh instead of four
+    const skirtParts = [
+        { geo: skirtGeo, pos: [0,     skirtH / 2 + 0.01, -wl / 2], rot: [0, 0, 0] },
+        { geo: skirtGeo, pos: [0,     skirtH / 2 + 0.01,  wl / 2], rot: [0, Math.PI, 0] },
+        { geo: skirtGeo, pos: [-wl/2, skirtH / 2 + 0.01, 0     ], rot: [0, Math.PI/2, 0] },
+        { geo: skirtGeo, pos: [ wl/2, skirtH / 2 + 0.01, 0     ], rot: [0, -Math.PI/2, 0] },
+    ];
+    this.scene.add(new THREE.Mesh(mergeParts(skirtParts), skirtMat));
+    skirtGeo.dispose();
 }
 
 // ── SCULPTURE GARDEN — full outdoor redesign ────────────────────────────────
@@ -395,14 +392,22 @@ function addSculptureGardenStructure(data) {
     const hedgeThickness = 0.5;
     const hedgeSegments = 24;
     const hedgeGeo = new THREE.BoxGeometry(2 * Math.PI * radius / hedgeSegments + 0.1, hedgeHeight, hedgeThickness);
+    // PERF-D21 (3D audit F21): the 24 hedge segments merge into ONE mesh
+    // (24 draw calls → 1). The per-segment registerObstacle calls are also
+    // dropped — they were redundant: enforceRoomBounds clamps the player to
+    // _circularBoundsRadius (radius − 1), well inside the hedge ring, so the
+    // hedge AABBs were unreachable. Collision behaviour is unchanged.
+    const hedgeParts = [];
     for (let i = 0; i < hedgeSegments; i++) {
         const angle = (i / hedgeSegments) * Math.PI * 2;
-        const hedge = new THREE.Mesh(hedgeGeo, hedgeMat);
-        hedge.position.set(Math.sin(angle) * radius, hedgeHeight / 2, Math.cos(angle) * radius);
-        hedge.rotation.y = -angle + Math.PI / 2;
-        this.scene.add(hedge);
-        this.registerObstacle(hedge, 0.1);
+        hedgeParts.push({
+            geo: hedgeGeo,
+            pos: [Math.sin(angle) * radius, hedgeHeight / 2, Math.cos(angle) * radius],
+            rot: [0, -angle + Math.PI / 2, 0],
+        });
     }
+    this.scene.add(new THREE.Mesh(mergeParts(hedgeParts), hedgeMat));
+    hedgeGeo.dispose();
 
     // ── 4. Procedural trees (cylinder trunk + 2 cone foliage) ──────────────
     const treePositions = [
@@ -445,17 +450,21 @@ function addSculptureGardenStructure(data) {
         : new THREE.MeshStandardMaterial({ color: 0x9a9080, roughness: 0.95, metalness: 0.0 });
     const pathGeo = new THREE.RingGeometry(0, 1.5, 16);
     const pathSteps = 6;
+    // PERF-D21: one merged path mesh instead of six
+    const pathParts = [];
     for (let i = 0; i < pathSteps; i++) {
         const t = i / (pathSteps - 1);
         const r = radius * 0.3 + t * radius * 0.4;
         const angle = t * Math.PI * 1.5 - Math.PI / 2;
-        const stone = new THREE.Mesh(pathGeo, pathMat);
-        stone.rotation.x = -Math.PI / 2;
-        stone.position.set(Math.cos(angle) * r, 0.02, Math.sin(angle) * r);
-        stone.scale.setScalar(0.8 + Math.random() * 0.4);
-        stone.rotation.z = Math.random() * Math.PI;
-        this.scene.add(stone);
+        pathParts.push({
+            geo: pathGeo,
+            pos: [Math.cos(angle) * r, 0.02, Math.sin(angle) * r],
+            rot: [-Math.PI / 2, 0, Math.random() * Math.PI],
+            scale: 0.8 + Math.random() * 0.4,
+        });
     }
+    this.scene.add(new THREE.Mesh(mergeParts(pathParts), pathMat));
+    pathGeo.dispose();
 
     // ── 6. Central pedestal — stone column for a hero sculpture ────────────
     const pedestalMat = this.isLowEnd

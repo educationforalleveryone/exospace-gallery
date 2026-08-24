@@ -36,6 +36,18 @@ export class PerformanceControls {
         this._currentFps = 0;
         this._quality = this._loadSavedQuality() || 'auto';
 
+        // PERF-D25 (3D audit — adaptive resolution): sustained frame-time
+        // based DPR scaling. Only active in 'auto' quality mode and never on
+        // low-end (which already frame-skips). Scale lives in [0.6, 1.0] of
+        // the tier's base pixel ratio; adjustments are small (0.1-0.15),
+        // spaced by a 3s cooldown, and require THREE consecutive 500 ms
+        // samples on the same side of the band — no oscillation, no visual
+        // thrash. The first 6 s after load are exempt (texture uploads +
+        // shader warmup would skew the samples).
+        this._prScale = 1;
+        this._adaptSamples = [];
+        this._adaptHoldUntil = performance.now() + 6000;
+
         // (Task H37 / audit C4) — only show the performance panel when
         // ?debug=1 is in the URL. Previously it was visible to every
         // visitor, overlapping the in-gallery title.
@@ -84,12 +96,16 @@ export class PerformanceControls {
                 </select>
             </div>
             <div id="perf-lights" style="color:#6b7280; font-size:10px; margin-top:2px;">Lights: --</div>
+            <div id="perf-draws" style="color:#6b7280; font-size:10px;">Draws: --</div>
+            <div id="perf-pr" style="color:#6b7280; font-size:10px;">PR: --</div>
         `;
 
         document.body.appendChild(panel);
 
         this._fpsEl = panel.querySelector('#perf-fps');
         this._lightsEl = panel.querySelector('#perf-lights');
+        this._drawsEl = panel.querySelector('#perf-draws');
+        this._prEl = panel.querySelector('#perf-pr');
         this._qualitySelect = panel.querySelector('#perf-quality');
         this._qualitySelect.value = this._quality;
         this._qualitySelect.addEventListener('change', (e) => {
@@ -108,7 +124,52 @@ export class PerformanceControls {
             this._frames = 0;
             this._lastFpsUpdate = now;
             this._updateDisplay();
+            this._maybeAdapt(this._currentFps, now);
         }
+    }
+
+    /**
+     * PERF-D25 — adaptive resolution.
+     * Sustained frame-rate feedback loop: 3 consecutive 500 ms samples all
+     * below 26 fps → shrink the render scale by 0.15 (floor 0.6); 3 samples
+     * all above 55 fps → grow by 0.1 (ceiling 1.0). 3 s cooldown after each
+     * change. Never fights an explicit user quality choice, never runs on
+     * low-end (frame-skip owns that tier), skipped for the first 6 s after
+     * load while textures upload and shaders warm up.
+     */
+    _maybeAdapt(fps, now) {
+        if (this._quality !== 'auto') return;
+        if (this.scene.isLowEnd) return;
+        if (now < this._adaptHoldUntil) {
+            this._adaptSamples.length = 0;
+            return;
+        }
+
+        this._adaptSamples.push(fps);
+        if (this._adaptSamples.length < 3) return;
+
+        const s = this._adaptSamples;
+        this._adaptSamples = [];
+
+        if (s.every(f => f < 26) && this._prScale > 0.6) {
+            this._prScale = Math.max(0.6, this._prScale - 0.15);
+            this._applyPixelRatio();
+            this._adaptHoldUntil = now + 3000;
+            console.log(`⚡ Adaptive resolution: ${s.join('/')} fps → render scale ${this._prScale.toFixed(2)}`);
+        } else if (s.every(f => f > 55) && this._prScale < 1) {
+            this._prScale = Math.min(1, this._prScale + 0.1);
+            this._applyPixelRatio();
+            this._adaptHoldUntil = now + 3000;
+            console.log(`⚡ Adaptive resolution: ${s.join('/')} fps → render scale ${this._prScale.toFixed(2)}`);
+        }
+    }
+
+    _applyPixelRatio() {
+        if (!this._basePR) return;
+        this.scene.renderer.setPixelRatio(this._basePR * this._prScale);
+        // Keep the post-processing chain's render targets at the same
+        // resolution (PERF-D25 — see PostProcessing.syncPixelRatio).
+        this.scene._postFx?.syncPixelRatio?.();
     }
 
     _updateDisplay() {
@@ -133,6 +194,18 @@ export class PerformanceControls {
                 this._lightsEl.textContent = 'Lights: 0';
             }
         }
+        // PERF-D24: true per-frame draw calls + triangles (counters accumulate
+        // across composer passes; GalleryScene resets them once per frame).
+        if (this._drawsEl) {
+            const info = this.scene.renderer?.info;
+            if (info) {
+                this._drawsEl.textContent = `Draws: ${info.render.calls} · Tris: ${(info.render.triangles / 1000).toFixed(1)}k`;
+            }
+        }
+        if (this._prEl) {
+            const pr = this.scene.renderer?.getPixelRatio?.();
+            if (pr) this._prEl.textContent = `PR: ${pr.toFixed(2)}${this._prScale < 1 ? ` (adapt ${this._prScale.toFixed(2)})` : ''}`;
+        }
     }
 
     _applyQuality(quality) {
@@ -149,13 +222,16 @@ export class PerformanceControls {
         }
         if (!cfg) return;
 
-        // Pixel ratio
+        // Pixel ratio — PERF-D25: capture the tier base, then apply through
+        // the adaptive path (scale 1.0 initially).
         // PERF-A8 (3D audit F8): clamp to the device's actual devicePixelRatio.
         // Previously this called setPixelRatio(cfg.pixelRatio) directly, so the
         // default 'auto' (→ high = 1.5) FORCED 1.5x rendering on standard
         // DPR-1 desktop monitors — 2.25x the fragment cost for invisible
         // supersampling. On high-DPI screens the cap still applies as intended.
-        this.scene.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cfg.pixelRatio));
+        this._basePR = Math.min(window.devicePixelRatio || 1, cfg.pixelRatio);
+        this._prScale = 1;
+        this._applyPixelRatio();
 
         // Max active lights
         this.scene._maxActiveLights = cfg.maxLights;

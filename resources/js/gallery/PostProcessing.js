@@ -84,7 +84,19 @@ export class PostProcessing {
     resize() {
         const w = window.innerWidth;
         const h = window.innerHeight;
+        // PERF-D25: keep the composer's internal pixel ratio in sync with the
+        // renderer — adaptive resolution (PerformanceControls) changes the
+        // renderer DPR mid-session, and a stale composer ratio renders at the
+        // wrong resolution (blur + misaligned passes).
+        this.composer.setPixelRatio(this.renderer.getPixelRatio());
         this.composer.setSize(w, h);
+    }
+
+    // PERF-D25: called by PerformanceControls after an adaptive DPR change.
+    syncPixelRatio() {
+        if (!this.composer) return;
+        this.composer.setPixelRatio(this.renderer.getPixelRatio());
+        this.composer.setSize(window.innerWidth, window.innerHeight);
     }
 
     render() {

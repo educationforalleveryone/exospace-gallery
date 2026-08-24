@@ -57,6 +57,11 @@ export function initRenderer() {
     this.renderer.toneMapping       = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.8;
     this.renderer.outputColorSpace  = THREE.SRGBColorSpace;
+    // PERF-D24 (3D audit): counters accumulate across ALL composer passes
+    // (autoReset would wipe them at each intermediate render). GalleryScene
+    // resets them once per frame — the ?debug=1 panel then shows TRUE
+    // per-frame draw calls, which is how the PERF-D21 merges get verified.
+    this.renderer.info.autoReset = false;
 
     this.container.appendChild(this.renderer.domElement);
 
