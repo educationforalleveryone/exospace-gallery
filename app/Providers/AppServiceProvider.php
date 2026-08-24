@@ -48,6 +48,9 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\Gallery::observe($sitemapObserver);
         \App\Models\Artist::observe($sitemapObserver);
         \App\Models\GalleryImage::observe($sitemapObserver);
+        // Iteration 5: published/unpublished content pages refresh the
+        // content sitemap group too.
+        \App\Models\SeoPage::observe($sitemapObserver);
 
         // ── CR-5 FIX (Iter-001): TRUSTED_PROXIES hard-fail in production ──────
         //

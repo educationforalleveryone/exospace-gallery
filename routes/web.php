@@ -442,6 +442,13 @@ Route::middleware(['auth'])->group(function () {
 // M-20: Public status page (no auth required)
 Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->name('status');
 
+// ── SEO OS (Iteration 5): SEO landing + editorial pages ──────────────────
+// The FALLBACK route renders published seo_pages. Real product routes
+// always win — this only runs when nothing else matches, and the controller
+// checks a cached slug allow-list before rendering (else 404). Landing
+// pages live at /{slug}; editorial content at /resources/{slug}.
+Route::fallback(\App\Http\Controllers\SeoPageController::class);
+
 // A-8 FIX (Iter-006): Observability endpoint, rate-limited to prevent abuse.
 Route::get('/metrics', [\App\Http\Controllers\MetricsController::class, 'index'])
     ->name('metrics')
