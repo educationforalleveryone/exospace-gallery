@@ -381,6 +381,71 @@
             </div>
             {{ $seoPages->links() }}
         @endif
+        {{-- ── Acquisition tab ─────────────────────────────────────────────--}}
+        @if($tab === 'acquisition')
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-gray-200 font-semibold">Organic acquisition — last {{ $acquisition['window_days'] }} days</h3>
+                    <p class="text-gray-500 text-xs mt-1">First-party data: first-touch referrer captured at signup. Search impressions/clicks live in Google Search Console.</p>
+                </div>
+                <form method="GET">
+                    <input type="hidden" name="tab" value="acquisition">
+                    <select name="days" onchange="this.form.submit()" class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                        @foreach([30, 90, 365] as \$d)
+                            <option value="{{ \$d }}" {{ $acquisition['window_days'] === \$d ? 'selected' : '' }}>{{ \$d }} days</option>
+                        @endforeach
+                    </select>
+                </form>
+            </div>
+
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <p class="text-3xl font-bold text-white">{{ number_format($acquisition['organic_signups']) }}</p>
+                    <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Organic signups</p>
+                </div>
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <p class="text-3xl font-bold {{ $acquisition['organic_share'] >= 30 ? 'text-green-400' : 'text-white' }}">{{ $acquisition['organic_share'] }}%</p>
+                    <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Organic share of tracked signups</p>
+                </div>
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <p class="text-3xl font-bold text-white">{{ number_format($acquisition['organic_galleries']['galleries']) }}</p>
+                    <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Galleries by organic users</p>
+                </div>
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <p class="text-3xl font-bold text-white">{{ number_format($acquisition['organic_galleries']['users_with_galleries']) }}</p>
+                    <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Organic users who created</p>
+                </div>
+            </div>
+
+            <h3 class="text-gray-200 font-semibold mb-3">Signups by channel</h3>
+            <div class="bg-gray-800 rounded-xl border border-gray-700 divide-y divide-gray-700/50 mb-8">
+                @foreach($acquisition['signups_by_channel'] as $channel => $count)
+                    <div class="p-4 flex items-center justify-between">
+                        <span class="text-sm {{ $channel === 'organic' ? 'text-purple-300 font-semibold' : 'text-gray-300' }}">{{ ucfirst($channel) }}</span>
+                        <span class="text-gray-200 font-bold">{{ number_format($count) }}</span>
+                    </div>
+                @endforeach
+                <div class="p-4 flex items-center justify-between bg-gray-900/40">
+                    <span class="text-xs text-gray-500">Total tracked ({{ number_format($acquisition['total_tracked_signups']) }} signups carry attribution; pre-Iteration-7 signups and API signups show as untracked)</span>
+                </div>
+            </div>
+
+            <h3 class="text-gray-200 font-semibold mb-3">Top organic landing pages (by resulting signups)</h3>
+            @if($acquisition['top_landing_pages']->isEmpty())
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-gray-400 text-sm">
+                    No organic signups with landing-page data yet in this window.
+                </div>
+            @else
+                <div class="bg-gray-800 rounded-xl border border-gray-700 divide-y divide-gray-700/50">
+                    @foreach($acquisition['top_landing_pages'] as $row)
+                        <div class="p-4 flex items-center justify-between gap-4">
+                            <a href="{{ $row['landing_page'] }}" class="text-purple-400 hover:text-purple-300 text-sm font-mono truncate">{{ $row['landing_page'] }}</a>
+                            <span class="text-gray-200 font-bold flex-shrink-0">{{ $row['signups'] }} signup{{ $row['signups'] === 1 ? '' : 's' }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        @endif
     </div>
 
     {{-- Toggle inline SEO forms (CSP-safe, no inline handlers) --}}

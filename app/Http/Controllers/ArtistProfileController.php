@@ -117,6 +117,8 @@ class ArtistProfileController extends Controller
             'workCount' => $workCount,
             'exhibitionCount' => $exhibitionCount,
             'relatedArtists' => $relatedArtists,
+            // Iteration 7: preload the portrait as the LCP image.
+            'preloadImage' => $artist->portrait_url,
         ]);
     }
 }

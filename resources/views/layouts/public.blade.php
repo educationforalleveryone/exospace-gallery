@@ -41,6 +41,13 @@
         canonical-url="@yield('canonical', '')"
     />
 
+    {{-- SEO OS (Iteration 7): LCP image preload hint from controllers
+         (artwork page preloads its main image; artist page preloads the
+         portrait) via $preloadImage. --}}
+    @if(!empty($preloadImage))
+    <link rel="preload" as="image" href="{{ $preloadImage }}">
+    @endif
+
     {{-- Fonts --}}
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />

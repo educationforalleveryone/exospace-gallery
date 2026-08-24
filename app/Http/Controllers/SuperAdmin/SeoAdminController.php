@@ -10,6 +10,7 @@ use App\Models\Gallery;
 use App\Models\SeoPage;
 use App\Models\SeoProfile;
 use App\Models\SeoRedirect;
+use App\Services\Seo\OrganicAcquisitionService;
 use App\Services\Seo\SeoAuditService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -33,6 +34,7 @@ class SeoAdminController extends Controller
 {
     public function __construct(
         private SeoAuditService $audit,
+        private OrganicAcquisitionService $acquisition,
     ) {}
 
     public function index(Request $request): View
@@ -44,6 +46,9 @@ class SeoAdminController extends Controller
             'artists' => $this->artistsTab($request),
             'redirects' => $this->redirectsTab(),
             'pages' => $this->pagesTab(),
+            'acquisition' => ['acquisition' => $this->acquisition->report(
+                (int) $request->query('days', 90),
+            )],
             default => $this->healthTab(),
         };
 

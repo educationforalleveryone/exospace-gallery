@@ -48,6 +48,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'marketing_consent',
+        // SEO OS (Iteration 7): acquisition attribution captured at signup.
+        'acquisition_channel', 'acquisition_referrer',
+        'acquisition_landing_page', 'acquisition_utm', 'acquisition_captured_at',
         // C-2 FIX (Iter-001): has_password is mass-assignable so OAuthController
         // can set it to false on new OAuth-only user creation. It's safe to
         // mass-assign because it can only be set to true via the password-set
@@ -81,6 +84,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'inactive_nudged_at'       => 'datetime', // (P0-7) — last inactive-nudge
             'plan_expiry_reminded_at'  => 'datetime', // (P0-7) — last plan-expiry reminder
             'marketing_consent' => 'boolean',      // (P0-3) — CAN-SPAM/GDPR consent
+            // SEO OS (Iteration 7): acquisition attribution
+            'acquisition_utm'   => 'array',
+            'acquisition_captured_at' => 'datetime',
             'mfa_backup_codes'  => 'array',         // (P3-7) — hashed one-time codes
             // M-1: Subscription tracking columns (recurring billing)
             'subscription_cancelled_at' => 'datetime',
@@ -457,6 +463,19 @@ class User extends Authenticatable implements MustVerifyEmail
         // When a user is created, default their plan limits from the plan.
         // When a user's plan changes, refresh their limits.
         static::creating(function (User $user) {
+            // SEO OS (Iteration 7): persist the visitor's acquisition context
+            // (first-touch referrer/landing/channel from the session) onto
+            // the new account. Best-effort — CLI/factory contexts have no
+            // session and are skipped.
+            if (! $user->acquisition_channel && session()->has('acquisition')) {
+                $acq = (array) session('acquisition');
+                $user->acquisition_channel   = $acq['channel'] ?? null;
+                $user->acquisition_referrer  = $acq['referrer'] ?? null;
+                $user->acquisition_landing_page = $acq['landing_page'] ?? null;
+                $user->acquisition_utm       = !empty($acq['utm']) ? $acq['utm'] : null;
+                $user->acquisition_captured_at = now();
+            }
+
             if (! $user->plan) $user->plan = 'free';
             $limits = self::planLimits($user->plan);
             if (! $user->max_galleries) $user->max_galleries = $limits['max_galleries'];

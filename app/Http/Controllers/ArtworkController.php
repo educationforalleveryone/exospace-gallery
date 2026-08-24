@@ -110,6 +110,8 @@ class ArtworkController extends Controller
             'siblings'    => $siblings,
             'alsoByArtist' => $alsoByArtist,
             'gatePassed'  => $gatePassed,
+            // Iteration 7: preload the LCP image (the artwork itself).
+            'preloadImage' => $image->public_url,
         ]);
     }
 

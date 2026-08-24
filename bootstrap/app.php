@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         //    GalleryViewController will render it regardless of the URL path.
         $middleware->prepend(\App\Http\Middleware\DetectCustomDomain::class);
 
+        // SEO OS (Iteration 4): managed redirects run before routing — a
+        // declared redirect for a path wins over any route at that path.
+        $middleware->prepend(\App\Http\Middleware\SeoRedirects::class);
+
         // A-9 FIX (Iter-006): Assign a per-request UUID early, before anything
         // else runs, so it's available in logs/Sentry for the whole request.
         $middleware->prepend(\App\Http\Middleware\RequestId::class);
@@ -46,6 +50,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // 1. Security Headers
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
+        // SEO OS (Iteration 7): capture first-touch acquisition context
+        // (referrer/landing/channel) into the session for signup
+        // attribution. Runs inside the web group AFTER session middleware.
+        $middleware->web(append: [
+            \App\Http\Middleware\CaptureAcquisitionContext::class,
+        ]);
 
         // 2. Banned users check — runs on every authenticated request
         $middleware->append(\App\Http\Middleware\CheckBanned::class);
