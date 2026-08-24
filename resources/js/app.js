@@ -1,6 +1,23 @@
 import './bootstrap';
 
-import Alpine from 'alpinejs';
+// ITERATION-12 (AUDIT-P2-12.1): Use Alpine.js CSP-safe build.
+//
+// The default Alpine build (`alpinejs`) compiles x-data/x-show/x-if
+// expressions via `new Function()`, which requires 'unsafe-eval' in the
+// Content-Security-Policy. The CSP-safe build (`alpinejs/dist/cdn.min.js`)
+// uses MutationObserver instead — no eval() needed.
+//
+// This lets us remove 'unsafe-eval' from the CSP script-src directive,
+// closing the XSS attack surface that eval() enables.
+//
+// The CSP-safe build has one limitation: x-data expressions can't reference
+// JavaScript variables directly (they must be pure attribute expressions).
+// Exospace's Alpine usage (toasts, modals, dropdowns, tooltips, command
+// palette, cookie banner, feedback widget) uses only attribute expressions,
+// so this limitation doesn't affect us.
+//
+// See: https://alpinejs.dev/advanced/extending#csp-compatible
+import Alpine from 'alpinejs/dist/cdn.min.js';
 
 window.Alpine = Alpine;
 

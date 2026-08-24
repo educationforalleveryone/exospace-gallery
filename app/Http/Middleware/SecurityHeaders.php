@@ -23,14 +23,23 @@ use Symfony\Component\HttpFoundation\Response;
  *   - 'unsafe-inline' replaced with per-request nonces. Inline scripts
  *     must include nonce="{nonce}" to execute. The nonce is generated
  *     per-request and exposed via the `csp_nonce()` helper / Blade directive.
- *   - 'unsafe-eval' removed. The Alpine.js CSP-safe build
- *     (alpinejs/dist/cdn.min.js) uses MutationObserver instead of eval(),
- *     so 'unsafe-eval' is no longer needed. (The Alpine package must be
- *     updated to the CSP-safe build — documented in Manual_Actions.md.)
  *   - 'strict-dynamic' added so that scripts loaded by a trusted (nonce'd)
  *     script can also execute without their own nonce. This is the modern
  *     CSP pattern for apps that use bundlers (Vite) that inject child
  *     scripts dynamically.
+ *
+ * ITERATION-12 (AUDIT-P2-12.1): 'unsafe-eval' REMOVED. The Alpine.js import
+ * in resources/js/app.js now uses the CSP-safe build
+ * (`alpinejs/dist/cdn.min.js`) which uses MutationObserver instead of
+ * `new Function()` to evaluate x-data expressions. This closes the XSS
+ * attack surface that `eval()` and `new Function()` enable — the one CSP
+ * relaxation that defeats most of the point of having a CSP.
+ *
+ *   - 'unsafe-eval' removed from script-src. This is the security win.
+ *   - 'unsafe-inline' remains REMOVED (was removed in Iter-004).
+ *   - style-src still has 'unsafe-inline' (Blade generates inline <style>
+ *     blocks; style nonces are more complex to implement; style-based XSS
+ *     is much rarer than script-based XSS — accepted tradeoff).
  *
  * The nonce is stored in the request attributes so the Blade @nonce
  * directive and the csp_nonce() helper can access it during view rendering.
@@ -81,7 +90,10 @@ class SecurityHeaders
         // - 'strict-dynamic': scripts loaded by a trusted (nonce'd) script also
         //   execute. This handles Vite's dynamic imports without listing every
         //   chunk in the CSP.
-        // - 'unsafe-eval' REMOVED: requires the Alpine.js CSP-safe build.
+        // - 'unsafe-eval' REMOVED (ITERATION-12 / AUDIT-P2-12.1): the Alpine.js
+        //   CSP-safe build (alpinejs/dist/cdn.min.js) imported in resources/js/app.js
+        //   uses MutationObserver instead of new Function(), so 'unsafe-eval' is
+        //   no longer needed. This closes the XSS attack surface that eval() enables.
         // - 'unsafe-inline' REMOVED: replaced by nonces.
         //
         // style-src still has 'unsafe-inline' because Laravel's Blade
@@ -90,7 +102,7 @@ class SecurityHeaders
         // tradeoff — style-based XSS is much rarer than script-based XSS.
         $csp = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'nonce-{$nonce}' 'strict-dynamic' 'unsafe-eval'",
+            "script-src 'self' 'nonce-{$nonce}' 'strict-dynamic'",
             "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
             "img-src 'self' data: blob:",
             "font-src 'self' data: https://fonts.bunny.net",
