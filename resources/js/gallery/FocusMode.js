@@ -7,24 +7,68 @@ import gsap from 'gsap';
 import { CONFIG } from './config.js';
 import { Analytics } from './Analytics.js';
 
-// Raycast from screen centre each frame; toggle crosshair colour when an
-// artwork is in the reticle.
-export function checkArtworkFocus() {
-    if (!this.controls.isLocked) return;
+// Module-level reusable temporaries (one gallery per page — safe as module
+// state; avoids per-call Vector3 allocations).
+const _fwd = new THREE.Vector3();
+const _to  = new THREE.Vector3();
 
-    this._reusableVector.set(0, 0);
-    this.raycaster.setFromCamera(this._reusableVector, this.camera);
-    const intersects = this.raycaster.intersectObjects(this.artworks, true);
+// PERF-B11 (3D audit F11): two-stage focus detection.
+//
+// Stage 1 — an allocation-free direction/distance prefilter keeps only the
+// artwork best aligned with the camera forward vector inside a 40° cone and
+// 14 m range. The old implementation raycast recursively against EVERY
+// artwork group (5 meshes each) on every call — every 3rd frame — which is
+// O(5N) ray-mesh tests plus per-call result arrays.
+//
+// Stage 2 — a single raycast against ONLY the winning candidate preserves
+// the precise crosshair-on-canvas + occlusion behaviour of the old system
+// on capable devices. Low-end devices accept the cone winner directly.
+//
+// ALSO FIXED: this used to early-return unless controls.isLocked — which is
+// never true on mobile (PointerLockControls is disabled there), so
+// double-tap-to-focus silently never worked. Focus detection now also runs
+// in mobile mode.
+export function checkArtworkFocus() {
+    if (!this.controls.isLocked && !this.isMobile) return;
+    if (!this.artworks || this.artworks.length === 0) return;
+
+    this.camera.getWorldDirection(_fwd);
+
+    const maxDist = 14;
+    let best = null;
+    let bestDot = Math.cos(THREE.MathUtils.degToRad(40)); // ≈ 0.766
+
+    for (let i = 0; i < this.artworks.length; i++) {
+        const art = this.artworks[i];
+        _to.copy(art.position).sub(this.camera.position);
+        const dist = _to.length();
+        if (dist > maxDist || dist < 0.4) continue;
+        _to.divideScalar(dist);
+        const dot = _to.dot(_fwd);
+        if (dot > bestDot) {
+            bestDot = dot;
+            best = art;
+        }
+    }
+
+    let focused = null;
+    if (best) {
+        if (this.isLowEnd) {
+            focused = best;
+        } else {
+            this._reusableVector.set(0, 0);
+            this.raycaster.setFromCamera(this._reusableVector, this.camera);
+            const hits = this.raycaster.intersectObjects([best], true);
+            focused = hits.length > 0 ? best : null;
+        }
+    }
 
     const crosshair = document.getElementById('crosshair');
 
-    if (intersects.length > 0) {
-        const artwork = intersects[0].object.parent;
-        if (artwork.userData.type === 'artwork' && artwork !== this.focusedArtwork) {
-            this.focusedArtwork = artwork;
-            if (crosshair && !this.isInspecting) crosshair.classList.add('focused');
-        }
-    } else {
+    if (focused && focused !== this.focusedArtwork) {
+        this.focusedArtwork = focused;
+        if (crosshair && !this.isInspecting) crosshair.classList.add('focused');
+    } else if (!focused) {
         this.focusedArtwork = null;
         if (crosshair && !this.isInspecting) crosshair.classList.remove('focused');
     }

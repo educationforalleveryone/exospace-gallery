@@ -21,6 +21,11 @@ const QUALITY_LEVELS = {
     high:   { pixelRatio: 1.5,  bloom: true,  maxLights: 8, hdri: true,  label: 'High' },
     medium: { pixelRatio: 1.25, bloom: true,  maxLights: 6, hdri: true,  label: 'Medium' },
     low:    { pixelRatio: 1.0,  bloom: false, maxLights: 4, hdri: false, label: 'Low' },
+    // PERF-B7 (3D audit F7): 'auto' resolves to this on touch-primary devices.
+    // Bloom is the expensive part of the composer chain (5 fullscreen
+    // passes); at phone canvas sizes its absence is genuinely hard to notice,
+    // while its presence costs ~20-30% frame time on mid-range GPUs.
+    mobile: { pixelRatio: 1.25, bloom: false, maxLights: 4, hdri: false, label: 'Mobile' },
 };
 
 export class PerformanceControls {
@@ -115,12 +120,18 @@ export class PerformanceControls {
             else if (fps >= 30) this._fpsEl.style.color = '#fbbf24';
             else                this._fpsEl.style.color = '#f87171';
         }
-        if (this._lightsEl && this.scene.artworks) {
-            let active = 0;
-            for (const art of this.scene.artworks) {
-                if (art.userData.light?.visible) active++;
+        // PERF-B2: artwork lights are now a fixed pool assigned to the nearest
+        // pieces — report assigned/total instead of scanning every artwork's
+        // (now non-existent) per-artwork light.
+        if (this._lightsEl) {
+            const pool = this.scene._lightPool;
+            if (pool) {
+                let active = 0;
+                for (const l of pool) if (l.intensity > 0.01) active++;
+                this._lightsEl.textContent = `Lights: ${active}/${pool.length}`;
+            } else {
+                this._lightsEl.textContent = 'Lights: 0';
             }
-            this._lightsEl.textContent = `Lights: ${active}`;
         }
     }
 
@@ -128,7 +139,11 @@ export class PerformanceControls {
         let cfg;
         if (quality === 'auto') {
             // Use the existing detection result
-            cfg = this.scene.isLowEnd ? QUALITY_LEVELS.low : QUALITY_LEVELS.high;
+            // PERF-B7: three-way resolution — low-end → Low, mobile tier →
+            // Mobile, everything else → High.
+            if (this.scene.isLowEnd)          cfg = QUALITY_LEVELS.low;
+            else if (this.scene._isMobileTier) cfg = QUALITY_LEVELS.mobile;
+            else                               cfg = QUALITY_LEVELS.high;
         } else {
             cfg = QUALITY_LEVELS[quality];
         }
@@ -153,8 +168,12 @@ export class PerformanceControls {
         // HDRI
         if (!cfg.hdri) {
             this.scene._skipHdri = true;
-            if (this.scene.environment) {
-                this.scene.environment = null;
+            // NOTE: `this.scene` is the GalleryScene instance — the THREE.Scene
+            // is `this.scene.scene`. The old code assigned this.scene.environment
+            // (a property that never existed), so disabling HDRI never actually
+            // detached a loaded environment map.
+            if (this.scene.scene?.environment) {
+                this.scene.scene.environment = null;
             }
         } else if (this.scene._skipHdri && !this.scene.isLowEnd) {
             // Re-enable HDRI loading if it was skipped

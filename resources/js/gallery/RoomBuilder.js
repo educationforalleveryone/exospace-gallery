@@ -239,9 +239,13 @@ export function createRoomLShape(data) {
     const ceilMatB = ceilMatA.clone ? ceilMatA.clone() : ceilMatA;
 
     const addPanel = (cx, cz, w, d, mat, isFloor) => {
-        if (floorMat.map && isFloor) {
-            floorMat.map.repeat.set(w / 2, d / 2);
-            floorMat.map.needsUpdate = true;
+        // PERF-B17 (3D audit F17): use the panel's OWN material for repeat —
+        // the old code mutated the closure's shared floorMat.map for every
+        // panel, so whichever panel was added LAST decided the tiling for
+        // BOTH wings (wing B won and wing A displayed the wrong scale).
+        if (mat.map && isFloor) {
+            mat.map.repeat.set(w / 2, d / 2);
+            mat.map.needsUpdate = true;
         }
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
         mesh.rotation.x = isFloor ? -Math.PI / 2 : Math.PI / 2;
@@ -249,8 +253,15 @@ export function createRoomLShape(data) {
         mesh.receiveShadow = !this.isLowEnd;
         this.scene.add(mesh);
     };
+    // Wing B gets its own floor material (with a cloned map — same GPU image,
+    // independent tiling) so each wing tiles at its own dimensions.
+    const floorMatB = floorMat.clone();
+    if (floorMat.map) {
+        floorMatB.map = floorMat.map.clone();
+        floorMatB.map.needsUpdate = true;
+    }
     addPanel(aCX, aCZ, wingW, lenA,  floorMat,  true);
-    addPanel(bCX, bCZ, lenB,  wingW, floorMat,  true);
+    addPanel(bCX, bCZ, lenB,  wingW, floorMatB, true);
     addPanel(aCX, aCZ, wingW, lenA,  ceilMatA,  false);
     addPanel(bCX, bCZ, lenB,  wingW, ceilMatB,  false);
 

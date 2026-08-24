@@ -18,17 +18,40 @@ export function earlyLowEndCheck() {
     return false;
 }
 
+// PERF-B7 (3D audit F7): touch-primary device detection — the same signal
+// Mobile.js uses for its control scheme. Needed here (BEFORE loadAssets)
+// so the mobile quality tier and texture variant selection know the device
+// class as early as possible.
+export function isCoarsePointer() {
+    return !!(window.matchMedia?.('(pointer: coarse)').matches
+        || (navigator.maxTouchPoints > 0 && 'ontouchstart' in window));
+}
+
 // Creates the WebGLRenderer, attaches it to #canvas-container, sets tone-mapping
 // and color space. Called from GalleryScene.init().
 export function initRenderer() {
+    // PERF-B10 (3D audit F10): a WebGL context restore calls init() again,
+    // which used to create a SECOND renderer + canvas (duplicate WebGL
+    // contexts leak GPU memory) . If a renderer already exists, keep it —
+    // the restored context belongs to the same canvas — and just re-size.
+    if (this.renderer) {
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        return;
+    }
+
     const earlyLowEnd = earlyLowEndCheck();
+    const coarse = isCoarsePointer();
+    const dpr = window.devicePixelRatio || 1;
 
     this.renderer = new THREE.WebGLRenderer({
-        antialias: !earlyLowEnd,
+        // PERF-B7: MSAA is redundant when the device pixel ratio already
+        // exceeds ~1.5 (the extra samples are invisible) and it is one of the
+        // most expensive fixed-function features on mobile GPUs.
+        antialias: !earlyLowEnd && !(coarse && dpr >= 1.5),
         powerPreference: earlyLowEnd ? 'low-power' : 'high-performance',
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(earlyLowEnd ? 1 : Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(coarse ? Math.min(dpr, 1.25) : Math.min(dpr, 1.5));
     this.renderer.shadowMap.enabled = CONFIG.performance.shadowsEnabled;
     this.renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping       = THREE.ACESFilmicToneMapping;
@@ -55,6 +78,12 @@ export function initRenderer() {
 
     this.renderer.domElement.addEventListener('webglcontextrestored', () => {
         console.log('WebGL context restored — rebuilding scene...');
+        // PERF-B10: if the page was disposed (pagehide/beforeunload) before
+        // the restore fired, do NOT resurrect a dead scene.
+        if (this._disposed) {
+            this._contextLost = true;
+            return;
+        }
         this._contextLost = false;
 
         const overlay = document.getElementById('webgl-recovery');
@@ -80,6 +109,11 @@ export function initRenderer() {
 export function detectLowEnd() {
     let isLowEnd = earlyLowEndCheck();
     const reasons = [];
+
+    // PERF-B7 (3D audit F7): establish the device class BEFORE textures load
+    // so pickTextureUrl() and the mobile tier below take effect from the
+    // first request. Mobile.js re-sets this.isMobile later to the same value.
+    this.isMobile = isCoarsePointer();
 
     // ── CPU cores ─────────────────────────────────────────────────────────
     if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
@@ -138,6 +172,21 @@ export function detectLowEnd() {
     if (isLowEnd) {
         console.log('⚡ Low-end mode:', reasons.join(', '));
         applyLowEndSettings.call(this);
+    } else if (this.isMobile) {
+        // PERF-B7 (3D audit F7): modern phones pass every check above (8
+        // cores, 8 GB) and used to receive the FULL desktop quality stack —
+        // DPR 1.5 + MSAA + bloom + 6 proximity lights + a ~10 MB HDRI. Mid-
+        // range phones cannot sustain that. The mobile tier trims cost in
+        // ways that are genuinely invisible at phone screen sizes:
+        //   • pixel ratio capped at 1.25 (the canvas is ≤ ~420 CSS px wide)
+        //   • HDRI skipped (ambient + hemisphere carry the lighting)
+        //   • 4 pooled artwork lights instead of 6-8
+        //   • anisotropy capped at 2
+        //   • bloom off by default (PerformanceControls 'auto' → mobile)
+        // The deferred FPS benchmark can still downgrade further, and users
+        // can override via the ?debug=1 quality panel.
+        console.log('📱 Mobile tier: pixelRatio 1.25, HDRI off, 4 pooled lights');
+        applyMobileSettings.call(this);
     } else {
         console.log('🚀 High-end mode: full quality enabled');
         // Initialize post-processing only on high-end
@@ -198,4 +247,23 @@ export function applyLowEndSettings() {
     this.isLowEnd = true;
     this._skipHdri      = true;  // HDRI is 10MB — skip on low-end
     this._maxAnisotropy = 1;     // anisotropic filtering is expensive on budget GPUs
+}
+
+// PERF-B7 (3D audit F7): mobile quality tier — see detectLowEnd for rationale.
+// Distinct from low-end: PBR materials + per-artwork lighting stay on; only
+// the costs that are invisible at phone sizes are trimmed.
+export function applyMobileSettings() {
+    this._isMobileTier = true;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+    if (this.scene.fog) {
+        this.scene.fog.near = Math.min(this.scene.fog.near, 8);
+        this.scene.fog.far  = Math.min(this.scene.fog.far, 24);
+    }
+    this._maxActiveLights = 4;
+    this._skipHdri        = true;   // the single biggest mobile payload
+    this._maxAnisotropy   = 2;
+    document.body.classList.add('mobile-tier');
+    // Post-processing stays available (vignette is cheap); PerformanceControls
+    // resolves 'auto' → the mobile quality level, which disables bloom.
+    this._postFx = new PostProcessing(this.renderer, this.scene, this.camera);
 }

@@ -6,6 +6,12 @@
 //   - Shows the mobile-overlay (defined in view.blade.php)
 //   - Wires joystick (left half of screen) + look pad (right half)
 //   - Exposes _mobileUpdateMovement() so Movement.js can call it
+//
+// PERF-B10 (3D audit F10): all document/zone listeners are now registered
+// exactly once behind `this._mobileBound` — a WebGL context-restore rebuild
+// re-runs setupMobileControls, and the old code re-attached every touch
+// listener (double-fired joystick/look events). The dead `this._initJoystick?.()`
+// calls that ran BEFORE the functions were defined are also gone.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { CONFIG } from './config.js';
@@ -25,7 +31,7 @@ export function setupMobileControls() {
     }
 
     this.isMobile = true;
-    this.mobileState = {
+    this.mobileState = this.mobileState || {
         joystick: { active: false, touchId: null, originX: 0, originY: 0, deltaX: 0, deltaY: 0 },
         look:     { active: false, touchId: null, lastX: 0, lastY: 0, deltaX: 0, deltaY: 0 },
         sprint:   false,
@@ -42,169 +48,152 @@ export function setupMobileControls() {
     const crosshair = document.getElementById('crosshair');
     if (crosshair) crosshair.style.display = 'none';
 
-    // Init touch handlers
-    this._initJoystick?.();
-    this._initLookPad?.();
-    this._initSprintButton?.();
-    this._initSpeedDial?.();
-    this._initDoubleTap?.();
+    if (!this._mobileBound) {
+        this._mobileBound = true;
 
-    // Brief hint
-    setTimeout(() => {
-        const hint = document.getElementById('mobile-hint');
-        if (hint) {
-            hint.classList.add('show');
-            setTimeout(() => hint.classList.remove('show'), 4000);
-        }
-    }, 2000);
+        // Brief hint
+        setTimeout(() => {
+            const hint = document.getElementById('mobile-hint');
+            if (hint) {
+                hint.classList.add('show');
+                setTimeout(() => hint.classList.remove('show'), 4000);
+            }
+        }, 2000);
 
-    // Prevent default touch behaviours inside the overlay
-    document.addEventListener('touchmove', (e) => {
-        if (e.target.closest('#mobile-overlay')) e.preventDefault();
-    }, { passive: false });
+        // Prevent default touch behaviours inside the overlay
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.closest('#mobile-overlay')) e.preventDefault();
+        }, { passive: false });
 
-    // Prevent zoom on double tap
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', (e) => {
-        const now = Date.now();
-        if (now - lastTouchEnd <= 300) e.preventDefault();
-        lastTouchEnd = now;
-    }, { passive: false });
+        // Prevent zoom on double tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) e.preventDefault();
+            lastTouchEnd = now;
+        }, { passive: false });
 
-    // Wire the movement function — Movement.js calls this._mobileUpdateMovement()
-    this._mobileUpdateMovement = _mobileUpdateMovement.bind(this);
-
-    // ── Joystick (left half) ────────────────────────────────────────────────
-    this._initJoystick = () => {
+        // ── Joystick (left half) ────────────────────────────────────────
         const zone  = document.getElementById('joystick-zone');
         const base  = document.getElementById('joystick-base');
         const thumb = document.getElementById('joystick-thumb');
-        if (!zone || !base || !thumb) return;
+        if (zone && base && thumb) {
+            const maxDistance = 35;
 
-        const maxDistance = 35;
+            zone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (this.mobileState.joystick.active) return;
+                const touch = e.changedTouches[0];
+                this.mobileState.joystick.active  = true;
+                this.mobileState.joystick.touchId = touch.identifier;
+                this.mobileState.joystick.originX = touch.clientX;
+                this.mobileState.joystick.originY = touch.clientY;
+                base.style.left  = `${touch.clientX - 50}px`;
+                base.style.top   = `${touch.clientY - 50}px`;
+                base.style.display = 'block';
+                thumb.style.left = '50px';
+                thumb.style.top  = '50px';
+            }, { passive: false });
 
-        zone.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (this.mobileState.joystick.active) return;
-            const touch = e.changedTouches[0];
-            this.mobileState.joystick.active  = true;
-            this.mobileState.joystick.touchId = touch.identifier;
-            this.mobileState.joystick.originX = touch.clientX;
-            this.mobileState.joystick.originY = touch.clientY;
-            base.style.left  = `${touch.clientX - 50}px`;
-            base.style.top   = `${touch.clientY - 50}px`;
-            base.style.display = 'block';
-            thumb.style.left = '50px';
-            thumb.style.top  = '50px';
-        }, { passive: false });
-
-        zone.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            for (const touch of e.changedTouches) {
-                if (touch.identifier !== this.mobileState.joystick.touchId) continue;
-                let dx = touch.clientX - this.mobileState.joystick.originX;
-                let dy = touch.clientY - this.mobileState.joystick.originY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist > maxDistance) {
-                    dx = (dx / dist) * maxDistance;
-                    dy = (dy / dist) * maxDistance;
+            zone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (const touch of e.changedTouches) {
+                    if (touch.identifier !== this.mobileState.joystick.touchId) continue;
+                    let dx = touch.clientX - this.mobileState.joystick.originX;
+                    let dy = touch.clientY - this.mobileState.joystick.originY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > maxDistance) {
+                        dx = (dx / dist) * maxDistance;
+                        dy = (dy / dist) * maxDistance;
+                    }
+                    this.mobileState.joystick.deltaX = dx / maxDistance;
+                    this.mobileState.joystick.deltaY = dy / maxDistance;
+                    thumb.style.left = `${50 + dx}px`;
+                    thumb.style.top  = `${50 + dy}px`;
                 }
-                this.mobileState.joystick.deltaX = dx / maxDistance;
-                this.mobileState.joystick.deltaY = dy / maxDistance;
-                thumb.style.left = `${50 + dx}px`;
-                thumb.style.top  = `${50 + dy}px`;
-            }
-        }, { passive: false });
+            }, { passive: false });
 
-        zone.addEventListener('touchend', (e) => {
-            for (const touch of e.changedTouches) {
-                if (touch.identifier !== this.mobileState.joystick.touchId) continue;
-                this.mobileState.joystick.active  = false;
-                this.mobileState.joystick.touchId = null;
-                this.mobileState.joystick.deltaX  = 0;
-                this.mobileState.joystick.deltaY  = 0;
-                base.style.display = 'none';
-            }
-        });
-    };
-    this._initJoystick();
+            zone.addEventListener('touchend', (e) => {
+                for (const touch of e.changedTouches) {
+                    if (touch.identifier !== this.mobileState.joystick.touchId) continue;
+                    this.mobileState.joystick.active  = false;
+                    this.mobileState.joystick.touchId = null;
+                    this.mobileState.joystick.deltaX  = 0;
+                    this.mobileState.joystick.deltaY  = 0;
+                    base.style.display = 'none';
+                }
+            });
+        }
 
-    // ── Look pad (right half) ───────────────────────────────────────────────
-    this._initLookPad = () => {
-        const zone = document.getElementById('look-zone');
-        if (!zone) return;
+        // ── Look pad (right half) ───────────────────────────────────────
+        const lookZone = document.getElementById('look-zone');
+        if (lookZone) {
+            lookZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (this.mobileState.look.active) return;
+                const touch = e.changedTouches[0];
+                this.mobileState.look.active  = true;
+                this.mobileState.look.touchId = touch.identifier;
+                this.mobileState.look.lastX   = touch.clientX;
+                this.mobileState.look.lastY   = touch.clientY;
+            }, { passive: false });
 
-        zone.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (this.mobileState.look.active) return;
-            const touch = e.changedTouches[0];
-            this.mobileState.look.active  = true;
-            this.mobileState.look.touchId = touch.identifier;
-            this.mobileState.look.lastX   = touch.clientX;
-            this.mobileState.look.lastY   = touch.clientY;
-        }, { passive: false });
+            lookZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (const touch of e.changedTouches) {
+                    if (touch.identifier !== this.mobileState.look.touchId) continue;
+                    this.mobileState.look.deltaX = (touch.clientX - this.mobileState.look.lastX) * 0.003;
+                    this.mobileState.look.deltaY = (touch.clientY - this.mobileState.look.lastY) * 0.003;
+                    this.mobileState.look.lastX = touch.clientX;
+                    this.mobileState.look.lastY = touch.clientY;
+                }
+            }, { passive: false });
 
-        zone.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            for (const touch of e.changedTouches) {
-                if (touch.identifier !== this.mobileState.look.touchId) continue;
-                this.mobileState.look.deltaX = (touch.clientX - this.mobileState.look.lastX) * 0.003;
-                this.mobileState.look.deltaY = (touch.clientY - this.mobileState.look.lastY) * 0.003;
-                this.mobileState.look.lastX = touch.clientX;
-                this.mobileState.look.lastY = touch.clientY;
-            }
-        }, { passive: false });
+            lookZone.addEventListener('touchend', (e) => {
+                for (const touch of e.changedTouches) {
+                    if (touch.identifier !== this.mobileState.look.touchId) continue;
+                    this.mobileState.look.active  = false;
+                    this.mobileState.look.touchId = null;
+                    this.mobileState.look.deltaX  = 0;
+                    this.mobileState.look.deltaY  = 0;
+                }
+            });
 
-        zone.addEventListener('touchend', (e) => {
-            for (const touch of e.changedTouches) {
-                if (touch.identifier !== this.mobileState.look.touchId) continue;
-                this.mobileState.look.active  = false;
-                this.mobileState.look.touchId = null;
-                this.mobileState.look.deltaX  = 0;
-                this.mobileState.look.deltaY  = 0;
-            }
-        });
-    };
-    this._initLookPad();
+            // ── Double-tap to focus artwork ─────────────────────────────
+            lookZone.addEventListener('touchend', () => {
+                const now = Date.now();
+                if (now - this.mobileState.lastTap < 300) {
+                    this.toggleArtworkInfo();
+                }
+                this.mobileState.lastTap = now;
+            });
+        }
 
-    // ── Sprint toggle button ────────────────────────────────────────────────
-    this._initSprintButton = () => {
-        const btn = document.getElementById('sprint-btn');
-        if (!btn) return;
-        btn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            this.mobileState.sprint = !this.mobileState.sprint;
-            btn.classList.toggle('active', this.mobileState.sprint);
-        }, { passive: false });
-    };
-    this._initSprintButton();
+        // ── Sprint toggle button ────────────────────────────────────────
+        const sprintBtn = document.getElementById('sprint-btn');
+        if (sprintBtn) {
+            sprintBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.mobileState.sprint = !this.mobileState.sprint;
+                sprintBtn.classList.toggle('active', this.mobileState.sprint);
+            }, { passive: false });
+        }
 
-    // ── Speed dial (cycles 1x → 2x → 4x → 8x) ───────────────────────────────
-    this._initSpeedDial = () => {
-        const btn = document.getElementById('speed-dial');
-        if (!btn) return;
-        btn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const next = (CONFIG.movement.currentSpeedIndex + 1) % CONFIG.movement.speedMultipliers.length;
-            this.setSpeedMultiplier(next);
-            btn.textContent = `${this.currentSpeedMultiplier}x`;
-        }, { passive: false });
-    };
-    this._initSpeedDial();
+        // ── Speed dial (cycles 1x → 2x → 4x → 8x) ─────────────────────
+        const speedBtn = document.getElementById('speed-dial');
+        if (speedBtn) {
+            speedBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const next = (CONFIG.movement.currentSpeedIndex + 1) % CONFIG.movement.speedMultipliers.length;
+                this.setSpeedMultiplier(next);
+                speedBtn.textContent = `${this.currentSpeedMultiplier}x`;
+            }, { passive: false });
+        }
+    }
 
-    // ── Double-tap to focus artwork ─────────────────────────────────────────
-    this._initDoubleTap = () => {
-        const zone = document.getElementById('look-zone');
-        if (!zone) return;
-        zone.addEventListener('touchend', () => {
-            const now = Date.now();
-            if (now - this.mobileState.lastTap < 300) {
-                this.toggleArtworkInfo();
-            }
-            this.mobileState.lastTap = now;
-        });
-    };
-    this._initDoubleTap();
+    // Wire the movement function — Movement.js calls this._mobileUpdateMovement()
+    // (re-bound on every setup so a context-restore rebuild stays wired)
+    this._mobileUpdateMovement = _mobileUpdateMovement.bind(this);
 }
 
 // ── Mobile movement — same physics as desktop, fed by joystick ───────────────

@@ -545,12 +545,21 @@ function addCrystalCathedralStructure(radius) {
         shard.scale.setScalar(0.8 + Math.random() * 1.5);
         this.scene.add(shard);
 
-        // Coloured point light inside each shard — refracted glow
-        const colors = [0xffaaaa, 0xaaffaa, 0xaaaaff, 0xffffaa, 0xffaaff, 0xaaffff];
-        const c = colors[i % colors.length];
-        const light = new THREE.PointLight(c, 0.5, 6);
-        light.position.copy(shard.position);
-        this.scene.add(light);
+        // Coloured point light inside every 3rd shard.
+        // PERF-B18 (3D audit F18): all 12 shards used to carry an
+        // always-on coloured PointLight. Combined with artwork + fill lights
+        // that pushed Crystal Cathedral past 20 dynamic lights per fragment
+        // (every fragment pays for every light). Four lights spread through
+        // the ring + the shards' own transmission shading read virtually
+        // identically at a fraction of the cost. Bloom (high-end) still
+        // catches the shards.
+        if (i % 3 === 0) {
+            const colors = [0xffaaaa, 0xaaffaa, 0xaaaaff, 0xffffaa, 0xffaaff, 0xaaffff];
+            const c = colors[i % colors.length];
+            const light = new THREE.PointLight(c, 0.5, 6);
+            light.position.copy(shard.position);
+            this.scene.add(light);
+        }
 
         // Register for slow rotation animation in animate()
         this._particleSystems = this._particleSystems || [];

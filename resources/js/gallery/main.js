@@ -225,3 +225,13 @@ window.addEventListener('beforeunload', () => {
         galleryScene = null;
     }
 }, { once: true });
+
+// PERF-B10 (3D audit F10): if the page is restored from the back/forward
+// cache AFTER dispose() ran on pagehide, the scene is gone and the canvas
+// would stay black. The only correct recovery is a reload — cheap now that
+// static assets are cached immutably (iteration 1, PERF-A4).
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted && galleryScene === null) {
+        window.location.reload();
+    }
+});

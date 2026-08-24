@@ -28,6 +28,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
+import gsap from 'gsap';
 
 import { CONFIG } from './config.js';
 import { initRenderer, detectLowEnd, applyLowEndSettings, earlyLowEndCheck } from './Renderer.js';
@@ -116,8 +117,13 @@ export class GalleryScene {
         // Visibility (pause render loop when tab hidden)
         this._isVisible = true;
 
-        // Mobile flag (set by setupMobileControls)
+        // Mobile flag (set by setupMobileControls — and earlier by
+        // detectLowEnd's coarse-pointer check, PERF-B7)
         this.isMobile = false;
+        // PERF-B10 (3D audit F10): init() can run again after a WebGL
+        // context restore. Document-level listeners survive that rebuild —
+        // guard them so they're registered exactly once.
+        this._docListenersBound = false;
 
         // ── Boot ───────────────────────────────────────────────────────────
         this.init();
@@ -146,13 +152,19 @@ export class GalleryScene {
         detectLowEnd.call(this);
 
         // Visibility tracking (saves battery when tab hidden)
-        document.addEventListener('visibilitychange', () => {
-            this._isVisible = !document.hidden;
-        });
+        if (!this._docListenersBound) {
+            this._docListenersBound = true;
+            document.addEventListener('visibilitychange', () => {
+                this._isVisible = !document.hidden;
+            });
+        }
 
         // Performance controls (FPS counter + quality toggle)
-        // Initialized after detectLowEnd so it knows the auto-detected tier
-        this._perfControls = new PerformanceControls(this);
+        // Initialized after detectLowEnd so it knows the auto-detected tier.
+        // PERF-B10: never re-create on context-restore re-init — the
+        // constructor wraps scene.animate, and a second instance would
+        // double-count frames in the FPS meter.
+        this._perfControls = this._perfControls || new PerformanceControls(this);
 
         // Controls (keyboard + pointer lock + mobile)
         setupControls.call(this);
@@ -239,8 +251,38 @@ export class GalleryScene {
     // S-6: Dispose all GPU resources to prevent memory leaks.
     // Traverses the scene and disposes every geometry, material, and texture.
     // Called on pagehide/beforeunload and before scene rebuilds.
+    //
+    // PERF-B10 (3D audit F10) hardening:
+    //   • re-entry safe (this._disposed guard)
+    //   • CANCELS the rAF loop first — previously animate() kept firing after
+    //     dispose and threw on the null scene every frame
+    //   • kills in-flight gsap camera tweens (focus mode / tour)
+    //   • stops audio sources
+    //   • forceContextLoss() so the browser frees the GL context immediately
+    //     (renderer.dispose() alone does not release GPU memory in all
+    //     browsers)
     dispose() {
-        if (! this.scene) return;
+        if (this._disposed || ! this.scene) return;
+        this._disposed = true;
+
+        // 1. Stop the render loop BEFORE tearing anything down
+        if (this._rafId !== undefined) {
+            cancelAnimationFrame(this._rafId);
+            this._rafId = undefined;
+        }
+
+        // 2. Kill camera tweens (gsap tweens outlive the objects they animate)
+        try {
+            if (this.focusTween) this.focusTween.kill();
+            gsap.killTweensOf(this.camera?.position);
+        } catch (e) { /* camera may already be gone */ }
+
+        // 3. Stop audio
+        try {
+            this.sound?.stop?.();
+            this.sfx?.footstep?.stop?.();
+            this.sfx?.click?.stop?.();
+        } catch (e) { /* ignore */ }
 
         this.scene.traverse((obj) => {
             // Dispose geometry
@@ -268,9 +310,11 @@ export class GalleryScene {
             });
         });
 
-        // Dispose the renderer
+        // Dispose the renderer — and force the browser to actually let go of
+        // the GL context (see PERF-B10 note above).
         if (this.renderer) {
             this.renderer.dispose();
+            try { this.renderer.forceContextLoss?.(); } catch (e) { /* ignore */ }
         }
 
         // Dispose controls
@@ -292,10 +336,13 @@ export class GalleryScene {
 
     // ── Main animation loop ─────────────────────────────────────────────────
     animate() {
-        requestAnimationFrame(() => this.animate());
+        // PERF-B10: stop scheduling after dispose() — the old loop kept
+        // requesting frames forever (and crashed on the null scene).
+        if (this._disposed) return;
+        this._rafId = requestAnimationFrame(() => this.animate());
 
         // S-7: Skip rendering when context is lost
-        if (this._contextLost || !this._isVisible) return;
+        if (this._contextLost || !this._isVisible || !this.scene) return;
 
         // Cap to ~30fps on low-end (skip every other frame)
         if (this.isLowEnd) {
@@ -497,9 +544,11 @@ export class GalleryScene {
                         // If currently boosted, snap to the new max so the
                         // change is visible immediately rather than waiting
                         // for the next proximity update.
+                        // PERF-B2: artwork lights are pooled now — there is no
+                        // per-artwork light object to poke; the pool follows
+                        // lightCurrent on its next tick (≤ ~33 ms).
                         if (a.userData.lightCurrent > base) {
                             a.userData.lightCurrent = newMax;
-                            if (a.userData.light) a.userData.light.intensity = newMax;
                         }
                     }
                 });
