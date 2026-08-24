@@ -673,6 +673,20 @@
             }
         })();
 
+        // PERF-E29 (3D audit — iteration 5): register the service worker on
+        // the GALLERY view. It was only registered on the marketing layout,
+        // but this page is where the heavy engine assets live (three.js
+        // chunk, DRACO/Basis wasm, HDRIs, artwork textures). The SW caches
+        // them stale-while-revalidate, so a visitor's second gallery opens
+        // with the engine served from disk instantly. Registered after
+        // window load so it never competes with the 3D boot for CPU, and
+        // failures are silent (progressive enhancement).
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').catch(function() {});
+            });
+        }
+
         // (Task H35 / audit C4) — expose prefers-reduced-motion for the
         // 3D viewer's main.js to consume. When true, the viewer should
         // disable bloom, vignette, camera lean, and tour tweens.

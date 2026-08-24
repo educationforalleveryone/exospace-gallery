@@ -102,7 +102,12 @@ class GalleryViewController extends Controller
             'room_layout'     => $gallery->room_layout ?? 'square',
             'venue_slug'      => $gallery->venueTemplate?->slug ?? 'white-cube',
             'venueConfig'     => $venueConfig,
-            'images' => $gallery->images->map(fn($img) => [
+            // PERF-E30 (3D audit): array_filter strips null fields — a
+            // 100-artwork gallery otherwise ships ~500 dead bytes of nulls
+            // per image (description, artist, price, medium, year...) inside
+            // the inline GALLERY_DATA JSON. Every JS consumer already treats
+            // missing keys and null identically (|| defaults, ?. chains).
+            'images' => $gallery->images->map(fn($img) => array_filter([
                 'id'             => $img->id,
                 'url'            => asset($img->path),
                 // PERF-A1 (3D audit F1): capability-appropriate texture variants.
@@ -142,7 +147,7 @@ class GalleryViewController extends Controller
                 'dimensions'     => $img->dimensions,
                 'edition'        => $img->formattedEdition(),
                 'externalUrl'    => $img->external_url,
-            ])->values(),
+            ], fn ($v) => $v !== null))->values(),
             'imageCount'     => $gallery->images->count(),
             'audioUrl'       => $gallery->audio_path ? asset('storage/' . $gallery->audio_path) : null,
             'userPlan'       => $gallery->user->plan ?? 'free',

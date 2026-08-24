@@ -283,6 +283,10 @@ export class GalleryScene {
 
         // 3. Stop audio
         try {
+            // PERF-E26: streaming music element — pause releases the
+            // browser's buffered media + the network stream
+            this._musicEl?.pause();
+            this._musicEl = null;
             this.sound?.stop?.();
             this.sfx?.footstep?.stop?.();
             this.sfx?.click?.stop?.();

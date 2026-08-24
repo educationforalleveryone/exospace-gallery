@@ -14,9 +14,21 @@
 //
 // Cache versioning: increment EXOSPACE_SW_VERSION on every deploy to
 // trigger cache invalidation.
+//
+// PERF-E29 (3D audit — iteration 5):
+//   • v2: the gallery view now registers this SW too (previously only the
+//     marketing layout did) — that's where the heavy engine assets live
+//     (three.js chunk, DRACO/Basis wasm, HDRIs, artwork textures).
+//   • /storage/ + /assets/ + /decoders/ moved from cache-first to
+//     STALE-WHILE-REVALIDATE. Cache-first meant curator re-uploads (same
+//     /storage path) and re-generated engine textures (same /assets path,
+//     e.g. after a HDRI re-export) served stale FOREVER — until the next
+//     manual version bump. SWR serves instantly from cache and refreshes
+//     in the background, matching the HTTP-layer semantics (7d / 30d TTLs)
+//     set by nginx. /build/ stays SWR (content-hashed — refresh is free).
 // ─────────────────────────────────────────────────────────────────────────────
 
-const EXOSPACE_SW_VERSION = 'v1';
+const EXOSPACE_SW_VERSION = 'v2';
 const CACHE_NAME = `exospace-${EXOSPACE_SW_VERSION}`;
 
 // App shell — the essential assets for the gallery experience
@@ -137,18 +149,24 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // ── Strategy 4: Cache-first for uploaded images ────────────────────────
-    // Gallery artwork images, logos, audio — cache on first access
-    if (url.pathname.startsWith('/storage/') || url.pathname.startsWith('/assets/')) {
+    // ── Strategy 4: Stale-while-revalidate for media + engine assets ────────
+    // PERF-E29: /storage/ (artwork uploads), /assets/ (engine textures,
+    // HDRIs, audio) and /decoders/ (DRACO/Basis wasm) — serve the cached
+    // copy instantly, refresh it in the background. Was pure cache-first,
+    // which froze curator re-uploads and engine asset updates until the
+    // next SW version bump. /decoders/ previously matched NO strategy at
+    // all (plain network every time).
+    if (url.pathname.startsWith('/storage/') || url.pathname.startsWith('/assets/') || url.pathname.startsWith('/decoders/')) {
         event.respondWith(
             caches.match(request).then((cached) => {
-                return cached || fetch(request).then((response) => {
+                const fetchPromise = fetch(request).then((response) => {
                     if (response.ok) {
                         const clone = response.clone();
                         caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
                     }
                     return response;
-                }).catch(() => cached);
+                }).catch(() => cached); // offline — cached copy (may be undefined)
+                return cached || fetchPromise;
             })
         );
         return;

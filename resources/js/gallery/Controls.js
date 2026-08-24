@@ -43,6 +43,13 @@ export function setupControls() {
                 case 'KeyD': case 'ArrowRight': this.moveState.right    = true; break;
                 case 'ShiftLeft': this.moveState.sprint = true; break;
                 case 'KeyE': this.toggleArtworkInfo(); break;
+                // PERF-E28: Escape exits focus mode. While inspecting, the
+                // pointer is already unlocked so the browser's own
+                // Escape-unlocks-pointer behaviour doesn't apply — without
+                // this, Escape did nothing and keyboard users had to find E.
+                case 'Escape':
+                    if (this.isInspecting) { this.toggleArtworkInfo(); }
+                    break;
                 // (Task H38) Enter focuses the nearest artwork (accessible
                 // alternative to click-to-focus for keyboard-only users)
                 case 'Enter': this.focusNearestArtwork(); break;

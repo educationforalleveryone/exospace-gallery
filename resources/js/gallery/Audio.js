@@ -25,8 +25,17 @@ export function initAudio() {
     this._audioUrl = galleryData.audioUrl || null;
 }
 
-// Fetch SFX (+ optional gallery music) buffers. Idempotent — safe to call
-// from every gesture handler (Enter button, tour start).
+// Fetch SFX buffers + set up streaming background music. Idempotent — safe
+// to call from every gesture handler (Enter button, tour start).
+//
+// PERF-E26 (3D audit): background music used to download the ENTIRE track
+// into an AudioBuffer before a single note could play — a multi-MB blocking
+// fetch competing with artwork textures, for a feature most visitors hear
+// for a few seconds before focusing on the art. Music now streams through
+// an HTMLAudioElement: playback starts as soon as the first seconds arrive,
+// the browser manages buffering, and nothing is held in memory as a decoded
+// PCM buffer. SFX (footstep/click, a few KB) stay as buffers — they need
+// low-latency replay.
 export function loadAudioAssets() {
     if (this._audioLoadStarted) return;
     this._audioLoadStarted = true;
@@ -48,36 +57,33 @@ export function loadAudioAssets() {
         this.sfx.click.setVolume(0.4);
     }, undefined, () => console.warn('⚠️ interaction_click.mp3 failed'));
 
-    // Background music (per-gallery, optional)
+    // Background music (per-gallery, optional) — STREAMING element
     if (!this._audioUrl) return;
 
-    this.sound = new THREE.Audio(this.listener);
-    const audioLoader = new THREE.AudioLoader();
-    audioLoader.load(
-        this._audioUrl,
-        (buffer) => {
-            this.sound.setBuffer(buffer);
-            this.sound.setLoop(true);
-            this.sound.setVolume(0.5);
-            this.audioReady = true;
-            // If the user already pressed Enter (playAudio was a no-op before
-            // the buffer arrived), start now that we're ready.
-            if (this._autoplayWhenReady) this.playAudio();
-        },
-        (progress) => {
-            if (progress.total) {
-                console.log('🎵 Music:', Math.round((progress.loaded / progress.total) * 100) + '%');
-            }
-        },
-        (err) => console.error('❌ Background music load failed:', err)
-    );
+    const el = new Audio(this._audioUrl);
+    el.loop   = true;
+    el.volume = 0.5;
+    // Fetching begins at the first play() — which is always inside a user
+    // gesture (Enter click / tour start), so autoplay policy is satisfied
+    // and zero music bytes compete with the pre-Enter texture downloads.
+    el.preload = 'none';
+    this._musicEl = el;
 }
 
 export function playAudio() {
+    // PERF-E26: streaming music — element.play() starts buffering + playback
+    // immediately; no full-track download, no audioReady gate.
+    if (this._musicEl) {
+        this._musicEl.play().catch((e) => {
+            // Autoplay rejections (rare — always gesture-driven here) and
+            // network stalls are non-fatal: the gallery stays silent.
+            if (e?.name !== 'AbortError') console.warn('Music playback failed:', e?.name || e);
+        });
+        return;
+    }
+    // Legacy path (music loaded as buffer before this iteration) — kept for
+    // admin preview iframes that never re-fetch after a hot rebuild.
     if (!this.audioReady || !this.sound) {
-        // Buffer not decoded yet (audio loading is deferred to first gesture —
-        // PERF-A6). Remember the intent so music fades in as soon as it's
-        // ready instead of staying silent for the whole visit.
         if (this.sound) this._autoplayWhenReady = true;
         return;
     }
@@ -87,10 +93,14 @@ export function playAudio() {
 
 // P2-16: Audio mute/unmute toggle. Exposed so view.blade.php can wire a button.
 export function toggleMute() {
-    if (!this.sound && !this.sfx.footstep && !this.sfx.click) return;
+    if (!this._musicEl && !this.sound && !this.sfx.footstep && !this.sfx.click) return;
 
     this._muted = !this._muted;
 
+    // PERF-E26: streaming music mutes via element volume
+    if (this._musicEl) {
+        this._musicEl.volume = this._muted ? 0 : 0.5;
+    }
     if (this.sound) {
         this.sound.setVolume(this._muted ? 0 : 0.5);
     }

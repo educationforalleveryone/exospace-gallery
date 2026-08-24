@@ -26,6 +26,43 @@ let _gltfLoader  = null;
 let _dracoLoader = null;
 let _ktx2Loader  = null;
 
+// PERF-E25 (3D audit — decode off the main thread): artwork textures decode
+// via createImageBitmap() on a browser background thread when available.
+// The previous path (TextureLoader → HTMLImageElement) defers decode to the
+// first texImage2D upload, which lands on the MAIN thread — during phase-B
+// streaming that meant visible hitches every time a texture swapped in while
+// the visitor was walking. ImageBitmaps arrive fully decoded.
+//
+// Orientation note (from three's own ImageBitmapLoader docs): Texture#flipY
+// is IGNORED for image bitmaps, so the flip is baked at creation time via
+// createImageBitmap's imageOrientation: 'flipY' option — matching the
+// orientation TextureLoader produces. Verified against three r182's
+// offscreen example (examples/jsm/offscreen/scene.js).
+let _bitmapLoader = null;
+function createArtworkLoader() {
+    if (typeof createImageBitmap !== 'undefined' && typeof fetch !== 'undefined') {
+        _bitmapLoader = new THREE.ImageBitmapLoader();
+        _bitmapLoader.setOptions({ imageOrientation: 'flipY' });
+        return _bitmapLoader;
+    }
+    return new THREE.TextureLoader();
+}
+
+// Normalized artwork-texture fetch: always resolves a THREE.Texture to
+// onLoad (constructing one around the ImageBitmap when on the bitmap path —
+// needsUpdate is required for a manually constructed Texture).
+function loadArtworkTexture(loader, url, onLoad, onError) {
+    if (loader instanceof THREE.ImageBitmapLoader) {
+        loader.load(url, (bitmap) => {
+            const tex = new THREE.Texture(bitmap);
+            tex.needsUpdate = true;
+            onLoad(tex);
+        }, undefined, onError);
+    } else {
+        loader.load(url, onLoad, undefined, onError);
+    }
+}
+
 function getDracoLoader(renderer) {
     if (!_dracoLoader) {
         _dracoLoader = new DRACOLoader();
@@ -102,6 +139,7 @@ export function pickTextureUrl(img, scene) {
 // program — the pop-in costs zero recompiles (see ArtworkPlacer).
 export async function loadAssets() {
     const textureLoader = new THREE.TextureLoader();
+    const artworkLoader = createArtworkLoader();
     const data = window.GALLERY_DATA;
 
     // Lighting preset (needed early to pick the right HDRI)
@@ -190,13 +228,12 @@ export async function loadAssets() {
 
         const loadTextureFor = (index) => new Promise(resolve => {
             const img = this.artworkImages[index];
-            textureLoader.load(
-                pickTextureUrl(img, this),
-                (tex) => {
+            const url = pickTextureUrl(img, this);
+            loadArtworkTexture(artworkLoader, url, (tex) => {
                     img.texture = finalizeTexture(tex);
+                    img._loadedUrl = url; // PERF-E27: focus-upgrade bookkeeping
                     resolve(true);
                 },
-                undefined,
                 () => resolve(false) // network/decode failure — placeholder stays
             );
         });
@@ -206,13 +243,13 @@ export async function loadAssets() {
             const thumbUrl = img.textures?.thumb;
             // No real thumbnail available (legacy gallery) — skip silently.
             if (!thumbUrl || thumbUrl === img.url) { resolve(); return; }
-            textureLoader.load(thumbUrl, (tex) => {
+            loadArtworkTexture(artworkLoader, thumbUrl, (tex) => {
                 tex.colorSpace      = THREE.SRGBColorSpace;
                 tex.generateMipmaps = false; // 1px-to-400px blur-up needs no mips
                 tex.anisotropy      = 1;
                 img.thumbTexture = tex;
                 resolve();
-            }, undefined, () => resolve());
+            }, () => resolve());
         });
 
         // Generic bounded-concurrency queue runner.
@@ -267,9 +304,19 @@ export async function loadAssets() {
         // ── PHASE B — stream the rest in the background ─────────────────────
         await runPooled(
             order.slice(FIRST_BATCH),
-            (idx) => loadTextureFor(idx).then(loaded => {
-                if (loaded) this.applyArtworkTexture(this.artworkImages[idx]);
-            }),
+            (idx) => {
+                const img = this.artworkImages[idx];
+                // PERF-E27: if a focus-mode upgrade already fetched the LARGE
+                // variant for this artwork, don't let phase B overwrite it
+                // with the tier default (medium on mobile) — that would be a
+                // visual downgrade of a piece the visitor is looking at.
+                if (img._loadedUrl && img._loadedUrl === img.textures?.large) {
+                    return Promise.resolve();
+                }
+                return loadTextureFor(idx).then(loaded => {
+                    if (loaded) this.applyArtworkTexture(this.artworkImages[idx]);
+                });
+            },
             62, 38, 'Streaming artwork'
         );
 
@@ -285,6 +332,56 @@ export async function loadAssets() {
         // this is a no-op — the room stays usable with placeholders.)
         this.showLoadError(error);
     }
+}
+
+// ── Focus-mode texture refinement (PERF-E27 / 3D audit) ───────────────────
+// On the mobile tier, artworks load the 1024px "medium" variant — the right
+// trade-off for wall viewing, but slightly soft when the visitor walks up
+// and inspects a piece (focus distance 1.8 m fills the phone screen). When
+// they focus an artwork, fetch the 2048px "large" variant on demand, swap
+// it in during the 1.5 s camera tween, and dispose the medium texture —
+// progressive refinement driven by intent, so only inspected pieces ever
+// pay the large-variant bytes.
+//
+// Desktop already loads `large` and low-end stays on `small` deliberately
+// (GPU memory), so this only activates on the mobile tier. Idempotent and
+// race-safe against phase-B streaming via the _loadedUrl bookkeeping.
+export function upgradeFocusedArtworkTexture(artworkGroup) {
+    if (!this._isMobileTier) return;
+    if (!artworkGroup || !this.artworkImages) return;
+
+    const img = this.artworkImages.find(i => i.id === artworkGroup.userData.id);
+    const largeUrl = img?.textures?.large;
+    if (!img || !largeUrl) return;
+    if (img._loadedUrl === largeUrl || img._upgradeInFlight) return;
+
+    img._upgradeInFlight = true;
+    const loader = _bitmapLoader || createArtworkLoader();
+
+    loadArtworkTexture(loader, largeUrl,
+        (tex) => {
+            img._upgradeInFlight = false;
+            // Visitor may have left / artwork may have been disposed
+            if (this._disposed || !this.artworks) return;
+
+            const previous = img.texture;
+            img.texture = tex;
+            img._loadedUrl = largeUrl;
+
+            // finalizeTexture is loadAssets-scoped; apply the same standard
+            // configuration here (mobile tier keeps mipmaps + anisotropy 2).
+            tex.colorSpace      = THREE.SRGBColorSpace;
+            tex.generateMipmaps = !this.isLowEnd;
+            tex.anisotropy      = this._maxAnisotropy ?? 2;
+            tex.needsUpdate     = true;
+
+            this.applyArtworkTexture(img);
+
+            // Free the superseded medium texture's GPU copy
+            if (previous && previous !== tex) previous.dispose();
+        },
+        () => { img._upgradeInFlight = false; } // network fail — keep medium
+    );
 }
 
 // UX-1: Show a load-error overlay with retry button.

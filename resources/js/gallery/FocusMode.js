@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { CONFIG } from './config.js';
 import { Analytics } from './Analytics.js';
+import { upgradeFocusedArtworkTexture } from './AssetLoader.js';
 
 // Module-level reusable temporaries (one gallery per page — safe as module
 // state; avoids per-call Vector3 allocations).
@@ -166,6 +167,14 @@ export function toggleArtworkInfo() {
     if (crosshair)      crosshair.classList.add('focused');
 
     const artwork = this.focusedArtwork;
+
+    // PERF-E27 (3D audit): on the mobile tier the focused artwork gets its
+    // 2048px variant fetched + swapped in during the 1.5 s camera tween —
+    // close inspection is pixel-sharp without making every wall texture pay
+    // the large-variant cost. No-op on desktop (already large) and low-end
+    // (stays small by design).
+    upgradeFocusedArtworkTexture.call(this, artwork);
+
     const artworkWorldPos = new THREE.Vector3();
     artwork.getWorldPosition(artworkWorldPos);
 
