@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
 use Illuminate\Http\Request;
@@ -12,10 +13,17 @@ use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 
 /**
- * Generates an Open Graph / Twitter card image (1200×630 PNG) per gallery.
+ * Generates Open Graph / Twitter card images (1200×630 PNG).
  *
- * Route: GET /gallery/{slug}/og-image
- * Route: GET /gallery/{slug}/og-image?artwork={id}  (Task H50)
+ * Routes:
+ *   GET /gallery/{slug}/og-image                      (per gallery)
+ *   GET /gallery/{slug}/og-image?artwork={id}         (Task H50, per artwork)
+ *   GET /artist/{slug}/og-image                       (SEO OS Iteration 2, per artist)
+ *
+ * (Iteration 2) — artist OG images: portrait (or latest artwork) on the
+ * left, artist name + work/exhibition counts + location on the right.
+ *
+ * Cached for 6 hours per slug (+ artwork ID) to keep CPU usage low.
  *
  * The image is composed of:
  *   - Dark gradient background
@@ -86,6 +94,110 @@ class OgImageController extends Controller
             'Content-Type'  => 'image/png',
             'Cache-Control' => 'public, max-age=3600',
         ]);
+    }
+
+    /**
+     * (SEO OS Iteration 2) — artist OG image.
+     *
+     * Route: GET /artist/{slug}/og-image
+     *
+     * Layout: portrait (or most recent public artwork) on the left,
+     * "ARTIST" label + name + factual stats on the right.
+     */
+    public function artist(string $slug): Response
+    {
+        $artist = Cache::flexible("og:artist:{$slug}", [now()->addHour(), now()->addHours(2)], function () use ($slug) {
+            return Artist::where('slug', $slug)
+                ->with(['images' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyViewable())->orderByDesc('created_at')])
+                ->firstOrFail();
+        });
+
+        $pngBytes = Cache::flexible("og:image:artist:{$slug}:v1", [now()->addHours(6), now()->addHours(12)], function () use ($artist) {
+            return $this->renderArtist($artist);
+        });
+
+        return response($pngBytes, 200, [
+            'Content-Type'  => 'image/png',
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
+    }
+
+    /**
+     * Render the artist OG card. Portrait if available, else the newest
+     * public artwork; else a decorative placeholder.
+     */
+    private function renderArtist(Artist $artist): string
+    {
+        $canvas = $this->manager->create(1200, 630);
+        $canvas->fill('#0a0a14');
+
+        $radial = $this->getCachedRadialHighlight();
+        if ($radial !== null) {
+            try {
+                $canvas->place($radial, 'top-left', 0, 0);
+            } catch (\Throwable) {}
+        }
+
+        // Left half: portrait or latest artwork
+        $imagePath = $artist->portrait_path
+            ? storage_path('app/public/' . ltrim($artist->portrait_path, '/'))
+            : ($artist->images->first()?->path ? public_path(ltrim($artist->images->first()->path, '/')) : null);
+
+        if ($imagePath && file_exists($imagePath)) {
+            try {
+                $cover = $this->manager->read($imagePath)->cover(600, 630);
+                $canvas->place($cover, 'left');
+                $overlay = $this->getCachedCoverOverlay();
+                if ($overlay !== null) {
+                    try {
+                        $canvas->place($overlay, 'top-left', 0, 0);
+                    } catch (\Throwable) {}
+                }
+            } catch (\Throwable) {
+                // Skip on unreadable image
+            }
+        } else {
+            $canvas->drawRectangle(0, 0)->size(600, 630)->fill('rgba(139, 92, 246, 0.15)');
+            // Large initials placeholder
+            $this->text($canvas, $artist->initials, 240, 280, '#7c3aed', 96, 'bold');
+        }
+
+        $textX = 640;
+
+        // "ARTIST" badge
+        $this->text($canvas, 'ARTIST', $textX, 80, '#6b7280', 12, 'bold');
+
+        // Artist name — wrapped, up to 4 lines
+        $lines = $this->wrapText($artist->name ?: 'Artist', 24);
+        $nameY = 120;
+        foreach (array_slice($lines, 0, 4) as $line) {
+            $this->text($canvas, $line, $textX, $nameY, '#ffffff', 42, 'bold');
+            $nameY += 54;
+        }
+
+        // Factual stats from real data
+        $workCount = $artist->images->count();
+        $statsY = $nameY + 16;
+        if ($workCount > 0) {
+            $this->text($canvas, sprintf('%d artworks on display', $workCount), $textX, $statsY, '#a78bfa', 18, 'normal');
+            $statsY += 30;
+        }
+        if ($artist->location) {
+            $this->text($canvas, $artist->location, $textX, $statsY, '#9ca3af', 16, 'normal');
+            $statsY += 26;
+        }
+        if ($artist->bio) {
+            $bio = str_replace(["\n", "\r"], ' ', $artist->bio);
+            $bioLines = $this->wrapText($bio, 46);
+            foreach (array_slice($bioLines, 0, 4) as $line) {
+                $this->text($canvas, $line, $textX, $statsY + 10, '#9ca3af', 15, 'normal');
+                $statsY += 22;
+            }
+        }
+
+        $this->text($canvas, 'EXOSPACE', 1080, 590, '#6b7280', 14, 'bold');
+
+        return $canvas->toPng()->toString();
     }
 
     private function render(Gallery $gallery, ?GalleryImage $artwork = null): string

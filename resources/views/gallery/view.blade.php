@@ -7,6 +7,15 @@
         ? route('gallery.og-image', $gallery->slug) . '?artwork=' . $artworkParam
         : route('gallery.og-image', $gallery->slug);
     $publicUrl = $gallery->public_url;
+
+    // SEO OS (Iteration 2) — controller-provided SeoData with canonical,
+    // robots (embed/empty rules) and profile overrides applied.
+    /** @var \App\Support\Seo\SeoData $gallerySeo */
+    $publicArtists = $gallery->images
+        ->filter(fn ($img) => $img->artist?->name)
+        ->map(fn ($img) => $img->artist)
+        ->unique('id')
+        ->take(8);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-turbo="false">
@@ -18,25 +27,11 @@
          The 3D canvas intercepts touch events regardless; the curtain UI
          (title, description, "Enter" button) should be zoomable. --}}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="{{ Str::limit($gallery->description, 150) }}">
 
-    {{-- Open Graph / social card --}}
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="{{ $gallery->title }}">
-    <meta property="og:description" content="{{ Str::limit($gallery->description, 150) }}">
-    <meta property="og:image" content="{{ $ogImageUrl }}">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:url" content="{{ $publicUrl }}">
-    <meta property="og:site_name" content="Exospace">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ $gallery->title }}">
-    <meta name="twitter:description" content="{{ Str::limit($gallery->description, 150) }}">
-    <meta name="twitter:image" content="{{ $ogImageUrl }}">
-
-    @if($isEmbed)<meta name="robots" content="noindex,nofollow">@endif
-
-    <title>{{ $gallery->title }} | Exospace 3D Gallery</title>
+    {{-- SEO OS (Iteration 2): full meta layer from SeoData — title,
+         description (with factual fallback), CANONICAL (was missing —
+         audit C3), robots, OG/Twitter with image dimensions + alt. --}}
+    <x-seo :seo="$gallerySeo" />
 
     {{-- P2-11: JSON-LD structured data for search engines (schema.org) --}}
     <script type="application/ld+json">
@@ -74,6 +69,7 @@
             {
                 "@type": "ListItem",
                 "position": {{ $i + 1 }},
+                "url": {{ json_encode(url('/gallery/' . $gallery->slug . '/artwork/' . $img['id'])) }},
                 "item": {
                     "@type": "VisualArtwork",
                     "name": {{ json_encode($img['title'] ?? $img['original_name'] ?? 'Untitled') }}@if(!empty($img['artist'])),
@@ -84,7 +80,7 @@
                     }@endif @if(!empty($img['medium'])),
                     "artMedium": {{ json_encode($img['medium']) }}@endif @if(!empty($img['year'])),
                     "dateCreated": {{ json_encode((string)$img['year']) }}@endif @if(!empty($img['dimensions'])),
-                    "artworkSurface": {{ json_encode($img['dimensions']) }}@endif @if($img['forSale'] && !empty($img['price'])),
+                    "size": {{ json_encode($img['dimensions']) }}@endif @if($img['forSale'] && !empty($img['price'])),
                     "offers": {
                         "@type": "Offer",
                         "price": {{ json_encode((string)$img['price']) }},
@@ -110,6 +106,57 @@
             user-select: none;
         }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
+
+        /* ── SEO OS (Iteration 2): crawlable semantic layer ─────────────
+           The 3D experience is JS/WebGL-only; search engines and users
+           without WebGL need a meaningful HTML representation. This
+           slide-over panel carries the exhibition's full semantic content:
+           description, dates, artists (linked), artwork list (linked to
+           artwork pages), venue, events. It is ALWAYS in the DOM (crawlable
+           + screen-reader accessible) and opens on demand — the immersive
+           experience is untouched. */
+        #exhibition-details {
+            position: fixed; top: 0; right: 0; bottom: 0;
+            width: min(520px, 92vw); z-index: 150;
+            background: rgba(10, 10, 20, 0.96);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-left: 1px solid rgba(139, 92, 246, 0.3);
+            box-shadow: -8px 0 32px rgba(0,0,0,0.5);
+            overflow-y: auto; padding: 2rem 1.75rem 3rem;
+            transform: translateX(102%);
+            visibility: hidden;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.4s;
+            color: #e2e8f0;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        #exhibition-details.open {
+            transform: translateX(0);
+            visibility: visible;
+        }
+        #exhibition-details h2 { font-size: 1.35rem; font-weight: 800; color: #fff; margin: 0 0 0.35rem; line-height: 1.3; }
+        #exhibition-details .ed-kicker { font-size: 0.7rem; letter-spacing: 0.2em; color: #a78bfa; font-weight: 700; text-transform: uppercase; margin-bottom: 0.75rem; }
+        #exhibition-details .ed-desc { font-size: 0.95rem; line-height: 1.7; color: rgba(255,255,255,0.82); white-space: pre-line; margin-bottom: 1.5rem; }
+        #exhibition-details .ed-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; font-size: 0.8rem; color: rgba(255,255,255,0.55); margin-bottom: 1.5rem; }
+        #exhibition-details .ed-section-title { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.45); font-weight: 700; margin: 1.75rem 0 0.75rem; }
+        #exhibition-details ul.ed-artists { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        #exhibition-details ul.ed-artists li a { display: inline-block; padding: 4px 12px; border-radius: 999px; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.35); color: #c4b5fd; font-size: 0.8rem; text-decoration: none; }
+        #exhibition-details ol.ed-artworks { list-style: none; margin: 0; padding: 0; counter-reset: ed-art; }
+        #exhibition-details ol.ed-artworks li { counter-increment: ed-art; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        #exhibition-details ol.ed-artworks li a { display: flex; align-items: baseline; gap: 0.75rem; padding: 0.55rem 0; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.9rem; line-height: 1.4; }
+        #exhibition-details ol.ed-artworks li a::before { content: counter(ed-art); color: rgba(255,255,255,0.3); font-size: 0.75rem; font-variant-numeric: tabular-nums; min-width: 1.5rem; }
+        #exhibition-details ol.ed-artworks li a:hover { color: #c4b5fd; }
+        #exhibition-details ol.ed-artworks li .ed-art-meta { color: rgba(255,255,255,0.4); font-size: 0.75rem; }
+        #exhibition-details .ed-close {
+            position: absolute; top: 1rem; right: 1rem;
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; border-radius: 8px; width: 36px; height: 36px;
+            font-size: 1.1rem; cursor: pointer;
+        }
+        #exhibition-details .ed-links a { color: #a78bfa; font-size: 0.85rem; text-decoration: none; }
+        #exhibition-details .ed-links a:hover { color: #c4b5fd; text-decoration: underline; }
+        .low-end-device #exhibition-details { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(5, 5, 12, 0.99); }
+        #exhibition-details-btn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
 
         /* ── Entrance curtain ────────────────────────────────────────────── */
         #entrance-curtain {
@@ -442,6 +489,14 @@
                 Skip intro →
             </a>
 
+            {{-- SEO OS (Iteration 2): curtain entry to the crawlable
+                 details panel — artwork list, artists, dates. --}}
+            <a href="#exhibition-details" id="curtain-details-link"
+               data-ed-open="1"
+               style="display: block; margin-top: 0.5rem; font-size: 0.8rem; color: rgba(195,180,255,0.7); text-decoration: none; transition: color 0.2s;">
+                Exhibition details &amp; artwork list
+            </a>
+
             {{-- (PERF-C15 / 3D audit F15) — uses the $hasUpcomingEvents variable
                  computed once in the controller instead of re-running the
                  exists() query a second time per page view. --}}
@@ -491,6 +546,72 @@
     <div id="controls-hint" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">
         This is an interactive 3D art gallery. Use keyboard: W A S D or arrow keys to move, mouse to look around, E to view artwork information, T for a guided tour, Escape to close dialogs. On mobile, use the on-screen joystick.
     </div>
+
+    {{-- ── SEO OS (Iteration 2): crawlable semantic layer ───────────────────
+         Full HTML representation of the exhibition that complements the 3D
+         experience: title, description, artists (linked), artwork list
+         (linked to artwork pages), dates, venue, events. Always in the DOM;
+         opened via the "Details" button. See docs/SEO_AUDIT.md H1. --}}
+    @unless($isEmbed)
+    <section id="exhibition-details" aria-label="Exhibition details and artwork list">
+        <button type="button" class="ed-close" aria-label="Close exhibition details">&times;</button>
+
+        <p class="ed-kicker">3D Virtual Exhibition</p>
+        <h2>{{ $gallery->title }}</h2>
+
+        <div class="ed-meta">
+            @if($gallery->venueTemplate)
+                <span>{{ $gallery->venueTemplate->name }}</span>
+            @endif
+            <span>{{ $gallery->images->count() }} {{ Str::plural('artwork', $gallery->images->count()) }}</span>
+            <span>{{ number_format($gallery->view_count) }} views</span>
+            @if($gallery->opens_at)
+                <span>Opened {{ $gallery->opens_at->format('M j, Y') }}</span>
+            @endif
+            @if($gallery->closes_at)
+                <span>Closes {{ $gallery->closes_at->format('M j, Y') }}</span>
+            @endif
+        </div>
+
+        @if($gallery->description)
+            <p class="ed-desc">{{ $gallery->description }}</p>
+        @endif
+
+        @if($publicArtists->isNotEmpty())
+            <p class="ed-section-title">Featured artists</p>
+            <ul class="ed-artists">
+                @foreach($publicArtists as $artist)
+                    <li><a href="{{ route('artist.profile', $artist->slug) }}">{{ $artist->name }}</a></li>
+                @endforeach
+            </ul>
+        @endif
+
+        @if($gallery->images->isNotEmpty())
+            <p class="ed-section-title">Artworks in this exhibition</p>
+            <ol class="ed-artworks">
+                @foreach($gallery->images->take(60) as $img)
+                    <li>
+                        <a href="{{ url('/gallery/' . $gallery->slug . '/artwork/' . $img->id) }}">
+                            <span>{{ $img->title ?: $img->original_name ?: 'Untitled' }}@if($img->artist) <span class="ed-art-meta">by {{ $img->artist->name }}</span>@endif</span>
+                        </a>
+                    </li>
+                @endforeach
+            </ol>
+        @endif
+
+        <p class="ed-section-title">Explore</p>
+        <p class="ed-links">
+            <a href="{{ route('discover') }}">Browse more 3D exhibitions</a>
+            @if($hasUpcomingEvents)
+                &middot; <a href="{{ route('gallery.events.index', $gallery->slug) }}">Upcoming events</a>
+            @endif
+            &middot; <a href="{{ route('artists.index') }}">Browse artists</a>
+            &middot; <a href="{{ route('venues.index') }}">Browse venues</a>
+        </p>
+    </section>
+    {{-- No-JS visitors see the details panel as plain flowing content. --}}
+    <noscript><style>#exhibition-details { transform: none; visibility: visible; position: static; width: auto; box-shadow: none; border-left: none; border-top: 1px solid rgba(139,92,246,0.3); max-width: 720px; margin: 0 auto; }</style></noscript>
+    @endunless
 
     {{-- ── Tour overlay ──────────────────────────────────────────────────────── --}}
     {{-- A11Y-8 FIX: Tour HUD now has role="group" + aria-label so screen
@@ -545,6 +666,14 @@
                 aria-pressed="false"
                 style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;width:44px;height:44px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;font-size:1.1rem;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
                 🔊
+            </button>
+            <button id="exhibition-details-btn"
+                aria-label="Open exhibition details and artwork list"
+                aria-expanded="false"
+                aria-controls="exhibition-details"
+                style="display:flex;align-items:center;gap:6px;min-height:44px;padding:10px 16px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:rgba(255,255,255,0.75);font-size:0.8rem;font-weight:500;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
+                <svg style="width:14px;height:14px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 10h16M4 14h10M4 18h10"/></svg>
+                INFO
             </button>
             <button id="in-gallery-tour-btn"
                 style="display:flex;align-items:center;gap:6px;min-height:44px;padding:10px 16px;background:rgba(0,0,0,0.70);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:rgba(255,255,255,0.75);font-size:0.8rem;font-weight:500;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s ease;backdrop-filter:blur(8px);">
@@ -874,6 +1003,46 @@
                 });
                 skipLink.addEventListener('mouseleave', () => {
                     skipLink.style.color = 'rgba(255,255,255,0.35)';
+                });
+            }
+
+            // SEO OS (Iteration 2): exhibition-details slide-over panel.
+            // The panel content is always in the DOM (crawlable); this only
+            // toggles visibility. Escape closes it; focus moves into the
+            // panel on open and back to the trigger on close.
+            const edPanel = document.getElementById('exhibition-details');
+            const edBtn = document.getElementById('exhibition-details-btn');
+            const edClose = edPanel ? edPanel.querySelector('.ed-close') : null;
+
+            function setEdOpen(open) {
+                if (!edPanel || !edBtn) return;
+                edPanel.classList.toggle('open', open);
+                edBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (open) {
+                    (edClose || edPanel).focus();
+                } else {
+                    edBtn.focus();
+                }
+            }
+            if (edBtn && edPanel) {
+                edBtn.addEventListener('click', () => setEdOpen(!edPanel.classList.contains('open')));
+            }
+            if (edClose) {
+                edClose.addEventListener('click', () => setEdOpen(false));
+            }
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && edPanel && edPanel.classList.contains('open')) {
+                    setEdOpen(false);
+                }
+            });
+
+            // Curtain link opens the same panel (progressive enhancement —
+            // without JS the href still anchors to the section).
+            const curtainDetailsLink = document.getElementById('curtain-details-link');
+            if (curtainDetailsLink && edPanel) {
+                curtainDetailsLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    setEdOpen(true);
                 });
             }
         });

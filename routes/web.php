@@ -12,6 +12,7 @@ use App\Http\Controllers\OgImageController;
 use App\Http\Controllers\QrCodeController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\ArtistProfileController;
+use App\Http\Controllers\ArtistDirectoryController;
 use App\Http\Controllers\PublicEventController;
 use App\Http\Controllers\NewsletterSignupController;
 use Illuminate\Support\Facades\Route;
@@ -95,6 +96,11 @@ Route::get('/sitemap-{page}.xml', [SitemapController::class, 'sitemapPage'])->wh
 Route::get('/feed.xml',    [SitemapController::class, 'feed'])->name('feed');
 Route::get('/discover',    [DiscoverController::class, 'index'])->name('discover');
 
+// ── SEO OS (Iteration 2): public entity hubs + artwork pages ─────────────
+Route::get('/artists',     [ArtistDirectoryController::class, 'index'])->name('artists.index');
+Route::get('/venues',      [\App\Http\Controllers\PublicVenueController::class, 'index'])->name('venues.index');
+Route::get('/venues/{slug}', [\App\Http\Controllers\PublicVenueController::class, 'show'])->name('venues.show');
+
 // ── Public pages ─────────────────────────────────────────────────────────
 Route::get('/', fn() => view('welcome'))->name('welcome');
 Route::view('/privacy',          'pages.privacy')->name('privacy');
@@ -141,13 +147,22 @@ Route::get('/unsubscribe/one-click/{user}',  [\App\Http\Controllers\UnsubscribeC
 Route::post('/unsubscribe/one-click/{user}', [\App\Http\Controllers\UnsubscribeController::class, 'oneClickPost'])->name('unsubscribe.one-click.post')->middleware('signed');
 
 // ── Demo redirect ────────────────────────────────────────────────────────
+// SEO OS (Iter-002, audit M9): use publiclyViewable() instead of bare
+// is_active — the demo must never leak a PIN-protected or scheduled
+// gallery URL.
 Route::get('/gallery/demo', function () {
-    $gallery = \App\Models\Gallery::where('is_active', true)->first();
+    $gallery = \App\Models\Gallery::publiclyViewable()->has('images', '>=', 1)->first();
     return $gallery ? redirect()->route('gallery.view', $gallery->slug) : redirect('/')->with('error', 'No demo gallery available yet.');
 });
 
 // ── Public artist profile (Round 4) ──────────────────────────────────────
 Route::get('/artist/{slug}', [ArtistProfileController::class, 'show'])->name('artist.profile');
+
+// SEO OS (Iteration 2): artist OG image + artwork landing pages.
+Route::get('/artist/{slug}/og-image', [OgImageController::class, 'artist'])->name('artist.og-image');
+Route::get('/gallery/{slug}/artwork/{image}', [\App\Http\Controllers\ArtworkController::class, 'show'])
+    ->name('artwork.show')
+    ->middleware('throttle:60,1');
 
 // ── Per-gallery: PIN entry, OG image, QR code, events, newsletter ────────
 // PIN verify is throttled at two layers (task C07):

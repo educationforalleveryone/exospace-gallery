@@ -1,6 +1,8 @@
+{{-- SEO OS (Iteration 2): metadata now comes from the controller via $seoData
+     (canonical policy for pagination/filters, prev/next, robots for filtered
+     views). The old @section title/description lines are gone — single
+     source of truth is DiscoverController. --}}
 @extends('layouts.public')
-@section('title', 'Discover 3D Art Exhibitions — Exospace')
-@section('description', 'Walk through virtual galleries curated by artists, photographers, and institutions from around the world. Featured 3D exhibitions on Exospace.')
 
 @section('content')
 

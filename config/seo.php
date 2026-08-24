@@ -138,6 +138,7 @@ return [
             '/gallery/*/track',
             '/gallery/*/og-image',
             '/gallery/*/qr',
+            '/artist/*/og-image',
         ],
         // Wildcard query disallows (Google/Bing extension syntax).
         'disallow_query' => [

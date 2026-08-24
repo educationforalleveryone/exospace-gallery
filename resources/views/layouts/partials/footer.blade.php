@@ -1,7 +1,7 @@
 {{-- resources/views/layouts/partials/footer.blade.php --}}
 <footer class="bg-gray-950 border-t border-gray-800 py-12 px-4">
     <div class="max-w-7xl mx-auto">
-        <div class="grid md:grid-cols-5 gap-8 mb-8">
+        <div class="grid md:grid-cols-6 gap-8 mb-8">
             <!-- Brand -->
             <div class="md:col-span-2">
                 <h3 class="text-xl font-bold gradient-text mb-4">Exospace</h3>
@@ -26,6 +26,17 @@
                     <li><a href="/pricing" class="hover:text-white transition">Pricing</a></li>
                     <li><a href="/gallery/demo" class="hover:text-white transition">Live Demo</a></li>
                     <li><a href="{{ route('register') }}" class="hover:text-white transition">Get Started</a></li>
+                </ul>
+            </div>
+
+            <!-- Explore (SEO OS Iteration 2: public content hubs) -->
+            <div>
+                <h4 class="font-semibold mb-4 text-gray-200">Explore</h4>
+                <ul class="space-y-2 text-gray-400 text-sm">
+                    <li><a href="{{ route('discover') }}" class="hover:text-white transition">3D Exhibitions</a></li>
+                    <li><a href="{{ route('artists.index') }}" class="hover:text-white transition">Artists</a></li>
+                    <li><a href="{{ route('venues.index') }}" class="hover:text-white transition">Venue Templates</a></li>
+                    <li><a href="{{ url('/feed.xml') }}" class="hover:text-white transition">Exhibition Feed</a></li>
                 </ul>
             </div>
 

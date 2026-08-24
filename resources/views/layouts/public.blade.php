@@ -91,8 +91,10 @@
                     </a>
                     <div class="hidden md:flex items-center gap-6">
                         <a href="/#features" class="text-sm text-gray-300 hover:text-white transition">Features</a>
-                        <a href="{{ route('pricing') }}" class="text-sm text-gray-300 hover:text-white transition">Pricing</a>
                         <a href="{{ route('discover') }}" class="text-sm text-gray-300 hover:text-white transition">Discover</a>
+                        <a href="{{ route('artists.index') }}" class="text-sm text-gray-300 hover:text-white transition">Artists</a>
+                        <a href="{{ route('venues.index') }}" class="text-sm text-gray-300 hover:text-white transition">Venues</a>
+                        <a href="{{ route('pricing') }}" class="text-sm text-gray-300 hover:text-white transition">Pricing</a>
                         <a href="{{ route('contact') }}" class="text-sm text-gray-300 hover:text-white transition">Contact</a>
                     </div>
                 </div>
@@ -127,8 +129,10 @@
         <div x-show="mobileMenuOpen" x-cloak id="mobile-public-nav" class="md:hidden border-t border-gray-800 bg-[#0f1117]">
             <div class="px-4 py-3 space-y-2">
                 <a href="/#features" class="block py-2 text-sm text-gray-300 hover:text-white">Features</a>
-                <a href="{{ route('pricing') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Pricing</a>
                 <a href="{{ route('discover') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Discover</a>
+                <a href="{{ route('artists.index') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Artists</a>
+                <a href="{{ route('venues.index') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Venues</a>
+                <a href="{{ route('pricing') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Pricing</a>
                 <a href="{{ route('contact') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Contact</a>
                 <hr class="border-gray-800 my-2">
                 @auth

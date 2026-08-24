@@ -1,19 +1,29 @@
-<x-guest-layout>
-    <x-slot name="header">
-        <div class="bg-gradient-to-br from-gray-900 via-purple-950/30 to-gray-900 border-b border-gray-800">
+{{--
+    Gallery events page (SEO OS Iteration 2): moved from x-guest-layout
+    (which emitted noindex,nofollow) to the public layout with proper
+    title/description/canonical. Indexable only when events exist —
+    controller sets noindex for empty event calendars.
+--}}
+@extends('layouts.public')
+
+@section('content')
+    <div class="bg-gradient-to-br from-gray-900 via-purple-950/30 to-gray-900 border-b border-gray-800">
             <div class="max-w-5xl mx-auto px-4 py-12">
                 <p class="text-purple-400 text-xs font-semibold tracking-widest uppercase mb-2">Events</p>
-                <h1 class="text-3xl md:text-4xl font-extrabold text-white">{{ $gallery->title }}</h1>
+                <h1 class="text-3xl md:text-4xl font-extrabold text-white">{{ $gallery->title }} — Events</h1>
                 <p class="text-gray-400 mt-2">Upcoming events, openings, and artist talks</p>
                 <a href="{{ $gallery->public_url }}" class="inline-flex items-center gap-2 mt-4 text-sm text-purple-400 hover:text-purple-300 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                     Enter 3D gallery
                 </a>
             </div>
         </div>
-    </x-slot>
 
-    <div class="max-w-4xl mx-auto px-4 py-10">
+    <div class="max-w-5xl mx-auto px-4 py-10">
+        <div class="mb-8">
+            <x-breadcrumbs :crumbs="$breadcrumbs" />
+        </div>
+
 
         @if(session('status'))
             <div class="mb-6 p-4 rounded-lg bg-green-900/20 border border-green-700/30 text-green-300 text-sm">{{ session('status') }}</div>
@@ -111,4 +121,4 @@
             </div>
         @endif
     </div>
-</x-guest-layout>
+@endsection

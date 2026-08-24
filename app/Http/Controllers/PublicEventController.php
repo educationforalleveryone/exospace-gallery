@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Gallery;
 use App\Models\GalleryScheduleEvent;
+use App\Support\Seo\Breadcrumb;
+use App\Support\Seo\SeoManager;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use App\Services\TurnstileService;
@@ -20,6 +22,7 @@ class PublicEventController extends Controller
 {
     public function __construct(
         private readonly TurnstileService $turnstile,
+        private readonly SeoManager $seo,
     ) {}
 
     public function index(string $slug): View
@@ -34,7 +37,40 @@ class PublicEventController extends Controller
         $upcoming = $gallery->scheduleEvents->filter(fn ($e) => $e->isUpcoming());
         $past = $gallery->scheduleEvents->filter(fn ($e) => $e->isPast())->take(5);
 
-        return view('gallery.events', compact('gallery', 'upcoming', 'past'));
+        // SEO OS (Iteration 2): unique title/canonical; noindex when there
+        // is nothing to see (empty events page = thin content).
+        $hasContent = $upcoming->isNotEmpty() || $past->isNotEmpty();
+        $title = ($gallery->title ?: 'Exhibition') . ' — Events & Openings';
+        $description = $upcoming->isNotEmpty()
+            ? sprintf('Upcoming events for "%s": %s. RSVP online.', $gallery->title, $upcoming->take(3)->map(fn ($e) => $e->title)->implode(', '))
+            : sprintf('Events, openings, and artist talks for the 3D exhibition "%s" on %s.', $gallery->title, config('seo.site_name', 'Exospace'));
+
+        $seo = new \App\Support\Seo\SeoData(
+            title: \Illuminate\Support\Str::limit($title, 60),
+            description: \Illuminate\Support\Str::limit($description, 155),
+            canonicalUrl: url('/gallery/' . $gallery->slug . '/events'),
+            robots: $hasContent ? null : 'noindex,follow',
+            ogTitle: $title,
+            ogDescription: \Illuminate\Support\Str::limit($description, 155),
+            ogImage: url("/gallery/{$gallery->slug}/og-image"),
+            ogImageWidth: 1200,
+            ogImageHeight: 630,
+        );
+
+        $breadcrumbs = Breadcrumb::trail([
+            ['Home', url('/')],
+            ['Discover', route('discover')],
+            [$gallery->title ?: 'Exhibition', $gallery->public_url],
+            ['Events'],
+        ]);
+
+        return view('gallery.events', [
+            'gallery' => $gallery,
+            'upcoming' => $upcoming,
+            'past' => $past,
+            'seoData' => $seo,
+            'breadcrumbs' => $breadcrumbs,
+        ]);
     }
 
     public function rsvp(Request $request, string $slug, GalleryScheduleEvent $event): RedirectResponse

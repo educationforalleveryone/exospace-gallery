@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Gallery;
 use App\Services\VenueConfigExporter;
+use App\Support\Seo\SeoManager;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -11,6 +12,7 @@ class GalleryViewController extends Controller
 {
     public function __construct(
         private VenueConfigExporter $venueExporter,
+        private SeoManager $seo,
     ) {}
 
     public function show(Request $request, string $slug): View|\Illuminate\Http\RedirectResponse
@@ -174,6 +176,19 @@ class GalleryViewController extends Controller
             'deepLinkArtworkId' => $request->integer('artwork'),
         ];
 
-        return view('gallery.view', compact('gallery', 'galleryData', 'hasUpcomingEvents'));
+        // ── SEO OS (Iteration 2) ─────────────────────────────────────────
+        // Build page metadata via SeoManager (seo_profiles overrides are
+        // layered automatically). Robots: embeds duplicate the canonical
+        // gallery page; empty galleries are thin content → both noindex.
+        $gallerySeo = $this->seo->forGallery($gallery);
+        $robots = $gallerySeo->robots;
+        if ($isEmbed) {
+            $robots = 'noindex,nofollow';
+        } elseif ($gallery->images->isEmpty()) {
+            $robots = 'noindex,follow';
+        }
+        $gallerySeo = $gallerySeo->with(['robots' => $robots]);
+
+        return view('gallery.view', compact('gallery', 'galleryData', 'hasUpcomingEvents', 'gallerySeo'));
     }
 }

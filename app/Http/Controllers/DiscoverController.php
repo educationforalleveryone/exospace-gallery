@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Gallery;
 use App\Models\VenueTemplate;
+use App\Support\Seo\CanonicalUrl;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -20,6 +21,14 @@ use Illuminate\View\View;
  *
  * Supports sorting by: featured (default), views, newest, recently updated.
  * Supports filtering by venue_template.
+ *
+ * SEO OS (Iteration 2):
+ *   - Canonical policy: /discover?sort=…&venue=… canonicalize to the clean
+ *     /discover URL (they are alternate VIEWS of the same content — audit
+ *     C4/M4). Paginated pages self-canonicalize with only ?page= preserved.
+ *   - rel=prev/next emitted for the default (unfiltered) pagination.
+ *   - Filtered/sorted variants are noindex,follow: crawlable graph links
+ *     remain usable, but search engines keep a single indexable copy.
  */
 class DiscoverController extends Controller
 {
@@ -27,6 +36,9 @@ class DiscoverController extends Controller
     {
         $sort = $request->string('sort', 'featured')->toString();
         $venueId = $request->string('venue');
+
+        // Any non-default sort/venue makes this an alternate view.
+        $isFilteredView = $venueId !== '' || !in_array($sort, ['featured', ''], true);
 
         $query = Gallery::publiclyViewable()
             ->with(['coverImage', 'venueTemplate', 'user'])
@@ -58,6 +70,45 @@ class DiscoverController extends Controller
             ->orderBy('sort_order')
             ->pluck('name', 'id');
 
-        return view('discover.index', compact('galleries', 'venues', 'sort', 'venueId'));
+        // ── SEO (Iteration 2) ─────────────────────────────────────────────
+        $baseUrl = CanonicalUrl::path('/discover');
+        $page = max(1, (int) $request->input('page', 1));
+
+        if ($isFilteredView) {
+            // Alternate view: canonical to the clean hub URL, noindex,follow.
+            $canonical = $baseUrl;
+            $robots = 'noindex,follow';
+            $prev = $next = null;
+        } else {
+            // Default view: self-canonical with the page param, prev/next.
+            $canonical = $page > 1 ? $baseUrl . '?page=' . $page : $baseUrl;
+            $robots = null;
+            $pagination = CanonicalUrl::paginationLinks($baseUrl, $page, $galleries->hasMorePages());
+            $prev = $pagination['prev'];
+            $next = $pagination['next'];
+        }
+
+        $title = config('seo.site_name', 'Exospace') . ' — Discover 3D Art Exhibitions';
+        $description = 'Walk through virtual galleries curated by artists, photographers, and institutions from around the world. Featured 3D exhibitions on ' . config('seo.site_name', 'Exospace') . '.';
+
+        $seo = new \App\Support\Seo\SeoData(
+            title: $title,
+            description: $description,
+            canonicalUrl: $canonical,
+            robots: $robots,
+            ogTitle: 'Discover 3D Art Exhibitions',
+            ogDescription: $description,
+            ogImage: asset((string) config('seo.og.default_image', 'img/og-default.png')),
+            prevUrl: $prev,
+            nextUrl: $next,
+        );
+
+        return view('discover.index', [
+            'galleries' => $galleries,
+            'venues' => $venues,
+            'sort' => $sort,
+            'venueId' => $venueId,
+            'seoData' => $seo,
+        ]);
     }
 }

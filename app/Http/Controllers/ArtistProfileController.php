@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\Artist;
+use App\Support\Seo\Breadcrumb;
+use App\Support\Seo\SeoManager;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -12,27 +16,35 @@ use Illuminate\View\View;
  * Route: GET /artist/{slug}
  *
  * Shows the artist's bio, portrait, social links, and all their works
- * across all public galleries. Each work links to the gallery it's in.
+ * across all public galleries. Each work links to its artwork page
+ * (SEO OS Iteration 2) with the gallery as context.
  *
- * This is the discovery surface that powers cross-gallery browsing —
- * a visitor in one gallery can click "More by this artist" and land here.
+ * SEO (Iteration 2 — fixes audit C1):
+ *   - Rendered on the PUBLIC layout (the old version used x-guest-layout,
+ *     which emitted noindex,nofollow — artist profiles were invisible to
+ *     search engines).
+ *   - Unique title/description/canonical via SeoManager::forArtist().
+ *   - Person JSON-LD built only from REAL profile data.
+ *   - Breadcrumbs: Home → Artists → {name}.
+ *   - Quality rule: an artist with ZERO publicly-viewable works gets
+ *     noindex (thin page) — see docs/SEO_AUDIT.md §8.
  */
 class ArtistProfileController extends Controller
 {
-    public function show(string $slug): View
+    public function __construct(
+        private SeoManager $seo,
+    ) {}
+
+    public function show(Request $request, string $slug): View
     {
         $artist = Artist::where('slug', $slug)->firstOrFail();
 
         // Load only images from publicly-viewable galleries.
-        // (Task H06 / audit H11) — previously this only checked `is_active`,
-        // which leaked images from PIN-protected and scheduled galleries
-        // (visitor could browse /artist/{slug} and see works from a
-        // gallery whose PIN they didn't know, or that hadn't opened yet).
-        // Now uses the same `publiclyViewable` scope as DiscoverController
-        // and SitemapController — checks is_active + no pin_hash + within
-        // schedule window.
+        // (Task H06 / audit H11) — checks is_active + no pin + within
+        // schedule window via the same publiclyViewable scope used by
+        // discover/sitemap.
         $images = $artist->images()
-            ->with(['gallery.venueTemplate', 'gallery.user'])
+            ->with(['gallery.venueTemplate', 'gallery.user', 'artist', 'media'])
             ->whereHas('gallery', function ($q) {
                 $q->publiclyViewable();
             })
@@ -45,8 +57,79 @@ class ArtistProfileController extends Controller
                 'gallery' => $imgs->first()->gallery,
                 'images'  => $imgs,
             ];
-        })->filter(fn ($g) => $g['gallery'] !== null);
+        })->filter(fn ($g) => $g['gallery'] !== null)
+          ->sortByDesc(fn ($g) => $g['gallery']->updated_at);
 
-        return view('artists.show', compact('artist', 'galleries'));
+        // Gallery titles are displayed per group; suppress the unused
+        // collection when a gallery was soft-deleted mid-flight.
+        $galleries = $galleries->values();
+
+        $exhibitionCount = $galleries->count();
+        $workCount = $images->count();
+
+        // Quality rule: no public works → noindex.
+        $robots = $workCount === 0 ? 'noindex,follow' : null;
+
+        $seo = $this->seo->forArtist($artist, $workCount, $exhibitionCount)
+            ->with(['robots' => $robots]);
+
+        // Person schema — REAL data only. jobType is not fabricated; we
+        // only include properties that map to actual columns.
+        $personSchema = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Person',
+            'name' => $artist->name,
+            'url' => $seo->canonicalUrl,
+        ];
+        if ($artist->bio) {
+            $personSchema['description'] = \Illuminate\Support\Str::limit($artist->bio, 300);
+        }
+        if ($artist->portrait_url) {
+            $personSchema['image'] = $artist->portrait_url;
+        }
+        if ($artist->location) {
+            $personSchema['homeLocation'] = [
+                '@type' => 'Place',
+                'name' => $artist->location,
+            ];
+        }
+        $sameAs = array_filter([
+            $artist->website,
+            $artist->instagram_url,
+            $artist->twitter_url,
+        ]);
+        if ($sameAs !== []) {
+            $personSchema['sameAs'] = array_values($sameAs);
+        }
+        if ($workCount > 0) {
+            $personSchema['hasPart'] = [
+                '@type' => 'ItemList',
+                'name' => 'Artworks by ' . $artist->name . ' on ' . config('seo.site_name', 'Exospace'),
+                'numberOfItems' => $workCount,
+                'itemListElement' => $images->take(25)->values()->map(fn ($img, $i) => [
+                    '@type' => 'ListItem',
+                    'position' => $i + 1,
+                    'url' => url('/gallery/' . $img->gallery->slug . '/artwork/' . $img->id),
+                    'name' => $img->title ?: $img->original_name ?: 'Untitled',
+                ])->all(),
+            ];
+        }
+
+        $seo = $seo->with(['jsonLd' => [$personSchema]]);
+
+        $breadcrumbs = Breadcrumb::trail([
+            ['Home', url('/')],
+            ['Artists', route('artists.index')],
+            [$artist->name],
+        ]);
+
+        return view('artists.show', [
+            'artist' => $artist,
+            'galleries' => $galleries,
+            'seoData' => $seo,
+            'breadcrumbs' => $breadcrumbs,
+            'workCount' => $workCount,
+            'exhibitionCount' => $exhibitionCount,
+        ]);
     }
 }
