@@ -89,10 +89,20 @@ Route::post('/webhooks/2checkout',        [WebhookController::class, 'handle2Che
 Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund'])->name('webhooks.2checkout.refund')->middleware('throttle:60,1');
 
 // ── SEO & discovery endpoints ────────────────────────────────────────────
-// S-4: Sitemap index with pagination — /sitemap.xml is the index,
-// /sitemap-{page}.xml are the sub-sitemaps (500 URLs each).
-Route::get('/sitemap.xml', [SitemapController::class, 'sitemapIndex'])->name('sitemap');
-Route::get('/sitemap-{page}.xml', [SitemapController::class, 'sitemapPage'])->where('page', '[0-9]+')->name('sitemap.page');
+// SEO OS (Iteration 4): grouped sitemap architecture.
+//   /sitemap.xml                  → index of groups (static, galleries,
+//                                   artists, artworks, content)
+//   /sitemap-{group}-{page}.xml   → group sub-sitemaps (2,000 URLs each)
+//   /sitemap-{page}.xml           → LEGACY gallery sitemaps → 301 to the
+//                                   galleries group (preserves old refs)
+//   /robots.txt                   → dynamic, host-aware directives
+//   /feed.xml                     → RSS of recently updated exhibitions
+Route::get('/robots.txt', \App\Http\Controllers\RobotsController::class)->name('robots');
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+Route::get('/sitemap-{group}-{page}.xml', [SitemapController::class, 'group'])
+    ->where(['group' => '[a-z]+', 'page' => '[0-9]+'])
+    ->name('sitemap.group');
+Route::get('/sitemap-{page}.xml', [SitemapController::class, 'legacy'])->where('page', '[0-9]+')->name('sitemap.page');
 Route::get('/feed.xml',    [SitemapController::class, 'feed'])->name('feed');
 Route::get('/discover',    [DiscoverController::class, 'index'])->name('discover');
 

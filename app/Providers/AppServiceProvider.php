@@ -40,6 +40,15 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        // ── SEO OS (Iteration 4): sitemap cache invalidation ────────────
+        // Entities whose changes affect the public URL set bump the sitemap
+        // version key, lazily regenerating all versioned sitemap caches.
+        // See App\Observers\SitemapCacheObserver for the watched attributes.
+        $sitemapObserver = \App\Observers\SitemapCacheObserver::class;
+        \App\Models\Gallery::observe($sitemapObserver);
+        \App\Models\Artist::observe($sitemapObserver);
+        \App\Models\GalleryImage::observe($sitemapObserver);
+
         // ── CR-5 FIX (Iter-001): TRUSTED_PROXIES hard-fail in production ──────
         //
         // Previously: only a Log::critical() warning when TRUSTED_PROXIES=*.

@@ -19,7 +19,7 @@
             <description>
                 <![CDATA[
                 <p>{{ Str::limit($gallery->description ?: 'A new 3D exhibition on Exospace.', 300) }}</p>
-                <p><strong>{{ $gallery->images()->count() }} artworks</strong> · {{ number_format($gallery->view_count) }} views @if($gallery->venueTemplate) · {{ $gallery->venueTemplate->name }} @endif</p>
+                <p><strong>{{ $gallery->images_count }} artworks</strong> · {{ number_format($gallery->view_count) }} views @if($gallery->venueTemplate) · {{ $gallery->venueTemplate->name }} @endif</p>
                 <p><a href="{{ $gallery->public_url }}">Enter the 3D exhibition →</a></p>
                 ]]>
             </description>

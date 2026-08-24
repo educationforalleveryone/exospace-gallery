@@ -1,9 +1,15 @@
-{!! '<?xml version="1.0" encoding="UTF-8"?>' !!}
+@php echo '<?xml version="1.0" encoding="UTF-8"?>'; @endphp
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    @for($i = 1; $i <= max($pages, 1); $i++)
+
+    {{-- SEO OS (Iteration 4): index of sitemap GROUPS (static, galleries,
+         artists, artworks, content). lastmod is the real max(updated_at)
+         per group so crawlers can prioritize re-crawls. --}}
+    @foreach(($groups ?? []) as $group)
     <sitemap>
-        <loc>{{ url("/sitemap-{$i}.xml") }}</loc>
-        <lastmod>{{ now()->toIso8601String() }}</lastmod>
+        <loc>{{ url("/sitemap-{$group['group']}-{$group['page']}.xml") }}</loc>
+        @if(!empty($group['lastmod']))
+        <lastmod>{{ $group['lastmod'] }}</lastmod>
+        @endif
     </sitemap>
-    @endfor
+    @endforeach
 </sitemapindex>

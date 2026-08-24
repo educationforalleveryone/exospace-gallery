@@ -193,6 +193,19 @@ class GalleryViewController extends Controller
         }
         $gallerySeo = $gallerySeo->with(['robots' => $robots]);
 
+        // SEO OS (Iteration 4): a ?artwork=<id> deep link canonicalizes to
+        // that artwork's own landing page when it exists and passes the
+        // quality gate; otherwise the gallery canonical stands.
+        $artworkParam = $request->integer('artwork');
+        if ($artworkParam && !$isEmbed) {
+            $linked = $gallery->images->firstWhere('id', $artworkParam);
+            if ($linked && \App\Http\Controllers\ArtworkController::passesQualityGate($linked)) {
+                $gallerySeo = $gallerySeo->with([
+                    'canonicalUrl' => url("/gallery/{$gallery->slug}/artwork/{$linked->id}"),
+                ]);
+            }
+        }
+
         // ── SEO OS (Iteration 3): structured data via the central builder.
         // A dated gallery is an ExhibitionEvent; an undated one is better
         // described as a CollectionPage (no fake dates). The artwork list
