@@ -66,11 +66,22 @@ return [
         'info_webhook_url'      => env('OPERATIONAL_ALERT_INFO_WEBHOOK'),
     ],
 
-    // ── ITERATION 6: scheduled billing digest recipients ───────────────
+    // ── ITERATION 6/7: scheduled billing digest recipients ───────────────
     // Comma-separated email addresses receiving the weekly billing export
-    // (exospace:send-billing-export, Mondays 07:00). Empty/absent → the
-    // command is a clean no-op (the feature is OFF — same convention as
-    // the 2CO reconcile job's unconfigured path).
+    // (exospace:send-billing-export, Mondays 07:00).
+    //
+    // ITERATION 7 precedence (SendBillingExport::resolveRecipients):
+    //   1. --to command option (testing/manual)
+    //   2. UI-managed DB list (billing_digest_recipients rows on
+    //      Master Control → Billing Review) — takes over from the env
+    //      var the moment any recipient is added there
+    //   3. BILLING_EXPORT_EMAIL env var (this config — the zero-deploy
+    //      fallback so a fresh install with no UI-managed recipients
+    //      still works)
+    //
+    // Empty list + no env var → the command is a clean no-op (feature
+    // OFF — same convention as the 2CO reconcile job's unconfigured path;
+    // the heartbeat still stamps).
     //
     // The digest contains customer billing PII in the CSV attachment —
     // configuring this address IS the consent boundary. Every send is

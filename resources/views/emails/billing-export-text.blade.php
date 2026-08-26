@@ -21,4 +21,4 @@ This digest is an operational notification to the configured billing-export addr
 (BILLING_EXPORT_EMAIL), not a marketing email. Every send is audit-logged as billing.exported
 (actor: system). The CSV contains customer billing data — handle per your data-retention policy.
 
-Sent by Exospace · Weekly (Mondays 07:00) · Manage recipients via the BILLING_EXPORT_EMAIL env var
+Sent by Exospace · Weekly (Mondays 07:00) · Manage recipients on Master Control → Billing Review (or via the BILLING_EXPORT_EMAIL env var before any UI-managed recipient is added)

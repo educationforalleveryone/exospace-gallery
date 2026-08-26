@@ -61,6 +61,15 @@ class JobHeartbeatService
         'exospace:onboarding-analytics'    => 192, // 8 days
         // Weekly Monday 07:00 — billing export digest (configured installs).
         'exospace:send-billing-export'     => 192, // 8 days
+        // ITERATION 7 — backup jobs wrapped in exospace:backup so they
+        // stamp heartbeats on success and Slack-alert on failure.
+        // spatie's backup:run exits 0/nonzero; the wrapper translates
+        // that into the JobHeartbeatService contract (stamp on 0, leave
+        // unstamped on failure so the heartbeat monitor becomes the
+        // second net for a wrapper that itself crashed before alerting).
+        'exospace:backup:db'               => 36,
+        'exospace:backup:files'            => 192, // weekly Sun
+        'exospace:backup:clean'            => 36,
     ];
 
     /**

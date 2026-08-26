@@ -94,6 +94,33 @@ class SystemController extends Controller
         $retentionTrendW1 = $retentionMetrics->trend(1, 26);
         $retentionTrendW2 = $retentionMetrics->trend(2, 26);
 
+        // ITERATION 7: >2σ anomalies on the TTFE series — flags weeks
+        // that deviate from the trailing mean with no release to blame.
+        // Computed only when a chart will draw (>= 2 points); the
+        // detector self-guards (min 4 prior non-null points). The
+        // payload carries the chart index + z + direction so the
+        // inline plugin can ring the right point without re-deriving
+        // the math in JS. Same shape as releaseAnnotations (a list of
+        // {index, label} objects) so the view treats them symmetrically.
+        $anomalyAnnotations = [];
+        if (count($onboardingTrend) >= 2) {
+            $series = array_map(
+                static fn (array $p) => $p['ttfe_avg'],
+                $onboardingTrend,
+            );
+            $raw = \App\Services\TrendAnomalies::detect($series);
+            foreach ($raw as $a) {
+                $anomalyAnnotations[] = [
+                    'index'     => $a['index'],
+                    'label'     => $onboardingTrend[$a['index']]['captured_at'] ?? '',
+                    'value'     => $a['value'],
+                    'mean'      => $a['mean'],
+                    'z'         => $a['z'],
+                    'direction' => $a['direction'],
+                ];
+            }
+        }
+
         return view('super-admin.index', compact(
             'users',
             'stats',
@@ -104,6 +131,7 @@ class SystemController extends Controller
             'retention',
             'retentionTrendW1',
             'retentionTrendW2',
+            'anomalyAnnotations',
         ));
     }
 

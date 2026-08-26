@@ -58,7 +58,7 @@
         </div>
 
         <div class="footer">
-            Sent by Exospace · Weekly (Mondays 07:00) · Manage recipients via the BILLING_EXPORT_EMAIL env var
+            Sent by Exospace · Weekly (Mondays 07:00) · Manage recipients on Master Control → Billing Review (or via the BILLING_EXPORT_EMAIL env var before any UI-managed recipient is added)
         </div>
     </div>
 </body>

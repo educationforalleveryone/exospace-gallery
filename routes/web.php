@@ -441,6 +441,18 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
           ->name('billing.replay')
           ->middleware('password.confirm');
 
+    // ITERATION 7: digest recipient management. Add/remove emails for the
+    // weekly billing digest — the UI-managed list takes over from the
+    // BILLING_EXPORT_EMAIL env var once any recipient is added. Same
+    // audit-logging bar as the export (financial-data redirects); no
+    // password.confirm — team invitations (a comparable sensitivity:
+    // grants access) don't use it either, and the master-control surface
+    // already requires super-admin + MFA.
+    Route::post  ('billing/recipients',                [\App\Http\Controllers\SuperAdmin\BillingController::class, 'storeRecipient'])->name('billing.recipients.store');
+    Route::delete('billing/recipients/{recipient}',    [\App\Http\Controllers\SuperAdmin\BillingController::class, 'destroyRecipient'])
+          ->whereNumber('recipient')
+          ->name('billing.recipients.destroy');
+
     // M-13: Admin impersonation — start (requires super-admin + password.confirm + feature flag)
     Route::post('/users/{user}/impersonate',           [SystemController::class, 'impersonate'])->name('impersonate')
           ->middleware('password.confirm', 'feature_flag:admin_impersonation');
@@ -454,6 +466,17 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
 
     // M-5: Affiliate dashboard
     Route::get('/affiliates',                            [\App\Http\Controllers\AffiliateDashboardController::class, 'index'])->name('affiliates.index');
+
+    // ── Retention drill-down (ITERATION 7) ────────────────────────────────
+    // PII-gated: clicking a cohort matrix cell opens the underlying user
+    // list. Read-only PII reveal behind the group middleware (super-admin +
+    // MFA), audit-logged per request — same trust bar as billing review.
+    // No password.confirm: this is a read of the same PII that already
+    // appears on the dashboard users table; the audit row preserves
+    // attribution (who viewed which cohort, when).
+    Route::get('/retention/{cohort}',                    [\App\Http\Controllers\SuperAdmin\RetentionController::class, 'cohort'])
+          ->where('cohort', '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+          ->name('retention.cohort');
 });
 
 // M-13: Admin impersonation — stop (outside super-admin group because the

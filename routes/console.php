@@ -103,21 +103,27 @@ Schedule::command('queue:prune-failed --hours=168')
     ->dailyAt('02:30')
     ->onOneServer();
 
-// A-1 FIX (Iter-006): Daily database backup at 1am.
-// Requires: composer require spatie/laravel-backup
-Schedule::command('backup:run --only-db')
+// A-1 FIX (Iter-006 / Iter-7): backup commands run through the
+// exospace:backup wrapper so they stamp heartbeats on success
+// (JobHeartbeatService) and post Slack alerts on failure (in addition
+// to spatie's own mail notifications + the backup-health check that
+// catches a stale newest-zip on a disk).
+//
+// Schedule is unchanged in cadence; only the invoked command swapped:
+//   daily 01:00   → exospace:backup db     (was: backup:run --only-db)
+//   Sun   01:30   → exospace:backup files  (was: backup:run --only-files)
+//   daily 02:00   → exospace:backup clean  (was: backup:clean)
+Schedule::command('exospace:backup db')
     ->dailyAt('01:00')
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// A-1 FIX (Iter-006): Weekly file backup (user uploads) on Sundays at 1:30am.
-Schedule::command('backup:run --only-files')
+Schedule::command('exospace:backup files')
     ->weeklyOn(0, '01:30')
     ->withoutOverlapping(120)
     ->onOneServer();
 
-// A-1 FIX (Iter-006): Clean up old backups daily at 2am.
-Schedule::command('backup:clean')
+Schedule::command('exospace:backup clean')
     ->dailyAt('02:00')
     ->withoutOverlapping(60)
     ->onOneServer();

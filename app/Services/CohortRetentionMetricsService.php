@@ -226,6 +226,113 @@ class CohortRetentionMetricsService
     // ─────────────────────────────────────────────────────────────────────
 
     /**
+     * ITERATION 7 — cohort drill-down: the users BEHIND a matrix cell.
+     *
+     * The dashboard matrix shows aggregates (size + active count + pct);
+     * an operator investigating churn needs the underlying user list
+     * ("which 3 of the 12 from Aug 25's cohort came back in week 2?").
+     * This method returns the cohort's members as a paginatable query,
+     * each row tagged with an `active_in_period` flag computed from
+     * the SAME bounded activity definition as countActive() so the
+     * drill-down's active count always reconciles with the matrix cell
+     * the operator clicked.
+     *
+     * Returns null when the inputs don't describe a real, in-range,
+     * already-started (cohort × period) cell — the controller turns
+     * that into a 404. A size-0 cohort returns a valid result with an
+     * empty query (no members to list).
+     *
+     * @return ?array{
+     *     week_start: CarbonImmutable,
+     *     week_index: int,
+     *     period: array{start: CarbonImmutable, end: CarbonImmutable},
+     *     size: int,
+     *     active_count: int,
+     *     members: \Illuminate\Database\Eloquent\Builder
+     * }
+     */
+    public function cohortDrilldown(string $weekStart, int $weekIndex): ?array
+    {
+        // Parse + validate the cohort week start. Must be a real date.
+        try {
+            $start = CarbonImmutable::parse($weekStart)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        // Cohort keys in the matrix are always Mondays — refuse anything
+        // else so a hand-typed URL can't fabricate a non-cohort "cohort".
+        if (! $start->isMonday()) {
+            return null;
+        }
+
+        // Bound the lookup so an attacker can't scan arbitrary history.
+        // The matrix renders the last 8 weeks; snapshots keep 2 years.
+        // 3 years (156 weeks) is a generous ceiling that lets an operator
+        // review recent churn without unbounded scanning.
+        $now = CarbonImmutable::now();
+        if ($start > $now || $start < $now->copy()->subWeeks(156)) {
+            return null;
+        }
+
+        // Week index sane + period has already started (future weeks have
+        // no data; cells beyond the cohort's age can't exist on the matrix).
+        if ($weekIndex < 0 || $weekIndex > 156) {
+            return null;
+        }
+        $periodStart = $start->addWeeks($weekIndex);
+        $periodEnd = $periodStart->addWeek();
+        if ($periodStart > $now) {
+            return null;
+        }
+
+        $cohortEnd = $start->addWeek();
+
+        // Cohort membership count — same query as compute() so size
+        // reconciles. (Members query runs separately so a tiny cohort
+        // doesn't pay a full-table scan on the count.)
+        $size = User::where('created_at', '>=', $start)
+            ->where('created_at', '<', $cohortEnd)
+            ->count();
+
+        // Members query, each row tagged with the activity flag from
+        // the SAME bounded definition as countActive() (last_login_at
+        // in [periodStart, periodEnd) OR any gallery — including
+        // soft-deleted — updated in the window). selectRaw with bound
+        // parameters is portable across SQLite + MySQL; Laravel's
+        // paginate() strips columns for the count query so the alias
+        // doesn't break pagination.
+        $members = User::where('created_at', '>=', $start)
+            ->where('created_at', '<', $cohortEnd)
+            ->orderBy('created_at')
+            ->selectRaw(
+                'users.*, CASE WHEN (users.last_login_at >= ? AND users.last_login_at < ?) '
+                . 'OR EXISTS (SELECT 1 FROM galleries WHERE galleries.user_id = users.id '
+                . 'AND galleries.updated_at >= ? AND galleries.updated_at < ?) '
+                . 'THEN 1 ELSE 0 END AS active_in_period',
+                [
+                    $periodStart, $periodEnd,
+                    $periodStart, $periodEnd,
+                ],
+            );
+
+        // Active count from the SAME definition as countActive() —
+        // re-derived live (not read from the matrix cache) so the
+        // drill-down reflects the moment of the click, not a possibly
+        // stale 30/60-min dashboard cache entry.
+        $activeCount = $this->countActive($start, $cohortEnd, $periodStart, $periodEnd);
+
+        return [
+            'week_start'    => $start,
+            'week_index'     => $weekIndex,
+            'period'         => ['start' => $periodStart, 'end' => $periodEnd],
+            'size'           => $size,
+            'active_count'   => $activeCount,
+            'members'         => $members,
+        ];
+    }
+
+    /**
      * Bounded activity count for one (cohort, period) pair.
      *
      * Active = last_login_at in [periodStart, periodEnd) OR any gallery

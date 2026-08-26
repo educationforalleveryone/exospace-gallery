@@ -177,9 +177,13 @@ class InfrastructureTest extends TestCase
 
     public function test_a1_backup_schedule_exists(): void
     {
-        $this->assertCommandScheduled('backup:run --only-db');
-        $this->assertCommandScheduled('backup:run --only-files');
-        $this->assertCommandScheduled('backup:clean');
+        // ITERATION 7: the spatie backup commands run through the
+        // exospace:backup wrapper so they stamp heartbeats on success
+        // and Slack-alert on failure. The cadence is unchanged
+        // (daily 01:00 db, weekly Sun 01:30 files, daily 02:00 clean).
+        $this->assertCommandScheduled('exospace:backup db');
+        $this->assertCommandScheduled('exospace:backup files');
+        $this->assertCommandScheduled('exospace:backup clean');
     }
 
     public function test_a1_dr_runbook_exists(): void

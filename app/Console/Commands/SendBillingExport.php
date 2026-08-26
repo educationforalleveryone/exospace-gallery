@@ -174,7 +174,23 @@ class SendBillingExport extends Command
 
     /**
      * Recipients: --to override first (manual/testing), then the
-     * configured comma-separated list. Normalized + de-duplicated.
+     * UI-managed DB list (Iteration 7), then the configured env list
+     * as fallback. Normalized + de-duplicated.
+     *
+     * Precedence (highest → lowest):
+     *   1. --to option (testing/manual override)
+     *   2. billing_digest_recipients rows (UI-managed list — the
+     *      source of truth once an admin has added even one; audit-
+     *      logged add/remove, survives across deploys)
+     *   3. BILLING_EXPORT_EMAIL env var (the original config — kept
+     *      as the zero-deploy-config fallback so a fresh install
+     *      with no recipients managed in the UI still works)
+     *
+     * The fallback is the safety hatch for a brand-new install or
+     * for a rollback from a UI-managed state to env-only — but the
+     * Billing Review page surfaces which source is currently active
+     * so an operator is never surprised by who is receiving the
+     * financial digest.
      *
      * @return list<string>
      */
@@ -182,7 +198,18 @@ class SendBillingExport extends Command
     {
         $raw = $this->option('to');
 
+        // DB list: one query, ordered for deterministic output.
+        // Returns empty array on a rolling deploy where the table
+        // doesn't exist yet — Schema::hasTable guard so the command
+        // never crashes mid-deploy.
         if (! is_string($raw) || trim($raw) === '') {
+            if (\Illuminate\Support\Facades\Schema::hasTable('billing_digest_recipients')) {
+                $dbEmails = \App\Models\BillingDigestRecipient::orderBy('email')->pluck('email')->all();
+                if ($dbEmails !== []) {
+                    return $dbEmails;
+                }
+            }
+
             $raw = (string) (config('services.billing_export.email') ?? '');
         }
 

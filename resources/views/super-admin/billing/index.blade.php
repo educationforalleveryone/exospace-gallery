@@ -13,6 +13,9 @@
     @if(session('success'))
         <div class="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-300" role="status">{{ session('success') }}</div>
     @endif
+    @if(session('warning'))
+        <div class="mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-300" role="status">{{ session('warning') }}</div>
+    @endif
     @if(session('error'))
         <div class="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-300" role="alert">{{ session('error') }}</div>
     @endif
@@ -35,6 +38,94 @@
                 <div class="text-[11px] text-gray-500 mt-0.5">{{ $tile['label'] }}</div>
             </div>
         @endforeach
+    </div>
+
+    {{-- ITERATION 7 — weekly billing digest recipients. Managed here (DB-backed)
+         rather than env-only so changes are attributable + survive deploys. The
+         UI-managed list takes precedence over BILLING_EXPORT_EMAIL once any
+         recipient is added. --}}
+    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
+        <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+            <h2 class="text-lg font-bold text-white">📬 Weekly billing digest recipients</h2>
+            <div class="text-[11px] text-gray-500">scheduled Mondays 07:00 · audit-logged · recipients across deploys</div>
+        </div>
+        <p class="text-xs text-gray-400 mb-4">
+            Every Monday a CSV of the previous week's money events + a weekly summary is emailed to the recipients below. The list is managed here once you add the first address — the <code>BILLING_EXPORT_EMAIL</code> env var remains the zero-deploy fallback for an empty list.
+            @if(count($digestRecipients) > 0)
+                <strong class="text-emerald-300">Active source: UI-managed list ({{ count($digestRecipients) }} recipient{{ count($digestRecipients) === 1 ? '' : 's' }}).</strong>
+            @elseif(count($envDigestRecipients) > 0)
+                <strong class="text-amber-300">Active source: BILLING_EXPORT_EMAIL fallback — adding any recipient here takes over.</strong>
+            @else
+                <strong class="text-gray-400">No recipients configured anywhere — the digest is effectively disabled (clean no-op + heartbeat stamp).</strong>
+            @endif
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-5">
+            {{-- UI-managed recipients --}}
+            <div>
+                <div class="text-xs text-gray-500 uppercase tracking-wider mb-2">UI-managed (current source of truth)</div>
+                @if(count($digestRecipients) > 0)
+                    <ul class="space-y-1">
+                        @foreach($digestRecipients as $recipient)
+                            <li class="flex items-center justify-between bg-gray-800/50 border border-gray-700/40 rounded px-3 py-2" x-data="{ confirming: false }">
+                                <div class="text-sm text-gray-200">
+                                    {{ $recipient->email }}
+                                    <div class="text-[10px] text-gray-500">added {{ $recipient->created_at?->diffForHumans() }}@if($recipient->addedBy) by {{ $recipient->addedBy->name }}@endif</div>
+                                </div>
+                                <div>
+                                    <template x-if="!confirming">
+                                        <button type="button" @click="confirming = true" class="text-xs text-red-400 hover:text-red-300">Remove</button>
+                                    </template>
+                                    <template x-if="confirming">
+                                        <span class="flex items-center gap-2 text-xs">
+                                            <span class="text-gray-300">Remove?</span>
+                                            <form method="POST" action="{{ route('super.billing.recipients.destroy', $recipient) }}">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-400 hover:text-red-300 font-semibold">Yes</button>
+                                            </form>
+                                            <button type="button" @click="confirming = false" class="text-gray-400 hover:text-gray-300">No</button>
+                                        </span>
+                                    </template>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <div class="text-sm text-gray-500 py-4 text-center bg-gray-800/30 border border-dashed border-gray-700 rounded">
+                        No UI-managed recipients yet.
+                    </div>
+                @endif
+
+                <form method="POST" action="{{ route('super.billing.recipients.store') }}" class="mt-4 flex gap-2" data-submit="disableSubmitButton">
+                    @csrf
+                    <input type="email" name="email" required placeholder="recipient@example.com"
+                           value="{{ old('email') }}"
+                           class="flex-1 bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-emerald-500 outline-none" />
+                    <button type="submit" class="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-sm">Add</button>
+                </form>
+                @error('email')
+                    <div class="mt-1 text-xs text-red-400">{{ $message }}</div>
+                @enderror
+            </div>
+
+            {{-- Env fallback display (read-only) --}}
+            <div>
+                <div class="text-xs text-gray-500 uppercase tracking-wider mb-2">BILLING_EXPORT_EMAIL fallback (env var)</div>
+                @if(count($envDigestRecipients) > 0)
+                    <ul class="space-y-1">
+                        @foreach($envDigestRecipients as $email)
+                            <li class="bg-gray-800/30 border border-dashed border-gray-700 rounded px-3 py-2 text-sm text-gray-400">{{ $email }}</li>
+                        @endforeach
+                    </ul>
+                    <p class="mt-2 text-[10px] text-gray-500">Edit via the Coolify env var on the deployment config.</p>
+                @else
+                    <div class="text-sm text-gray-500 py-4 text-center bg-gray-800/30 border border-dashed border-gray-700 rounded">
+                        Not configured.
+                    </div>
+                @endif
+            </div>
+        </div>
     </div>
 
     {{-- ── Money events (transactions) ─────────────────────────────────── --}}

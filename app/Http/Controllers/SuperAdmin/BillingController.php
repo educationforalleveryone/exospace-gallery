@@ -4,11 +4,13 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminAuditLog;
+use App\Models\BillingDigestRecipient;
 use App\Models\ProcessedWebhook;
 use App\Models\Transaction;
 use App\Services\BillingExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * ITERATION 4 — Billing Review (super-admin).
@@ -90,7 +92,17 @@ class BillingController extends Controller
                 ->sum('amount'),
         ];
 
-        return view('super-admin.billing.index', compact('transactions', 'webhooks', 'stats', 'status'));
+        // ITERATION 7 — digest recipient management surface. The page
+        // shows BOTH the UI-managed list AND the env fallback so an
+        // operator is never surprised by which source is currently
+        // effective. resolveRecipients() (in SendBillingExport) uses
+        // the same precedence: DB list non-empty → DB; empty → env.
+        $digestRecipients = Schema::hasTable('billing_digest_recipients')
+            ? BillingDigestRecipient::with('addedBy')->orderBy('email')->get()
+            : collect();
+        $envDigestRecipients = $this->parseEnvRecipients();
+
+        return view('super-admin.billing.index', compact('transactions', 'webhooks', 'stats', 'status', 'digestRecipients', 'envDigestRecipients'));
     }
 
     /**
@@ -242,5 +254,109 @@ class BillingController extends Controller
                 ? 'Replayed ' . $row->message_type . ' (webhook #' . $row->id . ') — pipeline returned ' . $httpStatus . '.'
                 : 'Replay of ' . $row->message_type . ' (webhook #' . $row->id . ') returned ' . $httpStatus . ' — the ledger row stays marked failed; check the logs.'
         );
+    }
+
+    // ── Digest recipients (ITERATION 7) ───────────────────────────────────
+    //
+    // The weekly billing digest emails a CSV of money events to every
+    // recipient on this list. Managed here (not env-only) so changes
+    // are attributable to an admin and survive across deploys without
+    // touching Coolify env vars. Precedence: DB list non-empty → DB;
+    // empty → BILLING_EXPORT_EMAIL env fallback.
+
+    /**
+     * Add a recipient. Validates, de-dupes (case-insensitive on
+     * insert via the model mutator + the unique index), audit-logs.
+     */
+    public function storeRecipient(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        $email = trim(strtolower($data['email']));
+
+        $exists = Schema::hasTable('billing_digest_recipients')
+            && BillingDigestRecipient::where('email', $email)->exists();
+
+        if ($exists) {
+            return back()
+                ->withInput()
+                ->withErrors(['email' => '"' . $email . '" is already a recipient.']);
+        }
+
+        $recipient = Schema::hasTable('billing_digest_recipients')
+            ? BillingDigestRecipient::create([
+                'email'   => $email,
+                'added_by' => $request->user()->id,
+            ])
+            : null;
+
+        if ($recipient !== null) {
+            AdminAuditLog::record('billing.digest_recipient_added', $recipient, [
+                'recipients_total' => BillingDigestRecipient::count(),
+            ]);
+        }
+
+        return back()->with('success', 'Added ' . $email . ' to the billing digest recipient list.');
+    }
+
+    /**
+     * Remove a recipient. Audited BEFORE the delete so the audit row
+     * captures the target row's id + email (scrubbed in payload as
+     * PII, but target_id preserves the attribution). If the removal
+     * empties the list, warn the operator about the env-fallback
+     * state so a silent change to "nobody receives the digest" can't
+     * happen by accident.
+     */
+    public function destroyRecipient(Request $request, BillingDigestRecipient $recipient)
+    {
+        // Audit before the delete — the target_id will then point at
+        // a no-longer-existing row, which is fine for audit log
+        // attribution (same pattern as a deleted webhook row).
+        AdminAuditLog::record('billing.digest_recipient_removed', $recipient, [
+            'recipients_remaining' => max(0, BillingDigestRecipient::count() - 1),
+        ]);
+
+        $email = $recipient->email;
+        $recipient->delete();
+
+        $remaining = BillingDigestRecipient::count();
+        $envHasAny = $this->parseEnvRecipients() !== [];
+
+        if ($remaining === 0 && ! $envHasAny) {
+            return back()->with('warning', 'Removed ' . $email . ' — the recipient list is now empty and no BILLING_EXPORT_EMAIL fallback is configured. The weekly billing digest is effectively disabled until a recipient is re-added.');
+        }
+
+        if ($remaining === 0) {
+            return back()->with('warning', 'Removed ' . $email . ' — the UI-managed recipient list is now empty. The digest will fall back to BILLING_EXPORT_EMAIL until new recipients are added here.');
+        }
+
+        return back()->with('success', 'Removed ' . $email . ' from the billing digest recipient list.');
+    }
+
+    /**
+     * Parse the BILLING_EXPORT_EMAIL env var the same way the
+     * SendBillingExport command does — comma-separated, validated
+     * and de-duped. Surfaces the fallback state in the UI.
+     *
+     * @return list<string>
+     */
+    private function parseEnvRecipients(): array
+    {
+        $raw = (string) (config('services.billing_export.email') ?? '');
+        if (trim($raw) === '') {
+            return [];
+        }
+
+        $out = [];
+        foreach (explode(',', $raw) as $email) {
+            $email = trim($email);
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && ! in_array($email, $out, true)) {
+                $out[] = $email;
+            }
+        }
+
+        return $out;
     }
 }

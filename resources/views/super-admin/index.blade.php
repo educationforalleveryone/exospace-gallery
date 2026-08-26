@@ -199,15 +199,18 @@
                  the chart appears from the second snapshot on.
                  ITERATION 6: release markers (dashed verticals + version
                  labels) from ReleaseCalendar — the changelog's own release
-                 dates, so metric movement can be read against what shipped. --}}
+                 dates, so metric movement can be read against what shipped.
+                 ITERATION 7: >2σ anomaly rings (amber for high/worse,
+                 emerald for low/better) — weeks that deviate from the
+                 trailing mean with no release to blame. --}}
             <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
                 <div class="flex items-center justify-between mb-2">
                     <div class="text-xs text-gray-500 uppercase tracking-wider">TTFE / TTFG trend — weekly snapshots ({{ $onboardingDays }}d window)</div>
-                    <div class="text-[10px] text-gray-600">{{ count($onboardingTrend) }} point{{ count($onboardingTrend) === 1 ? '' : 's' }} recorded{{ count($releaseAnnotations) > 0 ? ' · ' . count($releaseAnnotations) . ' release marker' . (count($releaseAnnotations) === 1 ? '' : 's') : '' }}</div>
+                    <div class="text-[10px] text-gray-600">{{ count($onboardingTrend) }} point{{ count($onboardingTrend) === 1 ? '' : 's' }} recorded{{ count($releaseAnnotations) > 0 ? ' · ' . count($releaseAnnotations) . ' release marker' . (count($releaseAnnotations) === 1 ? '' : 's') : '' }}{{ count($anomalyAnnotations ?? []) > 0 ? ' · ' . count($anomalyAnnotations) . ' anomal' . (count($anomalyAnnotations) === 1 ? 'y' : 'ies') : '' }}</div>
                 </div>
                 @if(count($onboardingTrend) >= 2)
                     <div class="h-56"><canvas id="ttfe-trend-chart"></canvas></div>
-                    <div class="text-[10px] text-gray-600 mt-1">Average hours from signup to first gallery (TTFG) and first published exhibition (TTFE). Lower is better. Dashed lines mark releases (from the /changelog calendar).</div>
+                    <div class="text-[10px] text-gray-600 mt-1">Average hours from signup to first gallery (TTFG) and first published exhibition (TTFE). Lower is better. Dashed lines mark releases (from the /changelog calendar). Amber/emerald rings mark weeks that deviate >2σ from the trailing mean.</div>
                 @else
                     <div class="text-sm text-gray-500 py-6 text-center">
                         Trend appears after the second weekly snapshot — the first is already recorded and will chart next Monday.
@@ -243,7 +246,7 @@
                             <tr class="border-t border-gray-800/60">
                                 <td class="py-1.5 pr-3 text-gray-300 whitespace-nowrap">{{ $cohort['label'] }}</td>
                                 <td class="py-1.5 px-2 text-right text-gray-400">{{ number_format($cohort['size']) }}</td>
-                                @foreach($cohort['cells'] as $cell)
+                                @foreach($cohort['cells'] as $w => $cell)
                                     @php
                                         // Heat shading: deeper emerald = better retention; partial
                                         // (not-yet-closed) weeks render dimmed with an asterisk so a
@@ -253,9 +256,19 @@
                                                   : ($pct >= 20 ? 'bg-emerald-900/30 text-emerald-300'
                                                   : ($pct >= 10 ? 'bg-amber-900/30 text-amber-300' : 'text-gray-600'));
                                         if (! $cell['complete']) { $shade .= ' opacity-50'; }
+                                        // ITERATION 7: cells with a non-empty cohort link to the
+                                        // drill-down — size-0 cohorts have nothing behind the number.
+                                        $hasDrilldown = $cohort['size'] > 0 && $cell['complete'];
+                                        $drilldownUrl = $hasDrilldown
+                                            ? route('super.retention.cohort', ['cohort' => $cohort['week_start'], 'week' => $w])
+                                            : null;
                                     @endphp
-                                    <td class="py-1.5 px-2 text-right rounded {{ $shade }} {{ $cell['complete'] ? '' : 'italic' }}">
-                                        {{ $cohort['size'] > 0 ? $pct . '%' : '–' }}{{ $cell['complete'] ? '' : '*' }}
+                                    <td class="py-1.5 px-2 text-right rounded {{ $shade }} {{ $cell['complete'] ? '' : 'italic' }} {{ $hasDrilldown ? 'hover:ring-1 hover:ring-emerald-500/50 hover:cursor-pointer' : '' }}">
+                                        @if($hasDrilldown)
+                                            <a href="{{ $drilldownUrl }}" class="block" title="View the {{ $cell['active'] }} active member(s) behind this cell">{{ $pct . '%' }}{{ $cell['complete'] ? '' : '*' }}</a>
+                                        @else
+                                            {{ $cohort['size'] > 0 ? $pct . '%' : '–' }}{{ $cell['complete'] ? '' : '*' }}
+                                        @endif
                                     </td>
                                 @endforeach
                             </tr>
@@ -708,6 +721,13 @@
     // annotation package is NOT in the admin-vendor bundle) draws a dashed
     // vertical + version label at the first capture at/after each release
     // date. Same release list /changelog renders (ReleaseCalendar service).
+    //
+    // ITERATION 7: >2σ anomaly rings — a second inline plugin draws an
+    // amber ring (high = worse) or emerald ring (low = better) around any
+    // weekly TTFE point that deviates more than 2σ from the trailing mean.
+    // Math lives in TrendAnomalies::detect (PHP-side); JS only draws the
+    // pre-computed {index, z, direction} list so the canvas and the audit
+    // trail always agree.
     (function () {
         var canvas = document.getElementById('ttfe-trend-chart');
         if (!canvas) return; // fewer than 2 snapshots — placeholder shown
@@ -717,6 +737,7 @@
         var ttfe = @json(collect($onboardingTrend)->pluck('ttfe_avg'));
         var ttfg = @json(collect($onboardingTrend)->pluck('ttfg_avg'));
         var releases = @json($releaseAnnotations);
+        var anomalies = @json($anomalyAnnotations ?? []);
 
         // Map each release to a chart index: the first capture point at or
         // after the release date (a release between two Mondays annotates
@@ -772,6 +793,46 @@
             }
         };
 
+        // ITERATION 7: Inline plugin — ring anomalous TTFE points. Amber
+        // for high (worse: slower TTFE), emerald for low (better: faster
+        // TTFE). Ring radius 7 sits around the standard point radius (3)
+        // so it never obscures the underlying data. Z-label sits above
+        // high anomalies and below low ones, off the data line.
+        var anomalyPlugin = {
+            id: 'ttfeAnomalies',
+            afterDatasetsDraw: function (chart) {
+                if (!anomalies.length) return;
+                var ctx = chart.ctx;
+                var chartArea = chart.chartArea;
+                var xAxis = chart.scales.x;
+                var yAxis = chart.scales.y;
+
+                anomalies.forEach(function (a) {
+                    var x = xAxis.getPixelForValue(a.index);
+                    var y = yAxis.getPixelForValue(a.value);
+                    if (x < chartArea.left || x > chartArea.right) return;
+
+                    var isHigh = a.direction === 'high';
+                    var color = isHigh ? 'rgba(251,191,36,0.95)' : 'rgba(52,211,153,0.95)'; // amber-400 / emerald-400
+
+                    ctx.save();
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 7, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    ctx.fillStyle = color;
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = 'center';
+                    var sign = isHigh ? '+' : '-';
+                    var labelY = isHigh ? y - 12 : y + 18;
+                    ctx.fillText(sign + Math.abs(a.z) + 'sigma', x, labelY);
+                    ctx.restore();
+                });
+            }
+        };
+
         function initTrendChart() {
             new Chart(canvas.getContext('2d'), {
                 type: 'line',
@@ -820,7 +881,12 @@
                         }
                     }
                 },
-                plugins: releaseMarks.length > 0 ? [releaseAnnotationPlugin] : []
+                // Both plugins conditional on having at least one mark each
+                // so a clean trend renders with no overlays.
+                plugins: [].concat(
+                    releaseMarks.length > 0 ? [releaseAnnotationPlugin] : [],
+                    anomalies.length > 0 ? [anomalyPlugin] : []
+                )
             });
         }
 
