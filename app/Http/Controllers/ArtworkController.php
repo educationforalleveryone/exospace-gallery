@@ -34,6 +34,22 @@ use Illuminate\View\View;
  *   - AND at least one of: description ≥ 80 chars, medium, year, artist.
  * Artworks failing the gate still render (shared deep links must work)
  * but carry noindex — no mass thin-page generation.
+ *
+ * ITERATION-3 FIX (P0 access-control hole): this controller previously
+ * rendered the FULL artwork — image, description, price, medium, edition —
+ * for PIN-protected, unpublished, and not-yet-opened galleries, with only
+ * a noindex meta tag as mitigation. noindex stops crawlers, not humans:
+ * anyone holding an artwork URL bypassed the gallery PIN entirely, and
+ * "unpublish" did not actually withdraw the artwork pages. The gating now
+ * mirrors the gallery page's own visibility rules exactly:
+ *
+ *   gallery state                 gallery page          artwork page
+ *   ─────────────────────────     ─────────────────     ─────────────────
+ *   draft / unpublished           404                   404
+ *   not yet open (scheduled)      coming-soon page      redirect → gallery
+ *   closed                        closed page           redirect → gallery
+ *   PIN, not verified this sess.  redirect → PIN        redirect → PIN
+ *   PIN, verified this session    3D viewer             full page, noindex
  */
 class ArtworkController extends Controller
 {
@@ -45,7 +61,7 @@ class ArtworkController extends Controller
         private InternalLinkingService $linking,
     ) {}
 
-    public function show(Request $request, string $slug, GalleryImage $image): View
+    public function show(Request $request, string $slug, GalleryImage $image): View|\Illuminate\Http\RedirectResponse
     {
         $gallery = Gallery::query()
             ->where('slug', $slug)
@@ -55,36 +71,50 @@ class ArtworkController extends Controller
         // The artwork must belong to this gallery (scoped URL).
         abort_unless($image->gallery_id === $gallery->id, 404);
 
-        // Private/PIN-protected/scheduled galleries never get artwork pages.
-        // Render a minimal view with noindex so shared links don't break,
-        // but search engines see nothing indexable.
-        if (!$gallery->is_active || $gallery->hasPinProtection() || $gallery->hasNotOpenedYet()) {
-            $seo = $this->seo->forArtwork($image, $gallery)->with(['robots' => 'noindex,nofollow']);
+        // ── ITERATION-3 FIX: mirror the gallery page's visibility rules ──
+        // (see class docblock table). A noindex tag is not access control.
 
-            return view('artworks.show', [
-                'artwork'   => $image,
-                'gallery'   => $gallery,
-                'seoData'   => $seo,
-                'breadcrumbs' => Breadcrumb::trail([
-                    [$gallery->title ?: 'Exhibition', $gallery->public_url],
-                    [$image->title ?: $image->original_name ?: 'Artwork'],
-                ]),
-                'siblings'  => collect(),
-                'alsoByArtist' => collect(),
-                'gatePassed' => false,
-            ]);
+        // Draft/unpublished: the gallery URL 404s, so the artwork URL 404s
+        // too — unpublishing must actually withdraw the content.
+        if (! $gallery->is_active) {
+            abort(404);
         }
 
+        // Time-gates: defer to the gallery's own coming-soon / closed
+        // pages, which are exactly what a visitor at the exhibition URL
+        // sees. Pre-opening artworks must not leak through deep links, and
+        // a closed exhibition shows its archived state, not live content.
+        if ($gallery->hasNotOpenedYet() || $gallery->hasClosed()) {
+            return redirect()->route('gallery.view', $gallery->slug);
+        }
+
+        // PIN protection — the same session gate the gallery view uses.
+        // Until the visitor enters the PIN, the artwork page redirects to
+        // the PIN screen; after verification, the full page renders (with
+        // noindex — PIN galleries are never publiclyViewable).
+        if ($gallery->hasPinProtection() && ! session("pin_verified_{$gallery->id}")) {
+            return redirect()->route('gallery.pin', $gallery->slug);
+        }
+
+        $pinGated = $gallery->hasPinProtection();
+
         $gatePassed = $this->passesQualityGate($image);
-        $robots = $gatePassed ? null : 'noindex,follow';
+        // PIN galleries stay out of search engines entirely (they are not
+        // publiclyViewable); everyone else gets the standard quality-gate
+        // robots policy.
+        $robots = $pinGated ? 'noindex,nofollow' : ($gatePassed ? null : 'noindex,follow');
 
         $seo = $this->seo->forArtwork($image, $gallery)->with(['robots' => $robots]);
 
         // VisualArtwork schema via the central builder (Iteration 3) —
-        // REAL data only, no fabricated offers or dates.
-        $seo = $seo->with(['jsonLd' => [
-            $this->schema->visualArtwork($image, $gallery),
-        ]]);
+        // REAL data only, no fabricated offers or dates. Structured data
+        // is only emitted for non-PIN galleries: describing gated content
+        // to machines re-leaks what the PIN gate protects.
+        if (! $pinGated) {
+            $seo = $seo->with(['jsonLd' => [
+                $this->schema->visualArtwork($image, $gallery),
+            ]]);
+        }
 
         $breadcrumbs = Breadcrumb::trail([
             ['Home', url('/')],

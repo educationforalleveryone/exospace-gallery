@@ -20,7 +20,9 @@ use Illuminate\View\View;
  *   - Currently open (within their schedule window, or unscheduled)
  *   - Have at least one image (no empty exhibitions in the directory)
  *
- * Supports sorting by: featured (default), views, newest, recently updated.
+ * Supports sorting by: featured (default), views, newest, recently
+ * published (ITERATION-3: first-publish time via galleries.published_at),
+ * recently updated.
  * Supports filtering by venue_template.
  *
  * SEO OS (Iteration 2):
@@ -59,11 +61,14 @@ class DiscoverController extends Controller
             $query->where('venue_template_id', $venueId);
         }
 
-        // Sort
+        // Sort. NULLs sort last on both drivers (NULL < any value, so
+        // orderByDesc puts them at the tail) — pre-iteration rows without a
+        // published_at never outrank a freshly published exhibition.
         $query->when($sort === 'views', fn($q) => $q->orderByDesc('view_count'))
               ->when($sort === 'newest', fn($q) => $q->orderByDesc('created_at'))
+              ->when($sort === 'published', fn($q) => $q->orderByDesc('published_at'))
               ->when($sort === 'updated', fn($q) => $q->orderByDesc('updated_at'))
-              ->unless(in_array($sort, ['views', 'newest', 'updated']), function ($q) {
+              ->unless(in_array($sort, ['views', 'newest', 'published', 'updated']), function ($q) {
                   // Default: featured galleries first (Round 4 — is_featured column
                   // on galleries, controlled via super-admin /master-control/featured),
                   // then by view_count.

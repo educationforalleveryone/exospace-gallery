@@ -81,6 +81,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'plan_expires_at'   => 'datetime',
             'plan_started_at'   => 'datetime',
             'mfa_enabled_at'    => 'datetime',     // (Task H56)
+            // ITERATION-3: OTP counter of the last accepted TOTP code —
+            // the replay-protection baseline consumed by MfaController.
+            'google2fa_ts'      => 'integer',
             'inactive_nudged_at'       => 'datetime', // (P0-7) — last inactive-nudge
             'plan_expiry_reminded_at'  => 'datetime', // (P0-7) — last plan-expiry reminder
             'marketing_consent' => 'boolean',      // (P0-3) — CAN-SPAM/GDPR consent

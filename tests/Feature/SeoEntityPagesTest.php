@@ -218,8 +218,11 @@ class SeoEntityPagesTest extends TestCase
         $response->assertNotFound();
     }
 
-    public function test_artwork_page_in_pin_gallery_is_noindex(): void
+    public function test_artwork_page_in_pin_gallery_redirects_to_pin_screen(): void
     {
+        // ITERATION-3: the artwork page previously rendered the full
+        // artwork with only a noindex tag — noindex stops crawlers, not
+        // humans. It now enforces the same PIN gate as the gallery view.
         $gallery = $this->makePublicGallery([
             'slug' => 'locked-show', 'title' => 'Locked Show',
             'pin_hash' => \Illuminate\Support\Facades\Hash::make('1234'),
@@ -228,8 +231,7 @@ class SeoEntityPagesTest extends TestCase
 
         $response = $this->get("/gallery/{$gallery->slug}/artwork/{$artwork->id}");
 
-        $response->assertOk();
-        $this->assertStringContainsString('noindex,nofollow', $response->getContent());
+        $response->assertRedirect(route('gallery.pin', $gallery->slug));
     }
 
     // ── Gallery view canonical + semantic layer ─────────────────────────

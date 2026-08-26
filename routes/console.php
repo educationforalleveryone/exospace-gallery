@@ -44,6 +44,16 @@ Schedule::command('exospace:purge-banned-sessions')
 
 // ── Daily ─────────────────────────────────────────────────────────────────
 
+// ITERATION-3: reconcile local plan state against the 2Checkout API —
+// catches missed cancellation webhooks (paid entitlements leaking after a
+// 2CO-side subscription end) and missed payment webhooks (alert-only).
+// 04:10 offsets it from the 03:00–04:00 maintenance batch; capped at 200
+// users per run, drift beyond the cap reconciles on following runs.
+Schedule::command('exospace:reconcile-subscriptions')
+    ->dailyAt('04:10')
+    ->withoutOverlapping(30)
+    ->onOneServer();
+
 Schedule::command('exospace:rollup-analytics')
     ->dailyAt('03:00')
     ->withoutOverlapping(60)

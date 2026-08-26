@@ -88,6 +88,10 @@
                 <a href="?sort=featured{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'featured' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Featured</a>
                 <a href="?sort=views{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'views' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Most viewed</a>
                 <a href="?sort=newest{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'newest' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Newest</a>
+                {{-- ITERATION-3: ordering by first-publish time, not creation time —
+                     an exhibition drafted for weeks before its opening ranks as
+                     new when it actually goes live. --}}
+                <a href="?sort=published{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'published' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Recently published</a>
                 <a href="?sort=updated{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'updated' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Recently updated</a>
             </div>
         </div>

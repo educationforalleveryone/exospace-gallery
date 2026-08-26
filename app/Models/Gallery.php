@@ -24,6 +24,10 @@ class Gallery extends Model
         'room_layout', 'venue_template_id', 'pin_hash',
         'is_active', 'view_count',
         'opens_at', 'closes_at',
+        // ITERATION-3: first-publish timestamp (set once by publish(); see
+        // migration 2026_08_25_110000 for semantics). Fillable so factory
+        // seeding and tests can construct realistic states directly.
+        'published_at',
         'custom_domain',  // Studio-plan white-label CNAME support
         'is_featured',    // NEW (Round 4) — super-admin curated for /discover
         'curtain_logo_path',  // NEW (Round 4) — Studio-only custom entrance curtain logo
@@ -40,6 +44,7 @@ class Gallery extends Model
         'view_count' => 'integer',
         'opens_at'   => 'datetime',
         'closes_at'  => 'datetime',
+        'published_at' => 'datetime',
         'visual_overrides' => 'array',
         'custom_domain_verified_at' => 'datetime',  // Task C06
     ];

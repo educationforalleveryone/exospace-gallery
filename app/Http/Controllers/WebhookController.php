@@ -784,6 +784,22 @@ class WebhookController extends Controller
      * Restore the user's plan to the transaction's plan, and mark the
      * transaction back to 'completed'.
      *
+     * ITERATION-3 FIX (lifetime-grant edge case): the restore previously
+     * force-filled plan_expires_at = null unconditionally — for a SUBSCRIPTION
+     * purchase that granted an INFINITE subscription from a single reversed
+     * charge (real revenue loss, silently, on the happiest path: the merchant
+     * winning the dispute). The restore now distinguishes:
+     *   - one-time purchase → lifetime restore (plan_expires_at = null),
+     *     exactly as before;
+     *   - subscription purchase → finite restore: now + 1 month, the
+     *     shortest billing cycle, corrected by the next
+     *     RECURRING_INSTALLMENT_SUCCESS webhook (2CO resumes charging) or
+     *     trapped by CheckPlanExpiry / the reconciliation job if it doesn't.
+     * Source of truth for "was it a subscription": invoices.billing_type
+     * (stamped by InvoiceGenerator since Iteration-1), with the user still
+     * holding a subscription_id as the fallback heuristic for pre-invoice
+     * purchases. When in doubt the restore errs SHORT-LIVED, never infinite.
+     *
      * This is the only path that re-grants a paid plan outside of an
      * ORDER_CREATED webhook. No external side effects here (no email, no
      * Coolify call, no file delete) — so no DB::afterCommit needed.
@@ -839,16 +855,38 @@ class WebhookController extends Controller
                     // If they've since re-purchased, leave them alone.
                     $planRank = ['free' => 0, 'pro' => 1, 'studio' => 2];
                     if (($planRank[$user->plan] ?? 0) < ($planRank[$transaction->plan] ?? 0)) {
+                        // ITERATION-3: was the charged-back purchase a
+                        // subscription? Invoices carry billing_type since
+                        // Iteration-1; fall back to the user holding a
+                        // subscription reference (imperfect for ancient rows,
+                        // but the failure mode is a SHORT restore, never an
+                        // infinite one).
+                        $invoice = \DB::table('invoices')
+                            ->where('transaction_id', $transaction->id)
+                            ->value('billing_type');
+                        $wasSubscription = ($invoice === 'subscription')
+                            || ($invoice === null && ! empty($user->subscription_id));
+
+                        $expiresAt = $wasSubscription ? now()->addMonth() : null;
+
                         $user->forceFill([
                             'plan'            => $transaction->plan,
                             'plan_started_at' => now(),
-                            'plan_expires_at' => null,
+                            'plan_expires_at' => $expiresAt,
+                            // Subscription bookkeeping only when a reference
+                            // actually exists — never invent one.
+                            ...( $wasSubscription && ! empty($user->subscription_id) ? [
+                                'subscription_status'     => 'active',
+                                'subscription_ends_at'    => $expiresAt,
+                                'subscription_cancelled_at' => null,
+                            ] : []),
                         ])->save();
 
                         Log::info('2Checkout: Plan restored after chargeback reversal', [
                             'user_id'    => $user->id,
                             'invoice_id' => $invoiceId,
                             'to_plan'    => $transaction->plan,
+                            'billing'    => $wasSubscription ? 'subscription (finite restore)' : 'one_time (lifetime)',
                         ]);
                     }
                 });

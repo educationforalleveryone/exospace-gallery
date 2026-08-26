@@ -27,6 +27,15 @@ use Illuminate\View\View;
  *   6. User enters 6-digit code → POST /mfa/verify checks it and marks
  *      the session as MFA-verified (with timestamp, valid 30 min).
  *   7. User can also enter a backup code instead of a TOTP code.
+ *
+ * ITERATION-3 FIX (TOTP replay window): TOTP codes are now SINGLE-USE.
+ * verifyKey() has no memory — the same six digits authenticated an
+ * unlimited number of times inside its 30-second slice (up to ~90s with
+ * the library's ±1 drift window), so a phished code stayed valid after
+ * the legitimate login. Both entry points now use verifyKeyNewer() with
+ * the last accepted OTP counter persisted on users.google2fa_ts: any
+ * code matching a counter ≤ the stored one is rejected, and each success
+ * advances the stored counter. Clock-drift tolerance is preserved.
  */
 class MfaController extends Controller
 {
@@ -88,9 +97,14 @@ class MfaController extends Controller
 
         try {
             $google2fa = new \PragmaRX\Google2FAQRCode\Google2FA();
-            $valid = $google2fa->verifyKey($secret, $request->input('code'));
+            // ITERATION-3: verifyKeyNewer() instead of verifyKey() — returns
+            // the matched OTP counter (int) we persist below, so the setup
+            // code can never be replayed on the verify screen. oldTimestamp=0
+            // is the "no prior use" baseline (real counters are ~5.9e7 in
+            // 2026, always > 0) that forces the counter return value.
+            $otpCounter = $google2fa->verifyKeyNewer($secret, $request->input('code'), 0);
 
-            if (! $valid) {
+            if ($otpCounter === false) {
                 return back()->withErrors(['code' => 'Invalid code. Please try again.']);
             }
 
@@ -101,6 +115,8 @@ class MfaController extends Controller
                 'google2fa_secret' => encrypt($secret),
                 'mfa_enabled_at'   => now(),
                 'mfa_backup_codes' => $backupCodes['hashed'],
+                // ITERATION-3: replay baseline for the freshly enabled secret.
+                'google2fa_ts'     => (int) $otpCounter,
             ])->save();
 
             // AUDIT-P1-4.2: Log MFA enable + backup code generation.
@@ -169,18 +185,38 @@ class MfaController extends Controller
         $code = str_replace([' ', '-'], '', $code);
 
         try {
-            // First try TOTP verification
+            // First try TOTP verification.
+            //
+            // ITERATION-3: single-use codes. google2fa_ts holds the OTP
+            // counter of the last ACCEPTED code; verifyKeyNewer() only
+            // matches counters strictly greater than it. NULL (MFA enabled
+            // before this deploy) behaves like a fresh baseline — the first
+            // verification stamps it. A replayed code silently fails with
+            // the same "Invalid code" error as a wrong one (no oracle for
+            // an attacker probing whether a code was already used).
             $google2fa = new \PragmaRX\Google2FAQRCode\Google2FA();
             $secret = decrypt($user->google2fa_secret);
-            $valid = $google2fa->verifyKey($secret, $code);
+            $lastUsed = $user->google2fa_ts !== null ? (int) $user->google2fa_ts : 0;
+            $otpCounter = $google2fa->verifyKeyNewer($secret, $code, $lastUsed);
 
-            // If TOTP fails, try backup code (P3-7)
-            if (! $valid && strlen($code) === 10) {
+            // If TOTP fails, try backup code (P3-7) — backup codes are
+            // already single-use (consumed on match), so replay protection
+            // is symmetric on both entry paths.
+            if ($otpCounter === false && strlen($code) === 10) {
                 $valid = $this->tryBackupCode($user, $code);
+            } else {
+                $valid = $otpCounter !== false;
             }
 
             if (! $valid) {
                 return back()->withErrors(['code' => 'Invalid code. Please try again.']);
+            }
+
+            // Persist the replay baseline. A 6-digit TOTP success always
+            // yields an int counter; guard defensively anyway (backup-code
+            // logins must not wipe a TOTP baseline with garbage).
+            if ($otpCounter !== false && is_int($otpCounter)) {
+                $user->forceFill(['google2fa_ts' => $otpCounter])->save();
             }
 
             // P3-8: Mark MFA verified with timestamp

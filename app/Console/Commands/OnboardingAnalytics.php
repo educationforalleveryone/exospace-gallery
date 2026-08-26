@@ -18,6 +18,12 @@ use Illuminate\Support\Facades\Log;
  *   4. Published gallery (is_active = true)
  *   5. Got first view
  *
+ * ITERATION-3: time-to-first-gallery and time-to-first-publish are now
+ * computed from galleries.published_at (first-publish semantics) instead
+ * of the is_active proxy, and the MySQL-only TIMESTAMPDIFF() was replaced
+ * with portable PHP-side date math — the command previously crashed on
+ * SQLite (CI) and locked itself to MySQL-only deployment shapes.
+ *
  * Outputs a funnel report showing conversion rates between stages.
  * Run manually or schedule weekly for trend tracking.
  */
@@ -84,22 +90,41 @@ class OnboardingAnalytics extends Command
         $this->newLine();
         $this->info("Overall conversion: " . $this->pct($gotViews, $registered) . " (registered → first view)");
 
-        // Time-to-first-gallery analysis
+        // Time-to-first-gallery analysis (ITERATION-3: portable — the old
+        // raw TIMESTAMPDIFF(HOUR, ...) worked only on MySQL and crashed the
+        // command on SQLite; per-user firsts are computed in PHP instead,
+        // which also fixes the old query's bias of averaging over EVERY
+        // gallery instead of each user's FIRST gallery).
         $this->newLine();
         $this->info('Time to first gallery:');
-        $ttf = DB::table('users')
-            ->join('galleries', 'galleries.user_id', '=', 'users.id')
-            ->where('users.created_at', '>=', $cutoff)
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, users.created_at, galleries.created_at)) as avg_hours, MIN(TIMESTAMPDIFF(HOUR, users.created_at, galleries.created_at)) as min_hours, MAX(TIMESTAMPDIFF(HOUR, users.created_at, galleries.created_at)) as max_hours')
-            ->first();
+        $ttfg = $this->diffStats(
+            DB::table('users')
+                ->join('galleries', 'galleries.user_id', '=', 'users.id')
+                ->where('users.created_at', '>=', $cutoff)
+                ->whereNull('galleries.deleted_at')
+                ->select('users.id', 'users.created_at as user_created_at', 'galleries.created_at as gallery_created_at')
+                ->get()
+        );
+        $this->printDiffStats($ttfg, 'hours');
 
-        if ($ttf && $ttf->avg_hours !== null) {
-            $this->info("  Average: " . round($ttf->avg_hours, 1) . " hours");
-            $this->info("  Min:     {$ttf->min_hours} hours");
-            $this->info("  Max:     {$ttf->max_hours} hours");
-        } else {
-            $this->info('  No data (no galleries created in this period)');
-        }
+        // ITERATION-3: time to first PUBLISHED exhibition (TTFE) — the
+        // product's headline metric. Uses galleries.published_at (stamped
+        // on first publish; backfilled to created_at for pre-iteration
+        // live galleries), so a user who drafts for three weeks and then
+        // publishes reports the true 3-week figure, not the is_active
+        // proxy that cannot say WHEN.
+        $this->newLine();
+        $this->info('Time to first published exhibition (TTFE):');
+        $ttfe = $this->diffStats(
+            DB::table('users')
+                ->join('galleries', 'galleries.user_id', '=', 'users.id')
+                ->where('users.created_at', '>=', $cutoff)
+                ->whereNotNull('galleries.published_at')
+                ->whereNull('galleries.deleted_at')
+                ->select('users.id', 'users.created_at as user_created_at', 'galleries.published_at as event_at')
+                ->get()
+        );
+        $this->printDiffStats($ttfe, 'hours');
 
         Log::info('OnboardingAnalytics: report generated', [
             'days' => $days,
@@ -108,9 +133,54 @@ class OnboardingAnalytics extends Command
             'uploaded_image' => $uploadedImage,
             'published' => $published,
             'got_views' => $gotViews,
+            'avg_hours_to_first_gallery' => $ttfg['avg'] ?? null,
+            'avg_hours_to_first_publish' => $ttfe['avg'] ?? null,
         ]);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Per-user FIRST event diff in hours: min / avg / max across users.
+     * Portable date math (Carbon) — no driver-specific SQL functions.
+     *
+     * $rows: collection of {id, user_created_at, gallery_created_at|event_at}
+     */
+    private function diffStats($rows): array
+    {
+        $firstPerUser = [];
+        foreach ($rows as $row) {
+            $eventAt = $row->event_at ?? $row->gallery_created_at ?? null;
+            if (! $eventAt || ! $row->user_created_at) {
+                continue;
+            }
+            $hours = \Carbon\Carbon::parse($row->user_created_at)
+                ->diffInHours(\Carbon\Carbon::parse($eventAt), false);
+            if (! isset($firstPerUser[$row->id]) || $hours < $firstPerUser[$row->id]) {
+                $firstPerUser[$row->id] = max($hours, 0);
+            }
+        }
+
+        if (empty($firstPerUser)) {
+            return [];
+        }
+
+        return [
+            'min' => min($firstPerUser),
+            'avg' => round(array_sum($firstPerUser) / count($firstPerUser), 1),
+            'max' => max($firstPerUser),
+        ];
+    }
+
+    private function printDiffStats(array $stats, string $unit): void
+    {
+        if (empty($stats)) {
+            $this->info("  No data (no events in this period)");
+            return;
+        }
+        $this->info("  Average: {$stats['avg']} {$unit}");
+        $this->info("  Min:     {$stats['min']} {$unit}");
+        $this->info("  Max:     {$stats['max']} {$unit}");
     }
 
     private function pct(int $numerator, int $denominator): string

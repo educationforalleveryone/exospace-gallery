@@ -220,6 +220,16 @@ class GalleryController extends Controller
 
         if (! $gallery->is_active) {
             $gallery->is_active = true;
+            // ITERATION-3: stamp the FIRST-publish timestamp. Only set when
+            // null — an unpublish→publish cycle must not overwrite it,
+            // because time-to-first-exhibition analytics is derived as
+            // published_at − created_at and re-publishing an old exhibition
+            // is not a new "first exhibition" moment. (Backfill semantics
+            // for pre-iteration live galleries: published_at = created_at,
+            // set by migration 2026_08_25_110000.)
+            if ($gallery->published_at === null) {
+                $gallery->published_at = now();
+            }
             $gallery->save();
             $this->invalidateGalleryCaches($gallery);
         }
@@ -233,7 +243,10 @@ class GalleryController extends Controller
 
     /**
      * Unpublish (return to draft). The public URL 404s immediately; the
-     * gallery and all its artwork/settings are untouched.
+     * gallery and all its artwork/settings are untouched. published_at is
+     * intentionally RETAINED (ITERATION-3): it records the historical fact
+     * "this exhibition was published at …" and keeps the
+     * time-to-first-exhibition metric stable across publish cycles.
      */
     public function unpublish(Request $request, Gallery $gallery): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
@@ -275,6 +288,10 @@ class GalleryController extends Controller
             'id', 'slug', 'view_count', 'pin_hash', 'opens_at', 'closes_at',
             'custom_domain', // custom domains are unique — never copy
             'created_at', 'updated_at',
+            // ITERATION-3: publish history is never inherited — a clone that
+            // goes live is a NEW publication (stamped below), and a draft
+            // clone starts with a clean slate.
+            'published_at',
         ]);
 
         $clone->title       = $gallery->title . ' (Copy)';
@@ -285,6 +302,9 @@ class GalleryController extends Controller
         // inherits the source's publish state (replicate() already copies
         // it — this line just resets the volatile fields).
         $clone->is_active   = $gallery->is_active;
+        // ITERATION-3: a live clone is a new publication — stamp it now.
+        // A draft clone has never been published — stays null.
+        $clone->published_at = $gallery->is_active ? now() : null;
 
         // Copy audio + logo files on disk so the clone is independent
         if ($gallery->audio_path) {

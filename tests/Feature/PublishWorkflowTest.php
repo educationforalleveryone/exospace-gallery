@@ -392,4 +392,105 @@ class PublishWorkflowTest extends TestCase
             ->assertSee('Upgrade to Pro for ' . config('plans.limits.pro.max_galleries') . ' galleries')
             ->assertDontSee('Upgrade to Pro for unlimited galleries');
     }
+
+    // ── ITERATION-3: published_at (first-publish semantics) ─────────────
+
+    public function test_publish_stamps_published_at_once_and_never_overwrites(): void
+    {
+        $user = User::factory()->create();
+        $gallery = Gallery::factory()->create(['user_id' => $user->id, 'is_active' => false]);
+        GalleryImage::factory()->create(['gallery_id' => $gallery->id]);
+
+        $this->assertNull($gallery->fresh()->published_at, 'Drafts have no publish time.');
+
+        $this->actingAs($user)->post("/admin/galleries/{$gallery->id}/publish");
+
+        $firstStamp = $gallery->fresh()->published_at;
+        $this->assertNotNull($firstStamp, 'Publish stamps the first-publish timestamp.');
+
+        // Unpublish retains it — a historical fact, and the TTFE metric
+        // (published_at − created_at) must stay stable across cycles.
+        $this->actingAs($user)->post("/admin/galleries/{$gallery->id}/unpublish");
+        $this->assertEquals(
+            $firstStamp->timestamp,
+            $gallery->fresh()->published_at->timestamp,
+            'Unpublish must retain published_at.',
+        );
+
+        // Re-publish does NOT refresh it — re-publishing an old exhibition
+        // is not a new "first exhibition" moment.
+        $this->travel(2)->hours();
+        $this->actingAs($user)->post("/admin/galleries/{$gallery->id}/publish");
+        $this->assertEquals(
+            $firstStamp->timestamp,
+            $gallery->fresh()->published_at->timestamp,
+            'Re-publish must not overwrite the first-publish stamp.',
+        );
+    }
+
+    public function test_duplicate_gets_fresh_published_at(): void
+    {
+        $user = User::factory()->pro()->create();
+        Storage::fake('public');
+        Storage::disk('public')->put('gallery-images/src.jpg', 'fake-jpeg-bytes');
+
+        // Live source published a week ago → the clone is a NEW publication
+        // going live NOW, not an inheritor of last week's stamp.
+        $source = Gallery::factory()->create([
+            'user_id' => $user->id,
+            'is_active' => true,
+            'published_at' => now()->subWeek(),
+        ]);
+        GalleryImage::factory()->create([
+            'gallery_id' => $source->id,
+            'path'       => 'gallery-images/src.jpg',
+            'filename'   => 'src.jpg',
+        ]);
+
+        $this->actingAs($user)->post("/admin/galleries/{$source->id}/duplicate");
+
+        $clone = Gallery::where('user_id', $user->id)->where('id', '!=', $source->id)->firstOrFail();
+        $this->assertTrue((bool) $clone->is_active);
+        $this->assertNotNull($clone->published_at);
+        $this->assertGreaterThan(
+            now()->subMinutes(5)->timestamp,
+            $clone->published_at->timestamp,
+            'A live clone is stamped at duplication time — publish history is never inherited.',
+        );
+
+        // Draft clone: never published → null.
+        $draft = Gallery::factory()->create(['user_id' => $user->id, 'is_active' => false, 'published_at' => null]);
+        GalleryImage::factory()->create(['gallery_id' => $draft->id, 'path' => 'gallery-images/src.jpg', 'filename' => 'd.jpg']);
+        $this->actingAs($user)->post("/admin/galleries/{$draft->id}/duplicate");
+        $draftClone = Gallery::where('user_id', $user->id)->where('id', '!=', $draft->id)
+            ->where('is_active', false)->whereNull('published_at')->firstOrFail();
+        $this->assertNull($draftClone->published_at);
+    }
+
+    public function test_discover_published_sort_orders_by_first_publish(): void
+    {
+        $old = Gallery::factory()->create([
+            'is_active' => true, 'published_at' => now()->subDays(30), 'view_count' => 500,
+        ]);
+        // Created LONG ago but published TODAY — must rank above the older
+        // publication under ?sort=published (created_at sorting buries it).
+        $fresh = Gallery::factory()->create([
+            'is_active' => true, 'published_at' => now()->subMinutes(5),
+            'created_at' => now()->subDays(90), 'view_count' => 1,
+        ]);
+        // Discover only lists exhibitions with at least one artwork.
+        GalleryImage::factory()->create(['gallery_id' => $old->id]);
+        GalleryImage::factory()->create(['gallery_id' => $fresh->id]);
+
+        $response = $this->get('/discover?sort=published');
+
+        $response->assertOk()->assertSee('Recently published');
+
+        $html = $response->getContent();
+        $this->assertGreaterThan(
+            strpos($html, 'gallery/' . $fresh->slug),
+            strpos($html, 'gallery/' . $old->slug),
+            'The freshly published exhibition must rank first under ?sort=published.',
+        );
+    }
 }
