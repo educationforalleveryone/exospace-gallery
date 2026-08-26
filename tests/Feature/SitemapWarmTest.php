@@ -88,6 +88,19 @@ class SitemapWarmTest extends TestCase
         $this->assertSame(1, Artisan::call('sitemap:warm', ['--group' => 'nonsense']));
     }
 
+    /**
+     * ITERATION-6 FIX (Iteration-5 regression): the events group was added
+     * to SitemapController::GROUPS but missing from the command's --group
+     * allowlist — targeted warming of the events sitemap failed with
+     * "Unknown group".
+     */
+    public function test_warm_command_accepts_the_events_group(): void
+    {
+        // Warm an empty events group — exit 0 proves the allowlist accepts
+        // it (the empty group simply yields a 0-page warm).
+        $this->assertSame(0, Artisan::call('sitemap:warm', ['--group' => 'events']));
+    }
+
     public function test_warm_command_supports_single_group(): void
     {
         $this->seedPublicGallery();

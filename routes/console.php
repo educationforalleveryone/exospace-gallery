@@ -125,6 +125,9 @@ Schedule::command('backup:clean')
 // ── Weekly ────────────────────────────────────────────────────────────────
 
 // K-9 FIX (Iter-005): Cohort retention analytics.
+// ITERATION 6: the command now persists its matrix into retention_snapshots
+// (retention history) and posts the summary to the operational Slack
+// channel instead of scheduler stdout.
 Schedule::command('exospace:cohort-retention --weeks=8')
     ->weeklyOn(1, '06:00')
     ->withoutOverlapping(60)
@@ -133,6 +136,15 @@ Schedule::command('exospace:cohort-retention --weeks=8')
 // K-9 FIX (Iter-005): Onboarding funnel analytics.
 Schedule::command('exospace:onboarding-analytics --days=30')
     ->weeklyOn(1, '06:30')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
+// ITERATION 6: weekly billing digest — trailing-7-day money events as a
+// CSV (same code path as the Billing Review on-demand export) emailed to
+// BILLING_EXPORT_EMAIL. Unconfigured → clean no-op. After the analytics
+// pair (06:00/06:30), before business hours.
+Schedule::command('exospace:send-billing-export')
+    ->weeklyOn(1, '07:00')
     ->withoutOverlapping(60)
     ->onOneServer();
 

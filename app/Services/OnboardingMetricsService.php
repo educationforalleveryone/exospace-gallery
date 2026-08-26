@@ -212,7 +212,7 @@ class OnboardingMetricsService
      * not show a stale trend while the funnel tiles above it are fresh.
      *
      * @return array<int, array{
-     *     captured_at: string,
+     *     captured_at: string, captured_on: string,
      *     registered: int, published: int,
      *     ttfe_avg: ?float, ttfg_avg: ?float
      * }>
@@ -226,6 +226,11 @@ class OnboardingMetricsService
             ->get()
             ->map(fn (OnboardingSnapshot $row) => [
                 'captured_at' => $row->captured_at?->format('M j'),
+                // ITERATION 6: raw capture date for release-annotation
+                // matching on the Master Control chart (the 'M j' label
+                // is ambiguous across years; the chart script maps each
+                // release to the first capture at/after its date).
+                'captured_on' => $row->captured_at?->toDateString(),
                 'registered'  => (int) $row->registered,
                 'published'   => (int) $row->published,
                 'ttfe_avg'    => $row->ttfe_avg !== null ? (float) $row->ttfe_avg : null,

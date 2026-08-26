@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\JobHeartbeatService;
 use App\Services\OnboardingMetricsService;
 use App\Services\OperationalAlertService;
 use Illuminate\Console\Command;
@@ -109,6 +110,9 @@ class OnboardingAnalytics extends Command
             'info',
             'onboarding_weekly_report',
         );
+
+        // ITERATION 6: cadence proof for the per-job heartbeat monitor.
+        app(JobHeartbeatService::class)->stamp('exospace:onboarding-analytics');
 
         return self::SUCCESS;
     }

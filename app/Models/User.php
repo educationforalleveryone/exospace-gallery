@@ -104,6 +104,11 @@ class User extends Authenticatable implements MustVerifyEmail
             // to prevent users from locking themselves out.
             'has_password'      => 'boolean',
             'password_set_at'   => 'datetime',
+            // ITERATION 6: stamped by the StampLastLogin listener on the
+            // Login event — the truthful activity signal the retention
+            // analytics reads. NULL = "has not logged in since the column
+            // shipped" (pre-Iteration-6 users until their next login).
+            'last_login_at'     => 'datetime',
         ];
     }
 

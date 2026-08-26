@@ -50,6 +50,8 @@ class SeoAudit extends Command
         if ($issues === []) {
             $this->info('No issues found.');
 
+            app(\App\Services\JobHeartbeatService::class)->stamp('exospace:seo-audit');
+
             return self::SUCCESS;
         }
 
@@ -59,6 +61,9 @@ class SeoAudit extends Command
         ], $issues));
 
         $this->maybePostToSlack($summary, $issues);
+
+        // ITERATION 6: cadence proof for the per-job heartbeat monitor.
+        app(\App\Services\JobHeartbeatService::class)->stamp('exospace:seo-audit');
 
         return self::SUCCESS;
     }

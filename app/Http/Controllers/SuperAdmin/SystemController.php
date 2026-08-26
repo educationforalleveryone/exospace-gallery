@@ -65,7 +65,46 @@ class SystemController extends Controller
         // tiles above it can never disagree.
         $onboardingTrend = $metrics->trend($onboardingDays, 26);
 
-        return view('super-admin.index', compact('users', 'stats', 'onboarding', 'onboardingDays', 'onboardingTrend'));
+        // ITERATION 6: release annotations for the TTFE trend chart —
+        // releases from the product's own changelog (ReleaseCalendar,
+        // the same data /changelog renders) that fall inside the charted
+        // window, so an operator can SEE whether a release moved the
+        // headline metric. Only computed when a chart will actually be
+        // drawn (>= 2 points); releases outside the window are simply
+        // not charted. The window reaches one capture-interval (7 days)
+        // before the first point so a release in the week leading into
+        // the first data point annotates at index 0 rather than
+        // vanishing.
+        $releaseAnnotations = [];
+        if (count($onboardingTrend) >= 2) {
+            $firstCapture = \Carbon\Carbon::parse($onboardingTrend[0]['captured_on'] ?? now()->toDateString());
+            $lastCapture = \Carbon\Carbon::parse(end($onboardingTrend)['captured_on'] ?? now()->toDateString());
+            $releaseAnnotations = \App\Services\ReleaseCalendar::between(
+                $firstCapture->copy()->subDays(7),
+                $lastCapture,
+            );
+        }
+
+        // ITERATION 6: cohort retention — live matrix (cached 30/60 min
+        // by the service) + the W1/W2 trend from persisted snapshots
+        // (weekly exospace:cohort-retention). Same graduation the TTFE
+        // metric got in Iteration 5: stdout-only → visible history.
+        $retentionMetrics = app(\App\Services\CohortRetentionMetricsService::class);
+        $retention = $retentionMetrics->matrix(8);
+        $retentionTrendW1 = $retentionMetrics->trend(1, 26);
+        $retentionTrendW2 = $retentionMetrics->trend(2, 26);
+
+        return view('super-admin.index', compact(
+            'users',
+            'stats',
+            'onboarding',
+            'onboardingDays',
+            'onboardingTrend',
+            'releaseAnnotations',
+            'retention',
+            'retentionTrendW1',
+            'retentionTrendW2',
+        ));
     }
 
     // ── Update plan ───────────────────────────────────────────────────────

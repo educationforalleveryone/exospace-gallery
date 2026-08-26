@@ -66,6 +66,22 @@ return [
         'info_webhook_url'      => env('OPERATIONAL_ALERT_INFO_WEBHOOK'),
     ],
 
+    // ── ITERATION 6: scheduled billing digest recipients ───────────────
+    // Comma-separated email addresses receiving the weekly billing export
+    // (exospace:send-billing-export, Mondays 07:00). Empty/absent → the
+    // command is a clean no-op (the feature is OFF — same convention as
+    // the 2CO reconcile job's unconfigured path).
+    //
+    // The digest contains customer billing PII in the CSV attachment —
+    // configuring this address IS the consent boundary. Every send is
+    // audit-logged as billing.exported (actor: system).
+    //
+    // Example .env:
+    //   BILLING_EXPORT_EMAIL=finance@example.com,cfo@example.com
+    'billing_export' => [
+        'email' => env('BILLING_EXPORT_EMAIL'),
+    ],
+
     // ── AUDIT-P0-1.3 FIX: Outbound webhooks (M-23) ───────────────────────
     // Centralized env reads so that `php artisan config:cache` is safe.
     // Previously OutboundWebhookService read env() directly in dispatch(),

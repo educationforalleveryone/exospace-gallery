@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AdminAuditLog;
 use App\Models\User;
+use App\Services\JobHeartbeatService;
 use App\Services\OperationalAlertService;
 use App\Services\PlanDowngradeService;
 use App\Services\TwoCheckoutApiClient;
@@ -64,6 +65,12 @@ class ReconcileSubscriptions extends Command
     {
         if (! TwoCheckoutApiClient::isConfigured()) {
             $this->info('2Checkout API not configured — nothing to reconcile (local/CI).');
+
+            // ITERATION 6: a completed no-op still proves the scheduler ran
+            // the job — stamp the heartbeat so the cadence monitor can tell
+            // "feature off" apart from "job silently dead".
+            app(JobHeartbeatService::class)->stamp('exospace:reconcile-subscriptions');
+
             return self::SUCCESS;
         }
 
@@ -82,6 +89,7 @@ class ReconcileSubscriptions extends Command
 
         if ($users->isEmpty()) {
             $this->info('No subscription-bearing paid users to reconcile.');
+            app(JobHeartbeatService::class)->stamp('exospace:reconcile-subscriptions');
             return self::SUCCESS;
         }
 
@@ -209,6 +217,11 @@ class ReconcileSubscriptions extends Command
             'checked' => $checked, 'downgraded' => $downgraded,
             'alerts' => $alerts, 'errors' => $errors, 'dry_run' => $dryRun,
         ]);
+
+        // ITERATION 6: successful completion (including runs that ended on
+        // the API-unreliable safety valve — those already paged) counts as
+        // "the job ran"; only a job that never finishes goes silent.
+        app(JobHeartbeatService::class)->stamp('exospace:reconcile-subscriptions');
 
         return self::SUCCESS;
     }

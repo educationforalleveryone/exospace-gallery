@@ -196,15 +196,85 @@
 
             {{-- ITERATION 5: TTFE trend — weekly snapshots persisted by
                  exospace:onboarding-analytics. One point per week per window;
-                 the chart appears from the second snapshot on. --}}
+                 the chart appears from the second snapshot on.
+                 ITERATION 6: release markers (dashed verticals + version
+                 labels) from ReleaseCalendar — the changelog's own release
+                 dates, so metric movement can be read against what shipped. --}}
             <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
                 <div class="flex items-center justify-between mb-2">
                     <div class="text-xs text-gray-500 uppercase tracking-wider">TTFE / TTFG trend — weekly snapshots ({{ $onboardingDays }}d window)</div>
-                    <div class="text-[10px] text-gray-600">{{ count($onboardingTrend) }} point{{ count($onboardingTrend) === 1 ? '' : 's' }} recorded</div>
+                    <div class="text-[10px] text-gray-600">{{ count($onboardingTrend) }} point{{ count($onboardingTrend) === 1 ? '' : 's' }} recorded{{ count($releaseAnnotations) > 0 ? ' · ' . count($releaseAnnotations) . ' release marker' . (count($releaseAnnotations) === 1 ? '' : 's') : '' }}</div>
                 </div>
                 @if(count($onboardingTrend) >= 2)
                     <div class="h-56"><canvas id="ttfe-trend-chart"></canvas></div>
-                    <div class="text-[10px] text-gray-600 mt-1">Average hours from signup to first gallery (TTFG) and first published exhibition (TTFE). Lower is better.</div>
+                    <div class="text-[10px] text-gray-600 mt-1">Average hours from signup to first gallery (TTFG) and first published exhibition (TTFE). Lower is better. Dashed lines mark releases (from the /changelog calendar).</div>
+                @else
+                    <div class="text-sm text-gray-500 py-6 text-center">
+                        Trend appears after the second weekly snapshot — the first is already recorded and will chart next Monday.
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        {{-- ITERATION 6: Cohort retention — was a weekly stdout-only report
+             (the same blindness TTFE had before Iteration 5). Live matrix from
+             CohortRetentionMetricsService (cached 30/60 min); truthful bounded
+             activity: a login (users.last_login_at) OR a gallery update in the
+             week. Trend from retention_snapshots persisted weekly. --}}
+        <div class="mb-8 bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">🔁 Weekly cohort retention</h3>
+                <div class="text-[10px] text-gray-600">active = login or gallery update in the week · * = week not closed yet</div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="text-gray-500">
+                            <th class="text-left py-1.5 pr-3 font-medium">Cohort</th>
+                            <th class="text-right py-1.5 px-2 font-medium">Size</th>
+                            @foreach(range(0, $retention['weeks'] - 1) as $w)
+                                <th class="text-right py-1.5 px-2 font-medium">W{{ $w }}</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($retention['cohorts'] as $cohort)
+                            <tr class="border-t border-gray-800/60">
+                                <td class="py-1.5 pr-3 text-gray-300 whitespace-nowrap">{{ $cohort['label'] }}</td>
+                                <td class="py-1.5 px-2 text-right text-gray-400">{{ number_format($cohort['size']) }}</td>
+                                @foreach($cohort['cells'] as $cell)
+                                    @php
+                                        // Heat shading: deeper emerald = better retention; partial
+                                        // (not-yet-closed) weeks render dimmed with an asterisk so a
+                                        // still-running week can never read as a final rate.
+                                        $pct = (float) $cell['pct'];
+                                        $shade = $pct >= 40 ? 'bg-emerald-900/60 text-emerald-200'
+                                                  : ($pct >= 20 ? 'bg-emerald-900/30 text-emerald-300'
+                                                  : ($pct >= 10 ? 'bg-amber-900/30 text-amber-300' : 'text-gray-600'));
+                                        if (! $cell['complete']) { $shade .= ' opacity-50'; }
+                                    @endphp
+                                    <td class="py-1.5 px-2 text-right rounded {{ $shade }} {{ $cell['complete'] ? '' : 'italic' }}">
+                                        {{ $cohort['size'] > 0 ? $pct . '%' : '–' }}{{ $cell['complete'] ? '' : '*' }}
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- W1/W2 retention trend — weekly snapshots persisted by
+                 exospace:cohort-retention. One point per capture: the retention
+                 of the most recent cohort whose week had closed by then. --}}
+            <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="text-xs text-gray-500 uppercase tracking-wider">Week-1 / Week-2 retention trend — weekly snapshots</div>
+                    <div class="text-[10px] text-gray-600">{{ count($retentionTrendW1) }} point{{ count($retentionTrendW1) === 1 ? '' : 's' }} recorded</div>
+                </div>
+                @if(count($retentionTrendW1) >= 2)
+                    <div class="h-56"><canvas id="retention-trend-chart"></canvas></div>
+                    <div class="text-[10px] text-gray-600 mt-1">% of each cohort active (login or gallery update) in their 1st / 2nd week after registration. Higher is better.</div>
                 @else
                     <div class="text-sm text-gray-500 py-6 text-center">
                         Trend appears after the second weekly snapshot — the first is already recorded and will chart next Monday.
@@ -633,13 +703,32 @@
     // (admin-vendor.js) — under Turbo Drive it can still be evaluating when
     // this classic script runs, so poll for window.Chart instead of assuming
     // it (same waitForChartThenInit pattern as the gallery analytics page).
+    //
+    // ITERATION 6: release annotations — a tiny inline plugin (the Chart.js
+    // annotation package is NOT in the admin-vendor bundle) draws a dashed
+    // vertical + version label at the first capture at/after each release
+    // date. Same release list /changelog renders (ReleaseCalendar service).
     (function () {
         var canvas = document.getElementById('ttfe-trend-chart');
         if (!canvas) return; // fewer than 2 snapshots — placeholder shown
 
         var labels = @json(collect($onboardingTrend)->pluck('captured_at'));
+        var captureDates = @json(collect($onboardingTrend)->pluck('captured_on'));
         var ttfe = @json(collect($onboardingTrend)->pluck('ttfe_avg'));
         var ttfg = @json(collect($onboardingTrend)->pluck('ttfg_avg'));
+        var releases = @json($releaseAnnotations);
+
+        // Map each release to a chart index: the first capture point at or
+        // after the release date (a release between two Mondays annotates
+        // the first Monday that could reflect it).
+        var releaseMarks = [];
+        releases.forEach(function (release) {
+            var idx = captureDates.findIndex(function (d) { return d >= release.date; });
+            if (idx === -1) idx = captureDates.length - 1;
+            if (releaseMarks.every(function (m) { return m.index !== idx; })) {
+                releaseMarks.push({ index: idx, label: release.version });
+            }
+        });
 
         function waitForChart(attemptsLeft) {
             if (window.Chart) { initTrendChart(); return; }
@@ -649,6 +738,39 @@
             }
             setTimeout(function () { waitForChart(attemptsLeft - 1); }, 100);
         }
+
+        // Inline plugin: dashed vertical + rotated label at the top of the
+        // chart area. Pure Chart.js plugin API — no annotation package.
+        var releaseAnnotationPlugin = {
+            id: 'releaseAnnotations',
+            afterDatasetsDraw: function (chart) {
+                var ctx = chart.ctx;
+                var chartArea = chart.chartArea;
+                var xAxis = chart.scales.x;
+
+                releaseMarks.forEach(function (mark, i) {
+                    var x = xAxis.getPixelForValue(mark.index);
+                    if (x < chartArea.left || x > chartArea.right) return;
+
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(244,114,182,0.55)'; // rose-400, visible against both datasets
+                    ctx.setLineDash([4, 4]);
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, chartArea.top);
+                    ctx.lineTo(x, chartArea.bottom);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    ctx.fillStyle = 'rgba(244,114,182,0.9)';
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = 'left';
+                    // Stack labels when multiple releases land near each other.
+                    ctx.fillText(mark.label, x + 3, chartArea.top + 6 + (i % 3) * 12);
+                    ctx.restore();
+                });
+            }
+        };
 
         function initTrendChart() {
             new Chart(canvas.getContext('2d'), {
@@ -695,6 +817,80 @@
                             grid: { color: 'rgba(255,255,255,0.05)' },
                             ticks: { color: '#6b7280', font: { size: 10 } },
                             title: { display: true, text: 'hours', color: '#6b7280', font: { size: 10 } }
+                        }
+                    }
+                },
+                plugins: releaseMarks.length > 0 ? [releaseAnnotationPlugin] : []
+            });
+        }
+
+        waitForChart(30);
+    })();
+
+    // ITERATION 6: W1/W2 retention trend chart — same waitForChart pattern.
+    (function () {
+        var canvas = document.getElementById('retention-trend-chart');
+        if (!canvas) return; // fewer than 2 snapshots — placeholder shown
+
+        var labels = @json(collect($retentionTrendW1)->pluck('captured_at'));
+        var w1 = @json(collect($retentionTrendW1)->pluck('retained_pct'));
+        var w2 = @json(collect($retentionTrendW2)->pluck('retained_pct'));
+
+        function waitForChart(attemptsLeft) {
+            if (window.Chart) { initRetentionChart(); return; }
+            if (attemptsLeft <= 0) {
+                console.error('Chart.js failed to load (admin-vendor.js) — retention trend not rendered.');
+                return;
+            }
+            setTimeout(function () { waitForChart(attemptsLeft - 1); }, 100);
+        }
+
+        function initRetentionChart() {
+            new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Week-1 retention (%)',
+                            data: w1,
+                            borderColor: '#f472b6',
+                            backgroundColor: 'rgba(244,114,182,0.08)',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#f472b6',
+                            tension: 0.3,
+                            spanGaps: true,
+                            fill: true,
+                        },
+                        {
+                            label: 'Week-2 retention (%)',
+                            data: w2,
+                            borderColor: '#a78bfa',
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            pointBackgroundColor: '#a78bfa',
+                            tension: 0.3,
+                            spanGaps: true,
+                            fill: false,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#9ca3af', font: { size: 11 } } } },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#6b7280', font: { size: 10 }, maxTicksLimit: 10 }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#6b7280', font: { size: 10 }, callback: function (v) { return v + '%'; } },
+                            title: { display: true, text: '% of cohort active', color: '#6b7280', font: { size: 10 } }
                         }
                     }
                 }

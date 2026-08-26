@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Log;
  *   - Sentry error spikes (detected externally)
  *   - Coolify API unreachable
  *   - Failed / stuck 2Checkout webhooks piling up (ITERATION 5)
+ *   - A scheduled job missing its cadence while the scheduler is alive
+ *     (ITERATION 6 — per-job heartbeats)
  *
  * Alerts are sent via the configured webhook URL (Slack, PagerDuty, Discord).
  * The webhook URL is configured via the OPERATIONAL_ALERT_WEBHOOK env var.
@@ -244,6 +246,78 @@ class OperationalAlertService
         $this->checkQueueWorkerHealth();
         $this->checkBackupHealth();
         $this->checkWebhookLedger();
+        $this->checkJobHeartbeats();
+    }
+
+    /**
+     * ITERATION 6 — per-job heartbeat alerting.
+     *
+     * checkSchedulerHealth() catches a dead scheduler LOOP (scheduler.log
+     * mtime). It cannot see a single job silently stopping while the
+     * scheduler is healthy: a schedule entry lost in a deploy, a crash
+     * before the job's own alerting runs, a stuck onOneServer mutex, or a
+     * job never registered on a new environment. The 2Checkout reconcile
+     * job is the sharpest case — it is the safety net for missed billing
+     * webhooks; if IT stops, money drift accumulates behind a green
+     * dashboard.
+     *
+     * Semantics (see JobHeartbeatService):
+     *   - 'stale'  → the job ran before but not within its max age → alert.
+     *   - 'missing'→ never stamped. Fresh installs must not page on day
+     *                one, so the FIRST observation only records an ack;
+     *                the alert fires once the ack has aged past max age
+     *                ("expectation window demonstrably elapsed").
+     *
+     * Deliberately NOT surfaced on /health: a stale weekly analytics job
+     * is a monitoring problem, not a reason to 503 the product out of an
+     * uptime monitor (the Iteration-5 decision — Slack is the paging
+     * channel for job cadence).
+     */
+    public function checkJobHeartbeats(): void
+    {
+        $heartbeats = app(JobHeartbeatService::class);
+
+        foreach (JobHeartbeatService::MONITORED_JOBS as $job => $maxAgeHours) {
+            $status = $heartbeats->status($job);
+
+            if ($status === 'fresh') {
+                continue;
+            }
+
+            if ($status === 'stale') {
+                $last = $heartbeats->lastRunAt($job);
+                $ageHours = $last !== null ? round($last->diffInHours(now()), 1) : 'unknown';
+
+                $this->alert(
+                    'Scheduled job missed its cadence',
+                    "{$job} last completed {$ageHours}h ago (expected at least every {$maxAgeHours}h). "
+                    . 'The scheduler itself may be healthy — check this job\'s schedule entry, container logs '
+                    . 'and whether an exception is thrown before it can report. '
+                    . ($job === 'exospace:reconcile-subscriptions'
+                        ? 'This job is the safety net for missed 2Checkout webhooks — billing drift accumulates while it is down.'
+                        : ''),
+                    'critical',
+                    "job_heartbeat_stale:{$job}"
+                );
+                continue;
+            }
+
+            // 'missing' — grace period via first-observation ack.
+            $heartbeats->ackMissing($job);
+            $since = $heartbeats->firstObservedMissingAt($job);
+
+            if ($since !== null && $since->addHours($maxAgeHours)->isPast()) {
+                $this->alert(
+                    'Scheduled job has never completed',
+                    "{$job} has recorded no successful run since monitoring began "
+                    . round($since->diffInHours(now()), 1) . "h ago (expected at least every {$maxAgeHours}h). "
+                    . 'Verify the schedule entry exists in routes/console.php and check the container '
+                    . 'logs for a start-time crash.',
+                    'warning',
+                    "job_heartbeat_missing:{$job}"
+                );
+            }
+        }
     }
 
     /**

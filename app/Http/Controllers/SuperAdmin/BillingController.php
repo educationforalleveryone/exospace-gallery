@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminAuditLog;
 use App\Models\ProcessedWebhook;
 use App\Models\Transaction;
+use App\Services\BillingExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -33,6 +34,17 @@ use Illuminate\Support\Facades\DB;
  */
 class BillingController extends Controller
 {
+    /**
+     * ITERATION 6: the export column sets / row mappers moved into
+     * BillingExportService so the weekly scheduled digest command
+     * produces byte-identical CSVs from the same code path. The page +
+     * streamed export behavior is unchanged.
+     */
+    private function exportService(): BillingExportService
+    {
+        return app(BillingExportService::class);
+    }
+
     /**
      * Money-event statuses surfaced by default. 'completed' is excluded
      * from the default view (it's every purchase ever) but reachable via
@@ -119,57 +131,23 @@ class BillingController extends Controller
         $webhookStatus = $request->query('webhook_status');
 
         if ($type === 'webhooks') {
-            $query = ProcessedWebhook::query()
-                ->when(
-                    $webhookStatus === 'failed',
-                    fn ($q) => $q->where('status', 'failed'),
-                )
-                ->when($since, fn ($q) => $q->where('updated_at', '>=', $since))
-                ->orderByDesc('id');
+            $query = $this->exportService()->webhooksQuery(
+                $webhookStatus === 'failed' ? 'failed' : null,
+                $since,
+            );
 
-            $headers = ['ID', 'Message ID', 'Message Type', 'Invoice ID', 'Status',
-                        'Replay Count', 'Last Replayed At', 'Processed At', 'Updated At', 'Payload Stored'];
-
-            $row = fn (ProcessedWebhook $w) => [
-                $w->id,
-                $w->message_id,
-                $w->message_type,
-                $w->invoice_id,
-                $w->status,
-                (int) ($w->replay_count ?? 0),
-                $w->last_replayed_at?->format('Y-m-d H:i:s'),
-                $w->processed_at?->format('Y-m-d H:i:s'),
-                $w->updated_at?->format('Y-m-d H:i:s'),
-                $w->payload ? 'yes' : 'no',
-            ];
+            $columns = $this->exportService()->webhooksColumns();
+            $headers = $columns['headers'];
+            $row = $columns['row'];
         } else {
-            $query = Transaction::query()
-                ->when(
-                    in_array($status, [...self::MONEY_STATUSES, 'completed', 'manual'], true),
-                    fn ($q) => $q->where('status', $status),
-                    fn ($q) => $q->whereIn('status', self::MONEY_STATUSES),
-                )
-                ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
-                ->orderByDesc('created_at');
+            $query = $this->exportService()->transactionsQuery(
+                in_array($status, [...self::MONEY_STATUSES, 'completed', 'manual'], true) ? $status : null,
+                $since,
+            );
 
-            $headers = ['ID', 'Date', 'Status', 'Plan', 'Amount', 'Currency',
-                        'Invoice ID', 'Sale ID', 'User ID', 'User Email',
-                        'Customer Name', 'Customer Email'];
-
-            $row = fn (Transaction $t) => [
-                $t->id,
-                $t->created_at?->format('Y-m-d H:i:s'),
-                $t->status,
-                $t->plan,
-                $t->amount,
-                $t->currency,
-                $t->invoice_id,
-                $t->sale_id,
-                $t->user_id,
-                $t->user?->email,
-                $t->customer_name,
-                $t->customer_email,
-            ];
+            $columns = $this->exportService()->transactionsColumns();
+            $headers = $columns['headers'];
+            $row = $columns['row'];
         }
 
         $count = (clone $query)->count();

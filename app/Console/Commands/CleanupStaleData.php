@@ -21,13 +21,15 @@ use Illuminate\Support\Facades\Log;
  *   decision history WITHOUT raw PII beyond that horizon.)
  * - onboarding_snapshots older than 2 years → deleted (hygiene, not a
  *   legal bound — aggregate data, no PII; keeps the trend table honest)
+ * - retention_snapshots older than 2 years → deleted (ITERATION 6, same
+ *   hygiene convention — the chart never reads beyond 26 points)
  *
  * Scheduled daily at 4am via routes/console.php.
  */
 class CleanupStaleData extends Command
 {
     protected $signature = 'exospace:cleanup-stale';
-    protected $description = 'Clean up expired pending upgrades, team invitations, stale webhook ledger rows, and aged onboarding snapshots.';
+    protected $description = 'Clean up expired pending upgrades, team invitations, stale webhook ledger rows, and aged analytics snapshots.';
 
     public function handle(): int
     {
@@ -35,8 +37,14 @@ class CleanupStaleData extends Command
         $this->cleanupTeamInvitations();
         $this->cleanupWebhookLedger();
         $this->cleanupOnboardingSnapshots();
+        $this->cleanupRetentionSnapshots();
 
         $this->info('Stale data cleanup complete.');
+
+        // ITERATION 6: cadence proof for the per-job heartbeat monitor —
+        // retention-bound cleanup silently stopping is a compliance risk.
+        app(\App\Services\JobHeartbeatService::class)->stamp('exospace:cleanup-stale');
+
         return self::SUCCESS;
     }
 
@@ -122,6 +130,31 @@ class CleanupStaleData extends Command
             Log::info('CleanupStaleData: pruned aged onboarding snapshots', ['count' => $deleted]);
         } else {
             $this->info('No aged onboarding snapshots.');
+        }
+    }
+
+    /**
+     * ITERATION 6: prune retention snapshots after 2 years. Table-guarded
+     * for rolling deploys (same convention as the other prunes). Hygiene,
+     * not a retention obligation — the rows are aggregates (cohort sizes
+     * and percentages, no PII); the trend chart reads at most 26 points.
+     */
+    private function cleanupRetentionSnapshots(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('retention_snapshots')) {
+            $this->info('Retention snapshots: table absent (pre-Iteration-6 schema) — nothing to prune.');
+            return;
+        }
+
+        $deleted = \Illuminate\Support\Facades\DB::table('retention_snapshots')
+            ->where('captured_at', '<', now()->subYears(2))
+            ->delete();
+
+        if ($deleted > 0) {
+            $this->info("Pruned {$deleted} retention snapshots older than 2 years.");
+            Log::info('CleanupStaleData: pruned aged retention snapshots', ['count' => $deleted]);
+        } else {
+            $this->info('No aged retention snapshots.');
         }
     }
 }

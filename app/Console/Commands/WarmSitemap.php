@@ -46,8 +46,15 @@ class WarmSitemap extends Command
         $group = $this->option('group');
         $maxPages = max(1, (int) $this->option('max-pages'));
 
-        if ($group !== null && $group !== '' && ! in_array($group, ['static', 'galleries', 'artists', 'artworks', 'content'], true)) {
-            $this->error("Unknown group '{$group}'. Valid: static, galleries, artists, artworks, content.");
+        // ITERATION-6 FIX (Iteration-5 regression): the events group was
+        // added to SitemapController::GROUPS but not to this allowlist —
+        // `sitemap:warm --group=events` failed with "Unknown group" and
+        // the daily 04:15 run only warmed it via the default all-groups
+        // path. Single source of truth now.
+        $validGroups = ['static', 'galleries', 'artists', 'artworks', 'events', 'content'];
+
+        if ($group !== null && $group !== '' && ! in_array($group, $validGroups, true)) {
+            $this->error("Unknown group '{$group}'. Valid: " . implode(', ', $validGroups) . '.');
             return self::FAILURE;
         }
 
@@ -63,6 +70,11 @@ class WarmSitemap extends Command
         if ($stats['capped']) {
             $this->warn("  Page cap ({$maxPages}) reached for at least one group — deeper pages stay lazy-warmed.");
         }
+
+        // ITERATION 6: cadence proof for the per-job heartbeat monitor —
+        // crawler-facing warmth going silently stale is exactly the kind
+        // of drift the heartbeat exists to catch.
+        app(\App\Services\JobHeartbeatService::class)->stamp('sitemap:warm');
 
         return self::SUCCESS;
     }
