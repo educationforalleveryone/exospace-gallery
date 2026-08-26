@@ -41,6 +41,9 @@
                     <a href="{{ route('super.billing.index') }}" class="px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg transition text-sm">
                         🧾 Billing Review
                     </a>
+                    <a href="{{ route('super.webhooks.index') }}" class="px-4 py-2 bg-cyan-800 hover:bg-cyan-700 rounded-lg transition text-sm">
+                        📡 Outbound Webhooks
+                    </a>
                     <a href="{{ route('super.feedback.index') }}" class="px-4 py-2 bg-teal-800 hover:bg-teal-700 rounded-lg transition text-sm">
                         💬 Feedback
                     </a>

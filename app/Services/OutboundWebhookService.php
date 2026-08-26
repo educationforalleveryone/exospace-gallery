@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\WebhookSubscription;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * M-23: Outbound webhook service.
@@ -65,6 +67,32 @@ use Illuminate\Support\Facades\Log;
  * `php artisan config:cache` (env() returns null outside config files when
  * the config is cached). Now reads from config('services.outbound_webhook.*')
  * — see config/services.php for the centralized env reads.
+ *
+ * ITERATION 10 — per-event DB-backed subscriptions.
+ *
+ * dispatch() now fans out per-event: every active
+ * `webhook_subscriptions` row matching the event type gets its own
+ * signed POST (with per-subscription secret OR global fallback OR
+ * unsigned). The env-var OUTBOUND_WEBHOOK_URL is treated as a
+ * "default" subscription that's always-on — so a brand-new
+ * subscriber for ONE event doesn't accidentally bypass the existing
+ * env subscriber for the OTHER events. Precedence:
+ *   - 0 DB rows for an event  → only env (if configured)
+ *   - ≥1 DB rows for an event → each row + env (if configured)
+ *   - neither configured       → silent-skip
+ *
+ * Backward-compat: an install that has never created any
+ * webhook_subscriptions rows behaves EXACTLY like pre-Iter-10
+ * (single env URL, single POST per dispatch). So this code is
+ * safe to deploy BEFORE any subscriptions are created.
+ *
+ * dispatchAsync() does NOT fan out — high-volume product events
+ * keep the single-URL contract; the queued job class is one job
+ * per URL and the fan-out path would multiply jobs unboundedly
+ * for an unconfigured event. If per-event async fan-out is ever
+ * needed (a security team subscribes to gallery.published), the
+ * contract should be one queued job per (event, url) tuple —
+ * deferred until that case actually exists.
  */
 class OutboundWebhookService
 {
@@ -80,20 +108,85 @@ class OutboundWebhookService
     /**
      * Dispatch a webhook event synchronously.
      *
+     * ITERATION 10 — fan out per-event to every active
+     * webhook_subscriptions row matching the event type. The env-var
+     * OUTBOUND_WEBHOOK_URL is treated as an always-on default
+     * subscription (so a brand-new subscriber for ONE event doesn't
+     * bypass an existing env-var subscriber for the OTHER events).
+     *
+     * Per-subscription secrets override the global
+     * OUTBOUND_WEBHOOK_SECRET. If neither is set, the POST is
+     * dispatched unsigned (no X-Exospace-Signature header).
+     *
      * @param  string $eventType  The event name (e.g. 'gallery.published')
      * @param  array  $payload    The event data
-     * @param  string|null $url    Override URL (uses config default if null)
+     * @param  string|null $url    Override URL (uses config default if null —
+     *                              preserved for direct callers like the
+     *                              Iter-9 async test path that doesn't go
+     *                              through the subscription fan-out)
      */
     public static function dispatch(string $eventType, array $payload, ?string $url = null): void
     {
-        // AUDIT-P0-1.3 FIX: Read from config (config:cache-safe) instead of env().
-        $url = $url ?? config('services.outbound_webhook.url');
-        $secret = config('services.outbound_webhook.secret');
-
-        if (! $url) {
-            return; // No webhook URL configured — silently skip
+        // Direct override URL — bypass the subscription fan-out entirely.
+        // Preserved for callers/tests that want a one-shot dispatch to a
+        // specific endpoint (not the documented product path).
+        if ($url !== null) {
+            static::dispatchSingle($eventType, $payload, $url);
+            return;
         }
 
+        // AUDIT-P0-1.3 FIX: Read from config (config:cache-safe).
+        $envUrl = config('services.outbound_webhook.url');
+        $globalSecret = config('services.outbound_webhook.secret');
+
+        // Gather the subscription set for this event. Schema::hasTable
+        // guard so a fresh install with the migration not yet run (or
+        // a test database that didn't run this migration) silently
+        // falls back to env-only — same shape as pre-Iter-10.
+        $subscriptions = Schema::hasTable('webhook_subscriptions')
+            ? WebhookSubscription::forEvent($eventType)
+            : collect();
+
+        // No DB subscriptions AND no env URL configured — silent-skip
+        // (preserves the Iter-9 contract: a fresh install with no
+        // subscriber configured is a no-op, never an error).
+        if ($subscriptions->isEmpty() && ! $envUrl) {
+            return;
+        }
+
+        // The env URL is always-on — dispatched FIRST so the audit-row
+        // precedence rule (audit-then-stream) still holds for the env
+        // subscriber's primary path even if a DB subscription's POST
+        // hangs the actor's request. Order doesn't actually matter for
+        // sync dispatch (every POST happens inside this call) but the
+        // convention is preserved.
+        if ($envUrl) {
+            static::dispatchSingle($eventType, $payload, $envUrl, $globalSecret);
+        }
+
+        // Fan out to every active DB subscription for this event.
+        foreach ($subscriptions as $sub) {
+            // Per-subscription secret overrides the global secret. If
+            // both are null, the POST is unsigned (the receiver can
+            // still see X-Exospace-Event; no X-Exospace-Signature).
+            $secret = $sub->secret !== null && $sub->secret !== ''
+                ? $sub->secret
+                : $globalSecret;
+
+            static::dispatchSingle($eventType, $payload, $sub->target_url, $secret);
+        }
+    }
+
+    /**
+     * ITERATION 10 — internal: dispatch to ONE URL with the same
+     * retry + signature contract as pre-Iter-10 dispatch(). Extracted
+     * so the fan-out path can call it per-subscription without
+     * duplicating the body+signature+retry loop. Public visibility
+     * on the constants already exposes the retry contract — this
+     * method is the actual retry loop.
+     */
+    private static function dispatchSingle(string $eventType, array $payload, string $url, ?string $secret = null): void
+    {
         $body = json_encode([
             'event'     => $eventType,
             'payload'   => $payload,

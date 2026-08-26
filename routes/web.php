@@ -455,6 +455,22 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
           ->name('billing.recipients.destroy')
           ->middleware('throttle:30,1'); // ITERATION 8: throttle (audit-fix E-1)
 
+    // ── Outbound webhook subscriptions (ITERATION 10) ───────────────────
+    // DB-backed per-event subscription management. Same trust bar as
+    // billing recipient management: super-admin + MFA + audit-logged +
+    // throttle 30,1. No password.confirm — the add/toggle/remove
+    // actions are reversible (re-adding a removed subscription is one
+    // click; pausing without deleting preserves the config).
+    Route::get   ('webhooks',                           [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'index'])->name('webhooks.index');
+    Route::post  ('webhooks',                           [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'store'])->name('webhooks.store')
+          ->middleware('throttle:30,1');
+    Route::patch ('webhooks/{subscription}/toggle',    [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'toggle'])->name('webhooks.toggle')
+          ->whereNumber('subscription')
+          ->middleware('throttle:30,1');
+    Route::delete('webhooks/{subscription}',            [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'destroy'])->name('webhooks.destroy')
+          ->whereNumber('subscription')
+          ->middleware('throttle:30,1');
+
     // M-13: Admin impersonation — start (requires super-admin + password.confirm + feature flag)
     Route::post('/users/{user}/impersonate',           [SystemController::class, 'impersonate'])->name('impersonate')
           ->middleware('password.confirm', 'feature_flag:admin_impersonation');
