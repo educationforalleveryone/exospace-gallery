@@ -6,6 +6,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>🎯 Master Control - ExoSpace</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- ITERATION 5: Chart.js for the TTFE trend (same admin-vendor bundle
+         the gallery analytics page uses; window.Chart global). --}}
+    @vite(['resources/js/admin-vendor.js'])
 </head>
 <body class="bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white min-h-screen">
 
@@ -189,6 +192,24 @@
                         <div class="text-sm text-gray-500">No galleries created in this window yet.</div>
                     @endif
                 </div>
+            </div>
+
+            {{-- ITERATION 5: TTFE trend — weekly snapshots persisted by
+                 exospace:onboarding-analytics. One point per week per window;
+                 the chart appears from the second snapshot on. --}}
+            <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="text-xs text-gray-500 uppercase tracking-wider">TTFE / TTFG trend — weekly snapshots ({{ $onboardingDays }}d window)</div>
+                    <div class="text-[10px] text-gray-600">{{ count($onboardingTrend) }} point{{ count($onboardingTrend) === 1 ? '' : 's' }} recorded</div>
+                </div>
+                @if(count($onboardingTrend) >= 2)
+                    <div class="h-56"><canvas id="ttfe-trend-chart"></canvas></div>
+                    <div class="text-[10px] text-gray-600 mt-1">Average hours from signup to first gallery (TTFG) and first published exhibition (TTFE). Lower is better.</div>
+                @else
+                    <div class="text-sm text-gray-500 py-6 text-center">
+                        Trend appears after the second weekly snapshot — the first is already recorded and will chart next Monday.
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -606,6 +627,83 @@
             </form>
         </div>
     </div>
+
+    <script nonce="@nonce">
+    // ITERATION 5: TTFE trend chart. Chart.js loads as a Vite module
+    // (admin-vendor.js) — under Turbo Drive it can still be evaluating when
+    // this classic script runs, so poll for window.Chart instead of assuming
+    // it (same waitForChartThenInit pattern as the gallery analytics page).
+    (function () {
+        var canvas = document.getElementById('ttfe-trend-chart');
+        if (!canvas) return; // fewer than 2 snapshots — placeholder shown
+
+        var labels = @json(collect($onboardingTrend)->pluck('captured_at'));
+        var ttfe = @json(collect($onboardingTrend)->pluck('ttfe_avg'));
+        var ttfg = @json(collect($onboardingTrend)->pluck('ttfg_avg'));
+
+        function waitForChart(attemptsLeft) {
+            if (window.Chart) { initTrendChart(); return; }
+            if (attemptsLeft <= 0) {
+                console.error('Chart.js failed to load (admin-vendor.js) — TTFE trend not rendered.');
+                return;
+            }
+            setTimeout(function () { waitForChart(attemptsLeft - 1); }, 100);
+        }
+
+        function initTrendChart() {
+            new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'TTFE avg (hours)',
+                            data: ttfe,
+                            borderColor: '#34d399',
+                            backgroundColor: 'rgba(52,211,153,0.08)',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#34d399',
+                            tension: 0.3,
+                            spanGaps: true,
+                            fill: true,
+                        },
+                        {
+                            label: 'TTFG avg (hours)',
+                            data: ttfg,
+                            borderColor: '#60a5fa',
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            pointBackgroundColor: '#60a5fa',
+                            tension: 0.3,
+                            spanGaps: true,
+                            fill: false,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#9ca3af', font: { size: 11 } } } },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#6b7280', font: { size: 10 }, maxTicksLimit: 10 }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#6b7280', font: { size: 10 } },
+                            title: { display: true, text: 'hours', color: '#6b7280', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        waitForChart(30);
+    })();
+    </script>
 
     <script nonce="@nonce">
     // (Task H32) Modal openers for type-to-confirm destructive actions

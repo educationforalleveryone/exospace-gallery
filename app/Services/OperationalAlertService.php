@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
  *   - Disk usage exceeding threshold
  *   - Sentry error spikes (detected externally)
  *   - Coolify API unreachable
+ *   - Failed / stuck 2Checkout webhooks piling up (ITERATION 5)
  *
  * Alerts are sent via the configured webhook URL (Slack, PagerDuty, Discord).
  * The webhook URL is configured via the OPERATIONAL_ALERT_WEBHOOK env var.
@@ -242,6 +243,87 @@ class OperationalAlertService
         $this->checkSchedulerHealth();
         $this->checkQueueWorkerHealth();
         $this->checkBackupHealth();
+        $this->checkWebhookLedger();
+    }
+
+    /**
+     * ITERATION 5: failed-webhook pile-up alerting.
+     *
+     * The gap: a failed processed_webhooks row — a billing event 2Checkout
+     * sent us and we could not apply (refund, renewal, chargeback) — was
+     * only ever a Log::error line plus a passive tile on the Billing
+     * Review page. Webhook processing is synchronous HTTP, so failures
+     * never reach failed_jobs; nothing paged anyone. A payment provider
+     * hiccup could silently strand money events until a human happened to
+     * open Billing Review or the daily reconcile flagged downstream drift.
+     *
+     * Thresholds (deliberately lower than failed_jobs' 10/50 — webhooks
+     * are money, and one is already worth a look):
+     *   - failed > 20  → critical (money pipeline materially broken)
+     *   - failed > 5   → warning
+     *   - 'processing' rows stuck > 30 min → warning (crash mid-handler
+     *     without finalize; 2CO retries re-claim at 10 min, so a 30-min
+     *     pile means systematic breakage, e.g. replay also crashing)
+     *   - stuck > 2 h  → critical
+     *
+     * Alert copy points at Billing Review, where replay is one click.
+     * Table-guarded for rolling deploys (pre-Iteration-4 schema).
+     */
+    public function checkWebhookLedger(): void
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('processed_webhooks')) {
+                return; // pre-Iteration-4 schema — nothing to inspect
+            }
+
+            $failed = \Illuminate\Support\Facades\DB::table('processed_webhooks')
+                ->where('status', 'failed')
+                ->count();
+
+            if ($failed > 20) {
+                $this->alert(
+                    'Failed webhooks piling up',
+                    "{$failed} webhook(s) in the ledger are marked failed — billing events (refunds, renewals, chargebacks) are not being applied. Review and replay them at Master Control → Billing Review. (threshold: 20)",
+                    'critical',
+                    'webhook_ledger_failed_critical'
+                );
+            } elseif ($failed > 5) {
+                $this->alert(
+                    'Failed webhooks accumulating',
+                    "{$failed} webhook(s) marked failed in the ledger. Check Master Control → Billing Review for replay. (threshold: 5)",
+                    'warning',
+                    'webhook_ledger_failed_warning'
+                );
+            }
+
+            // Stuck 'processing' rows: ingress claimed them but no finalize
+            // ever ran. updated_at is maintained on every ledger write, so
+            // age = now - updated_at.
+            $stuck = \Illuminate\Support\Facades\DB::table('processed_webhooks')
+                ->where('status', 'processing')
+                ->where('updated_at', '<', now()->subMinutes(30))
+                ->count();
+
+            if ($stuck > 0) {
+                // Critical when any row has been stuck for 2+ hours, or the
+                // 30-minute pile is large (>20) — either way this is not a
+                // transient crash but a systematic breakage.
+                $stuckTwoHours = \Illuminate\Support\Facades\DB::table('processed_webhooks')
+                    ->where('status', 'processing')
+                    ->where('updated_at', '<', now()->subHours(2))
+                    ->count();
+                $isCritical = $stuckTwoHours > 0 || $stuck > 20;
+
+                $this->alert(
+                    $isCritical ? 'Webhooks stuck in processing' : 'Webhook processing may be stalled',
+                    "{$stuck} webhook row(s) have sat in 'processing' for over 30 minutes — a handler likely crashed before finalize. 2Checkout retries can re-claim these, but a pile this old means something is systematically broken. Check the logs and Master Control → Billing Review.",
+                    $isCritical ? 'critical' : 'warning',
+                    $isCritical ? 'webhook_ledger_stuck_critical' : 'webhook_ledger_stuck_warning'
+                );
+            }
+        } catch (\Throwable $e) {
+            // DB error / table absent — skip. /health covers DB-level outages.
+        }
     }
 
     private function checkFailedJobs(): void

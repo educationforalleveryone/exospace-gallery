@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Clean up stale data: expired pending upgrades, expired team invitations,
- * and stale webhook ledger rows. (Task H61; webhook retention added in
- * ITERATION 4.)
+ * stale webhook ledger rows, and aged onboarding snapshots. (Task H61;
+ * webhook retention added in ITERATION 4; snapshot hygiene in ITERATION 5.)
  *
  * - Pending upgrades older than 7 days (token expired) → marked 'expired'
  * - Team invitations past their expires_at → deleted
@@ -19,19 +19,22 @@ use Illuminate\Support\Facades\Log;
  *   billing review page's replay tooling. 90 days covers the 2Checkout
  *   dispute/refund window; the admin_audit_logs trail retains the
  *   decision history WITHOUT raw PII beyond that horizon.)
+ * - onboarding_snapshots older than 2 years → deleted (hygiene, not a
+ *   legal bound — aggregate data, no PII; keeps the trend table honest)
  *
  * Scheduled daily at 4am via routes/console.php.
  */
 class CleanupStaleData extends Command
 {
     protected $signature = 'exospace:cleanup-stale';
-    protected $description = 'Clean up expired pending upgrades, team invitations, and stale webhook ledger rows.';
+    protected $description = 'Clean up expired pending upgrades, team invitations, stale webhook ledger rows, and aged onboarding snapshots.';
 
     public function handle(): int
     {
         $this->cleanupPendingUpgrades();
         $this->cleanupTeamInvitations();
         $this->cleanupWebhookLedger();
+        $this->cleanupOnboardingSnapshots();
 
         $this->info('Stale data cleanup complete.');
         return self::SUCCESS;
@@ -93,6 +96,32 @@ class CleanupStaleData extends Command
             Log::info('CleanupStaleData: pruned stale webhook ledger rows', ['count' => $deleted]);
         } else {
             $this->info('No stale webhook ledger rows.');
+        }
+    }
+
+    /**
+     * ITERATION 5: prune onboarding snapshots after 2 years. Table-guarded
+     * for rolling deploys (same convention as the webhook prune). This is
+     * hygiene, not a retention obligation — the rows are aggregates (no
+     * PII) — but a trend chart never reads beyond 26 points, and keeping
+     * years of stale windows honest is cheaper than keeping them forever.
+     */
+    private function cleanupOnboardingSnapshots(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('onboarding_snapshots')) {
+            $this->info('Onboarding snapshots: table absent (pre-Iteration-5 schema) — nothing to prune.');
+            return;
+        }
+
+        $deleted = \Illuminate\Support\Facades\DB::table('onboarding_snapshots')
+            ->where('captured_at', '<', now()->subYears(2))
+            ->delete();
+
+        if ($deleted > 0) {
+            $this->info("Pruned {$deleted} onboarding snapshots older than 2 years.");
+            Log::info('CleanupStaleData: pruned aged onboarding snapshots', ['count' => $deleted]);
+        } else {
+            $this->info('No aged onboarding snapshots.');
         }
     }
 }

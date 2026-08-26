@@ -40,13 +40,20 @@
     {{-- ── Money events (transactions) ─────────────────────────────────── --}}
     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 class="text-lg font-bold text-white">💳 Money events</h2>
-        <div class="flex gap-1 text-xs">
+        <div class="flex gap-1 text-xs items-center flex-wrap">
             @foreach(['' => 'Refunds & chargebacks', 'completed' => 'All purchases', 'refunded' => 'Full refunds', 'partial_refund' => 'Partial refunds', 'chargeback' => 'Chargebacks', 'manual' => 'Manual grants'] as $value => $label)
                 <a href="{{ route('super.billing.index', array_filter(['status' => $value])) }}"
                    class="px-3 py-1.5 rounded-md {{ ($status ?? '') === $value || ($value === '' && !in_array($status, ['completed','refunded','partial_refund','chargeback','manual'], true)) ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
                     {{ $label }}
                 </a>
             @endforeach
+            {{-- ITERATION 5: CSV export — same status filter, 90-day window by
+                 default (days=all for everything). Audit-logged. --}}
+            <a href="{{ route('super.billing.export', array_filter(['export' => 'transactions', 'status' => $status ?? ''])) }}"
+               class="px-3 py-1.5 rounded-md bg-emerald-600/80 hover:bg-emerald-500 text-white ml-1"
+               title="Streamed CSV of the rows matching the current filter (90-day window)">
+                ⬇ Transactions CSV
+            </a>
         </div>
     </div>
 
@@ -105,10 +112,19 @@
     {{-- ── Webhook ledger ────────────────────────────────────────────────── --}}
     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 class="text-lg font-bold text-white">📨 Webhook ledger</h2>
-        <a href="{{ route('super.billing.index', ['webhook_status' => 'failed']) }}"
-           class="px-3 py-1.5 rounded-md text-xs {{ request('webhook_status') === 'failed' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
-            Failed only
-        </a>
+        <div class="flex gap-1 text-xs items-center">
+            <a href="{{ route('super.billing.index', ['webhook_status' => 'failed']) }}"
+               class="px-3 py-1.5 rounded-md {{ request('webhook_status') === 'failed' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
+                Failed only
+            </a>
+            {{-- ITERATION 5: ledger CSV export — bounded by the 90-day payload
+                 retention either way. Audit-logged. --}}
+            <a href="{{ route('super.billing.export', array_filter(['export' => 'webhooks', 'webhook_status' => request('webhook_status')])) }}"
+               class="px-3 py-1.5 rounded-md bg-emerald-600/80 hover:bg-emerald-500 text-white"
+               title="Streamed CSV of the ledger rows (90-day window)">
+                ⬇ Ledger CSV
+            </a>
+        </div>
     </div>
 
     <div class="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden">

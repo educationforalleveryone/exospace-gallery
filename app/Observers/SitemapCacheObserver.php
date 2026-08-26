@@ -21,7 +21,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * otherwise every gallery view would flush the sitemap caches.
  *
  * Registered (AppServiceProvider::boot) for Gallery, Artist,
- * GalleryImage (+ SeoPage when Iteration 5 lands).
+ * GalleryImage, GalleryScheduleEvent (ITERATION 5 — event writes now
+ * bump the version so the sitemap events group stays fresh; before this,
+ * a newly announced opening never invalidated the sitemap cache) and
+ * SeoPage.
  *
  * ITERATION-1 FIX (over-invalidation): the previous isRelevant() checked
  * `$model->wasRecentlyCreated` inside saved(). That flag stays TRUE on the
@@ -74,6 +77,15 @@ class SitemapCacheObserver
         \App\Models\GalleryImage::class => [
             'gallery_id', 'artist_id', 'title', 'description',
             'medium', 'year', 'deleted_at', 'position_order',
+        ],
+        // ITERATION 5: events group inputs. starts_at/ends_at decide
+        // upcoming↔past (inclusion flips), is_active decides inclusion,
+        // title/description/type are the page content the crawler last
+        // saw. No deleted_at — this model has no SoftDeletes; the deleted()
+        // handler covers hard deletes.
+        \App\Models\GalleryScheduleEvent::class => [
+            'gallery_id', 'title', 'description', 'type',
+            'starts_at', 'ends_at', 'is_active',
         ],
     ];
 

@@ -65,6 +65,31 @@ class HealthController extends Controller
             $allHealthy = false;
         }
 
+        // ── Billing webhook ledger (ITERATION 5) ─────────────────────
+        // A pile of failed 2Checkout webhooks means money events are not
+        // being applied — that is a degraded product even when every other
+        // subsystem is green. Thresholds mirror OperationalAlertService::
+        // checkWebhookLedger(): >20 failed = degraded (503, uptime monitors
+        // page), >5 = 'warning' but still 200 (the 5-minute Slack check is
+        // the paging channel; /health must not flap on a handful of
+        // retriable failures). Missing table (pre-Iter-4 schema) is not an
+        // error — the check reports 'skipped'.
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('processed_webhooks')) {
+                $failedWebhooks = DB::table('processed_webhooks')->where('status', 'failed')->count();
+                $checks['billing_webhooks'] = [
+                    'status' => $failedWebhooks > 20 ? 'degraded' : ($failedWebhooks > 5 ? 'warning' : 'ok'),
+                    'failed_webhooks' => $failedWebhooks,
+                ];
+                if ($failedWebhooks > 20) $allHealthy = false;
+            } else {
+                $checks['billing_webhooks'] = ['status' => 'skipped', 'detail' => 'ledger table not migrated yet'];
+            }
+        } catch (\Throwable $e) {
+            $checks['billing_webhooks'] = ['status' => 'down', 'error' => 'Cannot query processed_webhooks'];
+            $allHealthy = false;
+        }
+
         // ── Disk space ───────────────────────────────────────────────
         try {
             $disk = Storage::disk('public');

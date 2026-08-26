@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\OnboardingSnapshot;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -156,5 +157,80 @@ class OnboardingMetricsService
             'avg' => round(array_sum($hours) / count($hours), 1),
             'max' => round(max($hours), 1),
         ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // ITERATION 5 — snapshot persistence + trend read model
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * ITERATION 5 — persist a point-in-time snapshot of one window.
+     *
+     * Written weekly by exospace:onboarding-analytics for every dashboard
+     * window (7/30/90). The live cohort erodes over time (GDPR deletions,
+     * PII anonymization, analytics rollup pruning), so this table is the
+     * only faithful TTFE history.
+     *
+     * Idempotency: captured_at is truncated to the start of the hour and
+     * the row is updateOrCreate'd on (window_days, captured_at) — a
+     * schedule retry or manual re-run within the hour updates the same
+     * point instead of polluting the trend with duplicates.
+     *
+     * Bypasses the snapshot() cache deliberately: a persisted history row
+     * must reflect the moment it was captured, not a possibly-stale
+     * dashboard cache entry.
+     */
+    public function persistSnapshot(int $days = 30): OnboardingSnapshot
+    {
+        $days = max(1, min(365, $days));
+        $data = $this->compute($days);
+        $capturedAt = now()->startOfHour();
+
+        return OnboardingSnapshot::updateOrCreate(
+            ['window_days' => $days, 'captured_at' => $capturedAt],
+            [
+                'registered'      => $data['registered'],
+                'created_gallery' => $data['created_gallery'],
+                'uploaded_image'  => $data['uploaded_image'],
+                'published'       => $data['published'],
+                'got_views'       => $data['got_views'],
+                'ttfg_min'        => $data['ttfg_hours']['min'] ?? null,
+                'ttfg_avg'        => $data['ttfg_hours']['avg'] ?? null,
+                'ttfg_max'        => $data['ttfg_hours']['max'] ?? null,
+                'ttfe_min'        => $data['ttfe_hours']['min'] ?? null,
+                'ttfe_avg'        => $data['ttfe_hours']['avg'] ?? null,
+                'ttfe_max'        => $data['ttfe_hours']['max'] ?? null,
+            ],
+        );
+    }
+
+    /**
+     * ITERATION 5 — trend rows for the Master Control chart, oldest first.
+     *
+     * The table is tiny (≈3 windows × 52 rows/year, 2-year retention) so
+     * this is a cheap indexed read — no cache layer; a chart refresh should
+     * not show a stale trend while the funnel tiles above it are fresh.
+     *
+     * @return array<int, array{
+     *     captured_at: string,
+     *     registered: int, published: int,
+     *     ttfe_avg: ?float, ttfg_avg: ?float
+     * }>
+     */
+    public function trend(int $days = 30, int $limit = 26): array
+    {
+        $days = max(1, min(365, $days));
+
+        return OnboardingSnapshot::query()
+            ->trend($days, $limit)
+            ->get()
+            ->map(fn (OnboardingSnapshot $row) => [
+                'captured_at' => $row->captured_at?->format('M j'),
+                'registered'  => (int) $row->registered,
+                'published'   => (int) $row->published,
+                'ttfe_avg'    => $row->ttfe_avg !== null ? (float) $row->ttfe_avg : null,
+                'ttfg_avg'    => $row->ttfg_avg !== null ? (float) $row->ttfg_avg : null,
+            ])
+            ->all();
     }
 }

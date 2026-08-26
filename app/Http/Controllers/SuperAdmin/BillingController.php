@@ -82,6 +82,126 @@ class BillingController extends Controller
     }
 
     /**
+     * ITERATION 5 — streamed CSV export of the billing review data.
+     *
+     * The gap: refunds/chargebacks/webhook-ledger data could only leave
+     * the system via pagination and copy-paste — useless for finance
+     * reconciliation ("give me every refund since March for the 2CO
+     * statement match") or for attaching evidence to a dispute.
+     *
+     * Two exports, same filters as the page:
+     *   ?export=transactions (default) — money events, ?status= filter
+     *   ?export=webhooks             — the ledger, ?webhook_status= filter
+     *   &days=90 (default, max 730)  — time window; days=all → everything
+     *                                    (bounded by the 90-day webhook
+     *                                    retention for the ledger)
+     *
+     * Streamed via cursor() + fputcsv so a full-history export never
+     * loads the result set into memory. BOM prefix for Excel UTF-8.
+     * Every export is audit-logged (billing.exported, actor = exporter)
+     * — the CSV contains customer PII (email/name on transactions), so
+     * data leaving the system must be attributable, same trust bar the
+     * page itself sits behind (super-admin + MFA).
+     */
+    public function export(Request $request)
+    {
+        $type = (string) $request->query('export', 'transactions');
+        if (! in_array($type, ['transactions', 'webhooks'], true)) {
+            $type = 'transactions';
+        }
+
+        $days = (string) $request->query('days', '90');
+        $since = $days === 'all'
+            ? null
+            : now()->subDays(max(1, min(730, (int) $days)));
+
+        $status = $request->query('status');
+        $webhookStatus = $request->query('webhook_status');
+
+        if ($type === 'webhooks') {
+            $query = ProcessedWebhook::query()
+                ->when(
+                    $webhookStatus === 'failed',
+                    fn ($q) => $q->where('status', 'failed'),
+                )
+                ->when($since, fn ($q) => $q->where('updated_at', '>=', $since))
+                ->orderByDesc('id');
+
+            $headers = ['ID', 'Message ID', 'Message Type', 'Invoice ID', 'Status',
+                        'Replay Count', 'Last Replayed At', 'Processed At', 'Updated At', 'Payload Stored'];
+
+            $row = fn (ProcessedWebhook $w) => [
+                $w->id,
+                $w->message_id,
+                $w->message_type,
+                $w->invoice_id,
+                $w->status,
+                (int) ($w->replay_count ?? 0),
+                $w->last_replayed_at?->format('Y-m-d H:i:s'),
+                $w->processed_at?->format('Y-m-d H:i:s'),
+                $w->updated_at?->format('Y-m-d H:i:s'),
+                $w->payload ? 'yes' : 'no',
+            ];
+        } else {
+            $query = Transaction::query()
+                ->when(
+                    in_array($status, [...self::MONEY_STATUSES, 'completed', 'manual'], true),
+                    fn ($q) => $q->where('status', $status),
+                    fn ($q) => $q->whereIn('status', self::MONEY_STATUSES),
+                )
+                ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
+                ->orderByDesc('created_at');
+
+            $headers = ['ID', 'Date', 'Status', 'Plan', 'Amount', 'Currency',
+                        'Invoice ID', 'Sale ID', 'User ID', 'User Email',
+                        'Customer Name', 'Customer Email'];
+
+            $row = fn (Transaction $t) => [
+                $t->id,
+                $t->created_at?->format('Y-m-d H:i:s'),
+                $t->status,
+                $t->plan,
+                $t->amount,
+                $t->currency,
+                $t->invoice_id,
+                $t->sale_id,
+                $t->user_id,
+                $t->user?->email,
+                $t->customer_name,
+                $t->customer_email,
+            ];
+        }
+
+        $count = (clone $query)->count();
+
+        AdminAuditLog::record('billing.exported', $request->user(), [
+            'export_type' => $type,
+            'status'      => $type === 'webhooks' ? $webhookStatus : $status,
+            'days'        => $days,
+            'row_count'   => $count,
+        ]);
+
+        $filename = 'exospace-' . $type . '-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($query, $headers, $row) {
+            $out = fopen('php://output', 'w');
+
+            // BOM for Excel UTF-8 compatibility (same convention as the
+            // user-facing GDPR export).
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, $headers);
+
+            // cursor() keeps memory flat no matter how large the window is.
+            foreach ($query->cursor() as $record) {
+                fputcsv($out, $row($record));
+            }
+
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
      * Replay a stored webhook through the live processing pipeline.
      * Route is password.confirm-gated (see routes/web.php).
      */

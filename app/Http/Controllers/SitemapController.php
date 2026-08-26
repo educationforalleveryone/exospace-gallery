@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
+use App\Models\GalleryScheduleEvent;
 use App\Models\SeoProfile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -28,6 +29,9 @@ use Illuminate\Support\Collection;
  *   galleries   — publiclyViewable, non-empty exhibitions
  *   artists     — artists with >= 1 public work
  *   artworks    — artworks passing the quality gate in public galleries
+ *   events      — galleries with >= 1 upcoming active event (ITERATION 5;
+ *                 the RSVP surface — openings/artist talks — that search
+ *                 engines otherwise never discover)
  *   content     — published seo_pages (editorial + landing; empty until
  *                 Iteration 5 data exists — guarded by Schema::hasTable)
  *
@@ -49,7 +53,7 @@ use Illuminate\Support\Collection;
 class SitemapController extends Controller
 {
     /** Groups served by this controller. */
-    private const GROUPS = ['static', 'galleries', 'artists', 'artworks', 'content'];
+    private const GROUPS = ['static', 'galleries', 'artists', 'artworks', 'events', 'content'];
 
     public function index(Request $request): Response
     {
@@ -148,8 +152,13 @@ class SitemapController extends Controller
 
         foreach (self::GROUPS as $group) {
             $total = $this->groupCount($group);
-            if ($total === 0 && $group === 'content') {
-                continue; // don't list an empty content group
+            if ($total === 0 && in_array($group, ['content', 'events'], true)) {
+                // Both groups have time-based membership that can genuinely
+                // be empty (no editorial pages yet; no upcoming events this
+                // week). Listing an empty sitemap in the index is a Search
+                // Console warning, not a feature — structural groups
+                // (galleries/artists/artworks) stay listed.
+                continue;
             }
             $pages = max(1, (int) ceil($total / $perPage));
             $lastmod = $this->groupLastmod($group);
@@ -182,6 +191,7 @@ class SitemapController extends Controller
                 'galleries' => $this->gallerySitemapQuery()->count(),
                 'artists' => $this->artistSitemapQuery()->count(),
                 'artworks' => $this->artworkSitemapQuery()->count(),
+                'events' => $this->eventGallerySitemapQuery()->count(),
                 'content' => $this->contentSitemapQuery()->count(),
                 default => 0,
             },
@@ -201,6 +211,11 @@ class SitemapController extends Controller
                     'galleries' => $this->gallerySitemapQuery()->max('updated_at'),
                     'artists' => $this->artistSitemapQuery()->max('updated_at'),
                     'artworks' => $this->artworkSitemapQuery()->max('gallery_images.updated_at'),
+                    'events' => GalleryScheduleEvent::query()
+                        ->active()
+                        ->where('starts_at', '>', now())
+                        ->whereHas('gallery', fn ($q) => $this->applyEventGalleryAccessRules($q))
+                        ->max('updated_at'),
                     'content' => $this->contentSitemapQuery()->max('updated_at'),
                     default => null,
                 };
@@ -221,6 +236,7 @@ class SitemapController extends Controller
             'galleries' => $this->galleryEntries($page, $perPage),
             'artists' => $this->artistEntries($page, $perPage),
             'artworks' => $this->artworkEntries($page, $perPage),
+            'events' => $this->eventEntries($page, $perPage),
             'content' => $this->contentEntries($page, $perPage),
             default => [],
         };
@@ -379,6 +395,95 @@ class SitemapController extends Controller
                 'priority' => '0.6',
             ])
             ->all();
+    }
+
+    /**
+     * ITERATION 5 — events group: galleries whose /events page is worth
+     * crawling, i.e. has at least one ACTIVE UPCOMING event.
+     *
+     * Access rules deliberately mirror PublicEventController::index (the
+     * page this URL serves), NOT the publiclyViewable() scope:
+     *   - is_active = true       (draft/unpublished → 404)
+     *   - pin_hash IS NULL       (PIN galleries redirect to the PIN screen
+     *                             — a sitemap entry would be a redirect URL)
+     *   - not closed             (closed → redirect to the gallery page)
+     *   - opens_at: UNRESTRICTED (a not-yet-open exhibition keeps its
+     *                             events page public ON PURPOSE — openings
+     *                             and artist talks are the pre-opening
+     *                             marketing surface; that is what RSVPs
+     *                             are for. See Iteration-3 gating notes.)
+     *
+     * Upcoming-only (starts_at > now) keeps the group self-pruning: as
+     * events pass, their galleries drop out instead of accumulating
+     * thin pages with only past events. Banned owners excluded, same
+     * as the galleries group. SeoProfile exclusions respected.
+     *
+     * The URL set is per-GALLERY (one /gallery/{slug}/events entry), not
+     * per-event — there are no per-event detail pages; the events page is
+     * the indexable surface.
+     */
+    private function eventGallerySitemapQuery()
+    {
+        $excluded = $this->profileExclusions(Gallery::class);
+
+        return Gallery::query()
+            ->where(function ($q) {
+                $this->applyEventGalleryAccessRules($q);
+            })
+            ->whereHas('scheduleEvents', fn ($q) => $q
+                ->where('is_active', true)
+                ->where('starts_at', '>', now()))
+            ->when($excluded !== [], fn ($q) => $q->whereNotIn('id', $excluded))
+            ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'));
+    }
+
+    /**
+     * Access predicate shared by the events group query and its lastmod
+     * computation (which runs from the GalleryScheduleEvent side).
+     */
+    private function applyEventGalleryAccessRules($q)
+    {
+        $q->where('is_active', true)
+            ->whereNull('pin_hash')
+            ->where(function ($q) {
+                $q->whereNull('closes_at')->orWhere('closes_at', '>', now());
+            });
+
+        return $q;
+    }
+
+    /**
+     * @return array<int, array<string, string|null>>
+     */
+    private function eventEntries(int $page, int $perPage): array
+    {
+        $galleries = $this->eventGallerySitemapQuery()
+            ->withMax(
+                ['scheduleEvents' => fn ($q) => $q
+                    ->where('is_active', true)
+                    ->where('starts_at', '>', now())],
+                'updated_at',
+                'latest_event_update',
+            )
+            ->orderBy('id')
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get(['id', 'slug', 'updated_at']);
+
+        return $galleries->map(function ($gallery) {
+            // Canonical main-domain URL: PublicEventController's SeoData
+            // canonical is url('/gallery/{slug}/events') even when the
+            // gallery itself serves from a custom domain (custom-domain
+            // hosts get the single-entry gallery sitemap — see index()).
+            return [
+                'loc'        => url("/gallery/{$gallery->slug}/events"),
+                'lastmod'    => $gallery->latest_event_update
+                    ? \Illuminate\Support\Carbon::parse($gallery->latest_event_update)->toIso8601String()
+                    : $gallery->updated_at?->toIso8601String(),
+                'changefreq' => 'weekly',
+                'priority'   => '0.6',
+            ];
+        })->all();
     }
 
     /**

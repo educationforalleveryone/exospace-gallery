@@ -433,6 +433,9 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     // Replay mutates billing state through the webhook pipeline — the same
     // password.confirm bar as manual upgrades.
     Route::get   ('billing',                           [\App\Http\Controllers\SuperAdmin\BillingController::class, 'index'])->name('billing.index');
+    // ITERATION 5: streamed CSV export of the same data + filters (read-only,
+    // but audit-logged — the CSV carries customer PII out of the system).
+    Route::get   ('billing/export',                    [\App\Http\Controllers\SuperAdmin\BillingController::class, 'export'])->name('billing.export');
     Route::post  ('billing/webhooks/{webhook}/replay', [\App\Http\Controllers\SuperAdmin\BillingController::class, 'replayWebhook'])
           ->whereNumber('webhook')
           ->name('billing.replay')

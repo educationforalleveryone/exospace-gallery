@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\OnboardingMetricsService;
+use App\Services\OperationalAlertService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -27,16 +28,43 @@ use Illuminate\Support\Facades\Log;
  * live dashboard can never disagree). This command is now a thin reporter
  * that pulls FRESH (uncached) numbers — a weekly report must reflect the
  * week's actual state, not a possibly-stale dashboard cache entry.
+ *
+ * ITERATION-5: the report finally reaches humans and history.
+ *   - Persistence: all three dashboard windows (7/30/90) are snapshotted
+ *     into onboarding_snapshots, so Master Control can chart the TTFE
+ *     trend instead of only the current window's point value. The live
+ *     cohort erodes (GDPR deletions, PII anonymization, analytics rollup
+ *     pruning) — the snapshot table is the faithful record.
+ *   - Delivery: the report is pushed to the operational Slack channel
+ *     (info severity) via OperationalAlertService — the same channel that
+ *     carries the SEO audit and health alerts. Previously the report
+ *     existed only as scheduler stdout + one log line, which nobody read.
  */
 class OnboardingAnalytics extends Command
 {
     protected $signature = 'exospace:onboarding-analytics {--days=30 : Analyze users from last N days}';
-    protected $description = 'Generate onboarding funnel analytics report.';
 
-    public function handle(OnboardingMetricsService $metrics): int
+    protected $description = 'Generate onboarding funnel analytics report, snapshot the metric history, and post the summary to the operational alert channel.';
+
+    /**
+     * Dashboard windows snapshotted every run — must match the Master
+     * Control period selector so every trend has data.
+     */
+    private const SNAPSHOT_WINDOWS = [7, 30, 90];
+
+    public function handle(OnboardingMetricsService $metrics, OperationalAlertService $alerts): int
     {
         $days = (int) $this->option('days');
         $data = $metrics->compute($days);
+
+        // ITERATION-5: persist history for every dashboard window BEFORE
+        // reporting, so the trend chart and the report can never disagree
+        // about what this week looked like.
+        $snapshots = [];
+        foreach (self::SNAPSHOT_WINDOWS as $window) {
+            $snapshots[] = $metrics->persistSnapshot($window);
+        }
+        $this->info('Persisted ' . count($snapshots) . ' onboarding snapshot(s) (windows: ' . implode(', ', self::SNAPSHOT_WINDOWS) . ' days).');
 
         $this->info("Onboarding funnel (last {$data['days']} days, since " . now()->subDays($data['days'])->format('Y-m-d') . ")");
         $this->newLine();
@@ -71,7 +99,48 @@ class OnboardingAnalytics extends Command
             'avg_hours_to_first_publish' => $data['ttfe_hours']['avg'] ?? null,
         ]);
 
+        // ITERATION-5: deliver the weekly report where operators already
+        // look — the operational alert channel (info severity). Delivery
+        // failure must never fail the command; OperationalAlertService
+        // already swallows webhook errors.
+        $alerts->alert(
+            'Weekly onboarding report',
+            $this->slackSummary($data),
+            'info',
+            'onboarding_weekly_report',
+        );
+
         return self::SUCCESS;
+    }
+
+    /**
+     * Compact multi-line summary for the alert channel — the funnel with
+     * step conversion plus the headline TTFE/TTFG numbers.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function slackSummary(array $data): string
+    {
+        $lines = [
+            sprintf(
+                'Funnel (last %d days): %d registered → %d galleries → %d uploads → %d published → %d with views',
+                $data['days'],
+                $data['registered'],
+                $data['created_gallery'],
+                $data['uploaded_image'],
+                $data['published'],
+                $data['got_views'],
+            ),
+            sprintf(
+                'Overall conversion: %s · TTFG avg: %s · TTFE avg: %s',
+                $this->pct($data['got_views'], $data['registered']),
+                isset($data['ttfg_hours']['avg']) ? $data['ttfg_hours']['avg'] . 'h' : 'n/a',
+                isset($data['ttfe_hours']['avg']) ? $data['ttfe_hours']['avg'] . 'h' : 'n/a',
+            ),
+            'Trend history: Master Control → Onboarding Funnel & TTFE.',
+        ];
+
+        return implode("\n", $lines);
     }
 
     /**

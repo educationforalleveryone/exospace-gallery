@@ -51,6 +51,9 @@ class AppServiceProvider extends ServiceProvider
         // Iteration 5: published/unpublished content pages refresh the
         // content sitemap group too.
         \App\Models\SeoPage::observe($sitemapObserver);
+        // ITERATION 5: event writes (announced openings, schedule changes)
+        // refresh the sitemap events group.
+        \App\Models\GalleryScheduleEvent::observe($sitemapObserver);
 
         // ── CR-5 FIX (Iter-001): TRUSTED_PROXIES hard-fail in production ──────
         //

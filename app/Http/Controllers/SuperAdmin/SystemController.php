@@ -55,9 +55,17 @@ class SystemController extends Controller
         if (! in_array($onboardingDays, [7, 30, 90], true)) {
             $onboardingDays = 30;
         }
-        $onboarding = app(\App\Services\OnboardingMetricsService::class)->snapshot($onboardingDays);
+        $metrics = app(\App\Services\OnboardingMetricsService::class);
+        $onboarding = $metrics->snapshot($onboardingDays);
 
-        return view('super-admin.index', compact('users', 'stats', 'onboarding', 'onboardingDays'));
+        // ITERATION 5: TTFE history — weekly snapshots persisted by
+        // exospace:onboarding-analytics, charted here so the headline
+        // metric is a trend, not a point value. Cheap indexed read on a
+        // tiny table; deliberately uncached so the trend and the funnel
+        // tiles above it can never disagree.
+        $onboardingTrend = $metrics->trend($onboardingDays, 26);
+
+        return view('super-admin.index', compact('users', 'stats', 'onboarding', 'onboardingDays', 'onboardingTrend'));
     }
 
     // ── Update plan ───────────────────────────────────────────────────────
