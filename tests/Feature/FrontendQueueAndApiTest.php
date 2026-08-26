@@ -37,23 +37,25 @@ class FrontendQueueAndApiTest extends TestCase
             'GET /api/v1/me/galleries',
         ];
 
+        // ITERATION-1 FIX: the old lookup (a) concatenated method+URI without
+        // a separator so RouteCollection::get() never resolved anything, and
+        // (b) compared lowercased methods against the UPPERCASE values that
+        // Route::methods() returns — the fallback loop never matched either,
+        // so this test never actually asserted anything. Match case-blind.
         foreach ($readEndpoints as $endpoint) {
             [$method, $uri] = explode(' ', $endpoint);
-            $route = $routes->get($method . $uri);
-            // If route not found by this method, try matching
-            if (! $route) {
-                $matched = false;
-                foreach ($routes as $r) {
-                    if ($r->uri() === ltrim($uri, '/') && in_array(strtolower($method), $r->methods())) {
-                        $middleware = $r->gatherMiddleware();
-                        $this->assertContains('ability:read', $middleware,
-                            "D-5: {$endpoint} must have 'ability:read' middleware.");
-                        $matched = true;
-                        break;
-                    }
+            $uri = ltrim($uri, '/');
+            $matched = false;
+            foreach ($routes as $r) {
+                if ($r->uri() === $uri
+                    && in_array(strtoupper($method), array_map('strtoupper', $r->methods()), true)) {
+                    $this->assertContains('ability:read', $r->gatherMiddleware(),
+                        "D-5: {$endpoint} must have 'ability:read' middleware.");
+                    $matched = true;
+                    break;
                 }
-                $this->assertTrue($matched, "D-5: Route not found for {$endpoint}");
             }
+            $this->assertTrue($matched, "D-5: Route not found for {$endpoint}");
         }
     }
 
@@ -73,11 +75,13 @@ class FrontendQueueAndApiTest extends TestCase
             // Replace {tokenId} with regex pattern for matching
             $uriPattern = preg_replace('/\{[^}]+\}/', '*', $uri);
 
+            // ITERATION-1 FIX: same case-blind method comparison as the
+            // read-endpoint test (methods() returns UPPERCASE).
             $matched = false;
             foreach ($routes as $r) {
-                if (in_array(strtolower($method), $r->methods()) && fnmatch($uriPattern, $r->uri())) {
-                    $middleware = $r->gatherMiddleware();
-                    $this->assertContains('ability:write', $middleware,
+                if (in_array(strtoupper($method), array_map('strtoupper', $r->methods()), true)
+                    && fnmatch($uriPattern, $r->uri())) {
+                    $this->assertContains('ability:write', $r->gatherMiddleware(),
                         "D-5: {$endpoint} must have 'ability:write' middleware.");
                     $matched = true;
                     break;
@@ -188,22 +192,49 @@ class FrontendQueueAndApiTest extends TestCase
             'C-10: package.json should NOT have @tailwindcss/vite (dead dep — Tailwind 4, not wired into Vite).');
     }
 
+    /**
+     * ITERATION-1 FIX: Schedule::assertScheduled() does not exist in
+     * Laravel 11/12 (the old tests called an imaginary API and errored).
+     * Inspect the real scheduler's events instead.
+     */
+    private function scheduledCommands(): array
+    {
+        return collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+            ->map(fn ($event) => trim((string) $event->command))
+            ->all();
+    }
+
     public function test_k5_queue_prune_failed_is_scheduled(): void
     {
         // K-5 FIX: queue:prune-failed should be in the schedule
-        Schedule::assertScheduled('queue:prune-failed --hours=168');
+        $this->assertTrue(
+            collect($this->scheduledCommands())->contains(
+                fn ($cmd) => str_contains($cmd, 'queue:prune-failed') && str_contains($cmd, '--hours=168'),
+            ),
+            'queue:prune-failed --hours=168 must be scheduled daily',
+        );
     }
 
     public function test_k9_cohort_retention_is_scheduled(): void
     {
         // K-9 FIX: exospace:cohort-retention should be in the schedule
-        Schedule::assertScheduled('exospace:cohort-retention');
+        $this->assertTrue(
+            collect($this->scheduledCommands())->contains(
+                fn ($cmd) => str_contains($cmd, 'exospace:cohort-retention'),
+            ),
+            'exospace:cohort-retention must be scheduled weekly',
+        );
     }
 
     public function test_k9_onboarding_analytics_is_scheduled(): void
     {
         // K-9 FIX: exospace:onboarding-analytics should be in the schedule
-        Schedule::assertScheduled('exospace:onboarding-analytics');
+        $this->assertTrue(
+            collect($this->scheduledCommands())->contains(
+                fn ($cmd) => str_contains($cmd, 'exospace:onboarding-analytics'),
+            ),
+            'exospace:onboarding-analytics must be scheduled weekly',
+        );
     }
 
     /**

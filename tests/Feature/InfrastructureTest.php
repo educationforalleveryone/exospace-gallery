@@ -22,6 +22,21 @@ class InfrastructureTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * ITERATION-1 FIX: Schedule::assertScheduled() does not exist in
+     * Laravel 11/12 (imaginary API). Inspect the scheduler's events.
+     */
+    private function assertCommandScheduled(string $needle, string $message = ''): void
+    {
+        $commands = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+            ->map(fn ($event) => trim((string) $event->command));
+
+        $this->assertTrue(
+            $commands->contains(fn ($cmd) => str_contains($cmd, $needle)),
+            $message !== '' ? $message : "Scheduled command containing '{$needle}' was not found.",
+        );
+    }
+
     public function test_a8_metrics_endpoint_exists(): void
     {
         // A-8 FIX: /metrics route should be registered
@@ -162,9 +177,9 @@ class InfrastructureTest extends TestCase
 
     public function test_a1_backup_schedule_exists(): void
     {
-        Schedule::assertScheduled('backup:run --only-db');
-        Schedule::assertScheduled('backup:run --only-files');
-        Schedule::assertScheduled('backup:clean');
+        $this->assertCommandScheduled('backup:run --only-db');
+        $this->assertCommandScheduled('backup:run --only-files');
+        $this->assertCommandScheduled('backup:clean');
     }
 
     public function test_a1_dr_runbook_exists(): void
@@ -183,6 +198,12 @@ class InfrastructureTest extends TestCase
     public function test_a10_operational_alerts_scheduled(): void
     {
         // A-10 FIX: the operational alert check should be scheduled every 5 minutes
-        Schedule::assertScheduled('operational-alerts');
+        // The operational check is a Schedule::call() closure (named via
+        // ->name('operational-alerts')), not a command — match the event name.
+        $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events());
+        $this->assertTrue(
+            $events->contains(fn ($e) => $e->description === 'operational-alerts'),
+            "The operational-alerts callback event is not scheduled.",
+        );
     }
 }

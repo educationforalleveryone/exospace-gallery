@@ -39,6 +39,21 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // ITERATION-1 FIX (consolidated-migration coexistence): the
+        // consolidated galleries migration (runs earlier in this same batch
+        // on fresh installs — 100000 < 150000 is FALSE, it runs FIRST) may
+        // not have run yet; guard the whole additive block for the case
+        // where the consolidated table already contains these columns.
+        if (! Schema::hasTable('galleries')) {
+            // Consolidated migration hasn't created the table yet — this
+            // migration is a no-op on fresh installs (columns come from the
+            // consolidated schema).
+            return;
+        }
+        if (Schema::hasColumn('galleries', 'custom_domain_verification_token')) {
+            // Columns already provided by the consolidated schema.
+            return;
+        }
         Schema::table('galleries', function (Blueprint $table) {
             // Random 32-char token used in the TXT record. Nullable because
             // galleries with no custom_domain don't need a token.
@@ -59,8 +74,23 @@ return new class extends Migration
 
     public function down(): void
     {
+        // ITERATION-1 FIX (portable rollback): when this migration runs after
+        // a `migrate:fresh` that already created the index via the
+        // consolidated galleries migration, the named index may or may not
+        // exist under this name. Drop columns first (cascades the index on
+        // both drivers), tolerating a missing index.
+        try {
+            Schema::table('galleries', function (Blueprint $table) {
+                $table->dropIndex('galleries_pending_domain_idx');
+            });
+        } catch (\Throwable) {
+            // Index already absent (consolidated-migration path).
+        }
+        if (! Schema::hasTable('galleries')
+            || ! Schema::hasColumn('galleries', 'custom_domain_verification_token')) {
+            return; // nothing this migration added
+        }
         Schema::table('galleries', function (Blueprint $table) {
-            $table->dropIndex('galleries_pending_domain_idx');
             $table->dropColumn(['custom_domain_verified_at', 'custom_domain_verification_token']);
         });
     }

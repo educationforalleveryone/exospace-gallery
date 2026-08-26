@@ -240,11 +240,21 @@ class UserDeletionService
         $appId = config('app.key');
         $anonymizedEmail = 'anonymized:' . substr(hash('sha256', $appId . $user->email), 0, 16);
 
+        // ITERATION-1 FIX (cross-driver consistency): also NULL the user_id.
+        // On MySQL the FK is gone (partitioning) and orphaned rows survive
+        // — but on SQLite the DROP FOREIGN KEY no-ops, the cascade stays
+        // active, and the anonymized rows were cascade-deleted anyway (the
+        // G-2 tax-retention guarantee only held on the production driver;
+        // PRAGMA foreign_keys is a no-op inside RefreshDatabase's
+        // transaction, so it can't bridge the gap either). Nulling
+        // user_id detaches the rows BEFORE the user delete on EVERY
+        // driver — no cascade can match them.
         $count = DB::table('transactions')
             ->where('user_id', $user->id)
             ->update([
                 'customer_email' => $anonymizedEmail,
                 'customer_name'  => null,
+                'user_id'        => null,
                 'updated_at'     => now(),
             ]);
 
@@ -271,12 +281,19 @@ class UserDeletionService
         $appId = config('app.key');
         $anonymizedEmail = 'anonymized:' . substr(hash('sha256', $appId . $user->email), 0, 16);
 
+        // ITERATION-1 FIX (cross-driver consistency): NULL the user_id here
+        // too. On MySQL the FK is nullOnDelete (row preserved with null
+        // user_id) — matching that outcome explicitly neutralizes the
+        // still-active CASCADE on SQLite, where the G-1 migration's FK
+        // change could not be applied and the invoice rows were being
+        // cascade-deleted instead of preserved.
         $count = DB::table('invoices')
             ->where('user_id', $user->id)
             ->update([
                 'customer_email'  => $anonymizedEmail,
                 'customer_name'   => null,
                 'billing_address' => null,
+                'user_id'         => null,
                 'updated_at'      => now(),
             ]);
 

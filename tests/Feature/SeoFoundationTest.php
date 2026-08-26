@@ -40,6 +40,11 @@ class SeoFoundationTest extends TestCase
     {
         parent::setUp();
         $this->seo = app(SeoManager::class);
+        // ITERATION-1 FIX: several assertions compare absolute URLs built
+        // by url() — force the root so they aren't rendered as localhost.
+        config(['app.url' => 'https://exospace.gallery']);
+        \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
+        \Illuminate\Support\Facades\URL::forceScheme('https');
     }
 
     // ── SeoData ─────────────────────────────────────────────────────────

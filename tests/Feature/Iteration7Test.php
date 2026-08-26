@@ -63,23 +63,27 @@ class Iteration7Test extends TestCase
 
         $service = app(OperationalAlertService::class);
 
+        // ITERATION-1 FIX: Log::restore() does not exist on the facade —
+        // it was silently absorbed by the spy, and because Facade::spy()
+        // no-ops when a mock is already installed, the "fresh" spy kept
+        // the FIRST alert's critical call in its recording, making the
+        // not-received assertion unsatisfiable. Use ONE spy and assert
+        // exact counts instead.
+        //
         // First alert fires.
         $service->alert('Test Alert', 'First', 'critical', 'test_dedup_key_2');
-
-        // Reset spy to only track the second call.
-        Log::restore();
-        Log::spy();
 
         // Second alert with same dedupKey should be suppressed.
         $service->alert('Test Alert', 'Second', 'critical', 'test_dedup_key_2');
 
-        // The second alert should NOT fire at critical level — it should be suppressed.
-        // Instead, a debug-level "suppressed duplicate" message should be logged.
-        Log::shouldNotHaveReceived('critical')
-            ->withArgs(fn ($message) => str_contains($message, 'OperationalAlert: Test Alert'));
+        // Exactly ONE critical (the first alert) — the duplicate is suppressed.
+        Log::shouldHaveReceived('critical')
+            ->withArgs(fn ($message) => str_contains($message, 'OperationalAlert: Test Alert'))
+            ->once();
 
+        // The suppression is traceable at debug level.
         Log::shouldHaveReceived('debug')
-            ->withArgs(fn ($message) => str_contains($message, 'suppressed duplicate alert'))
+            ->withArgs(fn ($message) => is_string($message) && str_contains($message, 'suppressed duplicate alert'))
             ->atLeast()
             ->once();
     }
@@ -95,19 +99,19 @@ class Iteration7Test extends TestCase
 
         $service = app(OperationalAlertService::class);
 
-        // First alert with dedupKey A.
+        // ITERATION-1 FIX: Log::restore() doesn't exist (silently absorbed
+        // by the spy) and a second Log::spy() is a no-op once a mock is
+        // installed — assert both alerts on ONE spy instead.
         $service->alert('Alert A', 'First A', 'critical', 'test_dedup_key_A');
-
-        // Reset spy.
-        Log::restore();
-        Log::spy();
 
         // Second alert with DIFFERENT dedupKey B should still fire.
         $service->alert('Alert B', 'First B', 'critical', 'test_dedup_key_B');
 
         Log::shouldHaveReceived('critical')
+            ->withArgs(fn ($message) => str_contains($message, 'Alert A'))
+            ->once();
+        Log::shouldHaveReceived('critical')
             ->withArgs(fn ($message) => str_contains($message, 'Alert B'))
-            ->atLeast()
             ->once();
     }
 
@@ -123,20 +127,15 @@ class Iteration7Test extends TestCase
 
         $service = app(OperationalAlertService::class);
 
-        // First alert without dedupKey.
+        // ITERATION-1 FIX: same single-spy approach.
         $service->alert('No Dedup Alert', 'First', 'warning');
-
-        // Reset spy.
-        Log::restore();
-        Log::spy();
 
         // Second alert without dedupKey should also fire (no suppression).
         $service->alert('No Dedup Alert', 'Second', 'warning');
 
         Log::shouldHaveReceived('warning')
             ->withArgs(fn ($message) => str_contains($message, 'No Dedup Alert'))
-            ->atLeast()
-            ->once();
+            ->twice();
     }
 
     /**
@@ -151,27 +150,24 @@ class Iteration7Test extends TestCase
 
         $service = app(OperationalAlertService::class);
 
-        // First alert fires.
+        // ITERATION-1 FIX: single spy + exact counts (Log::restore() is not
+        // a real method; repeated Log::spy() is a no-op).
         $service->alert('Re-fire Test', 'First', 'critical', 'test_dedup_refire');
-
-        // Second alert suppressed.
-        Log::restore();
-        Log::spy();
+        // Second alert suppressed by dedup.
         $service->alert('Re-fire Test', 'Second', 'critical', 'test_dedup_refire');
-        Log::shouldNotHaveReceived('critical')
-            ->withArgs(fn ($message) => str_contains($message, 'OperationalAlert: Re-fire Test'));
 
         // Simulate TTL expiry by clearing the cache.
         Cache::forget('alert:last_sent:test_dedup_refire');
 
         // Third alert should fire again (TTL expired).
-        Log::restore();
-        Log::spy();
         $service->alert('Re-fire Test', 'Third', 'critical', 'test_dedup_refire');
 
+        // Exactly TWO criticals: first + third (second was suppressed).
         Log::shouldHaveReceived('critical')
             ->withArgs(fn ($message) => str_contains($message, 'Re-fire Test'))
-            ->atLeast()
+            ->twice();
+        Log::shouldHaveReceived('debug')
+            ->withArgs(fn ($message) => is_string($message) && str_contains($message, 'suppressed duplicate alert'))
             ->once();
     }
 
@@ -204,24 +200,14 @@ class Iteration7Test extends TestCase
 
         $service = app(OperationalAlertService::class);
 
-        // First call — should fire the warning.
+        // ITERATION-1 FIX: single spy + exact count.
+        $service->checkAndAlert();
+        // Second call — same condition, should be SUPPRESSED by dedup.
         $service->checkAndAlert();
 
         Log::shouldHaveReceived('warning')
             ->withArgs(fn ($message) => str_contains($message, 'Queue warning'))
-            ->atLeast()
             ->once();
-
-        // Reset spy.
-        Log::restore();
-        Log::spy();
-
-        // Second call — same condition, should be SUPPRESSED by dedup.
-        $service->checkAndAlert();
-
-        // The warning should NOT fire again (dedup key 'failed_jobs_warning' is set).
-        Log::shouldNotHaveReceived('warning')
-            ->withArgs(fn ($message) => str_contains($message, 'OperationalAlert: Queue warning'));
     }
 
     /**
@@ -250,6 +236,9 @@ class Iteration7Test extends TestCase
     {
         $source = file_get_contents(app_path('Services/OperationalAlertService.php'));
 
+        // ITERATION-1 FIX: the backup keys are PER-DISK
+        // ("backup_none_found:{disk}"), so the literal 'backup_none_found'
+        // never appears alone in the source. Match the prefix instead.
         $expectedDedupKeys = [
             'failed_jobs_critical',
             'failed_jobs_warning',
@@ -257,13 +246,16 @@ class Iteration7Test extends TestCase
             'disk_usage_warning',
             'scheduler_stale',
             'queue_worker_stale',
-            'backup_none_found',
-            'backup_stale',
+            'backup_none_found:',
+            'backup_stale:',
         ];
 
         foreach ($expectedDedupKeys as $key) {
+            // Backup keys interpolate the disk name, so the literal ends
+            // with ':' before {$diskName} — matching the bare token is the
+            // intent (the key is used, quoting style is irrelevant).
             $this->assertStringContainsString(
-                "'{$key}'",
+                $key,
                 $source,
                 "OperationalAlertService should pass dedup key '{$key}' to alert()."
             );

@@ -351,7 +351,7 @@ class OperationalAlertService
      * tests) or the query fails, it skips silently. The existing
      * checkFailedJobs() + checkSchedulerHealth() provide redundant coverage.
      */
-    private function checkQueueWorkerHealth(): void
+    public function checkQueueWorkerHealth(): void
     {
         try {
             // Find the oldest job in the queue. If it's been waiting >10 min,
@@ -416,7 +416,7 @@ class OperationalAlertService
      * skips silently (the existing checkDiskUsage() provides redundant coverage
      * for disk-level issues).
      */
-    private function checkBackupHealth(): void
+    public function checkBackupHealth(): void
     {
         // ITERATION-9: Get ALL configured backup disks (env-driven via BACKUP_DISKS).
         $diskNames = config('backup.backup.destination.disks', ['local']);

@@ -557,12 +557,18 @@ window.openModalAnchor = function(id, e) {
     accordion or the price range in SERPs. --}}
 <x-json-ld type="product" :product="['name' => 'Pro', 'price' => 29.00, 'currency' => 'USD', 'description' => 'Exospace Pro plan — unlimited galleries, custom domains, advanced analytics.']" />
 <x-json-ld type="product" :product="['name' => 'Studio', 'price' => 99.00, 'currency' => 'USD', 'description' => 'Exospace Studio plan — everything in Pro plus priority support and white-label branding.']" />
-<x-json-ld type="faq-page" :faqs="[
-    ['question' => 'Is there a free trial for Pro?', 'answer' => 'The Free plan is your trial — create a gallery, upload images, and experience the full 3D viewer with two venues. Upgrade anytime when you\'re ready.'],
-    ['question' => 'Can I upgrade later?', 'answer' => 'Yes. Start Free and upgrade to Pro or Studio at any time. Your existing gallery and images carry over instantly.'],
-    ['question' => 'What payment methods do you accept?', 'answer' => 'We accept all major credit cards, PayPal, and other methods available through 2Checkout at checkout.'],
-    ['question' => 'What happens to my gallery if I don\'t upgrade?', 'answer' => 'Nothing. Your gallery stays live and public. The only difference is the small "Created with Exospace" watermark in the corner.'],
-    ['question' => 'Are the 3D venues pre-built or can I customize them?', 'answer' => 'Each venue is a fully-realized 3D environment with its own architecture, lighting, and atmosphere. Within a venue, you can customize wall material, floor material, frame style, and lighting preset to fine-tune the look.'],
-]" />
+{{-- ITERATION-1 FIX: the escaped quotes inside the inline :faqs attribute --}}
+{{-- silently broke the component's expression evaluation — the FAQPage --}}
+{{-- schema never rendered. Build the array in a PHP block and pass the variable. --}}
+@php
+    $pricingFaqs = [
+        ['question' => 'Is there a free trial for Pro?', 'answer' => 'The Free plan is your trial — create a gallery, upload images, and experience the full 3D viewer with two venues. Upgrade anytime when you\'re ready.'],
+        ['question' => 'Can I upgrade later?', 'answer' => 'Yes. Start Free and upgrade to Pro or Studio at any time. Your existing gallery and images carry over instantly.'],
+        ['question' => 'What payment methods do you accept?', 'answer' => 'We accept all major credit cards, PayPal, and other methods available through 2Checkout at checkout.'],
+        ['question' => 'What happens to my gallery if I don\'t upgrade?', 'answer' => 'Nothing. Your gallery stays live and public. The only difference is the small "Created with Exospace" watermark in the corner.'],
+        ['question' => 'Are the 3D venues pre-built or can I customize them?', 'answer' => 'Each venue is a fully-realized 3D environment with its own architecture, lighting, and atmosphere. Within a venue, you can customize wall material, floor material, frame style, and lighting preset to fine-tune the look.'],
+    ];
+@endphp
+<x-json-ld type="faq-page" :faqs="$pricingFaqs" />
 
 @endsection

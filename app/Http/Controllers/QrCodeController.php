@@ -34,6 +34,13 @@ class QrCodeController extends Controller
     public function show(string $slug): Response
     {
         $gallery = Gallery::where('slug', $slug)->firstOrFail();
+
+        // ITERATION-1 FIX (unpublished content leak): don't mint share QR
+        // codes for unpublished galleries — same policy as the OG endpoint.
+        if (! $gallery->is_active) {
+            abort(404);
+        }
+
         $format = request()->string('format', 'png')->toString();
         $url = $gallery->public_url;
 

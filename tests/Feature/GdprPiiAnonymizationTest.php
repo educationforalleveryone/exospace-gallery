@@ -44,7 +44,13 @@ class GdprPiiAnonymizationTest extends TestCase
 
         app(UserDeletionService::class)->deleteUser($user, 'Self-serve deletion');
 
-        $transactions = DB::table('transactions')->where('user_id', $user->id)->get();
+        // ITERATION-1 FIX: anonymization now also NULLs user_id (the rows
+        // are detached so no cascade can delete them — see
+        // UserDeletionService). Select by the anonymized-email prefix instead.
+        $transactions = DB::table('transactions')
+            ->where('customer_email', 'like', 'anonymized:%')
+            ->whereNull('user_id')
+            ->get();
 
         $this->assertCount(3, $transactions, 'Transactions should still exist (financial record retention)');
 
@@ -52,7 +58,7 @@ class GdprPiiAnonymizationTest extends TestCase
             $this->assertStringStartsWith('anonymized:', $t->customer_email, 'Email should be hashed');
             $this->assertStringNotContainsString('victim@example.com', $t->customer_email);
             $this->assertNull($t->customer_name, 'Name should be null');
-            $this->assertSame('99.00', $t->amount, 'Financial amount preserved');
+            $this->assertSame(99.00, (float) $t->amount, 'Financial amount preserved');
         }
     }
 
@@ -94,7 +100,7 @@ class GdprPiiAnonymizationTest extends TestCase
         $this->assertStringNotContainsString('victim@example.com', $invoice->customer_email);
         $this->assertNull($invoice->customer_name);
         $this->assertNull($invoice->billing_address);
-        $this->assertSame('99.00', $invoice->amount, 'Financial amount preserved');
+        $this->assertSame(99.00, (float) $invoice->amount, 'Financial amount preserved');
     }
 
     /** @test */

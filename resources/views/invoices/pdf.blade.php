@@ -103,10 +103,17 @@
                 <td>
                     <strong>Exospace {{ ucfirst($invoice->plan) }} Plan</strong><br>
                     <span style="font-size: 12px; color: #9ca3af;">
-                        @if($invoice->transaction && $invoice->transaction->subscription_id)
+                        {{-- ITERATION-1 FIX: the old check read --}}
+                        {{-- $invoice->transaction->subscription_id — a column --}}
+                        {{-- that does not exist on transactions, so EVERY --}}
+                        {{-- invoice (incl. monthly renewals) was labelled --}}
+                        {{-- "One-time purchase — Lifetime access". --}}
+                        @if($invoice->billing_type === 'subscription')
                             Monthly subscription
-                        @else
+                        @elseif($invoice->billing_type === 'one_time')
                             One-time purchase — Lifetime access
+                        @else
+                            Plan purchase
                         @endif
                     </span>
                 </td>
@@ -132,7 +139,11 @@
             </div>
         @elseif($invoice->tax_amount > 0)
             <div class="totals-row">
-                <span>Tax ({{ $invoice->tax_rate }}%{{ $invoice->tax_country_code ? ' · ' . $invoice->tax_country_code : '' }})</span>
+                {{-- ITERATION-1 FIX: tax_rate renders with locale-dependent decimal
+                        separators (19.0 in some locales prints "19"); cast to
+                        a clean percentage, and use the typographic middot
+                        consistently with the test expectation. --}}
+<span>Tax ({{ rtrim(rtrim(number_format((float) $invoice->tax_rate, 1, '.', ''), '0'), '.') }}%{{ $invoice->tax_country_code ? ' · ' . $invoice->tax_country_code : '' }})</span>
                 <span>{{ $invoice->formattedTax() }}</span>
             </div>
         @endif

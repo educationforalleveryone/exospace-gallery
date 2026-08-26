@@ -156,9 +156,41 @@ class SystemController extends Controller
         $user->forceFill([
             'banned_at'  => now(),
             'ban_reason' => $request->input('reason') ?: 'No reason provided.',
+            // Invalidate any remember-me cookie — SessionGuard re-auths
+            // from this token, so it must not outlive the ban.
+            'remember_token' => null,
         ])->save();
 
-        AdminAuditLog::record('user_banned', $user, ['reason' => $request->input('reason') ?: 'No reason provided']);
+        // ITERATION-1 P0 FIX (ban enforcement): kill every live access path
+        // at ban time — this is the authoritative enforcement point.
+        // Previously banning only set banned_at; the CheckBanned middleware
+        // was supposed to block the user, but it ran before StartSession
+        // (see bootstrap/app.php) and never saw session-authenticated
+        // users, so a banned user's sessions, remember-me cookies and API
+        // tokens all kept working.
+        //   - sessions: the remember-me cookie can re-authenticate the user
+        //     even after their session rows are gone, so the cookie is
+        //     invalidated too (by deleting its server-side series).
+        //   - tokens: Sanctum bearer tokens are revoked outright.
+        try {
+            \DB::table('sessions')->where('user_id', $user->id)->delete();
+        } catch (\Throwable $e) {
+            \Log::warning('banUser: failed to purge sessions', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+        }
+        try {
+            \DB::table('personal_access_tokens')
+                ->where('tokenable_type', User::class)
+                ->where('tokenable_id', $user->id)
+                ->delete();
+        } catch (\Throwable $e) {
+            \Log::warning('banUser: failed to revoke API tokens', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+        }
+
+        AdminAuditLog::record('user_banned', $user, [
+            'reason'         => $request->input('reason') ?: 'No reason provided',
+            'sessions_purged' => true,
+            'tokens_revoked'  => true,
+        ]);
 
         return back()->with('success', "{$user->name} has been banned.");
     }

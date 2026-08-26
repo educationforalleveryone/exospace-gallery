@@ -85,24 +85,14 @@ class AppServiceProvider extends ServiceProvider
         //   docker network inspect coolify-network | grep Subnet
         $trustedProxies = env('TRUSTED_PROXIES');
 
+        // ITERATION-1 FIX (testability): the production guard moved into a
+        // static method so it can be unit-tested directly — boot()-time
+        // behavior is unchanged. (Fighting phpdotenv's immutable-writer
+        // semantics in feature tests to vary TRUSTED_PROXIES across app
+        // refreshes proved unreliable: the writer re-writes variables it
+        // itself loaded previously, clobbering runtime overrides.)
         if ($this->app->environment('production')) {
-            if (empty($trustedProxies) || $trustedProxies === '*') {
-                $message = sprintf(
-                    "FATAL: TRUSTED_PROXIES is set to '%s' in production. " .
-                    "This enables host-header spoofing and rate-limit bypass attacks. " .
-                    "Set TRUSTED_PROXIES to your Coolify Traefik subnet " .
-                    "(find via: docker network inspect coolify-network | grep Subnet). " .
-                    "Typical value: 172.16.0.0/12",
-                    $trustedProxies ?: '(empty)',
-                );
-
-                Log::critical($message);
-
-                // Throw to prevent the container from serving traffic.
-                // The CR-1 preflight fix in docker-start.sh will catch this
-                // and exit 1, marking the deploy as failed.
-                throw new \RuntimeException($message);
-            }
+            self::assertTrustedProxiesConfigured($trustedProxies);
         } else {
             // Non-production: log a warning but don't throw (local dev convenience).
             if ($trustedProxies === '*') {
@@ -161,5 +151,36 @@ class AppServiceProvider extends ServiceProvider
         // application a second time in-process, which was redeclaring this
         // function when it lived inside boot(). See app/helpers.php for
         // the full explanation.
+    }
+
+    /**
+     * CR-5: fail the boot when TRUSTED_PROXIES is empty or '*' in production.
+     *
+     * Static + public so the guard itself is unit-testable without
+     * booting a full application with a mutated environment (phpdotenv's
+     * immutable writer re-writes variables it loaded earlier, so runtime
+     * env overrides cannot reliably simulate fresh production boots).
+     *
+     * @throws \RuntimeException when the proxy configuration is unsafe.
+     */
+    public static function assertTrustedProxiesConfigured(?string $trustedProxies): void
+    {
+        if (empty($trustedProxies) || $trustedProxies === '*') {
+            $message = sprintf(
+                "FATAL: TRUSTED_PROXIES is set to '%s' in production. " .
+                "This enables host-header spoofing and rate-limit bypass attacks. " .
+                "Set TRUSTED_PROXIES to your Coolify Traefik subnet " .
+                "(find via: docker network inspect coolify-network | grep Subnet). " .
+                "Typical value: 172.16.0.0/12",
+                $trustedProxies ?: '(empty)',
+            );
+
+            Log::critical($message);
+
+            // Throw to prevent the container from serving traffic.
+            // The CR-1 preflight fix in docker-start.sh will catch this
+            // and exit 1, marking the deploy as failed.
+            throw new \RuntimeException($message);
+        }
     }
 }

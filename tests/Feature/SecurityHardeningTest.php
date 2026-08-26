@@ -17,13 +17,34 @@ use Tests\TestCase;
 
 class SecurityHardeningTest extends TestCase
 {
+
+    /**
+     * ITERATION-1 FIX: master-control routes demand auth + verified +
+     * super_admin + mfa (+ password.confirm on destructive actions) —
+     * the old tests acted as bare super-admins and were redirected before
+     * reaching the controller. Provide both session stamps.
+     */
+    private function actingAsFullAdmin(User $user): self
+    {
+        return $this->actingAs($user)->withSession([
+            'mfa_verified'          => true,
+            'mfa_verified_at'       => now()->timestamp,
+            'auth.password_confirmed_at' => now()->timestamp,
+        ]);
+    }
+
     use RefreshDatabase;
 
     public function test_d1_scope_session_domain_rejects_unverified_host(): void
     {
-        // D-1 FIX: unverified hosts should get 404, not be served Exospace content
-        $response = $this->withServerVariables(['HTTP_HOST' => 'evil-gallery.com'])
-            ->get('/');
+        // D-1 FIX: unverified hosts should get 404, not be served Exospace content.
+        //
+        // ITERATION-1 FIX: withServerVariables(['HTTP_HOST' => ...]) never
+        // reaches the app — prepareUrlForRequest() prefixes config('app.url')
+        // to the relative URI and Symfony then OVERRIDES HTTP_HOST from the
+        // URL's own host (localhost). Request the absolute URL instead so
+        // the hostname actually under test reaches the middleware.
+        $response = $this->get('http://evil-gallery.com/');
 
         $response->assertStatus(404);
     }
@@ -37,8 +58,7 @@ class SecurityHardeningTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->withServerVariables(['HTTP_HOST' => 'gallery.test-example.com'])
-            ->get('/');
+        $response = $this->get('http://gallery.test-example.com/');
 
         // Should NOT be 404 — the verified custom domain should be served
         $this->assertNotEquals(404, $response->status(),
@@ -48,8 +68,11 @@ class SecurityHardeningTest extends TestCase
     public function test_d3_confirm_password_route_has_throttle(): void
     {
         // D-3 FIX: POST /confirm-password should have throttle middleware
-        $route = \Illuminate\Support\Facades\Route::getRoutes()->getByName('password.confirm');
-        $this->assertNotNull($route, 'password.confirm route must exist.');
+        // ITERATION-1 FIX: the POST route is named separately from the GET
+        // ('password.confirm' is the GET form; the store action is
+        // 'password.confirm.submit').
+        $route = \Illuminate\Support\Facades\Route::getRoutes()->getByName('password.confirm.submit');
+        $this->assertNotNull($route, 'password.confirm.submit route must exist.');
 
         $middleware = $route->gatherMiddleware();
         $hasThrottle = false;
@@ -85,7 +108,10 @@ class SecurityHardeningTest extends TestCase
         $plaintextToken = 'test-plaintext-token-1234567890';
         $invitation->update(['token' => \App\Models\TeamInvitation::hashToken($plaintextToken)]);
 
-        $response = $this->get(route('team-invitations.show', $plaintextToken));
+        // ITERATION-1 FIX: the route is signed — build a proper URL.
+        $response = $this->get(
+            \Illuminate\Support\Facades\URL::signedRoute('team-invitations.show', ['token' => $plaintextToken])
+        );
 
         $response->assertStatus(200);
         // The view should NOT have $accountExists set for unauthenticated visitors
@@ -118,13 +144,13 @@ class SecurityHardeningTest extends TestCase
     public function test_d10_last_super_admin_cannot_be_revoked(): void
     {
         // D-10 FIX: the only super-admin cannot be revoked
-        $superAdmin = User::factory()->create([
+        $superAdmin = User::factory()->withMfa()->create([
             'is_super_admin' => true,
             'email_verified_at' => now(),
             'has_password' => true,
         ]);
 
-        $secondAdmin = User::factory()->create([
+        $secondAdmin = User::factory()->withMfa()->create([
             'is_super_admin' => true,
             'email_verified_at' => now(),
             'has_password' => true,
@@ -133,8 +159,8 @@ class SecurityHardeningTest extends TestCase
         // Act as the second admin trying to revoke the first (only) admin
         // Wait — there are 2 super-admins. Let's test the "only one" case.
         // First, revoke the second admin (so only 1 remains)
-        $this->actingAs($secondAdmin)
-            ->post(route('super-admin.toggle-super-admin', $superAdmin));
+        $this->actingAsFullAdmin($secondAdmin)
+            ->post(route('super.toggleSuperAdmin', $superAdmin));
 
         // Now there's 1 super-admin (secondAdmin). Try to revoke them.
         // We need a different super-admin to attempt the revoke.
@@ -158,16 +184,34 @@ class SecurityHardeningTest extends TestCase
         // So the "last admin" guard is a defense-in-depth for the case
         // where the guard logic is bypassed.
 
-        // For this test, let's verify the guard logic directly:
+        // For this test, verify the guard logic directly:
         $count = User::where('is_super_admin', true)->count();
         $this->assertEquals(1, $count, 'Setup: should have exactly 1 super-admin.');
 
-        // Attempt to revoke the only super-admin (acting as themselves — blocked by preventSelfAction)
-        $response = $this->actingAs($secondAdmin)
-            ->post(route('super-admin.toggle-super-admin', $secondAdmin));
+        // ITERATION-1 FIX: via HTTP the last-admin guard is unreachable —
+        // the only person who could revoke the last super-admin IS that
+        // super-admin, and preventSelfAction 403s first. Assert BOTH layers:
+        //
+        //   1. HTTP layer: self-revoke is blocked with 403.
+        $this->actingAsFullAdmin($secondAdmin)
+            ->post(route('super.toggleSuperAdmin', $secondAdmin))
+            ->assertForbidden();
 
-        // Should be blocked (either by preventSelfAction or by last-admin guard)
-        $response->assertSessionHas('error');
+        //   2. Guard layer: invoke the controller directly (bypassing the
+        //      super_admin route middleware) as a non-super-admin actor —
+        //      the last-admin guard must refuse with an error redirect.
+        $actor = User::factory()->create(['email_verified_at' => now()]);
+        $this->actingAs($actor);
+        $controller = app(\App\Http\Controllers\SuperAdmin\SystemController::class);
+        $request = \Illuminate\Http\Request::create('/master-control/users/' . $secondAdmin->id . '/toggle-super-admin', 'POST');
+        $request->setLaravelSession(app('session.store'));
+        app()->instance('request', $request);
+        // toggleSuperAdmin(User $user) — route-model-bound in HTTP usage;
+        // invoked directly here to exercise the guard in isolation.
+        $redirect = $controller->toggleSuperAdmin($secondAdmin->fresh());
+        $this->assertTrue($redirect->getSession()->has('error'),
+            'D-10: revoking the ONLY super-admin must be refused by the last-admin guard.');
+
         $secondAdmin->refresh();
         $this->assertTrue($secondAdmin->is_super_admin,
             'D-10: The only super-admin should not be revoked.');
@@ -176,12 +220,14 @@ class SecurityHardeningTest extends TestCase
     public function test_d10_super_admin_can_be_revoked_when_multiple_exist(): void
     {
         // D-10 FIX: when there are multiple super-admins, revoking one is allowed
-        $admin1 = User::factory()->create([
+        // ITERATION-1 FIX: master-control routes require MFA for
+        // super-admins — the actors must have it enabled.
+        $admin1 = User::factory()->withMfa()->create([
             'is_super_admin' => true,
             'email_verified_at' => now(),
             'has_password' => true,
         ]);
-        $admin2 = User::factory()->create([
+        $admin2 = User::factory()->withMfa()->create([
             'is_super_admin' => true,
             'email_verified_at' => now(),
             'has_password' => true,
@@ -198,8 +244,8 @@ class SecurityHardeningTest extends TestCase
             'created_at' => now()->subDays(2), // > 24h ago — no cooldown
         ]);
 
-        $response = $this->actingAs($admin1)
-            ->post(route('super-admin.toggle-super-admin', $admin2));
+        $response = $this->actingAsFullAdmin($admin1)
+            ->post(route('super.toggleSuperAdmin', $admin2));
 
         $response->assertSessionHas('success');
         $admin2->refresh();

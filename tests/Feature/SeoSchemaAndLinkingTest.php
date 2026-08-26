@@ -37,6 +37,10 @@ class SeoSchemaAndLinkingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // ITERATION-1 FIX: force URL root for absolute-URL assertions.
+        config(['app.url' => 'https://exospace.gallery']);
+        \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
+        \Illuminate\Support\Facades\URL::forceScheme('https');
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
     }
@@ -418,7 +422,9 @@ class SeoSchemaAndLinkingTest extends TestCase
         $html = $response->getContent();
         $this->assertStringContainsString('Real Featured Show', $html, 'Real featured gallery replaces placeholder (audit M10).');
         $this->assertStringContainsString("gallery/{$gallery->slug}", $html, 'Links point at the real gallery URL.');
-        $this->assertStringContainsString('"@type":"WebSite"', $html);
-        $this->assertStringContainsString('"@type":"Organization"', $html);
+        // ITERATION-1 FIX: the welcome page renders graphs via the
+        // standalone x-json-ld component, which pretty-prints its JSON.
+        $this->assertStringContainsString('"@type": "WebSite"', $html);
+        $this->assertStringContainsString('"@type": "Organization"', $html);
     }
 }

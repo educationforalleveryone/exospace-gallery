@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
@@ -137,8 +138,11 @@ class WebhookSecurityTest extends TestCase
         $this->app['env'] = 'testing';
 
         // Create a transaction to be refunded
+        // ITERATION-1 FIX: transactions.user_id is FK-constrained on SQLite
+        // — user id 1 never existed in this test.
+        $refundUser = User::factory()->create();
         $transaction = DB::table('transactions')->insertGetId([
-            'user_id'        => 1,
+            'user_id'        => $refundUser->id,
             'invoice_id'     => 'INV-2CO5-TEST',
             'sale_id'        => 'SALE-2CO5',
             'product_id'     => 'PRO-PRODUCT',

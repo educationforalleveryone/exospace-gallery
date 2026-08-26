@@ -15,8 +15,16 @@ export const Analytics = {
 
         // Dwell (page unload) and perf (partial sample flush on pagehide)
         // fire at navigation time — sendBeacon is the reliable transport.
+        //
+        // ITERATION-1 FIX (silent analytics loss): sendBeacon with a plain
+        // string body sends Content-Type: text/plain — Laravel only parses
+        // application/json bodies into $request->input(), so the server-side
+        // validate() saw an EMPTY payload and returned 422 for every dwell
+        // and perf event (engagement time + the PERF-F31 performance beacon
+        // were silently discarded). Wrapping the JSON in a Blob with an
+        // explicit type makes sendBeacon send the right Content-Type.
         if ((event === 'dwell' || event === 'perf') && navigator.sendBeacon) {
-            navigator.sendBeacon(url, JSON.stringify(body));
+            navigator.sendBeacon(url, new Blob([JSON.stringify(body)], { type: 'application/json' }));
             return;
         }
 

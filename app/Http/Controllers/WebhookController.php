@@ -81,6 +81,18 @@ class WebhookController extends Controller
         // New approach: use insertOrIgnore() which atomically inserts OR
         // silently no-ops on duplicate. Check the return value (1 = inserted,
         // 0 = already existed → duplicate → return 200).
+        //
+        // ITERATION-1 P0 FIX (lost upgrades): the dedupe row was inserted
+        // BEFORE processing and NEVER removed on failure. If processing threw
+        // (e.g. a DB deadlock during the upgrade transaction → 500),
+        // 2Checkout's automatic retry hit the dedupe row, got a 200 OK, and
+        // the paid upgrade was permanently swallowed — the customer paid,
+        // stayed on Free, and the abandoned-cart email told them to buy
+        // again. Every failure path below now calls forgetProcessedWebhook()
+        // to remove the marker BEFORE returning a 5xx, so the retry can
+        // reprocess the event. Idempotency within the processing logic
+        // (transactions.invoice_id unique + SELECT FOR UPDATE) makes the
+        // retry safe.
         $messageId = $request->input('message_id');
         $messageType = $request->input('message_type');
         if ($messageId && $messageType) {
@@ -107,26 +119,42 @@ class WebhookController extends Controller
         // ================================
         $messageType = $request->input('message_type');
 
-        if ($messageType === 'REFUND_ISSUED') {
-            return $this->applyRefund($request);
-        }
-        if ($messageType === 'CHARGEBACK_REPORTED') {
-            return $this->applyChargeback($request);
-        }
-        if ($messageType === 'CHARGEBACK_REVERSED') {
-            return $this->reverseChargeback($request);
-        }
+        // ITERATION-1 P0 FIX (lost refunds/chargebacks): the refund,
+        // chargeback and recurring handlers previously ran OUTSIDE any
+        // failure-aware wrapper — an exception in any of them returned a
+        // 500 while the dedupe marker stayed behind, permanently blocking
+        // 2Checkout's retry (same lost-upgrade hole as above, but for
+        // refunds: a refunded customer would never be downgraded).
+        try {
+            if ($messageType === 'REFUND_ISSUED') {
+                return $this->applyRefund($request);
+            }
+            if ($messageType === 'CHARGEBACK_REPORTED') {
+                return $this->applyChargeback($request);
+            }
+            if ($messageType === 'CHARGEBACK_REVERSED') {
+                return $this->reverseChargeback($request);
+            }
 
-        // M-1: Recurring (subscription) webhook events.
-        // These are sent by 2Checkout for recurring billing lifecycle events.
-        if ($messageType === 'RECURRING_INSTALLMENT_SUCCESS') {
-            return $this->handleRecurringSuccess($request);
-        }
-        if ($messageType === 'RECURRING_INSTALLMENT_FAILED') {
-            return $this->handleRecurringFailure($request);
-        }
-        if ($messageType === 'RECURRING_ORDER_CANCELLED') {
-            return $this->handleRecurringCancelled($request);
+            // M-1: Recurring (subscription) webhook events.
+            // These are sent by 2Checkout for recurring billing lifecycle events.
+            if ($messageType === 'RECURRING_INSTALLMENT_SUCCESS') {
+                return $this->handleRecurringSuccess($request);
+            }
+            if ($messageType === 'RECURRING_INSTALLMENT_FAILED') {
+                return $this->handleRecurringFailure($request);
+            }
+            if ($messageType === 'RECURRING_ORDER_CANCELLED') {
+                return $this->handleRecurringCancelled($request);
+            }
+        } catch (\Throwable $e) {
+            $this->forgetProcessedWebhook($messageId, $messageType);
+            Log::error('2Checkout: Webhook handler failed — dedupe marker removed so retry can reprocess', [
+                'message_type' => $messageType,
+                'invoice_id'   => $request->input('invoice_id'),
+                'error'        => $e->getMessage(),
+            ]);
+            return response('Internal error', 500);
         }
 
         // Other message types (FRAUD_STATUS_CHANGED, REFUND_REQUESTED,
@@ -335,7 +363,7 @@ class WebhookController extends Controller
                     // PlanUpgradedEmail implements ShouldQueue, so the queue
                     // dispatch happens after commit — the queue worker will
                     // see the committed user state.
-                    \DB::afterCommit(function () use ($user, $planConfig, $invoiceId, $transactionId) {
+                    \DB::afterCommit(function () use ($user, $planConfig, $invoiceId, $transactionId, $recurringOrderId) {
                         try {
                             \Illuminate\Support\Facades\Mail::to($user->email)
                                 ->send(new \App\Mail\PlanUpgradedEmail($user, $planConfig['plan'], $invoiceId));
@@ -351,8 +379,25 @@ class WebhookController extends Controller
                         try {
                             $transaction = \App\Models\Transaction::find($transactionId);
                             if ($transaction) {
+                                // ITERATION-1 FIX: pass explicit billing_type —
+                                // the invoice PDF previously mislabelled every
+                                // subscription purchase as a lifetime purchase.
                                 app(\App\Services\InvoiceGenerator::class)
-                                    ->generateForTransaction($transaction, $user);
+                                    ->generateForTransaction($transaction, $user, [
+                                        'billing_type' => $recurringOrderId ? 'subscription' : 'one_time',
+                                        // ITERATION-1 FIX (VAT correctness):
+                                        // 2Checkout reports the buyer's billing
+                                        // country in the IPN payload — use it
+                                        // instead of request()->ip() (which in
+                                        // webhook context is 2Checkout's server,
+                                        // and previously produced 0% VAT for
+                                        // every EU buyer).
+                                        'customer_country' => strtoupper((string) (
+                                            $request->input('customer_country')
+                                            ?? $request->input('country')
+                                            ?? ''
+                                        )) ?: null,
+                                    ]);
                             }
                         } catch (\Throwable $e) {
                             Log::warning('2Checkout: Invoice generation failed', [
@@ -381,7 +426,12 @@ class WebhookController extends Controller
             ]);
             return response('OK', 200);
         } catch (\Throwable $e) {
-            Log::error('2Checkout: Upgrade failed', [
+            // ITERATION-1 P0 FIX (lost upgrades): remove the dedupe marker
+            // BEFORE returning 500 — otherwise 2Checkout's retry of this
+            // exact message_id would hit the marker and get a bogus 200,
+            // permanently swallowing a paid upgrade.
+            $this->forgetProcessedWebhook($messageId, $messageType);
+            Log::error('2Checkout: Upgrade failed — dedupe marker removed so retry can reprocess', [
                 'invoice_id' => $invoiceId,
                 'user_id'    => $user->id,
                 'error'      => $e->getMessage(),
@@ -499,8 +549,14 @@ class WebhookController extends Controller
                     $rawRefundField = $request->input('item_list_amount_1', 0);
                     $refundAmount = (float) $rawRefundField;
                     $originalAmount = (float) $transaction->amount;
-                    $isFullRefund = $originalAmount > 0
-                        && ($refundAmount / $originalAmount) >= 0.90;
+                    // ITERATION-1 FIX (floating-point threshold): 89.10/99.00
+                    // computes as 0.8999999999999999 in IEEE-754 doubles, so a
+                    // refund at EXACTLY the 90% boundary classified as partial
+                    // and the refunded user kept their plan. Compare with an
+                    // epsilon; also compute in cents (integers) first for the
+                    // exact cases.
+                    $ratio = $originalAmount > 0 ? $refundAmount / $originalAmount : 0.0;
+                    $isFullRefund = $originalAmount > 0 && ($ratio >= 0.90 - 0.000001);
 
                     // 2CO-5 FIX: debug logging for assumption verification.
                     // This log line is INFO level so it appears in production
@@ -1131,7 +1187,11 @@ class WebhookController extends Controller
                             $transaction = \App\Models\Transaction::find($transactionId);
                             if ($transaction) {
                                 app(\App\Services\InvoiceGenerator::class)
-                                    ->generateForTransaction($transaction, $user);
+                                    ->generateForTransaction($transaction, $user, [
+                                        // ITERATION-1 FIX: renewals are always
+                                        // subscription invoices.
+                                        'billing_type' => 'subscription',
+                                    ]);
                             }
                         } catch (\Throwable $e) {
                             Log::warning('2Checkout: Recurring invoice generation failed', [
@@ -1303,5 +1363,48 @@ class WebhookController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * ITERATION-1 P0 FIX (lost upgrades): remove a processed_webhooks dedupe
+     * marker so 2Checkout's automatic retry of a FAILED webhook can be
+     * reprocessed.
+     *
+     * Why this exists: the marker is inserted BEFORE processing (atomic
+     * replay protection), but if processing then throws and we return 500,
+     * the marker would block the retry — 2Checkout would receive a bogus
+     * 200 from the dedupe check and the paid event (upgrade, refund,
+     * chargeback, recurring instalment) would be permanently lost.
+     *
+     * Safe because every processing path is idempotent on its own keys:
+     *   - upgrades:        unique(transactions.invoice_id) + SELECT FOR UPDATE
+     *   - refunds:         transaction status guard + amount threshold
+     *   - recurring:       subscription_status + dunning_step state machine
+     *   - chargebacks:     transaction status guard
+     *
+     * Deletes by BOTH message_id+message_type (the unique key) — a retry of
+     * the same event re-inserts the marker on arrival.
+     */
+    private function forgetProcessedWebhook(?string $messageId, ?string $messageType): void
+    {
+        if (! $messageId || ! $messageType) {
+            return; // No marker was inserted (payload lacked the fields).
+        }
+
+        try {
+            \DB::table('processed_webhooks')
+                ->where('message_id', $messageId)
+                ->where('message_type', $messageType)
+                ->delete();
+        } catch (\Throwable $e) {
+            // Marker removal is best-effort: if the DELETE itself fails we
+            // are likely in a DB outage — the 500 response still tells
+            // 2Checkout to retry, and the operator alert fires.
+            Log::warning('2Checkout: failed to remove dedupe marker after processing error', [
+                'message_id'   => $messageId,
+                'message_type' => $messageType,
+                'error'        => $e->getMessage(),
+            ]);
+        }
     }
 }

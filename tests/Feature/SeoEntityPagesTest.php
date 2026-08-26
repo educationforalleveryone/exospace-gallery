@@ -43,6 +43,13 @@ class SeoEntityPagesTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
+        // ITERATION-1 FIX: config('app.url') alone does not change what
+        // url() generates in feature tests — the UrlGenerator uses the
+        // request root (http://localhost) unless the root is forced.
+        // Without this, every canonical/OG assertion below compared the
+        // rendered localhost URLs against exospace.gallery and failed.
+        \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
+        \Illuminate\Support\Facades\URL::forceScheme('https');
     }
 
     private function makePublicGallery(array $attrs = []): Gallery
@@ -295,6 +302,8 @@ class SeoEntityPagesTest extends TestCase
             'category' => 'gallery',
             'is_active' => true,
             'is_draft' => false,
+            // ITERATION-1 FIX: default_settings is NOT NULL in the schema.
+            'default_settings' => ['wall_texture' => 'white', 'room_layout' => 'square'],
         ]);
         $gallery = $this->makePublicGallery(['venue_template_id' => $venue->id]);
         $this->addArtwork($gallery, ['title' => 'Work One']);
@@ -319,6 +328,8 @@ class SeoEntityPagesTest extends TestCase
             'name' => 'Lonely Hall', 'slug' => 'lonely-hall',
             'description' => 'Empty venue.', 'category' => 'museum',
             'is_active' => true, 'is_draft' => false,
+            // ITERATION-1 FIX: default_settings is NOT NULL in the schema.
+            'default_settings' => ['wall_texture' => 'white', 'room_layout' => 'square'],
         ]);
 
         $response = $this->get('/venues/lonely-hall');

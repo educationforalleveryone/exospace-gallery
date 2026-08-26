@@ -72,7 +72,10 @@ Route::middleware('auth')->group(function () {
     // including plan changes, user bans, super-admin toggles, and impersonation.
     // 5 per minute per IP is generous for legitimate users (who rarely
     // confirm more than once per session) and stops brute-force.
+    // ITERATION-1 FIX: name the POST route so middleware can be asserted
+    // (the GET route owns the canonical 'password.confirm' name).
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->name('password.confirm.submit')
         ->middleware('throttle:5,1');
 
     // SEC-14: Add throttle to password update — prevents brute-force via CSRF

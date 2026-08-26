@@ -35,6 +35,10 @@ class SeoMeasurementAndRegressionTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
+        // ITERATION-1 FIX: canonical assertions require https URLs — force
+        // the generator root (config alone doesn't change url() output).
+        \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
+        \Illuminate\Support\Facades\URL::forceScheme('https');
     }
 
     // ── Acquisition capture ─────────────────────────────────────────────
@@ -138,12 +142,15 @@ class SeoMeasurementAndRegressionTest extends TestCase
 
     public function test_seo_console_acquisition_tab_renders(): void
     {
-        $superAdmin = User::factory()->create([
+        // ITERATION-1 FIX: master-control requires MFA for super-admins.
+        $superAdmin = User::factory()->withMfa()->create([
             'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
-        $response = $this->actingAs($superAdmin)->get('/master-control/seo?tab=acquisition');
+        $response = $this->actingAs($superAdmin)
+            ->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
+            ->get('/master-control/seo?tab=acquisition');
 
         $response->assertOk();
         $this->assertStringContainsString('Organic acquisition', $response->getContent());

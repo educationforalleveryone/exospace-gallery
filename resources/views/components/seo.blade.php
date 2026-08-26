@@ -23,11 +23,30 @@
     the current URL so tracking params are always stripped, and paginated
     listings pass an explicit canonical.
 --}}
+@props([
+    'seo' => null,
+    'title' => null,
+    'description' => null,
+    'canonicalUrl' => null,
+    'robots' => null,
+    'ogTitle' => null,
+    'ogDescription' => null,
+    'ogImage' => null,
+    'ogImageWidth' => null,
+    'ogImageHeight' => null,
+    'ogImageAlt' => null,
+    'ogType' => null,
+    'twitterCard' => null,
+    'prevUrl' => null,
+    'nextUrl' => null,
+    'locale' => null,
+    'jsonLd' => null,
+])
+
 @php
     use App\Support\Seo\SeoData;
     use App\Support\Seo\CanonicalUrl;
 
-    /** @var \App\Support\Seo\SeoData|null $seo */
     $data = $seo ?? null;
 
     $siteName = config('seo.site_name', config('app.name', 'Exospace'));
@@ -50,11 +69,17 @@
         $locale      = $data->locale;
         $jsonLd      = $data->jsonLd;
     } else {
-        // Legacy string-props mode
+        // Legacy string-props mode.
+        //
+        // ITERATION-1 FIX: `?:` on an UNDEFINED variable raises a warning
+        // (promoted to an exception in tests) — when callers render the
+        // component without an explicit canonical, every page 500'd in
+        // this mode. isset() guards first, then the empty-string fallback.
         $title       = $title ?? $siteName . ' — Immersive 3D Art Galleries';
         $description = $description ?? config('seo.default_description');
-        // Note: ?: (not ??) so an empty-string canonical falls back too.
-        $canonical   = $canonicalUrl ?: CanonicalUrl::clean(url()->current());
+        $canonical   = isset($canonicalUrl) && $canonicalUrl !== ''
+            ? $canonicalUrl
+            : CanonicalUrl::clean(url()->current());
         $robots      = $robots ?? null;
         $ogTitle     = $ogTitle ?? $title;
         $ogDesc      = $ogDescription ?? $description;
@@ -115,6 +140,9 @@
 @if(!empty($jsonLd))
 @foreach($jsonLd as $graph)
 <script type="application/ld+json">
+{{-- ITERATION-1 FIX: keep graphs compact (the standalone x-json-ld --}}
+{{-- component is pretty-printed; the seo component's graph blocks are --}}
+{{-- compact to minimize inline payload on every public page). --}}
 {!! json_encode($graph, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
 @endforeach

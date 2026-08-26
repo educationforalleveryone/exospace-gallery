@@ -189,10 +189,12 @@ class SeoPageRenderer
     private function liveVenues(): Collection
     {
         return \Illuminate\Support\Facades\Cache::remember('seo:page:venues', 900, fn () =>
+            // ITERATION-1 FIX (portable SQL): see PublicVenueController::index —
+            // HAVING on the withCount alias breaks SQLite; whereHas is portable.
             VenueTemplate::active()
                 ->published()
+                ->whereHas('galleries', fn ($q) => $q->publiclyViewable()->has('images', '>=', 1))
                 ->withCount(['galleries as public_galleries_count' => fn ($q) => $q->publiclyViewable()->has('images', '>=', 1)])
-                ->having('public_galleries_count', '>', 0)
                 ->orderByDesc('public_galleries_count')
                 ->take(6)
                 ->get());

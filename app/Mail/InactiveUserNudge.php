@@ -33,7 +33,10 @@ class InactiveUserNudge extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: 'Your 3D gallery is waiting — let\'s publish your first exhibition',
-            headers: $this->unsubscribeHeaders($this->user),
+            // ITERATION-1 P0 FIX: RFC 8058 headers now come from the
+            // HasMarketingUnsubscribe trait's headers() method — Envelope
+            // has no `headers` constructor parameter (sending threw
+            // "Unknown named parameter $headers" in the queue worker).
         );
     }
 

@@ -34,6 +34,21 @@ class Iteration5Test extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * ITERATION-1 FIX: Schedule::assertScheduled() does not exist in
+     * Laravel 11/12 (imaginary API). Inspect the scheduler's events.
+     */
+    private function assertCommandScheduled(string $needle, string $message = ''): void
+    {
+        $commands = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+            ->map(fn ($event) => trim((string) $event->command));
+
+        $this->assertTrue(
+            $commands->contains(fn ($cmd) => str_contains($cmd, $needle)),
+            $message !== '' ? $message : "Scheduled command containing '{$needle}' was not found.",
+        );
+    }
+
     // ── AUDIT-P1-5.1: exospace:anonymize-feedback-pii ──────────────────
 
     /**
@@ -340,8 +355,8 @@ class Iteration5Test extends TestCase
      */
     public function test_audit_p15_schedule_includes_all_3_new_anonymization_commands(): void
     {
-        \Illuminate\Support\Facades\Schedule::assertScheduled('exospace:anonymize-feedback-pii');
-        \Illuminate\Support\Facades\Schedule::assertScheduled('exospace:anonymize-rsvp-pii');
-        \Illuminate\Support\Facades\Schedule::assertScheduled('exospace:anonymize-newsletter-pii');
+        $this->assertCommandScheduled('exospace:anonymize-feedback-pii');
+        $this->assertCommandScheduled('exospace:anonymize-rsvp-pii');
+        $this->assertCommandScheduled('exospace:anonymize-newsletter-pii');
     }
 }

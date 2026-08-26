@@ -39,7 +39,7 @@ class EmailDispatchTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        Mail::assertSent(WelcomeEmail::class, function ($mail) {
+        Mail::assertQueued(WelcomeEmail::class, function ($mail) {
             return $mail->user->email === 'test@example.com';
         });
     }
@@ -74,7 +74,7 @@ class EmailDispatchTest extends TestCase
         ]);
 
         $response->assertOk();
-        Mail::assertSent(PlanUpgradedEmail::class, function ($mail) use ($user) {
+        Mail::assertQueued(PlanUpgradedEmail::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id
                 && $mail->plan === 'pro';
         });
@@ -84,17 +84,27 @@ class EmailDispatchTest extends TestCase
     {
         Mail::fake();
 
-        $superAdmin = User::factory()->superAdmin()->create();
+        // ITERATION-1 FIX: master-control routes demand verified + MFA
+        // for super-admins — the old test was redirected to /mfa/setup
+        // before reaching the controller.
+        $superAdmin = User::factory()->withMfa()->create([
+            'is_super_admin'   => true,
+            'email_verified_at' => now(),
+        ]);
         $user = User::factory()->create(['plan' => 'free']);
 
         $response = $this->actingAs($superAdmin)
-            ->withSession(['password_hash_'.\Illuminate\Support\Str::random() => encrypt('password')])
+            ->withSession([
+                'mfa_verified'          => true,
+                'mfa_verified_at'       => now()->timestamp,
+                'auth.password_confirmed_at' => now()->timestamp,
+            ])
             ->post("/master-control/users/{$user->id}/plan", [
                 'plan' => 'pro',
             ]);
 
         $response->assertRedirect();
-        Mail::assertSent(PlanUpgradedEmail::class, function ($mail) use ($user) {
+        Mail::assertQueued(PlanUpgradedEmail::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id
                 && $mail->plan === 'pro';
         });

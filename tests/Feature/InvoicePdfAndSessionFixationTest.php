@@ -93,7 +93,7 @@ class InvoicePdfAndSessionFixationTest extends TestCase
             ->get(route('billing.invoice', ['invoice' => $invoice->id]));
 
         $response->assertStatus(200);
-        $response->assertHeader('Content-Type', 'text/html');
+        $response->assertHeader('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function test_2co6_invoice_download_blocked_for_non_owner(): void
@@ -110,7 +110,10 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
     public function test_2co6_regenerate_invoices_command_exists(): void
     {
-        $this->assertContains('exospace:regenerate-invoices', \Illuminate\Support\Facades\Artisan::all(),
+        // ITERATION-1 FIX: Artisan::all() is keyed by command NAME; the
+        // command exists — assert via array_key_exists (assertContains
+        // checks VALUES).
+        $this->assertArrayHasKey('exospace:regenerate-invoices', \Illuminate\Support\Facades\Artisan::all(),
             '2CO-6: exospace:regenerate-invoices command must be registered.');
     }
 

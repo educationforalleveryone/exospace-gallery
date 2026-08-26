@@ -130,6 +130,14 @@ return new class extends Migration
 
     public function down(): void
     {
+        // ITERATION-1 FIX (portable rollback): SQLite enforces FKs during
+        // DROP TABLE and during column-drop table rebuilds (an ALTER on
+        // gallery_images referencing galleries fails once galleries is
+        // gone). Drop dependents first; they are recreated on re-migrate.
+        Schema::dropIfExists('gallery_images');
+        Schema::dropIfExists('analytics_events');
+        Schema::dropIfExists('event_rsvps');
+        Schema::dropIfExists('gallery_schedule_events');
         Schema::dropIfExists('galleries');
     }
 };

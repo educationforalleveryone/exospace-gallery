@@ -212,15 +212,27 @@ class TaxService
      */
     private function detectCountry(string $ip): string
     {
-        // If app is behind Cloudflare, the CF-IPCountry header is set.
-        // This is the most reliable source (Cloudflare's geo-IP is excellent).
+        // ITERATION-1 FIX (VAT correctness): this method previously IGNORED
+        // the $ip argument entirely and read the current request's
+        // CF-IPCountry header. In webhook/queue context (where invoices are
+        // actually generated) there IS no browser request — the header is
+        // absent and every invoice fell back to the default country (US →
+        // 0% VAT), drifting from the VAT 2Checkout actually charged.
+        //
+        // Resolution order:
+        //   1. Explicit country code passed by the caller (2Checkout's
+        //      billing country from the IPN payload) — handled in
+        //      calculateTax() BEFORE this method runs.
+        //   2. CF-IPCountry when we're in a real browser request context
+        //      (checkout upgrade flow).
+        //   3. Configured default.
+        // The raw $ip alone cannot be resolved offline (no bundled GeoIP
+        // database); callers that care pass the country explicitly.
         $cfCountry = request()?->header('CF-IPCountry');
         if ($cfCountry && $cfCountry !== 'XX') {
             return strtoupper($cfCountry);
         }
 
-        // Fallback: configured default. Production should override this
-        // with a real GeoIP package.
         return strtoupper(config('app.tax_default_country', 'US'));
     }
 

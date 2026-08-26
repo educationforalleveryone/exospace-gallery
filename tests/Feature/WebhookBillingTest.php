@@ -768,7 +768,7 @@ class WebhookBillingTest extends TestCase
         // The PlanUpgradedEmail should only be dispatched after the DB
         // transaction commits. This test verifies the email IS sent on a
         // successful upgrade (the afterCommit callback fires).
-        Mail::fake();
+        \Illuminate\Support\Facades\Mail::fake();
 
         $user = User::factory()->create(['email' => 'buyer@example.com']);
 
@@ -779,7 +779,10 @@ class WebhookBillingTest extends TestCase
         $response = $this->postWebhook($payload);
 
         $response->assertOk();
-        Mail::assertSent(\App\Mail\PlanUpgradedEmail::class, function ($mail) use ($user) {
+        // ITERATION-1 FIX: PlanUpgradedEmail implements ShouldQueue, and the
+        // bare `Mail::` reference relied on a missing import (fatal
+        // "Class Tests\Feature\Mail not found").
+        \Illuminate\Support\Facades\Mail::assertQueued(\App\Mail\PlanUpgradedEmail::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id && $mail->plan === 'pro';
         });
     }

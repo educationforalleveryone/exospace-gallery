@@ -11,6 +11,15 @@ $classes = ($active ?? false)
 $ariaCurrent = ($active ?? false) ? 'page' : null;
 @endphp
 
-<a {{ $attributes->merge(['class' => $classes, 'aria-current' => $ariaCurrent]) }}>
-    {{ $slot }}
+{{-- ITERATION-1 FIX: tolerate direct view() renders where --}}
+{{-- $attributes/$slot are not injected (see nav-link.blade.php). --}}
+@php
+$attrHtml = 'class="' . $classes . '"' . ($ariaCurrent ? ' aria-current="' . $ariaCurrent . '"' : '');
+if (isset($attributes)) {
+    $attrHtml = $attributes->merge(['class' => $classes, 'aria-current' => $ariaCurrent])->toHtml();
+}
+@endphp
+
+<a {!! $attrHtml !!}>
+    {{ $slot ?? '' }}
 </a>

@@ -111,6 +111,15 @@ class InvoiceGenerator
                 $taxCountryCode = $taxBreakdown['country'];
             }
 
+            // ITERATION-1 FIX (billing correctness): explicit billing_type
+            // from webhook context wins; otherwise infer from the user's
+            // live subscription state (accurate at invoice-creation time,
+            // which is when invoices are normally generated).
+            $billingType = $overrides['billing_type']
+                ?? ($user->subscription_id && $user->plan === $transaction->plan
+                    ? 'subscription'
+                    : 'one_time');
+
             $invoice = Invoice::create([
                 'user_id'              => $user->id,
                 'transaction_id'       => $transaction->id,
@@ -120,6 +129,7 @@ class InvoiceGenerator
                 'tax_rate'             => $taxRate,
                 'currency'             => $transaction->currency,
                 'plan'                 => $transaction->plan,
+                'billing_type'         => $billingType,
                 'customer_name'        => $transaction->customer_name ?? $user->name,
                 'customer_email'       => $transaction->customer_email ?? $user->email,
                 'billing_address'      => $overrides['billing_address'] ?? null,

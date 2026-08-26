@@ -46,17 +46,18 @@ class Iteration9Test extends TestCase
      */
     public function test_audit_p19_1_backup_disks_defaults_to_local(): void
     {
-        // Clear the env var to test the default.
-        putenv('BACKUP_DISKS=');
-        $this->refreshApplication();
+        // ITERATION-1 FIX: refreshApplication() re-runs phpdotenv, whose
+        // immutable writer can re-load previously-loaded keys — runtime
+        // env clears don't reliably survive an app refresh. Reload just
+        // the backup config against the cleared variable instead.
+        putenv('BACKUP_DISKS');
+        unset($_ENV['BACKUP_DISKS'], $_SERVER['BACKUP_DISKS']);
+        $this->app['config']->set('backup', require config_path('backup.php'));
 
         $disks = config('backup.backup.destination.disks');
 
         $this->assertIsArray($disks);
         $this->assertEquals(['local'], $disks, 'Default BACKUP_DISKS should be local-only.');
-
-        // Restore.
-        putenv('BACKUP_DISKS');
     }
 
     /**
@@ -149,6 +150,18 @@ class Iteration9Test extends TestCase
 
         // This should NOT throw — the catch(Throwable) in checkSingleBackupDisk
         // handles the r2 failure silently.
+        //
+        // ITERATION-1 FIX: risky-test guard — the method performs no
+        // assertions (it only asserts "no exception"). Assert the observable
+        // side effect: the healthy local backup produced no critical alert.
+        try {
+            $service->checkBackupHealth();
+            $noException = true;
+        } catch (Throwable) {
+            $noException = false;
+        }
+        $this->assertTrue($noException, 'checkBackupHealth must not throw when one disk is unreadable');
+        Log::shouldNotHaveReceived('critical');
         $service->checkBackupHealth();
 
         // If we got here without an exception, the test passes. The r2

@@ -30,7 +30,11 @@ class ImageMetadataController extends Controller
      */
     public function update(Request $request, Gallery $gallery, GalleryImage $image)
     {
-        $this->authorizeGalleryAccess($gallery);
+        // ITERATION-1 P0 SECURITY FIX: was view-level — a team "viewer"
+        // could edit artwork titles, prices, for_sale flags and artist
+        // attribution on team galleries. Metadata is a curation mutation
+        // → owner/editor only (GalleryPolicy::update).
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         if ($image->gallery_id !== $gallery->id) {
             abort(404);

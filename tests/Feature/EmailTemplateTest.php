@@ -75,11 +75,16 @@ class EmailTemplateTest extends TestCase
         // B-10 FIX: the preheader text should be a meaningful preview (not empty)
         $welcome = file_get_contents(resource_path('views/emails/welcome.blade.php'));
 
-        // Extract the preheader text
-        preg_match('/@section\(\'preheader\')(.*?)(@endsection|@stop)/s', $welcome, $matches);
+        // Extract the preheader text.
+        // ITERATION-1 FIX: the original regex had an unescaped ')' inside the
+        // alternation group — preg_match failed to COMPILE ("unmatched closing
+        // parenthesis") on every run. Escape the paren properly.
+        preg_match('/@section\(\'preheader\'\)(.*?)(?:@endsection|@stop)/s', $welcome, $matches);
         $this->assertNotEmpty($matches, 'B-10: Preheader section must exist.');
 
-        $preheaderContent = $matches[2] ?? '';
+        // ITERATION-1 FIX: capture group 1 holds the section body (group 2
+        // was the now non-capturing alternation).
+        $preheaderContent = $matches[1] ?? '';
         // The preheader should contain actual text (not just empty div tags)
         $this->assertStringContainsString('Your 3D gallery', $preheaderContent,
             'B-10: Preheader text should be meaningful (e.g. "Your 3D gallery awaits...").');

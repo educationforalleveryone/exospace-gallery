@@ -20,17 +20,31 @@
 
                 {{-- Team avatar --}}
                 <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-6">
-                    {{ strtoupper(substr($team->name, 0, 1)) }}
+                    {{ strtoupper(substr($team?->name ?? 'E', 0, 1)) }}
                 </div>
 
                 <h1 class="text-white text-xl font-bold text-center mb-2">You're invited!</h1>
-                <p class="text-gray-400 text-center text-sm mb-6">
-                    <strong class="text-gray-200">{{ $team->owner->name }}</strong> has invited you to join
-                    <strong class="text-gray-200">{{ $team->name }}</strong> as
-                    <span class="text-purple-400 font-medium capitalize">{{ $invitation->role }}</span>.
-                </p>
+                {{-- ITERATION-1 P0 FIX (500 on every invitation email link): --}}
+                {{-- the controller passes $team = null for visitors who --}}
+                {{-- are not the invited recipient (privacy — team name is --}}
+                {{-- hidden until the email matches). The view dereferenced --}}
+                {{-- $team unconditionally, so the DEFAULT flow — an --}}
+                {{-- unauthenticated person clicking the link in the --}}
+                {{-- invitation email — crashed with HTTP 500. --}}
+                @if($team)
+                    <p class="text-gray-400 text-center text-sm mb-6">
+                        <strong class="text-gray-200">{{ $team->owner->name }}</strong> has invited you to join
+                        <strong class="text-gray-200">{{ $team->name }}</strong> as
+                        <span class="text-purple-400 font-medium capitalize">{{ $invitation->role }}</span>.
+                    </p>
+                @else
+                    <p class="text-gray-400 text-center text-sm mb-6">
+                        You've been invited to collaborate on Exospace. Sign in with the
+                        email that received this invitation to see the details.
+                    </p>
+                @endif
 
-                @if($team->description)
+                @if($team?->description)
                 <div class="bg-gray-700/50 border border-gray-600 rounded-lg p-3 mb-6 text-center">
                     <p class="text-gray-300 text-sm italic">"{{ $team->description }}"</p>
                 </div>

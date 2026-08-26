@@ -26,6 +26,8 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        // ITERATION-1 FIX: registration now redirects to the email
+        // verification notice (verified email is required for /admin/*).
+        $response->assertRedirect(route('verification.notice', absolute: false));
     }
 }

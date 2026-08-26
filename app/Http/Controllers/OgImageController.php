@@ -72,6 +72,16 @@ class OgImageController extends Controller
                 ->firstOrFail();
         });
 
+        // ITERATION-1 FIX (unpublished content leak): the OG endpoint
+        // previously served preview images for ANY gallery slug, including
+        // unpublished (is_active=false) galleries — leaking the title and
+        // cover artwork of exhibitions the curator had taken offline.
+        // 404 keeps cache semantics simple (the flex cache may briefly
+        // hold a just-unpublished gallery; acceptable for a 1-2h TTL).
+        if (! $gallery->is_active) {
+            abort(404);
+        }
+
         // (Task H50) — per-artwork OG image for deep-linked URLs
         $artworkId = $request->integer('artwork');
         $artwork = null;

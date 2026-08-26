@@ -59,9 +59,17 @@ class GalleryViewController extends Controller
         }
 
         // PIN protection — redirect to PIN screen if not yet verified.
-        // Skipped in embed mode (embeds are public-only by design).
+        //
+        // ITERATION-1 P0 SECURITY FIX (PIN bypass): embed mode previously
+        // skipped the PIN gate UNCONDITIONALLY ("embeds are public-only by
+        // design" — but nothing stopped a visitor from appending ?embed=1
+        // to a PIN-protected gallery's URL and bypassing the only access
+        // control on private exhibitions). Embed mode is now allowed to
+        // skip the PIN screen ONLY for galleries that have no PIN at all;
+        // a PIN-protected gallery always demands the PIN first. Visitors
+        // who verified the PIN in this session may also use embed mode.
         $isEmbed = $request->boolean('embed');
-        if (!$isEmbed && $gallery->hasPinProtection() && !session("pin_verified_{$gallery->id}")) {
+        if ($gallery->hasPinProtection() && !session("pin_verified_{$gallery->id}")) {
             return redirect()->route('gallery.pin', $gallery->slug);
         }
 

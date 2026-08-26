@@ -52,12 +52,40 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('gallery_images', function (Blueprint $table) {
-            try { $table->dropForeign(['artist_id']); } catch (\Throwable $e) {}
-            if (Schema::hasColumn('gallery_images', 'artist_id')) {
-                $table->dropColumn('artist_id');
+        // ITERATION-1 FIX (portable rollback): by the time this migration's
+        // down() runs on a fresh-install rollback, the consolidated
+        // galleries migration has ALREADY dropped gallery_images (it runs
+        // later in the batch, so it rolls back FIRST). Every gallery_images
+        // ALTER below is therefore guarded; when the table survives with
+        // only artist_id left, drop the table (SQLite compiles an empty
+        // __temp__ rebuild when the drop set covers every column).
+        if (Schema::hasTable('gallery_images')) {
+            $columns = Schema::getColumnListing('gallery_images');
+
+            if (in_array('artist_id', $columns, true) && count($columns) > 1) {
+                try {
+                    Schema::table('gallery_images', function (Blueprint $table) {
+                        $table->dropForeign(['artist_id']);
+                    });
+                } catch (\Throwable) {
+                    // FK absent (consolidated-migration path).
+                }
+                try {
+                    Schema::table('gallery_images', function (Blueprint $table) {
+                        $table->dropIndex(['artist_id']);
+                    });
+                } catch (\Throwable) {
+                    // Index absent (consolidated-migration path).
+                }
+                Schema::table('gallery_images', function (Blueprint $table) {
+                    $table->dropColumn('artist_id');
+                });
+            } else {
+                // Only artist_id remains (or the column is already gone) —
+                // the table is fully wound down.
+                Schema::dropIfExists('gallery_images');
             }
-        });
+        }
 
         Schema::dropIfExists('artists');
     }

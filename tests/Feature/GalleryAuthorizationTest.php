@@ -70,10 +70,12 @@ class GalleryAuthorizationTest extends TestCase
         $user = User::factory()->create();
         $gallery = Gallery::factory()->create(['user_id' => $user->id]);
 
+        // ITERATION-1 FIX: show() authorizes then redirects to the edit
+        // page (it has no view of its own) — assert the redirect.
         $response = $this->actingAs($user)
             ->get("/admin/galleries/{$gallery->id}");
 
-        $response->assertOk();
+        $response->assertRedirect(route('admin.galleries.edit', $gallery));
     }
 
     public function test_non_owner_cannot_view_other_users_gallery_in_admin(): void
@@ -97,7 +99,7 @@ class GalleryAuthorizationTest extends TestCase
         $response = $this->actingAs($superAdmin)
             ->get("/admin/galleries/{$gallery->id}");
 
-        $response->assertOk();
+        $response->assertRedirect(route('admin.galleries.edit', $gallery));
     }
 
     // ── Gallery edit authorization ───────────────────────────────────────
@@ -141,7 +143,7 @@ class GalleryAuthorizationTest extends TestCase
         $response = $this->actingAs($member)
             ->get("/admin/galleries/{$gallery->id}");
 
-        $response->assertOk();
+        $response->assertRedirect(route('admin.galleries.edit', $gallery));
     }
 
     public function test_non_member_cannot_view_team_gallery(): void
@@ -170,8 +172,10 @@ class GalleryAuthorizationTest extends TestCase
         $response = $this->actingAs($user)
             ->delete("/admin/galleries/{$gallery->id}");
 
+        // ITERATION-1 FIX: galleries use SoftDeletes — assert the tombstone
+        // instead of a missing row.
         $response->assertRedirect();
-        $this->assertDatabaseMissing('galleries', ['id' => $gallery->id]);
+        $this->assertSoftDeleted('galleries', ['id' => $gallery->id]);
     }
 
     public function test_non_owner_cannot_delete_other_users_gallery(): void

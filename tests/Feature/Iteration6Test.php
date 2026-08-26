@@ -42,8 +42,10 @@ class Iteration6Test extends TestCase
         app(OperationalAlertService::class)->checkQueueWorkerHealth();
 
         // No critical log entry should be fired for an empty queue.
-        Log::shouldNotHaveReceived('critical')
-            ->withArgs(fn ($message) => str_contains($message, 'Queue worker'));
+        // ITERATION-1 FIX: Mockery's shouldNotHaveReceived() returns null when
+        // the spy received no matching calls — chaining withArgs() on it
+        // fatals. Assert the absence directly.
+        Log::shouldNotHaveReceived('critical');
     }
 
     /**
@@ -92,8 +94,10 @@ class Iteration6Test extends TestCase
 
         app(OperationalAlertService::class)->checkQueueWorkerHealth();
 
-        Log::shouldNotHaveReceived('critical')
-            ->withArgs(fn ($message) => str_contains($message, 'Queue worker'));
+        // ITERATION-1 FIX: Mockery's shouldNotHaveReceived() returns null when
+        // the spy received no matching calls — chaining withArgs() on it
+        // fatals. Assert the absence directly.
+        Log::shouldNotHaveReceived('critical');
     }
 
     // ── AUDIT-P1-6.4: checkBackupHealth ─────────────────────────────────
@@ -189,8 +193,7 @@ class Iteration6Test extends TestCase
 
         app(OperationalAlertService::class)->checkBackupHealth();
 
-        Log::shouldNotHaveReceived('critical')
-            ->withArgs(fn ($message) => str_contains($message, 'backup') || str_contains($message, 'Backup'));
+        Log::shouldNotHaveReceived('critical');
 
         // Cleanup.
         $disk->delete($backupName . '/fresh-backup.zip');
@@ -202,13 +205,34 @@ class Iteration6Test extends TestCase
      * AUDIT-P1-6.3: The default LOG_STACK (when env var is absent) should
      * include 'daily' AND 'json' for production-grade structured logging.
      */
+
+    /**
+     * ITERATION-1 FIX: Laravel's env() reads $_ENV/$_SERVER (written by
+     * phpdotenv at bootstrap) BEFORE getenv — putenv() alone cannot change
+     * an already-loaded value, so the old LOG_STACK tests never actually
+     * varied the input. Set all three sources.
+     */
+    private function setEnvVar(string $name, ?string $value): void
+    {
+        if ($value === null) {
+            putenv($name);
+            unset($_ENV[$name], $_SERVER[$name]);
+        } else {
+            putenv("{$name}={$value}");
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
+        }
+    }
+
     public function test_audit_p16_3_logging_stack_default_includes_daily_and_json(): void
     {
-        // Clear the env var to test the default.
-        putenv('LOG_STACK=');
-
-        // Re-bootstrap the config to pick up the cleared env var.
-        $this->refreshApplication();
+        // ITERATION-1 FIX: refreshApplication() re-runs phpdotenv, which
+        // overwrites an empty-string value with the .env.testing value —
+        // putenv could never win. Reload just the logging config file
+        // against the cleared env instead (same evaluation path, no
+        // full re-bootstrap).
+        $this->setEnvVar('LOG_STACK', '');
+        $this->app['config']->set('logging', require config_path('logging.php'));
 
         $stackChannels = config('logging.channels.stack.channels');
 
@@ -217,7 +241,7 @@ class Iteration6Test extends TestCase
         $this->assertContains('json', $stackChannels, 'Default stack should include "json" for structured log aggregation.');
 
         // Restore the env var for other tests.
-        putenv('LOG_STACK=daily');
+        $this->setEnvVar('LOG_STACK', 'daily');
     }
 
     /**
@@ -225,14 +249,14 @@ class Iteration6Test extends TestCase
      */
     public function test_audit_p16_3_logging_stack_env_var_overrides_default(): void
     {
-        putenv('LOG_STACK=slack');
-        $this->refreshApplication();
+        $this->setEnvVar('LOG_STACK', 'slack');
+        $this->app['config']->set('logging', require config_path('logging.php'));
 
         $stackChannels = config('logging.channels.stack.channels');
         $this->assertEquals(['slack'], $stackChannels, 'LOG_STACK env var should override the default.');
 
         // Restore.
-        putenv('LOG_STACK=daily');
+        $this->setEnvVar('LOG_STACK', 'daily');
     }
 
     /**

@@ -40,7 +40,10 @@ class FirstGalleryCreatedEmail extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: "Your gallery \"{$this->gallery->title}\" is ready — add your first artwork",
-            headers: $this->unsubscribeHeaders($this->user),
+            // ITERATION-1 P0 FIX: RFC 8058 headers now come from the
+            // HasMarketingUnsubscribe trait's headers() method — Envelope
+            // has no `headers` constructor parameter (sending threw
+            // "Unknown named parameter $headers" in the queue worker).
         );
     }
 

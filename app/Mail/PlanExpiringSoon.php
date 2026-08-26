@@ -39,7 +39,10 @@ class PlanExpiringSoon extends Mailable implements ShouldQueue
         $daysLeft = now()->diffInDays($this->user->plan_expires_at) ?? 0;
         return new Envelope(
             subject: "Your Exospace {$planName} plan expires in {$daysLeft} days",
-            headers: $this->unsubscribeHeaders($this->user),
+            // ITERATION-1 P0 FIX: RFC 8058 headers now come from the
+            // HasMarketingUnsubscribe trait's headers() method — Envelope
+            // has no `headers` constructor parameter (sending threw
+            // "Unknown named parameter $headers" in the queue worker).
         );
     }
 

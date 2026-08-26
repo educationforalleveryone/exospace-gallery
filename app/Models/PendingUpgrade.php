@@ -24,6 +24,23 @@ use Illuminate\Support\Str;
 class PendingUpgrade extends Model
 {
     use HasFactory;
+
+    /**
+     * ITERATION-1 FIX (latent crash): the plaintext upgrade token is a
+     * REQUEST-SCOPED value — it must never reach the database. Previously
+     * `createForUser()` assigned it via `$pending->plaintext_token = ...`,
+     * which lands in Eloquent's $attributes. Any later save() of that
+     * instance (e.g. a test backdating created_at, or future admin tooling
+     * touching notified_at) then tried to UPDATE a non-existent DB column
+     * and crashed with "no such column: plaintext_token".
+     *
+     * Declaring it as a real typed property means PHP stores the value on
+     * the object itself; Eloquent's __set() magic never sees it, so save()
+     * cannot persist it. Reads (`$pending->plaintext_token`, e.g. in
+     * BillingController::upgrade) are unaffected.
+     */
+    public ?string $plaintext_token = null;
+
     protected $fillable = [
         'user_id',
         'token',

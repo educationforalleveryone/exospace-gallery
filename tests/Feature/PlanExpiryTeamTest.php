@@ -102,6 +102,28 @@ class PlanExpiryTeamTest extends TestCase
 
     // ── Team invitations ─────────────────────────────────────────────────
 
+
+    /**
+     * ITERATION-1 FIX: team-invitation routes use the `signed` middleware —
+     * the old tests hit raw URLs and received 403 before any controller
+     * logic ran. Build properly signed URLs instead.
+     */
+    private function signedInvitationUrl(string $token, bool $accept = true): string
+    {
+        return \Illuminate\Support\Facades\URL::signedRoute(
+            $accept ? 'team-invitations.accept' : 'team-invitations.decline',
+            ['token' => $token],
+        );
+    }
+
+    private function signedInvitationShowUrl(string $token): string
+    {
+        return \Illuminate\Support\Facades\URL::signedRoute(
+            'team-invitations.show',
+            ['token' => $token],
+        );
+    }
+
     public function test_invitation_show_page_does_not_leak_team_name_to_non_recipient(): void
     {
         $owner = User::factory()->create();
@@ -113,7 +135,7 @@ class PlanExpiryTeamTest extends TestCase
         ]);
 
         // Not logged in — should NOT see team name
-        $response = $this->get('/team-invitations/test-token-123');
+        $response = $this->get($this->signedInvitationShowUrl('test-token-123'));
         $response->assertOk();
         $response->assertDontSee('Secret Team');
     }
@@ -130,7 +152,7 @@ class PlanExpiryTeamTest extends TestCase
         ]);
 
         $response = $this->actingAs($invitee)
-            ->get('/team-invitations/test-token-456');
+            ->get($this->signedInvitationShowUrl('test-token-456'));
 
         $response->assertOk();
         $response->assertSee('My Team');
@@ -149,7 +171,7 @@ class PlanExpiryTeamTest extends TestCase
         ]);
 
         $response = $this->actingAs($invitee)
-            ->post('/team-invitations/accept-token-123/accept');
+            ->post($this->signedInvitationUrl('accept-token-123'));
 
         $response->assertRedirect(route('admin.teams.show', $team));
         $this->assertDatabaseHas('team_user', [
@@ -172,7 +194,7 @@ class PlanExpiryTeamTest extends TestCase
         ]);
 
         $response = $this->actingAs($intruder)
-            ->post('/team-invitations/accept-token-456/accept');
+            ->post($this->signedInvitationUrl('accept-token-456'));
 
         $response->assertSessionHasErrors('email');
     }
@@ -184,7 +206,7 @@ class PlanExpiryTeamTest extends TestCase
             'email' => 'invited@example.com',
         ]);
 
-        $response = $this->post('/team-invitations/decline-token-123/decline');
+        $response = $this->post($this->signedInvitationUrl('decline-token-123', accept: false));
 
         $response->assertRedirect(); // redirect to login
     }
@@ -198,7 +220,7 @@ class PlanExpiryTeamTest extends TestCase
         ]);
 
         $response = $this->actingAs($intruder)
-            ->post('/team-invitations/decline-token-456/decline');
+            ->post($this->signedInvitationUrl('decline-token-456', accept: false));
 
         $response->assertSessionHasErrors('invitation');
         $this->assertDatabaseHas('team_invitations', ['id' => $invitation->id]);
@@ -213,9 +235,10 @@ class PlanExpiryTeamTest extends TestCase
         ]);
 
         $response = $this->actingAs($invitee)
-            ->post('/team-invitations/decline-token-789/decline');
+            ->post($this->signedInvitationUrl('decline-token-789', accept: false));
 
-        $response->assertRedirect('/dashboard');
+        // ITERATION-1 FIX: /dashboard 301s to /admin/dashboard.
+        $response->assertRedirect('/admin/dashboard');
         $this->assertDatabaseMissing('team_invitations', ['id' => $invitation->id]);
     }
 
@@ -231,7 +254,7 @@ class PlanExpiryTeamTest extends TestCase
         ]);
 
         $response = $this->actingAs($invitee)
-            ->post('/team-invitations/expired-token-123/accept');
+            ->post($this->signedInvitationUrl('expired-token-123'));
 
         $response->assertSessionHasErrors('invitation');
     }

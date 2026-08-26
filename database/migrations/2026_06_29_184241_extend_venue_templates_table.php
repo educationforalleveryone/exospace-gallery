@@ -149,6 +149,28 @@ return new class extends Migration
 
     public function down(): void
     {
+        // ITERATION-1 FIX (consolidated-migration coexistence + SQLite):
+        // fresh installs build venue_templates via the consolidated
+        // migration that runs later in the batch — dropping every extended
+        // column then leaves an EMPTY column list, which SQLite compiles as
+        // `create table __temp__venue_templates ()` — a syntax error. Also
+        // guard for the table not existing at all.
+        if (! Schema::hasTable('venue_templates')) {
+            return;
+        }
+        $dropColumns = array_values(array_filter([
+            'category', 'tags',
+            'thumbnail_path', 'preview_model_path', 'hdri_path', 'default_audio_path',
+            'visual_config', 'material_config',
+            'decorations', 'lighting_fixtures', 'supported_layouts',
+            'is_featured', 'is_draft', 'view_count',
+            'author_id', 'version', 'published_at',
+        ], fn ($column) => Schema::hasColumn('venue_templates', $column)));
+
+        if ($dropColumns === []) {
+            return; // nothing this migration owns remains to drop
+        }
+
         Schema::table('venue_templates', function (Blueprint $table) {
             // Drop foreign key first to avoid constraint errors
             try {
@@ -157,19 +179,8 @@ return new class extends Migration
                 // Foreign key may not exist if migration was partially applied
             }
 
-            $columns = [
-                'category', 'tags',
-                'thumbnail_path', 'preview_model_path', 'hdri_path', 'default_audio_path',
-                'visual_config', 'material_config',
-                'decorations', 'lighting_fixtures', 'supported_layouts',
-                'is_featured', 'is_draft', 'view_count',
-                'author_id', 'version', 'published_at',
-            ];
-
-            foreach ($columns as $column) {
-                if (Schema::hasColumn('venue_templates', $column)) {
-                    $table->dropColumn($column);
-                }
+            foreach ($dropColumns as $column) {
+                $table->dropColumn($column);
             }
         });
     }

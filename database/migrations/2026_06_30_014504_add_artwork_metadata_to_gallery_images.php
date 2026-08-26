@@ -39,13 +39,42 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('gallery_images', function (Blueprint $table) {
-            $columns = ['price', 'currency', 'for_sale', 'medium', 'year',
-                        'dimensions', 'edition_size', 'edition_number', 'external_url'];
-            foreach ($columns as $col) {
-                if (Schema::hasColumn('gallery_images', $col)) {
-                    $table->dropColumn($col);
-                }
+        // ITERATION-1 FIX (consolidated-migration coexistence): rollback
+        // runs additive migrations' down() in reverse batch order — the
+        // target table may already be gone (owned by the consolidated
+        // migration that runs later in the same batch on fresh installs).
+        if (! Schema::hasTable('gallery_images')) {
+            return;
+        }
+        // ITERATION-1 FIX: dropping ALL of these columns at once can empty
+        // the column set on consolidated-schema installs (the table was
+        // created WITH these columns by the consolidated migration that
+        // already rolled back... it hasn't — but when every listed column
+        // is absent, Blueprint compiles `create table __temp__ ()` — a
+        // syntax error). Compute the surviving set and skip when empty.
+        $drop = array_values(array_filter(
+            ['price', 'currency', 'for_sale', 'medium', 'year',
+             'dimensions', 'edition_size', 'edition_number', 'external_url'],
+            fn ($col) => Schema::hasColumn('gallery_images', $col),
+        ));
+        if ($drop === []) {
+            return;
+        }
+        // ITERATION-1 FIX (empty temp-table guard): SQLite rebuilds the
+        // table via __temp__ on column drop. If the drop set covers EVERY
+        // remaining column, the rebuild compiles empty parentheses — a
+        // syntax error. Drop the whole table instead in that case.
+        $remaining = collect(Schema::getColumnListing('gallery_images'))
+            ->diff($drop)
+            ->values()
+            ->all();
+        if ($remaining === []) {
+            Schema::dropIfExists('gallery_images');
+            return;
+        }
+        Schema::table('gallery_images', function (Blueprint $table) use ($drop) {
+            foreach ($drop as $col) {
+                $table->dropColumn($col);
             }
         });
     }

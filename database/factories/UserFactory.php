@@ -105,7 +105,10 @@ class UserFactory extends Factory
     public function withMfa(): static
     {
         return $this->state(fn (array $attributes) => [
-            'google2fa_secret' => encrypt(\PragmaRX\Google2FA\Google2FA::generateSecretKey()),
+            // ITERATION-1 FIX: generateSecretKey() is an instance method
+            // in google2fa v8 — calling it statically threw a fatal Error
+            // whenever the withMfa() state was used.
+            'google2fa_secret' => encrypt((new \PragmaRX\Google2FA\Google2FA())->generateSecretKey()),
             'mfa_enabled_at'   => now(),
         ]);
     }

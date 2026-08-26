@@ -36,7 +36,15 @@ class DiscoverController extends Controller
     public function index(Request $request): View
     {
         $sort = $request->string('sort', 'featured')->toString();
-        $venueId = $request->string('venue');
+        // ITERATION-1 P0 FIX (SEO): cast the Stringable to a plain string.
+        // $request->string('venue') returns a Stringable OBJECT; the strict
+        // comparison `$venueId !== ''` compared object vs string and was
+        // therefore ALWAYS true — every /discover request, including the
+        // clean default hub view, was treated as a "filtered alternate
+        // view" and emitted <meta name="robots" content="noindex,follow">.
+        // The entire Discover hub — the centerpiece of the SEO growth
+        // strategy — was invisible to search engines.
+        $venueId = $request->string('venue')->toString();
 
         // Any non-default sort/venue makes this an alternate view.
         $isFilteredView = $venueId !== '' || !in_array($sort, ['featured', ''], true);

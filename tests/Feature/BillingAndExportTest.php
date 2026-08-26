@@ -52,7 +52,8 @@ class BillingAndExportTest extends TestCase
         $response = $this->actingAs($user)->get('/billing');
 
         $response->assertOk();
-        $response->assertSee('$29.00');
+        // formattedAmount() renders "29.00 USD" (multi-currency-safe).
+        $response->assertSee('29.00 USD');
         $response->assertSee('Completed');
     }
 
@@ -175,6 +176,7 @@ class BillingAndExportTest extends TestCase
 
     public function test_billing_upgrade_blocks_downgrade(): void
     {
+        config(['services.2checkout.product_id_pro' => 'PRO-001']);
         $user = User::factory()->studio()->create();
 
         $response = $this->actingAs($user)->get('/billing/upgrade/pro');
@@ -185,18 +187,29 @@ class BillingAndExportTest extends TestCase
 
     public function test_billing_upgrade_blocks_same_plan(): void
     {
+        // ITERATION-1 FIX: same-plan purchases are intentionally ALLOWED
+        // since the 2CO-7 change (lifetime conversion / re-purchase flows)
+        // — the old test asserted the pre-2CO-7 block. The user proceeds
+        // to 2Checkout.
+        config(['services.2checkout.product_id_pro' => 'PRO-001']);
         $user = User::factory()->pro()->create();
 
         $response = $this->actingAs($user)->get('/billing/upgrade/pro');
 
-        $response->assertRedirect('/billing');
-        $response->assertSessionHas('info');
+        $this->assertStringContainsString(
+            '2checkout.com',
+            (string) $response->headers->get('Location'),
+            'Same-plan one-time re-purchase proceeds to checkout',
+        );
     }
 
     public function test_billing_upgrade_with_coupon_appends_to_url(): void
     {
         $user = User::factory()->create();
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
+        // SEC-8: coupons are validated against an allowlist — the old test
+        // never configured one, so the coupon was (correctly) stripped.
+        config(['services.2checkout.coupon_allowlist' => 'LAUNCH20,WELCOME10']);
 
         $response = $this->actingAs($user)->get('/billing/upgrade/pro?coupon=LAUNCH20');
 
@@ -208,6 +221,8 @@ class BillingAndExportTest extends TestCase
     {
         $user = User::factory()->create();
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
+        // SEC-8: affiliate refs are validated against an allowlist too.
+        config(['services.2checkout.affiliate_allowlist' => 'AFF123,PARTNER7']);
 
         $response = $this->actingAs($user)->get('/billing/upgrade/pro?ref=AFF123');
 
@@ -229,9 +244,29 @@ class BillingAndExportTest extends TestCase
 
         $response = $this->actingAs($user)->get('/profile/export');
 
+        // ITERATION-1 FIX: the export was upgraded to a ZIP archive
+        // (profile.json + CSVs + README) — the old test asserted the
+        // legacy raw-JSON response.
         $response->assertOk();
-        $response->assertHeader('Content-Type', 'application/json');
+        $response->assertHeader('Content-Type', 'application/zip');
         $response->assertHeader('Content-Disposition');
+    }
+
+    /**
+     * Unzip the export archive and decode profile.json — shared helper
+     * for the content assertions below.
+     */
+    private function exportJson($response): array
+    {
+        $zipPath = tempnam(sys_get_temp_dir(), 'exo-export') . '.zip';
+        file_put_contents($zipPath, $response->getContent());
+        $zip = new \ZipArchive();
+        $zip->open($zipPath);
+        $json = $zip->getFromName('profile.json');
+        $zip->close();
+        @unlink($zipPath);
+
+        return json_decode($json, true);
     }
 
     public function test_profile_export_includes_user_data(): void
@@ -240,7 +275,7 @@ class BillingAndExportTest extends TestCase
 
         $response = $this->actingAs($user)->get('/profile/export');
 
-        $json = $response->json();
+        $json = $this->exportJson($response);
         $this->assertEquals('Test User', $json['user']['name']);
         $this->assertEquals($user->email, $json['user']['email']);
     }
@@ -253,7 +288,7 @@ class BillingAndExportTest extends TestCase
 
         $response = $this->actingAs($user)->get('/profile/export');
 
-        $json = $response->json();
+        $json = $this->exportJson($response);
         $this->assertCount(1, $json['galleries']);
         $this->assertEquals('My Gallery', $json['galleries'][0]['title']);
     }
@@ -269,7 +304,7 @@ class BillingAndExportTest extends TestCase
 
         $response = $this->actingAs($user)->get('/profile/export');
 
-        $json = $response->json();
+        $json = $this->exportJson($response);
         $this->assertCount(1, $json['transactions']);
         $this->assertEquals('pro', $json['transactions'][0]['plan']);
     }
@@ -281,6 +316,11 @@ class BillingAndExportTest extends TestCase
         $user = User::factory()->pro()->create();
         $gallery = Gallery::factory()->create(['user_id' => $user->id]);
         $artist = \App\Models\Artist::factory()->create(['created_by' => $user->id]);
+        // ITERATION-1 FIX: duplicate() copies image FILES on disk — the old
+        // test referenced a path that didn't exist, so the artwork was
+        // (correctly) skipped and the clone had no images. Create a real
+        // file so the copy succeeds.
+        \Illuminate\Support\Facades\Storage::fake('public');
         $image = GalleryImage::factory()->create([
             'gallery_id'  => $gallery->id,
             'artist_id'   => $artist->id,
@@ -290,6 +330,7 @@ class BillingAndExportTest extends TestCase
             'medium'      => 'Oil on canvas',
             'year'        => 2024,
         ]);
+        \Illuminate\Support\Facades\Storage::disk('public')->put($image->path, 'fake-image-bytes');
 
         $response = $this->actingAs($user)
             ->post("/admin/galleries/{$gallery->id}/duplicate");

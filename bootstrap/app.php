@@ -58,11 +58,28 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\CaptureAcquisitionContext::class,
         ]);
 
-        // 2. Banned users check — runs on every authenticated request
-        $middleware->append(\App\Http\Middleware\CheckBanned::class);
-
-        // 3. Plan expiry check — auto-downgrades expired paid plans
-        $middleware->append(\App\Http\Middleware\CheckPlanExpiry::class);
+        // 2 + 3. Banned users check + plan expiry check.
+        //
+        // ITERATION-1 P0 SECURITY FIX (ban enforcement was dead code):
+        // both middleware were appended to the GLOBAL stack, where they
+        // run BEFORE the web group's StartSession. Auth::check() at that
+        // point resolves the SessionGuard without a request session —
+        // for real browser traffic it returned false, so the ban check
+        // SKIPPED ITSELF and the request continued into the app normally.
+        // Only tests (actingAs sets the guard user directly) ever saw the
+        // ban branch. Net effect in production: banning a user did not
+        // block them — active sessions AND remember-me cookies kept
+        // working (banUser() purged neither).
+        //
+        // Now they are appended to the WEB group, i.e. after
+        // EncryptCookies + StartSession, so the guard can resolve both
+        // session users and remember-me re-authentications. Stateless
+        // token (API) traffic is covered by token revocation at ban time
+        // (SystemController::banUser) instead of middleware.
+        $middleware->web(append: [
+            \App\Http\Middleware\CheckBanned::class,
+            \App\Http\Middleware\CheckPlanExpiry::class,
+        ]);
 
         // 4. Trusted proxies — restrict to the actual reverse-proxy network
         //    instead of trusting every caller. (Task C17)
@@ -114,10 +131,21 @@ return Application::configure(basePath: dirname(__DIR__))
         // If null/empty: trust no proxies (fail-closed)
 
         // 5. Middleware aliases
+        //
+        //    ITERATION-1 P0 FIX (broken API): routes/api.php uses Sanctum's
+        //    `ability:read` / `ability:write` middleware, but those aliases
+        //    are NOT framework defaults (framework registers auth, can,
+        //    throttle, ... only) and are normally added by the Breeze /
+        //    Jetstream starter kits — which this app never used. Every
+        //    authenticated /api/v1/* route therefore failed with
+        //    "Target class [ability] does not exist" (HTTP 500). Register
+        //    Sanctum's ability middleware aliases explicitly.
         $middleware->alias([
             'super_admin'   => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
             'mfa'           => \App\Http\Middleware\RequireMfa::class, // (Task H56)
             'feature_flag'  => \App\Http\Middleware\EnsureFeatureFlagEnabled::class, // M-14
+            'ability'       => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'abilities'     => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

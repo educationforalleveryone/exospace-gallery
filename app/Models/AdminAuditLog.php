@@ -160,6 +160,13 @@ class AdminAuditLog extends Model
                 // Keep null/empty as-is — no PII to scrub.
                 continue;
             }
+            // ITERATION-1 FIX (G-6 idempotency): values that were ALREADY
+            // scrubbed in a previous pass start with 'pii:' — re-hashing
+            // them would corrupt the record (hash of a hash) on every
+            // scheduled AnonymizeAuditLogPii run. Skip them.
+            if (is_string($value) && str_starts_with($value, 'pii:')) {
+                continue;
+            }
             // Hash the value. Cast to string in case it's a non-string scalar.
             $data[$key] = 'pii:' . substr(hash('sha256', $appId . (string) $value), 0, 16);
         }

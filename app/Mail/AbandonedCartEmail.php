@@ -43,7 +43,10 @@ class AbandonedCartEmail extends Mailable implements ShouldQueue
         $planName = ucfirst($this->pendingUpgrade->plan);
         return new Envelope(
             subject: "Your Exospace {$planName} upgrade is waiting — pick up where you left off",
-            headers: $this->unsubscribeHeaders($this->user),
+            // ITERATION-1 P0 FIX: RFC 8058 headers now come from the
+            // HasMarketingUnsubscribe trait's headers() method — Envelope
+            // has no `headers` constructor parameter (sending threw
+            // "Unknown named parameter $headers" in the queue worker).
         );
     }
 

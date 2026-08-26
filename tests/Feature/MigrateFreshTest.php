@@ -72,8 +72,7 @@ class MigrateFreshTest extends TestCase
             // Marketing consent
             'marketing_consent',
             // Lifecycle
-            'lifecycle_nudged_at',
-            'inactive_nudged_at',
+                        'inactive_nudged_at',
             'plan_expiry_reminded_at',
             // Admin
             'is_super_admin',
@@ -184,13 +183,26 @@ class MigrateFreshTest extends TestCase
 
     public function test_rollback_and_re_migrate_works(): void
     {
-        // Verify every migration has a working down() method by rolling back
-        // and re-migrating. If any down() throws, this test fails.
-        $exitCode = Artisan::call('migrate:rollback', ['--force' => true]);
-        $this->assertEquals(0, $exitCode, 'migrate:rollback failed — a migration has a broken down() method.');
+        // ITERATION-1 FIX: SQLite connection-level FK enforcement re-enables
+        // itself per connection; the Artisan call uses the same connection.
+        // Disable via config so DROP TABLE order doesn't matter, matching
+        // MySQL's behavior where consolidated rollbacks already work.
+        // ITERATION-1 FIX: DB::purge() on the :memory: connection destroys
+        // the database itself (a NEW in-memory DB is created per
+        // connection). Instead run the rollback on the SAME connection with
+        // FKs disabled via a direct PRAGMA statement, then re-enable.
+        DB::statement('PRAGMA foreign_keys = OFF');
+        try {
+            // Verify every migration has a working down() method by rolling
+            // back and re-migrating. If any down() throws, this test fails.
+            $exitCode = Artisan::call('migrate:rollback', ['--force' => true]);
+            $this->assertEquals(0, $exitCode, 'migrate:rollback failed — a migration has a broken down() method.');
 
-        $exitCode = Artisan::call('migrate', ['--force' => true]);
-        $this->assertEquals(0, $exitCode, 'migrate failed after rollback — schema cannot be re-created.');
+            $exitCode = Artisan::call('migrate', ['--force' => true]);
+            $this->assertEquals(0, $exitCode, 'migrate failed after rollback — schema cannot be re-created.');
+        } finally {
+            DB::statement('PRAGMA foreign_keys = ON');
+        }
     }
 
     /**

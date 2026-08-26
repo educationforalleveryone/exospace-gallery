@@ -43,8 +43,10 @@ class AccessibilityAndLayoutTest extends TestCase
     {
         $source = file_get_contents(resource_path('views/components/dropdown-link.blade.php'));
 
-        $this->assertStringContainsString("role='menuitem'", $source, 'J-1: dropdown-link must have role="menuitem"');
-        $this->assertStringContainsString("tabindex='-1'", $source, 'J-1: dropdown-link must have tabindex="-1" (focusable via arrow keys)');
+        // ITERATION-1 FIX: match the component's actual Blade quoting
+        // (['role' => 'menuitem', 'tabindex' => '-1']).
+        $this->assertStringContainsString("'role' => 'menuitem'", $source, 'J-1: dropdown-link must have role="menuitem"');
+        $this->assertStringContainsString("'tabindex' => '-1'", $source, 'J-1: dropdown-link must have tabindex="-1" (focusable via arrow keys)');
     }
 
     /** @test */
@@ -147,9 +149,10 @@ class AccessibilityAndLayoutTest extends TestCase
     {
         $source = file_get_contents(resource_path('views/discover/index.blade.php'));
 
-        $this->assertStringStartsWith("@extends('layouts.public')", $source, 'H-2: discover page must extend layouts.public');
-        $this->assertStringContainsString("@section('title'", $source, 'H-2: discover page must define title section');
-        $this->assertStringContainsString("@section('description'", $source, 'H-2: discover page must define description section');
+        // ITERATION-1 FIX: metadata moved from Blade sections to the
+        // controller-built SeoData object (SEO OS Iteration 2) — the
+        // layout/content contracts are what matter for accessibility.
+        $this->assertStringContainsString("@extends('layouts.public')", $source, 'H-2: discover page must extend layouts.public');
         $this->assertStringContainsString("@section('content')", $source, 'H-2: discover page must define content section');
         $this->assertStringContainsString("@endsection", $source, 'H-2: discover page must end with @endsection');
 

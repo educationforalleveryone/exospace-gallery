@@ -141,9 +141,14 @@ return [
             '/artist/*/og-image',
         ],
         // Wildcard query disallows (Google/Bing extension syntax).
+        // ITERATION-1 FIX: use the canonical Google robots.txt wildcard form
+        // (/*?param= — matches any path followed by the query param), as used
+        // in Google's own documentation examples. The bare `*?param=` form
+        // also works on Googlebot but is nonstandard and was inconsistent
+        // with the documented policy.
         'disallow_query' => [
-            '*?embed=',
-            '*?preview=',
+            '/*?embed=',
+            '/*?preview=',
         ],
     ],
 

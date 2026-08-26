@@ -42,14 +42,20 @@ class PublicVenueController extends Controller
 
     public function index(): View
     {
+        // ITERATION-1 FIX (portable SQL): `having('public_galleries_count')`
+        // references a SELECT subquery alias — MySQL tolerates it, but
+        // SQLite (CI / local test runs) rejects HAVING on a non-aggregate
+        // column when paginate() issues its count(*) query. whereHas
+        // produces an equivalent EXISTS filter that is portable across
+        // both drivers.
         $venues = VenueTemplate::active()
             ->published()
+            ->whereHas('galleries', fn ($q) => $q->publiclyViewable()->has('images', '>=', 1))
             ->withCount([
                 'galleries as public_galleries_count' => fn ($q) => $q->publiclyViewable()->has('images', '>=', 1),
             ])
             ->orderByDesc('public_galleries_count')
             ->orderBy('sort_order')
-            ->having('public_galleries_count', '>', 0)
             ->paginate(self::PER_PAGE);
 
         $seo = $this->seo->forHub(

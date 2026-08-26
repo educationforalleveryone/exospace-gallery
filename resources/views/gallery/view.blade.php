@@ -869,7 +869,18 @@
             if (data.year)       parts.push(data.year);
             if (data.dimensions) parts.push(data.dimensions);
             if (data.edition)    parts.push(data.edition);
-            if (parts.length)    detailsEl.innerHTML = parts.map(p => `<div>${p}</div>`).join('');
+            // ITERATION-1 FIX (stored XSS): these four fields are
+            // curator-controlled free-text (medium/year/dimensions/edition)
+            // and were interpolated into innerHTML — a malicious curator
+            // could inject script into every visitor's page. Build DOM
+            // nodes with textContent instead (same output, zero parsing).
+            if (parts.length) {
+                for (const p of parts) {
+                    const div = document.createElement('div');
+                    div.textContent = p;
+                    detailsEl.appendChild(div);
+                }
+            }
 
             if (hasPrice) {
                 priceEl.textContent = data.formattedPrice || ('$' + Number(data.price).toFixed(2));

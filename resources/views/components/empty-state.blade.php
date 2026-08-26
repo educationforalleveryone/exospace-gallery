@@ -73,9 +73,14 @@ $padding = $compact ? 'py-8 px-4' : 'py-12 px-6';
     @if($description)
         <p class="text-sm text-gray-400 max-w-sm leading-relaxed">{{ $description }}</p>
     @endif
-    @if(isset($action) || $slots->has('action'))
+    {{-- ITERATION-1 FIX: `$slots` does not exist in Blade components --}}
+    {{-- (named slots arrive as their own variables — here $action, --}}
+    {{-- already declared in @props with a null default). The old --}}
+    {{-- $slots->has() call threw "Undefined variable $slots" whenever --}}
+    {{-- this component rendered. --}}
+    @if(!empty($action))
         <div class="mt-5">
-            {{ $action ?? $slots->action }}
+            {{ $action }}
         </div>
     @endif
     <span class="sr-only">{{ $title ?? 'Empty' }}</span>

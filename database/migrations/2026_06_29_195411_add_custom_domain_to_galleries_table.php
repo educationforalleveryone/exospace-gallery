@@ -25,6 +25,13 @@ return new class extends Migration
 
     public function down(): void
     {
+        // ITERATION-1 FIX (consolidated-migration coexistence): guard for
+        // fresh installs where the consolidated galleries migration (which
+        // runs later in the batch) owns the column.
+        if (! Schema::hasTable('galleries')
+            || ! Schema::hasColumn('galleries', 'custom_domain')) {
+            return;
+        }
         Schema::table('galleries', function (Blueprint $table) {
             $table->dropColumn('custom_domain');
         });

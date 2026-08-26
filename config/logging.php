@@ -72,7 +72,14 @@ return [
             // absent (fresh installs, tests). To get structured JSON logs
             // in production, the operator should set LOG_STACK=daily,json
             // in Coolify's env vars.
-            'channels' => explode(',', (string) env('LOG_STACK', 'daily,json')),
+            // ITERATION-1 FIX: an empty LOG_STACK value (or one that parses
+            // to no channels) previously produced [''] — a stack with a
+            // nonexistent '' channel that silently logged nothing. Fall
+            // back to the default when the env var yields no channels.
+            'channels' => (function () {
+                $channels = array_values(array_filter(array_map('trim', explode(',', (string) env('LOG_STACK', 'daily,json')))));
+                return $channels !== [] ? $channels : ['daily', 'json'];
+            })(),
             'ignore_exceptions' => false,
         ],
 

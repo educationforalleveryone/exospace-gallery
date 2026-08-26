@@ -42,6 +42,19 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // ITERATION-1 FIX (portable rollback): late migrations (galleries,
+        // teams, invoices, ...) hold FKs to users, and SQLite enforces them
+        // during DROP TABLE even when the referencing table's own migration
+        // has already rolled back (migrations run inside a transaction —
+        // PRAGMA foreign_keys is a no-op there). Drop the dependent tables
+        // first; they are recreated by their own migrations on re-migrate.
+        foreach (['galleries', 'team_user', 'team_invitations', 'teams',
+                  'pending_upgrades', 'invoices', 'transactions',
+                  'newsletter_signups', 'gdpr_deletion_requests',
+                  'personal_access_tokens', 'password_histories',
+                  'user_notifications', 'user_feedback', 'survey_responses'] as $dependent) {
+            Schema::dropIfExists($dependent);
+        }
         Schema::dropIfExists('users');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');

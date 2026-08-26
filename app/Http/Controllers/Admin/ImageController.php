@@ -26,17 +26,32 @@ class ImageController extends Controller
         // abort(403) propagates correctly. Previously the catch swallowed
         // HttpException and returned 500 with $e->getMessage() leaked to
         // the client.
-        $this->authorizeGalleryAccess($gallery);
+        //
+        // ITERATION-1 P0 SECURITY FIX: was view-level — a team "viewer"
+        // could upload images to team galleries. GalleryPolicy::uploadMedia
+        // requires owner/editor. Matches the gallery-settings permission
+        // model (GalleryEventController already required edit).
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         try {
             $user = auth()->user();
 
-            // Plan limit: total images across all personal galleries.
+            // ITERATION-1 FIX (entitlement consistency): limits are billed
+            // against the PLAN HOLDER — the team owner for team galleries,
+            // the acting user for personal galleries. Previously the
+            // UPLOADER's plan was checked: a Free-plan editor uploading to
+            // a Studio team owner's gallery was wrongly blocked at 10
+            // images, while the same team owner's own uploads were counted
+            // against a different bucket than the gallery limit — the
+            // same entitlement enforced two different ways.
+            $planHolder = $gallery->team_id ? $gallery->team->owner : $user;
+
+            // Plan limit: total images across all of the plan holder's galleries.
             // (Task H04 / audit H8) — plan-aware error message. Previously
             // ALL users hitting the limit saw "Upgrade to Pro" — confusing
             // for Studio users who are already on the top tier.
-            if ($user->currentImageCount() >= $user->max_images) {
-                $upgradeTarget = match($user->plan) {
+            if ($planHolder->currentImageCount() >= $planHolder->max_images) {
+                $upgradeTarget = match($planHolder->plan) {
                     'free'    => 'Pro',
                     'pro'     => 'Studio',
                     'studio'  => null, // Already on top tier — no upgrade path
@@ -44,24 +59,26 @@ class ImageController extends Controller
                 };
 
                 $message = $upgradeTarget
-                    ? "Plan limit reached ({$user->max_images} images). Upgrade to {$upgradeTarget} to upload more."
-                    : "Plan limit reached ({$user->max_images} images). You're on the Studio plan — contact support to increase your limit.";
+                    ? "Plan limit reached ({$planHolder->max_images} images). Upgrade to {$upgradeTarget} to upload more."
+                    : "Plan limit reached ({$planHolder->max_images} images). You're on the Studio plan — contact support to increase your limit.";
 
                 $response = ['error' => $message];
                 if ($upgradeTarget) {
                     $response['upgrade_url'] = route('billing.upgrade', strtolower($upgradeTarget));
                 }
 
-                Log::info("Plan limit reached for User {$user->id} (Plan: {$user->plan})");
+                Log::info("Plan limit reached for plan holder {$planHolder->id} (Plan: {$planHolder->plan})", [
+                    'gallery_id'   => $gallery->id,
+                    'uploaded_by'  => $user->id,
+                ]);
                 return response()->json($response, 422);
             }
 
-            // Hard per-gallery safety cap. Matches User::planLimits() per
-            // gallery cap (Pro = 100, Studio = 500). The cap is the user's
-            // per-gallery limit from planLimits, NOT a hardcoded 100.
-            // (Task H04 / audit H8) — previously hardcoded 100, which meant
-            // Studio users could never reach their advertised 500-per-gallery.
-            $perGalleryCap = match($user->plan) {
+            // Per-gallery safety cap, from the PLAN HOLDER's tier (same
+            // match as config/plans.php — a follow-up iteration should move
+            // this to a single planLimits() source to eliminate the
+            // duplication).
+            $perGalleryCap = match($planHolder->plan) {
                 'studio'  => 500,
                 'pro'     => 100,
                 default   => 10,
@@ -133,7 +150,9 @@ class ImageController extends Controller
     public function destroy(GalleryImage $image)
     {
         // (Task H06) — authorize outside try/catch.
-        $this->authorizeGalleryAccess($image->gallery);
+        // ITERATION-1 P0 SECURITY FIX: was view-level — a team "viewer"
+        // could delete artworks from team galleries. Editor only.
+        $this->authorizeGalleryAccess($image->gallery, requireEdit: true);
 
         try {
             $this->imageService->delete($image->path);
@@ -177,8 +196,10 @@ class ImageController extends Controller
 
             // Authorize per gallery. If unauthorized, all images in this
             // gallery are skipped — don't leak which images exist.
+            // ITERATION-1 P0 SECURITY FIX: requireEdit — a team "viewer"
+            // could bulk-delete artworks. Editor/owner only.
             try {
-                $this->authorizeGalleryAccess($gallery);
+                $this->authorizeGalleryAccess($gallery, requireEdit: true);
             } catch (HttpException $e) {
                 foreach ($galleryImages as $image) {
                     $errors[] = "Image {$image->id}: Unauthorized";

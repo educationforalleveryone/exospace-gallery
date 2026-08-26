@@ -12,6 +12,17 @@ $classes = ($active ?? false)
 $ariaCurrent = ($active ?? false) ? 'page' : null;
 @endphp
 
-<a {{ $attributes->merge(['class' => $classes, 'aria-current' => $ariaCurrent]) }}>
-    {{ $slot }}
+{{-- ITERATION-1 FIX: $attributes/$slot only exist when rendered as a --}}
+{{-- real <x-nav-link> component. Direct view('components.nav-link') --}}
+{{-- renders (tests, previews) crashed with "Undefined variable $slot". --}}
+{{-- Build the attribute HTML explicitly so both paths work. --}}
+@php
+$attrHtml = 'class="' . $classes . '"' . ($ariaCurrent ? ' aria-current="' . $ariaCurrent . '"' : '');
+if (isset($attributes)) {
+    $attrHtml = $attributes->merge(['class' => $classes, 'aria-current' => $ariaCurrent])->toHtml();
+}
+@endphp
+
+<a {!! $attrHtml !!}>
+    {{ $slot ?? '' }}
 </a>

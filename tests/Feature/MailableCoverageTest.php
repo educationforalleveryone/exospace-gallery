@@ -94,7 +94,8 @@ class MailableCoverageTest extends TestCase
     public function test_first_gallery_email_has_html_and_text_parts(): void
     {
         $user = User::factory()->create();
-        $email = new FirstGalleryCreatedEmail($user);
+        $gallery = \App\Models\Gallery::factory()->create(['user_id' => $user->id]);
+        $email = new FirstGalleryCreatedEmail($user, $gallery);
 
         $this->assertNotNull($email->content()->view);
         $this->assertNotNull($email->content()->text);

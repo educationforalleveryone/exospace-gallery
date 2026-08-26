@@ -109,6 +109,9 @@ return new class extends Migration
 
     public function down(): void
     {
+        // ITERATION-1 FIX (portable rollback): SQLite enforces FKs during
+        // DROP TABLE — a consolidated table set must unwind without order
+        // constraints. MySQL drops are unaffected (FK checks are per-engine).
         Schema::dropIfExists('venue_templates');
     }
 };

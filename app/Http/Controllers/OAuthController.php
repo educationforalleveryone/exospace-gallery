@@ -184,16 +184,27 @@ class OAuthController extends Controller
         //    verified the email.
         $emailVerified = $this->isEmailVerifiedByProvider($provider, $socialUser);
 
+        // ITERATION-1 P0 FIX (broken OAuth registration): google_id/github_id,
+        // avatar_url and email_verified_at are NOT in User::$fillable (they
+        // are deliberately guarded billing/auth fields) — User::create()
+        // silently DROPPED them. Consequences: every OAuth signup stored no
+        // provider link (so the next login with the same provider could not
+        // find the user), no avatar, and an unverified email even when
+        // Google had verified it (the CR-3 guarantee never took effect).
+        // Create with the fillable subset, then attach the guarded fields
+        // via forceFill() — the documented pattern for trusted callers.
         $user = User::create([
-            'name'              => $socialUser->getName() ?? $socialUser->getNickname() ?? 'User',
-            'email'             => strtolower($socialUser->getEmail()),
-            'password'          => Hash::make(Str::random(32)), // random — OAuth-only user
+            'name'         => $socialUser->getName() ?? $socialUser->getNickname() ?? 'User',
+            'email'        => strtolower($socialUser->getEmail()),
+            'password'     => Hash::make(Str::random(32)), // random — OAuth-only user
+            // C-2 FIX: track that this user does NOT have a real password.
+            'has_password' => false,
+        ]);
+        $user->forceFill([
             $providerColumn     => $socialUser->getId(),
             'avatar_url'        => $socialUser->getAvatar(),
             'email_verified_at' => $emailVerified ? now() : null,
-            // C-2 FIX: track that this user does NOT have a real password.
-            'has_password'      => false,
-        ]);
+        ])->save();
 
         Log::info('OAuth: new user registered', [
             'user_id'           => $user->id,

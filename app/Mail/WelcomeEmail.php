@@ -45,7 +45,10 @@ class WelcomeEmail extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: 'Welcome to Exospace — Let\'s Create Your First Gallery',
-            headers: $this->unsubscribeHeaders($this->user),
+            // ITERATION-1 P0 FIX: RFC 8058 headers now come from the
+            // HasMarketingUnsubscribe trait's headers() method — Envelope
+            // has no `headers` constructor parameter (sending threw
+            // "Unknown named parameter $headers" in the queue worker).
         );
     }
 

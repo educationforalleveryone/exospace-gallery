@@ -28,15 +28,39 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('galleries', function (Blueprint $table) {
-            if (Schema::hasColumn('galleries', 'is_featured')) {
+        // ITERATION-1 FIX (consolidated-migration coexistence): rollback
+        // runs additive migrations' down() in reverse batch order — the
+        // target table may already be gone (owned by the consolidated
+        // migration that runs later in the same batch on fresh installs).
+        if (! Schema::hasTable('galleries')) {
+            return;
+        }
+        // ITERATION-1 FIX (empty temp-table guard): compute the drop set
+        // first; when it covers every remaining column (consolidated
+        // rollback already removed the base columns), dropping the table is
+        // the only valid SQLite translation.
+        $drop = array_values(array_filter(
+            ['is_featured', 'curtain_logo_path', 'curtain_bg_color'],
+            fn ($col) => Schema::hasColumn('galleries', $col),
+        ));
+        if ($drop === []) {
+            return;
+        }
+        $remaining = collect(Schema::getColumnListing('galleries'))
+            ->diff($drop)->values()->all();
+        if ($remaining === []) {
+            Schema::dropIfExists('galleries');
+            return;
+        }
+        Schema::table('galleries', function (Blueprint $table) use ($drop) {
+            if (in_array('is_featured', $drop, true)) {
                 $table->dropIndex(['is_featured']);
                 $table->dropColumn('is_featured');
             }
-            if (Schema::hasColumn('galleries', 'curtain_logo_path')) {
+            if (in_array('curtain_logo_path', $drop, true)) {
                 $table->dropColumn('curtain_logo_path');
             }
-            if (Schema::hasColumn('galleries', 'curtain_bg_color')) {
+            if (in_array('curtain_bg_color', $drop, true)) {
                 $table->dropColumn('curtain_bg_color');
             }
         });

@@ -52,10 +52,17 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('galleries', function (Blueprint $table) {
-            $table->dropForeign(['team_id']);
-            $table->dropColumn('team_id');
-        });
+        // ITERATION-1 FIX (consolidated-migration coexistence): on fresh
+        // installs the galleries table (and its team_id column) is owned by
+        // the consolidated migration that runs later in the batch and has
+        // already been rolled back — guard the column removal, and skip the
+        // ALTER entirely when only the table drops remain.
+        if (Schema::hasTable('galleries') && Schema::hasColumn('galleries', 'team_id')) {
+            Schema::table('galleries', function (Blueprint $table) {
+                $table->dropForeign(['team_id']);
+                $table->dropColumn('team_id');
+            });
+        }
 
         Schema::dropIfExists('team_invitations');
         Schema::dropIfExists('team_user');

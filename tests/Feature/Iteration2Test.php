@@ -203,11 +203,20 @@ class Iteration2Test extends TestCase
         $this->assertStringContainsString('window.toast = function', $rendered);
         $this->assertStringContainsString('nonce="', $rendered, 'Toast script must carry CSP nonce');
 
-        // Auto-toast session calls (these render conditionally — no session = no call)
-        // We just verify the conditional Blade syntax is present.
-        $this->assertStringContainsString("session('success')", $rendered);
-        $this->assertStringContainsString("session('error')", $rendered);
-        $this->assertStringContainsString("session('info')", $rendered);
+        // ITERATION-1 FIX: the old assertions checked for the literal text
+        // `session('success')` inside the RENDERED html — but Blade compiles
+        // that directive to PHP, so it never appears in output (the test
+        // could never pass). Assert the BEHAVIOR instead: with a flash
+        // message set, the compiled component must emit the toast call.
+        session(['success' => 'Gallery saved']);
+        $flashRendered = view('components.toast')->render();
+        $this->assertStringContainsString('toast("Gallery saved", \'success\')', $flashRendered,
+            'A session flash must fire a toast on load');
+
+        session()->forget('success');
+        session(['error' => 'Something broke']);
+        $this->assertStringContainsString('toast("Something broke", \'error\')',
+            view('components.toast')->render());
     }
 
     /**

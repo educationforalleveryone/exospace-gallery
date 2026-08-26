@@ -32,6 +32,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        // ITERATION-1 FIX (portable rollback): gallery_images holds an FK to
+        // galleries — drop it first (SQLite enforces FKs during DROP TABLE;
+        // PRAGMA is a no-op inside the migration transaction).
+        Schema::dropIfExists('gallery_images');
         Schema::dropIfExists('galleries');
     }
 };

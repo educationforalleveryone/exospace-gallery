@@ -46,15 +46,20 @@ class Rfc8058UnsubscribeTest extends TestCase
         $user = User::factory()->create(['marketing_consent' => true]);
 
         $mail = new WelcomeEmail($user);
-        $envelope = $mail->envelope();
 
-        $this->assertArrayHasKey('List-Unsubscribe', $envelope->headers);
-        $this->assertArrayHasKey('List-Unsubscribe-Post', $envelope->headers);
-        $this->assertSame('List-Unsubscribe=One-Click', $envelope->headers['List-Unsubscribe-Post']);
+        // ITERATION-1 FIX: the old test read $mail->envelope()->headers —
+        // a property that does not exist on Envelope. Laravel applies a
+        // Mailable's headers(): Headers method to the Symfony message at
+        // send time; assert on that object directly.
+        $headers = $mail->headers();
+
+        $this->assertArrayHasKey('List-Unsubscribe', $headers->text);
+        $this->assertArrayHasKey('List-Unsubscribe-Post', $headers->text);
+        $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
 
         // The List-Unsubscribe URL must point at the one-click route, not the two-step route.
-        $this->assertStringContainsString('/unsubscribe/one-click/', $envelope->headers['List-Unsubscribe']);
-        $this->assertStringContainsString('signature=', $envelope->headers['List-Unsubscribe']);
+        $this->assertStringContainsString('/unsubscribe/one-click/', $headers->text['List-Unsubscribe']);
+        $this->assertStringContainsString('signature=', $headers->text['List-Unsubscribe']);
     }
 
     /** @test */
@@ -64,10 +69,10 @@ class Rfc8058UnsubscribeTest extends TestCase
         $gallery = Gallery::factory()->create(['user_id' => $user->id]);
 
         $mail = new FirstGalleryCreatedEmail($user, $gallery);
-        $envelope = $mail->envelope();
+        $headers = $mail->headers();
 
-        $this->assertArrayHasKey('List-Unsubscribe', $envelope->headers);
-        $this->assertSame('List-Unsubscribe=One-Click', $envelope->headers['List-Unsubscribe-Post']);
+        $this->assertArrayHasKey('List-Unsubscribe', $headers->text);
+        $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
     /** @test */
@@ -76,10 +81,10 @@ class Rfc8058UnsubscribeTest extends TestCase
         $user = User::factory()->create();
 
         $mail = new InactiveUserNudge($user);
-        $envelope = $mail->envelope();
+        $headers = $mail->headers();
 
-        $this->assertArrayHasKey('List-Unsubscribe', $envelope->headers);
-        $this->assertSame('List-Unsubscribe=One-Click', $envelope->headers['List-Unsubscribe-Post']);
+        $this->assertArrayHasKey('List-Unsubscribe', $headers->text);
+        $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
     /** @test */
@@ -89,10 +94,10 @@ class Rfc8058UnsubscribeTest extends TestCase
         $pendingUpgrade = PendingUpgrade::factory()->create(['user_id' => $user->id]);
 
         $mail = new AbandonedCartEmail($user, $pendingUpgrade);
-        $envelope = $mail->envelope();
+        $headers = $mail->headers();
 
-        $this->assertArrayHasKey('List-Unsubscribe', $envelope->headers);
-        $this->assertSame('List-Unsubscribe=One-Click', $envelope->headers['List-Unsubscribe-Post']);
+        $this->assertArrayHasKey('List-Unsubscribe', $headers->text);
+        $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
     /** @test */
@@ -101,10 +106,10 @@ class Rfc8058UnsubscribeTest extends TestCase
         $user = User::factory()->create();
 
         $mail = new PlanUpgradedEmail($user, 'pro', 'INV-2026-0001');
-        $envelope = $mail->envelope();
+        $headers = $mail->headers();
 
-        $this->assertArrayHasKey('List-Unsubscribe', $envelope->headers);
-        $this->assertSame('List-Unsubscribe=One-Click', $envelope->headers['List-Unsubscribe-Post']);
+        $this->assertArrayHasKey('List-Unsubscribe', $headers->text);
+        $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
     /** @test */
@@ -116,10 +121,10 @@ class Rfc8058UnsubscribeTest extends TestCase
         ]);
 
         $mail = new PlanExpiringSoon($user);
-        $envelope = $mail->envelope();
+        $headers = $mail->headers();
 
-        $this->assertArrayHasKey('List-Unsubscribe', $envelope->headers);
-        $this->assertSame('List-Unsubscribe=One-Click', $envelope->headers['List-Unsubscribe-Post']);
+        $this->assertArrayHasKey('List-Unsubscribe', $headers->text);
+        $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
     /** @test */
@@ -226,12 +231,12 @@ class Rfc8058UnsubscribeTest extends TestCase
     /** @test */
     public function csrf_middleware_excludes_one_click_route(): void
     {
-        // Verify the route is registered in the CSRF-except list.
+        // ITERATION-1 FIX: Laravel 11+ applies `validateCsrfTokens(except: ...)`
+        // from bootstrap/app.php to VerifyCsrfToken::$neverVerify (static),
+        // not the instance's protected $except property — the old reflection
+        // check read the wrong source and always failed. Use the public API.
         $middleware = $this->app->make(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
-        $reflection = new \ReflectionClass($middleware);
-        $property = $reflection->getProperty('except');
-        $property->setAccessible(true);
-        $except = $property->getValue($middleware);
+        $except = $middleware->getExcludedPaths();
 
         $matches = false;
         foreach ($except as $pattern) {
@@ -240,6 +245,6 @@ class Rfc8058UnsubscribeTest extends TestCase
                 break;
             }
         }
-        $this->assertTrue($matches, 'unsubscribe/one-click/* must be in ValidateCsrfToken::$except');
+        $this->assertTrue($matches, 'unsubscribe/one-click/* must be excluded from CSRF verification');
     }
 }

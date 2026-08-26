@@ -42,6 +42,10 @@ class SeoSitemapSystemTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
+        // ITERATION-1 FIX: force the URL generator root so url()-built
+        // canonicals match the asserted absolute URLs (see SeoEntityPagesTest).
+        \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
+        \Illuminate\Support\Facades\URL::forceScheme('https');
     }
 
     private function makePublicGallery(array $attrs = []): Gallery
@@ -377,8 +381,11 @@ class SeoSitemapSystemTest extends TestCase
 
     public function test_gallery_edit_bumps_sitemap_version(): void
     {
-        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 5);
         $gallery = $this->makePublicGallery();
+        // ITERATION-1 FIX: creating a public gallery (a new sitemap URL)
+        // legitimately bumps the version — reset the counter AFTER setup
+        // so the assertion measures only the edit's effect.
+        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 5);
 
         $gallery->update(['title' => 'Renamed Show']);
 
@@ -387,8 +394,9 @@ class SeoSitemapSystemTest extends TestCase
 
     public function test_view_count_change_does_not_bump_sitemap_version(): void
     {
-        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 5);
         $gallery = $this->makePublicGallery();
+        // ITERATION-1 FIX: same reset-after-setup pattern as above.
+        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 5);
 
         $gallery->update(['view_count' => 99999]);
 
@@ -397,8 +405,10 @@ class SeoSitemapSystemTest extends TestCase
 
     public function test_gallery_deletion_bumps_version(): void
     {
-        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 5);
         $gallery = $this->makePublicGallery();
+        // ITERATION-1 FIX: creation bumps once (new URL) — reset AFTER setup
+        // so the assertion measures only the deletion's effect.
+        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 5);
 
         $gallery->delete();
 

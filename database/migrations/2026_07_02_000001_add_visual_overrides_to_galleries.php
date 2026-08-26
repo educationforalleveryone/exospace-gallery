@@ -53,6 +53,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // ITERATION-1 FIX (consolidated-migration coexistence): on fresh
+        // installs this migration runs before the consolidated galleries
+        // migration creates the table; on those installs the column ships
+        // with the consolidated schema and this migration is a no-op.
+        if (! Schema::hasTable('galleries')
+            || Schema::hasColumn('galleries', 'visual_overrides')) {
+            return;
+        }
         Schema::table('galleries', function (Blueprint $table) {
             $table->json('visual_overrides')->nullable()->after('room_layout');
         });
@@ -60,6 +68,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasTable('galleries')
+            || ! Schema::hasColumn('galleries', 'visual_overrides')) {
+            return;
+        }
         Schema::table('galleries', function (Blueprint $table) {
             $table->dropColumn('visual_overrides');
         });

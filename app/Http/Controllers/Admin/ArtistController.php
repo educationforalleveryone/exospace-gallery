@@ -88,18 +88,6 @@ class ArtistController extends Controller
             }
         }
 
-        // SEO OS (Iteration 6): persist curator SEO overrides into the
-        // artist's seo_profile (creates on demand).
-        if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
-            $profile = $artist->seoProfileOrCreate();
-            $profile->fill([
-                'title_override'       => $validated['seo_title'] ?? null,
-                'description_override' => $validated['seo_description'] ?? null,
-                'updated_by'           => $request->user()->id,
-            ])->save();
-            unset($validated['seo_title'], $validated['seo_description']);
-        }
-
         $validated['created_by'] = Auth::id();
 
         // Handle portrait upload
@@ -109,6 +97,24 @@ class ArtistController extends Controller
         }
 
         $artist = Artist::create($validated);
+
+        // SEO OS (Iteration 6): persist curator SEO overrides into the
+        // artist's seo_profile (creates on demand).
+        //
+        // ITERATION-1 P0 FIX: this block previously ran BEFORE
+        // Artist::create() — $artist was still undefined, so submitting the
+        // artist form with ANY SEO override field produced
+        // "Call to a member function seoProfileOrCreate() on null" (HTTP
+        // 500). Moved below the create() call where the model exists.
+        if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
+            $profile = $artist->seoProfileOrCreate();
+            $profile->fill([
+                'title_override'       => $validated['seo_title'] ?? null,
+                'description_override' => $validated['seo_description'] ?? null,
+                'updated_by'           => $request->user()->id,
+            ])->save();
+            unset($validated['seo_title'], $validated['seo_description']);
+        }
 
         return redirect()
             ->route('admin.artists.index')

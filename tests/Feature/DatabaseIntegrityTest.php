@@ -46,8 +46,12 @@ class DatabaseIntegrityTest extends TestCase
     {
         // C-3 FIX: creating an AnalyticsEvent should not try to write a
         // 'country' column (which doesn't exist).
+        // ITERATION-1 FIX: analytics_events.gallery_id is FK-constrained —
+        // the old test inserted gallery_id=1 with no gallery row and only
+        // passed on drivers with FK enforcement off.
+        $gallery = \App\Models\Gallery::factory()->create();
         $event = AnalyticsEvent::create([
-            'gallery_id' => 1,
+            'gallery_id' => $gallery->id,
             'event' => 'view',
             'session_token' => 'test-session',
             'created_at' => now(),

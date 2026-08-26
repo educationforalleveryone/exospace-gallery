@@ -39,6 +39,21 @@ class OAuthSecurityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // ITERATION-1 FIX: the OAuth controller gates on configured client
+        // IDs; .env.testing leaves them empty so every callback redirected
+        // to login with "not available" before reaching the logic under test.
+        config([
+            'services.google' => [
+                'client_id'     => 'test-google-client-id',
+                'client_secret' => 'test-google-secret',
+                'redirect'      => '/auth/google/callback',
+            ],
+            'services.github' => [
+                'client_id'     => 'test-github-client-id',
+                'client_secret' => 'test-github-secret',
+                'redirect'      => '/auth/github/callback',
+            ],
+        ]);
         // Configure fake OAuth credentials so isProviderConfigured() returns true
         config()->set('services.google.client_id', 'test-google-id');
         config()->set('services.google.client_secret', 'test-google-secret');
@@ -314,7 +329,7 @@ class OAuthSecurityTest extends TestCase
      */
     private function mockSocialiteUser(array $attrs): SocialiteUserContract
     {
-        $user = Mockery::mock(SocialiteUserContract::class);
+        $user = Mockery::mock(SocialiteUserContract::class)->shouldIgnoreMissing();
         $user->id = $attrs['id'];
         $user->email = $attrs['email'];
         $user->name = $attrs['name'];
@@ -325,11 +340,17 @@ class OAuthSecurityTest extends TestCase
             'verified' => $attrs['email_verified'] ?? false,        // GitHub's key
         ];
 
-        $user->shouldReceive('getId')->andReturn($attrs['id']);
-        $user->shouldReceive('getEmail')->andReturn($attrs['email']);
-        $user->shouldReceive('getName')->andReturn($attrs['name']);
-        $user->shouldReceive('getNickname')->andReturn($attrs['name']);
-        $user->shouldReceive('getAvatar')->andReturn($attrs['avatar'] ?? 'https://example.com/avatar.png');
+        // ITERATION-1 FIX: Mockery mocks REJECT unexpected method calls.
+        // The controller may call any subset of getters depending on flow
+        // path — allow all of them (and any others) to return sensible
+        // values instead of hard expectations.
+        $user->shouldReceive('getId')->andReturn($attrs['id'])->byDefault();
+        $user->shouldReceive('getEmail')->andReturn($attrs['email'])->byDefault();
+        $user->shouldReceive('getName')->andReturn($attrs['name'])->byDefault();
+        $user->shouldReceive('getNickname')->andReturn($attrs['name'])->byDefault();
+        $user->shouldReceive('getAvatar')->andReturn($attrs['avatar'] ?? 'https://example.com/avatar.png')->byDefault();
+        $user->shouldReceive('getToken')->andReturn('test-token')->byDefault();
+        $user->shouldReceive('getRaw')->andReturn($user->user)->byDefault();
 
         return $user;
     }

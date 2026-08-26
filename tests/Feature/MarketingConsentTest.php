@@ -107,7 +107,7 @@ class MarketingConsentTest extends TestCase
 
         $this->artisan('exospace:abandoned-cart')->assertSuccessful();
 
-        Mail::assertSent(\App\Mail\AbandonedCartEmail::class, function ($mail) use ($user) {
+        Mail::assertQueued(\App\Mail\AbandonedCartEmail::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id;
         });
     }
@@ -157,7 +157,7 @@ class MarketingConsentTest extends TestCase
         $this->artisan('exospace:abandoned-cart')->assertSuccessful();
 
         // Only ONE email should be sent (de-duplicated by user)
-        Mail::assertSent(\App\Mail\AbandonedCartEmail::class, 1);
+        Mail::assertQueued(\App\Mail\AbandonedCartEmail::class, 1);
     }
 
     // ── Inactive nudge ───────────────────────────────────────────────────
@@ -191,7 +191,7 @@ class MarketingConsentTest extends TestCase
 
         $this->artisan('exospace:send-lifecycle-emails')->assertSuccessful();
 
-        Mail::assertSent(\App\Mail\InactiveUserNudge::class, function ($mail) use ($user) {
+        Mail::assertQueued(\App\Mail\InactiveUserNudge::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id;
         });
     }
@@ -211,7 +211,7 @@ class MarketingConsentTest extends TestCase
 
         $this->artisan('exospace:send-lifecycle-emails')->assertSuccessful();
 
-        Mail::assertSent(\App\Mail\PlanExpiringSoon::class, function ($mail) use ($user) {
+        Mail::assertQueued(\App\Mail\PlanExpiringSoon::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id;
         });
     }
@@ -256,7 +256,7 @@ class MarketingConsentTest extends TestCase
         // The plan-expiry reminder MUST be sent even though the user was
         // inactive-nudged recently. Before P0-7, this would have been
         // suppressed.
-        Mail::assertSent(\App\Mail\PlanExpiringSoon::class, function ($mail) use ($user) {
+        Mail::assertQueued(\App\Mail\PlanExpiringSoon::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id;
         });
     }
@@ -322,7 +322,9 @@ class MarketingConsentTest extends TestCase
         $response = $this->get($url);
 
         $response->assertOk();
-        $response->assertSee("You're already unsubscribed");
+        // assertSee() HTML-escapes the needle, so the apostrophe would become
+        // &#039; — which never matches the raw output. Search unescaped.
+        $response->assertSee("You're already unsubscribed", escape: false);
     }
 
     // ── Email template compliance ────────────────────────────────────────

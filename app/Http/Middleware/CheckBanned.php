@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -82,6 +83,26 @@ class CheckBanned
                     DB::table('sessions')->where('user_id', $user->id)->delete();
                 } catch (\Throwable $e) {
                     Log::warning('CheckBanned: failed to purge user sessions', [
+                        'user_id' => $user->id,
+                        'error'   => $e->getMessage(),
+                    ]);
+                }
+
+                // ITERATION-1 FIX (API token escape): this middleware only
+                // inspects the session guard, so a banned user's Sanctum
+                // Bearer tokens kept working on /api/v1/* indefinitely
+                // (tokens never expire — see config/sanctum.php). Revoke
+                // all personal access tokens at ban time as well. Public
+                // listing endpoints additionally filter banned owners, but
+                // authenticated read endpoints (/me, /me/galleries) and any
+                // future write scopes must not outlive a ban.
+                try {
+                    DB::table('personal_access_tokens')
+                        ->where('tokenable_type', User::class)
+                        ->where('tokenable_id', $user->id)
+                        ->delete();
+                } catch (\Throwable $e) {
+                    Log::warning('CheckBanned: failed to revoke API tokens', [
                         'user_id' => $user->id,
                         'error'   => $e->getMessage(),
                     ]);

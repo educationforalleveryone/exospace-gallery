@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Mail\Concerns;
 
 use App\Models\User;
+use Illuminate\Mail\Mailables\Headers;
 use Illuminate\Support\Facades\URL;
 
 /**
@@ -46,6 +47,34 @@ use Illuminate\Support\Facades\URL;
 trait HasMarketingUnsubscribe
 {
     /**
+     * RFC 8058 headers for every mailable using this trait.
+     *
+     * ITERATION-1 P0 FIX: the original implementation passed
+     * `headers: [...]` as a named argument to `Envelope::__construct()` —
+     * but the Envelope constructor has NO `headers` parameter, so sending
+     * ANY of the six lifecycle emails threw
+     * `Error: Unknown named parameter $headers` inside the queue worker.
+     * In production (QUEUE_CONNECTION=redis) this silently killed the
+     * ENTIRE lifecycle email chain: welcome, first-gallery, abandoned-cart,
+     * inactive nudge, plan-expiring and plan-upgraded emails never sent.
+     *
+     * Laravel's supported mechanism for custom headers on a Mailable is a
+     * `headers(): Headers` method — Mailable::ensureHeadersIsHydrated()
+     * detects it and applies every entry of Headers::$text to the Symfony
+     * message. Defining that method HERE means every mailable that uses
+     * the trait emits the RFC 8058 headers automatically, with zero
+     * per-mailable boilerplate.
+     *
+     * The mailable must expose `public User $user` (all six do).
+     */
+    public function headers(): Headers
+    {
+        return new Headers(
+            text: $this->unsubscribeHeaders($this->user),
+        );
+    }
+
+    /**
      * Build the signed one-click unsubscribe URL for the given user.
      *
      * This URL is used in BOTH the List-Unsubscribe header AND the
@@ -63,15 +92,13 @@ trait HasMarketingUnsubscribe
     }
 
     /**
-     * Return the RFC 8058 headers for the mailable envelope.
+     * Return the RFC 8058 headers for the mailable.
      *
-     * Usage in a Mailable:
-     *   public function envelope(): Envelope {
-     *       return new Envelope(
-     *           subject: '...',
-     *           headers: $this->unsubscribeHeaders($this->user),
-     *       );
-     *   }
+     * ITERATION-1 P0 FIX: do NOT pass this array as a named `headers:`
+     * argument to `Envelope::__construct()` — that parameter does not
+     * exist and throws `Unknown named parameter $headers` at send time.
+     * The headers() method above is the supported application path; this
+     * helper only builds the raw header map.
      *
      * @return array{List-Unsubscribe: string, List-Unsubscribe-Post: string}
      */

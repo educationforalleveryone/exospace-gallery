@@ -111,8 +111,13 @@ class ProrationService
         return [
             'credit_amount'     => $creditAmount,
             'credit_description'=> sprintf(
+                // ITERATION-1 FIX (off-by-one): Carbon 3's diffInDays()
+                // returns a FLOAT of whole+fractional days. %d truncated it,
+                // so a user with 15 days minus a few seconds left saw
+                // "14 remaining days". Round UP for the human-facing number —
+                // the day they're currently in counts as remaining.
                 'Credit for %d remaining days of %s ($%.2f → $%.2f adjusted price)',
-                $remainingDays,
+                (int) ceil($remainingDays),
                 ucfirst($currentPlan),
                 $creditAmount,
                 $adjustedPrice

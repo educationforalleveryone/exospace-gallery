@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Sitemap cache invalidation (SEO OS Iteration 4).
@@ -21,9 +22,41 @@ use Illuminate\Database\Eloquent\Model;
  *
  * Registered (AppServiceProvider::boot) for Gallery, Artist,
  * GalleryImage (+ SeoPage when Iteration 5 lands).
+ *
+ * ITERATION-1 FIX (over-invalidation): the previous isRelevant() checked
+ * `$model->wasRecentlyCreated` inside saved(). That flag stays TRUE on the
+ * model instance until it is re-fetched — so every LATER save of a
+ * newly-created model (e.g. the very next `$gallery->update(['view_count'])`)
+ * was treated as another "creation" and bumped the version. Combined with
+ * soft-deletes firing BOTH saved() (deleted_at is watched) AND deleted(),
+ * a single gallery delete bumped the version twice. Net effect: the sitemap
+ * cache churned on almost every write, defeating its purpose.
+ *
+ * The corrected event semantics:
+ *   - created():  fires exactly once per INSERT            → bump (new URL).
+ *   - saved():    fires for INSERT and UPDATE; for the insert it arrives
+ *                 right after created() and is skipped via a one-shot
+ *                 per-instance marker. For updates, wasChanged($watched)
+ *                 alone decides — no wasRecentlyCreated involvement.
+ *   - deleted():  soft deletes already bump via saved() (deleted_at is
+ *                 watched), so this handler only bumps for models WITHOUT
+ *                 SoftDeletes (hard deletes).
+ *   - restored(): same logic — the restore save() already bumps via
+ *                 saved() (deleted_at → null is watched).
+ *   - forceDeleted(): runs a bare DELETE query — no save events → always bump.
  */
 class SitemapCacheObserver
 {
+    /**
+     * One-shot markers: object ids whose most recent event sequence was a
+     * created() dispatch. The saved() event that immediately follows the
+     * insert consumes (and clears) its marker so the creation bump is not
+     * double-counted.
+     *
+     * @var array<int, true>
+     */
+    private array $justCreated = [];
+
     /**
      * Attributes that change a page's URL, content or indexability.
      *
@@ -44,8 +77,23 @@ class SitemapCacheObserver
         ],
     ];
 
+    public function created(Model $model): void
+    {
+        // A new row is (potentially) a new URL — always bump.
+        $this->justCreated[spl_object_id($model)] = true;
+        $this->bump();
+    }
+
     public function saved(Model $model): void
     {
+        $oid = spl_object_id($model);
+
+        // The insert's own saved() dispatch: created() already bumped.
+        if (isset($this->justCreated[$oid])) {
+            unset($this->justCreated[$oid]);
+            return;
+        }
+
         if ($this->isRelevant($model)) {
             $this->bump();
         }
@@ -53,17 +101,27 @@ class SitemapCacheObserver
 
     public function deleted(Model $model): void
     {
-        // Deletion always changes the URL set.
+        // Both soft and hard deletes change the URL set. Soft deletes bypass
+        // Model::save() entirely (SoftDeletes::runSoftDelete issues the
+        // UPDATE directly), so NO saved() event fires — this hook is the
+        // only bump for them. Hard deletes reach it too.
         $this->bump();
     }
 
     public function restored(Model $model): void
     {
+        // restore() performs a save() first (deleted_at → null is watched),
+        // which already bumped via saved(). Nothing to do here.
+        if ($this->usesSoftDeletes($model)) {
+            return;
+        }
+
         $this->bump();
     }
 
     public function forceDeleted(Model $model): void
     {
+        // forceDelete() issues a bare DELETE — no save events fire.
         $this->bump();
     }
 
@@ -77,12 +135,15 @@ class SitemapCacheObserver
             return true;
         }
 
-        // Creation of a row with SEO-meaningful defaults (slug/title).
-        if (!$model->exists || $model->wasRecentlyCreated) {
-            return true;
-        }
-
+        // ITERATION-1 FIX: no wasRecentlyCreated check here — that flag
+        // persists on the instance after creation and misclassified every
+        // subsequent save as a creation. Creation is handled by created().
         return $model->wasChanged($watched);
+    }
+
+    private function usesSoftDeletes(Model $model): bool
+    {
+        return in_array(SoftDeletes::class, class_uses_recursive($model), true);
     }
 
     private function bump(): void

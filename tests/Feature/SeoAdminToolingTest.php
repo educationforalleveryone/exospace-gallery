@@ -40,9 +40,26 @@ class SeoAdminToolingTest extends TestCase
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
 
-        $this->superAdmin = User::factory()->create([
+        // ITERATION-1 FIX: super-admin routes sit behind the `mfa`
+        // middleware, which REQUIRES MFA for super-admins — the old
+        // factory state had no MFA secret, so every /master-control/seo
+        // POST silently redirected to /mfa/setup and the assertions below
+        // inspected state that was never written.
+        $this->superAdmin = User::factory()->withMfa()->create([
             'is_super_admin' => true,
             'email_verified_at' => now(),
+        ]);
+    }
+
+    /**
+     * actingAs + a valid in-session MFA verification (the super_admin
+     * middleware group demands both).
+     */
+    private function actingAsMfaSuperAdmin(): self
+    {
+        return $this->actingAs($this->superAdmin)->withSession([
+            'mfa_verified'    => true,
+            'mfa_verified_at' => now()->timestamp,
         ]);
     }
 
@@ -94,23 +111,38 @@ class SeoAdminToolingTest extends TestCase
             'width' => 100, 'height' => 100, 'orientation' => 'landscape',
         ]);
 
-        $response = $this->actingAsSuperAdmin()->get('/master-control/seo');
+        // Health tab shows counts; the galleries tab lists the entities.
+        $response = $this->actingAsMfaSuperAdmin()->get('/master-control/seo?tab=health');
 
         $response->assertOk();
         $html = $response->getContent();
         $this->assertStringContainsString('Indexable galleries', $html);
-        $this->assertStringContainsString('Counted Show', $html);
+
+        // ITERATION-1 FIX: gallery titles render on the galleries tab, not
+        // the health tab — the old assertion looked in the wrong place.
+        $galleries = $this->actingAsMfaSuperAdmin()->get('/master-control/seo?tab=galleries');
+        $galleries->assertOk();
+        $this->assertStringContainsString('Counted Show', $galleries->getContent());
     }
 
     public function test_health_tab_flags_missing_descriptions(): void
     {
-        Gallery::create([
+        $gallery = Gallery::create([
             'user_id' => User::factory()->create()->id,
             'title' => 'No Desc Show', 'slug' => 'no-desc-show',
             'is_active' => true,
         ]);
+        // ITERATION-1 FIX: the audit only counts galleries with at least one
+        // artwork (empty exhibitions are thin content, excluded from SEO
+        // accounting) — the old setup created an image-less gallery that
+        // was never counted.
+        GalleryImage::create([
+            'gallery_id' => $gallery->id, 'filename' => 'c.jpg', 'original_name' => 'c.jpg',
+            'path' => 'artworks/c.jpg', 'mime_type' => 'image/jpeg', 'size' => 1,
+            'width' => 100, 'height' => 100, 'orientation' => 'landscape',
+        ]);
 
-        $response = $this->actingAsSuperAdmin()->get('/master-control/seo?tab=health');
+        $response = $this->actingAsMfaSuperAdmin()->get('/master-control/seo?tab=health');
 
         $response->assertOk();
         $this->assertStringContainsString('galleries with no curator description', $response->getContent());
@@ -126,7 +158,7 @@ class SeoAdminToolingTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAsSuperAdmin()->post("/master-control/seo/profile/gallery/{$gallery->id}", [
+        $response = $this->actingAsMfaSuperAdmin()->post("/master-control/seo/profile/gallery/{$gallery->id}", [
             'title_override' => 'Manual Title',
             'description_override' => 'Manual description.',
             'robots_directive' => 'noindex,follow',
@@ -151,7 +183,7 @@ class SeoAdminToolingTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAsSuperAdmin()->post("/master-control/seo/profile/gallery/{$gallery->id}", [
+        $response = $this->actingAsMfaSuperAdmin()->post("/master-control/seo/profile/gallery/{$gallery->id}", [
             'robots_directive' => 'garbage-directive',
         ]);
 
@@ -165,7 +197,7 @@ class SeoAdminToolingTest extends TestCase
             'title' => 'Audited', 'slug' => 'audited', 'is_active' => true,
         ]);
 
-        $this->actingAsSuperAdmin()->post("/master-control/seo/profile/gallery/{$gallery->id}", [
+        $this->actingAsMfaSuperAdmin()->post("/master-control/seo/profile/gallery/{$gallery->id}", [
             'title_override' => 'Audit Test',
         ]);
 
@@ -180,7 +212,7 @@ class SeoAdminToolingTest extends TestCase
 
     public function test_super_admin_can_create_and_delete_redirects(): void
     {
-        $this->actingAsSuperAdmin()->post('/master-control/seo/redirects', [
+        $this->actingAsMfaSuperAdmin()->post('/master-control/seo/redirects', [
             'source_path' => '/Old-Path/',
             'destination' => '/discover',
             'status_code' => 301,
@@ -193,7 +225,7 @@ class SeoAdminToolingTest extends TestCase
 
         $redirect = SeoRedirect::first();
 
-        $this->actingAsSuperAdmin()->delete("/master-control/seo/redirects/{$redirect->id}");
+        $this->actingAsMfaSuperAdmin()->delete("/master-control/seo/redirects/{$redirect->id}");
 
         $this->assertDatabaseMissing('seo_redirects', ['id' => $redirect->id]);
     }
@@ -206,13 +238,13 @@ class SeoAdminToolingTest extends TestCase
             'type' => 'landing', 'slug' => 'toggle-me', 'title' => 'Toggle Me', 'status' => 'draft',
         ]);
 
-        $this->actingAsSuperAdmin()->post("/master-control/seo/pages/{$page->id}/toggle");
+        $this->actingAsMfaSuperAdmin()->post("/master-control/seo/pages/{$page->id}/toggle");
 
         $this->assertSame('published', $page->fresh()->status);
         $this->assertNotNull($page->fresh()->published_at);
 
         // Toggle back to draft
-        $this->actingAsSuperAdmin()->post("/master-control/seo/pages/{$page->id}/toggle");
+        $this->actingAsMfaSuperAdmin()->post("/master-control/seo/pages/{$page->id}/toggle");
         $this->assertSame('draft', $page->fresh()->status);
     }
 
@@ -220,7 +252,7 @@ class SeoAdminToolingTest extends TestCase
     {
         SeoPage::create(['type' => 'editorial', 'slug' => 'listed-guide', 'title' => 'Listed Guide', 'status' => 'draft']);
 
-        $response = $this->actingAsSuperAdmin()->get('/master-control/seo?tab=pages');
+        $response = $this->actingAsMfaSuperAdmin()->get('/master-control/seo?tab=pages');
 
         $response->assertOk();
         $this->assertStringContainsString('Listed Guide', $response->getContent());
@@ -232,7 +264,7 @@ class SeoAdminToolingTest extends TestCase
     {
         \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 7);
 
-        $response = $this->actingAsSuperAdmin()->post('/master-control/seo/rebuild');
+        $response = $this->actingAsMfaSuperAdmin()->post('/master-control/seo/rebuild');
 
         $response->assertRedirect();
         $this->assertSame(8, (int) \Illuminate\Support\Facades\Cache::get('seo:sitemap:version'));

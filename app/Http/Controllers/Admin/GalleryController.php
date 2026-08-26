@@ -76,6 +76,14 @@ class GalleryController extends Controller
 
         $planHolder = $team ? $team->owner : $user;
 
+        // ITERATION-1 P0 FIX (entitlement bypass): server-side venue tier
+        // enforcement — see galleryValidationRules() note. The UI locks
+        // paid venues, but a direct POST could previously bypass it.
+        if (!empty($validated['venue_template_id'])
+            && ($redirect = $this->assertVenueAccessibleForPlan($validated['venue_template_id'], $planHolder))) {
+            return $redirect;
+        }
+
         $audioPath = null;
         if ($request->hasFile('audio') && $planHolder->isPro()) {
             $audioPath = $request->file('audio')->store('audio', 'public');
@@ -267,6 +275,12 @@ class GalleryController extends Controller
 
     public function show(Gallery $gallery)
     {
+        // ITERATION-1 FIX (authz): authorize BEFORE redirecting. Previously
+        // any authenticated user could probe /admin/galleries/{id} and get a
+        // redirect (confirming the gallery exists) before the edit page's
+        // 403. Enforcing the view policy here returns 403 directly for
+        // non-members, matching every other gallery route.
+        $this->authorizeGalleryAccess($gallery);
         return redirect()->route('admin.galleries.edit', $gallery);
     }
 
@@ -340,7 +354,12 @@ class GalleryController extends Controller
 
     public function update(Request $request, Gallery $gallery): \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
-        $this->authorizeGalleryAccess($gallery);
+        // ITERATION-1 P0 SECURITY FIX: update() previously used the VIEW
+        // policy (any team member, including viewers). A team "viewer"
+        // could change the gallery title, PIN, schedule, custom domain and
+        // every other setting — contradicting GalleryPolicy::update
+        // (owner/editor only). Mutations must require edit rights.
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         // Strip emoji from title (Task H22)
         $request->merge([
@@ -350,6 +369,14 @@ class GalleryController extends Controller
         $validated = $request->validate($this->galleryValidationRules(isUpdate: true));
 
         $planHolder = $this->galleryPlanHolder($gallery);
+
+        // ITERATION-1 P0 FIX (entitlement bypass): venue tier must be
+        // re-checked on update — a downgraded account (or a crafted POST)
+        // could otherwise switch a gallery to a venue above the plan.
+        if (!empty($validated['venue_template_id'])
+            && ($redirect = $this->assertVenueAccessibleForPlan($validated['venue_template_id'], $planHolder))) {
+            return $redirect;
+        }
 
         // Delegate to extracted helpers
         $this->handleFileUploads($request, $gallery, $planHolder, $validated);
@@ -454,8 +481,13 @@ class GalleryController extends Controller
             $validated['pin_hash'] = Hash::make($validated['gallery_pin']);
         }
 
-        $validated['opens_at']  = $validated['opens_at']  ?: null;
-        $validated['closes_at'] = $validated['closes_at'] ?: null;
+        // ITERATION-1 FIX (500 on gallery settings save): validation strips
+        // absent nullable fields, so these keys are missing whenever the
+        // form omits them (e.g. a curator saving only SEO overrides) —
+        // reading them with ?: threw "Undefined array key". Use ?? null
+        // and only normalize when present.
+        $validated['opens_at']  = $validated['opens_at']  ?? null;
+        $validated['closes_at'] = $validated['closes_at'] ?? null;
     }
 
     /**
@@ -691,7 +723,11 @@ class GalleryController extends Controller
 
         // AUDIT-P1-4.14: Log gallery deletion. 'name' is PII — auto-scrubbed.
         AdminAuditLog::record('gallery.deleted', $gallery, [
-            'name'                  => $gallery->name,
+            // ITERATION-1 FIX: galleries have `title`, not `name` — the
+            // audit payload always recorded name: null (useless for
+            // forensics). Capture the title (PII-scrubbed by AdminAuditLog).
+            'title'                 => $gallery->title,
+            'slug'                  => $gallery->slug,
             'team_id'               => $teamId,
             'had_custom_domain'     => ! empty($gallery->custom_domain),
             'custom_domain_verified' => ! empty($gallery->custom_domain_verified_at),
@@ -705,7 +741,9 @@ class GalleryController extends Controller
 
     public function reorderImages(Request $request, Gallery $gallery)
     {
-        $this->authorizeGalleryAccess($gallery);
+        // ITERATION-1 P0 SECURITY FIX: was view-level — a team viewer could
+        // reorder artworks. Reordering is a curation mutation → editor only.
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
         $request->validate(['order' => 'required|array', 'order.*' => 'integer']);
 
         foreach ($request->order as $position => $imageId) {
@@ -719,7 +757,9 @@ class GalleryController extends Controller
 
     public function uploadAudio(Request $request, Gallery $gallery)
     {
-        $this->authorizeGalleryAccess($gallery);
+        // ITERATION-1 P0 SECURITY FIX: was view-level — a team viewer could
+        // replace the gallery's audio track. Media upload → editor only.
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         if (! $this->galleryPlanHolder($gallery)->isPro()) {
             return response()->json(['success' => false, 'message' => 'Upgrade to Pro to use background music'], 403);
@@ -741,7 +781,9 @@ class GalleryController extends Controller
 
     public function uploadLogo(Request $request, Gallery $gallery)
     {
-        $this->authorizeGalleryAccess($gallery);
+        // ITERATION-1 P0 SECURITY FIX: was view-level — a team viewer could
+        // replace the gallery's branding logo. Media upload → editor only.
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         if ($this->galleryPlanHolder($gallery)->plan !== 'studio') {
             return response()->json(['success' => false, 'message' => 'Upgrade to Studio to use custom branding'], 403);
@@ -940,6 +982,41 @@ class GalleryController extends Controller
         ];
     }
 
+    /**
+     * ITERATION-1 P0 FIX (entitlement bypass): server-side venue-tier gate.
+     *
+     * Previously the venue's plan_required was enforced ONLY in the UI
+     * (locked venue cards that link to /pricing). A crafted POST with a
+     * studio venue_template_id sailed through validation — the rule only
+     * checked is_active/is_draft — so a Free user could host their gallery
+     * in a paid venue indefinitely.
+     *
+     * Returns a redirect response when the venue is above the plan holder's
+     * tier (the caller returns it directly), or null when access is fine.
+     * The plan holder — not the acting user — is authoritative: team
+     * galleries bill against the team owner's plan.
+     */
+    private function assertVenueAccessibleForPlan(int $venueTemplateId, \App\Models\User $planHolder): ?\Illuminate\Http\RedirectResponse
+    {
+        $venue = \App\Models\VenueTemplate::find($venueTemplateId);
+
+        if (! $venue || $venue->isAccessibleBy($planHolder)) {
+            return null;
+        }
+
+        \Log::warning('Venue plan-tier enforcement: rejected venue above plan', [
+            'venue_id'        => $venueTemplateId,
+            'venue_plan'      => $venue?->plan_required,
+            'plan_holder_id'  => $planHolder->id,
+            'plan'            => $planHolder->plan,
+        ]);
+
+        return back()->withInput()->with('error',
+            "The \"{$venue->name}\" venue requires the " . ucfirst($venue->plan_required) .
+            " plan. Please choose a venue available on your current plan or upgrade."
+        );
+    }
+
     private function galleryValidationRules(bool $isUpdate = false): array
     {
         $rules = [
@@ -962,6 +1039,16 @@ class GalleryController extends Controller
             'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',
             // Only active + published venues are selectable. Drafts and
             // disabled templates would otherwise be injectable via direct POST.
+            //
+            // ITERATION-1 P0 FIX (entitlement bypass): the venue's PLAN TIER
+            // is deliberately NOT checked here — the plan holder differs by
+            // context (personal gallery → acting user; team gallery → team
+            // owner), which the rule closure cannot know reliably. Tier
+            // enforcement happens in store()/update() via
+            // assertVenueAccessibleForPlan() right after the plan holder is
+            // resolved. Previously tier was checked ONLY in the UI (locked
+            // card grid) — a Free user could POST a studio-only
+            // venue_template_id directly and keep the paid venue forever.
             'venue_template_id' => ['nullable', 'integer',
                 \Illuminate\Validation\Rule::exists('venue_templates', 'id')
                     ->where(fn ($q) => $q->where('is_active', true)->where('is_draft', false)),

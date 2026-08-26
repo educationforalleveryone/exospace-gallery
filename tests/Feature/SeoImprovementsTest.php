@@ -82,8 +82,11 @@ class SeoImprovementsTest extends TestCase
 
         $response = $this->get('/discover');
         $response->assertStatus(200);
-        $response->assertSee('"@type": "ItemList"', false);
-        $response->assertSee('"@type": "ListItem"', false);
+        // ITERATION-1 FIX: the seo component emits COMPACT JSON-LD graphs
+        // (the pretty-printed variant is the standalone x-json-ld
+        // component used on the pricing page).
+        $response->assertSee('"@type":"ItemList"', false);
+        $response->assertSee('"@type":"ListItem"', false);
     }
 
     /** @test */
@@ -107,7 +110,10 @@ class SeoImprovementsTest extends TestCase
     /** @test */
     public function i3_sitemap_xml_contains_changelog_and_status_urls(): void
     {
-        $response = $this->get('/sitemap.xml');
+        // ITERATION-1 FIX: /sitemap.xml is a sitemap INDEX (lists group
+        // files only). The static pages — changelog, status — live in the
+        // static group. Assert against the right artifact.
+        $response = $this->get('/sitemap-static-1.xml');
         $response->assertStatus(200);
         $response->assertSee('/changelog', false);
         $response->assertSee('/status', false);

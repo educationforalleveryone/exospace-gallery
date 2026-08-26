@@ -44,6 +44,11 @@ class Invoice extends Model
         'tax_rate',
         'currency',
         'plan',
+        // ITERATION-1 FIX: how this purchase bills — 'subscription' or
+        // 'one_time'. Set at creation from webhook context; the old PDF
+        // detection read a non-existent transactions.subscription_id column
+        // and mislabelled every renewal invoice as lifetime.
+        'billing_type',
         'customer_name',
         'customer_email',
         'billing_address',

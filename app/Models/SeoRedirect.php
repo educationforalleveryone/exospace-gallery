@@ -59,14 +59,27 @@ class SeoRedirect extends Model
      */
     public static function cachedMap(): array
     {
-        return \Illuminate\Support\Facades\Cache::remember(
-            'seo:redirects:map',
-            now()->addMinutes(10),
-            fn () => static::query()->active()->get(['source_path', 'destination', 'status_code'])
-                ->mapWithKeys(fn ($r) => [
-                    $r->source_path => [$r->destination, (int) $r->status_code],
-                ])->all(),
-        );
+        try {
+            return \Illuminate\Support\Facades\Cache::remember(
+                'seo:redirects:map',
+                now()->addMinutes(10),
+                fn () => static::query()->active()->get(['source_path', 'destination', 'status_code'])
+                    ->mapWithKeys(fn ($r) => [
+                        $r->source_path => [$r->destination, (int) $r->status_code],
+                    ])->all(),
+            );
+        } catch (\Throwable $e) {
+            // ITERATION-1 FIX (availability): this runs in the GLOBAL
+            // middleware stack on EVERY request — a missing/unready table
+            // (mid-deploy migration gap, DB blip) previously 500'd the
+            // entire site. A redirect map is an enhancement: failing OPEN
+            // (no redirects, content still served) is strictly better
+            // than taking the app down. The error surfaces in logs/Sentry.
+            \Illuminate\Support\Facades\Log::warning('SeoRedirects: redirect map unavailable — serving without redirects', [
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
     }
 
     public static function clearMapCache(): void

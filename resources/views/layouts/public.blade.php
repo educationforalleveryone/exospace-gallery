@@ -34,12 +34,29 @@
     @endphp
 
     {{-- SEO meta tags (Task H13 → SEO OS v2) --}}
-    <x-seo
-        :seo="$seoData"
-        title="@yield('title', config('app.name', 'Exospace'))"
-        description="@yield('description', config('seo.default_description'))"
-        canonical-url="@yield('canonical', '')"
-    />
+    {{-- ITERATION-1 FIX: when no section defines a canonical (pages built
+         on the SeoData path don't define @section('canonical')), the empty
+         string fell through as a literal ATTRIBUTE VALUE — the component
+         received canonical-url="" as text, not a missing key. The isset
+         guard on the component reads it correctly now, but emitting an
+         empty attribute also leaked into output as data noise. Use @php to
+         build the prop only when a section value exists. --}}
+    {{-- ITERATION-1 FIX: the interpolated attribute trick
+         ({{ $seoProps ? ... : '' }}) renders an EMPTY ATTRIBUTE LIST as
+         literal whitespace, and more importantly the x-seo component
+         received NO output at all when sections were defined but the
+         component lacked @props — the whole tag silently rendered as
+         nothing. Pass explicit props; the component now declares @props
+         and emits a full meta layer including <title>. --}}
+    {{-- ITERATION-1 FIX (SEO meta never rendered on public pages):
+         (1) @yield() inside a component attribute passes a literal string,
+         not the section content. (2) view()->yieldContent() during the
+         layout render returns empty for sections defined by the child view
+         (Blade injects section content later, at @yield points in the
+         layout flow). The reliable pattern: render the meta layer with a
+         plain @include that itself uses @yield at its own position in the
+         layout, where section injection is already active. --}}
+    @include('partials.seo-head', ['seoData' => $seoData ?? null])
 
     {{-- SEO OS (Iteration 7): LCP image preload hint from controllers
          (artwork page preloads its main image; artist page preloads the

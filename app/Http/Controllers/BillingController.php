@@ -247,7 +247,12 @@ class BillingController extends Controller
         // and CheckPlanExpiry — so an upgrade-in-progress blocks an admin
         // downgrade or an expiry-triggered downgrade until the upgrade
         // completes (or the 60-second TTL expires).
-        $result = $this->planLock->withUserLock($user->id, function () use ($user, $plan, $productId, $request) {
+        // ITERATION-1 P0 FIX (checkout crash): $isRecurring was NOT captured
+        // by this closure's `use` — the signed-buy-link signature block that
+        // reads it (~line 308) raised "Undefined variable $isRecurring",
+        // which Laravel's error handler promotes to an ErrorException:
+        // every upgrade click 500'd before reaching 2Checkout.
+        $result = $this->planLock->withUserLock($user->id, function () use ($user, $plan, $productId, $request, $isRecurring) {
             // Re-fetch the user inside the lock in case another path changed
             // their plan between the outer read and the lock acquisition.
             $user->refresh();

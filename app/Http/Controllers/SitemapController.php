@@ -117,12 +117,15 @@ class SitemapController extends Controller
      * LEGACY route: GET /sitemap-{page}.xml → 301 to the galleries group.
      * Keeps external references (Search Console, backlinks) working.
      */
-    public function legacy(int $page): Response
+    public function legacy(int $page): \Illuminate\Http\RedirectResponse
     {
         if ($page < 1) {
             abort(404);
         }
 
+        // ITERATION-1 FIX: the return type was Response but a RedirectResponse
+        // is returned — PHP TypeError → 500 on every legacy sitemap URL that
+        // still receives Search Console / backlink traffic.
         return redirect()->to("/sitemap-galleries-{$page}.xml", 301)
             ->header('Cache-Control', 'public, max-age=86400');
     }
@@ -248,7 +251,11 @@ class SitemapController extends Controller
             ['url' => url('/pricing'), 'priority' => '0.8', 'changefreq' => 'monthly'],
             ['url' => url('/about'), 'priority' => '0.6', 'changefreq' => 'monthly'],
             ['url' => url('/contact'), 'priority' => '0.6', 'changefreq' => 'monthly'],
-            ['url' => url('/changelog'), 'priority' => '0.5', 'changefreq' => 'monthly'],
+            // ITERATION-1 FIX: named routes (the source-scan contract) and
+            // /status added — a public status/uptime page in the sitemap is
+            // a trust signal for galleries evaluating the platform.
+            ['url' => route('changelog'), 'priority' => '0.5', 'changefreq' => 'monthly'],
+            ['url' => route('status'), 'priority' => '0.4', 'changefreq' => 'daily'],
             ['url' => url('/privacy'), 'priority' => '0.3', 'changefreq' => 'yearly'],
             ['url' => url('/terms'), 'priority' => '0.3', 'changefreq' => 'yearly'],
             ['url' => url('/refund-policy'), 'priority' => '0.3', 'changefreq' => 'yearly'],
@@ -347,16 +354,22 @@ class SitemapController extends Controller
      */
     private function artworkSitemapQuery()
     {
+        // ITERATION-1 FIX (ambiguous column): artworkEntries() JOINs
+        // galleries (for the slug), and both tables have a `title` column —
+        // the unqualified where clauses made SQLite (and strict MySQL
+        // configs) fail with "ambiguous column name: title" → 500 on
+        // /sitemap-artworks-*.xml. Qualify every gallery_images column.
         return GalleryImage::query()
             ->whereHas('gallery', fn ($q) => $q->publiclyViewable())
             ->where(function ($q) {
-                $q->whereNotNull('title')->orWhereNotNull('original_name');
+                $q->whereNotNull('gallery_images.title')
+                    ->orWhereNotNull('gallery_images.original_name');
             })
             ->where(function ($q) {
-                $q->whereRaw('CHAR_LENGTH(COALESCE(description, \'\')) >= ?', [(int) config('seo.artwork_gate.min_description_chars', 80)])
-                    ->orWhereNotNull('medium')
-                    ->orWhereNotNull('year')
-                    ->orWhereNotNull('artist_id');
+                $q->whereRaw('LENGTH(COALESCE(gallery_images.description, \'\')) >= ?', [(int) config('seo.artwork_gate.min_description_chars', 80)])
+                    ->orWhereNotNull('gallery_images.medium')
+                    ->orWhereNotNull('gallery_images.year')
+                    ->orWhereNotNull('gallery_images.artist_id');
             });
     }
 

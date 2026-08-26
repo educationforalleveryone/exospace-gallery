@@ -112,11 +112,16 @@ class SeoAdminController extends Controller
         }
 
         $profile = $subject->seoProfileOrCreate();
+        // ITERATION-1 FIX (500 on SEO profile save): nullable fields were
+        // read with ?: on keys that validation REMOVES when absent —
+        // "Undefined array key" → the whole super-admin SEO profile save
+        // 500'd whenever a form omitted any optional field. Use ?? null
+        // semantics via data_get on the validated array.
         $profile->fill([
-            'title_override'       => $validated['title_override'] ?: null,
-            'description_override' => $validated['description_override'] ?: null,
-            'canonical_override'   => $validated['canonical_override'] ?: null,
-            'robots_directive'     => $validated['robots_directive'] ?: null,
+            'title_override'       => $validated['title_override'] ?? null,
+            'description_override' => $validated['description_override'] ?? null,
+            'canonical_override'   => $validated['canonical_override'] ?? null,
+            'robots_directive'     => $validated['robots_directive'] ?? null,
             'sitemap_include'      => array_key_exists('sitemap_include', $validated) && $validated['sitemap_include'] !== null
                 ? (bool) $validated['sitemap_include'] : null,
             'structured_data_enabled' => array_key_exists('structured_data', $validated) && $validated['structured_data'] !== null

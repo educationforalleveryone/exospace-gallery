@@ -110,7 +110,14 @@ class ImageProcessingService
 
         // PERF-9: Clone the already-read image for the thumbnail
         // (was: $this->manager->read($file) — second read from disk)
-        $thumbnail = $image->clone();
+        //
+        // ITERATION-1 FIX: Intervention Image v3 has no clone() method —
+        // the call threw "undefined method" and EVERY artwork upload 500'd
+        // at the thumbnail step (the main image saved, then the request
+        // died — leaving an orphaned file and a Dropzone error). PHP's
+        // native `clone` uses Image::__clone(), which deep-copies the
+        // driver and core exactly as needed.
+        $thumbnail = clone $image;
         $thumbnail->cover(400, 400);
 
         $thumbPath = "{$path}/thumbnails/{$filename}";
@@ -148,7 +155,15 @@ class ImageProcessingService
                 $sourceFile = $file->getRealPath();
             }
 
+            // ITERATION-1 P0 FIX (upload data loss): Spatie's FileAdder
+            // DELETES the source file after copying it into the media
+            // collection (unlink unless preservingOriginal()). The source
+            // here IS the artwork's main JPEG — process() saved it to
+            // galleries/{id}/ earlier on the SAME disk — so every upload
+            // silently lost its primary image file right after it was
+            // written. Keep the original on disk.
             $image->addMedia($sourceFile)
+                  ->preservingOriginal()
                   ->usingFileName($image->filename)
                   ->toMediaCollection('original');
 

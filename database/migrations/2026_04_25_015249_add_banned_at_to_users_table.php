@@ -16,6 +16,11 @@ return new class extends Migration
 
     public function down(): void
     {
+        // ITERATION-1 FIX (consolidated-migration coexistence): guard for
+        // fresh installs where the consolidated migration owns the column.
+        if (! Schema::hasTable('users')) {
+            return;
+        }
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn(['banned_at', 'ban_reason']);
         });

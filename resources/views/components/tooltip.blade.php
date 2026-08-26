@@ -65,7 +65,7 @@ $positionClass = $positionClasses[$position] ?? $positionClasses['top'];
         class="inline-flex"
         aria-describedby="{{ $tooltipId }}"
     >
-        {{ $slot }}
+        {{ $slot ?? '' }}
     </span>
 
     <span
@@ -81,10 +81,14 @@ $positionClass = $positionClasses[$position] ?? $positionClasses['top'];
         x-cloak
         class="absolute z-50 {{ $positionClass }} pointer-events-none max-w-xs whitespace-normal rounded-lg border border-gray-700 bg-ink-950 px-3 py-2 text-xs font-medium text-gray-100 shadow-xl"
     >
-        @if(isset($content) || $slots->has('content'))
-            {{ $content ?? $slots->content }}
+        {{-- ITERATION-1 FIX: `$slots` does not exist in Blade components --}}
+        {{-- (named slots arrive as their own variables — $content here, --}}
+        {{-- already in @props with a null default). The old $slots->has() --}}
+        {{-- call threw "Undefined variable $slots" on every direct render. --}}
+        @if(!empty($content))
+            {{ $content }}
         @else
-            {{ $text }}
+            {{ $text ?? '' }}
         @endif
     </span>
 </span>
