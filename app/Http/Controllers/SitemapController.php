@@ -67,13 +67,8 @@ class SitemapController extends Controller
         }
 
         $perPage = (int) config('seo.sitemap.per_page', 2000);
-        $version = $this->version();
 
-        $groups = Cache::flexible(
-            "sitemap:index:v{$version}",
-            [now()->addMinutes(15), now()->addMinutes(30)],
-            fn () => $this->buildIndexEntries($perPage),
-        );
+        $groups = $this->cacheIndexEntries($perPage);
 
         return $this->xmlResponse('sitemap-index', [
             'groups' => $groups,
@@ -101,12 +96,7 @@ class SitemapController extends Controller
             abort(404);
         }
 
-        $version = $this->version();
-        $entries = Cache::flexible(
-            "sitemap:group:{$group}:{$page}:v{$version}",
-            [now()->addSeconds((int) config('seo.sitemap.cache_ttl', 1800)), now()->addSeconds((int) config('seo.sitemap.cache_ttl_stale', 3600))],
-            fn () => $this->buildGroupEntries($group, $page, $perPage),
-        );
+        $entries = $this->cacheGroupEntries($group, $page, $perPage);
 
         return $this->xmlResponse('sitemap', [
             'entries' => $entries,
@@ -137,15 +127,7 @@ class SitemapController extends Controller
     {
         $maxItems = (int) config('seo.feed.max_items', 50);
 
-        $galleries = Cache::flexible('feed:galleries:v' . $this->version(), [now()->addMinutes(30), now()->addMinutes(60)], function () use ($maxItems) {
-            return Gallery::publiclyViewable()
-                ->with(['coverImage', 'user', 'venueTemplate'])
-                ->withCount('images')
-                ->has('images', '>=', 1)
-                ->orderByDesc('updated_at')
-                ->limit($maxItems)
-                ->get();
-        });
+        $galleries = $this->cacheFeedGalleries($maxItems);
 
         $response = response()->view('feed', compact('galleries'))
             ->header('Content-Type', 'application/rss+xml; charset=UTF-8');
@@ -190,8 +172,10 @@ class SitemapController extends Controller
 
     private function groupCount(string $group): int
     {
+        $version = $this->version();
+
         return Cache::flexible(
-            'sitemap:count:' . $group . ':v' . $this->version(),
+            'sitemap:count:' . $group . ':v' . $version,
             [now()->addSeconds((int) config('seo.sitemap.cache_ttl', 1800)), now()->addSeconds((int) config('seo.sitemap.cache_ttl_stale', 3600))],
             fn () => match ($group) {
                 'static' => count($this->staticPages()),
@@ -201,13 +185,16 @@ class SitemapController extends Controller
                 'content' => $this->contentSitemapQuery()->count(),
                 default => 0,
             },
+            ['seconds' => 30],
         );
     }
 
     private function groupLastmod(string $group): ?string
     {
+        $version = $this->version();
+
         return Cache::flexible(
-            'sitemap:lastmod:' . $group . ':v' . $this->version(),
+            'sitemap:lastmod:' . $group . ':v' . $version,
             [now()->addMinutes(10), now()->addMinutes(20)],
             function () use ($group) {
                 $value = match ($group) {
@@ -220,6 +207,7 @@ class SitemapController extends Controller
 
                 return $value ? \Illuminate\Support\Carbon::parse($value)->toIso8601String() : now()->toIso8601String();
             },
+            ['seconds' => 30],
         );
     }
 
@@ -479,6 +467,131 @@ class SitemapController extends Controller
     // ─────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────
+
+    // ─────────────────────────────────────────────────────────────────────
+    // ITERATION 4 — cache accessors (single source of truth for keys/TTLs)
+    // ─────────────────────────────────────────────────────────────────────
+    //
+    // Every sitemap cache read goes through one of these accessors. The
+    // request path and sitemap:warm share them, so a warmed key can NEVER
+    // diverge from the key a crawler request would read (same expression,
+    // same TTLs). Each accessor also passes a 30s lock to Cache::flexible —
+    // the stale-path refresh is serialized, so a burst of crawlers hitting
+    // an expired-but-present entry triggers ONE background rebuild instead
+    // of N concurrent ones. (The cold path still computes inline by design;
+    // warming is what keeps it cold-free.)
+
+    /**
+     * @return array<int, array{group: string, page: int, lastmod: ?string}>
+     */
+    private function cacheIndexEntries(int $perPage): array
+    {
+        $version = $this->version();
+
+        return Cache::flexible(
+            "sitemap:index:v{$version}",
+            [now()->addMinutes(15), now()->addMinutes(30)],
+            fn () => $this->buildIndexEntries($perPage),
+            ['seconds' => 30],
+        );
+    }
+
+    /**
+     * @return array<int, array<string, string|null>>
+     */
+    private function cacheGroupEntries(string $group, int $page, int $perPage): array
+    {
+        $version = $this->version();
+
+        return Cache::flexible(
+            "sitemap:group:{$group}:{$page}:v{$version}",
+            [now()->addSeconds((int) config('seo.sitemap.cache_ttl', 1800)), now()->addSeconds((int) config('seo.sitemap.cache_ttl_stale', 3600))],
+            fn () => $this->buildGroupEntries($group, $page, $perPage),
+            ['seconds' => 30],
+        );
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, Gallery>
+     */
+    private function cacheFeedGalleries(int $maxItems)
+    {
+        return Cache::flexible(
+            'feed:galleries:v' . $this->version(),
+            [now()->addMinutes(30), now()->addMinutes(60)],
+            fn () => Gallery::publiclyViewable()
+                ->with(['coverImage', 'user', 'venueTemplate'])
+                ->withCount('images')
+                ->has('images', '>=', 1)
+                ->orderByDesc('updated_at')
+                ->limit($maxItems)
+                ->get(),
+            ['seconds' => 30],
+        );
+    }
+
+    /**
+     * ITERATION 4 — pre-populate the sitemap caches (sitemap:warm command,
+     * daily 04:15 schedule, and post-rebuild hook).
+     *
+     * A cold cache key rebuilds synchronously INSIDE the crawler's request
+     * (Cache::flexible's cold path has no lock) — at scale that means a
+     * Googlebot hit pays a multi-second COUNT + 2,000-row query + Blade XML
+     * render, and version bumps re-cold every key at once. Warming moves
+     * that cost to a scheduled window; crawler requests become pure cache
+     * reads.
+     *
+     * Page-addressed URLs (/sitemap-{group}-{page}.xml) require offset
+     * pagination, so deep pages carry OFFSET cost — also absorbed here, in
+     * the warmer, instead of in a crawler request.
+     *
+     * @param  string|null  $group  warm a single group, or all when null
+     * @param  int  $maxPagesPerGroup  safety cap (pages beyond this stay
+     *                                 lazy-warmed; 25 × 2000 = 50k URLs per
+     *                                 group by default)
+     * @return array{warmed: int, groups: array<string, int>, capped: bool}
+     */
+    public function warmCaches(?string $group = null, int $maxPagesPerGroup = 25): array
+    {
+        $groups = $group !== null
+            ? (in_array($group, self::GROUPS, true) ? [$group] : [])
+            : self::GROUPS;
+
+        $perPage = (int) config('seo.sitemap.per_page', 2000);
+        $stats = ['warmed' => 0, 'groups' => [], 'capped' => false];
+
+        // 1. Counts + lastmods first — buildIndexEntries() reads them.
+        foreach ($groups as $g) {
+            $this->groupCount($g);
+            $this->groupLastmod($g);
+            $stats['warmed'] += 2;
+        }
+
+        // 2. Index document.
+        $this->cacheIndexEntries($perPage);
+        $stats['warmed']++;
+
+        // 3. Group pages (capped).
+        foreach ($groups as $g) {
+            $total = $this->groupCount($g);
+            $pages = max(1, (int) ceil($total / $perPage));
+            if ($pages > $maxPagesPerGroup) {
+                $pages = $maxPagesPerGroup;
+                $stats['capped'] = true;
+            }
+            for ($page = 1; $page <= $pages; $page++) {
+                $this->cacheGroupEntries($g, $page, $perPage);
+                $stats['warmed']++;
+            }
+            $stats['groups'][$g] = $pages;
+        }
+
+        // 4. RSS feed.
+        $this->cacheFeedGalleries((int) config('seo.feed.max_items', 50));
+        $stats['warmed']++;
+
+        return $stats;
+    }
 
     /**
      * Cache version — observers bump it to lazily invalidate every

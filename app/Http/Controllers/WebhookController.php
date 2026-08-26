@@ -96,28 +96,88 @@ class WebhookController extends Controller
         $messageId = $request->input('message_id');
         $messageType = $request->input('message_type');
         if ($messageId && $messageType) {
+            // ITERATION 4 (webhook ledger): the dedupe marker now also
+            // persists the full payload and a status. Failure paths mark
+            // the row 'failed' instead of deleting it — 2CO retries remain
+            // reprocessable (a 'failed' row is claimable below) while the
+            // payload survives for the super-admin billing review page
+            // and replay tooling. Payload PII is retention-bounded to 90
+            // days by exospace:cleanup-stale.
             $inserted = \DB::table('processed_webhooks')->insertOrIgnore([
                 'message_id'   => $messageId,
                 'message_type' => $messageType,
                 'invoice_id'   => $request->input('invoice_id'),
+                'payload'      => $this->storablePayload($request),
+                'status'       => 'processing',
                 'processed_at' => now(),
+                'updated_at'   => now(),
             ]);
 
             if (! $inserted) {
                 // insertOrIgnore returned 0 rows — the row already existed
-                // (unique constraint hit). This is a duplicate/replay.
-                Log::info('2Checkout: Duplicate message_id+type, skipping (replay protection)', [
-                    'message_id'   => $messageId,
-                    'message_type' => $messageType,
-                ]);
-                return response('OK', 200);
+                // (unique constraint hit). Normally a duplicate/replay, EXCEPT
+                // when the previous attempt failed (status='failed') or
+                // crashed mid-processing (status='processing' with no progress
+                // for 10+ minutes) — those rows are claimable so 2CO's retry
+                // can reprocess, replacing Iteration-1's delete-on-failure
+                // marker with an equivalent, evidence-preserving transition.
+                if (! $this->claimExistingWebhook($messageId, $messageType)) {
+                    Log::info('2Checkout: Duplicate message_id+type, skipping (replay protection)', [
+                        'message_id'   => $messageId,
+                        'message_type' => $messageType,
+                    ]);
+                    return response('OK', 200);
+                }
             }
         }
 
+        $response = $this->processVerifiedWebhook($request, $messageId, $messageType);
+        $this->finalizeWebhook($messageId, $messageType, $response);
+
+        return $response;
+    }
+
+    /**
+     * ITERATION 4 — admin replay entry point (super-admin billing review).
+     *
+     * Re-dispatches a STORED webhook payload through the exact same
+     * processing pipeline as live ingress. Trusted-caller contract:
+     *
+     *   - The caller is a route behind auth + verified + super_admin + mfa
+     *     + password.confirm (SuperAdmin\BillingController::replayWebhook),
+     *     and the payload was signature-verified at its ORIGINAL ingress
+     *     (2CO MD5 + HMAC) before being stored — re-verification is neither
+     *     possible (secrets may have rotated) nor required (the stored bytes
+     *     are already the verified bytes).
+     *   - Dedupe is deliberately NOT re-run: the row exists and the replay
+     *     is intentional. Safety comes from the handlers' own idempotency
+     *     (unique transactions.invoice_id + SELECT FOR UPDATE, status
+     *     guards, per-invoice locks) — the same properties that make 2CO's
+     *     own retries safe.
+     *   - Every replay is audited (webhook.replayed) with the admin as
+     *     actor, so the audit trail shows WHO replayed WHAT.
+     */
+    public function processReplay(Request $request)
+    {
+        // The message_type routes the dispatch — it MUST come from the
+        // stored payload (the caller hands us a synthetic request built
+        // from the ledger row, so there is no other source).
+        return $this->processVerifiedWebhook(
+            $request,
+            null,
+            $request->input('message_type') !== null ? (string) $request->input('message_type') : null,
+        );
+    }
+
+    /**
+     * Shared dispatch for verified ingress and admin replay. $messageId /
+     * $messageType are null on replay (no dedupe lifecycle to manage).
+     */
+    private function processVerifiedWebhook(Request $request, ?string $messageId, ?string $messageType)
+    {
         // ================================
         // STEP 2: Route by message_type
         // ================================
-        $messageType = $request->input('message_type');
 
         // ITERATION-1 P0 FIX (lost refunds/chargebacks): the refund,
         // chargeback and recurring handlers previously ran OUTSIDE any
@@ -148,8 +208,12 @@ class WebhookController extends Controller
                 return $this->handleRecurringCancelled($request);
             }
         } catch (\Throwable $e) {
-            $this->forgetProcessedWebhook($messageId, $messageType);
-            Log::error('2Checkout: Webhook handler failed — dedupe marker removed so retry can reprocess', [
+            // ITERATION-4: failure now MARKS the ledger row 'failed' (payload
+            // preserved for the billing review page / replay) instead of
+            // deleting the marker — the row stops blocking 2CO's retry either
+            // way (failed rows are claimable at ingress).
+            $this->markWebhookFailed($messageId, $messageType);
+            Log::error('2Checkout: Webhook handler failed — ledger row marked failed so retry can reprocess', [
                 'message_type' => $messageType,
                 'invoice_id'   => $request->input('invoice_id'),
                 'error'        => $e->getMessage(),
@@ -356,6 +420,18 @@ class WebhookController extends Controller
                         'matched_by' => $pendingUpgrade ? 'external-reference' : 'customer_email',
                     ]);
 
+                    // ITERATION 4 (billing audit trail): webhook-driven
+                    // money mutations are now first-class audit records with
+                    // a system actor — previously only transactions.status
+                    // flips + log lines existed.
+                    $this->auditWebhook('webhook.order_processed', $user, [
+                        'invoice_id'   => $invoiceId,
+                        'plan'         => $planConfig['plan'],
+                        'amount'       => $amount,
+                        'billing_type' => $recurringOrderId ? 'subscription' : 'one_time',
+                        'matched_by'   => $pendingUpgrade ? 'external-reference' : 'customer_email',
+                    ]);
+
                     // ── P1-2 FIX: Send confirmation email AFTER commit ──
                     // Previously, Mail::send was called inside the transaction.
                     // If the transaction rolled back, the email was still sent
@@ -426,12 +502,14 @@ class WebhookController extends Controller
             ]);
             return response('OK', 200);
         } catch (\Throwable $e) {
-            // ITERATION-1 P0 FIX (lost upgrades): remove the dedupe marker
+            // ITERATION-1 P0 FIX (lost upgrades): mark the ledger row failed
             // BEFORE returning 500 — otherwise 2Checkout's retry of this
-            // exact message_id would hit the marker and get a bogus 200,
-            // permanently swallowing a paid upgrade.
-            $this->forgetProcessedWebhook($messageId, $messageType);
-            Log::error('2Checkout: Upgrade failed — dedupe marker removed so retry can reprocess', [
+            // exact message_id would hit the row and get a bogus 200,
+            // permanently swallowing a paid upgrade. (ITERATION-4: the row
+            // is now marked 'failed' rather than deleted, preserving the
+            // payload as evidence; failed rows are claimable at ingress.)
+            $this->markWebhookFailed($messageId, $messageType);
+            Log::error('2Checkout: Upgrade failed — ledger row marked failed so retry can reprocess', [
                 'invoice_id' => $invoiceId,
                 'user_id'    => $user->id,
                 'error'      => $e->getMessage(),
@@ -601,6 +679,20 @@ class WebhookController extends Controller
                         return;
                     }
 
+                    // ITERATION 4 (billing audit trail): full vs partial
+                    // refund classification, amounts, and the transaction
+                    // status flip are now auditable events.
+                    $this->auditWebhook(
+                        $isFullRefund ? 'webhook.refund_applied' : 'webhook.partial_refund_applied',
+                        $user,
+                        [
+                            'invoice_id'      => $invoiceId,
+                            'refund_amount'   => $refundAmount,
+                            'original_amount' => $originalAmount,
+                            'new_status'      => $newStatus,
+                        ]
+                    );
+
                     // ── P1-4: Partial refunds do NOT downgrade ──────────
                     if (! $isFullRefund) {
                         Log::info('2Checkout: Partial refund — not downgrading', [
@@ -725,6 +817,13 @@ class WebhookController extends Controller
                     if (! $user) {
                         return;
                     }
+
+                    // ITERATION 4 (billing audit trail).
+                    $this->auditWebhook('webhook.chargeback_applied', $user, [
+                        'invoice_id'       => $invoiceId,
+                        'charged_back_plan'=> $transaction->plan,
+                        'amount'           => $transaction->amount,
+                    ]);
 
                     // ── P1-3 FIX: Only downgrade if plan matches ────────
                     // Previously, chargebacks unconditionally downgraded.
@@ -853,6 +952,8 @@ class WebhookController extends Controller
 
                     // Only restore if the user is currently on a lower plan.
                     // If they've since re-purchased, leave them alone.
+                    $restoredToPlan = null;
+                    $restoredBilling = null;
                     $planRank = ['free' => 0, 'pro' => 1, 'studio' => 2];
                     if (($planRank[$user->plan] ?? 0) < ($planRank[$transaction->plan] ?? 0)) {
                         // ITERATION-3: was the charged-back purchase a
@@ -888,7 +989,19 @@ class WebhookController extends Controller
                             'to_plan'    => $transaction->plan,
                             'billing'    => $wasSubscription ? 'subscription (finite restore)' : 'one_time (lifetime)',
                         ]);
+
+                        $restoredToPlan = $transaction->plan;
+                        $restoredBilling = $wasSubscription ? 'subscription' : 'one_time';
                     }
+
+                    // ITERATION 4 (billing audit trail): record the reversal
+                    // outcome regardless of whether the plan was re-granted
+                    // (a later re-purchase legitimately skips the restore).
+                    $this->auditWebhook('webhook.chargeback_reversed', $user, [
+                        'invoice_id'    => $invoiceId,
+                        'restored_plan' => $restoredToPlan,
+                        'billing_type'  => $restoredBilling,
+                    ]);
                 });
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
@@ -1219,6 +1332,14 @@ class WebhookController extends Controller
                         'next_billing'    => $nextBillingDate,
                     ]);
 
+                    // ITERATION 4 (billing audit trail).
+                    $this->auditWebhook('webhook.recurring_renewed', $user, [
+                        'invoice_id'      => $invoiceId,
+                        'subscription_id' => $subscriptionId,
+                        'amount'          => $amount,
+                        'access_until'    => $endsAt?->toIso8601String(),
+                    ]);
+
                     // M-10: Generate an invoice for this renewal transaction.
                     \DB::afterCommit(function () use ($transactionId, $user) {
                         try {
@@ -1283,6 +1404,12 @@ class WebhookController extends Controller
 
         Log::info('2Checkout: Subscription marked past_due', [
             'user_id'         => $user->id,
+            'subscription_id' => $subscriptionId,
+        ]);
+
+        // ITERATION 4 (billing audit trail).
+        $this->auditWebhook('webhook.recurring_failed', $user, [
+            'invoice_id'      => $invoiceId,
             'subscription_id' => $subscriptionId,
         ]);
 
@@ -1368,6 +1495,12 @@ class WebhookController extends Controller
             'ends_at'         => $user->subscription_ends_at?->toIso8601String(),
         ]);
 
+        // ITERATION 4 (billing audit trail).
+        $this->auditWebhook('webhook.recurring_cancelled', $user, [
+            'subscription_id' => $subscriptionId,
+            'access_until'    => $user->subscription_ends_at?->toIso8601String(),
+        ]);
+
         // M-12: Create in-app notification for the cancellation
         \App\Services\NotificationService::create(
             $user,
@@ -1403,45 +1536,162 @@ class WebhookController extends Controller
         return null;
     }
 
+    // ====================================================================
+    // ITERATION 4 — webhook ledger (payload persistence + status lifecycle)
+    // ====================================================================
+    //
+    // Lifecycle of a processed_webhooks row:
+    //
+    //   insert ──► 'processing' ──► 'processed'   (success)
+    //                 │
+    //                 └─► 'failed'                (exception → 500)
+    //                          │
+    //                          └─► 'processing'   (2CO retry claims it, or
+    //                                             admin replays it)
+    //
+    //   A 'processing' row untouched for >10 minutes is also claimable —
+    //   crash recovery for a worker that died mid-processing without
+    //   reaching either catch block.
+    //
+    // Semantics vs Iteration 1: 'failed' replaces delete-on-failure. The
+    // blocking property for 2CO retries is identical (failed rows never
+    // swallow a retry), but the payload and the fact-of-arrival survive
+    // for the billing review page and replay tooling.
+
     /**
-     * ITERATION-1 P0 FIX (lost upgrades): remove a processed_webhooks dedupe
-     * marker so 2Checkout's automatic retry of a FAILED webhook can be
-     * reprocessed.
-     *
-     * Why this exists: the marker is inserted BEFORE processing (atomic
-     * replay protection), but if processing then throws and we return 500,
-     * the marker would block the retry — 2Checkout would receive a bogus
-     * 200 from the dedupe check and the paid event (upgrade, refund,
-     * chargeback, recurring instalment) would be permanently lost.
-     *
-     * Safe because every processing path is idempotent on its own keys:
-     *   - upgrades:        unique(transactions.invoice_id) + SELECT FOR UPDATE
-     *   - refunds:         transaction status guard + amount threshold
-     *   - recurring:       subscription_status + dunning_step state machine
-     *   - chargebacks:     transaction status guard
-     *
-     * Deletes by BOTH message_id+message_type (the unique key) — a retry of
-     * the same event re-inserts the marker on arrival.
+     * Serialize the payload for ledger storage. Guarded against
+     * pathological sizes — a 2CO IPN is a few KB; anything beyond 256KB
+     * is stored as null (replay unavailable, processing unaffected).
      */
-    private function forgetProcessedWebhook(?string $messageId, ?string $messageType): void
+    private function storablePayload(Request $request): ?string
+    {
+        try {
+            $json = json_encode($request->all());
+        } catch (\Throwable) {
+            return null;
+        }
+        if ($json === false || strlen($json) > 256 * 1024) {
+            Log::warning('2Checkout: webhook payload not persisted (empty or oversized)', [
+                'invoice_id' => $request->input('invoice_id'),
+            ]);
+            return null;
+        }
+        return $json;
+    }
+
+    /**
+     * Atomically claim an EXISTING ledger row for reprocessing: only rows
+     * marked 'failed', or 'processing' rows that have made no progress for
+     * 10+ minutes (crashed worker), transition back to 'processing'. The
+     * conditional UPDATE is the mutex — exactly one caller wins.
+     */
+    private function claimExistingWebhook(string $messageId, string $messageType): bool
+    {
+        try {
+            $claimed = \DB::table('processed_webhooks')
+                ->where('message_id', $messageId)
+                ->where('message_type', $messageType)
+                ->where(function ($q) {
+                    $q->where('status', 'failed')
+                        ->orWhere(function ($q2) {
+                            $q2->where('status', 'processing')
+                                ->where('updated_at', '<', now()->subMinutes(10));
+                        });
+                })
+                ->update(['status' => 'processing', 'updated_at' => now()]);
+
+            return (bool) $claimed;
+        } catch (\Throwable $e) {
+            // DB unavailable during the claim check — treat as duplicate
+            // (fail safe: never double-process on infra doubt).
+            Log::warning('2Checkout: failed to inspect ledger row for claim', [
+                'message_id'   => $messageId,
+                'message_type' => $messageType,
+                'error'        => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Mark a ledger row failed — the Iteration-4 replacement for deleting
+     * the dedupe marker. Same retry semantics (the row stops blocking
+     * 2CO's automatic retry), but the payload is preserved as evidence
+     * and becomes replayable from the billing review page.
+     */
+    private function markWebhookFailed(?string $messageId, ?string $messageType): void
     {
         if (! $messageId || ! $messageType) {
-            return; // No marker was inserted (payload lacked the fields).
+            return; // Replay context or payload lacked the fields — nothing to mark.
         }
 
         try {
             \DB::table('processed_webhooks')
                 ->where('message_id', $messageId)
                 ->where('message_type', $messageType)
-                ->delete();
+                ->update(['status' => 'failed', 'updated_at' => now()]);
         } catch (\Throwable $e) {
-            // Marker removal is best-effort: if the DELETE itself fails we
-            // are likely in a DB outage — the 500 response still tells
-            // 2Checkout to retry, and the operator alert fires.
-            Log::warning('2Checkout: failed to remove dedupe marker after processing error', [
+            // Best-effort, same contract as Iteration-1's marker removal:
+            // the 500 response still tells 2Checkout to retry.
+            Log::warning('2Checkout: failed to mark ledger row failed after processing error', [
                 'message_id'   => $messageId,
                 'message_type' => $messageType,
                 'error'        => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Post-dispatch ledger finalization: 'processed' on a 2xx outcome,
+     * 'failed' on 5xx (belt-and-braces — the catch blocks already marked
+     * failures; this catches handlers that returned a 500 Response without
+     * throwing). No-op on replay (null ids) — the caller owns the row.
+     */
+    private function finalizeWebhook(?string $messageId, ?string $messageType, $response): void
+    {
+        if (! $messageId || ! $messageType) {
+            return;
+        }
+
+        $status = $response instanceof \Illuminate\Http\Response ? $response->status() : 200;
+
+        try {
+            \DB::table('processed_webhooks')
+                ->where('message_id', $messageId)
+                ->where('message_type', $messageType)
+                ->update([
+                    'status'       => $status >= 500 ? 'failed' : 'processed',
+                    'processed_at' => now(),
+                    'updated_at'   => now(),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('2Checkout: failed to finalize ledger row', [
+                'message_id' => $messageId,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * ITERATION 4: record a webhook outcome in the admin audit log with a
+     * SYSTEM actor (actor_id = null — no authenticated admin in IPN
+     * context). These actions are NOT on the SendSuperAdminActionAlert
+     * destructive whitelist, so they never email super-admins; they surface
+     * on the billing review page instead. Audit failure must never break
+     * billing processing.
+     */
+    private function auditWebhook(string $action, ?User $user, array $payload = []): void
+    {
+        if (! $user) {
+            return;
+        }
+
+        try {
+            \App\Models\AdminAuditLog::record($action, $user, $payload);
+        } catch (\Throwable $e) {
+            Log::warning('2Checkout: webhook audit record failed', [
+                'action' => $action,
+                'error'  => $e->getMessage(),
             ]);
         }
     }

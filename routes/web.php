@@ -428,6 +428,16 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     Route::post  ('pending-upgrades/{pending}/manual-upgrade', [SystemController::class, 'manualUpgrade'])->name('pending-upgrades.manual-upgrade')
           ->middleware('password.confirm');
 
+    // ── Billing Review (ITERATION 4) ──────────────────────────────────────
+    // Refunds / chargebacks / webhook ledger with payload viewer + replay.
+    // Replay mutates billing state through the webhook pipeline — the same
+    // password.confirm bar as manual upgrades.
+    Route::get   ('billing',                           [\App\Http\Controllers\SuperAdmin\BillingController::class, 'index'])->name('billing.index');
+    Route::post  ('billing/webhooks/{webhook}/replay', [\App\Http\Controllers\SuperAdmin\BillingController::class, 'replayWebhook'])
+          ->whereNumber('webhook')
+          ->name('billing.replay')
+          ->middleware('password.confirm');
+
     // M-13: Admin impersonation — start (requires super-admin + password.confirm + feature flag)
     Route::post('/users/{user}/impersonate',           [SystemController::class, 'impersonate'])->name('impersonate')
           ->middleware('password.confirm', 'feature_flag:admin_impersonation');

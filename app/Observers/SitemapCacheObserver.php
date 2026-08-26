@@ -149,13 +149,19 @@ class SitemapCacheObserver
     private function bump(): void
     {
         try {
-            // read-modify-write instead of Cache::increment(): increment on a
-            // MISSING key initializes to 1 on several backends, which would
-            // collide with the getter's default of 1 (a no-op bump).
-            // Concurrent bumps may lose one increment — acceptable: the TTL
-            // still bounds sitemap staleness.
-            $current = (int) \Illuminate\Support\Facades\Cache::get('seo:sitemap:version', 1);
-            \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', $current + 1);
+            // ITERATION 4 FIX (lost updates): the old read-modify-write
+            // (get → put) silently dropped concurrent increments — a bulk
+            // upload firing N observer bumps in parallel requests could end
+            // with a single net bump, or with two writers clobbering each
+            // other back to the SAME version (a no-op invalidation).
+            //
+            // Atomic replacement: seed-then-increment. Cache::add() is
+            // SETNX semantics (only writes when absent — this preserves the
+            // getter's default of 1 for a missing key, the reason increment
+            // alone was avoided), then Cache::increment() is an atomic
+            // read-modify-write on every backend.
+            \Illuminate\Support\Facades\Cache::add('seo:sitemap:version', 1);
+            \Illuminate\Support\Facades\Cache::increment('seo:sitemap:version');
         } catch (\Throwable) {
             // Cache unavailable — sitemaps fall back to TTL-only staleness.
         }

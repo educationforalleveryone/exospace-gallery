@@ -59,6 +59,17 @@ Schedule::command('exospace:rollup-analytics')
     ->withoutOverlapping(60)
     ->onOneServer();
 
+// ITERATION-4: pre-populate sitemap caches so crawler requests never pay
+// the cold-rebuild cost in-request (Cache::flexible's cold path computes
+// inline — multi-second COUNT + 2k-row render lands on Googlebot today).
+// 04:15 slots it after reconcile (04:10) and before the seo:audit health
+// check (04:30), so the audit inspects a warmed cache. Page-capped per
+// group; deeper pages stay lazy.
+Schedule::command('sitemap:warm')
+    ->dailyAt('04:15')
+    ->withoutOverlapping(30)
+    ->onOneServer();
+
 // ── SEO OS (Iteration 6): daily SEO health audit ──────────────────────────
 // Platform-data-only report (never fabricated search data). Posts to Slack
 // via OPERATIONAL_ALERT_WEBHOOK when warnings exist.

@@ -30,9 +30,14 @@ class SeoRebuild extends Command
 
     public function handle(): int
     {
+        // ITERATION-4 FIX: atomic version bump (seed-then-increment — same
+        // pattern as SitemapCacheObserver). The old read-modify-write could
+        // race a concurrent observer bump and clobber it back to the same
+        // version, producing a no-op "rebuild".
+        \Illuminate\Support\Facades\Cache::add('seo:sitemap:version', 1);
         $version = (int) \Illuminate\Support\Facades\Cache::get('seo:sitemap:version', 1);
+        \Illuminate\Support\Facades\Cache::increment('seo:sitemap:version');
         $newVersion = $version + 1;
-        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', $newVersion);
 
         $cleared = 0;
 
@@ -58,7 +63,20 @@ class SeoRebuild extends Command
         }
 
         $this->info("SEO caches cleared ({$cleared} keys/tags). Sitemap version: {$version} → {$newVersion}.");
-        $this->info('Done. Sitemaps regenerate lazily on their next request.');
+
+        // ITERATION-4: actually WARM the fresh-version sitemap keys (10
+        // pages per group keeps this admin-triggered synchronous call
+        // fast). The docblock has claimed "eagerly warms" since Iteration 4
+        // of the SEO OS while the implementation only bumped the version
+        // and left Googlebot to pay the cold rebuild — now the claim is
+        // true. The daily 04:15 sitemap:warm run covers the rest.
+        try {
+            $stats = app(\App\Http\Controllers\SitemapController::class)
+                ->warmCaches(null, 10);
+            $this->info("Sitemap caches warmed: {$stats['warmed']} keys under v{$newVersion}.");
+        } catch (\Throwable $e) {
+            $this->warn('Sitemap warming failed (sitemaps regenerate lazily on next request): ' . $e->getMessage());
+        }
 
         return self::SUCCESS;
     }

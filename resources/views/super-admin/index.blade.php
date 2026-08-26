@@ -35,6 +35,9 @@
                     <a href="{{ route('super.pending-upgrades.index') }}" class="px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded-lg transition text-sm">
                         💳 Pending Upgrades
                     </a>
+                    <a href="{{ route('super.billing.index') }}" class="px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg transition text-sm">
+                        🧾 Billing Review
+                    </a>
                     <a href="{{ route('super.feedback.index') }}" class="px-4 py-2 bg-teal-800 hover:bg-teal-700 rounded-lg transition text-sm">
                         💬 Feedback
                     </a>
@@ -105,6 +108,87 @@
                         {{ $name }}
                     </span>
                 @endforeach
+            </div>
+        </div>
+
+        {{-- ITERATION 4: Onboarding funnel + TTFE. Was weekly-console-report-only —
+             the product's headline metric (time to first published exhibition)
+             is now visible continuously. Data: OnboardingMetricsService (cached 30/60 min). --}}
+        <div class="mb-8 bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">📈 Onboarding Funnel &amp; TTFE</h3>
+                <div class="flex gap-1">
+                    @foreach([7, 30, 90] as $period)
+                        <a href="{{ route('super.index', ['days' => $period]) }}"
+                           class="px-3 py-1 rounded-md text-xs font-medium {{ $onboardingDays === $period ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
+                            {{ $period }}d
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+
+            @php
+                $funnel = [
+                    ['label' => 'Registered',       'value' => $onboarding['registered'],      'color' => 'bg-blue-500'],
+                    ['label' => 'Created gallery',  'value' => $onboarding['created_gallery'], 'color' => 'bg-indigo-500'],
+                    ['label' => 'Uploaded image',   'value' => $onboarding['uploaded_image'],  'color' => 'bg-purple-500'],
+                    ['label' => 'Published',        'value' => $onboarding['published'],       'color' => 'bg-emerald-500'],
+                    ['label' => 'Got first view',   'value' => $onboarding['got_views'],       'color' => 'bg-amber-500'],
+                ];
+                $maxFunnel = max(1, $onboarding['registered']);
+            @endphp
+
+            <div class="space-y-2 mb-5">
+                @foreach($funnel as $stage)
+                    <div class="flex items-center gap-3">
+                        <div class="w-32 text-xs text-gray-400 text-right shrink-0">{{ $stage['label'] }}</div>
+                        <div class="flex-1 bg-gray-800/60 rounded-full h-5 overflow-hidden">
+                            <div class="{{ $stage['color'] }} h-5 rounded-full"
+                                 style="width: {{ min(100, (int) round(($stage['value'] / $maxFunnel) * 100)) }}%"></div>
+                        </div>
+                        <div class="w-28 text-xs text-gray-300 shrink-0">
+                            {{ number_format($stage['value']) }}
+                            <span class="text-gray-500">
+                                ({{ $onboarding['registered'] > 0 ? round(($stage['value'] / $onboarding['registered']) * 100, 1) : 0 }}%)
+                            </span>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3">
+                    <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Time to first published exhibition (TTFE)</div>
+                    @if($onboarding['ttfe_hours'])
+                        <div class="text-2xl font-bold text-emerald-300">
+                            {{ $onboarding['ttfe_hours']['avg'] >= 48
+                                ? round($onboarding['ttfe_hours']['avg'] / 24, 1) . ' days avg'
+                                : $onboarding['ttfe_hours']['avg'] . ' hours avg' }}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-0.5">
+                            min {{ $onboarding['ttfe_hours']['min'] }}h · max {{ $onboarding['ttfe_hours']['max'] }}h ·
+                            {{ $onboarding['published'] }} publisher{{ $onboarding['published'] === 1 ? '' : 's' }} in the window
+                        </div>
+                    @else
+                        <div class="text-sm text-gray-500">No published exhibitions in this window yet.</div>
+                    @endif
+                </div>
+                <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3">
+                    <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Time to first gallery (TTFG)</div>
+                    @if($onboarding['ttfg_hours'])
+                        <div class="text-2xl font-bold text-blue-300">
+                            {{ $onboarding['ttfg_hours']['avg'] >= 48
+                                ? round($onboarding['ttfg_hours']['avg'] / 24, 1) . ' days avg'
+                                : $onboarding['ttfg_hours']['avg'] . ' hours avg' }}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-0.5">
+                            min {{ $onboarding['ttfg_hours']['min'] }}h · max {{ $onboarding['ttfg_hours']['max'] }}h ·
+                            {{ $onboarding['created_gallery'] }} creator{{ $onboarding['created_gallery'] === 1 ? '' : 's' }} in the window
+                        </div>
+                    @else
+                        <div class="text-sm text-gray-500">No galleries created in this window yet.</div>
+                    @endif
+                </div>
             </div>
         </div>
 

@@ -18,7 +18,7 @@ class SystemController extends Controller
 
     // ── Dashboard ─────────────────────────────────────────────────────────
 
-    public function index()
+    public function index(Request $request)
     {
         // FIX: Paginate users instead of loading all at once
         // This prevents N+1 queries and memory issues (OOM)
@@ -26,22 +26,38 @@ class SystemController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(50);
 
-        // Calculate total images once and reuse
-        $totalImages = DB::table('gallery_images')->whereNull('deleted_at')->count();
+        // ITERATION 4: the nine platform stat counts were N sequential
+        // full-table scans on EVERY page load (plan has no index pre-Iter-4;
+        // gallery_images is the largest table). They move slowly — cache
+        // them via Cache::flexible (5 min fresh / 10 min stale-while-
+        // revalidate), the same pattern as Admin\DashboardController.
+        $stats = \Illuminate\Support\Facades\Cache::flexible(
+            'master-control:platform-stats',
+            [now()->addMinutes(5), now()->addMinutes(10)],
+            fn () => [
+                'total_users'     => User::count(),
+                'total_galleries' => Gallery::count(),
+                'free_users'      => User::where('plan', 'free')->count(),
+                'pro_users'       => User::where('plan', 'pro')->count(),
+                'studio_users'    => User::where('plan', 'studio')->count(),
+                'total_images'    => DB::table('gallery_images')->whereNull('deleted_at')->count(),
+                'total_views'     => Gallery::sum('view_count'),
+                'banned_users'    => User::whereNotNull('banned_at')->count(),
+                'unverified_users'=> User::whereNull('email_verified_at')->count(),
+            ],
+        );
 
-        $stats = [
-            'total_users'     => User::count(),
-            'total_galleries' => Gallery::count(),
-            'free_users'      => User::where('plan', 'free')->count(),
-            'pro_users'       => User::where('plan', 'pro')->count(),
-            'studio_users'    => User::where('plan', 'studio')->count(),
-            'total_images'    => $totalImages, // Use pre-calculated value
-            'total_views'     => Gallery::sum('view_count'),
-            'banned_users'    => User::whereNotNull('banned_at')->count(),
-            'unverified_users'=> User::whereNull('email_verified_at')->count(),
-        ];
+        // ITERATION 4: onboarding funnel + TTFE surfaced continuously (was
+        // weekly-console-report only). Cached 30/60 min by the service —
+        // the queries are cohort scans, not something a dashboard refresh
+        // should re-run. Period selector: 7 / 30 / 90 days.
+        $onboardingDays = (int) $request->query('days', 30);
+        if (! in_array($onboardingDays, [7, 30, 90], true)) {
+            $onboardingDays = 30;
+        }
+        $onboarding = app(\App\Services\OnboardingMetricsService::class)->snapshot($onboardingDays);
 
-        return view('super-admin.index', compact('users', 'stats'));
+        return view('super-admin.index', compact('users', 'stats', 'onboarding', 'onboardingDays'));
     }
 
     // ── Update plan ───────────────────────────────────────────────────────
