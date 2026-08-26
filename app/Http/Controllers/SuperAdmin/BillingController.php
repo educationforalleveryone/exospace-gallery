@@ -267,6 +267,13 @@ class BillingController extends Controller
     /**
      * Add a recipient. Validates, de-dupes (case-insensitive on
      * insert via the model mutator + the unique index), audit-logs.
+     *
+     * ITERATION 8: the explicit `where(...)->exists()` check is a
+     * TOCTOU race window — two super-admins submitting the same
+     * email in the same ~50ms both pass the exists check, the loser
+     * throws a QueryException on the unique index that propagates as
+     * a 500. The race is now caught: a UniqueConstraintViolationException
+     * is re-routed to the same withErrors path (audit-fix B-2).
      */
     public function storeRecipient(Request $request)
     {
@@ -285,12 +292,24 @@ class BillingController extends Controller
                 ->withErrors(['email' => '"' . $email . '" is already a recipient.']);
         }
 
-        $recipient = Schema::hasTable('billing_digest_recipients')
-            ? BillingDigestRecipient::create([
-                'email'   => $email,
-                'added_by' => $request->user()->id,
-            ])
-            : null;
+        // ITERATION 8: catch the (rare) race where two super-admins
+        // submit the same email within the TOCTOU window — the unique
+        // index throws UniqueConstraintViolationException (Laravel 10+)
+        // or QueryException; both are re-routed to the same friendly
+        // error so the form doesn't blow up as a 500.
+        $recipient = null;
+        try {
+            $recipient = Schema::hasTable('billing_digest_recipients')
+                ? BillingDigestRecipient::create([
+                    'email'   => $email,
+                    'added_by' => $request->user()->id,
+                ])
+                : null;
+        } catch (\Illuminate\Database\UniqueConstraintViolationException | \Illuminate\Database\QueryException $e) {
+            return back()
+                ->withInput()
+                ->withErrors(['email' => '"' . $email . '" is already a recipient (concurrent add detected).']);
+        }
 
         if ($recipient !== null) {
             AdminAuditLog::record('billing.digest_recipient_added', $recipient, [
@@ -340,6 +359,15 @@ class BillingController extends Controller
      * SendBillingExport command does — comma-separated, validated
      * and de-duped. Surfaces the fallback state in the UI.
      *
+     * ITERATION 8: env recipients are now LOWERCASED (audit-fix A-5)
+     * so the Billing Review page displays them in the same form the
+     * UI-managed list does — an operator comparing the two columns
+     * can't tell whether mixed-case `Finance@Example.com` is a
+     * duplicate of UI-managed `finance@example.com` (it is, but the
+     * case difference obscured it). The model mutator lowercases UI-
+     * managed entries; this method now does the same for env entries
+     * so the comparison is apples-to-apples.
+     *
      * @return list<string>
      */
     private function parseEnvRecipients(): array
@@ -351,7 +379,10 @@ class BillingController extends Controller
 
         $out = [];
         foreach (explode(',', $raw) as $email) {
-            $email = trim($email);
+            // lowercase + trim BEFORE validation/dedupe so the
+            // case-insensitive comparison below actually catches
+            // case-different duplicates.
+            $email = trim(strtolower($email));
             if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && ! in_array($email, $out, true)) {
                 $out[] = $email;
             }

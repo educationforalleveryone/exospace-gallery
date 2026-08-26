@@ -6,6 +6,8 @@ namespace App\Services;
 
 /**
  * ITERATION 7 — >2σ anomaly annotations for the TTFE trend chart.
+ * ITERATION 8 — generalized for any trend series (now also drives the
+ * W1/W2 retention-trend annotations on Master Control).
  *
  * The gap: a TTFE line that drifts up after a release is invisible to
  * the operator unless they already suspect something. Release markers
@@ -25,15 +27,19 @@ namespace App\Services;
  *     mean     = arithmetic mean of window
  *     sigma    = population standard deviation of window
  *               (sqrt(sum((x-mean)^2)/n)).
- *     sigma_eff = max(sigma, 0.25)  ← flat-baseline guard: a perfectly
- *                flat window would otherwise divide-by-σ-zero; the
- *                floor is the data's own display resolution (0.1h)
- *                rounded up, so on a flat baseline a deviation must
- *                exceed 2 × 0.25 = 0.5h (30 minutes) to flag — a
- *                noise-level 0.1h blip won't.
+ *     sigma_eff = max(sigma, SIGMA_FLOOR)  ← flat-baseline guard: a
+ *                perfectly flat window would otherwise divide-by-σ-zero;
+ *                the floor is a noise-suppression threshold that is
+ *                UNIT-AGNOSTIC (works equally for hours-of-TTFE and
+ *                percent-of-retention): on a flat baseline, a deviation
+ *                must exceed 2 × 0.25 = 0.5 to flag. For TTFE that's
+ *                30 minutes; for retention that's 0.5%. In real data
+ *                the trailing σ dwarfs the floor (so the floor only
+ *                matters on a perfectly stable baseline, where a 0.5
+ *                deviation IS interesting).
  *     z        = (x_i - mean) / sigma_eff
  *     flagged  = abs(z) > 2
- *     direction = 'high' (worse — slower onboarding) | 'low' (better)
+ *     direction = 'high' (worse — slower onboarding, lower retention) | 'low' (better)
  *
  * Null weeks are skipped (gap-tolerant — a null ttfe_avg is a week
  * with no publishers, not a 0h TTFE); they break the trailing window
@@ -52,8 +58,24 @@ class TrendAnomalies
     /** Maximum trailing window size (2 months of weekly snapshots). */
     public const MAX_WINDOW = 8;
 
-    /** Flat-baseline σ floor in hours (see class docblock). */
-    public const SIGMA_FLOOR_HOURS = 0.25;
+    /**
+     * Flat-baseline σ floor — unit-agnostic. The 0.25 threshold is
+     * calibrated for the smallest meaningful deviation in either
+     * supported series: TTFE's 0.1h display resolution (a 0.25h =
+     * 15-min floor means a 30-min deviation on a flat baseline flags)
+     * and retention's percentage scale (a 0.25% floor means a 0.5%
+     * deviation on a flat baseline flags — a small but real signal
+     * the operator can investigate by hand).
+     */
+    public const SIGMA_FLOOR = 0.25;
+
+    /**
+     * Backwards-compat alias — Iteration 7's original const name. New
+     * code should reference SIGMA_FLOOR (the algorithm is now used on
+     * retention percentages, not just hours). Both resolve to the
+     * same value.
+     */
+    public const SIGMA_FLOOR_HOURS = self::SIGMA_FLOOR;
 
     /**
      * Detect >2σ anomalies in a nullable-float series.
@@ -103,7 +125,7 @@ class TrendAnomalies
             $variance /= count($window);
             $sigma = sqrt($variance);
 
-            $sigmaEff = max($sigma, self::SIGMA_FLOOR_HOURS);
+            $sigmaEff = max($sigma, self::SIGMA_FLOOR);
             $z = ($x - $mean) / $sigmaEff;
 
             if (abs($z) > 2) {

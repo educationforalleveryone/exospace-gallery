@@ -262,4 +262,94 @@ class DigestRecipientManagementTest extends TestCase
             app(\App\Services\JobHeartbeatService::class)->status('exospace:send-billing-export'),
         );
     }
+
+    // ── ITERATION 8: env case-normalization (audit-fix A-5) ───────────
+
+    public function test_env_recipients_are_lowercased_for_consistent_display(): void
+    {
+        // ITERATION 8 FIX: the Billing Review page previously showed
+        // mixed-case env recipients (Finance@Example.com) alongside
+        // lowercased UI-managed ones (finance@example.com) — an
+        // operator comparing the two lists couldn't tell whether the
+        // mixed-case env entry was a duplicate of the UI entry (it
+        // was, but the case difference obscured it). Env recipients
+        // are now lowercased by parseEnvRecipients.
+        config(['services.billing_export.email' => 'Finance@Example.com,ops@example.com']);
+
+        $admin = $this->actingAsMfaSuperAdmin();
+
+        $response = $this->get(route('super.billing.index'));
+        $response->assertStatus(200);
+
+        // The env-fallback column shows the lowercased forms.
+        $response->assertSee('finance@example.com', false);
+        // Mixed-case form must NOT appear — the operator would see
+        // it as a duplicate of a UI-managed entry.
+        $response->assertDontSee('Finance@Example.com', false);
+    }
+
+    public function test_resolve_recipients_dedupes_case_different_env_entries(): void
+    {
+        // ITERATION 8 FIX (audit-fix A-5): the previous case-sensitive
+        // in_array(...) comparison let both Finance@Example.com AND
+        // finance@example.com survive, sending the same CSV twice to
+        // the same mailbox. The lowercased dedupe collapses them to
+        // one recipient.
+        config(['services.billing_export.email' => 'Finance@Example.com,finance@example.com']);
+
+        // Seed a money event so the audit row has a target.
+        \App\Models\Transaction::factory()->create();
+
+        $this->artisan('exospace:send-billing-export')->assertExitCode(0);
+
+        // Only ONE Mail queued — both env entries resolved to the
+        // same lowercased address and the dedupe caught the dup.
+        Mail::assertQueued(BillingExportEmail::class, 1);
+    }
+
+    // ── ITERATION 8: TOCTOU race on dup check (audit-fix B-2) ─────────
+
+    public function test_concurrent_dup_add_returns_friendly_error_not_500(): void
+    {
+        // ITERATION 8 FIX: the explicit where(...)->exists() check
+        // is a TOCTOU race window — two super-admins submitting the
+        // same email in the same ~50ms both pass the exists check,
+        // the loser throws a QueryException on the unique index
+        // that previously propagated as a 500. The race is now
+        // caught: a UniqueConstraintViolationException is re-routed
+        // to the same withErrors path. We simulate the race by
+        // inserting the row between the exists() check and create().
+        $admin = $this->actingAsMfaSuperAdmin();
+
+        // Hijack BillingDigestRecipient::create to insert a duplicate
+        // first — simulating a concurrent super-admin's write landing
+        // between our exists() and create().
+        BillingDigestRecipient::creating(function ($r) {
+            // Insert the same email directly so our subsequent create
+            // hits the unique index.
+            BillingDigestRecipient::withoutEvents(function () use ($r) {
+                BillingDigestRecipient::create([
+                    'email'   => $r->email,
+                    'added_by' => 1,  // system-actor for the test
+                ]);
+            });
+        });
+
+        $response = $this->post(route('super.billing.recipients.store'), [
+            'email' => 'race@example.com',
+        ]);
+
+        $response->assertRedirect();  // back() redirect, not a 500
+        $response->assertSessionHasErrors(['email']);
+        // MessageBag::get returns an array of messages for the key.
+        $errors = session('errors')->get('email');
+        $errorText = is_array($errors) ? implode(' ', $errors) : (string) $errors;
+        $this->assertStringContainsString('already a recipient', $errorText);
+
+        // Only ONE recipient row exists — the dup insert was caught.
+        $this->assertSame(
+            1,
+            BillingDigestRecipient::where('email', 'race@example.com')->count(),
+        );
+    }
 }

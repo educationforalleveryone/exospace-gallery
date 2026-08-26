@@ -448,10 +448,12 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     // password.confirm — team invitations (a comparable sensitivity:
     // grants access) don't use it either, and the master-control surface
     // already requires super-admin + MFA.
-    Route::post  ('billing/recipients',                [\App\Http\Controllers\SuperAdmin\BillingController::class, 'storeRecipient'])->name('billing.recipients.store');
+    Route::post  ('billing/recipients',                [\App\Http\Controllers\SuperAdmin\BillingController::class, 'storeRecipient'])->name('billing.recipients.store')
+          ->middleware('throttle:30,1'); // ITERATION 8: throttle (audit-fix E-1)
     Route::delete('billing/recipients/{recipient}',    [\App\Http\Controllers\SuperAdmin\BillingController::class, 'destroyRecipient'])
           ->whereNumber('recipient')
-          ->name('billing.recipients.destroy');
+          ->name('billing.recipients.destroy')
+          ->middleware('throttle:30,1'); // ITERATION 8: throttle (audit-fix E-1)
 
     // M-13: Admin impersonation — start (requires super-admin + password.confirm + feature flag)
     Route::post('/users/{user}/impersonate',           [SystemController::class, 'impersonate'])->name('impersonate')
@@ -476,7 +478,17 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     // attribution (who viewed which cohort, when).
     Route::get('/retention/{cohort}',                    [\App\Http\Controllers\SuperAdmin\RetentionController::class, 'cohort'])
           ->where('cohort', '[0-9]{4}-[0-9]{2}-[0-9]{2}')
-          ->name('retention.cohort');
+          ->name('retention.cohort')
+          ->middleware('throttle:60,1'); // ITERATION 8: throttle (audit-fix E-1)
+
+    // ITERATION 8: streamed CSV export of a cohort's members — same audit-
+    // logged PII surface as the page itself (no password.confirm; the CSV
+    // carries the same PII the page already reveals). Throttled to bound
+    // load on the cursor() query against large cohorts.
+    Route::get('/retention/{cohort}/export',             [\App\Http\Controllers\SuperAdmin\RetentionController::class, 'exportCsv'])
+          ->where('cohort', '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+          ->name('retention.cohort.export')
+          ->middleware('throttle:30,1');
 });
 
 // M-13: Admin impersonation — stop (outside super-admin group because the

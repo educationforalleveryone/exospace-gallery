@@ -199,4 +199,57 @@ class ScheduledBillingExportTest extends TestCase
         });
         $this->assertSame('missing', app(JobHeartbeatService::class)->status('exospace:send-billing-export'));
     }
+
+    // ── ITERATION 8: partial delivery alerting (workstream D) ──────────
+
+    public function test_partial_delivery_failure_alerts_warning_and_stamps_heartbeat(): void
+    {
+        // ITERATION 8 FIX (audit-finding A-1 / Candidate E): a single
+        // bouncing recipient (1 of N) previously failed silently — the
+        // audit row captured delivery_failures: 1 but no Slack alert
+        // fired and the heartbeat stamped as if everything were fine.
+        // The CSV carries customer billing PII; a partial delivery is a
+        // quieter version of the total-failure signal (one operator
+        // silently stopped receiving the financial digest).
+        config(['services.operational_alerts.webhook_url' => 'https://hooks.example.test/services/T000/B000/be']);
+
+        $this->seedMoneyEvent('refunded', 1);
+
+        // Two recipients: one succeeds, one throws.
+        Mail::shouldReceive('to')
+            ->with(\Mockery::on(fn ($r) => true))
+            ->andReturnSelf(); // chainable
+        Mail::shouldReceive('send')->twice()->andReturnUsing(function () {
+            static $i = 0;
+            $i++;
+            if ($i === 1) {
+                return; // first recipient succeeds
+            }
+            throw new \RuntimeException('Recipient 2 mailbox full');
+        });
+
+        $this->artisan('exospace:send-billing-export', ['--to' => 'ok@example.com,bounce@example.com'])
+            ->assertExitCode(0);
+
+        // Warning alert (NOT critical) — the digest DID go out, just
+        // not to everyone. DedupKey is distinct from total-failure.
+        Http::assertSent(function ($request) {
+            $body = (string) $request->body();
+            return str_contains($body, 'partial delivery')
+                && str_contains($body, 'warning');
+        });
+
+        // Heartbeat STILL stamps — the scheduler ran the job; the
+        // delivery problem is downstream (the cadence is intact).
+        $this->assertSame(
+            'fresh',
+            app(JobHeartbeatService::class)->status('exospace:send-billing-export'),
+        );
+
+        // Audit row captures delivery_failures: 1 (so the bounce
+        // is attributable in the audit log too).
+        $audit = AdminAuditLog::where('action', 'billing.exported')->latest('id')->first();
+        $this->assertNotNull($audit);
+        $this->assertSame(1, $audit->payload['delivery_failures'] ?? null);
+    }
 }

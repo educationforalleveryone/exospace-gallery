@@ -150,7 +150,7 @@ class SendBillingExport extends Command
             Log::info('SendBillingExport: digest NOT delivered to anyone', [
                 'window'   => $window,
                 'failures' => $failed,
-                'csv_rows' => $csv['count'],
+                'csv_rows'  => $csv['count'],
             ]);
 
             // Total delivery failure: no heartbeat stamp + non-zero exit —
@@ -158,6 +158,34 @@ class SendBillingExport extends Command
             // monitor becomes the second net (a digest that silently
             // never arrives is exactly what this job exists to prevent).
             return self::FAILURE;
+        }
+
+        // ITERATION 8: partial delivery — at least one recipient bounced
+        // but at least one succeeded. The CSV carries customer billing
+        // PII; a single bouncing recipient is a quieter version of the
+        // total-failure signal (one operator silently stopped receiving
+        // the financial digest). The heartbeat still stamps (the
+        // scheduler ran the job; the delivery problem is downstream)
+        // AND a warning Slack alert fires so the bouncing address gets
+        // fixed before it stays broken across multiple weeks.
+        //
+        // Dedup key distinct from the total-failure path so a partial
+        // failure doesn't suppress the (worse) total-failure alert on
+        // the same Monday.
+        if ($failed > 0 && $delivered > 0) {
+            $alerts->alert(
+                'Weekly billing digest partial delivery failure',
+                "The billing digest was delivered to {$delivered} recipient(s) but FAILED for {$failed} (of {$csv['count']} money-event rows prepared). Check MAIL_* configuration and the bouncing address(es). The heartbeat still stamps — the scheduler ran the job; this is a downstream delivery problem.",
+                'warning',
+                'billing_export_partial_delivery',
+            );
+
+            Log::warning('SendBillingExport: partial delivery failure', [
+                'window'    => $window,
+                'delivered' => $delivered,
+                'failures'  => $failed,
+                'csv_rows'   => $csv['count'],
+            ]);
         }
 
         Log::info('SendBillingExport: digest sent', [
@@ -219,7 +247,13 @@ class SendBillingExport extends Command
 
         $recipients = [];
         foreach (explode(',', $raw) as $email) {
-            $email = trim($email);
+            // ITERATION 8: lowercase + trim BEFORE validation/dedupe
+            // (audit-fix A-5) so case-different duplicates
+            // (Finance@Example.com + finance@example.com) collapse
+            // to a single recipient — the previous case-sensitive
+            // in_array comparison let both through, sending the
+            // same CSV twice to the same mailbox.
+            $email = trim(strtolower($email));
             if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && ! in_array($email, $recipients, true)) {
                 $recipients[] = $email;
             }

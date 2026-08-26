@@ -102,6 +102,11 @@ class SystemController extends Controller
         // inline plugin can ring the right point without re-deriving
         // the math in JS. Same shape as releaseAnnotations (a list of
         // {index, label} objects) so the view treats them symmetrically.
+        //
+        // ITERATION 8: payload now carries sigma + sigma_eff so the
+        // plugin's title attribute can show the operator the trailing
+        // mean + σ + z (audit-fix D-4 — they previously couldn't
+        // sanity-check the threshold by hand).
         $anomalyAnnotations = [];
         if (count($onboardingTrend) >= 2) {
             $series = array_map(
@@ -115,11 +120,108 @@ class SystemController extends Controller
                     'label'     => $onboardingTrend[$a['index']]['captured_at'] ?? '',
                     'value'     => $a['value'],
                     'mean'      => $a['mean'],
+                    'sigma'     => $a['sigma'],
+                    'sigma_eff' => $a['sigma_eff'],
                     'z'         => $a['z'],
                     'direction' => $a['direction'],
                 ];
             }
         }
+
+        // ITERATION 8: >2σ anomalies on the W1 + W2 retention series —
+        // same algorithm, same flat-baseline guard. Reuses the general-
+        // purpose detector shipped in Iter-7 (no algorithm change). The
+        // view's retention-trend plugin rings low-retention points amber
+        // (worse — churn up) and high-retention points emerald (better —
+        // churn down). The chart header gains a ` · N anomal(y|ies)`
+        // suffix when present, mirroring the TTFE header.
+        //
+        // Direction convention note: for TTFE, 'high' = worse (slower
+        // onboarding). For retention, 'high' = better (more users came
+        // back). The plugin INVERTS the color mapping per series so
+        // the visual language stays consistent (amber = bad, emerald =
+        // good) regardless of which metric the ring annotates.
+        $retentionW1Anomalies = [];
+        $retentionW2Anomalies = [];
+        if (count($retentionTrendW1) >= 2) {
+            $w1Series = array_map(
+                static fn (array $p) => $p['retained_pct'],
+                $retentionTrendW1,
+            );
+            foreach (\App\Services\TrendAnomalies::detect($w1Series) as $a) {
+                $retentionW1Anomalies[] = [
+                    'index'     => $a['index'],
+                    'label'     => $retentionTrendW1[$a['index']]['captured_at'] ?? '',
+                    'value'     => $a['value'],
+                    'mean'      => $a['mean'],
+                    'sigma'     => $a['sigma'],
+                    'sigma_eff' => $a['sigma_eff'],
+                    'z'         => $a['z'],
+                    'direction' => $a['direction'],
+                ];
+            }
+        }
+        if (count($retentionTrendW2) >= 2) {
+            $w2Series = array_map(
+                static fn (array $p) => $p['retained_pct'],
+                $retentionTrendW2,
+            );
+            foreach (\App\Services\TrendAnomalies::detect($w2Series) as $a) {
+                $retentionW2Anomalies[] = [
+                    'index'     => $a['index'],
+                    'label'     => $retentionTrendW2[$a['index']]['captured_at'] ?? '',
+                    'value'     => $a['value'],
+                    'mean'      => $a['mean'],
+                    'sigma'     => $a['sigma'],
+                    'sigma_eff' => $a['sigma_eff'],
+                    'z'         => $a['z'],
+                    'direction' => $a['direction'],
+                ];
+            }
+        }
+
+        // ITERATION 8: backup health tile on Master Control — surfaces
+        // the worst of the three backup heartbeat statuses (fresh /
+        // stale / missing) as an at-a-glance tile, so an operator sees
+        // backup state without waiting for a Slack page. The data is
+        // the SAME the heartbeat monitor already reads from cache (no
+        // new queries); the tile is just the operator-facing surface.
+        //
+        // Convention: missing > stale > fresh for "worst". A fresh
+        // install with no stamps AND no acks (never observed missing)
+        // shows the tile hidden (the heartbeat monitor hasn't started
+        // tracking yet — same convention as the missing-job grace
+        // window in OperationalAlertService).
+        $heartbeats = app(\App\Services\JobHeartbeatService::class);
+        $backupTypes = ['db' => 'exospace:backup:db', 'files' => 'exospace:backup:files', 'clean' => 'exospace:backup:clean'];
+        $backupHealth = ['worst' => 'fresh', 'types' => []];
+        $anyObserved = false;
+        $worstRank = ['fresh' => 0, 'stale' => 1, 'missing' => 2];
+        foreach ($backupTypes as $key => $hbKey) {
+            $status = $heartbeats->status($hbKey);
+            $lastAt = $heartbeats->lastRunAt($hbKey);
+            // A job that has been acked-missing OR has stamped at least
+            // once is "observed" — the monitor is tracking it.
+            if ($status !== 'missing' || $heartbeats->firstObservedMissingAt($hbKey) !== null) {
+                $anyObserved = true;
+            }
+            $backupHealth['types'][$key] = [
+                'status'  => $status,
+                'last_at' => $lastAt?->diffForHumans(),
+                'label'   => ucfirst($key),
+            ];
+            if ($worstRank[$status] > $worstRank[$backupHealth['worst']]) {
+                $backupHealth['worst'] = $status;
+            }
+        }
+        // Hide the tile entirely on a fresh install where the heartbeat
+        // monitor hasn't started tracking any backup job yet — same
+        // convention as OperationalAlertService::checkJobHeartbeats(),
+        // which has a first-observation grace window. The Iter-7
+        // backup-wrapper docs explicitly say: "for the first 36h after
+        // deploy, the monitor's missing-job grace window applies (no
+        // false alert)." The tile mirrors that.
+        $backupHealth['show'] = $anyObserved;
 
         return view('super-admin.index', compact(
             'users',
@@ -132,6 +234,9 @@ class SystemController extends Controller
             'retentionTrendW1',
             'retentionTrendW2',
             'anomalyAnnotations',
+            'retentionW1Anomalies',
+            'retentionW2Anomalies',
+            'backupHealth',
         ));
     }
 

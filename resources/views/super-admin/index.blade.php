@@ -114,6 +114,50 @@
             </div>
         </div>
 
+        {{-- ITERATION 8: Backup health tile — surfaces the worst of the
+             three backup heartbeat statuses (db / files / clean) at-a-glance.
+             Same data JobHeartbeatService already tracks (no new queries).
+             Hidden on a fresh install with no stamps AND no acks (the
+             monitor's missing-job grace window hasn't started yet — same
+             convention as OperationalAlertService::checkJobHeartbeats). --}}
+        @if(($backupHealth['show'] ?? false) && !empty($backupHealth['types']))
+            @php
+                $backupColors = [
+                    'fresh'   => ['border' => 'border-emerald-500/40', 'bg' => 'bg-emerald-900/30', 'text' => 'text-emerald-300', 'icon' => '✅', 'label' => 'all fresh'],
+                    'stale'   => ['border' => 'border-amber-500/40',   'bg' => 'bg-amber-900/30',   'text' => 'text-amber-300',   'icon' => '⚠️', 'label' => 'one stale'],
+                    'missing' => ['border' => 'border-red-500/40',      'bg' => 'bg-red-900/30',      'text' => 'text-red-300',      'icon' => '🚨', 'label' => 'one missing'],
+                ];
+                $bh = $backupHealth['worst'];
+                $bc = $backupColors[$bh];
+            @endphp
+            <div class="mb-8 {{ $bc['bg'] }} border {{ $bc['border'] }} rounded-lg p-4">
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">{{ $bc['icon'] }}</span>
+                        <div>
+                            <h3 class="text-sm font-semibold {{ $bc['text'] }} uppercase tracking-wider">🗄️ Backup health — {{ $bc['label'] }}</h3>
+                            <p class="text-[11px] text-gray-500 mt-0.5">Heartbeats stamped by the <code>exospace:backup</code> wrapper (Iteration 7). Per-type status below; Slack alerts fire on failure (critical for db/files, warning for clean).</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                    @foreach($backupHealth['types'] as $key => $type)
+                        @php
+                            $tc = $backupColors[$type['status']];
+                            $lastLabel = $type['last_at'] ?? 'never';
+                        @endphp
+                        <div class="border border-gray-700/50 rounded-lg px-3 py-2 text-xs bg-black/30">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="font-semibold text-gray-300">{{ $type['label'] }}</span>
+                                <span class="{{ $tc['text'] }}">{{ $tc['icon'] }} {{ $type['status'] }}</span>
+                            </div>
+                            <div class="text-gray-500">last run: <span class="text-gray-400">{{ $lastLabel }}</span></div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         {{-- ITERATION 4: Onboarding funnel + TTFE. Was weekly-console-report-only —
              the product's headline metric (time to first published exhibition)
              is now visible continuously. Data: OnboardingMetricsService (cached 30/60 min). --}}
@@ -209,7 +253,21 @@
                     <div class="text-[10px] text-gray-600">{{ count($onboardingTrend) }} point{{ count($onboardingTrend) === 1 ? '' : 's' }} recorded{{ count($releaseAnnotations) > 0 ? ' · ' . count($releaseAnnotations) . ' release marker' . (count($releaseAnnotations) === 1 ? '' : 's') : '' }}{{ count($anomalyAnnotations ?? []) > 0 ? ' · ' . count($anomalyAnnotations) . ' anomal' . (count($anomalyAnnotations) === 1 ? 'y' : 'ies') : '' }}</div>
                 </div>
                 @if(count($onboardingTrend) >= 2)
-                    <div class="h-56"><canvas id="ttfe-trend-chart"></canvas></div>
+                    @php
+                        // ITERATION 8: canvas accessibility — WCAG 1.1.1 (canvas
+                        //   needs a text alternative). The aria-label is computed
+                        //   server-side from the trend + annotation counts so a
+                        //   screen reader announces point count + release
+                        //   markers + anomaly count (the WHERE is in the table
+                        //   fallback below the chart).
+                        $ttfePoints = count($onboardingTrend);
+                        $ttfeReleases = count($releaseAnnotations);
+                        $ttfeAnomalies = count($anomalyAnnotations ?? []);
+                        $ttfeAria = "TTFE trend chart, {$ttfePoints} weekly snapshot" . ($ttfePoints === 1 ? '' : 's');
+                        if ($ttfeReleases > 0) { $ttfeAria .= ", {$ttfeReleases} release marker" . ($ttfeReleases === 1 ? '' : 's'); }
+                        if ($ttfeAnomalies > 0) { $ttfeAria .= ", {$ttfeAnomalies} anomal" . ($ttfeAnomalies === 1 ? 'y' : 'ies'); }
+                    @endphp
+                    <div class="h-56"><canvas id="ttfe-trend-chart" role="img" aria-label="{{ $ttfeAria }}"></canvas></div>
                     <div class="text-[10px] text-gray-600 mt-1">Average hours from signup to first gallery (TTFG) and first published exhibition (TTFE). Lower is better. Dashed lines mark releases (from the /changelog calendar). Amber/emerald rings mark weeks that deviate >2σ from the trailing mean.</div>
                 @else
                     <div class="text-sm text-gray-500 py-6 text-center">
@@ -265,7 +323,7 @@
                                     @endphp
                                     <td class="py-1.5 px-2 text-right rounded {{ $shade }} {{ $cell['complete'] ? '' : 'italic' }} {{ $hasDrilldown ? 'hover:ring-1 hover:ring-emerald-500/50 hover:cursor-pointer' : '' }}">
                                         @if($hasDrilldown)
-                                            <a href="{{ $drilldownUrl }}" class="block" title="View the {{ $cell['active'] }} active member(s) behind this cell">{{ $pct . '%' }}{{ $cell['complete'] ? '' : '*' }}</a>
+                                            <a href="{{ $drilldownUrl }}" class="block" title="View the {{ $cohort['size'] }} member(s) in this cohort ({{ $cell['active'] }} active in week {{ $w }})">{{ $pct . '%' }}{{ $cell['complete'] ? '' : '*' }}</a>
                                         @else
                                             {{ $cohort['size'] > 0 ? $pct . '%' : '–' }}{{ $cell['complete'] ? '' : '*' }}
                                         @endif
@@ -283,11 +341,22 @@
             <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
                 <div class="flex items-center justify-between mb-2">
                     <div class="text-xs text-gray-500 uppercase tracking-wider">Week-1 / Week-2 retention trend — weekly snapshots</div>
-                    <div class="text-[10px] text-gray-600">{{ count($retentionTrendW1) }} point{{ count($retentionTrendW1) === 1 ? '' : 's' }} recorded</div>
+                    <div class="text-[10px] text-gray-600">{{ count($retentionTrendW1) }} point{{ count($retentionTrendW1) === 1 ? '' : 's' }} recorded{{ (count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) > 0 ? ' · ' . (count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) . ' anomal' . ((count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) === 1 ? 'y' : 'ies') : '' }}</div>
                 </div>
                 @if(count($retentionTrendW1) >= 2)
-                    <div class="h-56"><canvas id="retention-trend-chart"></canvas></div>
-                    <div class="text-[10px] text-gray-600 mt-1">% of each cohort active (login or gallery update) in their 1st / 2nd week after registration. Higher is better.</div>
+                    @php
+                        // ITERATION 8: canvas accessibility (mirrors the TTFE
+                        //   chart's role="img" + aria-label). Anomaly count is
+                        //   the SUM of W1 + W2 anomalies — both series are
+                        //   rendered on the same chart, so the screen-reader
+                        //   announcement must cover both.
+                        $retPoints = count($retentionTrendW1);
+                        $retAnomalies = count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? []);
+                        $retAria = "Week-1 and Week-2 retention trend chart, {$retPoints} weekly snapshot" . ($retPoints === 1 ? '' : 's');
+                        if ($retAnomalies > 0) { $retAria .= ", {$retAnomalies} anomal" . ($retAnomalies === 1 ? 'y' : 'ies'); }
+                    @endphp
+                    <div class="h-56"><canvas id="retention-trend-chart" role="img" aria-label="{{ $retAria }}"></canvas></div>
+                    <div class="text-[10px] text-gray-600 mt-1">% of each cohort active (login or gallery update) in their 1st / 2nd week after registration. Higher is better. Amber rings mark weeks that drop >2σ below the trailing mean (churn up); emerald rings mark weeks that rise >2σ above.</div>
                 @else
                     <div class="text-sm text-gray-500 py-6 text-center">
                         Trend appears after the second weekly snapshot — the first is already recorded and will chart next Monday.
@@ -798,6 +867,15 @@
         // TTFE). Ring radius 7 sits around the standard point radius (3)
         // so it never obscures the underlying data. Z-label sits above
         // high anomalies and below low ones, off the data line.
+        //
+        // ITERATION 8: sigma + sigma_eff are now forwarded by
+        // SystemController alongside z (audit-fix D-4). A future
+        // iteration can wire these into a Chart.js tooltip override
+        // (the canvas title attribute is canvas-wide, not per-shape, so
+        // a real tooltip plugin is the right vehicle — deferred; the
+        // data is available in the `anomalies` JS variable in the
+        // meantime, and the math is documented in
+        // app/Services/TrendAnomalies.php for hand-recomputation).
         var anomalyPlugin = {
             id: 'ttfeAnomalies',
             afterDatasetsDraw: function (chart) {
@@ -894,6 +972,12 @@
     })();
 
     // ITERATION 6: W1/W2 retention trend chart — same waitForChart pattern.
+    // ITERATION 8: anomaly plugin rings low-retention weeks amber
+    // (worse — churn up) and high-retention weeks emerald (better).
+    // Direction convention is INVERTED vs TTFE: for retention, 'high'
+    // = more users came back = better, so 'high' → emerald (the same
+    // visual language as TTFE: amber = bad, emerald = good regardless
+    // of which metric the ring annotates).
     (function () {
         var canvas = document.getElementById('retention-trend-chart');
         if (!canvas) return; // fewer than 2 snapshots — placeholder shown
@@ -901,6 +985,8 @@
         var labels = @json(collect($retentionTrendW1)->pluck('captured_at'));
         var w1 = @json(collect($retentionTrendW1)->pluck('retained_pct'));
         var w2 = @json(collect($retentionTrendW2)->pluck('retained_pct'));
+        var w1Anomalies = @json($retentionW1Anomalies ?? []);
+        var w2Anomalies = @json($retentionW2Anomalies ?? []);
 
         function waitForChart(attemptsLeft) {
             if (window.Chart) { initRetentionChart(); return; }
@@ -910,6 +996,61 @@
             }
             setTimeout(function () { waitForChart(attemptsLeft - 1); }, 100);
         }
+
+        // Ring anomalies on the retention trend. datasetIndex selects
+        // which series (0 = W1 pink, 1 = W2 purple) the ring sits on.
+        // Color INVERTED vs TTFE: 'low' (less retention) = amber/worse;
+        // 'high' (more retention) = emerald/better.
+        function makeRetentionAnomalyPlugin(id, datasetIndex, anomalies) {
+            return {
+                id: id,
+                afterDatasetsDraw: function (chart) {
+                    if (!anomalies.length) return;
+                    var ctx = chart.ctx;
+                    var chartArea = chart.chartArea;
+                    var xAxis = chart.scales.x;
+                    // For a 2-dataset line chart, the y-pixel of a point
+                    // depends on the dataset it belongs to.
+                    var yAxis = chart.scales.y;
+                    var meta = chart.getDatasetMeta(datasetIndex);
+                    if (!meta || !meta.data) return;
+
+                    anomalies.forEach(function (a) {
+                        var x = xAxis.getPixelForValue(a.index);
+                        if (x < chartArea.left || x > chartArea.right) return;
+                        // Find the y-pixel for this data point from the
+                        // dataset's own rendered points (more reliable
+                        // than recomputing from yAxis + the raw value
+                        // when spanGaps/tension are in play).
+                        var pt = meta.data[a.index];
+                        if (!pt) return;
+                        var y = pt.y;
+
+                        // INVERTED vs TTFE: low retention = worse = amber.
+                        var isLow = a.direction === 'low';
+                        var color = isLow ? 'rgba(251,191,36,0.95)' : 'rgba(52,211,153,0.95)';
+
+                        ctx.save();
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 7, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        ctx.fillStyle = color;
+                        ctx.font = '10px sans-serif';
+                        ctx.textAlign = 'center';
+                        var sign = isLow ? '-' : '+';
+                        var labelY = isLow ? y + 18 : y - 12;
+                        ctx.fillText(sign + Math.abs(a.z) + 'sigma', x, labelY);
+                        ctx.restore();
+                    });
+                }
+            };
+        }
+
+        var w1Plugin = makeRetentionAnomalyPlugin('retentionAnomaliesW1', 0, w1Anomalies);
+        var w2Plugin = makeRetentionAnomalyPlugin('retentionAnomaliesW2', 1, w2Anomalies);
 
         function initRetentionChart() {
             new Chart(canvas.getContext('2d'), {
@@ -959,7 +1100,11 @@
                             title: { display: true, text: '% of cohort active', color: '#6b7280', font: { size: 10 } }
                         }
                     }
-                }
+                },
+                plugins: [].concat(
+                    w1Anomalies.length > 0 ? [w1Plugin] : [],
+                    w2Anomalies.length > 0 ? [w2Plugin] : []
+                )
             });
         }
 

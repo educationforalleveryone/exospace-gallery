@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\AdminAuditLog;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Services\ArtisanCommandRunner;
 use App\Services\JobHeartbeatService;
@@ -213,5 +215,98 @@ class MonitoredBackupTest extends TestCase
             ArtisanCommandRunner::class,
             $this->app->make(ArtisanCommandRunner::class),
         );
+    }
+
+    // ── ITERATION 8: audit-target fix + spatie stdout capture ───────
+
+    public function test_backup_failure_writes_audit_row_targeting_newest_transaction(): void
+    {
+        // ITERATION 8 FIX (audit-finding C-1): the previous
+        // implementation read config('exospace.system_audit_email',
+        // 'system@exospace.gallery') and looked up that User row —
+        // but no config/exospace.php exists and the fallback email
+        // isn't seeded, so the audit row NEVER wrote on a default
+        // install. The fix mirrors SendBillingExport's convention of
+        // targeting Transaction::orderByDesc('id')->first() (a real
+        // row, with an empty-install skip path).
+        $fake = $this->fakeRunner(1);
+        $this->app->instance(ArtisanCommandRunner::class, $fake);
+
+        Http::fake([self::WEBHOOK => Http::response([], 200)]);
+
+        // Seed a Transaction so the audit row has a target.
+        $tx = Transaction::factory()->create();
+
+        $this->artisan('exospace:backup', ['type' => 'db'])
+            ->assertExitCode(1);
+
+        $audit = AdminAuditLog::where('action', 'backup.failed')->latest('id')->first();
+        $this->assertNotNull($audit, 'backup.failed audit row must be written when transactions exist');
+        $this->assertSame($tx->id, $audit->target_id, 'audit target is the newest transaction');
+        $this->assertSame('db', $audit->payload['type'] ?? null);
+        $this->assertSame(1, $audit->payload['exit_code'] ?? null);
+    }
+
+    public function test_backup_failure_skips_audit_row_on_empty_install(): void
+    {
+        // No transactions on a fresh install → no real row to target.
+        // The audit row is skipped (the absence is explainable in
+        // the laravel.log) — same convention as SendBillingExport.
+        $fake = $this->fakeRunner(1);
+        $this->app->instance(ArtisanCommandRunner::class, $fake);
+
+        Http::fake([self::WEBHOOK => Http::response([], 200)]);
+
+        $this->artisan('exospace:backup', ['type' => 'db'])
+            ->assertExitCode(1);
+
+        $this->assertSame(
+            0,
+            AdminAuditLog::where('action', 'backup.failed')->count(),
+            'no audit row on a fresh install with no transactions (no PII to attribute)',
+        );
+    }
+
+    public function test_spatie_diagnostic_appended_to_alert_message(): void
+    {
+        // ITERATION 8 FIX (audit-finding C-2): the Slack alert copy
+        // previously said "exited with code N. Check logs." The
+        // operator had to log in and tail the scheduler log to see
+        // WHY. The ArtisanCommandRunner now captures the underlying
+        // command's stdout via the $outputBuffer parameter, and the
+        // wrapper appends the last ~300 chars of it to the alert.
+        $fake = new class (1, 'mysqldump: command not found — aborting after 3 retries') extends ArtisanCommandRunner {
+            public function __construct(
+                private readonly int $exitCode,
+                private readonly string $output,
+            ) {
+                // No parent constructor to call — ArtisanCommandRunner has none.
+            }
+
+            public function __invoke(string $command, array $parameters = []): int
+            {
+                return $this->exitCode;
+            }
+
+            public function lastOutput(): string
+            {
+                return $this->output;
+            }
+        };
+        $this->app->instance(ArtisanCommandRunner::class, $fake);
+
+        Http::fake([self::WEBHOOK => Http::response([], 200)]);
+
+        Transaction::factory()->create();
+
+        $this->artisan('exospace:backup', ['type' => 'db'])
+            ->assertExitCode(1);
+
+        Http::assertSent(function ($request) {
+            $body = (string) $request->body();
+            return str_contains($body, 'Daily database backup')
+                && str_contains($body, 'mysqldump: command not found')
+                && str_contains($body, 'Underlying spatie output');
+        });
     }
 }

@@ -113,13 +113,31 @@ class RunMonitoredBackup extends Command
 
         $this->error("{$config['label']} failed (exit {$exit}).");
 
+        // ITERATION 8: append the last ~300 chars of spatie's stdout
+        // to the Slack alert copy (audit-fix C-2). The captured output
+        // lives on the runner instance (ArtisanCommandRunner::lastOutput)
+        // — the runner is the testable seam, so the output capture goes
+        // through the same seam the exit code does. A fake runner in
+        // tests can preset both the exit code AND the captured output.
+        // Truncate to 300 chars (the underlying diagnostic can be
+        // pages long on a real failure — the operator needs the
+        // tail, which usually names the missing dep / full disk /
+        // broken credential).
+        $diagnostic = $runner->lastOutput();
+        $tail = strlen($diagnostic) > 300
+            ? substr($diagnostic, -300)
+            : $diagnostic;
+        $tailBlock = $tail !== ''
+            ? "\n\nUnderlying spatie output (last 300 chars):\n```\n" . trim($tail) . "\n```"
+            : '';
+
         $alerts->alert(
             "{$config['label']} failed",
             "The monitored spatie `{$config['command']}` invocation exited with code {$exit}. "
             . "The heartbeat is left unstamped — the JobHeartbeat monitor will also surface this as a "
             . "stale job within its maxAge window. Check storage/logs/laravel.log + the spatie "
             . "backup:list output; the underlying failure (no mysqldump, full disk, broken disk "
-            . "credential, etc.) is logged there.",
+            . "credential, etc.) is logged there." . $tailBlock,
             $config['severity'],
             'backup_failed:' . $type,
         );
@@ -132,23 +150,42 @@ class RunMonitoredBackup extends Command
         ]);
 
         // Audit the failure — system actor (no admin triggered this;
-        // the scheduler did). Target = the wrapper itself isn't a
-        // model; fall back to the configured SYSTEM_AUDIT_TARGET user
-        // when one exists, otherwise skip (consistent with the
-        // SendBillingExport convention of skipping the audit row
-        // when there's no real target row).
+        // the scheduler did). The wrapper itself isn't a model; we
+        // follow the SendBillingExport convention of targeting the
+        // newest Transaction row (a real row that proves the install
+        // has data, falling back to no audit row on a fresh install
+        // with zero transactions — same convention: a system actor's
+        // audit row needs a real target, not a fabricated one).
+        //
+        // ITERATION 8 FIX: the previous implementation read
+        // config('exospace.system_audit_email', 'system@exospace.gallery')
+        // and looked up that User row — but no config/exospace.php exists
+        // and the fallback email isn't seeded as a User on a default
+        // install, so the audit row NEVER wrote. The Iter-7 doc claimed
+        // "best-effort audit logging" but the actual code was silent
+        // dead-code on a default install. Mirroring SendBillingExport's
+        // Transaction-target convention unifies the system-actor audit
+        // trail (the billing-export + backup-failure audit rows now use
+        // the SAME targeting logic — both attributable to "the newest
+        // real row in the system at the time of the event").
+        //
         // We use a null-safe try/catch — audit logging must never
         // break the failure path (the alert already went out).
         try {
-            $systemUser = \App\Models\User::where('email', config('exospace.system_audit_email', 'system@exospace.gallery'))->first();
+            $target = \App\Models\Transaction::orderByDesc('id')->first();
 
-            if ($systemUser !== null) {
-                AdminAuditLog::record('backup.failed', $systemUser, [
+            if ($target !== null) {
+                AdminAuditLog::record('backup.failed', $target, [
                     'type'       => $type,
                     'command'    => $config['command'],
                     'exit_code'  => $exit,
                     'heartbeat'  => $config['heartbeat'],
                 ]);
+            } else {
+                // No transactions on a fresh install → no PII to
+                // attribute the failure to; log the skip explicitly so
+                // the absence of an audit row is explainable.
+                Log::info('RunMonitoredBackup: audit row skipped — no transactions exist to target.');
             }
         } catch (\Throwable $e) {
             Log::warning('RunMonitoredBackup: audit row skipped', ['error' => $e->getMessage()]);

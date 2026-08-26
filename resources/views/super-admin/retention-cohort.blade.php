@@ -14,6 +14,18 @@
         "Active in week {{ $weekIndex }}" = a login (users.last_login_at) OR a gallery update in the period.
     </p>
 
+    {{-- ITERATION 8: CSV export — same audit-logged PII surface as the page itself.
+         The audit row (retention.cohort_exported) is written BEFORE the stream
+         starts, so an interrupted export is still attributable. --}}
+    <div class="mb-4">
+        <a href="{{ route('super.retention.cohort.export', ['cohort' => $cohort->format('Y-m-d'), 'week' => $weekIndex]) }}"
+           class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 text-xs font-medium hover:bg-emerald-600/30 transition"
+           title="Streamed CSV of the {{ $size }} member(s) in this cohort ({{ $activeCount }} active in week {{ $weekIndex }}). Every export is audit-logged (retention.cohort_exported).">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
+            Export CSV ({{ $size }} member{{ $size === 1 ? '' : 's' }})
+        </a>
+    </div>
+
     {{-- Cohort facts — counts are derived live from the same bounded activity
          definition as the matrix (countActive), so they reconcile with the
          cell the operator clicked. Tiny drift from the cached matrix is

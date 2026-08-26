@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\OnboardingSnapshot;
+use App\Models\RetentionSnapshot;
 use App\Models\User;
+use App\Services\TrendAnomalies;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -219,5 +221,122 @@ class TrendAnomalyTest extends TestCase
         $response->assertStatus(200);
         // The placeholder shows instead of the chart.
         $response->assertSee('Trend appears after the second weekly snapshot', false);
+    }
+
+    // ── ITERATION 8: null-immediately-before-spike (audit-fix D-3) ──────
+
+    public function test_detect_null_immediately_before_spike_still_flags(): void
+    {
+        // Existing null-gap test puts the null in the middle of the
+        // baseline. This pins the edge case where the null sits
+        // IMMEDIATELY before the spike (the trailing window must
+        // skip the null and reach back to the priors before it).
+        // Series: [10, 10, 10, 10, null, 20] — index 4 is null,
+        // index 5 is the spike. The window for index 5 looks back
+        // at indices [4 (null, skipped), 3, 2, 1, 0] = 4 priors.
+        // σ over [10,10,10,10] = 0; sigma_eff = 0.25; z = (20-10)/0.25 = 40
+        // → flags at index 5, direction high.
+        $result = TrendAnomalies::detect([10.0, 10.0, 10.0, 10.0, null, 20.0]);
+
+        $this->assertCount(1, $result);
+        $this->assertSame(5, $result[0]['index']);
+        $this->assertSame('high', $result[0]['direction']);
+    }
+
+    // ── ITERATION 8: retention W1/W2 anomaly annotations (workstream B) ──
+
+    private function seedRetentionSnapshot(string $captured, float $pct, int $weekIndex = 1): void
+    {
+        RetentionSnapshot::create([
+            'cohort_week_start' => '2026-07-06',
+            'week_index'        => $weekIndex,
+            'cohort_size'       => 10,
+            'active_count'      => (int) round($pct / 10),
+            'retained_pct'      => $pct,
+            'captured_at'       => $captured,
+        ]);
+    }
+
+    public function test_retention_w1_trend_embeds_anomaly_payload_when_outlier(): void
+    {
+        // 5 W1 snapshots — flat 30% baseline, then a drop to 10% (a
+        // >2σ low outlier — churn up).
+        $this->seedRetentionSnapshot('2026-07-07 06:00:00', 30.0);
+        $this->seedRetentionSnapshot('2026-07-14 06:00:00', 30.0);
+        $this->seedRetentionSnapshot('2026-07-21 06:00:00', 30.0);
+        $this->seedRetentionSnapshot('2026-07-28 06:00:00', 30.0);
+        $this->seedRetentionSnapshot('2026-08-04 06:00:00', 10.0);
+
+        $response = $this->actingAsMfaSuperAdmin()->get(route('super.index'));
+
+        $response->assertStatus(200);
+        // The retention chart's W1 anomaly payload embeds JSON with
+        // direction=low (churn-up → worse → amber ring per the
+        // inverted color convention).
+        $response->assertSee('var w1Anomalies =', false);
+        $response->assertSee('"direction":"low"', false);
+        // Header count line on the retention chart gains the suffix.
+        $response->assertSee('1 anomaly', false);
+    }
+
+    public function test_retention_w1_trend_embeds_empty_payload_on_clean_trend(): void
+    {
+        // 5 W1 snapshots — flat 30% baseline with a noise-level blip
+        // (under the >2σ threshold; should not flag).
+        $this->seedRetentionSnapshot('2026-07-07 06:00:00', 30.0);
+        $this->seedRetentionSnapshot('2026-07-14 06:00:00', 30.0);
+        $this->seedRetentionSnapshot('2026-07-21 06:00:00', 30.0);
+        $this->seedRetentionSnapshot('2026-07-28 06:00:00', 30.0);
+        $this->seedRetentionSnapshot('2026-08-04 06:00:00', 30.4);
+
+        $response = $this->actingAsMfaSuperAdmin()->get(route('super.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('var w1Anomalies = [];', false);
+        $response->assertSee('var w2Anomalies = [];', false);
+    }
+
+    public function test_canvas_has_role_img_and_aria_label_for_accessibility(): void
+    {
+        // WCAG 1.1.1 — canvas needs a text alternative. The aria-label
+        // is computed server-side from the trend + annotation counts so
+        // a screen reader announces point count + release markers +
+        // anomaly count (audit-fix D-1).
+        // Both charts need >= 2 weekly snapshots to render the canvas
+        // (the @if guard draws a placeholder when there's <2 points).
+        $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-14 06:30:00', 10.0);
+        $this->seedRetentionSnapshot('2026-07-07 06:00:00', 30.0);
+        $this->seedRetentionSnapshot('2026-07-14 06:00:00', 30.0);
+
+        $response = $this->actingAsMfaSuperAdmin()->get(route('super.index'));
+
+        $response->assertStatus(200);
+        // TTFE canvas: role="img" + aria-label naming the chart + point count.
+        $response->assertSee('id="ttfe-trend-chart" role="img"', false);
+        $response->assertSee('aria-label="TTFE trend chart, 2 weekly snapshots', false);
+        // Retention canvas: same convention.
+        $response->assertSee('id="retention-trend-chart" role="img"', false);
+        $response->assertSee('Week-1 and Week-2 retention trend chart', false);
+    }
+
+    public function test_ttfe_anomaly_payload_includes_sigma_and_sigma_eff(): void
+    {
+        // audit-fix D-4: the payload now carries sigma + sigma_eff
+        // alongside z so the operator can sanity-check the threshold
+        // by hand (a future tooltip can surface them; for now they're
+        // available in the JS variable for the operator's console).
+        $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-14 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-21 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-28 06:30:00', 10.0);
+        $this->seedSnapshot('2026-08-04 06:30:00', 18.0);
+
+        $response = $this->actingAsMfaSuperAdmin()->get(route('super.index'));
+
+        $response->assertStatus(200);
+        // Sigma + sigma_eff now appear in the JSON payload (z was already there).
+        $response->assertSee('"sigma":', false);
+        $response->assertSee('"sigma_eff":', false);
     }
 }
