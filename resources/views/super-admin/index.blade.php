@@ -275,6 +275,34 @@
                     </div>
                 @endif
             </div>
+
+            {{-- ITERATION 9 — funnel-stage conversion-rate trend + >2σ
+                 anomaly rings per stage. The 5-bar funnel above is a point
+                 value (one window); this chart shows the per-stage conversion
+                 rate (registered→created_gallery, created_gallery→uploaded_image,
+                 uploaded_image→published, published→got_views) over time so a
+                 sudden stage drop ("this week only 10% of new signups created a
+                 gallery vs the 30% trailing avg") surfaces as an amber ring at
+                 the right week. Same TrendAnomalies::detect algorithm + same
+                 ring-draw plugin pattern as the TTFE + retention charts; the
+                 per-stage tooltip override (workstream C) renders the breakdown
+                 when hovering a ringed point. --}}
+            @if(!empty($funnelStageTrend) && count($onboardingTrend) >= 2)
+                @php
+                    $fsPoints = count($onboardingTrend);
+                    $fsAnomalyTotal = collect($funnelStageTrend)->sum(fn ($s) => count($s['anomalies']));
+                    $fsAria = "Funnel-stage conversion trend chart, {$fsPoints} weekly snapshot" . ($fsPoints === 1 ? '' : 's') . ", 4 stages";
+                    if ($fsAnomalyTotal > 0) { $fsAria .= ", {$fsAnomalyTotal} anomal" . ($fsAnomalyTotal === 1 ? 'y' : 'ies'); }
+                @endphp
+                <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-xs text-gray-500 uppercase tracking-wider">Funnel-stage conversion trend — weekly snapshots ({{ $onboardingDays }}d window)</div>
+                        <div class="text-[10px] text-gray-600">{{ $fsPoints }} point{{ $fsPoints === 1 ? '' : 's' }} recorded · 4 stages{{ $fsAnomalyTotal > 0 ? ' · ' . $fsAnomalyTotal . ' anomal' . ($fsAnomalyTotal === 1 ? 'y' : 'ies') : '' }}</div>
+                    </div>
+                    <div class="h-56"><canvas id="funnel-stage-trend-chart" role="img" aria-label="{{ $fsAria }}"></canvas></div>
+                    <div class="text-[10px] text-gray-600 mt-1">Conversion rate per funnel stage, weekly. Higher is better. Amber rings mark weeks a stage rate drops >2σ below the trailing mean (worse — stage drop); emerald rings mark weeks a stage rate rises >2σ above (better).</div>
+                </div>
+            @endif
         </div>
 
         {{-- ITERATION 6: Cohort retention — was a weekly stdout-only report
@@ -1111,6 +1139,267 @@
         waitForChart(30);
     })();
     </script>
+
+    {{-- ITERATION 9 — funnel-stage conversion-rate trend chart. Same
+         waitForChart pattern + same inline-plugin architecture as the
+         TTFE + retention charts. 4 datasets (one per stage), each with
+         its own color from $funnelStageTrend. The anomaly plugin rings
+         low stage-rate weeks amber (worse — stage drop) and high weeks
+         emerald (better — stage jump), matching the retention chart's
+         inverted direction convention (a stage-rate rise is good, same
+         as a retention rise).
+
+         Workstream C — per-shape tooltip override plugin. The TTFE
+         chart and W1/W2 retention charts above ship their anomaly data
+         in JS payload (var anomalies / w1Anomalies / w2Anomalies) but
+         only render a static ±Nsigma label on the canvas; the mean /
+         sigma_eff / z breakdown is in the payload but not surfaced. The
+         tooltip override plugin below is shared across all 3 charts:
+         when hovering a ringed point, the tooltip body shows the
+         breakdown (mean / sigma_eff / z / direction). The plugin is
+         conditional on anomalies.length > 0 so a clean trend renders
+         with the default tooltip behavior. --}}
+    @if(!empty($funnelStageTrend) && count($onboardingTrend) >= 2)
+    <script nonce="@nonce">
+    (function () {
+        var canvas = document.getElementById('funnel-stage-trend-chart');
+        if (!canvas) return;
+
+        var labels = @json(collect($onboardingTrend)->pluck('captured_at'));
+        var stages = @json($funnelStageTrend);
+
+        // Build a tooltip override plugin that adds the anomaly
+        // breakdown (mean / sigma_eff / z / direction) to the default
+        // tooltip when hovering a ringed point. The data lives in each
+        // stage's `anomalies` list — the plugin finds the matching
+        // anomaly by chart index + datasetIndex and appends the
+        // breakdown lines. Mirrors the plugin factory shape the
+        // retention chart uses (so a future refactor could unify them).
+        function makeFunnelTooltipPlugin() {
+            return {
+                id: 'funnelAnomalyTooltip',
+                afterBody: function (tooltipItems) {
+                    if (!tooltipItems || tooltipItems.length === 0) return [];
+                    var item = tooltipItems[0];
+                    var datasetIndex = item.datasetIndex;
+                    var index = item.dataIndex;
+                    var stage = stages[datasetIndex];
+                    if (!stage || !stage.anomalies) return [];
+                    var match = stage.anomalies.find(function (a) { return a.index === index; });
+                    if (!match) return [];
+                    var dirLabel = match.direction === 'low' ? 'drop (worse)' : 'rise (better)';
+                    return [
+                        '',
+                        'mean: ' + match.mean.toFixed(1) + '%',
+                        'sigma_eff: ' + match.sigma_eff.toFixed(2),
+                        'z: ' + (match.z > 0 ? '+' : '') + match.z.toFixed(2),
+                        'direction: ' + dirLabel,
+                    ];
+                }
+            };
+        }
+
+        // Inline plugin — ring anomalous funnel-stage points. Each
+        // stage is a separate dataset (datasetIndex = stage order),
+        // so the ring sits on the right series. Color INVERTED vs
+        // TTFE (low = worse = amber; high = better = emerald), same
+        // as the retention chart.
+        function makeFunnelAnomalyPlugin(datasetIndex, anomalies) {
+            return {
+                id: 'funnelAnomalies_' + datasetIndex,
+                afterDatasetsDraw: function (chart) {
+                    if (!anomalies.length) return;
+                    var ctx = chart.ctx;
+                    var chartArea = chart.chartArea;
+                    var xAxis = chart.scales.x;
+                    var meta = chart.getDatasetMeta(datasetIndex);
+                    if (!meta || !meta.data) return;
+
+                    anomalies.forEach(function (a) {
+                        var x = xAxis.getPixelForValue(a.index);
+                        if (x < chartArea.left || x > chartArea.right) return;
+                        var pt = meta.data[a.index];
+                        if (!pt) return;
+                        var y = pt.y;
+
+                        var isLow = a.direction === 'low';
+                        var color = isLow ? 'rgba(251,191,36,0.95)' : 'rgba(52,211,153,0.95)';
+
+                        ctx.save();
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 7, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        ctx.fillStyle = color;
+                        ctx.font = '10px sans-serif';
+                        ctx.textAlign = 'center';
+                        var sign = isLow ? '-' : '+';
+                        var labelY = isLow ? y + 18 : y - 12;
+                        ctx.fillText(sign + Math.abs(a.z) + 'sigma', x, labelY);
+                        ctx.restore();
+                    });
+                }
+            };
+        }
+
+        var anomalyPlugins = stages.map(function (stage, i) {
+            return stage.anomalies.length > 0 ? makeFunnelAnomalyPlugin(i, stage.anomalies) : null;
+        }).filter(Boolean);
+
+        var hasAnomalies = anomalyPlugins.length > 0;
+
+        function waitForChart(attemptsLeft) {
+            if (window.Chart) { initFunnelChart(); return; }
+            if (attemptsLeft <= 0) {
+                console.error('Chart.js failed to load (admin-vendor.js) — funnel-stage trend not rendered.');
+                return;
+            }
+            setTimeout(function () { waitForChart(attemptsLeft - 1); }, 100);
+        }
+
+        function initFunnelChart() {
+            var datasets = stages.map(function (stage) {
+                return {
+                    label: stage.label,
+                    data: stage.series,
+                    borderColor: stage.color,
+                    backgroundColor: stage.color + '20', // 12% alpha fill
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointBackgroundColor: stage.color,
+                    tension: 0.3,
+                    spanGaps: true,
+                    fill: false,
+                };
+            });
+
+            var plugins = [].concat(
+                anomalyPlugins,
+                hasAnomalies ? [makeFunnelTooltipPlugin()] : []
+            );
+
+            new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#9ca3af', font: { size: 10 } } } },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#6b7280', font: { size: 10 }, maxTicksLimit: 10 }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#6b7280', font: { size: 10 }, callback: function (v) { return v + '%'; } },
+                            title: { display: true, text: '% conversion', color: '#6b7280', font: { size: 10 } }
+                        }
+                    }
+                },
+                plugins: plugins
+            });
+        }
+
+        waitForChart(30);
+    })();
+    </script>
+    @endif
+
+    {{-- ITERATION 9 (workstream C) — per-shape tooltip override on the TTFE
+         + W1/W2 retention anomaly rings. The existing inline <script> blocks
+         above already define the ring plugins (anomalyPlugin for TTFE,
+         w1Plugin/w2Plugin for retention); the per-shape tooltip override
+         below augments the default tooltip when hovering a ringed point so
+         the operator can read the mean / sigma_eff / z breakdown without
+         hand-recomputing. The plugin is conditional on the anomalies JS
+         variable having entries so a clean trend renders with the default
+         tooltip behavior. --}}
+    @php
+        $hasTtfeAnomalies = count($anomalyAnnotations ?? []) > 0;
+        $hasRetentionAnomalies = (count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) > 0;
+        $showAnomalyTooltipOverride = $hasTtfeAnomalies || $hasRetentionAnomalies;
+    @endphp
+    @if($showAnomalyTooltipOverride)
+    <script nonce="@nonce">
+    (function () {
+        // Wait for both Chart + the trend canvases to exist (the trend
+        // init scripts above are IIFEs that poll for window.Chart too;
+        // we attach the tooltip override via Chart.pluginServiceBase so
+        // it applies to every chart on the page, then guard inside the
+        // hook so only anomaly-bearing points show the breakdown).
+        function attachTooltipOverride() {
+            if (!window.Chart) return;
+
+            // Per-chart anomaly data lives on each canvas's chart instance
+            // (the inline scripts above pass it as the `anomalies` var).
+            // Since we can't read another IIFE's closure, we re-derive the
+            // anomaly metadata from the JSON payloads the inline scripts
+            // embedded — same source the ring plugins read.
+            var ttfeAnomalies = @json($anomalyAnnotations ?? []);
+            var w1Anomalies = @json($retentionW1Anomalies ?? []);
+            var w2Anomalies = @json($retentionW2Anomalies ?? []);
+
+            // Chart.js external tooltip hook. Returns an array of body
+            // lines appended after the default tooltip body. The hook is
+            // per-chart-instance via the options.plugins.tooltip.external
+            // pattern, but registering globally with a guard is simpler
+            // and safe — the guard skips any chart instance without
+            // matching anomaly data.
+            Chart.defaults.plugins.tooltip.external = function (context) {
+                var tooltip = context.tooltip;
+                if (!tooltip || !tooltip.dataPoints || tooltip.dataPoints.length === 0) return;
+
+                var dp = tooltip.dataPoints[0];
+                var chartId = dp.chart && dp.chart.canvas ? dp.chart.canvas.id : null;
+                var index = dp.dataIndex;
+                var datasetIndex = dp.datasetIndex;
+
+                // Map chart canvas ID → the anomaly list that chart drew.
+                var list = null;
+                if (chartId === 'ttfe-trend-chart') list = ttfeAnomalies;
+                else if (chartId === 'retention-trend-chart') {
+                    list = datasetIndex === 0 ? w1Anomalies : (datasetIndex === 1 ? w2Anomalies : null);
+                }
+                if (!list) return;
+
+                var match = list.find(function (a) { return a.index === index; });
+                if (!match) return;
+
+                // Append the breakdown lines below the default tooltip body.
+                // Chart.js reads the `afterBody` callback's return as an
+                // array of strings; each becomes a new line below the body.
+                if (!tooltip.afterBody) tooltip.afterBody = [];
+                if (typeof tooltip.afterBody === 'function') return; // already overridden — skip
+                var dirLabel = match.direction === 'low' ? 'drop' : 'rise';
+                tooltip.afterBody = [
+                    '',
+                    'mean: ' + Number(match.mean).toFixed(1),
+                    'sigma_eff: ' + Number(match.sigma_eff).toFixed(2),
+                    'z: ' + (match.z > 0 ? '+' : '') + Number(match.z).toFixed(2),
+                    'direction: ' + dirLabel,
+                ];
+            };
+        }
+
+        // Poll for Chart.js (same pattern as the inline scripts above).
+        // Once attached, the override persists for the life of the page.
+        function waitForChart(attemptsLeft) {
+            if (window.Chart) { attachTooltipOverride(); return; }
+            if (attemptsLeft <= 0) {
+                console.error('Chart.js failed to load (admin-vendor.js) — anomaly tooltip override not attached.');
+                return;
+            }
+            setTimeout(function () { waitForChart(attemptsLeft - 1); }, 100);
+        }
+        waitForChart(30);
+    })();
+    </script>
+    @endif
 
     <script nonce="@nonce">
     // (Task H32) Modal openers for type-to-confirm destructive actions

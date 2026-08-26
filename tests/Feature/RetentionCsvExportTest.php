@@ -195,4 +195,48 @@ class RetentionCsvExportTest extends TestCase
         ]), false);
         $response->assertSee('Export CSV', false);
     }
+
+    /**
+     * ITERATION 9 (audit-fix E-4) — the CSV header now carries an
+     * `exported_at` line so a teammate receiving the CSV without the
+     * URL knows when the per-row active flag was computed. The flag
+     * is computed LIVE at export time (it's a bounded SQL CASE
+     * expression run inside the cursor, not a cached snapshot), so
+     * the timestamp documents the moment of truth. Mirrors the
+     * billing CSV's audit-row timestamp convention.
+     */
+    public function test_csv_header_includes_exported_at_line(): void
+    {
+        [$admin] = $this->actingAsMfaSuperAdmin();
+        $weekStart = $this->thisMonday()->subWeeks(2);
+
+        $active = User::factory()->create([
+            'email'         => 'asof@example.com',
+            'created_at'    => $weekStart->copy()->addDays(1),
+            'last_login_at' => $weekStart->copy()->addWeeks(2),
+            'plan'          => 'free',
+        ]);
+
+        $response = $this->get(route('super.retention.cohort.export', [
+            'cohort' => $weekStart->toDateString(),
+            'week'   => 1,
+        ]));
+
+        $response->assertStatus(200);
+        $body = $response->streamedContent();
+
+        // The as-of line carries an ISO-8601 timestamp.
+        $this->assertStringContainsString('exported_at=', $body);
+        $this->assertMatchesRegularExpression('/exported_at=\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $body, 'exported_at must be an ISO-8601 timestamp');
+
+        // The "live computation, not a snapshot" documentation line
+        // so the teammate knows what the timestamp refers to.
+        $this->assertStringContainsString('active_in_period is computed live at export time', $body);
+
+        // Three leading comment rows preserved — strict CSV parsers
+        // still see the data headers at row 4 (Iter-9 added the third
+        // comment row for the as-of documentation).
+        $this->assertStringContainsString('# Exospace retention cohort export', $body);
+        $this->assertStringContainsString('# active_in_period is computed live', $body);
+    }
 }

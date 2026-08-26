@@ -180,6 +180,76 @@ class SystemController extends Controller
             }
         }
 
+        // ITERATION 9 — funnel-stage conversion-rate trend + >2σ anomalies
+        // per stage. The 5-bar funnel on the dashboard is a point value
+        // (one window); a sudden stage drop ("this week only 10% of new
+        // signups created a gallery vs the 30% trailing avg") is invisible
+        // without a trend. The onboarding trend already persists per-stage
+        // counts in the snapshot table (registered, created_gallery,
+        // uploaded_image, published, got_views); workstream A exposes them
+        // via OnboardingMetricsService::trend() (audit-fix E-2) and
+        // computes the 4 stage-conversion rates per snapshot:
+        //
+        //   S1: created_gallery / registered        — did they start a gallery?
+        //   S2: uploaded_image / created_gallery   — did they add art?
+        //   S3: published / uploaded_image         — did they ship?
+        //   S4: got_views / published               — did anyone see it?
+        //
+        // Each rate is a 0..100 percentage. TrendAnomalies::detect runs on
+        // each series (it self-guards on MIN_PRIORS so a fresh install
+        // returns []). Direction convention matches the retention chart
+        // (high = better = emerald; low = worse = amber) — a stage-rate
+        // drop is the bad outcome we want to ring.
+        //
+        // The output shape is a list of stages; each stage has a `series`
+        // (one rate per snapshot, oldest-first), an `anomalies` list (each
+        // entry mirrors the shape the TTFE plugin expects: {index, value,
+        // mean, sigma, sigma_eff, z, direction, label}), and metadata
+        // (key, label, color, from/to stage labels). The view's per-stage
+        // tooltip override plugin (workstream C) uses the metadata to
+        // render the breakdown when hovering a ringed point.
+        $funnelStageTrend = [];
+        if (count($onboardingTrend) >= 2) {
+            $stages = [
+                's1' => ['label' => 'Registered → Created gallery', 'from' => 'registered',       'to' => 'created_gallery', 'color' => '#60a5fa'],
+                's2' => ['label' => 'Created gallery → Uploaded image', 'from' => 'created_gallery','to' => 'uploaded_image',  'color' => '#a78bfa'],
+                's3' => ['label' => 'Uploaded image → Published',     'from' => 'uploaded_image', 'to' => 'published',       'color' => '#34d399'],
+                's4' => ['label' => 'Published → Got first view',      'from' => 'published',      'to' => 'got_views',       'color' => '#fbbf24'],
+            ];
+            foreach ($stages as $key => $meta) {
+                $series = [];
+                foreach ($onboardingTrend as $p) {
+                    $denominator = (int) ($p[$meta['from']] ?? 0);
+                    $numerator   = (int) ($p[$meta['to']]   ?? 0);
+                    // A 0-denominator stage is a null rate (no users
+                    // reached the prior stage that week). TrendAnomalies
+                    // skips nulls in its trailing window so a fresh install
+                    // with sparse snapshots doesn't false-positive.
+                    $series[] = $denominator > 0 ? round(($numerator / $denominator) * 100, 1) : null;
+                }
+                $anomalies = [];
+                foreach (\App\Services\TrendAnomalies::detect($series) as $a) {
+                    $anomalies[] = [
+                        'index'     => $a['index'],
+                        'label'     => $onboardingTrend[$a['index']]['captured_at'] ?? '',
+                        'value'     => $a['value'],
+                        'mean'      => $a['mean'],
+                        'sigma'     => $a['sigma'],
+                        'sigma_eff' => $a['sigma_eff'],
+                        'z'         => $a['z'],
+                        'direction' => $a['direction'],
+                    ];
+                }
+                $funnelStageTrend[] = [
+                    'key'        => $key,
+                    'label'      => $meta['label'],
+                    'color'      => $meta['color'],
+                    'series'     => $series,
+                    'anomalies'  => $anomalies,
+                ];
+            }
+        }
+
         // ITERATION 8: backup health tile on Master Control — surfaces
         // the worst of the three backup heartbeat statuses (fresh /
         // stale / missing) as an at-a-glance tile, so an operator sees
@@ -237,6 +307,7 @@ class SystemController extends Controller
             'retentionW1Anomalies',
             'retentionW2Anomalies',
             'backupHealth',
+            'funnelStageTrend',
         ));
     }
 

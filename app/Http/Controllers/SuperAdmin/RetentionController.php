@@ -78,6 +78,16 @@ class RetentionController extends Controller
             ? round(($data['active_count'] / $data['size']) * 100, 1)
             : 0.0;
 
+        // ITERATION 9 — per-cohort retention curve W0..W7. The Master
+        // Control matrix trends only W1 + W2 (the headline metric); the
+        // drill-down page is where the operator investigates "which week
+        // did churn happen?" — the curve closes the loop. W{weekIndex}
+        // is highlighted on the chart so the page the operator landed on
+        // is visually anchored. cohortCurve returns [] for size-0 cohorts
+        // or cohorts with no persisted snapshots yet — the blade renders
+        // the no-data state in that case rather than a half-populated chart.
+        $curve = $service->cohortCurve($data['week_start']->toDateString(), 8);
+
         return view('super-admin.retention-cohort', [
             'cohort'        => $data['week_start'],
             'weekIndex'     => $weekIndex,
@@ -87,6 +97,7 @@ class RetentionController extends Controller
             'activeCount'   => $data['active_count'],
             'pct'           => $pct,
             'members'       => $members,
+            'curve'         => $curve,
         ]);
     }
 
@@ -166,7 +177,17 @@ class RetentionController extends Controller
         $periodStartStr = $data['period']['start']->toDateString();
         $periodEndStr = $data['period']['end']->toDateString();
 
-        return response()->streamDownload(function () use ($members, $headers, $weekStartStr, $weekIndex, $periodStartStr, $periodEndStr) {
+        // ITERATION 9 (audit-fix E-4) — capture the export-at timestamp
+        // server-side BEFORE the stream starts. The per-row
+        // active_in_period flag is computed LIVE at export time (it's a
+        // bounded SQL CASE expression run inside the cursor, not a cached
+        // snapshot), so the "as of" line documents when the computation
+        // happened — useful when an operator forwards the CSV to a
+        // teammate without the URL ("this is the cohort as of Monday's
+        // export"). Same shape as the cohort-context comment row.
+        $asOf = now()->toIso8601String();
+
+        return response()->streamDownload(function () use ($members, $headers, $weekStartStr, $weekIndex, $periodStartStr, $periodEndStr, $asOf) {
             $out = fopen('php://output', 'w');
 
             // BOM for Excel UTF-8 compatibility (same convention as the
@@ -174,16 +195,21 @@ class RetentionController extends Controller
             fwrite($out, "\xEF\xBB\xBF");
 
             // Header comment row — preserves context when the CSV is
-            // forwarded to a teammate without the cohort URL. Two
+            // forwarded to a teammate without the cohort URL. Three
             // leading comment lines so a strict CSV parser still sees
-            // the data headers at row 3.
+            // the data headers at row 4 (Iter-9 added the as_of row).
             fputcsv($out, ['# Exospace retention cohort export']);
             fputcsv($out, [
                 '# cohort_week_start=' . $weekStartStr,
                 'week_index=' . $weekIndex,
                 'period_start=' . $periodStartStr,
                 'period_end=' . $periodEndStr,
+                'exported_at=' . $asOf,
             ]);
+            // ITERATION 9: document that the per-row active flag is the
+            // live computation, not a snapshot — the as_of line tells
+            // a teammate when the computation ran.
+            fputcsv($out, ['# active_in_period is computed live at export time, not read from a snapshot']);
 
             fputcsv($out, $headers);
 

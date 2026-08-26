@@ -211,9 +211,19 @@ class OnboardingMetricsService
      * this is a cheap indexed read — no cache layer; a chart refresh should
      * not show a stale trend while the funnel tiles above it are fresh.
      *
+     * ITERATION 9 — the trend now exposes the full per-stage funnel
+     * counts (created_gallery, uploaded_image, got_views) alongside the
+     * registered/published counts it already returned. These were always
+     * in the snapshot table (migration 2026_08_25_140000); the trend was
+     * just narrow. The new fields back the per-stage conversion-rate
+     * series + anomaly rings on the Master Control funnel-conversion
+     * tile (workstream A) without a second query — the trend read stays
+     * a single indexed SELECT against a tiny table.
+     *
      * @return array<int, array{
      *     captured_at: string, captured_on: string,
-     *     registered: int, published: int,
+     *     registered: int, created_gallery: int, uploaded_image: int,
+     *     published: int, got_views: int,
      *     ttfe_avg: ?float, ttfg_avg: ?float
      * }>
      */
@@ -225,16 +235,22 @@ class OnboardingMetricsService
             ->trend($days, $limit)
             ->get()
             ->map(fn (OnboardingSnapshot $row) => [
-                'captured_at' => $row->captured_at?->format('M j'),
+                'captured_at'    => $row->captured_at?->format('M j'),
                 // ITERATION 6: raw capture date for release-annotation
                 // matching on the Master Control chart (the 'M j' label
                 // is ambiguous across years; the chart script maps each
                 // release to the first capture at/after its date).
-                'captured_on' => $row->captured_at?->toDateString(),
-                'registered'  => (int) $row->registered,
-                'published'   => (int) $row->published,
-                'ttfe_avg'    => $row->ttfe_avg !== null ? (float) $row->ttfe_avg : null,
-                'ttfg_avg'    => $row->ttfg_avg !== null ? (float) $row->ttfg_avg : null,
+                'captured_on'    => $row->captured_at?->toDateString(),
+                'registered'     => (int) $row->registered,
+                // ITERATION 9: per-stage counts backfill the trend so
+                // workstream A can compute conversion rates per snapshot
+                // without a second query against the snapshot table.
+                'created_gallery'=> (int) $row->created_gallery,
+                'uploaded_image' => (int) $row->uploaded_image,
+                'published'      => (int) $row->published,
+                'got_views'       => (int) $row->got_views,
+                'ttfe_avg'        => $row->ttfe_avg !== null ? (float) $row->ttfe_avg : null,
+                'ttfg_avg'        => $row->ttfg_avg !== null ? (float) $row->ttfg_avg : null,
             ])
             ->all();
     }

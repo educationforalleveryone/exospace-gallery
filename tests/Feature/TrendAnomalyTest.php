@@ -339,4 +339,69 @@ class TrendAnomalyTest extends TestCase
         $response->assertSee('"sigma":', false);
         $response->assertSee('"sigma_eff":', false);
     }
+
+    // ── ITERATION 9 (workstream C) — per-shape tooltip override plugin ──
+
+    /**
+     * The Iter-8 codified aria-label made the canvas accessible; the
+     * per-shape data (mean, sigma_eff, z, direction) is in the JS
+     * payload but only renders as a static ±Nsigma label on the
+     * canvas. Iter-9 ships an inline tooltip override plugin that
+     * augments the default Chart.js tooltip when hovering a ringed
+     * point. The plugin is conditional on anomalies.length > 0 so a
+     * clean trend renders with the default tooltip behavior.
+     */
+    public function test_master_control_embeds_anomaly_tooltip_override_script_when_anomalies_exist(): void
+    {
+        $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-14 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-21 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-28 06:30:00', 10.0);
+        $this->seedSnapshot('2026-08-04 06:30:00', 18.0); // outlier — TTFE anomaly flags
+
+        $response = $this->actingAsMfaSuperAdmin()->get(route('super.index'));
+
+        $response->assertStatus(200);
+        // The tooltip override plugin attaches to Chart.defaults.plugins.tooltip.external.
+        $response->assertSee('attachTooltipOverride', false);
+        $response->assertSee('Chart.defaults.plugins.tooltip.external', false);
+    }
+
+    public function test_master_control_does_not_embed_anomaly_tooltip_override_when_trend_clean(): void
+    {
+        // 5 snapshots — flat baseline, no outliers anywhere.
+        $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-14 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-21 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-28 06:30:00', 10.0);
+        $this->seedSnapshot('2026-08-04 06:30:00', 10.5); // noise-level blip — no flag
+
+        $response = $this->actingAsMfaSuperAdmin()->get(route('super.index'));
+
+        $response->assertStatus(200);
+        // No tooltip override plugin attached — clean trend renders with default tooltip.
+        $response->assertDontSee('attachTooltipOverride', false);
+        $response->assertDontSee('Chart.defaults.plugins.tooltip.external', false);
+    }
+
+    public function test_anomaly_tooltip_override_reuses_payload_vars_per_chart_canvas_id(): void
+    {
+        // The plugin is shared across all 3 charts (TTFE + W1 + W2).
+        // The guard maps the chart canvas ID → the matching anomaly
+        // list, so hovering a TTFE ring reads the TTFE anomaly's mean
+        // / sigma_eff / z, not the retention W1's. Test pin: the
+        // plugin references each canvas ID in its dispatch logic.
+        $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-14 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-21 06:30:00', 10.0);
+        $this->seedSnapshot('2026-07-28 06:30:00', 10.0);
+        $this->seedSnapshot('2026-08-04 06:30:00', 18.0);
+
+        $response = $this->actingAsMfaSuperAdmin()->get(route('super.index'));
+
+        $response->assertStatus(200);
+        // The plugin dispatches by canvas ID — assert the IDs are referenced.
+        $response->assertSee("'ttfe-trend-chart'", false);
+        $response->assertSee("'retention-trend-chart'", false);
+    }
 }

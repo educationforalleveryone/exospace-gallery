@@ -332,6 +332,100 @@ class CohortRetentionMetricsService
         ];
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * ITERATION 9 — per-cohort retention curve W0..W7 for the drill-down page.
+     *
+     * The Master Control matrix trends only W1 + W2 (the headline retention
+     * metric); an operator investigating churn in a specific cohort needs
+     * "which week did the drop happen?" — W3..W7 retention for THAT cohort.
+     * This returns the latest complete retention value per week_index for
+     * the given cohort, drawn from the same retention_snapshots table the
+     * weekly command persists.
+     *
+     * Output: a list of {week_index, retained_pct, cohort_size, active_count,
+     * complete} — `complete` mirrors the matrix convention (a week is final
+     * once it has closed). Partial weeks (the cohort's still-running follow-
+     * up weeks) are returned so the chart can render them dimmed — same
+     * convention as the matrix cells.
+     *
+     * Returns an empty list when:
+     *   - the cohort has zero members (no curve to chart), OR
+     *   - no snapshots have been persisted for this cohort yet (the weekly
+     *     command hasn't run since the cohort's W0 closed). The drill-down
+     *     page renders the no-data state in that case rather than a half-
+     *     populated chart.
+     *
+     * @return list<array{week_index: int, retained_pct: ?float, cohort_size: int, active_count: int, complete: bool}>
+     */
+    public function cohortCurve(string $cohortWeekStart, int $maxWeeks = 8): array
+    {
+        // Parse + validate the cohort week start (same rules as
+        // cohortDrilldown — must be a real Monday, within the 3-year
+        // bound). An invalid input is the caller's bug, not a chartable
+        // state; return [] so the page renders the empty state cleanly.
+        try {
+            $start = CarbonImmutable::parse($cohortWeekStart)->startOfDay();
+        } catch (\Throwable) {
+            return [];
+        }
+        if (! $start->isMonday()) {
+            return [];
+        }
+        $now = CarbonImmutable::now();
+        if ($start > $now || $start < $now->copy()->subWeeks(156)) {
+            return [];
+        }
+
+        $maxWeeks = max(1, min(25, $maxWeeks));
+
+        // One row per week_index (0..maxWeeks-1) — the LATEST snapshot for
+        // each (cohort × week) pair. The retention_snapshots unique index is
+        // (cohort_week_start, week_index, captured_at); grouped + max-
+        // captured_at gives the most recent complete capture per cell. The
+        // matrix's persist() only writes complete cells, so every persisted
+        // row is final for the live cohort at capture time.
+        $rows = DB::table('retention_snapshots')
+            ->select('week_index', 'cohort_size', 'active_count', 'retained_pct', 'captured_at')
+            ->where('cohort_week_start', $start->toDateString())
+            ->where('week_index', '<', $maxWeeks)
+            ->get()
+            ->groupBy('week_index')
+            ->map(fn ($group) => $group->sortByDesc('captured_at')->first());
+
+        // ITERATION 9 contract: return [] when NO snapshots have been
+        // persisted for this cohort yet (the weekly command hasn't run
+        // since the cohort's W0 closed). The drill-down page renders the
+        // no-data state cleanly when curve is empty; the alternative —
+        // returning 8 rows with all-null retained_pct — would also work
+        // (the blade filters them out) but the empty-array contract is
+        // simpler to assert against in tests + tells the caller "no
+        // data" rather than "data is null" (a meaningful distinction
+        // for callers who want to render a different surface when the
+        // curve is empty vs partial).
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $out = [];
+        for ($w = 0; $w < $maxWeeks; $w++) {
+            $periodStart = $start->copy()->addWeeks($w);
+            $periodEnd = $periodStart->copy()->addWeek();
+            $complete = $now >= $periodEnd;
+            $row = $rows->get($w);
+            $out[] = [
+                'week_index'    => $w,
+                'retained_pct'  => $row?->retained_pct !== null ? (float) $row->retained_pct : null,
+                'cohort_size'   => $row?->cohort_size ?? 0,
+                'active_count'  => $row?->active_count ?? 0,
+                'complete'      => $complete,
+            ];
+        }
+
+        return $out;
+    }
+
     /**
      * Bounded activity count for one (cohort, period) pair.
      *

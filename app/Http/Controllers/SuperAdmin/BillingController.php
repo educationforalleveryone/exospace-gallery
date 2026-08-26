@@ -315,6 +315,29 @@ class BillingController extends Controller
             AdminAuditLog::record('billing.digest_recipient_added', $recipient, [
                 'recipients_total' => BillingDigestRecipient::count(),
             ]);
+
+            // ITERATION 9 — fire an outbound webhook so a security team
+            // subscribing to "who is receiving the weekly financial
+            // digest" can page on changes instead of polling the audit
+            // log. The OutboundWebhookService infrastructure exists
+            // (HMAC-SHA256 signature, 3 retries with exponential
+            // backoff, sync dispatch — low-volume security-page event
+            // is the right fit for sync; a fresh install with no
+            // OUTBOUND_WEBHOOK_URL configured silently skips, same as
+            // the existing gallery.published / user.upgraded events).
+            // Payload shape mirrors the audit row's: actor + recipient
+            // email + recipients_total count — enough for the subscriber
+            // to alert on "an admin added a new mailbox to the financial
+            // digest distribution list" without leaking additional PII.
+            \App\Services\OutboundWebhookService::dispatch(
+                'billing.recipient_added',
+                [
+                    'recipient_email'   => $recipient->email,
+                    'actor_admin_id'    => $request->user()->id,
+                    'actor_admin_email' => $request->user()->email,
+                    'recipients_total'  => BillingDigestRecipient::count(),
+                ],
+            );
         }
 
         return back()->with('success', 'Added ' . $email . ' to the billing digest recipient list.');
@@ -338,7 +361,24 @@ class BillingController extends Controller
         ]);
 
         $email = $recipient->email;
+        $remainingAfter = max(0, BillingDigestRecipient::count() - 1);
         $recipient->delete();
+
+        // ITERATION 9 — mirror the add-side outbound webhook (above).
+        // Dispatched AFTER the delete so recipients_remaining reflects
+        // the post-deletion state (matches the warning flash copy:
+        // "the recipient list is now empty" is a post-deletion fact).
+        // Same sync-dispatch + HMAC + retry path; same silent-skip when
+        // no OUTBOUND_WEBHOOK_URL is configured.
+        \App\Services\OutboundWebhookService::dispatch(
+            'billing.recipient_removed',
+            [
+                'recipient_email'    => $email,
+                'actor_admin_id'     => $request->user()->id,
+                'actor_admin_email'  => $request->user()->email,
+                'recipients_remaining'=> $remainingAfter,
+            ],
+        );
 
         $remaining = BillingDigestRecipient::count();
         $envHasAny = $this->parseEnvRecipients() !== [];
