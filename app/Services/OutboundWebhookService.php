@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\WebhookDelivery;
 use App\Models\WebhookSubscription;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -93,6 +94,33 @@ use Illuminate\Support\Facades\Schema;
  * needed (a security team subscribes to gallery.published), the
  * contract should be one queued job per (event, url) tuple —
  * deferred until that case actually exists.
+ *
+ * ITERATION 11 — per-subscription delivery ledger.
+ *
+ * dispatchSingle() writes ONE row to the webhook_deliveries table
+ * at the end of the retry loop (success OR retry-exhausted). The
+ * row captures the FINAL state (http_status, attempt_count,
+ * success, error_message, delivered_at) + the subscription_id (when
+ * dispatched through the fan-out path) or null (when dispatched to
+ * the env URL or a one-shot override URL). The ledger is the
+ * persisted analog of the Log::info / Log::warning / Log::error
+ * calls in dispatchSingle() — those remain (for the production
+ * log aggregator) but the ledger row is the SQL-queryable triage
+ * surface for the operator ("the security team says they didn't
+ * receive the recipient_added webhook last Tuesday" is now a
+ * SQL query, not a grep across rotated laravel.log files).
+ *
+ * The ledger write is guarded by Schema::hasTable('webhook_
+ * deliveries') so a fresh install with the migration not yet
+ * applied silently skips the write — same shape as the Iter-10
+ * Schema::hasTable('webhook_subscriptions') guard. Wrapped in
+ * try/catch so a ledger write failure can NEVER break the dispatch
+ * path (the receiver already got the webhook; the operator just
+ * loses the triage row — log + continue, don't re-dispatch).
+ *
+ * The async path's ledger write is DEFERRED (same deferral shape
+ * as the Iter-10 async fan-out deferral) — see the dispatchAsync()
+ * docstring for the rationale.
  */
 class OutboundWebhookService
 {
@@ -129,7 +157,9 @@ class OutboundWebhookService
     {
         // Direct override URL — bypass the subscription fan-out entirely.
         // Preserved for callers/tests that want a one-shot dispatch to a
-        // specific endpoint (not the documented product path).
+        // specific endpoint (not the documented product path). The
+        // ledger row for this path has subscription_id = null (no DB
+        // subscription row is associated with a one-shot override).
         if ($url !== null) {
             static::dispatchSingle($eventType, $payload, $url);
             return;
@@ -149,7 +179,9 @@ class OutboundWebhookService
 
         // No DB subscriptions AND no env URL configured — silent-skip
         // (preserves the Iter-9 contract: a fresh install with no
-        // subscriber configured is a no-op, never an error).
+        // subscriber configured is a no-op, never an error). No ledger
+        // row is written for a silent-skip (there was no dispatch to
+        // record).
         if ($subscriptions->isEmpty() && ! $envUrl) {
             return;
         }
@@ -159,12 +191,17 @@ class OutboundWebhookService
         // subscriber's primary path even if a DB subscription's POST
         // hangs the actor's request. Order doesn't actually matter for
         // sync dispatch (every POST happens inside this call) but the
-        // convention is preserved.
+        // convention is preserved. The ledger row for the env URL
+        // dispatch has subscription_id = null (it's not a DB row).
         if ($envUrl) {
             static::dispatchSingle($eventType, $payload, $envUrl, $globalSecret);
         }
 
-        // Fan out to every active DB subscription for this event.
+        // Fan out to every active DB subscription for this event. The
+        // subscription_id is threaded through so the ledger row
+        // captures which subscription this dispatch was for (lets the
+        // management UI's "Last delivery" column show per-subscription
+        // status without a JOIN).
         foreach ($subscriptions as $sub) {
             // Per-subscription secret overrides the global secret. If
             // both are null, the POST is unsigned (the receiver can
@@ -173,7 +210,7 @@ class OutboundWebhookService
                 ? $sub->secret
                 : $globalSecret;
 
-            static::dispatchSingle($eventType, $payload, $sub->target_url, $secret);
+            static::dispatchSingle($eventType, $payload, $sub->target_url, $secret, $sub->id);
         }
     }
 
@@ -184,8 +221,33 @@ class OutboundWebhookService
      * duplicating the body+signature+retry loop. Public visibility
      * on the constants already exposes the retry contract — this
      * method is the actual retry loop.
+     *
+     * ITERATION 11 — writes a webhook_deliveries ledger row at the
+     * end of the retry loop (success OR exhausted). The ledger row
+     * captures the FINAL state (http_status, attempt_count, success,
+     * error_message, delivered_at) so the operator investigating
+     * "the security team says they didn't receive the recipient_added
+     * webhook last Tuesday" can SQL-query the ledger instead of
+     * greping rotated laravel.log files.
+     *
+     * The ledger write is guarded by Schema::hasTable('webhook_
+     * deliveries') so a fresh install with the migration not yet
+     * applied (or a test database that didn't run this migration)
+     * silently skips the ledger write — same shape as the Iter-10
+     * Schema::hasTable('webhook_subscriptions') guard. The guard is
+     * wrapped in try/catch so a ledger write failure can NEVER break
+     * the dispatch path (the receiver still got the webhook; the
+     * operator just loses the triage row — log + continue, don't
+     * re-dispatch).
+     *
+     * @param  string       $eventType       The event name (e.g. 'gallery.published')
+     * @param  array        $payload         The event data
+     * @param  string       $url             The HTTPS endpoint to POST to
+     * @param  string|null  $secret          HMAC secret (per-sub OR global OR null for unsigned)
+     * @param  int|null     $subscriptionId  The webhook_subscriptions.id (null for env
+     *                                       URL or one-shot override paths)
      */
-    private static function dispatchSingle(string $eventType, array $payload, string $url, ?string $secret = null): void
+    private static function dispatchSingle(string $eventType, array $payload, string $url, ?string $secret = null, ?int $subscriptionId = null): void
     {
         $body = json_encode([
             'event'     => $eventType,
@@ -197,10 +259,22 @@ class OutboundWebhookService
             ? hash_hmac('sha256', $body, $secret)
             : null;
 
+        // Final-state accumulators for the ledger row. Track the last
+        // HTTP response status (nullable when no attempt ever got a
+        // response — all attempts threw exceptions) + the last error
+        // message (nullable on success). The success flag flips to
+        // true the moment any attempt returns a 2xx response.
+        $lastHttpStatus = null;
+        $lastError = null;
+        $succeeded = false;
+        $finalAttempt = 0;
+
         // Dispatch synchronously with retries (for low-volume events)
         // For high volume, this should be queued — but Exospace's event
         // volume is low enough that sync is fine.
         for ($attempt = 1; $attempt <= self::MAX_RETRIES; $attempt++) {
+            $finalAttempt = $attempt;
+
             try {
                 $response = Http::timeout(self::TIMEOUT)
                     ->withHeaders(array_filter([
@@ -210,15 +284,19 @@ class OutboundWebhookService
                     ]))
                     ->post($url, json_decode($body, true));
 
+                $lastHttpStatus = $response->status();
+
                 if ($response->successful()) {
                     Log::info('OutboundWebhook: dispatched successfully', [
                         'event'   => $eventType,
                         'url'     => $url,
                         'attempt' => $attempt,
                     ]);
-                    return; // Success — no more retries
+                    $succeeded = true;
+                    break; // Success — no more retries
                 }
 
+                $lastError = 'Non-2xx response: HTTP ' . $response->status();
                 Log::warning('OutboundWebhook: non-2xx response', [
                     'event'   => $eventType,
                     'url'     => $url,
@@ -226,6 +304,7 @@ class OutboundWebhookService
                     'attempt' => $attempt,
                 ]);
             } catch (\Throwable $e) {
+                $lastError = $e->getMessage();
                 Log::warning('OutboundWebhook: dispatch failed', [
                     'event'   => $eventType,
                     'url'     => $url,
@@ -240,10 +319,41 @@ class OutboundWebhookService
             }
         }
 
-        Log::error('OutboundWebhook: all retries exhausted', [
-            'event' => $eventType,
-            'url'   => $url,
-        ]);
+        if (! $succeeded) {
+            Log::error('OutboundWebhook: all retries exhausted', [
+                'event' => $eventType,
+                'url'   => $url,
+            ]);
+        }
+
+        // ITERATION 11 — write the delivery ledger row. Guarded by
+        // Schema::hasTable so a fresh install with the migration not
+        // yet applied silently skips the write (the dispatch path is
+        // preserved verbatim). Wrapped in try/catch so a ledger
+        // write failure (DB down, deadlock, etc.) can NEVER break
+        // the dispatch path — the receiver already got the webhook;
+        // the operator just loses the triage row. Log + continue.
+        try {
+            if (Schema::hasTable('webhook_deliveries')) {
+                WebhookDelivery::create([
+                    'subscription_id' => $subscriptionId,
+                    'event_type'      => $eventType,
+                    'target_url'      => $url,
+                    'http_status'     => $lastHttpStatus,
+                    'attempt_count'   => $finalAttempt,
+                    'success'         => $succeeded,
+                    'error_message'   => $succeeded ? null : $lastError,
+                    'delivered_at'    => now(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('OutboundWebhook: delivery ledger write failed', [
+                'event'          => $eventType,
+                'url'            => $url,
+                'subscription_id' => $subscriptionId,
+                'error'          => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -264,6 +374,22 @@ class OutboundWebhookService
      * The body + signature are computed at enqueue time (not at
      * dequeue time) so the timestamp reflects when the event happened,
      * not when the worker picked it up — same contract as dispatch().
+     *
+     * ITERATION 11 — async ledger write DEFERRED. The sync dispatchSingle()
+     * path writes a webhook_deliveries ledger row at the end of the
+     * retry loop (the headline gap from Iter-10's §8 backlog). The
+     * async path's anonymous queued-job class does NOT write a ledger
+     * row — symmetric with the Iter-10 deferral of async fan-out.
+     * Rationale: the async path is for high-volume product events
+     * (gallery.published, user.registered) where the env-URL
+     * subscriber is the receiver (not a security team on the DB
+     * subscription side). The security-team triage use case the
+     * ledger exists for is the SYNC path (billing.recipient_* — the
+     * same low-volume security-page events the Iter-9 sync-vs-async
+     * contract was scoped to). If a security team ever subscribes to
+     * gallery.published at high volume, the deferred work is to
+     * thread the WebhookDelivery model into the anonymous job class
+     * (one row per dequeue, bounded by the retention cleanup).
      *
      * @param  string $eventType  The event name (e.g. 'gallery.published')
      * @param  array  $payload    The event data

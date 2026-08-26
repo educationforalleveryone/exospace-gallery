@@ -471,6 +471,18 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
           ->whereNumber('subscription')
           ->middleware('throttle:30,1');
 
+    // ITERATION 11 — per-subscription delivery history page.
+    // Read-only surface backed by the webhook_deliveries ledger
+    // table. The operator's triage view for "did the security team
+    // receive the recipient_added webhook last Tuesday?" — paginated
+    // list of every delivery row for this subscription. No audit
+    // log row (view list ≠ export PII — same precedent as the
+    // billing review index page). No throttle — read-only views
+    // don't need spam protection (and the super-admin + MFA gate
+    // is already in front).
+    Route::get   ('webhooks/{subscription}/deliveries',  [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'deliveries'])->name('webhooks.deliveries')
+          ->whereNumber('subscription');
+
     // M-13: Admin impersonation — start (requires super-admin + password.confirm + feature flag)
     Route::post('/users/{user}/impersonate',           [SystemController::class, 'impersonate'])->name('impersonate')
           ->middleware('password.confirm', 'feature_flag:admin_impersonation');

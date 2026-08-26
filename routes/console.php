@@ -223,3 +223,17 @@ Schedule::call(function () {
     ->name('gdpr-deletion-processing')
     ->withoutOverlapping(60)
     ->onOneServer();
+
+// ── ITERATION 11: prune the webhook_deliveries ledger. ───────────────
+// One row per OutboundWebhookService::dispatch completion (success OR
+// retry-exhausted) — unbounded row growth without this prune. Default
+// retention: 30 days (configurable via OUTBOUND_WEBHOOK_LEDGER_
+// RETENTION_DAYS). Runs daily at 03:17 (off-peak, before the 04:30
+// GDPR-deletion-processing and the 05:00 backup window — keeps the
+// retention batch isolated). Audit-logged as webhook.deliveries_pruned
+// (target = newest surviving row, same convention as RunMonitoredBackup).
+Schedule::command('webhook-deliveries:prune')
+    ->dailyAt('03:17')
+    ->name('webhook-deliveries-prune')
+    ->withoutOverlapping(60)
+    ->onOneServer();

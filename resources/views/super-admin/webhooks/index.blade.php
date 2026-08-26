@@ -111,11 +111,61 @@
         </form>
     </div>
 
+    {{-- ── Per-event subscription count tiles (ITERATION 11) ─────────── --}}
+    @php
+        // Pivot the {event_type, is_active, count} rows into a per-event
+        // shape: [event_type => ['active' => N, 'paused' => M]]. Done in
+        // PHP instead of SQL so the rendering is one @foreach over
+        // events + one @isset for each branch (no SQL CASE WHEN).
+        $byEvent = [];
+        foreach ($eventCounts as $row) {
+            $et = $row->event_type;
+            if (! isset($byEvent[$et])) {
+                $byEvent[$et] = ['active' => 0, 'paused' => 0];
+            }
+            $byEvent[$et][$row->is_active ? 'active' : 'paused'] = $row->cnt;
+        }
+        ksort($byEvent);
+    @endphp
+    @if(! empty($byEvent))
+    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h2 class="text-lg font-bold text-white">Per-event subscription counts</h2>
+            <div class="text-[11px] text-gray-500">aggregated across all pages</div>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">
+            Quick triage surface — at a glance see which events have multiple subscribers (a noisy event the security team
+            might be over-subscribed to) and which have paused subscribers (a subscriber that was disabled for incident
+            triage without being deleted).
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            @foreach($byEvent as $eventType => $counts)
+                <div class="bg-gray-800/50 border border-gray-700/40 rounded-lg px-4 py-3">
+                    <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 break-all">{{ $eventType }}</div>
+                    <div class="flex items-center gap-3 text-sm">
+                        <span class="text-emerald-300 font-mono">{{ $counts['active'] }} active</span>
+                        @if($counts['paused'] > 0)
+                            <span class="text-gray-500">·</span>
+                            <span class="text-gray-400 font-mono">{{ $counts['paused'] }} paused</span>
+                        @endif
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- ── Subscriptions list ────────────────────────────────────────── --}}
     <div class="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white">Active subscriptions</h2>
-            <div class="text-[11px] text-gray-500">{{ $subscriptions->total() ?? 0 }} total · paginated 25/page</div>
+            <div class="text-[11px] text-gray-500">
+                @if($subscriptions instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
+                    {{ $subscriptions->total() }} total · paginated 25/page
+                @else
+                    subscriptions table not yet migrated
+                @endif
+            </div>
         </div>
         <table class="min-w-full divide-y divide-gray-800">
             <thead class="bg-gray-800/50">
@@ -124,12 +174,19 @@
                     <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Target URL</th>
                     <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Secret</th>
                     <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                    <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Last delivery</th>
                     <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Added</th>
                     <th class="px-5 py-2 text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-800">
                 @forelse($subscriptions as $sub)
+                    @php
+                        // Look up the latest delivery for this subscription (already
+                        // fetched in the controller via latestForSubscriptions() —
+                        // one query for the page, not N+1).
+                        $latest = $latestDeliveries->get($sub->id);
+                    @endphp
                     <tr class="hover:bg-gray-800/30">
                         <td class="px-5 py-3 text-sm text-gray-100 font-mono">{{ $sub->event_type }}</td>
                         <td class="px-5 py-3 text-sm text-gray-200 font-mono break-all">{{ $sub->target_url }}</td>
@@ -147,6 +204,21 @@
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-500/15 text-gray-400 border border-gray-500/30">paused</span>
                             @endif
                         </td>
+                        <td class="px-5 py-3 text-xs">
+                            @if($latest)
+                                <a href="{{ route('super.webhooks.deliveries', $sub) }}" class="hover:underline" title="View delivery history">
+                                    @if($latest->success)
+                                        <span class="text-emerald-300">✓ HTTP {{ $latest->http_status }}</span>
+                                    @else
+                                        <span class="text-red-400">✗ {{ $latest->http_status ? 'HTTP ' . $latest->http_status : 'no response' }}</span>
+                                    @endif
+                                    <span class="text-gray-500"> · attempt {{ $latest->attempt_count }}/{{ \App\Services\OutboundWebhookService::MAX_RETRIES }}</span>
+                                    <div class="text-[10px] text-gray-500">{{ $latest->delivered_at?->diffForHumans() }}</div>
+                                </a>
+                            @else
+                                <span class="text-gray-600" title="no delivery recorded yet — the dispatch path hasn't fired for this subscription since the ledger was created">—</span>
+                            @endif
+                        </td>
                         <td class="px-5 py-3 text-xs text-gray-400">
                             {{ $sub->created_at?->diffForHumans() }}
                             @if($sub->addedBy)
@@ -155,6 +227,9 @@
                         </td>
                         <td class="px-5 py-3 text-right">
                             <div class="flex justify-end gap-2">
+                                <a href="{{ route('super.webhooks.deliveries', $sub) }}"
+                                   class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-700 hover:bg-gray-600 text-white"
+                                   title="View delivery history">History</a>
                                 <form method="POST" action="{{ route('super.webhooks.toggle', $sub) }}" class="inline">
                                     @csrf
                                     @method('PATCH')
@@ -180,7 +255,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-5 py-8 text-center text-gray-500">
+                        <td colspan="7" class="px-5 py-8 text-center text-gray-500">
                             No subscriptions yet. The env-var <code>OUTBOUND_WEBHOOK_URL</code> is the only active subscriber
                             @if($envUrl) ({{ $envUrl }}) @endif. Add a subscription above to fan out per-event.
                         </td>
@@ -188,7 +263,7 @@
                 @endforelse
             </tbody>
         </table>
-        @if($subscriptions->hasPages() ?? false)
+        @if($subscriptions instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator && $subscriptions->hasPages())
             <div class="px-5 py-3 border-t border-gray-800">
                 {{ $subscriptions->links() }}
             </div>

@@ -105,9 +105,17 @@ return [
     // The `secret` is used to HMAC-SHA256-sign each payload (X-Exospace-Signature
     // header). The receiver verifies the signature to authenticate the payload.
     // Generate with: openssl rand -hex 16
+    //
+    // ITERATION 11 — `ledger_retention_days` controls the daily prune job
+    // that deletes webhook_deliveries rows older than N days. Default 30.
+    // The ledger is bounded by this retention window — high-volume async
+    // dispatches (gallery.published, user.registered — currently deferred
+    // per the dispatchAsync docblock) would explode row growth unboundedly
+    // without it. The prune command is scheduled daily at 03:17 (off-peak).
     'outbound_webhook' => [
-        'url'    => env('OUTBOUND_WEBHOOK_URL'),
-        'secret' => env('OUTBOUND_WEBHOOK_SECRET'),
+        'url'                  => env('OUTBOUND_WEBHOOK_URL'),
+        'secret'               => env('OUTBOUND_WEBHOOK_SECRET'),
+        'ledger_retention_days' => (int) env('OUTBOUND_WEBHOOK_LEDGER_RETENTION_DAYS', 30),
     ],
 
     '2checkout' => [

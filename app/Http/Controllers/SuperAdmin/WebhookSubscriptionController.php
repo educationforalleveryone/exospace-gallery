@@ -6,6 +6,7 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminAuditLog;
+use App\Models\WebhookDelivery;
 use App\Models\WebhookSubscription;
 use App\Services\OutboundWebhookService;
 use Illuminate\Http\Request;
@@ -34,6 +35,25 @@ use Illuminate\Validation\Rule;
  *   trust bar's third leg — a security team subscribing via a row in
  *   this table now receives the event independently of the audit log
  *   (a security subscriber isn't on the audit log at all).
+ *
+ * ITERATION 11 — per-subscription delivery ledger.
+ *
+ * The management UI gains three surfaces backed by the new
+ * webhook_deliveries table:
+ *   - Per-event subscription count tiles (X active / Y paused for
+ *     each event_type with at least one subscription).
+ *   - Per-subscription "Last delivery" column on the subscriptions
+ *     table (✓ 2xx 3m ago / ✗ 5xx 1h ago / — for no deliveries).
+ *   - Per-subscription delivery history page (paginated list of
+ *     every delivery row for this subscription — the surface an
+ *     operator uses when triaging "did the security team receive
+ *     the recipient_added webhook last Tuesday?").
+ *
+ * The history page is read-only and lists in-system data — no
+ * data leaves the system through the operator's view. Mirroring
+ * the BillingController::index precedent (the billing review list
+ * is NOT audit-logged, only the export CSV is — "view list" ≠
+ * "export PII"), the deliveries() view is NOT audit-logged.
  */
 class WebhookSubscriptionController extends Controller
 {
@@ -69,11 +89,36 @@ class WebhookSubscriptionController extends Controller
         $envUrl = config('services.outbound_webhook.url');
         $envSecret = config('services.outbound_webhook.secret');
 
+        // ITERATION 11 — per-event subscription count tiles. One
+        // aggregate query: COUNT(*) GROUP BY event_type, is_active.
+        // Returns rows like [{event_type:'billing.recipient_added',
+        // is_active:true, count:2}, ...]. The blade view pivots this
+        // into per-event tiles showing "X active / Y paused".
+        $eventCounts = Schema::hasTable('webhook_subscriptions')
+            ? \DB::table('webhook_subscriptions')
+                ->selectRaw('event_type, is_active, COUNT(*) AS cnt')
+                ->groupBy('event_type', 'is_active')
+                ->get()
+            : collect();
+
+        // ITERATION 11 — per-subscription "Last delivery" column.
+        // Fetches the latest delivery row for each subscription on
+        // the current page in TWO queries (not N+1): gather page
+        // subscription IDs → MAX(id) GROUP BY subscription_id → fetch
+        // those rows → keyBy subscription_id. Returns empty when the
+        // webhook_deliveries table doesn't exist yet (fresh install
+        // before the Iter-11 migration runs).
+        $latestDeliveries = ($subscriptions instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
+            ? WebhookDelivery::latestForSubscriptions($subscriptions->getCollection())
+            : collect();
+
         return view('super-admin.webhooks.index', [
-            'subscriptions'   => $subscriptions,
-            'knownEvents'     => self::KNOWN_EVENTS,
-            'envUrl'          => $envUrl,
-            'envSecretSet'    => $envSecret !== null && $envSecret !== '',
+            'subscriptions'     => $subscriptions,
+            'knownEvents'        => self::KNOWN_EVENTS,
+            'envUrl'             => $envUrl,
+            'envSecretSet'       => $envSecret !== null && $envSecret !== '',
+            'eventCounts'        => $eventCounts,
+            'latestDeliveries'   => $latestDeliveries,
         ]);
     }
 
@@ -181,4 +226,47 @@ class WebhookSubscriptionController extends Controller
             ($newState ? 'Enabled ' : 'Disabled ') . $subscription->target_url . ' for ' . $subscription->event_type . '.',
         );
     }
+
+    /**
+     * ITERATION 11 — per-subscription delivery history page.
+     *
+     * Lists every webhook_deliveries row for this subscription,
+     * newest first, paginated 50/page. The surface an operator
+     * uses when triaging "did the security team receive the
+     * recipient_added webhook last Tuesday?" — instead of greping
+     * storage/logs/laravel.log across rotated files.
+     *
+     * Read-only — no audit row. Mirrors the BillingController::index
+     * precedent (the billing review list page is not audit-logged;
+     * only the export CSV is). The operator viewing this page is
+     * not moving data out of the system; the deliveries listed are
+     * already in the database.
+     *
+     * Returns a 404 if the webhook_deliveries table doesn't exist
+     * yet (fresh install before the Iter-11 migration runs). The
+     * subscription row itself is still resolved via route-model
+     * binding, so a missing subscription_id is a 404 from the
+     * route layer before this method runs.
+     */
+    public function deliveries(Request $request, WebhookSubscription $subscription)
+    {
+        $deliveries = Schema::hasTable('webhook_deliveries')
+            ? WebhookDelivery::where('subscription_id', $subscription->id)
+                ->orderByDesc('delivered_at')
+                ->orderByDesc('id')
+                ->paginate(50)
+                ->withQueryString()
+            : collect();
+
+        $latest = $deliveries instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator
+            ? $deliveries->getCollection()->first()
+            : null;
+
+        return view('super-admin.webhooks.deliveries', [
+            'subscription' => $subscription,
+            'deliveries'   => $deliveries,
+            'latest'       => $latest,
+        ]);
+    }
 }
+
