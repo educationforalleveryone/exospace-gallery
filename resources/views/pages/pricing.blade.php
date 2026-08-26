@@ -229,7 +229,7 @@
         <ul class="features">
             <li>
                 <span class="icon"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>5 galleries</strong> · 100 images each
+                <strong>5 galleries</strong> · 100 images total
             </li>
             <li>
                 <span class="icon"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -257,6 +257,21 @@
         <span class="btn btn-primary" style="opacity:0.7;cursor:default;pointer-events:none;">Included in Studio ✓</span>
         @else
         <a href="#" class="btn btn-primary" data-click="openModalAnchor" data-arg="upgrade-modal-pro">Upgrade to Pro — $29</a>
+        {{-- ITERATION-2 (trial wiring): surface the 14-day trial backend
+             (2CO-8 — rate-limited, one per user, no card) to eligible
+             logged-in Free users. Guests get the register deep-link. --}}
+        @auth
+            @if(auth()->user()->plan === 'free' && ! auth()->user()->hasUsedTrial())
+            <form action="{{ route('billing.start-trial', 'pro') }}" method="POST" style="margin-top:0.6rem;">
+                @csrf
+                <button type="submit" class="btn btn-outline" style="width:100%;">
+                    or try Pro free for 14 days →
+                </button>
+            </form>
+            @endif
+        @else
+            <p style="font-size:0.72rem; color:#64748b; margin-top:0.6rem; text-align:center;">New here? <a href="{{ route('register') }}" style="color:#8b5cf6; text-decoration:underline;">Create a free account</a> to start a 14-day Pro trial.</p>
+        @endauth
         @endif
     </div>
 
@@ -272,7 +287,7 @@
         <ul class="features">
             <li>
                 <span class="icon"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
-                <strong>Unlimited galleries · 500 images each</strong>
+                <strong>Unlimited galleries · 500 images total</strong>
             </li>
             <li>
                 <span class="icon"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
@@ -364,7 +379,7 @@
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('Unlimited') !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Images per gallery</td>
+                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Total images</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('10') !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('100') !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('500') !!}</td>
@@ -454,7 +469,7 @@
     <h2>Questions?</h2>
     <details class="faq-item">
         <summary>Is there a free trial for Pro? <span class="plus">+</span></summary>
-        <p>The Free plan is your trial — create a gallery, upload images, and experience the full 3D viewer with two venues. Upgrade anytime when you're ready.</p>
+        <p>Yes — the Free plan lets you build a real gallery with the full 3D viewer (1 gallery, 10 images, two venues), and registered Free users can start a <strong>14-day Pro trial</strong> with no card required. You can also explore Pro and Studio anytime with the paid one-time or subscription options.</p>
     </details>
     <details class="faq-item">
         <summary>Can I upgrade later? <span class="plus">+</span></summary>
@@ -481,7 +496,7 @@
         <h3 id="modal-pro-title" style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Pro — $29</h3>
         <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
         <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
-            <li>5 galleries · 100 images each</li>
+            <li>5 galleries · 100 images total</li>
             <li>7 venues: White Cube, Infinite Void, Industrial Loft, Dark Museum, Zen Gallery, Crystal Cathedral, Nebula Drift</li>
             <li>Background music & exhibition scheduling</li>
             <li>No watermark</li>
@@ -515,7 +530,7 @@
         <h3 id="modal-studio-title" style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Studio — $99</h3>
         <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
         <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
-            <li>Unlimited galleries · 500 images each</li>
+            <li>Unlimited galleries · 500 images total</li>
             <li>All 11 venues including Penthouse, Cyber Gallery, Sculpture Garden, Mirror Lake</li>
             <li>Custom domain (yourname.com)</li>
             <li>White-label branding & logo on every gallery</li>
@@ -555,14 +570,14 @@ window.openModalAnchor = function(id, e) {
     Renders price snippets (Free/Pro/Studio) + FAQ accordion directly in
     search results. Without these schemas, Google won't show the FAQ
     accordion or the price range in SERPs. --}}
-<x-json-ld type="product" :product="['name' => 'Pro', 'price' => 29.00, 'currency' => 'USD', 'description' => 'Exospace Pro plan — unlimited galleries, custom domains, advanced analytics.']" />
+<x-json-ld type="product" :product="['name' => 'Pro', 'price' => 29.00, 'currency' => 'USD', 'description' => 'Exospace Pro plan — 5 galleries with 100 images total, 7 venues, background music, exhibition scheduling, watermark-free galleries.']" />
 <x-json-ld type="product" :product="['name' => 'Studio', 'price' => 99.00, 'currency' => 'USD', 'description' => 'Exospace Studio plan — everything in Pro plus priority support and white-label branding.']" />
 {{-- ITERATION-1 FIX: the escaped quotes inside the inline :faqs attribute --}}
 {{-- silently broke the component's expression evaluation — the FAQPage --}}
 {{-- schema never rendered. Build the array in a PHP block and pass the variable. --}}
 @php
     $pricingFaqs = [
-        ['question' => 'Is there a free trial for Pro?', 'answer' => 'The Free plan is your trial — create a gallery, upload images, and experience the full 3D viewer with two venues. Upgrade anytime when you\'re ready.'],
+        ['question' => 'Is there a free trial for Pro?', 'answer' => 'The Free plan lets you build a real gallery with the full 3D viewer, and registered Free users can start a 14-day Pro trial with no card required.'],
         ['question' => 'Can I upgrade later?', 'answer' => 'Yes. Start Free and upgrade to Pro or Studio at any time. Your existing gallery and images carry over instantly.'],
         ['question' => 'What payment methods do you accept?', 'answer' => 'We accept all major credit cards, PayPal, and other methods available through 2Checkout at checkout.'],
         ['question' => 'What happens to my gallery if I don\'t upgrade?', 'answer' => 'Nothing. Your gallery stays live and public. The only difference is the small "Created with Exospace" watermark in the corner.'],

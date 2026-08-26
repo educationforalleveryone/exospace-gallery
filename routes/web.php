@@ -311,6 +311,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // NEW (Round 2): gallery duplication
     Route::post('galleries/{gallery}/duplicate', [\App\Http\Controllers\Admin\GalleryController::class, 'duplicate'])->name('galleries.duplicate');
 
+    // ITERATION-2 (publish moment): explicit publish / unpublish actions.
+    // Draft-by-default galleries go live through POST …/publish (requires
+    // at least one artwork) and return to draft through POST …/unpublish.
+    Route::post('galleries/{gallery}/publish',   [\App\Http\Controllers\Admin\GalleryController::class, 'publish'])->name('galleries.publish');
+    Route::post('galleries/{gallery}/unpublish', [\App\Http\Controllers\Admin\GalleryController::class, 'unpublish'])->name('galleries.unpublish');
+
     Route::post('galleries/{gallery}/upload-audio',   [\App\Http\Controllers\Admin\GalleryController::class, 'uploadAudio'])->name('galleries.upload-audio');
     Route::post('galleries/{gallery}/upload-logo',    [\App\Http\Controllers\Admin\GalleryController::class, 'uploadLogo'])->name('galleries.upload-logo');
     Route::post('galleries/{gallery}/reorder-images', [\App\Http\Controllers\Admin\GalleryController::class, 'reorderImages'])->name('galleries.reorder-images');

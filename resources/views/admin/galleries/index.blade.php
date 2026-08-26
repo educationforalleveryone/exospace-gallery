@@ -54,7 +54,7 @@
             @if(!auth()->user()->canCreateGallery() && !$activeTeam)
             <div class="mb-6 flex items-center gap-3 bg-purple-950/50 border border-purple-600/40 rounded-xl px-4 py-3">
                 <svg class="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <p class="flex-1 text-sm text-purple-200">You're on the Free plan — 1 gallery maximum. Upgrade to Pro for unlimited galleries and more image slots.</p>
+                <p class="flex-1 text-sm text-purple-200">You're on the Free plan — 1 gallery maximum. Upgrade to Pro for {{ config('plans.limits.pro.max_galleries') }} galleries and more image slots.</p>
                 <a href="/pricing" class="flex-shrink-0 text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition whitespace-nowrap">Upgrade — $29</a>
             </div>
             @endif
@@ -139,8 +139,11 @@
                                 </div>
                                 
                                 <!-- Actions -->
+                                {{-- ITERATION-2: draft cards offer Preview + Publish (the public
+                                     URL 404s while draft, so View/Share are meaningless). --}}
+                                @if($gallery->is_active)
                                 <div class="grid grid-cols-2 gap-2 mb-2">
-                                    <a href="{{ route('gallery.view', $gallery->slug) }}" target="_blank" 
+                                    <a href="{{ route('gallery.view', $gallery->slug) }}" target="_blank"
                                        class="bg-gray-700 hover:bg-gray-600 text-center text-gray-100 font-medium py-2 px-3 rounded-lg transition text-sm">
                                         View
                                     </a>
@@ -149,6 +152,29 @@
                                         Share
                                     </button>
                                 </div>
+                                @elseif($canEdit)
+                                <div class="grid grid-cols-2 gap-2 mb-2">
+                                    <a href="{{ route('admin.galleries.preview', $gallery) }}" target="_blank"
+                                       class="bg-gray-700 hover:bg-gray-600 text-center text-gray-100 font-medium py-2 px-3 rounded-lg transition text-sm">
+                                        Preview
+                                    </a>
+                                    @if($gallery->images->isNotEmpty())
+                                    <form action="{{ route('admin.galleries.publish', $gallery) }}" method="POST">
+                                        @csrf
+                                        <button type="submit"
+                                                class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-center text-white font-semibold py-2 px-3 rounded-lg transition text-sm">
+                                            Publish
+                                        </button>
+                                    </form>
+                                    @else
+                                    <a href="{{ route('admin.galleries.edit', $gallery) }}#image-upload-dropzone"
+                                       title="Upload at least one artwork to publish"
+                                       class="bg-gray-700 text-gray-400 cursor-not-allowed text-center font-medium py-2 px-3 rounded-lg transition text-sm">
+                                        Publish
+                                    </a>
+                                    @endif
+                                </div>
+                                @endif
                                 <div class="grid grid-cols-2 gap-2">
                                     <a href="{{ route('admin.galleries.edit', $gallery) }}"
                                        class="bg-purple-600 hover:bg-purple-700 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">

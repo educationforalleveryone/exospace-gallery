@@ -370,6 +370,10 @@ $venueAtmospheres = [
                     </div>{{-- /x-data advanced --}}
 
                     <div class="mt-6 flex justify-end gap-3">
+                        <p class="mr-auto text-xs text-gray-500 self-center hidden sm:block">
+                            {{-- ITERATION-2: set the expectation of the draft→publish flow. --}}
+                            Created as a private draft — you'll upload artworks and hit “Publish” on the next screen.
+                        </p>
                         <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-100 font-semibold py-2 px-6 rounded-lg transition">
                             Cancel
                         </a>

@@ -111,6 +111,14 @@ class GalleryController extends Controller
                 'user_id'          => $user->id,
                 'team_id'          => $team?->id,
                 'title'            => $validated['title'],
+                // ITERATION-2 (TTFE / publish moment): new galleries start
+                // as DRAFTS. Before this, galleries went live the instant
+                // they were created — an empty room was instantly public
+                // (the "empty live gallery" problem) and there was no
+                // publish moment at all. The DB column default is also
+                // flipped by the paired migration; setting it explicitly
+                // here keeps the intent readable regardless of DB default.
+                'is_active'        => false,
                 'description'      => $validated['description'] ?? null,
                 'wall_texture'     => $validated['wall_texture'],
                 'frame_style'      => $validated['frame_style'],
@@ -143,7 +151,6 @@ class GalleryController extends Controller
         // routes it + Let's Encrypt provisions a cert. Failures are logged
         // but do NOT fail the gallery creation — the user can retry the
         // domain setup separately.
-        $redirectParams = $team ? ['team' => $team->id] : [];
 
         if ($customDomain) {
             $result = $this->coolify->addDomain($customDomain);
@@ -154,8 +161,8 @@ class GalleryController extends Controller
                     'reason'     => $result['message'],
                 ]);
                 // Surface a soft warning to the user via session flash
-                return redirect()->route('admin.galleries.index', $redirectParams)
-                    ->with('status', 'Gallery created! You can now upload images.')
+                return redirect()->route('admin.galleries.edit', $gallery)
+                    ->with('status', 'Gallery created as a draft — upload your artworks, then publish.')
                     ->with('warning', "Custom domain could not be auto-configured in Coolify: {$result['message']} DNS + SSL setup will need to be done manually.");
             }
         }
@@ -178,8 +185,71 @@ class GalleryController extends Controller
             }
         }
 
-        return redirect()->route('admin.galleries.index', $redirectParams)
-                         ->with('status', 'Gallery created! You can now upload images.');
+        // ITERATION-2 (TTFE): land the curator directly on the edit page —
+        // the upload dropzone, artwork metadata editor and the Publish
+        // button all live there. Redirecting to the gallery index after
+        // creation forced an extra navigation + hunt for the "Edit" button
+        // on every single first-gallery journey.
+        return redirect()->route('admin.galleries.edit', $gallery)
+                         ->with('status', 'Gallery created as a draft — upload your artworks, then publish.');
+    }
+
+    // ── Publish / Unpublish (ITERATION-2: the publish moment) ────────────
+
+    /**
+     * Publish (make live) a draft gallery.
+     *
+     * Guards:
+     *  - editor rights (GalleryPolicy::update — owner or team editor)
+     *  - at least one artwork: publishing an empty room shows visitors a
+     *    blank exhibition, which destroys professional trust. The curator
+     *    must upload at least one image first (preview still works on
+     *    drafts, so the work can be reviewed before this gate).
+     */
+    public function publish(Request $request, Gallery $gallery): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
+
+        if ($gallery->images()->count() === 0) {
+            $message = 'Add at least one artwork before publishing — visitors would see an empty exhibition.';
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return back()->with('error', $message);
+        }
+
+        if (! $gallery->is_active) {
+            $gallery->is_active = true;
+            $gallery->save();
+            $this->invalidateGalleryCaches($gallery);
+        }
+
+        $message = 'Exhibition is live! Share your link to get your first view.';
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => $message, 'is_active' => true]);
+        }
+        return back()->with('status', $message);
+    }
+
+    /**
+     * Unpublish (return to draft). The public URL 404s immediately; the
+     * gallery and all its artwork/settings are untouched.
+     */
+    public function unpublish(Request $request, Gallery $gallery): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
+
+        if ($gallery->is_active) {
+            $gallery->is_active = false;
+            $gallery->save();
+            $this->invalidateGalleryCaches($gallery);
+        }
+
+        $message = 'Exhibition is back to draft — the public link is now inactive.';
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => $message, 'is_active' => false]);
+        }
+        return back()->with('status', $message);
     }
 
     // ── Duplicate (clone) ─────────────────────────────────────────────────
@@ -210,7 +280,11 @@ class GalleryController extends Controller
         $clone->title       = $gallery->title . ' (Copy)';
         $clone->slug        = null; // boot() will generate a new one
         $clone->view_count  = 0;
-        $clone->is_active   = true;
+        // ITERATION-2 FIX: the clone previously forced is_active = true,
+        // publishing a copy of a DRAFT gallery instantly. The clone now
+        // inherits the source's publish state (replicate() already copies
+        // it — this line just resets the volatile fields).
+        $clone->is_active   = $gallery->is_active;
 
         // Copy audio + logo files on disk so the clone is independent
         if ($gallery->audio_path) {
@@ -289,9 +363,24 @@ class GalleryController extends Controller
     public function edit(Gallery $gallery): View
     {
         $this->authorizeGalleryAccess($gallery);
-        $gallery->load('images', 'venueTemplate');
+        // 'team.owner' is eager-loaded for the plan-holder-aware quota
+        // display in the upload section (ITERATION-2).
+        $gallery->load('images', 'venueTemplate', 'team.owner');
         $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
-        return view('admin.galleries.edit', compact('gallery', 'venueTemplates'));
+
+        // ITERATION-2 (artwork metadata UI): artist options for the
+        // per-artwork metadata modal. Scoped to artists the curator
+        // created PLUS artists already attributed inside this gallery —
+        // keeps the dropdown small without hiding attributions that are
+        // already on the wall. The full artist directory stays at
+        // /admin/artists.
+        $artistOptions = \App\Models\Artist::query()
+            ->where('created_by', $gallery->user_id)
+            ->orWhereIn('id', $gallery->images->pluck('artist_id')->filter())
+            ->orderBy('name')
+            ->pluck('name', 'id');
+
+        return view('admin.galleries.edit', compact('gallery', 'venueTemplates', 'artistOptions'));
     }
 
     // ── Live Preview iframe target ────────────────────────────────────────
@@ -418,13 +507,7 @@ class GalleryController extends Controller
         // invalidation, we'd need to track each cache key individually —
         // error-prone and incomplete. CacheTagService handles both Redis
         // native tags (production) and key-tracking fallback (dev/CI).
-        $cacheTags = app(\App\Services\CacheTagService::class);
-        $cacheTags->invalidateTags([
-            "analytics:gallery:{$gallery->id}",
-            "gallery:{$gallery->id}",
-            'og',
-            'sitemap',
-        ]);
+        $this->invalidateGalleryCaches($gallery);
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Gallery settings updated!']);
@@ -1015,6 +1098,22 @@ class GalleryController extends Controller
             "The \"{$venue->name}\" venue requires the " . ucfirst($venue->plan_required) .
             " plan. Please choose a venue available on your current plan or upgrade."
         );
+    }
+
+    /**
+     * ITERATION-2: shared cache invalidation for publish-state changes.
+     * A gallery flipping draft↔live affects the public gallery view, the
+     * OG image, the sitemap (published galleries only) and analytics
+     * displays — the same tag set the settings-update path invalidates.
+     */
+    private function invalidateGalleryCaches(Gallery $gallery): void
+    {
+        app(\App\Services\CacheTagService::class)->invalidateTags([
+            "analytics:gallery:{$gallery->id}",
+            "gallery:{$gallery->id}",
+            'og',
+            'sitemap',
+        ]);
     }
 
     private function galleryValidationRules(bool $isUpdate = false): array

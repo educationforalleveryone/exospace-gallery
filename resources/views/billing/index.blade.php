@@ -37,9 +37,9 @@
                     @if($user->plan === 'free')
                         <p class="text-xs text-gray-500 mt-1">1 gallery · 10 images</p>
                     @elseif($user->plan === 'pro')
-                        <p class="text-xs text-gray-500 mt-1">5 galleries · 100 images</p>
+                        <p class="text-xs text-gray-500 mt-1">5 galleries · 100 images total</p>
                     @elseif($user->plan === 'studio')
-                        <p class="text-xs text-gray-500 mt-1">Unlimited galleries · 500 images</p>
+                        <p class="text-xs text-gray-500 mt-1">Unlimited galleries · 500 images total</p>
                     @endif
                 </div>
 
@@ -128,6 +128,24 @@
                 {{-- Upgrade CTAs --}}
                 @if($user->plan === 'free')
                 <div class="mt-6 space-y-2">
+                    {{-- ITERATION-2 (trial wiring): the 14-day trial backend
+                         (rate-limited, no card, one per user) existed since
+                         2CO-8 but NOTHING linked to it. Offer it to eligible
+                         free users right above the paid CTAs. --}}
+                    @if(! $user->hasUsedTrial())
+                    <div class="mb-3 rounded-xl border border-indigo-500/30 bg-indigo-950/30 px-4 py-3">
+                        <p class="text-xs text-indigo-200 leading-relaxed">
+                            Not ready to pay? <span class="font-semibold text-indigo-100">Try Pro free for 14 days</span> — every Pro feature, no card required.
+                        </p>
+                        <form action="{{ route('billing.start-trial', 'pro') }}" method="POST" class="mt-2.5">
+                            @csrf
+                            <button type="submit"
+                                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 rounded-xl transition text-sm">
+                                Start 14-day Pro trial
+                            </button>
+                        </form>
+                    </div>
+                    @endif
                     {{-- M-1: Offer both one-time + recurring (subscription) options --}}
                     @php
                         $recurringProPrice = config('services.2checkout.recurring_price_pro_monthly', '4.99');

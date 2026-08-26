@@ -331,16 +331,16 @@
                 </div>
 
                 <h3 id="upgrade-heading" class="text-lg font-bold text-white mb-1">You've used your 1 gallery</h3>
-                <p class="text-sm text-gray-400 mb-4">Pro unlocks unlimited galleries, more images, background music, and exhibition scheduling.</p>
+                <p class="text-sm text-gray-400 mb-4">Pro unlocks {{ config('plans.limits.pro.max_galleries') }} galleries, more images, background music, and exhibition scheduling.</p>
 
                 <div class="bg-gray-800 rounded-xl p-3 mb-5 text-left space-y-2">
                     <div class="flex items-center gap-2 text-xs text-gray-300">
                         <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                        Unlimited galleries
+                        {{ config('plans.limits.pro.max_galleries') }} galleries · {{ config('plans.limits.pro.max_images') }} images total
                     </div>
                     <div class="flex items-center gap-2 text-xs text-gray-300">
                         <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                        50 images per gallery (free: 10)
+                        7 venues including Industrial Loft &amp; Dark Museum
                     </div>
                     <div class="flex items-center gap-2 text-xs text-gray-300">
                         <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>

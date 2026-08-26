@@ -25,7 +25,7 @@
         <ol style="color: #4b5563; line-height: 2; margin-bottom: 20px;">
             <li>Upload your images</li>
             <li>Pick a venue (White Cube, Industrial Loft, Dark Museum, and more)</li>
-            <li>Toggle "Active" to publish</li>
+            <li>Hit "Publish" to make your exhibition public</li>
             <li>Share the link with your audience</li>
         </ol>
         <p>That's it — no coding required. Your visitors get an immersive, walkable 3D gallery that works on any device.</p>

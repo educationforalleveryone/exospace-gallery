@@ -19,13 +19,13 @@
     <div class="container">
         <div class="logo">EXOSPACE</div>
         <h2>Your gallery "{{ $gallery->title }}" is ready!</h2>
-        <p>Great work, {{ $user->name }}! You've created your first 3D gallery on Exospace. Now let's add some artwork and make it live.</p>
+        <p>Great work, {{ $user->name }}! You've created your first 3D gallery on Exospace. It starts as a private draft — now let's hang some artwork and publish it.</p>
         <div class="steps">
             <strong style="color: #1f2937;">Next steps:</strong>
             <ol>
                 <li>Upload your images — JPEG, PNG, or WebP up to 10MB each</li>
-                <li>Pick a venue (White Cube, Industrial Loft, Dark Museum, and more)</li>
-                <li>Toggle "Active" to publish your gallery</li>
+                <li>Add titles, prices and artist credits to each artwork</li>
+                <li>Preview the exhibition in 3D, then hit "Publish" to make it public</li>
                 <li>Share the link with your audience</li>
             </ol>
         </div>

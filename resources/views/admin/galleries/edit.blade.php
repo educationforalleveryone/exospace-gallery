@@ -273,6 +273,78 @@
                 @endif
             </div>
 
+            {{-- ── ITERATION-2: Publish status bar (the publish moment) ────────
+                 Draft → amber banner + Publish button (needs ≥1 artwork).
+                 Live  → green banner + public link + Unpublish.
+                 Placed ABOVE the settings form so publish state is the
+                 first thing the curator sees, matching its product weight. --}}
+            @php
+                $imageCount  = $gallery->images()->count();
+                $publicUrl   = $gallery->custom_domain
+                    ? 'https://' . $gallery->custom_domain
+                    : route('gallery.view', $gallery->slug);
+                $canPublish  = $imageCount > 0;
+            @endphp
+            @if($gallery->is_active)
+                <div class="bg-green-950/40 border border-green-700/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <span class="inline-flex items-center gap-2 flex-shrink-0">
+                        <span class="relative flex h-2.5 w-2.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60"></span>
+                            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                        </span>
+                        <span class="text-green-300 font-semibold text-sm">Live</span>
+                    </span>
+                    <p class="flex-1 text-sm text-green-200/80">
+                        This exhibition is public at
+                        <a href="{{ $publicUrl }}" target="_blank" rel="noopener" class="text-green-300 underline underline-offset-2 hover:text-green-200 break-all">{{ $publicUrl }}</a>
+                    </p>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button type="button" data-click="copyPublicLink" data-arg="{{ $publicUrl }}"
+                                class="inline-flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-100 text-sm font-medium px-3 py-2 rounded-lg transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                            Copy link
+                        </button>
+                        <form action="{{ route('admin.galleries.unpublish', $gallery) }}" method="POST"
+                              data-confirm="Unpublish this exhibition? The public link will stop working immediately.">
+                            @csrf
+                            <button type="submit"
+                                    class="inline-flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium px-3 py-2 rounded-lg transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                Unpublish
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            @else
+                <div class="bg-amber-950/40 border border-amber-700/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <span class="inline-flex items-center gap-2 flex-shrink-0">
+                        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        <span class="text-amber-300 font-semibold text-sm">Draft</span>
+                    </span>
+                    <p class="flex-1 text-sm text-amber-200/80">
+                        {{ $canPublish
+                            ? "Only you can see this exhibition. Publish when you're ready to go public."
+                            : 'Only you can see this exhibition. Upload at least one artwork to enable publishing.' }}
+                    </p>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <a href="{{ route('admin.galleries.preview', $gallery) }}" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-100 text-sm font-medium px-3 py-2 rounded-lg transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            Preview
+                        </a>
+                        <form action="{{ route('admin.galleries.publish', $gallery) }}" method="POST">
+                            @csrf
+                            <button type="submit" {{ $canPublish ? '' : 'disabled' }}
+                                    title="{{ $canPublish ? 'Make this exhibition public' : 'Upload at least one artwork to publish' }}"
+                                    class="inline-flex items-center gap-1.5 {{ $canPublish ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-lg shadow-green-900/30' : 'bg-gray-700 cursor-not-allowed opacity-60' }} text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Publish
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            @endif
+
             <!-- 1. Gallery Settings -->
             <div class="bg-gray-800 border border-gray-700 shadow-lg sm:rounded-lg p-6">
                 <h3 class="text-lg font-medium text-gray-100 mb-4">Gallery Settings</h3>
@@ -835,11 +907,19 @@
                 <h3 class="text-lg font-medium text-gray-100 mb-4">Upload Artworks</h3>
 
                 @php
-                    $imgCount = $gallery->images()->count();
-                    $imgMax   = Auth::user()->max_images;
-                    $imgPct   = $imgMax > 0 ? min(($imgCount / $imgMax) * 100, 100) : 0;
-                    $imgNear  = $imgPct >= 80;
-                    $imgFull  = $imgCount >= $imgMax;
+                    // ITERATION-2 (plan-copy alignment): quota display is
+                    // PLAN-HOLDER based (team galleries bill against the
+                    // team owner — previously showed the acting editor's
+                    // limits) and reflects the real semantics: max_images
+                    // is a TOTAL across all the holder's galleries, not
+                    // a per-gallery cap.
+                    $planHolder = $gallery->team_id ? $gallery->team->owner : Auth::user();
+                    $imgCount   = $gallery->images()->count();
+                    $imgUsed    = $planHolder->currentImageCount();
+                    $imgMax     = $planHolder->max_images;
+                    $imgPct     = $imgMax > 0 ? min(($imgUsed / $imgMax) * 100, 100) : 0;
+                    $imgNear    = $imgPct >= 80;
+                    $imgFull    = $imgUsed >= $imgMax;
                 @endphp
 
                 @if($imgNear || $imgFull)
@@ -848,14 +928,14 @@
                     <svg class="w-4 h-4 {{ $imgFull ? 'text-red-400' : 'text-amber-400' }} flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                     <p class="flex-1 text-sm {{ $imgFull ? 'text-red-200' : 'text-amber-200' }}">
                         @if($imgFull)
-                            This gallery has reached its {{ $imgMax }}-image limit.
-                            @if(!Auth::user()->isPro()) Upgrade to Pro for 50 images per gallery. @endif
+                            You've reached your plan's {{ $imgMax }}-image total (across all galleries).
+                            @if(!$planHolder->isPro()) Upgrade to Pro for 100 images total. @endif
                         @else
-                            @php $slotsLeft = $imgMax - $imgCount; @endphp
-                            {{ $imgCount }} of {{ $imgMax }} images used — {{ $slotsLeft }} slot{{ $slotsLeft === 1 ? '' : 's' }} remaining.
+                            @php $slotsLeft = $imgMax - $imgUsed; @endphp
+                            {{ $imgUsed }} of {{ $imgMax }} images used across your galleries — {{ $slotsLeft }} slot{{ $slotsLeft === 1 ? '' : 's' }} remaining.
                         @endif
                     </p>
-                    @if(!Auth::user()->isPro())
+                    @if(!$planHolder->isPro())
                     <a href="/pricing" class="flex-shrink-0 text-xs font-semibold {{ $imgFull ? 'bg-red-600 hover:bg-red-500' : 'bg-amber-600 hover:bg-amber-500' }} text-white px-3 py-1.5 rounded-lg transition whitespace-nowrap">
                         Upgrade
                     </a>
@@ -866,8 +946,8 @@
                 @if($imgFull)
                 <div class="border-2 border-dashed border-gray-700 rounded-lg bg-gray-900/30 px-6 py-10 text-center">
                     <svg class="w-10 h-10 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                    <p class="text-gray-500 text-sm">Upload slot full — {{ $imgMax }} of {{ $imgMax }} images used.</p>
-                    @if(!Auth::user()->isPro())
+                    <p class="text-gray-500 text-sm">Upload limit reached — {{ $imgUsed }} of {{ $imgMax }} images used on your plan.</p>
+                    @if(!$planHolder->isPro())
                         <a href="/pricing" class="text-xs text-purple-400 hover:text-purple-300 mt-2 inline-block underline underline-offset-2 transition">Upgrade for more image slots →</a>
                     @endif
                 </div>
@@ -908,7 +988,22 @@
                 @if($gallery->images->count() > 0)
                     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5" id="gallery-grid">
                         @foreach($gallery->images as $image)
-                            <div class="gallery-card relative group bg-gray-900 border border-gray-700 rounded-lg overflow-hidden hover:border-purple-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-900/20" id="image-{{ $image->id }}" data-id="{{ $image->id }}">
+                            <div class="gallery-card relative group bg-gray-900 border border-gray-700 rounded-lg overflow-hidden hover:border-purple-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-900/20" id="image-{{ $image->id }}" data-id="{{ $image->id }}"
+                                 data-metadata='{{ json_encode([
+                                     'id'             => $image->id,
+                                     'title'          => $image->title,
+                                     'description'    => $image->description,
+                                     'artist_id'      => $image->artist_id,
+                                     'price'          => $image->price,
+                                     'currency'       => $image->currency,
+                                     'for_sale'       => (bool) $image->for_sale,
+                                     'medium'         => $image->medium,
+                                     'year'           => $image->year,
+                                     'dimensions'     => $image->dimensions,
+                                     'edition_size'   => $image->edition_size,
+                                     'edition_number' => $image->edition_number,
+                                     'external_url'   => $image->external_url,
+                                 ]) }}'>
 
                                 <!-- 3B: Selection Checkbox -->
                                 <div class="absolute top-3 left-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -935,11 +1030,22 @@
                                     <span class="text-lg font-bold leading-none">&times;</span>
                                 </button>
 
-                                <!-- Caption -->
+                                <!-- Edit Details Button (ITERATION-2: artwork metadata editor) -->
+                                <button data-click="editMetadata" data-arg="{{ $image->id }}"
+                                        type="button"
+                                        class="absolute top-3 left-14 bg-gray-800/80 hover:bg-purple-600 text-gray-200 hover:text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100"
+                                        title="Edit artwork details (title, price, artist…)">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </button>
+
+                                <!-- Caption (ITERATION-2: shows curated title + price, not the filename) -->
                                 <div class="p-3 bg-gray-900 border-t border-gray-800">
-                                    <p class="text-xs text-gray-500 truncate text-center font-medium">
-                                        {{ $image->original_name }}
+                                    <p class="text-xs {{ $image->title ? 'text-gray-300' : 'text-gray-500' }} truncate text-center font-medium" data-role="caption-title">
+                                        {{ $image->title ?: $image->original_name }}
                                     </p>
+                                    @if($image->for_sale && $image->price)
+                                        <p class="text-[11px] text-green-400 text-center mt-0.5" data-role="caption-price">{{ $image->formattedPrice() }}</p>
+                                    @endif
                                 </div>
                             </div>
                         @endforeach
@@ -952,6 +1058,128 @@
                         <p class="text-gray-400">No images yet. Upload your first artwork above!</p>
                     </div>
                 @endif
+            </div>
+
+            {{-- ── ITERATION-2: Artwork metadata editor modal ───────────────────
+                 Wires the previously ORPHANED ImageMetadataController endpoint
+                 (PUT /admin/galleries/{gallery}/images/{image}/metadata —
+                 routed since Round 4 but called by nothing) to a per-artwork
+                 editor. Populated from the card's data-metadata blob; saved
+                 via fetch, card caption updates in place. --}}
+            <div id="metadata-modal" role="dialog" aria-modal="true" aria-labelledby="metadata-modal-title"
+                 style="display:none; position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px);"
+                 class="items-center justify-center p-4 overflow-y-auto"
+                 data-click="closeMetadataModalIfBackdrop">
+                <div class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-2xl mx-auto my-8" role="document">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                        <h3 id="metadata-modal-title" class="text-lg font-semibold text-gray-100">Artwork details</h3>
+                        <button type="button" data-click="closeMetadataModal" aria-label="Close"
+                                class="text-gray-500 hover:text-gray-300 transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <form id="metadata-form" data-submit="saveMetadata" class="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                        <input type="hidden" id="metadata-image-id" name="image_id">
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="sm:col-span-2">
+                                <label for="metadata-title" class="block text-sm font-medium text-gray-300 mb-1">Title</label>
+                                <input type="text" id="metadata-title" name="title" maxlength="255" placeholder="e.g. Untitled (Blue Room)"
+                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+
+                            <div class="sm:col-span-2">
+                                <label for="metadata-description" class="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                                <textarea id="metadata-description" name="description" rows="3" maxlength="1000" placeholder="Shown next to the artwork in the 3D viewer"
+                                          class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
+                            </div>
+
+                            <div class="sm:col-span-2">
+                                <label for="metadata-artist" class="block text-sm font-medium text-gray-300 mb-1">Artist</label>
+                                <select id="metadata-artist" name="artist_id"
+                                        class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                    <option value="">— No artist attribution —</option>
+                                    @foreach($artistOptions ?? [] as $artistId => $artistName)
+                                        <option value="{{ $artistId }}">{{ $artistName }}</option>
+                                    @endforeach
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">Manage artists in <a href="{{ route('admin.artists.index') }}" class="text-purple-400 hover:text-purple-300 underline underline-offset-2">Artist profiles</a>.</p>
+                            </div>
+
+                            <div>
+                                <label for="metadata-medium" class="block text-sm font-medium text-gray-300 mb-1">Medium</label>
+                                <input type="text" id="metadata-medium" name="medium" maxlength="255" placeholder="e.g. Oil on canvas"
+                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+
+                            <div>
+                                <label for="metadata-year" class="block text-sm font-medium text-gray-300 mb-1">Year</label>
+                                <input type="number" id="metadata-year" name="year" min="1000" max="{{ date('Y') + 1 }}" placeholder="{{ date('Y') }}"
+                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+
+                            <div>
+                                <label for="metadata-dimensions" class="block text-sm font-medium text-gray-300 mb-1">Dimensions</label>
+                                <input type="text" id="metadata-dimensions" name="dimensions" maxlength="100" placeholder="e.g. 120 × 90 cm"
+                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+
+                            <div>
+                                <label for="metadata-external-url" class="block text-sm font-medium text-gray-300 mb-1">External link</label>
+                                <input type="url" id="metadata-external-url" name="external_url" maxlength="500" placeholder="https://…"
+                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+
+                            <div class="sm:col-span-2 border-t border-gray-700 pt-4">
+                                <label class="flex items-center gap-2.5 text-sm text-gray-200 cursor-pointer select-none">
+                                    <input type="checkbox" id="metadata-for-sale" name="for_sale" value="1"
+                                           class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-2 focus:ring-purple-500">
+                                    For sale — show price in the viewer
+                                </label>
+                            </div>
+
+                            <div>
+                                <label for="metadata-price" class="block text-sm font-medium text-gray-300 mb-1">Price</label>
+                                <input type="number" id="metadata-price" name="price" min="0" step="0.01" max="99999999.99" placeholder="0.00"
+                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+
+                            <div>
+                                <label for="metadata-currency" class="block text-sm font-medium text-gray-300 mb-1">Currency</label>
+                                <select id="metadata-currency" name="currency"
+                                        class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                    <option value="USD">USD — $</option>
+                                    <option value="EUR">EUR — €</option>
+                                    <option value="GBP">GBP — £</option>
+                                    <option value="PKR">PKR — Rs</option>
+                                </select>
+                            </div>
+
+                            <div class="sm:col-span-2 border-t border-gray-700 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="metadata-edition-size" class="block text-sm font-medium text-gray-300 mb-1">Edition size</label>
+                                    <input type="number" id="metadata-edition-size" name="edition_size" min="1" placeholder="e.g. 12 for a limited edition"
+                                           class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                </div>
+                                <div>
+                                    <label for="metadata-edition-number" class="block text-sm font-medium text-gray-300 mb-1">Edition number</label>
+                                    <input type="text" id="metadata-edition-number" name="edition_number" maxlength="50" placeholder="e.g. 3/12"
+                                           class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-700">
+                            <button type="button" data-click="closeMetadataModal"
+                                    class="bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium px-4 py-2 rounded-lg transition text-sm">Cancel</button>
+                            <button type="submit" id="metadata-save-btn"
+                                    class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold px-5 py-2 rounded-lg transition text-sm shadow-lg shadow-purple-900/30">
+                                Save details
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
 
         </div>
@@ -974,7 +1202,7 @@
         // FIX (Iter-002): this used to be assigned directly to
         // `Dropzone.options.imageUploadDropzone`, which threw
         // "Dropzone is not defined" whenever this script ran before the
-        // async @vite('admin-vendor.js') module (which sets window.Dropzone)
+        // async @@vite('admin-vendor.js') module (which sets window.Dropzone)
         // had finished loading — a plain classic <script> doesn't wait for a
         // type="module" script to finish. Made this a plain object (no
         // reference to the Dropzone global) and moved the actual
@@ -1096,6 +1324,25 @@
         // ── CSP-safe helper functions for data-click / data-input attributes ──
         // These replace inline onclick="..." / oninput="..." handlers that CSP blocks.
         // The delegated listener in layouts/app.blade.php dispatches to these.
+        // ITERATION-2 (publish moment): copy the public gallery URL from the
+        // Live status bar. Resolved by the CSP-safe data-click delegator.
+        window.copyPublicLink = function(url) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(url).then(function() {
+                    toast('Gallery link copied!', 'success');
+                });
+            } else {
+                // Legacy fallback for non-secure contexts (plain HTTP dev).
+                const input = document.createElement('input');
+                input.value = url;
+                document.body.appendChild(input);
+                input.select();
+                try { document.execCommand('copy'); toast('Gallery link copied!', 'success'); }
+                catch (err) { toast('Could not copy — please copy from the address bar', 'error'); }
+                input.remove();
+            }
+        };
+
         window.triggerFileInput = function(inputId) {
             const el = document.getElementById(inputId);
             if (el) el.click();
@@ -1105,6 +1352,139 @@
             const colorInput = document.querySelector('input[name="curtain_bg_color"]');
             if (colorInput && input.value) colorInput.value = input.value;
         };
+        // ─── ITERATION-2: Artwork metadata editor (orphaned endpoint wired) ──
+        // PUT /admin/galleries/{gallery}/images/{image}/metadata — the
+        // endpoint existed since Round 4 but nothing called it. These
+        // handlers are resolved by the CSP-safe data-click/data-submit
+        // delegators in layouts/app.blade.php.
+        const METADATA_FIELDS = ['title', 'description', 'artist_id', 'price', 'currency',
+                                 'medium', 'year', 'dimensions', 'edition_size', 'edition_number', 'external_url'];
+        const metadataModal = () => document.getElementById('metadata-modal');
+
+        window.editMetadata = function(id) {
+            const card = document.getElementById(`image-${id}`);
+            if (!card || !metadataModal()) return;
+
+            let meta = {};
+            try { meta = JSON.parse(card.dataset.metadata || '{}'); } catch (e) { /* fall through with empty */ }
+            document.getElementById('metadata-image-id').value = id;
+
+            for (const field of METADATA_FIELDS) {
+                const input = document.getElementById(`metadata-${field.replace(/_/g, '-')}`);
+                if (!input) continue;
+                if (input.type === 'checkbox') {
+                    input.checked = !!meta.for_sale;
+                } else {
+                    input.value = meta[field] ?? (field === 'currency' ? 'USD' : '');
+                }
+            }
+
+            metadataModal().style.display = 'flex';
+        };
+
+        window.closeMetadataModal = function() {
+            if (metadataModal()) metadataModal().style.display = 'none';
+        };
+
+        window.closeMetadataModalIfBackdrop = function(el, e) {
+            // Only close if the click landed directly on the backdrop.
+            if (e.target === el) el.style.display = 'none';
+        };
+
+        // Escape closes the metadata modal (registered once per page load).
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') window.closeMetadataModal();
+        });
+
+        window.saveMetadata = function(form, e) {
+            e.preventDefault();
+            const id = document.getElementById('metadata-image-id').value;
+            const card = document.getElementById(`image-${id}`);
+            if (!id || !card) return;
+
+            const saveBtn = document.getElementById('metadata-save-btn');
+            const payload = {};
+            for (const field of METADATA_FIELDS) {
+                const input = document.getElementById(`metadata-${field.replace(/_/g, '-')}`);
+                if (!input) continue;
+                if (input.type === 'checkbox') {
+                    payload.for_sale = input.checked;
+                } else {
+                    // Cleared fields send explicit nulls so the backend
+                    // overwrites the old value — omitting the key would
+                    // silently keep it (partial-update semantics).
+                    payload[field] = input.value === '' ? null : input.value;
+                }
+            }
+            // Currency always submits so the select's default doesn't stick
+            // when the curator clears the price.
+            payload.currency = document.getElementById('metadata-currency').value;
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving…';
+
+            fetch(`/admin/galleries/{{ $gallery->id }}/images/${id}/metadata`, {
+                method: 'PUT',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify(payload),
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    // Reflect saved values on the card (title, price, metadata blob).
+                    const img = data.image || {};
+                    const captionTitle = card.querySelector('[data-role="caption-title"]');
+                    if (captionTitle) {
+                        captionTitle.textContent = img.title || card.querySelector('img')?.alt || '';
+                        captionTitle.classList.toggle('text-gray-300', !!img.title);
+                        captionTitle.classList.toggle('text-gray-500', !img.title);
+                    }
+                    let priceEl = card.querySelector('[data-role="caption-price"]');
+                    if (data.formatted_price) {
+                        if (!priceEl) {
+                            priceEl = document.createElement('p');
+                            priceEl.className = 'text-[11px] text-green-400 text-center mt-0.5';
+                            priceEl.setAttribute('data-role', 'caption-price');
+                            captionTitle?.after(priceEl);
+                        }
+                        priceEl.textContent = data.formatted_price;
+                    } else if (priceEl) {
+                        priceEl.remove();
+                    }
+                    card.dataset.metadata = JSON.stringify({
+                        id: Number(id),
+                        title: img.title ?? null,
+                        description: img.description ?? null,
+                        artist_id: img.artist_id ?? null,
+                        price: img.price ?? null,
+                        currency: img.currency ?? null,
+                        for_sale: !!img.for_sale,
+                        medium: img.medium ?? null,
+                        year: img.year ?? null,
+                        dimensions: img.dimensions ?? null,
+                        edition_size: img.edition_size ?? null,
+                        edition_number: img.edition_number ?? null,
+                        external_url: img.external_url ?? null,
+                    });
+                    window.closeMetadataModal();
+                    toast(data.message || 'Artwork details saved.', 'success');
+                } else {
+                    const first = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+                    toast(first || data.message || 'Could not save — check the fields and try again.', 'error');
+                }
+            })
+            .catch(() => toast('Network error — please try again.', 'error'))
+            .finally(() => {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save details';
+            });
+        };
+
         window.closestOverlayRemove = function(el) {
             // Used by Cancel buttons inside dynamically-inserted confirm overlays
             const overlay = el.closest('.absolute');
@@ -1534,7 +1914,7 @@
         }, true);
 
         // ─── BUGFIX: SortableJS init + saveOrder/discardOrder (Round 4) ────
-        // FIX (Iter-002): Sortable is loaded async via @vite('admin-vendor.js').
+        // FIX (Iter-002): Sortable is loaded async via @@vite('admin-vendor.js').
         // The old code did a single check and permanently gave up ("Reorder
         // init skipped") if that module hadn't finished loading yet — which
         // also meant window.saveOrder/discardOrder never got defined for the

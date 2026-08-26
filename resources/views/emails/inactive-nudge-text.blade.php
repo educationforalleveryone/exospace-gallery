@@ -8,7 +8,7 @@ You joined Exospace a while ago but haven't published a gallery yet. Creating yo
 
 1. Upload your images
 2. Pick a venue (White Cube, Industrial Loft, Dark Museum, and more)
-3. Toggle "Active" to publish
+3. Hit "Publish" to make your exhibition public
 4. Share the link with your audience
 
 That's it — no coding required. Your visitors get an immersive, walkable 3D gallery that works on any device.

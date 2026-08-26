@@ -1,17 +1,20 @@
 {{--
-    Curator onboarding checklist (Task H49 / audit MX3).
+    Curator onboarding checklist (Task H49 / audit MX3 — resurrected ITERATION-2).
 
-    Shows a dismissible checklist on the dashboard for new users who
-    haven't completed key activation steps. Each step links to the
-    relevant admin page. The checklist auto-hides once all steps are
-    done or the user dismisses it (stored in localStorage).
+    Shows a dismissible checklist on the dashboard for users mid-journey
+    (galleries exist but the first exhibition isn't published/shared yet).
+    Each step links to the relevant admin page. The checklist auto-hides
+    once all steps are done or the user dismisses it (localStorage).
 
-    Steps:
-      1. Verify your email (links to /verify-email)
-      2. Create your first gallery (links to /admin/galleries/create)
-      3. Upload your first artwork (links to the gallery edit page)
-      4. Publish your gallery (activate it)
-      5. Share your gallery link
+    ITERATION-2 fixes:
+      - Step 4 previously pointed at a nonexistent "Active" toggle in
+        gallery settings. Galleries now have a real publish flow: the
+        Publish button on the gallery edit page (POST
+        /admin/galleries/{id}/publish, requires at least one artwork).
+      - Steps are driven by the data the DashboardController already
+        computes (totalImages, hasPublishedGallery) — previously these
+        props were passed but the component was never rendered anywhere
+        (dead code since it was written).
 
     Usage:
         <x-onboarding-checklist
@@ -27,6 +30,19 @@
     $hasImages = $totalImages > 0;
     $hasPublished = $hasPublishedGallery;
     $allDone = $emailVerified && $hasGallery && $hasImages && $hasPublished;
+
+    // Best targets for the mid-journey links: a gallery still missing
+    // artwork (upload step), else the newest gallery; and the first
+    // draft (publish step), else the newest live gallery (share step).
+    $uploadTarget = $user->galleries()
+        ->whereDoesntHave('images')
+        ->orderBy('created_at')
+        ->first()
+        ?? $user->galleries()->orderBy('created_at')->first();
+    $draftTarget = $user->galleries()->where('is_active', false)
+        ->orderBy('created_at')->first();
+    $liveTarget = $user->galleries()->where('is_active', true)
+        ->orderBy('created_at')->first();
 @endphp
 
 @if(! $allDone)
@@ -81,23 +97,27 @@
                 <span class="text-gray-400 line-through">Upload your first artwork</span>
             @else
                 <svg class="w-4 h-4 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>
-                @if($hasGallery)
-                    <a href="{{ route('admin.galleries.edit', $user->galleries()->first()) }}" class="text-purple-400 hover:text-purple-300 transition">Upload your first artwork</a>
+                @if($uploadTarget)
+                    <a href="{{ route('admin.galleries.edit', $uploadTarget) }}" class="text-purple-400 hover:text-purple-300 transition">Upload your first artwork</a>
                 @else
                     <span class="text-gray-500">Upload your first artwork (create a gallery first)</span>
                 @endif
             @endif
         </div>
 
-        {{-- Step 4: Publish gallery --}}
+        {{-- Step 4: Publish gallery (ITERATION-2: real publish flow) --}}
         <div class="flex items-center gap-3 text-sm">
             @if($hasPublished)
                 <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                 <span class="text-gray-400 line-through">Publish your gallery</span>
             @else
                 <svg class="w-4 h-4 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>
-                @if($hasGallery)
-                    <span class="text-gray-300">Publish your gallery <span class="text-gray-500 text-xs">(toggle "Active" in gallery settings)</span></span>
+                @if($draftTarget)
+                    <a href="{{ route('admin.galleries.edit', $draftTarget) }}" class="text-purple-400 hover:text-purple-300 transition">Publish your gallery</a>
+                    <span class="text-gray-500 text-xs">(hit “Publish” at the top of the gallery page)</span>
+                @elseif($hasGallery)
+                    <span class="text-gray-300">Publish your gallery</span>
+                    <span class="text-gray-500 text-xs">(already live — nice)</span>
                 @else
                     <span class="text-gray-500">Publish your gallery (create one first)</span>
                 @endif
@@ -105,15 +125,15 @@
         </div>
 
         {{-- Step 5: Share --}}
-        @if($hasPublished)
+        @if($hasPublished && $liveTarget)
         <div class="flex items-center gap-3 text-sm">
-            @if($user->galleries()->where('is_active', true)->first()?->view_count > 0)
+            @if($liveTarget->view_count > 0)
                 <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                 <span class="text-gray-400 line-through">Share your gallery link</span>
             @else
                 <svg class="w-4 h-4 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>
                 <span class="text-purple-400 hover:text-purple-300 transition cursor-pointer"
-                      data-click="copyGalleryLink" data-arg="{{ request()->schemeAndHttpHost() }}/gallery/{{ $user->galleries()->where('is_active', true)->first()?->slug }}">
+                      data-click="copyGalleryLink" data-arg="{{ route('gallery.view', $liveTarget->slug) }}">
                     Share your gallery link
                 </span>
             @endif
@@ -133,7 +153,7 @@
 
 {{-- CSP-safe helper for the copy-to-clipboard step (replaced inline onclick) --}}
 <script nonce="@nonce">
-window.copyGalleryLink = function(url, e) {
+window.copyGalleryLink = function(url) {
     if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(function() {
             if (window.toast) window.toast('Gallery link copied!', 'success');
