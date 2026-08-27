@@ -27,6 +27,7 @@
                 <th class="text-left px-4 py-3">Health</th>
                 <th class="text-left px-4 py-3">Score</th>
                 <th class="text-left px-4 py-3">Active Errors</th>
+                <th class="text-left px-4 py-3">Sentry (24 h)</th>
                 <th class="text-left px-4 py-3">Last Sync</th>
                 <th class="text-left px-4 py-3">Diagnostics</th>
             </tr>
@@ -90,6 +91,17 @@
                             <span class="text-slate-600">0</span>
                         @endif
                     </td>
+                    <td class="px-4 py-3">
+                        {{-- Iteration 8: the per-app Sentry trend cell. Mapped
+                             apps get a compact sparkline; unmapped/apps with
+                             the token unset get an honest muted state — the
+                             mapping panel below is where the operator wires
+                             them up (super-admin). --}}
+                        @include('ops.partials.app-sentry-trend', [
+                            'trend' => $sentryTrends[$app->id] ?? [],
+                            'mapped' => filled($app->sentry_project_slug),
+                        ])
+                    </td>
                     <td class="px-4 py-3 text-slate-500 text-xs">{{ $app->status_checked_at?->diffForHumans() ?? '—' }}</td>
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-1.5">
@@ -107,7 +119,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="px-4 py-10 text-center text-slate-500 text-sm">
+                    <td colspan="10" class="px-4 py-10 text-center text-slate-500 text-sm">
                         Nothing synced yet. The scheduled <span class="font-mono">ops:sync-platform</span> command (every 5 minutes)
                         will discover every application, database and service on the Coolify server — provided
                         <span class="font-mono">COOLIFY_API_TOKEN</span> is configured.
@@ -122,5 +134,45 @@
     <p>Rows appear automatically from the Coolify API (provider <span class="font-mono text-slate-500">coolify</span>) and from the ingestion API (provider <span class="font-mono text-slate-500">ingest</span>).</p>
     <p>Status strings are Coolify's raw values; Health is the derived rollup (running / degraded / stopped / unknown).</p>
     <p>The per-row Score is the app-scoped sub-score: health 50% · the app's untriaged errors 30% · the app's active incidents 20%, capped at 65 when the app is stopped and 85 when degraded/untriaged-critical/active-incident — hover a badge for the full breakdown (§16.2).</p>
+    <p>The Sentry column shows each application's own 24 h error trend once it is mapped to a Sentry project below (cache-first, 10-minute refresh; “API error” means the mapped project's stats call failed — hover for the reason).</p>
 </div>
+
+{{-- ── Sentry project mapping (Iteration 8) ─────────────────────────────
+     The AD-9 prerequisite made operator-owned: which Coolify app is
+     which Sentry project. Super-admin-only write (route-enforced); the
+     rest of the page is read-only for viewers/operators, so the panel
+     itself is hidden from them rather than just disabled. --}}
+@if(auth()->user()?->is_super_admin)
+    <div class="mt-6 rounded-lg border border-slate-800 bg-slate-900/40">
+        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+            <div>
+                <h2 class="text-sm font-semibold text-slate-200">Sentry project mapping</h2>
+                <p class="text-[11px] text-slate-500 mt-0.5">Which Sentry project belongs to which application — the prerequisite for the per-app trend column. Slugs live in Sentry URLs (sentry.io/organizations/<span class="font-mono">{{ config('ops.sentry.org') ?: 'your-org' }}</span>/projects/<span class="font-mono">&lt;slug&gt;</span>). Empty = unmapped.</p>
+            </div>
+            @if(! $sentryConfigured)
+                <span class="text-[10px] px-2 py-1 rounded border border-amber-700/50 bg-amber-950/50 text-amber-300 font-semibold shrink-0" title="SENTRY_API_TOKEN / SENTRY_ORG_SLUG are not set — mappings can be saved but no trend will render until they are">API token not configured</span>
+            @endif
+        </div>
+        <div class="divide-y divide-slate-800/60">
+            @forelse($applications as $app)
+                <form method="POST" action="{{ route('ops.applications.sentry', $app) }}" class="px-4 py-2.5 flex items-center gap-3">
+                    @csrf
+                    <div class="w-56 min-w-0">
+                        <div class="text-xs text-slate-200 truncate font-medium">{{ $app->name }}</div>
+                        <div class="text-[10px] text-slate-500 font-mono truncate">{{ $app->slug }}</div>
+                    </div>
+                    <input type="text" name="sentry_project_slug" value="{{ $app->sentry_project_slug }}"
+                           placeholder="not mapped"
+                           maxlength="100"
+                           class="flex-1 max-w-xs px-2.5 py-1.5 rounded bg-slate-950/70 border border-slate-700 text-xs font-mono text-slate-200 placeholder:text-slate-600 focus:border-cyan-600 focus:outline-none"
+                           title="Lowercase letters, digits, dashes, dots, underscores">
+                    <button type="submit" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-medium text-slate-200 transition shrink-0">Save</button>
+                </form>
+            @empty
+                <p class="px-4 py-6 text-center text-slate-500 text-xs">No applications yet — the panel populates once the platform sync runs.</p>
+            @endforelse
+        </div>
+        <p class="px-4 py-2.5 border-t border-slate-800 text-[10px] text-slate-600">Every save is audited (<span class="font-mono">ops.sentry.mapping</span>) with the old → new slug. The token itself stays in env — a slug is a public label, not a secret.</p>
+    </div>
+@endif
 @endsection

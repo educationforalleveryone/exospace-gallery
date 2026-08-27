@@ -325,5 +325,36 @@ return [
     // preview page and the manual button keep working with it off.
     'digest' => [
         'enabled' => filter_var(env('OPS_MORNING_DIGEST_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+
+        // ── Delivery watchdog (Iteration 8) ────────────────────────────
+        // Meta-monitoring the monitor: 30 minutes after the 08:15 send
+        // (daily 08:45), verify the ops:morning-digest:last stamp is from
+        // TODAY. A missing/stale stamp while the digest is enabled means
+        // the silence contract (§16.4) is broken — stale scheduler, a
+        // throwing send path, or a flipped switch — so the watchdog
+        // raises the alarm itself: ONE warning Slack alert (dedup key
+        // ops.digest.missed) + ONE deduplicated INFRASTRUCTURE event
+        // (source 'watchdog') that auto-resolves with a single recovery
+        // note the next healthy morning. Quiet when healthy, exactly
+        // like every other monitor. No-op while the digest itself is
+        // disabled (a suspended contract cannot be broken).
+        'watchdog_enabled' => filter_var(env('OPS_DIGEST_WATCHDOG_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+    ],
+
+    // ── Weekly review (Iteration 8) ──────────────────────────────────
+    //
+    // The Monday deep-dive (08:30, inside the morning-briefing block):
+    // trailing-7-day trends the daily cadence cannot show — error
+    // volume by category, incident throughput with MTTA/MTTR,
+    // deployment activity + failures, the sweep's finding history,
+    // current backup freshness and the week's operator activity.
+    //
+    // NOT a dead-man's switch (the daily digest + the watchdog carry
+    // the silence contract): this is informational, so the switch just
+    // turns it off — nothing is suspended. The /ops/digest preview and
+    // the manual send button keep working with it off. Scheduled send
+    // deduplicated within the alert service's 6 h info TTL.
+    'weekly_review' => [
+        'enabled' => filter_var(env('OPS_WEEKLY_REVIEW_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
     ],
 ];

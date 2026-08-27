@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Ops\Console\CheckDigestDeliveryCommand;
 use App\Ops\Console\CorrelateIncidentsCommand;
 use App\Ops\Console\PruneOpsEventsCommand;
 use App\Ops\Console\SendMorningDigestCommand;
+use App\Ops\Console\SendWeeklyReviewCommand;
 use App\Ops\Console\SweepCredentialsCommand;
 use App\Ops\Console\SweepDiagnosticsCommand;
 use App\Ops\Console\SyncPlatformCommand;
@@ -43,6 +45,8 @@ class OpsServiceProvider extends ServiceProvider
                 SweepDiagnosticsCommand::class,
                 SweepCredentialsCommand::class,
                 SendMorningDigestCommand::class,
+                SendWeeklyReviewCommand::class,
+                CheckDigestDeliveryCommand::class,
             ]);
         }
 

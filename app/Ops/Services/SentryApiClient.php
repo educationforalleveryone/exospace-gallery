@@ -10,10 +10,12 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * OpsCenter — SentryApiClient (Iteration 4; error trend in 6).
+ * OpsCenter — SentryApiClient (Iteration 4; error trend in 6; per-app
+ * trend in 8).
  *
- * A read-only, TWO-endpoint bridge to the Sentry REST API backing the
- * overview's "Sentry — Unresolved Issues" tile:
+ * A read-only, THREE-call bridge to the Sentry REST API backing the
+ * overview's "Sentry — Unresolved Issues" tile and the Applications
+ * page's per-app trend column:
  *   summary() (Iteration 4) — issue HEADLINES via
  *     GET /api/0/organizations/{org}/issues/ (title, culprit, counts,
  *     permalink) so the operator sees the full platform picture in
@@ -23,6 +25,10 @@ use Throwable;
  *     GET /api/0/organizations/{org}/events-stats/ (yAxis=count(),
  *     interval=1h), rendered as a pure-SVG sparkline in the same tile:
  *     "is this spike new or the baseline?" answered at a glance.
+ *   trendFor() (Iteration 8) — the SAME stats endpoint scoped to ONE
+ *     project slug (the operator-supplied ops_applications.
+ *     sentry_project_slug mapping), so the Applications page can answer
+ *     "which app is actually throwing?" without leaving OpsCenter.
  *
  * Independence note: SENTRY_LARAVEL_DSN (error REPORTING) and
  * SENTRY_API_TOKEN (this summary pull) are separate concerns on purpose.
@@ -36,7 +42,10 @@ use Throwable;
  * never slow the dashboard or be hammered by every page load. The trend
  * is cached under its OWN key: a failing stats endpoint (e.g. a token
  * without the event:read scope) must not poison the headlines cache, and
- * vice versa.
+ * vice versa. trendFor() extends the same rule PER PROJECT: each mapped
+ * application gets its own cache key (ops:sentry:trend:{slug}), so one
+ * app's failing/absent project can never poison the org trend or its
+ * siblings' caches.
  *
  * API: GET /api/0/organizations/{org}/issues/ with
  *   query=is:unresolved, statsPeriod=24h, project={slug} (repeated)
@@ -142,7 +151,7 @@ class SentryApiClient
             return $cached;
         }
 
-        $result = $this->fetchTrend();
+        $result = $this->fetchTrend(null);
 
         // Cache failures too — same rationale as the summary (an unhappy
         // endpoint must not turn every dashboard load into an API hit).
@@ -152,11 +161,64 @@ class SentryApiClient
     }
 
     /**
+     * The cached hourly error trend for ONE Sentry project (Iteration 8 —
+     * the per-application mapping on the Applications page).
+     *
+     * Same contract as trend(): nothing throws, the token never appears
+     * in any payload, and results (success AND failure) are cached under
+     * a per-project key so sibling apps and the org-wide trend can never
+     * be poisoned by one project's failure. An empty slug returns the
+     * unconfigured shape — the caller renders "not mapped", never a
+     * network call.
+     *
+     * @return array{
+     *     configured: bool,
+     *     error?: string,
+     *     fetched_at?: string,
+     *     points?: int,
+     *     total?: int,
+     *     peak?: int,
+     *     peak_hour?: string,
+     *     series?: array<int, array{ts: int, count: int}>
+     * }
+     */
+    public function trendFor(string $projectSlug): array
+    {
+        if (! $this->isConfigured() || trim($projectSlug) === '') {
+            return ['configured' => false];
+        }
+
+        $slug = trim($projectSlug);
+        $key = 'ops:sentry:trend:'.$slug;
+
+        $cached = Cache::get($key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $result = $this->fetchTrend($slug);
+
+        // Cache failures too — a mapped-but-deleted project must not turn
+        // every Applications page load into an API attempt.
+        Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
+
+        return $result;
+    }
+
+    /**
+     * @param  string|null  $projectSlug  null = the org-wide trend (the
+     *                                     config project filter still
+     *                                     applies); a slug = exactly that
+     *                                     project, config filter ignored.
      * @return array<string, mixed>
      */
-    private function fetchTrend(): array
+    private function fetchTrend(?string $projectSlug = null): array
     {
         $base = ['configured' => true, 'fetched_at' => now()->toIso8601String()];
+
+        if ($projectSlug !== null) {
+            $base['project'] = $projectSlug;
+        }
 
         try {
             $query = [
@@ -167,7 +229,13 @@ class SentryApiClient
                 'interval' => '1h',
             ];
 
-            if ($this->projects !== []) {
+            if ($projectSlug !== null) {
+                // Exactly ONE project — the operator's mapping for this
+                // application. The config-wide filter (SENTRY_PROJECT_
+                // SLUGS) is deliberately ignored here: it scopes the
+                // org-wide surfaces, not a per-app question.
+                $query['project'] = $projectSlug;
+            } elseif ($this->projects !== []) {
                 $query['project'] = $this->projects;
             }
 

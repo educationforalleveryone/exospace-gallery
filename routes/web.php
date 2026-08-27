@@ -669,6 +669,24 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
             Route::post('/digest/send',                     [\App\Ops\Http\Controllers\OpsDigestController::class, 'sendNow'])
                 ->middleware('throttle:5,1')
                 ->name('digest.send');
+
+            // Weekly review — "send now" (Iteration 8): same contract as
+            // the daily digest's button — super-admin, throttled,
+            // audited as ops.weekly_review.sent, never dedup-suppressed
+            // (a vanished test send would look like a broken webhook).
+            Route::post('/digest/weekly/send',              [\App\Ops\Http\Controllers\OpsDigestController::class, 'sendWeeklyNow'])
+                ->middleware('throttle:5,1')
+                ->name('digest.weekly.send');
+
+            // Sentry project mapping (Iteration 8) — the operator-owned
+            // Coolify-app ↔ Sentry-project mapping behind the per-app
+            // trend column. A LABEL write (not a secret), but it drives
+            // an outbound API surface → super-admin-only, throttled,
+            // audited as ops.sentry.mapping.
+            Route::post('/applications/{app}/sentry',       [\App\Ops\Http\Controllers\OpsDashboardController::class, 'updateSentryMapping'])
+                ->whereNumber('app')
+                ->middleware('throttle:10,1')
+                ->name('applications.sentry');
         });
     });
 

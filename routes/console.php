@@ -320,3 +320,35 @@ Schedule::command('ops:send-morning-digest')
     ->name('ops-send-morning-digest')
     ->withoutOverlapping(30)
     ->onOneServer();
+
+// OpsCenter (Iteration 8): the weekly review — the Monday deep-dive
+// riding right behind the daily digest inside the morning-briefing
+// block. Trailing-7-day trends the daily cadence cannot show: error
+// volume by category, incident throughput with MTTA/MTTR, deployment
+// activity + failures, the sweep's finding history, current backup
+// freshness and the week's operator activity. NOT a dead-man's switch
+// (the digest + the watchdog below carry the silence contract) —
+// informational, so OPS_WEEKLY_REVIEW_ENABLED=false simply turns it
+// off. Scheduled send deduplicated within the 6 h info TTL.
+Schedule::command('ops:send-weekly-review')
+    ->weeklyOn(1, '08:30')
+    ->name('ops-send-weekly-review')
+    ->withoutOverlapping(30)
+    ->onOneServer();
+
+// OpsCenter (Iteration 8): the digest watchdog — meta-monitoring the
+// monitor. Thirty minutes after the 08:15 send (08:45 daily) it
+// verifies the ops:morning-digest:last stamp is from TODAY; a missing
+// or stale stamp while the digest is enabled means the silence
+// contract (§16.4) is broken — stale scheduler, a throwing send path,
+// or a flipped switch — and the watchdog raises the alarm itself: one
+// warning Slack alert (dedup key ops.digest.missed) + one
+// deduplicated INFRASTRUCTURE event (source 'watchdog') that
+// auto-resolves with a single recovery note the next healthy morning.
+// Quiet when healthy; clean no-op while the digest is disabled.
+// Kill switch: OPS_DIGEST_WATCHDOG_ENABLED=false.
+Schedule::command('ops:check-digest-delivery')
+    ->dailyAt('08:45')
+    ->name('ops-check-digest-delivery')
+    ->withoutOverlapping(30)
+    ->onOneServer();

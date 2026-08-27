@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ops\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminAuditLog;
 use App\Ops\Models\OpsApplication;
 use App\Ops\Models\OpsEvent;
 use App\Ops\Models\OpsIncident;
@@ -13,8 +14,10 @@ use App\Ops\Services\OpsHealthScoreService;
 use App\Ops\Services\OpsHealthService;
 use App\Ops\Services\OpsStatusTilesService;
 use App\Ops\Services\SentryApiClient;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Throwable;
 
 /**
  * OpsCenter dashboard (Iteration 1 surface).
@@ -31,6 +34,13 @@ use Illuminate\View\View;
  * All of them are read-only, bounded and fail-soft — a broken input
  * (unreadable disk, unreachable Sentry API) degrades its own tile and
  * never takes the dashboard down.
+ *
+ * Iteration 8: applications() additionally loads the per-application
+ * Sentry 24 h trend for every MAPPED application (cache-first, per-app
+ * cache key — see SentryApiClient::trendFor), and this controller gains
+ * its FIRST write path: the super-admin-only, audited Sentry project
+ * mapping form (ops.sentry.mapping). The mapping is a label, not a
+ * secret — the audit payload may carry the old→new slug verbatim.
  */
 class OpsDashboardController extends Controller
 {
@@ -145,10 +155,97 @@ class OpsDashboardController extends Controller
             $scores = [];
         }
 
+        // Iteration 8: per-application Sentry trends — ONLY for mapped
+        // applications, cache-first. Steady state costs zero network
+        // calls (10-min per-app cache); the cold/expired load pays one
+        // bounded call per mapped app (the operator maps a handful, not
+        // hundreds). Fail-soft per app: one broken project slug degrades
+        // exactly its own cell to an honest amber error, never the page.
+        $sentryTrends = [];
+        try {
+            $client = app(SentryApiClient::class);
+            $sentryConfigured = $client->isConfigured();
+            if ($sentryConfigured) {
+                foreach ($applications as $application) {
+                    $slug = trim((string) $application->sentry_project_slug);
+                    if ($slug === '') {
+                        continue;
+                    }
+                    try {
+                        $sentryTrends[$application->id] = $client->trendFor($slug);
+                    } catch (Throwable) {
+                        // trendFor never throws by contract; belt-and-
+                        // braces so one app can still never break the row.
+                    }
+                }
+            }
+        } catch (Throwable) {
+            // Container trouble — the column renders its muted state.
+        }
+
         return view('ops.applications', [
             'applications' => $applications,
             'scores' => $scores,
+            'sentryTrends' => $sentryTrends,
+            'sentryConfigured' => $sentryConfigured ?? false,
         ]);
+    }
+
+    /**
+     * POST /ops/applications/{app}/sentry — set or clear ONE
+     * application's Sentry project mapping (Iteration 8).
+     *
+     * Super-admin-only (route-level), throttled, audited as
+     * ops.sentry.mapping with app id + old→new slug (a slug is a public
+     * label in Sentry URLs — not a secret). Empty input CLEARS the
+     * mapping; the column degrades to "not mapped", never an error.
+     */
+    public function updateSentryMapping(Request $request, OpsApplication $app): RedirectResponse
+    {
+        $validated = $request->validate([
+            // Sentry slugs: letters, digits, dashes, dots, underscores
+            // (uppercase tolerated at the door and normalized below — a
+            // pasted URL slug must not bounce). 100 = column width.
+            'sentry_project_slug' => ['nullable', 'string', 'max:100', 'regex:/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/'],
+        ], [
+            'sentry_project_slug.regex' => 'A Sentry project slug is letters, digits, dashes, dots or underscores (e.g. exospace-production).',
+        ]);
+
+        $old = (string) $app->sentry_project_slug;
+        $new = trim((string) ($validated['sentry_project_slug'] ?? ''));
+
+        if ($new !== '') {
+            // Normalize case defensively — Sentry slugs are lowercase;
+            // a pasted uppercase slug would render but never match.
+            $new = strtolower($new);
+        }
+
+        if ($new === $old) {
+            return redirect()
+                ->route('ops.applications')
+                ->with('info', 'Sentry mapping for "'.$app->name.'" is unchanged.');
+        }
+
+        $app->sentry_project_slug = $new !== '' ? $new : null;
+        $app->save();
+
+        try {
+            AdminAuditLog::record('ops.sentry.mapping', $request->user(), [
+                'application_id' => $app->id,
+                'application' => $app->name,
+                'old' => $old !== '' ? $old : null,
+                'new' => $new !== '' ? $new : null,
+            ]);
+        } catch (Throwable) {
+            // The mapping is saved; a failed audit row must not turn it
+            // into an error page (same convention as the digest send).
+        }
+
+        $message = $new !== ''
+            ? 'Sentry mapping for "'.$app->name.'" set to '.$new.' — its trend appears on the next page load.'
+            : 'Sentry mapping for "'.$app->name.'" cleared.';
+
+        return redirect()->route('ops.applications')->with('success', $message);
     }
 
     /**

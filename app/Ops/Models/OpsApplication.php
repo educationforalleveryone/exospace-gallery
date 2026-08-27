@@ -18,7 +18,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *   - coolify : PlatformSyncService (every 5 min, from the Coolify API)
  *   - ingest  : OpsIngestController (token-authenticated HTTP POSTs)
  *   - self    : OpsServiceProvider boot (Exospace itself)
- *   - manual  : an operator (not implemented yet — future iteration)
+ *   - manual  : an operator (Iteration 8: the sentry_project_slug mapping
+ *               is the first operator-owned field on this table)
  *
  * NOTE: this model is intentionally isolated from the App\Models namespace
  * (ADR-1 in docs/OPS_DISCOVERY_AUDIT.md): no non-Ops code references it,
@@ -30,7 +31,7 @@ class OpsApplication extends Model
 
     protected $fillable = [
         'slug', 'name', 'provider', 'provider_uuid', 'kind', 'environment',
-        'url', 'status', 'health', 'status_checked_at', 'last_seen_at',
+        'url', 'sentry_project_slug', 'status', 'health', 'status_checked_at', 'last_seen_at',
         'meta', 'is_self',
     ];
 
