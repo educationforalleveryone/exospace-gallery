@@ -44,12 +44,29 @@ use Illuminate\Support\Facades\Log;
  * to the default webhook when the per-severity env var is absent — fully
  * backward-compatible.
  *
+ * ITERATION 9 — the escalation channel. All the routing above lives in
+ * the SAME failure domain: if the Slack workspace (or the webhook
+ * integration) dies, every route dies with it — including the watchdog's
+ * alarm about the dead morning digest. An alert marked escalate=true
+ * (currently only the digest watchdog — the meta-monitor) is ADDITIONALLY
+ * posted, in an independent try/catch with its own timeout, to
+ * OPS_ESCALATION_WEBHOOK. Deliberate design points:
+ *   - The primary route STILL fires: a missed digest is often a dead
+ *     scheduler with a perfectly healthy webhook — the operator's main
+ *     channel stays the first line.
+ *   - The escalation payload is byte-identical: one alert, two channels,
+ *     the same words. A duplicate alarm (at most once per dedup TTL) is
+ *     the honest cost of a guaranteed copy.
+ *   - Dedup gates BOTH posts — a suppressed duplicate escalates nowhere.
+ *   - Unset URL = a silent no-op: exactly the pre-Iteration-9 behavior.
+ *
  * Usage:
  *   app(OperationalAlertService::class)->alert(
  *       'Queue backup detected',
  *       'Failed jobs: 25 (threshold: 10)',
  *       'warning',
- *       'failed_jobs_warning'  // ← dedup key
+ *       'failed_jobs_warning',  // ← dedup key
+ *       true                    // ← ALSO post to the escalation channel
  *   );
  */
 class OperationalAlertService
@@ -67,7 +84,7 @@ class OperationalAlertService
         'info'     => 21600, // 6 hours
     ];
 
-    public function alert(string $title, string $message, string $severity = 'warning', ?string $dedupKey = null): void
+    public function alert(string $title, string $message, string $severity = 'warning', ?string $dedupKey = null, bool $escalate = false): void
     {
         // ITERATION-7 (AUDIT-P1-7.1): Dedup. If a dedupKey is provided AND
         // a recent alert with the same key was sent within the TTL, skip
@@ -132,6 +149,15 @@ class OperationalAlertService
             }
         }
 
+        // ITERATION 9: the escape hatch. Placed AFTER the primary post so
+        // a dead primary can never prevent the escalation copy (and vice
+        // versa — the escalation post has its own net below). The primary
+        // still fires above: the point is a SECOND independent copy, not
+        // a replacement route.
+        if ($escalate) {
+            $this->postToEscalationChannel($payload);
+        }
+
         // Always log at the appropriate level (Sentry picks this up)
         $level = match ($severity) {
             'critical' => 'critical',
@@ -145,6 +171,32 @@ class OperationalAlertService
             'message'  => $message,
             'severity' => $severity,
         ]);
+    }
+
+    /**
+     * ITERATION 9: post the SAME payload to the independent escalation
+     * webhook (OPS_ESCALATION_WEBHOOK). Never throws — a dead escalation
+     * URL logs critically (Sentry picks it up) but cannot affect the
+     * primary delivery or the caller's flow. An unset URL is a silent
+     * no-op: the feature is opt-in by configuration.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function postToEscalationChannel(array $payload): void
+    {
+        $url = config('services.operational_alerts.escalation_webhook_url');
+        if (! is_string($url) || $url === '') {
+            return;
+        }
+
+        try {
+            Http::timeout(10)->post($url, $payload);
+        } catch (\Throwable $e) {
+            Log::critical('OperationalAlertService: failed to send ESCALATION webhook alert', [
+                'title' => (string) ($payload['title'] ?? ''),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

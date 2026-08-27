@@ -11,11 +11,11 @@ use Throwable;
 
 /**
  * OpsCenter — SentryApiClient (Iteration 4; error trend in 6; per-app
- * trend in 8).
+ * trend in 8; per-app issue headlines in 9).
  *
- * A read-only, THREE-call bridge to the Sentry REST API backing the
+ * A read-only, FOUR-call bridge to the Sentry REST API backing the
  * overview's "Sentry — Unresolved Issues" tile and the Applications
- * page's per-app trend column:
+ * page's per-app trend column + per-app issue headlines:
  *   summary() (Iteration 4) — issue HEADLINES via
  *     GET /api/0/organizations/{org}/issues/ (title, culprit, counts,
  *     permalink) so the operator sees the full platform picture in
@@ -29,6 +29,13 @@ use Throwable;
  *     project slug (the operator-supplied ops_applications.
  *     sentry_project_slug mapping), so the Applications page can answer
  *     "which app is actually throwing?" without leaving OpsCenter.
+ *   summaryFor() (Iteration 9) — the SAME issues endpoint scoped to ONE
+ *     project slug: the trend answers "how MUCH is this app throwing?",
+ *     the headlines answer "WHAT is it throwing?" — top issues by
+ *     frequency with permalinks, one card per mapped app on the
+ *     Applications page. Same per-project cache isolation as trendFor
+ *     (ops:sentry:summary:{slug}): a failing project degrades exactly
+ *     its own card, never the org summary or its siblings.
  *
  * Independence note: SENTRY_LARAVEL_DSN (error REPORTING) and
  * SENTRY_API_TOKEN (this summary pull) are separate concerns on purpose.
@@ -115,10 +122,54 @@ class SentryApiClient
             return $cached;
         }
 
-        $result = $this->fetch();
+        $result = $this->fetch(null);
 
         // Cache failures too (short TTL is per config) — an unreachable
         // Sentry must not turn every dashboard load into an API attempt.
+        Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
+
+        return $result;
+    }
+
+    /**
+     * The cached issue headlines for ONE Sentry project (Iteration 9 —
+     * the per-application cards on the Applications page).
+     *
+     * Same contract as summary(): nothing throws, the token never appears
+     * in any payload, and results (success AND failure) are cached under
+     * a per-project key so the org summary, the org trend, every mapped
+     * app's trend and every sibling app's headlines can never be poisoned
+     * by one project's failure. An empty slug returns the unconfigured
+     * shape — the caller renders "not mapped", never a network call.
+     *
+     * @return array{
+     *     configured: bool,
+     *     error?: string,
+     *     fetched_at?: string,
+     *     total_issues?: int,
+     *     total_events?: int,
+     *     total_users?: int,
+     *     issues?: array<int, array{title: string, culprit: string, level: string, count: int, user_count: int, first_seen: string, last_seen: string, link: string, project: string}>
+     * }
+     */
+    public function summaryFor(string $projectSlug): array
+    {
+        if (! $this->isConfigured() || trim($projectSlug) === '') {
+            return ['configured' => false];
+        }
+
+        $slug = trim($projectSlug);
+        $key = 'ops:sentry:summary:'.$slug;
+
+        $cached = Cache::get($key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $result = $this->fetch($slug);
+
+        // Cache failures too — a mapped-but-deleted project must not turn
+        // every Applications page load into an API attempt.
         Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
 
         return $result;
@@ -326,18 +377,35 @@ class SentryApiClient
     }
 
     /**
+     * @param  string|null  $projectSlug  null = the org-wide summary (the
+     *                                     config project filter still
+     *                                     applies); a slug = exactly that
+     *                                     project, config filter ignored —
+     *                                     the same scoping rule fetchTrend
+     *                                     established in Iteration 8.
      * @return array<string, mixed>
      */
-    private function fetch(): array
+    private function fetch(?string $projectSlug = null): array
     {
         $base = ['configured' => true, 'fetched_at' => now()->toIso8601String()];
+
+        if ($projectSlug !== null) {
+            $base['project'] = $projectSlug;
+        }
 
         try {
             $query = ['query' => 'is:unresolved', 'statsPeriod' => '24h'];
 
-            // Repeated `project` params — Laravel's HTTP client expands
-            // arrays into project[]=slug form, which Sentry accepts.
-            if ($this->projects !== []) {
+            if ($projectSlug !== null) {
+                // Exactly ONE project — the operator's mapping for this
+                // application. The config-wide filter (SENTRY_PROJECT_
+                // SLUGS) scopes the org-wide surfaces, not a per-app
+                // question.
+                $query['project'] = $projectSlug;
+            } elseif ($this->projects !== []) {
+                // Repeated `project` params — Laravel's HTTP client
+                // expands arrays into project[]=slug form, which Sentry
+                // accepts.
                 $query['project'] = $this->projects;
             }
 

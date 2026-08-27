@@ -172,6 +172,15 @@
         </div>
     </div>
 
+    {{-- Iteration 9: the long memory — the 8-week snapshot strip. Each
+         actual delivery (scheduled or manual) persists its metrics; the
+         strip turns a stack of Mondays into an arc. The partial itself
+         states the cold-start honesty (no snapshots = the accumulating
+         note, never a fabricated flat line). --}}
+    <div class="mb-6">
+        @include('ops.partials.weekly-trend-strip', ['snapshots' => $weeklySnapshots ?? []])
+    </div>
+
     @if($weekly === null)
         <div class="rounded-lg border border-red-800/50 bg-red-950/30 px-4 py-6 text-center text-red-300 text-sm">
             The weekly review could not be composed — a data source failed before the per-section guards could catch it.

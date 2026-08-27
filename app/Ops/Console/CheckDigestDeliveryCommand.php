@@ -140,6 +140,14 @@ class CheckDigestDeliveryCommand extends Command
                 $message,
                 'warning',
                 'ops.digest.missed',
+                // ITERATION 9: escalate=true — this alarm polices the
+                // alert channel ITSELF, so it also goes to the
+                // independent OPS_ESCALATION_WEBHOOK (when set): a dead
+                // #ops webhook must not swallow the alarm about the
+                // dead #ops webhook. The recovery note below does NOT
+                // escalate — the all-clear is informational, and the
+                // resolved event row already records it durably.
+                true,
             );
         } catch (Throwable $e) {
             $this->warn('Could not send watchdog alert: '.mb_substr($e->getMessage(), 0, 200));

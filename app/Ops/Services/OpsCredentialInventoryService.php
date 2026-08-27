@@ -74,8 +74,8 @@ class OpsCredentialInventoryService
         ],
         [
             'key' => 'slack-webhooks', 'name' => 'Slack alert webhooks', 'category' => 'Alerting',
-            'env' => ['OPERATIONAL_ALERT_WEBHOOK', 'OPERATIONAL_ALERT_CRITICAL_WEBHOOK'], 'cadence' => 180, 'exposed' => true,
-            'guidance' => 'Slack app settings → delete & recreate BOTH webhooks → update both env vars → redeploy.',
+            'env' => ['OPERATIONAL_ALERT_WEBHOOK', 'OPERATIONAL_ALERT_CRITICAL_WEBHOOK', 'OPS_ESCALATION_WEBHOOK'], 'cadence' => 180, 'exposed' => true,
+            'guidance' => 'Slack app settings → delete & recreate the webhooks → update the env vars (incl. OPS_ESCALATION_WEBHOOK if set) → redeploy.',
         ],
         [
             'key' => 'r2-keys', 'name' => 'Cloudflare R2 access keys', 'category' => 'Backups',
@@ -307,7 +307,8 @@ class OpsCredentialInventoryService
             'app-key' => $this->nonEmpty(config('app.key')),
             'coolify-token' => $this->nonEmpty(config('services.coolify.api_token')),
             'slack-webhooks' => $this->nonEmpty(config('services.operational_alerts.webhook_url'))
-                || $this->nonEmpty(config('services.operational_alerts.critical_webhook_url')),
+                || $this->nonEmpty(config('services.operational_alerts.critical_webhook_url'))
+                || $this->nonEmpty(config('services.operational_alerts.escalation_webhook_url')),
             'r2-keys' => $this->nonEmpty(config('filesystems.disks.r2.key')),
             'backup-password' => $this->nonEmpty(config('backup.backup.password')),
             'twocheckout-secrets' => $this->nonEmpty(config('services.2checkout.secret_word'))

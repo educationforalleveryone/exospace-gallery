@@ -137,6 +137,38 @@
     <p>The Sentry column shows each application's own 24 h error trend once it is mapped to a Sentry project below (cache-first, 10-minute refresh; “API error” means the mapped project's stats call failed — hover for the reason).</p>
 </div>
 
+{{-- ── Sentry issue headlines (Iteration 9) ─────────────────────────────
+     The follow-through for the trend column: one card per MAPPED app
+     with its top unresolved issues by frequency + permalinks. Read-only
+     data → visible to every /ops tier (viewers included); the mapping
+     panel below stays super-admin-only because it is the write path.
+     Fails soft per app: a broken project slug dims exactly its own
+     card, never the section. --}}
+
+@php
+    $mappedApps = $applications->filter(fn ($a) => trim((string) $a->sentry_project_slug) !== '')->values();
+@endphp
+
+@if($mappedApps->isNotEmpty())
+    <div class="mt-6">
+        <div class="flex items-baseline justify-between mb-2">
+            <h2 class="text-sm font-semibold text-slate-200">Sentry issue headlines (mapped apps, 24 h)</h2>
+            @if(! $sentryConfigured)
+                <span class="text-[10px] text-amber-400/90">API token not configured — set SENTRY_API_TOKEN to light these up</span>
+            @endif
+        </div>
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            @foreach($mappedApps as $application)
+                @include('ops.partials.app-sentry-issues', [
+                    'application' => $application,
+                    'summary' => $sentryIssues[$application->id] ?? ['configured' => false],
+                ])
+            @endforeach
+        </div>
+        <p class="text-[10px] text-slate-600 mt-2">Frequency-sorted, cache-first (10-minute refresh). Click an issue to open it in Sentry — OpsCenter summarizes and links out, it never clones the stack traces.</p>
+    </div>
+@endif
+
 {{-- ── Sentry project mapping (Iteration 8) ─────────────────────────────
      The AD-9 prerequisite made operator-owned: which Coolify app is
      which Sentry project. Super-admin-only write (route-enforced); the

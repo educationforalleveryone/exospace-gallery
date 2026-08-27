@@ -162,6 +162,7 @@ class OpsDashboardController extends Controller
         // hundreds). Fail-soft per app: one broken project slug degrades
         // exactly its own cell to an honest amber error, never the page.
         $sentryTrends = [];
+        $sentryIssues = [];
         try {
             $client = app(SentryApiClient::class);
             $sentryConfigured = $client->isConfigured();
@@ -173,9 +174,17 @@ class OpsDashboardController extends Controller
                     }
                     try {
                         $sentryTrends[$application->id] = $client->trendFor($slug);
+
+                        // Iteration 9: the headlines card for the same
+                        // mapped app — the trend says HOW MUCH it is
+                        // throwing, the headlines say WHAT. Same cache
+                        // discipline, same per-app degradation: one
+                        // project's API failure dims exactly its own card.
+                        $sentryIssues[$application->id] = $client->summaryFor($slug);
                     } catch (Throwable) {
-                        // trendFor never throws by contract; belt-and-
-                        // braces so one app can still never break the row.
+                        // trendFor/summaryFor never throw by contract;
+                        // belt-and-braces so one app can still never
+                        // break the row.
                     }
                 }
             }
@@ -188,6 +197,10 @@ class OpsDashboardController extends Controller
             'scores' => $scores,
             'sentryTrends' => $sentryTrends,
             'sentryConfigured' => $sentryConfigured ?? false,
+
+            // Iteration 9: per-app issue headlines (same mapped-apps-only
+            // population as the trends above).
+            'sentryIssues' => $sentryIssues,
         ]);
     }
 

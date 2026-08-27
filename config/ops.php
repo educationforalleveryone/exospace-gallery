@@ -356,5 +356,16 @@ return [
     // deduplicated within the alert service's 6 h info TTL.
     'weekly_review' => [
         'enabled' => filter_var(env('OPS_WEEKLY_REVIEW_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+
+        // ITERATION 9 — the long memory: every weekly review delivery
+        // (scheduled or manual) persists its aggregate metrics as an
+        // ops_review_snapshots row, and /ops/digest renders the last 8
+        // weeks as a trend strip. Rows are aggregate counts only — no
+        // titles, no contexts, nothing a redactor would need to touch.
+        // Retention is deliberately LONG (a year): the whole point of a
+        // memory is being able to look back; at one row per week this
+        // stays trivially small. Pruned by ops:prune-events alongside
+        // the other retention policies.
+        'snapshot_retention_days' => (int) env('OPS_WEEKLY_REVIEW_SNAPSHOT_RETENTION_DAYS', 365),
     ],
 ];

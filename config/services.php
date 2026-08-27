@@ -55,15 +55,28 @@ return [
     // When the per-severity env vars are absent, ALL alerts go to the
     // default OPERATIONAL_ALERT_WEBHOOK — fully backward-compatible.
     //
+    // ITERATION 9 — the escalation channel (the escape hatch). The
+    // watchdog's missing-digest alarm rides the SAME webhook it polices:
+    // if the webhook itself is dead, the alarm about the dead alarm
+    // channel is lost too. Callers that mark an alert escalate=true
+    // (currently only the digest watchdog — the meta-monitor) ALSO post
+    // the identical payload to OPS_ESCALATION_WEBHOOK, in an independent
+    // try/catch. Point it at a DIFFERENT failure domain than the primary
+    // (another Slack workspace's incoming webhook, or a personal DM
+    // webhook) — an escalation URL in the same dead workspace defeats
+    // its own purpose. Unset = exactly the pre-Iteration-9 behavior.
+    //
     // Example .env for split routing:
     //   OPERATIONAL_ALERT_WEBHOOK=https://hooks.slack.com/services/T0.../B0.../...  (general)
     //   OPERATIONAL_ALERT_CRITICAL_WEBHOOK=https://hooks.slack.com/services/T0.../B1.../...  (#exospace-critical)
+    //   OPS_ESCALATION_WEBHOOK=https://hooks.slack.com/services/T9.../B9.../...  (OTHER workspace)
     'operational_alerts' => [
         'webhook_url'           => env('OPERATIONAL_ALERT_WEBHOOK'),
         'critical_webhook_url'  => env('OPERATIONAL_ALERT_CRITICAL_WEBHOOK'),
         'error_webhook_url'     => env('OPERATIONAL_ALERT_ERROR_WEBHOOK'),
         'warning_webhook_url'   => env('OPERATIONAL_ALERT_WARNING_WEBHOOK'),
         'info_webhook_url'      => env('OPERATIONAL_ALERT_INFO_WEBHOOK'),
+        'escalation_webhook_url' => env('OPS_ESCALATION_WEBHOOK'),
     ],
 
     // ── ITERATION 6/7: scheduled billing digest recipients ───────────────

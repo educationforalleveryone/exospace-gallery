@@ -193,8 +193,11 @@ class OpsWeeklyReviewTest extends TestCase
         $section = $this->section($this->service()->compose(), 'errors');
 
         $this->assertSame('3 new event(s) across 2 categories', $section['title']);
-        $this->assertContains('DATABASE: 2 event(s) (6 occurrences)', $section['lines']);
-        $this->assertContains('REDIS: 1 event(s) (3 occurrences)', $section['lines']);
+        // Iteration 9: every flow line now carries its week-over-week
+        // delta. The fixture's previous window holds only the QUEUE event
+        // (9 days old), so both current categories rose from zero.
+        $this->assertContains('DATABASE: 2 event(s) (6 occurrences) — ▲ +2 vs last week', $section['lines']);
+        $this->assertContains('REDIS: 1 event(s) (3 occurrences) — ▲ +1 vs last week', $section['lines']);
     }
 
     public function test_incident_section_computes_mtta_and_mttr(): void

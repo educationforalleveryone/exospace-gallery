@@ -6,6 +6,7 @@ namespace App\Ops\Console;
 
 use App\Ops\Models\OpsDiagnosticRun;
 use App\Ops\Models\OpsEvent;
+use App\Ops\Models\OpsReviewSnapshot;
 use Illuminate\Console\Command;
 
 /**
@@ -28,6 +29,10 @@ use Illuminate\Console\Command;
  * ops.diagnostics.retention_days (default 30). Runs are point-in-time
  * snapshots, reproducible on demand, so short retention loses nothing.
  *
+ * ITERATION 9: also prunes ops_review_snapshots older than
+ * ops.weekly_review.snapshot_retention_days (default 365 — the long
+ * memory is the point; one row per week keeps it trivially small).
+ *
  * Scheduled daily at 03:35 (off-peak, deliberately after the 03:17
  * webhook-ledger prune and before the 04:00 maintenance batch — same
  * slotting convention as routes/console.php).
@@ -36,13 +41,14 @@ class PruneOpsEventsCommand extends Command
 {
     protected $signature = 'ops:prune-events';
 
-    protected $description = 'Apply the ops retention policies (auto-resolve stale events, delete old resolved ones, prune diagnostic runs).';
+    protected $description = 'Apply the ops retention policies (auto-resolve stale events, delete old resolved ones, prune diagnostic runs and review snapshots).';
 
     public function handle(): int
     {
         $autoResolveDays = max(1, (int) config('ops.retention.auto_resolve_days', 7));
         $retentionDays = max(1, (int) config('ops.retention.resolved_retention_days', 90));
         $diagnosticDays = max(1, (int) config('ops.diagnostics.retention_days', 30));
+        $snapshotDays = max(1, (int) config('ops.weekly_review.snapshot_retention_days', 365));
 
         // 1. Auto-resolve: no recurrence for N days while still open.
         $resolved = OpsEvent::where('status', 'open')
@@ -65,7 +71,15 @@ class PruneOpsEventsCommand extends Command
             // diagnostics table absent (pre-Iteration-3) — nothing to prune.
         }
 
-        $this->info("ops:prune-events — auto-resolved: {$resolved}, deleted: {$deleted}, diagnostic runs pruned: {$runsDeleted}.");
+        // 4. Iteration 9: prune review snapshots past retention.
+        $snapshotsDeleted = 0;
+        try {
+            $snapshotsDeleted = OpsReviewSnapshot::where('created_at', '<', now()->subDays($snapshotDays))->delete();
+        } catch (\Throwable) {
+            // snapshots table absent (pre-Iteration-9) — nothing to prune.
+        }
+
+        $this->info("ops:prune-events — auto-resolved: {$resolved}, deleted: {$deleted}, diagnostic runs pruned: {$runsDeleted}, review snapshots pruned: {$snapshotsDeleted}.");
 
         return self::SUCCESS;
     }

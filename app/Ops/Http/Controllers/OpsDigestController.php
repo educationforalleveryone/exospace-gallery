@@ -85,6 +85,11 @@ class OpsDigestController extends Controller
             'weeklyText' => $weeklyText,
             'weeklyLastSent' => $this->weekly->lastSent(),
             'weeklyEnabled' => (bool) config('ops.weekly_review.enabled'),
+
+            // Iteration 9: the long memory — the 8-week snapshot strip
+            // beneath the weekly meta. recentSnapshots() never throws;
+            // an unreadable table renders the accumulating note.
+            'weeklySnapshots' => $this->weekly->recentSnapshots(8),
         ]);
     }
 
