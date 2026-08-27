@@ -98,6 +98,24 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // ── OpsCenter (Iteration 1): the control-plane tap ─────────────────
+        //
+        // A custom channel whose handler mirrors warning+ records into the
+        // ops_events table (deduplicated, classified, redacted). Purely
+        // ADDITIVE: existing channels are untouched; this channel only
+        // becomes active when the operator adds it to the stack:
+        //
+        //     LOG_STACK=daily,ops
+        //
+        // (a deliberate opt-in manual step — see
+        // docs/MASTER_MANUAL_OPERATIONS.md — so running environments change
+        // behavior only when intended.)
+        'ops' => [
+            'driver' => 'custom',
+            'via'   => \App\Ops\Logging\CreateOpsLogger::class,
+            'level' => env('OPS_LOG_TAP_LEVEL', 'warning'),
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

@@ -1,0 +1,185 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Ops\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use App\Ops\Models\OpsApplication;
+use App\Ops\Models\OpsEvent;
+use App\Ops\Services\OpsEventIngestor;
+use App\Ops\Services\OpsHealthService;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+/**
+ * OpsCenter dashboard (Iteration 1 surface).
+ *
+ * Read-only aggregation views. Every mutation arrives in later iterations
+ * (diagnostics/actions) and will be audit-logged through AdminAuditLog —
+ * this controller deliberately contains zero write paths.
+ *
+ * Access: /ops/* route group — auth + verified + super_admin + mfa
+ * (the exact bar Master Control already enforces).
+ */
+class OpsDashboardController extends Controller
+{
+    public function __construct(
+        private readonly OpsHealthService $health,
+    ) {}
+
+    /**
+     * Overview — answers "what is broken, where, how serious" first.
+     */
+    public function overview(): View
+    {
+        $platform = $this->health->platformHealth();
+        $applications = $this->health->applicationStatuses();
+
+        $windowHours = (int) config('ops.dashboard.recent_window_hours', 24);
+
+        $recentEvents = OpsEvent::query()
+            ->with('application')
+            ->whereIn('status', ['open', 'acknowledged'])
+            ->whereIn('severity', ['critical', 'error', 'warning'])
+            ->orderByRaw('CASE severity WHEN "critical" THEN 1 WHEN "error" THEN 2 WHEN "warning" THEN 3 ELSE 4 END')
+            ->orderByDesc('last_seen_at')
+            ->limit(12)
+            ->get();
+
+        $recentDeployments = OpsEvent::query()
+            ->with('application')
+            ->whereIn('category', ['DEPLOYMENT', 'BUILD'])
+            ->where('last_seen_at', '>=', now()->subHours($windowHours))
+            ->orderByDesc('last_seen_at')
+            ->limit(6)
+            ->get();
+
+        $openCounts = OpsEvent::whereIn('status', ['open', 'acknowledged'])
+            ->selectRaw('severity, COUNT(*) as n')
+            ->groupBy('severity')
+            ->pluck('n', 'severity');
+
+        return view('ops.overview', [
+            'platform' => $platform,
+            'applications' => $applications,
+            'recentEvents' => $recentEvents,
+            'recentDeployments' => $recentDeployments,
+            'openCounts' => $openCounts,
+            'selfChecks' => $this->health->selfChecks(),
+            'selfApp' => OpsEventIngestor::selfApplication(),
+            'lastSync' => OpsApplication::whereNotNull('status_checked_at')
+                ->max('status_checked_at'),
+        ]);
+    }
+
+    /**
+     * Applications — the platform-wide inventory (Coolify resources +
+     * ingest-API reporters + self).
+     */
+    public function applications(): View
+    {
+        return view('ops.applications', [
+            'applications' => OpsApplication::query()
+                ->withCount(['events' => fn ($q) => $q->whereIn('status', ['open', 'acknowledged'])
+                    ->whereIn('severity', ['critical', 'error'])])
+                ->orderByDesc('is_self')
+                ->orderBy('kind')
+                ->orderBy('name')
+                ->get(),
+        ]);
+    }
+
+    /**
+     * Events list — filterable/searchable error inventory.
+     */
+    public function events(Request $request): View
+    {
+        $query = OpsEvent::query()->with('application');
+
+        // Filters (all optional, all safe defaults). Values are pulled via
+        // input() (plain strings) — $request->string() returns Stringable
+        // objects which don't cast or strict-compare cleanly.
+        $severity = (string) $request->input('severity', '');
+        $category = (string) $request->input('category', '');
+        $applicationId = (int) $request->input('application', 0);
+
+        if (in_array($severity, OpsEvent::SEVERITIES, true)) {
+            $query->where('severity', $severity);
+        }
+
+        if (in_array($category, OpsEvent::CATEGORIES, true)) {
+            $query->where('category', $category);
+        }
+
+        if ($applicationId > 0) {
+            $query->where('ops_application_id', $applicationId);
+        }
+
+        $status = (string) $request->input('status', 'active');
+        if ($status === 'active') {
+            $query->whereIn('status', ['open', 'acknowledged']);
+        } elseif (in_array($status, ['open', 'acknowledged', 'resolved'], true)) {
+            $query->where('status', $status);
+        }
+
+        $hours = (int) $request->input('hours', 168);
+        if ($hours > 0) {
+            $query->where('last_seen_at', '>=', now()->subHours($hours));
+        }
+
+        $search = trim((string) $request->input('q', ''));
+        if ($search !== '') {
+            $term = str_replace(['%', '_'], ['\\%', '\\_'], $search);
+            $query->where(fn ($q) => $q
+                ->where('title', 'like', "%{$term}%")
+                ->orWhere('message', 'like', "%{$term}%"));
+        }
+
+        $events = $query
+            ->orderByRaw('CASE severity WHEN "critical" THEN 1 WHEN "error" THEN 2 WHEN "warning" THEN 3 ELSE 4 END')
+            ->orderByDesc('last_seen_at')
+            ->paginate((int) config('ops.dashboard.per_page', 25))
+            ->withQueryString();
+
+        return view('ops.events', [
+            'events' => $events,
+            'filters' => [
+                'severity' => $severity,
+                'category' => $category,
+                'application' => $applicationId > 0 ? (string) $applicationId : '',
+                'status' => $status,
+                'hours' => $hours,
+                'q' => $search,
+            ],
+            'applications' => OpsApplication::orderBy('name')->get(),
+        ]);
+    }
+
+    /**
+     * Error detail — the "operational" view of one error: what happened,
+     * why it matters, where, when, how often, what changed, and what to
+     * do next. Raw technical context stays available but secondary.
+     */
+    public function eventDetail(OpsEvent $event): View
+    {
+        // Related events from the same application in the same window —
+        // the manual precursor to Iteration 2's correlation engine.
+        $related = OpsEvent::query()
+            ->where('id', '!=', $event->id)
+            ->where('ops_application_id', $event->ops_application_id)
+            ->whereIn('status', ['open', 'acknowledged'])
+            ->whereBetween('last_seen_at', [
+                $event->first_seen_at?->copy()->subHours(1) ?? now()->subDay(),
+                $event->last_seen_at?->copy()->addHours(1) ?? now(),
+            ])
+            ->orderByDesc('last_seen_at')
+            ->limit(8)
+            ->get();
+
+        return view('ops.event-detail', [
+            'event' => $event->load('application'),
+            'related' => $related,
+        ]);
+    }
+}

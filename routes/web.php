@@ -535,6 +535,31 @@ Route::middleware(['auth'])->group(function () {
 // M-20: Public status page (no auth required)
 Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->name('status');
 
+// ── OpsCenter — Operations Control Plane (Iteration 1) ───────────────────
+//
+// The unified operations dashboard. Aggregates EXISTING systems (Sentry,
+// OperationalAlertService, JobHeartbeatService, spatie backups, webhook
+// ledgers, the Coolify API, Laravel logs) — see docs/OPS_DISCOVERY_AUDIT.md.
+//
+// Access bar is identical to Master Control: auth + verified + super_admin
+// + mfa. Iteration 1 is entirely READ-ONLY (aggregation only); diagnostics
+// and actions arrive in later iterations with AdminAuditLog coverage.
+//
+// IMPORTANT: this group must stay ABOVE the SEO fallback route — fallback
+// only matches when nothing else does, but keeping ops routes contiguous
+// with the other super-admin surfaces keeps the file readable.
+Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])
+    ->prefix('ops')
+    ->name('ops.')
+    ->group(function () {
+        Route::get('/',                     [\App\Ops\Http\Controllers\OpsDashboardController::class, 'overview'])->name('overview');
+        Route::get('/applications',         [\App\Ops\Http\Controllers\OpsDashboardController::class, 'applications'])->name('applications');
+        Route::get('/events',               [\App\Ops\Http\Controllers\OpsDashboardController::class, 'events'])->name('events');
+        Route::get('/events/{event}',       [\App\Ops\Http\Controllers\OpsDashboardController::class, 'eventDetail'])
+            ->whereNumber('event')
+            ->name('events.show');
+    });
+
 // ── SEO OS (Iteration 5): SEO landing + editorial pages ──────────────────
 // The FALLBACK route renders published seo_pages. Real product routes
 // always win — this only runs when nothing else matches, and the controller

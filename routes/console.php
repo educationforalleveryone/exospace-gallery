@@ -237,3 +237,25 @@ Schedule::command('webhook-deliveries:prune')
     ->name('webhook-deliveries-prune')
     ->withoutOverlapping(60)
     ->onOneServer();
+
+// ── OpsCenter (Iteration 1) ───────────────────────────────────────────
+//
+// Platform sync: pulls servers/applications/databases/services/deployments
+// from the Coolify API into the ops tables every 5 minutes. This is what
+// makes the control plane platform-wide (all apps on the box, not just
+// Exospace) with zero agents and zero Docker socket access. Failures are
+// recorded as events by the command itself — never fatal to the chain.
+Schedule::command('ops:sync-platform')
+    ->everyFiveMinutes()
+    ->name('ops-sync-platform')
+    ->withoutOverlapping(5)
+    ->onOneServer();
+
+// ops_events retention: auto-resolve stale events, delete old resolved
+// ones (documented policy in config/ops.php). 03:35 slots it after the
+// 03:17 webhook-ledger prune, before the 04:00 maintenance batch.
+Schedule::command('ops:prune-events')
+    ->dailyAt('03:35')
+    ->name('ops-prune-events')
+    ->withoutOverlapping(60)
+    ->onOneServer();

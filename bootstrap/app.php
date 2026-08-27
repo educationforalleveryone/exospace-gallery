@@ -150,4 +150,17 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
+        // OpsCenter (Iteration 1): mirror every reported exception into the
+        // operations control plane with request context (url, request_id,
+        // user id, stack excerpt). Expected 4xx traffic (404s, validation,
+        // auth) is recorded at info severity — visible, never alarming.
+        // The reporter never throws into the error path (its own docblock
+        // contract), so observability cannot break error handling.
+        $exceptions->report(function (\Throwable $e): void {
+            try {
+                app(\App\Ops\Services\OpsExceptionReporter::class)->record($e);
+            } catch (\Throwable) {
+                // Deliberately swallowed — see OpsExceptionReporter.
+            }
+        });
     })->create();

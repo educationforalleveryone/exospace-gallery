@@ -67,3 +67,20 @@ Route::prefix('v1')->group(function () {
         Route::delete('tokens/{tokenId}',   [ApiTokenController::class, 'destroy']);
     });
 });
+
+// ── OpsCenter ingestion API (Iteration 1) ────────────────────────────────
+//
+// POST /api/ops/ingest — the platform-wide reporting endpoint. Other
+// applications on the Coolify server push their errors/events here with a
+// shared token (X-Ops-Token) configured in OPS_INGEST_TOKENS. No agents,
+// no Docker socket, no inbound ports on the reporting side.
+//
+// Fail-closed: when OPS_INGEST_TOKENS is empty the controller aborts 404 —
+// the endpoint does not exist (same convention as /metrics).
+// Rate-limited per config (ops.ingest.requests_per_minute, default 30/min).
+// Every payload is redacted server-side before persistence.
+Route::prefix('ops')->name('ops.')->group(function () {
+    Route::post('/ingest', [\App\Ops\Http\Controllers\OpsIngestController::class, 'store'])
+        ->name('ingest')
+        ->middleware('throttle:' . (int) config('ops.ingest.requests_per_minute', 30) . ',1');
+});
