@@ -26,6 +26,7 @@
             <a href="{{ route('ops.incidents.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.incidents*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Incidents</a>
             <a href="{{ route('ops.events') }}"        class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.events*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Errors &amp; Events</a>
             <a href="{{ route('ops.diagnostics.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.diagnostics*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Diagnostics</a>
+            <a href="{{ route('ops.queue.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.queue*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Queue</a>
             {{-- Iteration 5: operator-only surfaces — viewers get 403 at the route level; the nav simply never shows the doors. --}}
             @if(auth()->user()?->is_super_admin)
                 <a href="{{ route('ops.actions.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.actions*') ? 'bg-amber-600/20 text-amber-300 border border-amber-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Actions</a>

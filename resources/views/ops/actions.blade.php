@@ -101,6 +101,37 @@
                 @endif
             </div>
         @endforeach
+
+        {{-- Iteration 10 — queue cards: the failed-jobs lifecycle. The per-job --}}
+        {{-- buttons live on the queue page; the hub shows the pointer.       --}}
+        @foreach(['queue.retry', 'queue.forget'] as $queueId)
+            @php($queueDefinition = $actions[$queueId] ?? null)
+            @if($queueDefinition === null)@continue @endif
+            <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-5 flex flex-col">
+                <div class="flex items-start justify-between gap-2 mb-1.5">
+                    <h3 class="text-sm font-semibold text-slate-100">{{ $queueDefinition['label'] }}</h3>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded {{ $queueId === 'queue.forget' ? 'bg-red-950/60 text-red-300 border border-red-800/50' : 'bg-amber-950/60 text-amber-300 border border-amber-800/50' }} font-semibold shrink-0">RISK: ELEVATED</span>
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">
+                    {{ $queueDefinition['description'] }}
+                    @if($failedJobCount === null)
+                        — the failed-jobs table is <span class="text-slate-500">not available</span> on this database yet.
+                    @elseif($failedJobCount === 0)
+                        — currently there are <span class="text-emerald-400">no failed jobs</span> to handle.
+                    @else
+                        — <span class="text-amber-300">{{ $failedJobCount }} failed job(s)</span> on record.
+                    @endif
+                </p>
+                @if($failedJobCount !== null && $failedJobCount > 0)
+                    <a href="{{ route('ops.queue.index') }}" class="text-xs px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 font-medium text-slate-100 transition text-center">Open the failed-jobs list →</a>
+                @else
+                    <a href="{{ route('ops.queue.index') }}" class="text-xs text-slate-500 hover:text-slate-300">View the queue page anyway</a>
+                @endif
+                @if(! $enabled)
+                    <span class="text-xs text-slate-600 mt-2">Disabled by kill switch.</span>
+                @endif
+            </div>
+        @endforeach
     </div>
 
     {{-- Failed webhooks panel (the replay targets) --}}
@@ -180,6 +211,7 @@
 
 <div class="mt-4 text-[11px] text-slate-600 space-y-1">
     <p>Every action — success or failure — is audited (<span class="font-mono">ops.action.executed</span>), announced in Slack, and recorded in the control plane's own event timeline.</p>
+    <p>Queue jobs are handled one at a time from the <a href="{{ route('ops.queue.index') }}" class="text-slate-400 hover:text-slate-200 underline underline-offset-2">failed-jobs page</a> — bulk retry/flush is deliberately absent.</p>
     <p>Need something more invasive (stop, redeploy, run migrations, scale)? That is Coolify's job — this control plane aggregates and diagnoses; it does not replace the deployment plane.</p>
 </div>
 @endsection

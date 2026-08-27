@@ -589,6 +589,13 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
             ->whereNumber('run')
             ->name('diagnostics.show');
 
+        // Failed-jobs browser (Iteration 10): the full failed_jobs list —
+        // what the queue.failed-jobs diagnostic summarizes, this page shows
+        // job by job. Viewer-visible (reading failures is diagnosis, not
+        // intervention); the Retry…/Forget… buttons are links into the
+        // super-admin action framework with password + typed phrase.
+        Route::get('/queue',                        [\App\Ops\Http\Controllers\OpsQueueController::class, 'index'])->name('queue.index');
+
         // ── Operator tier (super-admins + active operator grants) ────────
         //
         // Diagnostic runs (Iteration 3, opened to operators in Iteration 6)

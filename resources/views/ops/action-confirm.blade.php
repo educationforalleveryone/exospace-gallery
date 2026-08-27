@@ -4,7 +4,11 @@
 
 @section('content')
 <div class="mb-4">
-    <a href="{{ route('ops.actions.index') }}" class="text-xs text-slate-500 hover:text-slate-300">← All actions</a>
+    @if($failedJob)
+        <a href="{{ route('ops.queue.index') }}" class="text-xs text-slate-500 hover:text-slate-300">← Failed jobs</a>
+    @else
+        <a href="{{ route('ops.actions.index') }}" class="text-xs text-slate-500 hover:text-slate-300">← All actions</a>
+    @endif
 </div>
 
 {{-- ── The explicit interstitial: nothing executes until this form succeeds ── --}}
@@ -44,6 +48,20 @@
                 <div class="flex justify-between border-b border-slate-800/60 py-1"><dt class="text-slate-500">Received</dt><dd class="text-slate-300">{{ $webhook->processed_at?->diffForHumans() ?? '—' }}</dd></div>
                 <div class="flex justify-between border-b border-slate-800/60 py-1"><dt class="text-slate-500">Previous replays</dt><dd class="text-slate-300">{{ (int) ($webhook->replay_count ?? 0) }}×</dd></div>
             </dl>
+        @elseif($failedJob)
+            <div class="text-sm text-slate-100 font-medium font-mono text-[13px] break-all">{{ $failedJob['job'] }}</div>
+            <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+                <div class="flex justify-between border-b border-slate-800/60 py-1"><dt class="text-slate-500">Queue</dt><dd class="text-slate-300 font-mono text-[10px]">{{ $failedJob['queue'] }}</dd></div>
+                <div class="flex justify-between border-b border-slate-800/60 py-1"><dt class="text-slate-500">Connection</dt><dd class="text-slate-300 font-mono text-[10px]">{{ $failedJob['connection'] }}</dd></div>
+                <div class="flex justify-between border-b border-slate-800/60 py-1"><dt class="text-slate-500">Failed</dt><dd class="text-slate-300">{{ \Illuminate\Support\Carbon::parse($failedJob['failed_at'])->diffForHumans() }}</dd></div>
+                <div class="flex justify-between border-b border-slate-800/60 py-1"><dt class="text-slate-500">UUID</dt><dd class="text-slate-400 font-mono text-[10px] truncate" title="{{ $failedJob['uuid'] }}">{{ \Illuminate\Support\Str::limit($failedJob['uuid'], 18) }}</dd></div>
+            </dl>
+            @if($failedJob['first_exception'] !== '')
+                <div class="mt-3 text-xs text-red-300/90 font-mono bg-red-950/20 border border-red-900/40 rounded-md px-3 py-2 break-all">{{ $failedJob['first_exception'] }}</div>
+            @endif
+            @if($actionId === 'queue.forget')
+                <p class="text-[11px] text-red-300/90 mt-3 leading-relaxed">⚠ The failed-jobs row is the ONLY copy of this payload and its exception trace — deleting it is permanent, with no archive and no undo. If anything about the job might still matter, copy what you need (the queue page shows the payload excerpt) BEFORE confirming.</p>
+            @endif
         @endif
     </section>
 
@@ -80,6 +98,9 @@
         @endif
         @if($webhook)
             <input type="hidden" name="webhook" value="{{ $webhook->id }}">
+        @endif
+        @if($failedJob)
+            <input type="hidden" name="job" value="{{ $failedJob['uuid'] }}">
         @endif
 
         <div>

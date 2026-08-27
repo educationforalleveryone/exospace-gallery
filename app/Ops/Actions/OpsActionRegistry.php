@@ -17,12 +17,16 @@ namespace App\Ops\Actions;
  *               and audited): platform.sync.
  *   elevated  — changes infrastructure or re-applies an external event:
  *               requires password + typed confirmation phrase + audit +
- *               Slack announcement: app.restart, webhook.replay.
+ *               Slack announcement: app.restart, webhook.replay,
+ *               queue.retry, queue.forget (Iteration 10).
  *
  * DANGEROUS operations (stop application, drop database, run migrations,
  * delete backups, wipe queues) are DELIBERATELY NOT on this list. They stay
  * in Coolify / the deploy pipeline where their full context lives. This is
- * a conscious scope decision documented in the master manual.
+ * a conscious scope decision documented in the master manual. The queue
+ * actions are the scoped exception to "wipe queues": ONE job at a time,
+ * never a bulk "retry all" or "flush" — the mass variants stay out exactly
+ * because their blast radius is the whole queue.
  */
 final class OpsActionRegistry
 {
@@ -97,6 +101,53 @@ final class OpsActionRegistry
             ],
             'consequence' => 'The billing effect is re-attempted. Handlers are idempotent per invoice, but if the original application partially succeeded, replay can double-apply the non-idempotent edge of an effect. Replay the specific webhook only when its event genuinely failed.',
             'confirmation_phrase' => 'REPLAY',
+            'requires_password' => true,
+        ],
+
+        // ── Iteration 10 — the queue lifecycle ───────────────────────────
+        // The failed-jobs diagnostic used to end its guidance with "retry
+        // deliberately (php artisan queue:retry from a terminal)" — the
+        // last workflow in the platform that pointed at a terminal. These
+        // two actions close it: one job at a time, through the same
+        // four-layer security model as every other elevated action.
+
+        'queue.retry' => [
+            'label' => 'Retry a failed queue job',
+            'group' => 'Queue',
+            'risk' => self::RISK_ELEVATED,
+            'description' => 'Push ONE failed job back onto its queue (Laravel\'s own queue:retry path — reused, not duplicated). The job runs again with its retry counter reset.',
+            'will_do' => [
+                'Push the stored payload back onto the queue and connection the job originally failed on',
+                'Remove the row from the failed-jobs table (it is no longer failed — it is pending again)',
+                'Record an audit-log entry, announce the action in the ops Slack channel, and add a queue event to the timeline',
+            ],
+            'wont_do' => [
+                'Fix the reason the job failed — if the cause is still present, it will fail again (and land back in this list)',
+                'Retry any other failed job — this is strictly one job per confirmation',
+                'Bump the attempt limit or change queue configuration',
+            ],
+            'consequence' => 'The job runs again immediately on the live queue. If its failure cause is still present (a down dependency, a changed payload shape, a bug), it will burn its attempts and fail back into the list. Fix the cause FIRST — the Retry button is for after the fix, or for transient failures you have judged safe to re-run.',
+            'confirmation_phrase' => 'RETRY',
+            'requires_password' => true,
+        ],
+
+        'queue.forget' => [
+            'label' => 'Delete a failed queue job',
+            'group' => 'Queue',
+            'risk' => self::RISK_ELEVATED,
+            'description' => 'Delete ONE row from the failed-jobs table (Laravel\'s own queue:forget path). The job will NOT run again — its payload is discarded.',
+            'will_do' => [
+                'Permanently delete the failed-jobs row, payload and exception included',
+                'Remove it from the failed-jobs count the digest and diagnostics report',
+                'Record an audit-log entry, announce the action in the ops Slack channel, and add a queue event to the timeline',
+            ],
+            'wont_do' => [
+                'Run the job — forgetting is permanent disposal, the opposite of retry',
+                'Archive the payload anywhere (the failed-jobs row is the ONLY copy — after this it is gone)',
+                'Touch any other failed job',
+            ],
+            'consequence' => 'The payload and its exception trace are deleted FOREVER — there is no archive, no undo, no second copy. Use this only for jobs you have deliberately judged junk (duplicate work, test noise, payloads for removed code). If there is any chance the work still matters, export what you need from the job page BEFORE confirming.',
+            'confirmation_phrase' => 'FORGET',
             'requires_password' => true,
         ],
     ];

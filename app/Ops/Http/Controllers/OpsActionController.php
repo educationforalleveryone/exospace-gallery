@@ -13,6 +13,7 @@ use App\Models\AdminAuditLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Throwable;
 
@@ -50,7 +51,8 @@ class OpsActionController extends Controller
 
     /**
      * GET /ops/actions — the actions hub: catalog, failed webhook panel,
-     * recent executed actions (from the audit ledger).
+     * failed-jobs pointer (Iteration 10), recent executed actions (from
+     * the audit ledger).
      */
     public function index(Request $request): View
     {
@@ -63,6 +65,13 @@ class OpsActionController extends Controller
                 ->get();
         } catch (Throwable) {
             // ledger table unavailable — panel renders empty.
+        }
+
+        $failedJobCount = null;
+        try {
+            $failedJobCount = (int) DB::table('failed_jobs')->count();
+        } catch (Throwable) {
+            // failed_jobs unavailable — the queue card renders with '—'.
         }
 
         $recentActions = collect();
@@ -90,6 +99,7 @@ class OpsActionController extends Controller
                 ->orderBy('name')
                 ->get(),
             'failedWebhooks' => $failedWebhooks,
+            'failedJobCount' => $failedJobCount,
             'recentActions' => $recentActions,
         ]);
     }
@@ -127,6 +137,7 @@ class OpsActionController extends Controller
                 'definition' => $definition,
                 'application' => $application,
                 'webhook' => null,
+                'failedJob' => null,
             ]);
         }
 
@@ -144,6 +155,28 @@ class OpsActionController extends Controller
                 'definition' => $definition,
                 'application' => null,
                 'webhook' => $webhook,
+                'failedJob' => null,
+            ]);
+        }
+
+        // Iteration 10 — queue.retry / queue.forget: the target is ONE
+        // failed job, addressed by UUID (the identifier queue:retry and
+        // queue:forget themselves accept — stable, non-enumerable).
+        if ($action === 'queue.retry' || $action === 'queue.forget') {
+            $job = $this->findFailedJob((string) $request->query('job', ''));
+
+            if ($job === null) {
+                return redirect()
+                    ->route('ops.queue.index')
+                    ->withErrors(['action' => 'That failed job no longer exists — it may have been retried or deleted already.']);
+            }
+
+            return view('ops.action-confirm', [
+                'actionId' => $action,
+                'definition' => $definition,
+                'application' => null,
+                'webhook' => null,
+                'failedJob' => $job,
             ]);
         }
 
@@ -175,9 +208,11 @@ class OpsActionController extends Controller
         $validated = $request->validate([
             'application' => ($action === 'app.restart' ? 'required' : 'nullable').'|integer',
             'webhook' => ($action === 'webhook.replay' ? 'required' : 'nullable').'|integer',
+            'job' => (str_starts_with($action, 'queue.') ? 'required' : 'nullable').'|string|max:64',
             'confirm' => ['required', 'string', 'max:64'],
             'password' => ['required', 'string', 'max:200'],
         ], [
+            'job.required' => 'The failed job is missing — restart from the queue page.',
             'confirm.required' => 'Type the confirmation phrase to proceed.',
             'password.required' => 'Your password is required for this action.',
         ]);
@@ -207,12 +242,17 @@ class OpsActionController extends Controller
         if ($action === 'webhook.replay') {
             $target['webhook_id'] = (int) $validated['webhook'];
         }
+        if (str_starts_with($action, 'queue.')) {
+            $target['failed_job_uuid'] = (string) $validated['job'];
+        }
 
         $result = $this->actions->execute($action, $target, $request->user());
 
         $final = $action === 'app.restart'
             ? redirect()->route('ops.applications')
-            : $redirectBack;
+            : (str_starts_with($action, 'queue.')
+                ? redirect()->route('ops.queue.index')
+                : $redirectBack);
 
         return $final->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
@@ -235,6 +275,47 @@ class OpsActionController extends Controller
                 ->withInput($request->only('confirm'));
         }
 
+        if (str_starts_with($action, 'queue.') && $request->input('job')) {
+            return redirect()
+                ->route('ops.actions.confirm', ['action' => $action, 'job' => (string) $request->input('job')])
+                ->withInput($request->only('confirm'));
+        }
+
         return redirect()->route('ops.actions.index');
+    }
+
+    /**
+     * Fetch ONE failed job by UUID for the confirm page — shaped the same
+     * way OpsActionService::findFailedJob returns it, minus the raw
+     * payload/exception blobs (the page shows excerpts).
+     *
+     * @return array{uuid: string, connection: string, queue: string, job: string, first_exception: string, failed_at: string}|null
+     */
+    private function findFailedJob(string $uuid): ?array
+    {
+        if ($uuid === '' || strlen($uuid) > 64) {
+            return null;
+        }
+
+        try {
+            $row = DB::table('failed_jobs')->where('uuid', $uuid)->first();
+        } catch (Throwable) {
+            return null;
+        }
+
+        if ($row === null) {
+            return null;
+        }
+
+        $exception = (string) ($row->exception ?? '');
+
+        return [
+            'uuid' => (string) $row->uuid,
+            'connection' => (string) $row->connection,
+            'queue' => (string) $row->queue,
+            'job' => OpsActionService::jobName((string) ($row->payload ?? '')),
+            'first_exception' => mb_substr(trim(explode("\n", $exception)[0] ?? ''), 0, 220),
+            'failed_at' => (string) ($row->failed_at ?? ''),
+        ];
     }
 }

@@ -22,10 +22,12 @@ use Throwable;
  * service (failed >10 warning / >50 critical; oldest job >10 min critical)
  * so the dashboard and Slack never disagree about what "bad" means.
  *
- * Read-only: SELECTs only. Retrying failed jobs is deliberately NOT offered
- * as a one-click action (a retry can re-run side effects); the diagnostics
- * tell you WHAT is failing — the conscious fix happens through the deploy
- * pipeline or a deliberate operator action.
+ * Read-only: SELECTs only. Retrying/deleting failed jobs is NOT a
+ * diagnostic (both change state): since Iteration 10 the deliberate
+ * one-job-at-a-time handling lives on the /ops/queue page through the
+ * action framework — password + typed phrase, audited, announced. The
+ * diagnostics tell you WHAT is failing; the conscious fix happens
+ * through the deploy pipeline or those deliberate operator actions.
  */
 class QueueDiagnostics implements RunsDiagnostics
 {
@@ -218,8 +220,8 @@ class QueueDiagnostics implements RunsDiagnostics
             sprintf('%d failed job(s), %d in the last 24 h', $total, $recent),
             $findings,
             $recent > 0
-                ? 'Background jobs are actively failing. The findings show WHICH queue and the leading exception line — the full payload and stack live in the database and the control plane\'s error events. Common causes: an external dependency the job calls is down, or a payload shape changed with a deploy while old jobs were still queued. Failed jobs are never auto-retried by this dashboard: fix the cause first, then retry deliberately (php artisan queue:retry from a terminal, or re-dispatch from code).'
-                : 'There are failed jobs on record, but none in the last 24 hours — this is a historical pile, not an active fire. Cleaning it up is optional housekeeping; the counts matter to the alerting thresholds (10 warning / 50 critical).',
+                ? 'Background jobs are actively failing. The findings show WHICH queue and the leading exception line — open the Queue page (/ops/queue) for the full list with payloads, and handle jobs one at a time there: Retry… after the cause is fixed, Forget… for deliberate junk. Common causes: an external dependency the job calls is down, or a payload shape changed with a deploy while old jobs were still queued. Failed jobs are never auto-retried — retry only after the cause is fixed.'
+                : 'There are failed jobs on record, but none in the last 24 hours — this is a historical pile, not an active fire. Open the Queue page (/ops/queue) to review it: Retry… the ones whose cause is fixed, Forget… the junk, and the counts the digest and thresholds report drop on the next pass.',
             ['queue.health', 'app.recent-errors'],
         );
     }
