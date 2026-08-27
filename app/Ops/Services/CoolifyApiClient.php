@@ -182,6 +182,69 @@ class CoolifyApiClient
     }
 
     /**
+     * A single application by UUID (fresh status for container.health).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function applicationByUuid(string $applicationUuid): ?array
+    {
+        return $this->get("/api/v1/applications/{$applicationUuid}");
+    }
+
+    /**
+     * ITERATION 3 — the client's ONLY write operation.
+     *
+     * Restart an application container: POST /applications/{uuid}/restart.
+     * Coolify stops the current container and starts a new one from the SAME
+     * image (no rebuild, no code change — that is what makes this a "safe
+     * remediation" rather than a deployment action; deploys remain Coolify's
+     * job). Returns the response body on success (Coolify versions return
+     * e.g. a deployment uuid) or null on ANY failure — the same
+     * null-on-failure contract as the read methods, so callers degrade
+     * gracefully.
+     *
+     * Callers MUST treat this as a high-visibility operation: it is only
+     * reachable through OpsActionService (allow-list, password + typed
+     * confirmation, AdminAuditLog, Slack announcement). Nothing else in the
+     * control plane may call it.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function restartApplication(string $applicationUuid): ?array
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        try {
+            $response = Http::withToken((string) $this->token)
+                ->timeout($this->timeout)
+                ->acceptJson()
+                ->post($this->baseUrl."/api/v1/applications/{$applicationUuid}/restart");
+
+            if (! $response->successful()) {
+                Log::warning('CoolifyApiClient: restart failed', [
+                    'uuid' => $applicationUuid,
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            $json = $response->json();
+
+            return is_array($json) ? $json : [];
+        } catch (Throwable $e) {
+            Log::warning('CoolifyApiClient: restart request threw', [
+                'uuid' => $applicationUuid,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
      * Normalize the variety of list shapes Coolify returns (raw arrays,
      * {data: []} wrappers, {applications: []} ...).
      *

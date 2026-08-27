@@ -8,6 +8,10 @@
         <h1 class="text-xl font-semibold">Applications</h1>
         <p class="text-xs text-slate-400 mt-1">Everything the control plane knows about — synced from Coolify every 5 minutes, plus self-reporting apps.</p>
     </div>
+    <form method="POST" action="{{ route('ops.actions.execute', 'platform.sync') }}">
+        @csrf
+        <button class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition" title="Run the Coolify sync immediately (read-only refresh, same as the 5-minute schedule)">↻ Sync now</button>
+    </form>
 </div>
 
 <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -21,6 +25,7 @@
                 <th class="text-left px-4 py-3">Health</th>
                 <th class="text-left px-4 py-3">Active Errors</th>
                 <th class="text-left px-4 py-3">Last Sync</th>
+                <th class="text-left px-4 py-3">Diagnostics</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-800/80">
@@ -59,10 +64,18 @@
                         @endif
                     </td>
                     <td class="px-4 py-3 text-slate-500 text-xs">{{ $app->status_checked_at?->diffForHumans() ?? '—' }}</td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-1.5">
+                            <a href="{{ route('ops.diagnostics.index', ['app' => $app->id]) }}" class="text-[11px] px-2 py-1 rounded border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60" title="Run read-only diagnostics for this application">Run checks</a>
+                            @if(config('ops.actions.enabled', true) && ($app->provider === 'coolify' || $app->is_self))
+                                <a href="{{ route('ops.actions.confirm', ['action' => 'app.restart', 'app' => $app->id]) }}" class="text-[11px] px-2 py-1 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60" title="Restart this application's container (confirmation required)">Restart…</a>
+                            @endif
+                        </div>
+                    </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="px-4 py-10 text-center text-slate-500 text-sm">
+                    <td colspan="8" class="px-4 py-10 text-center text-slate-500 text-sm">
                         Nothing synced yet. The scheduled <span class="font-mono">ops:sync-platform</span> command (every 5 minutes)
                         will discover every application, database and service on the Coolify server — provided
                         <span class="font-mono">COOLIFY_API_TOKEN</span> is configured.

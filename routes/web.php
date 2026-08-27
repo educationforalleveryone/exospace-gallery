@@ -582,6 +582,36 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])
             ->whereNumber('incident')
             ->middleware('throttle:30,1')
             ->name('incidents.reopen');
+
+        // ── Diagnostics (Iteration 3) ────────────────────────────────────
+        // READ-ONLY, allow-listed checks (database, Redis, queue,
+        // containers, deployments, server, application). The engine
+        // enforces the allow-list, redacts findings, audits every run
+        // (ops.diagnostic.run) and never executes commands or SQL beyond
+        // the fixed catalog. Throttled because some checks make live API
+        // calls.
+        Route::get('/diagnostics',                  [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'index'])->name('diagnostics.index');
+        Route::post('/diagnostics/run',             [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'run'])
+            ->middleware('throttle:30,1')
+            ->name('diagnostics.run');
+        Route::get('/diagnostics/runs/{run}',       [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'show'])
+            ->whereNumber('run')
+            ->name('diagnostics.show');
+
+        // ── Actions (Iteration 3) ────────────────────────────────────────
+        // The ONLY write paths against infrastructure. Allow-listed
+        // (OpsActionRegistry), throttled harder, and for elevated actions:
+        // inline password verification + typed confirmation phrase enforced
+        // in OpsActionController (the framework password.confirm middleware
+        // is deliberately NOT used — its intended() redirect replays POST
+        // routes as GET and 405s). Execution, audit (ops.action.executed)
+        // and Slack announcement live in OpsActionService. Fail-closed via
+        // OPS_ACTIONS_ENABLED=false.
+        Route::get('/actions',                     [\App\Ops\Http\Controllers\OpsActionController::class, 'index'])->name('actions.index');
+        Route::get('/actions/{action}/confirm',    [\App\Ops\Http\Controllers\OpsActionController::class, 'confirm'])->name('actions.confirm');
+        Route::post('/actions/{action}',           [\App\Ops\Http\Controllers\OpsActionController::class, 'execute'])
+            ->middleware('throttle:10,1')
+            ->name('actions.execute');
     });
 
 // ── SEO OS (Iteration 5): SEO landing + editorial pages ──────────────────

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ops\Console;
 
+use App\Ops\Models\OpsDiagnosticRun;
 use App\Ops\Models\OpsEvent;
 use Illuminate\Console\Command;
 
@@ -23,6 +24,10 @@ use Illuminate\Console\Command;
  *   3. OPEN EVENTS ARE NEVER DELETED. An ongoing problem must not vanish
  *      silently — resolve it first (auto-resolve handles the stale ones).
  *
+ * ITERATION 3: also prunes ops_diagnostic_runs older than
+ * ops.diagnostics.retention_days (default 30). Runs are point-in-time
+ * snapshots, reproducible on demand, so short retention loses nothing.
+ *
  * Scheduled daily at 03:35 (off-peak, deliberately after the 03:17
  * webhook-ledger prune and before the 04:00 maintenance batch — same
  * slotting convention as routes/console.php).
@@ -31,12 +36,13 @@ class PruneOpsEventsCommand extends Command
 {
     protected $signature = 'ops:prune-events';
 
-    protected $description = 'Apply the ops_events retention policy (auto-resolve stale events, delete old resolved ones).';
+    protected $description = 'Apply the ops retention policies (auto-resolve stale events, delete old resolved ones, prune diagnostic runs).';
 
     public function handle(): int
     {
         $autoResolveDays = max(1, (int) config('ops.retention.auto_resolve_days', 7));
         $retentionDays = max(1, (int) config('ops.retention.resolved_retention_days', 90));
+        $diagnosticDays = max(1, (int) config('ops.diagnostics.retention_days', 30));
 
         // 1. Auto-resolve: no recurrence for N days while still open.
         $resolved = OpsEvent::where('status', 'open')
@@ -51,7 +57,15 @@ class PruneOpsEventsCommand extends Command
             ->where('resolved_at', '<', now()->subDays($retentionDays))
             ->delete();
 
-        $this->info("ops:prune-events — auto-resolved: {$resolved}, deleted: {$deleted}.");
+        // 3. Iteration 3: prune diagnostic runs past retention.
+        $runsDeleted = 0;
+        try {
+            $runsDeleted = OpsDiagnosticRun::where('created_at', '<', now()->subDays($diagnosticDays))->delete();
+        } catch (\Throwable) {
+            // diagnostics table absent (pre-Iteration-3) — nothing to prune.
+        }
+
+        $this->info("ops:prune-events — auto-resolved: {$resolved}, deleted: {$deleted}, diagnostic runs pruned: {$runsDeleted}.");
 
         return self::SUCCESS;
     }

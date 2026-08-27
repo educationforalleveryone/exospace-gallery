@@ -471,6 +471,26 @@ class ErrorClassifier
     }
 
     /**
+     * Iteration 3 (Diagnostic Engine): every diagnostic id any rule may
+     * recommend. Exposed so the DiagnosticRegistry and its consistency test
+     * can guarantee a recommended chip is ALWAYS a runnable diagnostic —
+     * the classifier and the engine can never silently drift apart.
+     *
+     * @return array<int, string>
+     */
+    public static function recommendedDiagnosticIds(): array
+    {
+        $ids = [];
+        foreach (self::RULES as $rule) {
+            foreach ((array) ($rule['diagnostics'] ?? []) as $id) {
+                $ids[] = (string) $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
      * Map a Monolog/Laravel level name to an ops severity.
      */
     public static function levelToSeverity(int $monologLevel): string

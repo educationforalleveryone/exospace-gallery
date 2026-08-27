@@ -117,22 +117,28 @@
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
             <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Recommended next steps</h2>
-            <div class="flex flex-wrap gap-2">
-                @php
-                    $recs = collect();
-                    foreach ($timeline as $event) {
-                        foreach ($event->recommendedDiagnostics() as $rec) {
-                            $recs->put($rec, true);
-                        }
-                    }
-                @endphp
-                @forelse($recs->keys() as $diagnostic)
-                    <span class="text-xs px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-700 text-slate-300 font-mono" title="One-click diagnostics arrive in Iteration 3">{{ $diagnostic }}</span>
-                @empty
-                    <span class="text-xs text-slate-500">No specific diagnostics recommended — inspect the timeline events.</span>
-                @endforelse
-            </div>
-            <p class="text-[10px] text-slate-600 mt-3">Buttons become runnable one-click diagnostics in Iteration 3 (read-only, audited, permission-gated).</p>
+            @php
+                $incidentDiagnostics = \App\Ops\Diagnostics\DiagnosticEngine::runnableForEvents($timeline);
+            @endphp
+            @if($incidentDiagnostics !== [])
+                <p class="text-xs text-slate-400 mb-3">Union of the diagnostics recommended by this incident's member events — run them from here with the incident as context.</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($incidentDiagnostics as $diagnostic)
+                        <form method="POST" action="{{ route('ops.diagnostics.run') }}">
+                            @csrf
+                            <input type="hidden" name="diagnostic" value="{{ $diagnostic }}">
+                            <input type="hidden" name="incident" value="{{ $incident->id }}">
+                            @if($incident->ops_application_id)<input type="hidden" name="application" value="{{ $incident->ops_application_id }}">@endif
+                            <button class="text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
+                                ▶ {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }}
+                            </button>
+                        </form>
+                    @endforeach
+                </div>
+            @else
+                <p class="text-xs text-slate-500 mb-3">No specific diagnostics recommended — inspect the timeline events.</p>
+            @endif
+            <a href="{{ route('ops.diagnostics.index') }}" class="inline-block text-[11px] text-slate-500 hover:text-slate-300 mt-3">Browse all diagnostics →</a>
         </section>
     </div>
 

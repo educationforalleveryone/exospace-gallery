@@ -118,4 +118,31 @@ return [
         // Overview "recent events" window.
         'recent_window_hours' => 24,
     ],
+
+    // ── Diagnostic engine (Iteration 3) ─────────────────────────────────
+    //
+    // The engine runs ONLY the allow-listed read-only checks declared in
+    // App\Ops\Diagnostics\DiagnosticRegistry (database, Redis, queue,
+    // container, deployment, server, application). Every run is redacted,
+    // audited (ops.diagnostic.run) and persisted to ops_diagnostic_runs.
+    //
+    // Runs are point-in-time snapshots, always reproducible on demand —
+    // short retention loses nothing.
+    'diagnostics' => [
+        // Diagnostic runs older than N days are deleted by ops:prune-events.
+        'retention_days' => (int) env('OPS_DIAGNOSTIC_RETENTION_DAYS', 30),
+    ],
+
+    // ── Actions (Iteration 3) ───────────────────────────────────────────
+    //
+    // The allow-listed write surface (App\Ops\Actions\OpsActionRegistry):
+    // platform.sync (risk: none), app.restart + webhook.replay (risk:
+    // elevated — password + typed confirmation phrase + audit + Slack).
+    //
+    // Kill switch: set OPS_ACTIONS_ENABLED=false to fail-close the entire
+    // action surface (routes 404, UI hides actions). Diagnostics are
+    // unaffected — they are read-only.
+    'actions' => [
+        'enabled' => filter_var(env('OPS_ACTIONS_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+    ],
 ];

@@ -75,20 +75,35 @@
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
             <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Recommended next steps</h2>
-            <div class="flex flex-wrap gap-2">
-                @forelse($event->recommendedDiagnostics() as $diagnostic)
-                    <span class="text-xs px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-700 text-slate-300 font-mono" title="One-click diagnostics arrive in Iteration 3">{{ $diagnostic }}</span>
-                @empty
-                    <span class="text-xs text-slate-500">No specific diagnostics recommended — inspect the context and recent changes.</span>
-                @endforelse
-            </div>
-            <p class="text-[10px] text-slate-600 mt-3">Buttons become runnable one-click diagnostics in Iteration 3 (read-only, audited, permission-gated).</p>
+            @php
+                $runnable = \App\Ops\Diagnostics\DiagnosticEngine::runnableRecommended($event->recommendedDiagnostics());
+            @endphp
+            @if($runnable !== [])
+                <p class="text-xs text-slate-400 mb-3">Run a check with one click — read-only, audited, results explained in plain language.</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($runnable as $diagnostic)
+                        <form method="POST" action="{{ route('ops.diagnostics.run') }}">
+                            @csrf
+                            <input type="hidden" name="diagnostic" value="{{ $diagnostic }}">
+                            <input type="hidden" name="event" value="{{ $event->id }}">
+                            @if($event->ops_application_id)<input type="hidden" name="application" value="{{ $event->ops_application_id }}">@endif
+                            <button class="text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
+                                ▶ {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }}
+                            </button>
+                        </form>
+                    @endforeach
+                </div>
+                <a href="{{ route('ops.diagnostics.index') }}" class="inline-block text-[11px] text-slate-500 hover:text-slate-300 mt-3">Browse all diagnostics →</a>
+            @else
+                <p class="text-xs text-slate-500 mb-3">No specific diagnostics recommended for this error class — the general catalog may still help.</p>
+                <a href="{{ route('ops.diagnostics.index') }}" class="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium">▶ Run: Recent errors</a>
+            @endif
         </section>
 
         @if($related->isNotEmpty())
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
             <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Related events on the same application</h2>
-            <p class="text-[11px] text-slate-500 mb-3">Events from this application near this event's window — manual correlation. Automatic incident correlation arrives in Iteration 2.</p>
+            <p class="text-[11px] text-slate-500 mb-3">Events from this application near this event's window. When they share a cause, the correlation engine groups them into one incident.</p>
             <div class="divide-y divide-slate-800/70 rounded-lg border border-slate-800 overflow-hidden">
                 @foreach($related as $rel)
                     <a href="{{ route('ops.events.show', $rel) }}" class="block p-3 hover:bg-slate-900/80 text-sm">
@@ -184,9 +199,11 @@
                     @if($commit)<li>Commit <span class="font-mono text-slate-200">{{ \Illuminate\Support\Str::limit($commit, 10, '') }}</span> is associated with this event.</li>@endif
                     @if($deployment)<li>Deployment context: <span class="font-mono">{{ $deployment }}</span></li>@endif
                 </ul>
-                <p class="text-[10px] text-slate-600 mt-2">Deployment↔error correlation becomes automatic in Iteration 2.</p>
             @else
-                <p class="text-xs text-slate-400">No deployment or commit correlated with this event yet. Iteration 2's correlation engine will link recent deployments automatically.</p>
+                <p class="text-xs text-slate-400">No deployment or commit correlated with this event yet. The correlation engine links recent deployments automatically when they share the window.</p>
+            @endif
+            @if($event->incident)
+                <a href="{{ route('ops.incidents.show', $event->incident) }}" class="inline-block mt-3 text-xs text-fuchsia-300 hover:text-fuchsia-200">This event is part of incident #{{ $event->incident->id }} →</a>
             @endif
         </section>
     </div>
