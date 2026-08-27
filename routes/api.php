@@ -84,3 +84,13 @@ Route::prefix('ops')->name('ops.')->group(function () {
         ->name('ingest')
         ->middleware('throttle:' . (int) config('ops.ingest.requests_per_minute', 30) . ',1');
 });
+
+// ── Testing Control Center ingestion API (QA Iteration 1) ────────────────
+//
+// POST /api/control-center/runs — CI runners push JUnit XML artifacts here
+// after executing a test profile, feeding run history / flaky detection /
+// release readiness. Auth: X-QA-Token header matching QA_INGEST_TOKEN.
+//
+// Fail-closed exactly like /api/ops/ingest: token unset → 404.
+Route::post('/control-center/runs', [\App\Http\Controllers\ControlCenter\IngestController::class, 'store'])
+    ->name('control-center.ingest');

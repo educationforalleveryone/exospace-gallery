@@ -3,7 +3,10 @@
     "name": "laravel/laravel",
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "keywords": [
+        "laravel",
+        "framework"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.2",
@@ -78,6 +81,15 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "test:quick": "@php artisan qa:run quick_check",
+        "test:pre-release": "@php artisan qa:run pre_release",
+        "test:full": "@php artisan qa:run full_regression",
+        "test:security": "@php artisan qa:run security",
+        "test:billing": "@php artisan qa:run billing",
+        "test:seo": "@php artisan qa:run seo",
+        "test:database": "@php artisan qa:run database",
+        "qa:list": "@php artisan qa:run --list",
+        "qa:doctor": "@php artisan qa:doctor",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

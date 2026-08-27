@@ -126,7 +126,16 @@ class FrontendQueueAndApiTest extends TestCase
         // C-4 FIX: the SendWelcomeEmail listener should NOT call session()
         // (it runs on the queue worker, where session is not available)
         $listenerFile = file_get_contents(app_path('Listeners/SendWelcomeEmail.php'));
-        $this->assertStringNotContainsString('session(', $listenerFile,
+
+        // Strip comments before scanning: the file's own DOCBLOCK explains
+        // the C-4 fix and legitimately contains the words "session()" in
+        // prose. We only care about executable code. (QA-Control-Center fix)
+        $codeWithoutComments = trim(preg_replace([
+            '~/\*.*?\*/~s',      // block comments / docblocks
+            '~^\s*//.*$~m',      // line comments
+        ], '', $listenerFile));
+
+        $this->assertStringNotContainsString('session(', $codeWithoutComments,
             'C-4: SendWelcomeEmail must NOT use session() — it runs on the queue worker where session is unavailable.');
         $this->assertStringContainsString('hasVerifiedEmail', $listenerFile,
             'C-4: SendWelcomeEmail should use hasVerifiedEmail() instead of session().');
@@ -172,7 +181,13 @@ class FrontendQueueAndApiTest extends TestCase
     {
         // C-9 FIX: the service worker should NOT pre-cache /build/assets/app.css
         $swFile = file_get_contents(public_path('sw.js'));
-        $this->assertStringNotContainsString("'/build/assets/app.css'", $swFile,
+
+        // Strip // comment lines first: sw.js documents the C-9 fix in a
+        // comment that mentions the literal path. Only real code lines may
+        // trip this assertion. (QA-Control-Center fix)
+        $codeWithoutComments = trim(preg_replace('~^\s*//.*$~m', '', $swFile));
+
+        $this->assertStringNotContainsString("'/build/assets/app.css'", $codeWithoutComments,
             'C-9: Service worker should NOT pre-cache /build/assets/app.css (it 404s — the real CSS is content-hashed).');
     }
 

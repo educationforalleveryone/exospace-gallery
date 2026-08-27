@@ -274,11 +274,18 @@ class DatabaseIntegrityTest extends TestCase
             app_path('Console/Commands/PruneTransactionsByPartition.php')
         );
 
-        $this->assertStringContainsString('Carbon::createFromTimestamp', $commandFile,
+        // Strip comments first — the command's own docblock documents the
+        // FROM_DAYS removal history and mentions it verbatim. (QA-Control-Center fix)
+        $commandCode = trim(preg_replace([
+            '~/\*.*?\*/~s',
+            '~^\s*//.*$~m',
+        ], '', $commandFile));
+
+        $this->assertStringContainsString('Carbon::createFromTimestamp', $commandCode,
             'C-1: PruneTransactionsByPartition should use Carbon::createFromTimestamp (Unix timestamp), not FROM_DAYS.');
 
-        $this->assertStringNotContainsString('FROM_DAYS', $commandFile,
-            'C-1: PruneTransactionsByPartition should NOT use FROM_DAYS (it expects a day number, not a Unix timestamp).');
+        $this->assertStringNotContainsString('FROM_DAYS', $commandCode,
+            'C-1: PruneTransactionsByPartition should NOT use FROM_DAYS in executable code (it expects a day number, not a Unix timestamp).');
     }
 
     public function test_g3_consolidated_users_migration_has_all_columns(): void

@@ -71,8 +71,12 @@ class CriticalBugFixesTest extends TestCase
     public function c7_increment_job_actually_increments_view_count(): void
     {
         // Use the real queue (sync) — we want to verify the side effect.
-        Queue::fake([]); // clear fake
-
+        // NOTE (QA-Control-Center fix): the previous `Queue::fake([])` line
+        // was INTENDED to "clear" an earlier fake, but on Laravel 12 even
+        // `dispatchSync()` is intercepted while a Queue fake is bound to the
+        // container — so the job never executed and this test failed with
+        // 100 !== 101. RefreshDatabase already isolates each test, so no
+        // un-faking is needed; simply don't fake here.
         $gallery = Gallery::factory()->create([
             'is_active'  => true,
             'view_count' => 100,
@@ -117,7 +121,13 @@ class CriticalBugFixesTest extends TestCase
         // Verify the fix from Iter-003 is still in place: the command's
         // source must NOT contain FROM_DAYS() anywhere.
         $source = file_get_contents(base_path('app/Console/Commands/PruneTransactionsByPartition.php'));
-        $this->assertStringNotContainsString('FROM_DAYS', $source, 'C-1 regression: FROM_DAYS must not appear in the partition pruning command');
+        // Strip comments first — the file's own docblock documents that
+        // FROM_DAYS was removed and mentions it verbatim. (QA-Control-Center fix)
+        $codeOnly = trim(preg_replace([
+            '~/\*.*?\*/~s',
+            '~^\s*//.*$~m',
+        ], '', $source));
+        $this->assertStringNotContainsString('FROM_DAYS', $codeOnly, 'C-1 regression: FROM_DAYS must not appear in executable partition-pruning code');
         $this->assertStringContainsString('createFromTimestamp', $source, 'C-1 fix in place: Carbon::createFromTimestamp used');
     }
 
@@ -139,8 +149,11 @@ class CriticalBugFixesTest extends TestCase
         // Verify the fix from Iter-005 is still in place: the SW's APP_SHELL
         // must NOT contain the literal '/build/assets/app.css' path.
         $source = file_get_contents(public_path('sw.js'));
-        $this->assertStringNotContainsString("'/build/assets/app.css'", $source, 'C-9 regression: SW must not pre-cache the literal app.css path');
-        $this->assertStringNotContainsString('"/build/assets/app.css"', $source, 'C-9 regression: SW must not pre-cache the literal app.css path (double-quote variant)');
+        // Strip comment lines — sw.js documents the C-9 fix in comments that
+        // mention the literal path. (QA-Control-Center fix)
+        $codeOnly = trim(preg_replace('~^\s*//.*$~m', '', $source));
+        $this->assertStringNotContainsString("'/build/assets/app.css'", $codeOnly, 'C-9 regression: SW must not pre-cache the literal app.css path');
+        $this->assertStringNotContainsString('"/build/assets/app.css"', $codeOnly, 'C-9 regression: SW must not pre-cache the literal app.css path (double-quote variant)');
     }
 
     /** @test */

@@ -28,11 +28,17 @@ class EmailTemplateTest extends TestCase
             'B-9: Shared email layout must exist at resources/views/emails/partials/layout.blade.php');
 
         $layout = file_get_contents($layoutPath);
-        $this->assertStringContainsString('<table role="presentation"', $layout,
+
+        // Strip Blade comments before scanning: the layout's docblock explains
+        // the B-9 rules and mentions "linear-gradient" in prose. Only real
+        // markup/CSS may trip these assertions. (QA-Control-Center fix)
+        $layoutWithoutComments = trim(preg_replace('~\{\{--.*?--\}\}~s', '', $layout));
+
+        $this->assertStringContainsString('<table role="presentation"', $layoutWithoutComments,
             'B-9: Email layout must use <table role="presentation"> for Outlook compatibility.');
-        $this->assertStringNotContainsString('linear-gradient', $layout,
+        $this->assertStringNotContainsString('linear-gradient', $layoutWithoutComments,
             'B-9: Email layout must NOT use linear-gradient (Outlook doesn\'t support it).');
-        $this->assertStringNotContainsString('background-clip: text', $layout,
+        $this->assertStringNotContainsString('background-clip: text', $layoutWithoutComments,
             'B-9: Email layout must NOT use background-clip: text (Outlook doesn\'t support it).');
     }
 

@@ -4,7 +4,7 @@
       @extends('emails.partials.layout')
       @section('preheader', 'Your preview text here — max 85 chars')
       @section('content')
-          {{-- email body here --}}
+          ... your email body markup here ...
       @endsection
 
     This layout uses:

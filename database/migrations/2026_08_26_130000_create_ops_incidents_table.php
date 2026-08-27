@@ -81,6 +81,16 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ops_events', function (Blueprint $table) {
+            // QA-Control-Center fix: the up() side ALSO creates a standalone
+            // $table->index('ops_incident_id'). SQLite refuses to drop the
+            // column while that independent index still references it
+            // ("error in index ops_events_ops_incident_id_index after drop
+            // column"), which broke MigrateFreshTest::rollback_and_re_migrate.
+            // Dropping it explicitly keeps rollback working on BOTH engines.
+            $table->dropIndex(['ops_incident_id']);
+        });
+
+        Schema::table('ops_events', function (Blueprint $table) {
             $table->dropConstrainedForeignId('ops_incident_id');
         });
 

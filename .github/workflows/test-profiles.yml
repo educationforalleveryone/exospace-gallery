@@ -1,0 +1,176 @@
+# Exospace — Testing Control Center · Profile Runner (QA Iteration 1)
+#
+# One parametrized workflow that executes ANY registered test profile
+# (config/test-profiles.php) in an isolated ephemeral runner and pushes the
+# JUnit artifact back to the Control Center.
+#
+# TRIGGERS
+#   1. workflow_dispatch — "Run workflow" from GitHub UI/CLI/API:
+#        profile   : which validated suite to run
+#        database  : sqlite (fast) or mysql8 (fidelity)
+#        coverage  : collect line coverage via PCOV (slower)
+#   2. schedule          — nightly Full Regression against MySQL 8 so drift is
+#                          caught even when nobody ships for a while.
+#
+# RESULTS
+#   - JUnit artifacts are ALWAYS uploaded as workflow artifacts (never lost).
+#   - When the CONTROL_CENTER_INGEST_URL + QA_INGEST_TOKEN secrets exist,
+#     results are POSTed to /api/control-center/runs and appear on the
+#     dashboard history within seconds.
+#
+name: Test Profiles
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Test profile to execute'
+        required: true
+        default: 'pre_release'
+        type: choice
+        options:
+          - quick_check
+          - pre_release
+          - full_regression
+          - security
+          - billing
+          - seo
+          - database
+      database:
+        description: 'Database engine'
+        required: true
+        default: 'mysql8'
+        type: choice
+        options:
+          - mysql8
+          - sqlite
+      coverage:
+        description: 'Collect coverage (PCOV)'
+        required: false
+        default: false
+        type: boolean
+
+  schedule:
+    # Nightly 02:17 UTC — after CI maintenance windows defined by app tasks.
+    - cron: '17 2 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  run-profile:
+    name: ${{ inputs.profile || 'full_regression (nightly)' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    services:
+      mysql:
+        # Fidelity engine matching production. The `database` profile REQUIRES
+        # this; SQLite hides strict-mode, collation and partition behaviour.
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: exospace_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, json, bcmath, gd, exif, intl, pdo, pdo_mysql, pdo_sqlite, sqlite3, redis, zip
+          coverage: ${{ (inputs.coverage == true && 'pcov') || 'none' }}
+
+      - name: Resolve job parameters
+        id: params
+        run: |
+          if [ -z "${{ inputs.profile }}" ]; then
+            echo "profile=full_regression" >> "$GITHUB_OUTPUT"     # nightly path
+            echo "database=mysql8"       >> "$GITHUB_OUTPUT"
+            echo "coverage=false"        >> "$GITHUB_OUTPUT"
+          else
+            echo "profile=${{ inputs.profile }}"    >> "$GITHUB_OUTPUT"
+            echo "database=${{ inputs.database }}"  >> "$GITHUB_OUTPUT"
+            echo "coverage=${{ inputs.coverage }}"  >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Configure database (MySQL 8)
+        if: steps.params.outputs.database == 'mysql8'
+        run: |
+          cat >> .env <<'ENV'
+          TEST_MYSQL_HOST=127.0.0.1
+          TEST_MYSQL_PORT=3306
+          TEST_MYSQL_DATABASE=exospace_test
+          TEST_MYSQL_USERNAME=root
+          TEST_MYSQL_PASSWORD=root
+          ENV
+
+      - name: Build frontend assets
+        # Page-rendering feature tests 500 without a Vite manifest — building
+        # here keeps runs honest instead of failing on missing infrastructure.
+        run: |
+          npm ci
+          npm run build
+
+      - name: Doctor — validate test environment before burning a run
+        run: php artisan qa:doctor --profile=${{ steps.params.outputs.profile }}
+
+      - name: Execute profile (${{ steps.params.outputs.profile }})
+        id: qa_run
+        run: |
+          mkdir -p storage/framework/qa
+          php artisan qa:run ${{ steps.params.outputs.profile }} \
+            ${{ steps.params.outputs.database == 'sqlite' && '--database=sqlite' || '' }} \
+            ${{ steps.params.outputs.coverage == true && '--coverage' || '' }} \
+            --no-interaction
+        continue-on-error: true   # failing tests must still yield artifacts + ingest
+
+      - name: Locate JUnit artifact
+        id: artifact
+        run: |
+          FILE=$(ls -t storage/framework/qa/*-junit.xml | head -1)
+          echo "path=$FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload JUnit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ steps.params.outputs.profile }}-${{ github.sha }}
+          path: ${{ steps.artifact.outputs.path }}
+          retention-days: 90
+
+      - name: Ingest into Control Center dashboard
+        if: ${{ secrets.CONTROL_CENTER_INGEST_URL != '' && secrets.QA_INGEST_TOKEN != '' }}
+        continue-on-error: true   # a dashboard outage must never mask test truth
+        run: |
+          curl -sS -X POST "${{ secrets.CONTROL_CENTER_INGEST_URL }}" \
+            -H "X-QA-Token: ${{ secrets.QA_INGEST_TOKEN }}" \
+            -F "junit=@${{ steps.artifact.outputs.path }}" \
+            -F "profile=${{ steps.params.outputs.profile }}" \
+            -F "environment=ci" \
+            -F "trigger=ci" \
+            -F "runner=github-actions" \
+            -F "git_branch=${{ github.ref_name }}" \
+            -F "git_commit=${{ github.sha }}" \
+            -F "ci_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Enforce result status
+        if: steps.qa_run.outcome != 'success'
+        run: |
+          echo "::error::Profile ${{ steps.params.outputs.profile }} did not pass — see JUnit artifact and job log."
+          exit 1
