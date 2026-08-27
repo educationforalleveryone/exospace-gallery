@@ -16,6 +16,7 @@ use App\Ops\Services\OpsStatusTilesService;
 use App\Ops\Services\SentryApiClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Throwable;
 
@@ -41,6 +42,24 @@ use Throwable;
  * its FIRST write path: the super-admin-only, audited Sentry project
  * mapping form (ops.sentry.mapping). The mapping is a label, not a
  * secret — the audit payload may carry the old→new slug verbatim.
+ *
+ * HOTFIX (post-Iteration-9): overview()'s `lastSync` value is now
+ * explicitly cast through Carbon::parse() before being handed to the
+ * view. `OpsApplication::max('status_checked_at')` is a query-builder
+ * AGGREGATE — it returns a raw scalar straight from the database and
+ * deliberately bypasses Eloquent's attribute casting (the model's own
+ * `'status_checked_at' => 'datetime'` cast only applies to hydrated
+ * models, never to aggregate results). Once at least one row had a
+ * non-null `status_checked_at` (i.e. after the first real
+ * ops:sync-platform run), this returned a plain string instead of a
+ * Carbon instance, and `ops.overview`'s
+ * `{{ $lastSync?->diffForHumans() ?? '...' }}` line threw
+ * "Call to a member function diffForHumans() on string" — a 500 on
+ * every load of /ops. The null-safe `?->` only guards against `null`;
+ * it does not protect against the wrong type. Wrapping the aggregate in
+ * Carbon::parse() (guarded for null) restores a real Carbon instance so
+ * diffForHumans() works exactly as every other timestamp on this page
+ * already does.
  */
 class OpsDashboardController extends Controller
 {
@@ -112,6 +131,13 @@ class OpsDashboardController extends Controller
             $sentryTrend = ['configured' => false];
         }
 
+        // HOTFIX: ->max() is a query-builder aggregate — it returns a raw
+        // scalar from the DB and bypasses the model's 'datetime' cast.
+        // Parse it explicitly so the view receives a real Carbon instance
+        // (or null), exactly like every other timestamp passed to it.
+        $lastSyncRaw = OpsApplication::whereNotNull('status_checked_at')
+            ->max('status_checked_at');
+
         return view('ops.overview', [
             'platform' => $platform,
             'applications' => $applications,
@@ -121,8 +147,7 @@ class OpsDashboardController extends Controller
             'openCounts' => $openCounts,
             'selfChecks' => $this->health->selfChecks(),
             'selfApp' => OpsEventIngestor::selfApplication(),
-            'lastSync' => OpsApplication::whereNotNull('status_checked_at')
-                ->max('status_checked_at'),
+            'lastSync' => $lastSyncRaw !== null ? Carbon::parse($lastSyncRaw) : null,
             'healthScore' => $healthScore,
             'backupTile' => $backupTile,
             'webhookTile' => $webhookTile,
