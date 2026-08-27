@@ -71,6 +71,9 @@
     @endforeach
 </div>
 
+{{-- ── Sweep cadences (Iteration 7) ─────────────────────────────────────── --}}
+@include('ops.partials.sweep-cadences')
+
 {{-- ── Recent runs ────────────────────────────────────────────────────── --}}
 <section>
     <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Recent runs</h2>

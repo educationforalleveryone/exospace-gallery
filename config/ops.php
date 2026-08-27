@@ -301,4 +301,29 @@ return [
         // is never gated by it.
         'reminders_enabled' => filter_var(env('OPS_CREDENTIAL_REMINDERS_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
     ],
+
+    // ── Morning digest (Iteration 7) ─────────────────────────────────────
+    //
+    // ONE Slack message a day (08:15) that unifies every domain the
+    // control plane watches: health score + verdict caps, active
+    // incidents, untriaged errors, the application rollup + worst
+    // offenders, the autonomous sweep's open findings, backup
+    // freshness, the billing-webhook ledger, the Sentry 24 h trend
+    // (omitted when the API token is not configured), credential
+    // rotation cadence and the last 24 h of operator activity
+    // (diagnostic runs by actor + audited ops.* actions).
+    //
+    // THE SILENCE CONTRACT (§16.4): alerts fire on problems; the digest
+    // fires on TIME. While enabled it sends every day — including the
+    // boring all-quiet mornings — so a silent morning becomes a signal
+    // in itself (the dead-man's-switch rule). The scheduled send is
+    // deduplicated within the alert service's 6 h info TTL; a manual
+    // "send now" from /ops/digest (super-admin, audited) deliberately
+    // bypasses the dedup so a test send can never silently disappear.
+    //
+    // The switch gates the SCHEDULED send only — the /ops/digest
+    // preview page and the manual button keep working with it off.
+    'digest' => [
+        'enabled' => filter_var(env('OPS_MORNING_DIGEST_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+    ],
 ];

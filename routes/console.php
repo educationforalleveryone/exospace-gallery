@@ -302,3 +302,21 @@ Schedule::command('ops:sweep-credentials')
     ->name('ops-sweep-credentials')
     ->withoutOverlapping(30)
     ->onOneServer();
+
+// OpsCenter (Iteration 7): the unified morning digest — ONE Slack
+// message a day unifying every domain the control plane watches
+// (health score + caps, incidents, untriaged errors, application
+// rollup + worst offenders, sweep findings, backups, the webhook
+// ledger, the Sentry 24 h trend, credential cadence, and the last
+// 24 h of operator activity). 08:15 sits after the 01:00–04:30
+// nightly batch (and the Monday 06:00–07:00 analytics), before the
+// 09:00 credential reminder — the digest carries the headline, the
+// reminder carries the actionable list. The silence contract
+// (§16.4): it sends on ALL-QUIET days too, so a silent morning is
+// itself a signal. Manual test sends from /ops/digest bypass the
+// dedup by design. Kill switch: OPS_MORNING_DIGEST_ENABLED=false.
+Schedule::command('ops:send-morning-digest')
+    ->dailyAt('08:15')
+    ->name('ops-send-morning-digest')
+    ->withoutOverlapping(30)
+    ->onOneServer();

@@ -576,6 +576,12 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
             ->whereNumber('incident')
             ->name('incidents.show');
 
+        // Morning digest (Iteration 7): the PREVIEW is read-only and
+        // viewer-visible — it renders the exact message Slack receives.
+        // The "send now" POST is super-admin-only (outbound message on
+        // the operational channel), audited as ops.digest.sent.
+        Route::get('/digest',                       [\App\Ops\Http\Controllers\OpsDigestController::class, 'index'])->name('digest.index');
+
         // Diagnostics (Iteration 3): the catalog and PAST run results are
         // read-only and viewer-visible; RUNNING a check is operator-only.
         Route::get('/diagnostics',                  [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'index'])->name('diagnostics.index');
@@ -655,6 +661,14 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
                 ->whereNumber('grant')
                 ->middleware('throttle:10,1')
                 ->name('access.revoke');
+
+            // Morning digest — "send now" (Iteration 7): fires the exact
+            // message the preview shows, immediately, WITHOUT the daily
+            // dedup (a test send that silently disappeared would look
+            // exactly like a broken webhook). Throttled; audited.
+            Route::post('/digest/send',                     [\App\Ops\Http\Controllers\OpsDigestController::class, 'sendNow'])
+                ->middleware('throttle:5,1')
+                ->name('digest.send');
         });
     });
 

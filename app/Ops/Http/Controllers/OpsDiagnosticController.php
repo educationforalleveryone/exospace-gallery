@@ -11,6 +11,7 @@ use App\Ops\Models\OpsApplication;
 use App\Ops\Models\OpsEvent;
 use App\Ops\Models\OpsIncident;
 use App\Ops\Models\OpsDiagnosticRun;
+use App\Ops\Services\OpsSweepStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -31,6 +32,7 @@ class OpsDiagnosticController extends Controller
 {
     public function __construct(
         private readonly DiagnosticEngine $engine,
+        private readonly OpsSweepStatusService $sweepStatus,
     ) {}
 
     /**
@@ -47,12 +49,21 @@ class OpsDiagnosticController extends Controller
             ->limit(15)
             ->get();
 
+        // Iteration 7: the sweep-cadence panel (self-scoped checks only —
+        // the panel explains the watch, which always targets self).
+        try {
+            $sweepStatus = $this->sweepStatus->status();
+        } catch (\Throwable) {
+            $sweepStatus = null; // fail-soft — the page never depends on it
+        }
+
         return view('ops.diagnostics', [
             'diagnostics' => DiagnosticRegistry::all(),
             'groups' => DiagnosticRegistry::groups(),
             'application' => $application,
             'applications' => OpsApplication::orderByDesc('is_self')->orderBy('name')->get(),
             'recentRuns' => $recentRuns,
+            'sweepStatus' => $sweepStatus,
         ]);
     }
 
