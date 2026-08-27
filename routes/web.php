@@ -724,3 +724,19 @@ Route::post('/auth/{provider}/unlink',   [\App\Http\Controllers\OAuthController:
       ->middleware(['auth']);
 
 require __DIR__.'/auth.php';
+// ── Testing Control Center (QA Iteration 2) ───────────────────────────────
+// Status wall + run history + failure drill-down for the Exospace test suite.
+// Gated by e-mail allowlist (CONTROL_CENTER_ADMINS); fail-closed 404 when the
+// list is empty so the whole section vanishes for everyone else.
+Route::middleware(['auth', 'cc_access'])->prefix('control-center')->name('control-center.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'overview'])->name('overview');
+    Route::get('/runs', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'runs'])->name('runs');
+    Route::get('/runs/{run}', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'run'])
+        ->name('run.show')
+        ->whereNumber('run');
+    Route::get('/runs/{run}/artifact', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'artifact'])
+        ->name('run.artifact')
+        ->whereNumber('run');
+    Route::post('/profiles/{profileKey}/start', [\App\Http\Controllers\ControlCenter\StartController::class, 'store'])
+        ->name('profile.start');
+});

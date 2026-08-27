@@ -153,6 +153,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // Iteration 6: the operator tier gate — read-only diagnostics
             // runs (super-admins + active 'operator' grants only).
             'ops_operator'  => \App\Ops\Http\Middleware\EnsureOpsOperator::class,
+
+            // Testing Control Center (QA Iteration 2): e-mail allowlist gate,
+            // fail-closed 404 when CONTROL_CENTER_ADMINS is unset.
+            'cc_access'     => \App\Http\Middleware\EnsureControlCenterAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

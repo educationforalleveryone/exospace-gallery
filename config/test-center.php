@@ -156,6 +156,10 @@ return [
     // Directory (relative to storage_path) where artifacts are stored.
     'artifact_disk' => 'control-center',
 
+    // "org/repo" used by the dashboard to deep-link GitHub Actions profile
+    // dispatches when local execution is not possible (production etc.).
+    'github_repo' => env('GITHUB_REPO'),
+
     /*
     |--------------------------------------------------------------------------
     | Control Center access (dashboard ships in iteration 2/3)
