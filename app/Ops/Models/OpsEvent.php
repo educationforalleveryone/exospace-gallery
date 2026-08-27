@@ -36,7 +36,7 @@ class OpsEvent extends Model
     ];
 
     protected $fillable = [
-        'fingerprint', 'ops_application_id', 'source', 'category', 'severity',
+        'fingerprint', 'ops_application_id', 'ops_incident_id', 'source', 'category', 'severity',
         'title', 'message', 'occurrence_count', 'total_count',
         'first_seen_at', 'last_seen_at', 'status', 'resolved_at',
         'environment', 'context', 'classification',
@@ -53,6 +53,14 @@ class OpsEvent extends Model
     public function application(): BelongsTo
     {
         return $this->belongsTo(OpsApplication::class, 'ops_application_id');
+    }
+
+    /**
+     * The incident this event was correlated into (Iteration 2), if any.
+     */
+    public function incident(): BelongsTo
+    {
+        return $this->belongsTo(OpsIncident::class, 'ops_incident_id');
     }
 
     /**

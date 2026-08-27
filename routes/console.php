@@ -259,3 +259,14 @@ Schedule::command('ops:prune-events')
     ->name('ops-prune-events')
     ->withoutOverlapping(60)
     ->onOneServer();
+
+// OpsCenter (Iteration 2): incident correlation sweep — groups unlinked
+// error/critical events into incidents (adopt into open incidents, detect
+// deployment→migration→container→errors causal chains, cluster, or create
+// solo incidents). Runs right after the platform sync so a freshly synced
+// deployment failure correlates with the errors that followed it.
+Schedule::command('ops:correlate-incidents')
+    ->everyFiveMinutes()
+    ->name('ops-correlate-incidents')
+    ->withoutOverlapping(5)
+    ->onOneServer();

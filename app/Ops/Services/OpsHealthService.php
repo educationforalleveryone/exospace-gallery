@@ -89,6 +89,20 @@ class OpsHealthService
             $status = $this->worst($status, 'degraded');
         }
 
+        // ── Active incidents (Iteration 2) ─────────────────────────────
+        try {
+            $openIncidents = \App\Ops\Models\OpsIncident::query()
+                ->whereIn('status', ['open', 'acknowledged'])
+                ->count();
+
+            if ($openIncidents > 0) {
+                $reasons[] = "{$openIncidents} active incident(s) under investigation";
+                $status = $this->worst($status, 'degraded');
+            }
+        } catch (Throwable) {
+            // incidents table absent (pre-Iteration-2) — skip.
+        }
+
         if ($status === 'healthy' && count($reasons) === 0) {
             $reasons[] = 'All monitored subsystems healthy';
         }

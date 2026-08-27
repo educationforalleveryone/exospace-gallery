@@ -558,6 +558,30 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])
         Route::get('/events/{event}',       [\App\Ops\Http\Controllers\OpsDashboardController::class, 'eventDetail'])
             ->whereNumber('event')
             ->name('events.show');
+
+        // ── Incidents (Iteration 2) ──────────────────────────────────────
+        // Index + timeline detail are read-only. The three lifecycle
+        // actions (acknowledge/resolve/reopen) are the module's FIRST
+        // write paths — super-admin + MFA + throttled + audited via
+        // AdminAuditLog (ops.* actions). They alter only OpsCenter's own
+        // records, never infrastructure — that bar (password.confirm)
+        // is reserved for Iteration 3's infrastructure actions.
+        Route::get('/incidents',                     [\App\Ops\Http\Controllers\OpsIncidentController::class, 'index'])->name('incidents.index');
+        Route::get('/incidents/{incident}',          [\App\Ops\Http\Controllers\OpsIncidentController::class, 'show'])
+            ->whereNumber('incident')
+            ->name('incidents.show');
+        Route::post('/incidents/{incident}/acknowledge', [\App\Ops\Http\Controllers\OpsIncidentController::class, 'acknowledge'])
+            ->whereNumber('incident')
+            ->middleware('throttle:30,1')
+            ->name('incidents.acknowledge');
+        Route::post('/incidents/{incident}/resolve',     [\App\Ops\Http\Controllers\OpsIncidentController::class, 'resolve'])
+            ->whereNumber('incident')
+            ->middleware('throttle:30,1')
+            ->name('incidents.resolve');
+        Route::post('/incidents/{incident}/reopen',      [\App\Ops\Http\Controllers\OpsIncidentController::class, 'reopen'])
+            ->whereNumber('incident')
+            ->middleware('throttle:30,1')
+            ->name('incidents.reopen');
     });
 
 // ── SEO OS (Iteration 5): SEO landing + editorial pages ──────────────────

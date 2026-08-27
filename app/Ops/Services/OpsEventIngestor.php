@@ -136,6 +136,27 @@ class OpsEventIngestor
     }
 
     /**
+     * Iteration 2: near-real-time correlation for critical events.
+     *
+     * Called by the reportable/ingest call sites AFTER record() returns.
+     * The 5-minute sweep (ops:correlate-incidents) catches everything
+     * else; this path only pulls critical errors into incidents faster.
+     * Guarded + failure-tolerant, so it can never break ingestion.
+     */
+    public function correlateCritical(OpsEvent $event): void
+    {
+        if ($event->severity !== 'critical' || $event->ops_incident_id !== null) {
+            return;
+        }
+
+        try {
+            app(IncidentCorrelationService::class)->correlate($event);
+        } catch (Throwable $e) {
+            fwrite(STDERR, '[OpsEventIngestor] correlation skipped: '.$e->getMessage().\PHP_EOL);
+        }
+    }
+
+    /**
      * Find-or-create the "self" application (the host app: Exospace).
      */
     public static function selfApplication(): OpsApplication

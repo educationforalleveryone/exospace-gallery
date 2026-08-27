@@ -22,8 +22,8 @@
         <nav class="flex flex-wrap items-center gap-1 text-sm">
             <a href="{{ route('ops.overview') }}"      class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.overview') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Overview</a>
             <a href="{{ route('ops.applications') }}"  class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.applications') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Applications</a>
+            <a href="{{ route('ops.incidents.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.incidents*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Incidents</a>
             <a href="{{ route('ops.events') }}"        class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.events*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Errors &amp; Events</a>
-            <span class="px-3 py-1.5 rounded-md text-slate-600" title="Coming in Iteration 2">Incidents</span>
             <span class="px-3 py-1.5 rounded-md text-slate-600" title="Coming in Iteration 3">Diagnostics</span>
         </nav>
         <div class="flex items-center gap-2">

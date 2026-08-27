@@ -51,6 +51,36 @@
     </ul>
 </section>
 
+{{-- ── Active incidents (Iteration 2) ─────────────────────────────────────── --}}
+@if($activeIncidents->isNotEmpty())
+<section class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-red-400">Active Incidents — Correlated Stories</h2>
+        <a href="{{ route('ops.incidents.index') }}" class="text-xs text-emerald-400 hover:text-emerald-300">All incidents →</a>
+    </div>
+    <div class="grid md:grid-cols-2 gap-3">
+        @foreach($activeIncidents as $incident)
+            @php
+                $sevStyle = [
+                    'critical' => 'border-red-800/60 bg-red-950/40',
+                    'error'    => 'border-orange-800/50 bg-orange-950/30',
+                    'warning'  => 'border-amber-800/50 bg-amber-950/30',
+                    'info'     => 'border-slate-700/50 bg-slate-900/40',
+                ][$incident->severity] ?? 'border-slate-700/50 bg-slate-900/40';
+            @endphp
+            <a href="{{ route('ops.incidents.show', $incident) }}" class="block rounded-lg border {{ $sevStyle }} p-4 hover:brightness-125 transition">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-950/60 text-slate-300 border border-slate-700/50">{{ strtoupper($incident->severity) }} · #{{ $incident->id }}</span>
+                    <span class="text-[10px] text-slate-500">{{ $incident->event_count }} events · {{ $incident->confidence }} confidence</span>
+                </div>
+                <div class="text-sm font-medium text-slate-100 mt-1.5">{{ $incident->title }}</div>
+                <div class="text-xs text-slate-400 mt-1">{{ $incident->rootCauseStatement() }}</div>
+            </a>
+        @endforeach
+    </div>
+</section>
+@endif
+
 <div class="grid lg:grid-cols-3 gap-6">
 
     {{-- ── Application health grid ─────────────────────────────────── --}}
@@ -180,8 +210,8 @@
         <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
             <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Coming Next</h2>
             <ul class="text-[11px] text-slate-500 space-y-1.5">
-                <li><span class="text-slate-400 font-medium">Iteration 2:</span> incidents, correlation, timelines — related errors become one story.</li>
-                <li><span class="text-slate-400 font-medium">Iteration 3:</span> one-click read-only diagnostics (database, Redis, queues, containers).</li>
+                <li><span class="text-slate-400 font-medium">Shipped (Iter 2):</span> incidents, correlation engine, timelines — related errors are now one story.</li>
+                <li><span class="text-slate-400 font-medium">Iteration 3:</span> one-click read-only diagnostics (database, Redis, queues, containers) + safe actions.</li>
             </ul>
         </div>
     </section>

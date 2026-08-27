@@ -7,6 +7,7 @@ namespace App\Ops\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Ops\Models\OpsApplication;
 use App\Ops\Models\OpsEvent;
+use App\Ops\Models\OpsIncident;
 use App\Ops\Services\OpsEventIngestor;
 use App\Ops\Services\OpsHealthService;
 use Illuminate\Http\Request;
@@ -38,6 +39,16 @@ class OpsDashboardController extends Controller
 
         $windowHours = (int) config('ops.dashboard.recent_window_hours', 24);
 
+        // Iteration 2: active incidents sit ABOVE raw errors — they are
+        // the correlated stories an operator should triage first.
+        $activeIncidents = OpsIncident::query()
+            ->with(['application', 'rootCause'])
+            ->whereIn('status', ['open', 'acknowledged'])
+            ->orderByRaw('CASE severity WHEN "critical" THEN 1 WHEN "error" THEN 2 WHEN "warning" THEN 3 ELSE 4 END')
+            ->orderByDesc('last_event_at')
+            ->limit(6)
+            ->get();
+
         $recentEvents = OpsEvent::query()
             ->with('application')
             ->whereIn('status', ['open', 'acknowledged'])
@@ -63,6 +74,7 @@ class OpsDashboardController extends Controller
         return view('ops.overview', [
             'platform' => $platform,
             'applications' => $applications,
+            'activeIncidents' => $activeIncidents,
             'recentEvents' => $recentEvents,
             'recentDeployments' => $recentDeployments,
             'openCounts' => $openCounts,

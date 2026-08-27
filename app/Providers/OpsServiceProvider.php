@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Ops\Console\CorrelateIncidentsCommand;
 use App\Ops\Console\PruneOpsEventsCommand;
 use App\Ops\Console\SyncPlatformCommand;
 use App\Ops\Services\OpsEventIngestor;
@@ -35,6 +36,7 @@ class OpsServiceProvider extends ServiceProvider
             $this->commands([
                 SyncPlatformCommand::class,
                 PruneOpsEventsCommand::class,
+                CorrelateIncidentsCommand::class,
             ]);
         }
 
