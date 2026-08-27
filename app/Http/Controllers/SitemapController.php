@@ -183,7 +183,15 @@ class SitemapController extends Controller
     {
         $version = $this->version();
 
-        return Cache::flexible(
+        // HOTFIX: Cache::flexible() is backed by the Redis cache store here.
+        // Laravel's Redis driver stores plain numeric values without PHP
+        // serialization (to keep atomic incr/decr working), and Redis always
+        // returns raw values as strings — so a cache HIT for a numeric value
+        // comes back as e.g. "15" (string), not 15 (int). The closure below
+        // always returns a real int on a cache MISS, but the declared `: int`
+        // return type then throws on every cache HIT. Casting explicitly
+        // fixes both paths identically.
+        return (int) Cache::flexible(
             'sitemap:count:' . $group . ':v' . $version,
             [now()->addSeconds((int) config('seo.sitemap.cache_ttl', 1800)), now()->addSeconds((int) config('seo.sitemap.cache_ttl_stale', 3600))],
             fn () => match ($group) {
