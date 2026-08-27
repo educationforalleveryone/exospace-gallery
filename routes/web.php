@@ -731,6 +731,7 @@ require __DIR__.'/auth.php';
 Route::middleware(['auth', 'cc_access'])->prefix('control-center')->name('control-center.')->group(function () {
     Route::get('/', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'overview'])->name('overview');
     Route::get('/runs', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'runs'])->name('runs');
+    Route::get('/flaky', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'flaky'])->name('flaky');
     Route::get('/runs/{run}', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'run'])
         ->name('run.show')
         ->whereNumber('run');

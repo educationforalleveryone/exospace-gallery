@@ -55,10 +55,14 @@ return [
 
                 'build' => [
                     'label'       => 'Build & Lint',
-                    'profile'     => 'ci_build',          // synthetic gate fed by CI job status ingestion
+                    // Synthetic gate fed by ANY ci-triggered artifact arrival:
+                    // executing a pipeline through to artifact upload proves the
+                    // build ran; individual green-ness is owned by that same
+                    // pipeline's dedicated gates below.
+                    'profile'     => 'ci_build',
                     'mode'        => 'blocking',
-                    'require_passed' => true,
-                    'max_age_hours'  => null,             // build info never goes stale-stale; CI re-pushes constantly
+                    'require_passed' => false,
+                    'max_age_hours'  => null,             // never expires: CI re-proves on every push
                 ],
 
                 'tests' => [

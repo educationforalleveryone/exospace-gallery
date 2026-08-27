@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\RunQaProfile;
 use App\Models\QaTestRun;
 use App\Services\TestCenter\EnvironmentSafety;
+use App\Services\TestCenter\ProbeRunner;
 use App\Services\TestCenter\TestProfileRegistry;
 use Illuminate\Http\RedirectResponse;
 
@@ -27,6 +28,7 @@ class StartController extends Controller
     public function __construct(
         private readonly TestProfileRegistry $registry,
         private readonly EnvironmentSafety $safety,
+        private readonly ProbeRunner $probes,
     ) {}
 
     public function store(string $profileKey): RedirectResponse
@@ -37,10 +39,22 @@ class StartController extends Controller
 
         $profile = $this->registry->profile($profileKey);
 
-        // Strategy profiles without executors yet (smoke / production_health):
-        // redirect to dispatch as well once available; for now block honestly.
-        if (($profile['strategy'] ?? 'phpunit') !== 'phpunit') {
-            return back()->with('warning', "Profile [{$profileKey}] executor ships with Iteration 3 (config registered already).");
+        // Safe-read probes (smoke / production health) run INLINE — seconds,
+        // read-only, and exactly the checks that SHOULD be runnable from prod.
+        if (in_array($profile['strategy'] ?? '', ['http-smoke', 'in-process-checks'], true)) {
+            $target = app()->isProduction() ? 'production' : ($profile['target_environments'][0] ?? 'production');
+
+            if (! in_array($target, (array) ($profile['target_environments'] ?? []), true)) {
+                $target = 'production';
+            }
+
+            $result = $this->probes->execute($profileKey, $target);
+
+            return redirect()->route('control-center.run.show', ['run' => $result['run']])
+                ->with($result['success'] ? 'info' : 'warning',
+                    $result['success']
+                        ? "{$profile['label']} PASSED against {$target}."
+                        : "{$profile['label']} reported problems on {$target}.");
         }
 
         $verdict = $this->safety->evaluate($profileKey, $profile, 'local');

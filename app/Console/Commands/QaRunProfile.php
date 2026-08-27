@@ -88,10 +88,12 @@ class QaRunProfile extends Command
         // ── STRATEGY DISPATCH ──────────────────────────────────────────────
         $strategy = $profile['strategy'] ?? 'phpunit';
 
-        if ($strategy === 'http-smoke' || $strategy === 'in-process-checks') {
-            $this->warn("Strategy [{$strategy}] is delivered with iteration 3. Config already registered this profile.");
+        if ($strategy === 'http-smoke') {
+            return $this->executeProbeStrategy($recorder, $parser, $key, $profile, $targetEnv, 'qa:smoke');
+        }
 
-            return self::SUCCESS;
+        if ($strategy === 'in-process-checks') {
+            return $this->executeProbeStrategy($recorder, $parser, $key, $profile, $targetEnv, 'qa:health');
         }
 
         // ── PREREQUISITES (fail-fast, never 400 meaningless failures) ─────
@@ -191,6 +193,103 @@ class QaRunProfile extends Command
             $this->components->info("Provisioned runner record store: {$database}");
             \Artisan::call('migrate', ['--force' => true]);
         }
+    }
+
+    /* ---------------------------------------------------------------------
+    |  Probe strategies (smoke / health) — ship Iteration 3
+    |-------------------------------------------------------------------- */
+
+    /**
+     * Shared executor for the two safe-read probe commands. They emit a
+     * junit-json contract on stdout which we convert into the same recorded
+     * pipeline as PHPUnit runs so history/readiness treat them identically.
+     */
+    private function executeProbeStrategy(
+        RunRecorder $recorder,
+        JunitParser $parser,
+        string $key,
+        array $profile,
+        string $targetEnv,
+        string $command,
+    ): int {
+        $this->components->info(($profile['icon'] ?? '🧪')." Running {$key}");
+        $started = microtime(true);
+
+        \Illuminate\Support\Facades\Artisan::call($command, [
+            '--env'    => $targetEnv,
+            '--format' => 'junit-json',
+        ]);
+        $json = trim(\Illuminate\Support\Facades\Artisan::output());
+
+        $parsedPayload = json_decode($json, true);
+        if (! is_array($parsedPayload) || ! isset($parsedPayload['totals'])) {
+            $this->components->error("{$command} did not return the junit-json contract.");
+            $this->recordNotReady($recorder, $key, $profile, $targetEnv,
+                "{$command} output unparsable", 'Inspect console output above');
+
+            return self::FAILURE;
+        }
+
+        $artifactPath = storage_path('framework/qa/'.$key.'-'.now()->format('YmdHis').'.xml');
+        @mkdir(dirname($artifactPath), 0775, true);
+        file_put_contents($artifactPath, $this->buildJunitXml($key, $parsedPayload));
+
+        $totals   = $parser->parseFile($artifactPath)['totals'];
+        $problems = $totals['failures'] + $totals['errors'];
+        $status   = match (true) {
+            $totals['tests'] === 0 => QaTestRun::STATUS_NOT_EXECUTED,
+            $problems === 0        => QaTestRun::STATUS_PASSED,
+            default                => QaTestRun::STATUS_FAILED,
+        };
+
+        $run = $recorder->record([
+            'profile'     => $key,
+            'environment' => $targetEnv,
+            'safety'      => $profile['safety'] ?? 'prod-safe-read',
+            'trigger'     => 'manual',
+            'runner'      => $this->runnerName(),
+            'meta'        => ['target_url' => config('test-center.environments.'.$targetEnv.'.base_url')],
+        ], $artifactPath, [
+            'status'      => $status,
+            'started_at'  => now()->subMilliseconds((int) (microtime(true) - $started) * 1000),
+            'finished_at' => now(),
+            'duration_ms' => (int) round((microtime(true) - $started) * 1000),
+        ]);
+
+        $this->renderSummary($parser, $key, $run, $status);
+
+        return $status === QaTestRun::STATUS_PASSED ? self::SUCCESS : self::FAILURE;
+    }
+
+
+    private function buildJunitXml(string $suiteName, array $payload): string
+    {
+        $t = $payload['totals'];
+        $casesXml = '';
+
+        foreach (($payload['cases'] ?? []) as $c) {
+            $inner = '';
+            if ($c['status'] !== 'passed') {
+                $msg = htmlspecialchars((string) ($c['message'] ?? $c['status']), ENT_XML1);
+                $inner = $c['status'] === 'skipped'
+                    ? "<skipped>{$msg}</skipped>"
+                    : "<failure type='AssertionFailed'>{$msg}</failure>";
+            }
+            $casesXml .= sprintf(
+                '<testcase name="%s" classname="%s" time="0">%s</testcase>',
+                htmlspecialchars((string) $c['name'], ENT_XML1),
+                htmlspecialchars((string) $c['classname'], ENT_XML1),
+                $inner
+            );
+        }
+
+        return sprintf(
+            '<?xml version="1.0" encoding="UTF-8"?><testsuites><testsuite name="%s" tests="%d" assertions="%d" failures="%d" errors="0" skipped="%d" time="%s">%s</testsuite></testsuites>',
+            htmlspecialchars($suiteName, ENT_XML1),
+            (int) $t['tests'], (int) $t['assertions'], (int) $t['failures'],
+            (int) $t['skipped'], (string) round(($payload['duration_ms'] ?? 0)/1000, 3),
+            $casesXml
+        );
     }
 
     /* ---------------------------------------------------------------------

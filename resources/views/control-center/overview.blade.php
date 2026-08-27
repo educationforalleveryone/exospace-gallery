@@ -27,11 +27,69 @@
             @endif
         </p>
     </div>
-    <div class="rounded-lg border border-violet-800 bg-violet-950/40 px-4 py-3 text-sm">
-        <span class="mr-2 font-semibold">Release readiness</span>
-        <span class="text-slate-400">evaluate from Iteration 3 (gates config already installed)</span>
-    </div>
+    <a href="#release-readiness" class="rounded-lg border px-4 py-3 text-sm {{
+        $readiness['verdict']==='ready' || $readiness['verdict']==='ready-with-warnings'
+            ? 'border-emerald-800 bg-emerald-950/40'
+            : ($readiness['verdict']==='blocked' ? 'border-red-900 bg-red-950/40' : 'border-slate-700 bg-slate-900')
+    }}">
+        <span class="mr-2 font-semibold">
+            @if ($readiness['verdict']==='ready') 🟢 READY TO SHIP
+            @elseif($readiness['verdict']==='ready-with-warnings') 🟢 READY · warnings
+            @elseif($readiness['verdict']==='blocked') 🔴 NOT READY
+            @else ⚪ UNPROVEN
+            @endif
+        </span>
+        <span class="text-slate-400">
+            {{ $readiness['summary']['passing'] }}/{{ $readiness['summary']['total_gates'] }} gates green
+        </span>
+    </a>
 </div>
+
+@if (($flaky)->isNotEmpty())
+    <div class="mb-6 rounded-xl border border-purple-900 bg-purple-950/30 p-4 text-sm text-purple-200">
+        ❄ <b>{{ $flaky->where('kind','flaky')->count() }}</b> flaky ·
+          <b>{{ $flaky->where('kind','perma-red')->count() }}</b> perma-red ·
+          <b>{{ $flaky->where('kind','recently-broken')->count() }}</b> recently-broken
+        <a href="{{ route('control-center.flaky') }}" class="ml-2 underline decoration-dotted hover:text-white">open reliability board →</a>
+    </div>
+@endif
+
+<section id="release-readiness" class="mb-8 rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+    <header class="mb-4 flex items-center justify-between">
+        <h2 class="font-semibold">Release Readiness — production deploy</h2>
+        <span class="text-xs text-slate-500">evaluated {{ $readiness['evaluated_at']->diffForHumans() }} · config/release-gates.php</span>
+    </header>
+
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        @foreach ($readiness['gates'] as $key => $gate)
+            <div class="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2.5 text-sm">
+                <span class="text-base">{{
+                    $gate['verdict']==='green' ? '✅' : ($gate['verdict']==='red-blocking' ? '❌' : '⚠️')
+                }}</span>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-baseline gap-2">
+                        <b>{{ $gate['label'] }}</b>
+                        @if ($gate['mode'] !== 'blocking')
+                            <span class="text-[10px] uppercase text-amber-400">advisory</span>
+                        @endif
+                    </div>
+                    <div class="truncate text-xs text-slate-500" title="{{ $gate['note'] }}">{{ $gate['note'] }}</div>
+                </div>
+                @if ($gate['run_id'])
+                    <a href="{{ route('control-center.run.show', ['run' => $gate['run_id']]) }}" class="text-xs text-sky-400 hover:text-sky-300">→</a>
+                @endif
+            </div>
+        @endforeach
+    </div>
+
+    @if (($readiness['verdict']) === 'blocked')
+        <ul class="mt-4 list-inside list-disc rounded-lg border border-red-900 bg-red-950/30 p-4 text-sm text-red-200">
+            @foreach ($readiness['summary']['reasons'] as $reason)
+                <li>{{ $reason }}</li>
+            @endforeach
+        </ul>
+    @endif
+</section>
 
 <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
     @foreach ($profiles as $key => $meta)

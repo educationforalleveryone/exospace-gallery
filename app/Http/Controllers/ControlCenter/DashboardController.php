@@ -6,7 +6,11 @@ namespace App\Http\Controllers\ControlCenter;
 
 use App\Http\Controllers\Controller;
 use App\Models\QaTestRun;
+use App\Services\TestCenter\FlakyDetector;
+use App\Services\TestCenter\QaNotifier;
+use App\Services\TestCenter\ReleaseReadinessService;
 use App\Services\TestCenter\TestProfileRegistry;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\View\View;
@@ -15,6 +19,8 @@ class DashboardController extends Controller
 {
     public function __construct(
         private readonly TestProfileRegistry $registry,
+        private readonly ReleaseReadinessService $readiness,
+        private readonly FlakyDetector $flaky,
     ) {}
 
     /** GET /control-center — status wall: version, latest runs, readiness teaser. */
@@ -32,11 +38,33 @@ class DashboardController extends Controller
             ];
         }
 
+        // Release readiness (Iteration 3) — evaluate + notify once per verdict hash.
+        $readiness = $this->readiness->evaluate('production');
+        $hash      = md5(json_encode([$readiness['verdict'], $readiness['summary']['reasons']]));
+
+        if ($readiness['verdict'] === 'blocked' && Cache::get('qa:last-release-verdict-hash') !== $hash) {
+            try {
+                app(QaNotifier::class)->releaseBlocked($hash, $readiness['summary']);
+                Cache::put('qa:last-release-verdict-hash', $hash, now()->addDay());
+            } catch (\Throwable) { /* notification must never break the page */ }
+        }
+
         return view('control-center.overview', [
-            'git_commit'  => substr((string) (QaTestRun::whereNotNull('git_commit')->latest('id')->value('git_commit') ?? ''), 0, 7),
-            'git_branch'  => QaTestRun::whereNotNull('git_branch')->latest('id')->value('git_branch'),
-            'lastActivity'=> optional(QaTestRun::latest('id')->first())->created_at,
-            'profiles'    => $profiles,
+            'git_commit'   => substr((string) (QaTestRun::whereNotNull('git_commit')->latest('id')->value('git_commit') ?? ''), 0, 7),
+            'git_branch'   => QaTestRun::whereNotNull('git_branch')->latest('id')->value('git_branch'),
+            'lastActivity' => optional(QaTestRun::latest('id')->first())->created_at,
+            'profiles'     => $profiles,
+            'readiness'    => $readiness,
+            'flaky'        => $this->flaky->detect(),
+        ]);
+    }
+
+    /** GET /control-center/flaky — reliability board. */
+    public function flaky(): View
+    {
+        return view('control-center.flaky', [
+            'tests' => $this->flaky->detect(request('profile')),
+            'profiles' => array_map(fn ($m) => $m['label'], $this->registry->summarizeForList()),
         ]);
     }
 

@@ -22,6 +22,8 @@
         <nav class="flex gap-2 text-sm">
             <a href="{{ route('control-center.overview') }}"
                class="rounded-md px-3 py-1.5 {{ request()->routeIs('control-center.overview') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Overview</a>
+            <a href="{{ route('control-center.flaky') }}"
+               class="rounded-md px-3 py-1.5 {{ request()->routeIs('control-center.flaky') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Reliability</a>
             <a href="{{ route('control-center.runs') }}"
                class="rounded-md px-3 py-1.5 {{ request()->routeIs('control-center.runs','control-center.run.show') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Runs</a>
             <a href="/" class="ml-2 rounded-md border border-slate-700 px-3 py-1.5 text-slate-300 hover:border-slate-500">← App</a>

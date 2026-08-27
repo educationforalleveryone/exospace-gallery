@@ -116,6 +116,7 @@ class RunRecorder
             // Run-level failure classification: infrastructure if EVERY problem case is infra.
             $run->refresh();
             $this->classifyRun($run);
+            $this->notifyOnFailure($run);
 
             return $run;
         });
@@ -139,6 +140,28 @@ class RunRecorder
         return $problems > 0
             ? QaTestRun::STATUS_FAILED
             : QaTestRun::STATUS_PASSED;
+    }
+
+    /**
+     * Fire-and-forget Slack alert through OperationalAlertService when a
+     * BLOCKING profile goes red. Never throws into the recording path —
+     * notification problems must not lose test truth.
+     */
+    private function notifyOnFailure(QaTestRun $run): void
+    {
+        try {
+            $blocking = collect(config('release-gates.environments.production.gates', []))
+                ->filter(fn ($g) => ($g['mode'] ?? 'blocking') === 'blocking')
+                ->pluck('profile')->all();
+
+            if (! in_array($run->profile, $blocking, true) || $run->status !== QaTestRun::STATUS_FAILED) {
+                return;
+            }
+
+            app(\App\Services\TestCenter\QaNotifier::class)->runFailed($run);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function classifyRun(QaTestRun $run): void
