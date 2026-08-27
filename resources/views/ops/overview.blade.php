@@ -14,7 +14,15 @@
 @section('content')
 
 {{-- ── Platform status hero ──────────────────────────────────────────── --}}
-@php $hero = $statusStyles[$platform['status']] ?? $statusStyles['unknown']; @endphp
+@php
+    $hero = $statusStyles[$platform['status']] ?? $statusStyles['unknown'];
+    $scoreStyles = [
+        'healthy'  => 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50',
+        'degraded' => 'bg-amber-950/60 text-amber-300 border-amber-700/50',
+        'critical' => 'bg-red-950/60 text-red-300 border-red-700/50',
+    ];
+    $scoreStyle = $scoreStyles[$healthScore['band']] ?? $scoreStyles['critical'];
+@endphp
 <section class="rounded-xl border {{ str_replace(['bg-emerald-950/60','bg-amber-950/60','bg-red-950/60','bg-slate-800/60'], '', $hero['chip']) }} border-slate-800 bg-slate-900/60 p-5 mb-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-3">
@@ -23,7 +31,13 @@
                 <span class="relative inline-flex rounded-full h-3.5 w-3.5 {{ $hero['dot'] }}"></span>
             </span>
             <div>
-                <h1 class="text-lg font-semibold tracking-wide">PLATFORM STATUS: <span class="text-2xl align-middle ml-1">{{ $hero['label'] }}</span></h1>
+                <h1 class="text-lg font-semibold tracking-wide flex items-center flex-wrap gap-3">
+                    <span>PLATFORM STATUS: <span class="text-2xl align-middle ml-1">{{ $hero['label'] }}</span></span>
+                    {{-- Iteration 4: the quantified verdict — same band as the status label, with the breakdown card right below --}}
+                    <span class="inline-flex items-baseline gap-1.5 px-3 py-1 rounded-lg border {{ $scoreStyle }} text-sm font-bold align-middle" title="Weighted health score — see the breakdown below">
+                        <span class="text-xl">{{ $healthScore['score'] }}</span><span class="text-[10px] font-normal opacity-70">/100</span>
+                    </span>
+                </h1>
                 <p class="text-xs text-slate-400 mt-0.5">
                     Last platform sync: {{ $lastSync?->diffForHumans() ?? 'pending (runs every 5 minutes)' }}
                 </p>
@@ -50,6 +64,9 @@
         @endforeach
     </ul>
 </section>
+
+{{-- ── Health score breakdown (Iteration 4) ─────────────────────────── --}}
+@include('ops.partials.score-breakdown', ['healthScore' => $healthScore])
 
 {{-- ── Active incidents (Iteration 2) ─────────────────────────────────────── --}}
 @if($activeIncidents->isNotEmpty())
@@ -207,11 +224,19 @@
             @endif
         </div>
 
+        {{-- ── Backup / Webhook / Sentry tiles (Iteration 4) ───────────── --}}
+        @include('ops.partials.overview-tiles', [
+            'backupTile' => $backupTile,
+            'webhookTile' => $webhookTile,
+            'sentryTile' => $sentryTile,
+        ])
+
         <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Coming Next</h2>
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Shipped</h2>
             <ul class="text-[11px] text-slate-500 space-y-1.5">
-                <li><span class="text-slate-400 font-medium">Shipped (Iter 2):</span> incidents, correlation engine, timelines — related errors are now one story.</li>
-                <li><span class="text-slate-400 font-medium">Iteration 3:</span> one-click read-only diagnostics (database, Redis, queues, containers) + safe actions.</li>
+                <li><span class="text-slate-400 font-medium">Iter 2:</span> incidents, correlation engine, timelines — related errors are one story.</li>
+                <li><span class="text-slate-400 font-medium">Iter 3:</span> one-click read-only diagnostics + safe actions (restart, replay).</li>
+                <li><span class="text-slate-400 font-medium">Iter 4:</span> health score, Sentry summary, backup/webhook tiles, and the 15-minute autonomous sweep — problems now find YOU (deduplicated events + Slack), no dashboard visit required.</li>
             </ul>
         </div>
     </section>

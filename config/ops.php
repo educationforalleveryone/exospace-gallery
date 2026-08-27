@@ -145,4 +145,70 @@ return [
     'actions' => [
         'enabled' => filter_var(env('OPS_ACTIONS_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
     ],
+
+    // ── Sentry API summary (Iteration 4) ───────────────────────────────
+    //
+    // Read-only bridge to the Sentry REST API for the OpsCenter overview
+    // tile ("Sentry — Unresolved Issues"). Sentry stays the deep-dive UI
+    // (ADR: summarize + link out, never clone) — this only pulls issue
+    // HEADLINES so the operator sees, in one place, "Sentry knows about N
+    // unresolved issues, here are the top ones" next to the local view.
+    //
+    // Completely OPTIONAL and independent of SENTRY_LARAVEL_DSN:
+    //   - DSN          = error REPORTING (exceptions → Sentry) — unchanged.
+    //   - API token    = error READING (Sentry → OpsCenter summary tile).
+    //
+    // Create a token at sentry.io → Settings → Auth Tokens with scopes
+    // org:read + project:read (+ event:read where the org requires it).
+    // Leaving the token/org empty simply hides the tile's data with an
+    // honest "not configured" note — nothing else changes.
+    'sentry' => [
+        'api_token' => env('SENTRY_API_TOKEN'),
+        // sentry.io for the hosted service; override for self-hosted.
+        'base_url' => rtrim((string) env('SENTRY_API_BASE_URL', 'https://sentry.io'), '/'),
+        'org' => env('SENTRY_ORG_SLUG'),
+        // Comma-separated project slugs to include (empty = org-wide
+        // issues endpoint, which the token may not allow — set them).
+        'projects' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('SENTRY_PROJECT_SLUGS', '')),
+        ))),
+        'timeout' => 10,
+        // Summary cache TTL (minutes). A cached tile never blocks the
+        // dashboard on a slow Sentry API; 10 min is fresher than any
+        // operator's triage loop.
+        'cache_minutes' => (int) env('SENTRY_SUMMARY_CACHE_MINUTES', 10),
+        // How many top issues the tile lists.
+        'limit' => 5,
+    ],
+
+    // ── Scheduled diagnostic sweeps (Iteration 4) ──────────────────────
+    //
+    // Iteration 3 diagnostics are PULL: an operator clicks, they run.
+    // Sweeps make the same read-only checks PUSH: ops:sweep-diagnostics
+    // (every 15 minutes, via the Coolify scheduled task) probes a fixed
+    // set of self-scoped diagnostics and, when one comes back degraded
+    // or failed, records a control-plane event (deduplicated by the
+    // ingestor — recurrence bumps the counter, it never spams rows) and
+    // alerts Slack through OperationalAlertService with its own dedup
+    // keys (warning TTL 2 h / error TTL 1 h). When a previously-bad
+    // check comes back healthy, its event is resolved and an info-level
+    // "recovered" note is sent — the loop closes itself.
+    //
+    // Inconclusive results are deliberately NOT events: "cannot
+    // determine" is not a problem signal.
+    //
+    // Only self-scoped diagnostics from the allow-list can be swept
+    // (application-scoped checks need a target the sweep doesn't have).
+    // Unknown ids in the env var are skipped with a warning, never fatal.
+    'sweeps' => [
+        'enabled' => filter_var(env('OPS_SWEEP_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'diagnostics' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env(
+                'OPS_SWEEP_DIAGNOSTICS',
+                'database.connectivity,redis.connectivity,queue.health,server.disk,app.scheduler',
+            )),
+        ))),
+    ],
 ];

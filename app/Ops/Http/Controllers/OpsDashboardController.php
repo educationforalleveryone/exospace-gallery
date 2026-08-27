@@ -9,7 +9,10 @@ use App\Ops\Models\OpsApplication;
 use App\Ops\Models\OpsEvent;
 use App\Ops\Models\OpsIncident;
 use App\Ops\Services\OpsEventIngestor;
+use App\Ops\Services\OpsHealthScoreService;
 use App\Ops\Services\OpsHealthService;
+use App\Ops\Services\OpsStatusTilesService;
+use App\Ops\Services\SentryApiClient;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -22,11 +25,19 @@ use Illuminate\View\View;
  *
  * Access: /ops/* route group — auth + verified + super_admin + mfa
  * (the exact bar Master Control already enforces).
+ *
+ * Iteration 4: overview() additionally computes the platform health
+ * score, the backup/webhook tile facts and the cached Sentry summary.
+ * All of them are read-only, bounded and fail-soft — a broken input
+ * (unreadable disk, unreachable Sentry API) degrades its own tile and
+ * never takes the dashboard down.
  */
 class OpsDashboardController extends Controller
 {
     public function __construct(
         private readonly OpsHealthService $health,
+        private readonly OpsHealthScoreService $score,
+        private readonly OpsStatusTilesService $tiles,
     ) {}
 
     /**
@@ -71,6 +82,17 @@ class OpsDashboardController extends Controller
             ->groupBy('severity')
             ->pluck('n', 'severity');
 
+        // Iteration 4: the quantified rollups.
+        $healthScore = $this->score->computeLive();
+        $backupTile = $this->tiles->backupStatus();
+        $webhookTile = $this->tiles->webhookStatus();
+
+        try {
+            $sentryTile = app(SentryApiClient::class)->summary();
+        } catch (\Throwable) {
+            $sentryTile = ['configured' => false];
+        }
+
         return view('ops.overview', [
             'platform' => $platform,
             'applications' => $applications,
@@ -82,6 +104,10 @@ class OpsDashboardController extends Controller
             'selfApp' => OpsEventIngestor::selfApplication(),
             'lastSync' => OpsApplication::whereNotNull('status_checked_at')
                 ->max('status_checked_at'),
+            'healthScore' => $healthScore,
+            'backupTile' => $backupTile,
+            'webhookTile' => $webhookTile,
+            'sentryTile' => $sentryTile,
         ]);
     }
 

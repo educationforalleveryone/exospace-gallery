@@ -270,3 +270,18 @@ Schedule::command('ops:correlate-incidents')
     ->name('ops-correlate-incidents')
     ->withoutOverlapping(5)
     ->onOneServer();
+
+// OpsCenter (Iteration 4): proactive diagnostic sweep — the same read-only,
+// allow-listed checks an operator runs on demand (database, Redis, queue,
+// disk, scheduler), probed every 15 minutes WITHOUT operator interaction.
+// Degraded/failed findings become deduplicated control-plane events
+// (source 'sweep') that the correlation sweep above can group into
+// incidents, plus Slack alerts with their own dedup keys; a check that
+// comes back healthy resolves its event automatically. Probes persist
+// nothing (no ops_diagnostic_runs rows, no audit entries) — only the
+// exceptions are recorded. Kill switch: OPS_SWEEP_ENABLED=false.
+Schedule::command('ops:sweep-diagnostics')
+    ->everyFifteenMinutes()
+    ->name('ops-sweep-diagnostics')
+    ->withoutOverlapping(10)
+    ->onOneServer();

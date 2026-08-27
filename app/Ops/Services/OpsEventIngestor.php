@@ -47,7 +47,7 @@ class OpsEventIngestor
      * Record an event. Returns the persisted event, or null on failure.
      *
      * @param  array  $input  {
-     *                        source:           string  — exception|app_log|coolify|ingest|health|heartbeat|backup|webhook|scheduler|system
+     *                        source:           string  — exception|app_log|coolify|ingest|health|heartbeat|backup|webhook|scheduler|system|sweep
      *                        category:         ?string — force a category (skips pattern match, still gets causes when known)
      *                        severity:         string  — observed severity (critical|error|warning|info)
      *                        title:            ?string — headline; derived when absent

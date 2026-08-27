@@ -94,6 +94,43 @@ class DiagnosticEngine
     }
 
     /**
+     * PROBE one diagnostic — run it and return the raw result, WITHOUT
+     * persisting a run row and WITHOUT auditing (Iteration 4 sweeps).
+     *
+     * Why the distinction: ops_diagnostic_runs rows and AdminAuditLog
+     * entries are operator-facing records of deliberate, on-demand
+     * investigations. A scheduled sweep probing five checks every 15
+     * minutes would flood both ledgers with machine noise (480 rows/day)
+     * and bury the human trail. The sweep instead persists ONLY the
+     * exceptions — degraded/failed findings become control-plane events
+     * through OpsEventIngestor (deduplicated), and recoveries resolve
+     * them. The allow-list and never-throw guarantees are identical to
+     * run(); there is simply nothing to persist when nothing was asked.
+     *
+     * @return DiagnosticResult|null null when the id is not in the
+     *                               allow-list — same contract as run().
+     */
+    public function probe(string $id): ?DiagnosticResult
+    {
+        $definition = DiagnosticRegistry::get($id);
+
+        if ($definition === null) {
+            return null;
+        }
+
+        try {
+            $runner = app($definition['runner']);
+
+            return $runner->runDiagnostic($id, null);
+        } catch (Throwable $e) {
+            return DiagnosticResult::inconclusive(
+                'The diagnostic itself failed while running',
+                'The check could not complete during the sweep. This is a control-plane problem, not necessarily an application problem. Details: '.mb_substr($e->getMessage(), 0, 300),
+            );
+        }
+    }
+
+    /**
      * The diagnostics the classifier recommends for an error — resolved
      * against the registry so the UI only ever renders runnable buttons.
      *

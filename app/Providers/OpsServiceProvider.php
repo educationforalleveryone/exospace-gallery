@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Ops\Console\CorrelateIncidentsCommand;
 use App\Ops\Console\PruneOpsEventsCommand;
+use App\Ops\Console\SweepDiagnosticsCommand;
 use App\Ops\Console\SyncPlatformCommand;
 use App\Ops\Services\OpsEventIngestor;
 use Illuminate\Support\ServiceProvider;
@@ -37,6 +38,7 @@ class OpsServiceProvider extends ServiceProvider
                 SyncPlatformCommand::class,
                 PruneOpsEventsCommand::class,
                 CorrelateIncidentsCommand::class,
+                SweepDiagnosticsCommand::class,
             ]);
         }
 
