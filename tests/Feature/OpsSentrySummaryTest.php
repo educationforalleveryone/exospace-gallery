@@ -281,4 +281,196 @@ class OpsSentrySummaryTest extends TestCase
             ->assertSee('SENTRY_API_TOKEN')
             ->assertSee('retries on the next TTL window', false);
     }
+
+    // ── The error trend (Iteration 6) ────────────────────────────────────
+
+    public function test_trend_is_unconfigured_without_http_calls(): void
+    {
+        $this->configure(token: null, org: null);
+
+        $trend = app(SentryApiClient::class)->trend();
+
+        $this->assertFalse($trend['configured']);
+        $this->assertArrayNotHasKey('series', $trend);
+        Http::assertNothingSent();
+    }
+
+    public function test_trend_normalizes_the_pair_shape_and_computes_totals(): void
+    {
+        $this->configure();
+
+        // The documented [unix_ts, {count: N}] shape.
+        $ts = time() - 23 * 3600;
+        $data = [];
+        for ($i = 0; $i < 24; $i++) {
+            $data[] = [$ts + $i * 3600, ['count' => $i === 12 ? 40 : 5]];
+        }
+
+        Http::fake(['sentry.test/*' => Http::response(['data' => $data])]);
+
+        $trend = app(SentryApiClient::class)->trend();
+
+        $this->assertArrayNotHasKey('error', $trend);
+        $this->assertSame(24, $trend['points']);
+        $this->assertSame(23 * 5 + 40, $trend['total']);
+        $this->assertSame(40, $trend['peak']);
+        $this->assertStringContainsString('UTC', $trend['peak_hour']);
+
+        // Chronological: the first series point is the OLDEST bucket.
+        $this->assertSame($ts, $trend['series'][0]['ts']);
+    }
+
+    public function test_trend_handles_the_object_shape_and_out_of_order_data(): void
+    {
+        $this->configure();
+
+        // The {time, count} shape, deliberately shuffled.
+        $a = ['time' => time() - 2 * 3600, 'count' => 7];
+        $b = ['time' => time() - 3 * 3600, 'count' => 9];
+        $c = ['time' => time() - 1 * 3600, 'count' => 2];
+
+        Http::fake(['sentry.test/*' => Http::response(['data' => [$a, $b, $c]])]);
+
+        $trend = app(SentryApiClient::class)->trend();
+
+        $this->assertArrayNotHasKey('error', $trend);
+        $this->assertSame(3, $trend['points']);
+        $this->assertSame(18, $trend['total']);
+
+        // Sorted chronologically regardless of arrival order.
+        $this->assertSame($b['time'], $trend['series'][0]['ts']);
+        $this->assertSame($c['time'], $trend['series'][2]['ts']);
+        $this->assertSame(9, $trend['peak']);
+    }
+
+    public function test_trend_handles_plain_int_counts_and_zero_buckets(): void
+    {
+        $this->configure();
+
+        Http::fake(['sentry.test/*' => Http::response([
+            'data' => [
+                [time() - 7200, 12],   // plain int shape
+                [time() - 3600, 0],    // a quiet hour — still a point
+            ],
+        ])]);
+
+        $trend = app(SentryApiClient::class)->trend();
+
+        $this->assertArrayNotHasKey('error', $trend);
+        $this->assertSame(2, $trend['points']);
+        $this->assertSame(12, $trend['total']);
+        $this->assertSame(0, $trend['series'][1]['count']);
+    }
+
+    public function test_trend_errors_are_structured_and_cached(): void
+    {
+        $this->configure(token: 'super-secret-token-value');
+
+        Http::fake(['sentry.test/*' => Http::response([], 403)]);
+
+        $trend = app(SentryApiClient::class)->trend();
+
+        // The event:read scope hint rides the message; the token never does.
+        $this->assertArrayHasKey('error', $trend);
+        $this->assertStringContainsString('event:read', $trend['error']);
+        $this->assertStringNotContainsString('super-secret-token-value', json_encode($trend));
+        $this->assertArrayNotHasKey('series', $trend);
+
+        // Cached failure — the next call does not hit the API again.
+        app(SentryApiClient::class)->trend();
+        Http::assertSentCount(1);
+    }
+
+    public function test_trend_is_cached_under_its_own_key_separate_from_the_summary(): void
+    {
+        $this->configure();
+
+        Http::fake(['sentry.test/*' => Http::response([
+            'data' => [[time() - 3600, ['count' => 3]]],
+        ])]);
+
+        $client = app(SentryApiClient::class);
+        $client->trend();
+        $client->trend();
+        $client->summary(); // different endpoint, different cache key
+
+        // One events-stats call + one issues call — never more.
+        $stats = 0;
+        $issues = 0;
+        foreach (Http::recorded() as [$request]) {
+            str_contains((string) $request->url(), 'events-stats') ? $stats++ : $issues++;
+        }
+        $this->assertSame(1, $stats);
+        $this->assertSame(1, $issues);
+    }
+
+    public function test_trend_with_no_usable_points_reports_honestly(): void
+    {
+        $this->configure();
+
+        Http::fake(['sentry.test/*' => Http::response(['data' => 'not-an-array'])]);
+
+        $trend = app(SentryApiClient::class)->trend();
+
+        $this->assertArrayHasKey('error', $trend);
+        $this->assertArrayNotHasKey('series', $trend);
+    }
+
+    public function test_overview_renders_the_trend_sparkline_as_pure_svg(): void
+    {
+        $this->configure();
+
+        $data = [];
+        $ts = time() - 23 * 3600;
+        for ($i = 0; $i < 24; $i++) {
+            $data[] = [$ts + $i * 3600, ['count' => $i === 5 ? 30 : 4]];
+        }
+
+        Http::fake(['sentry.test/*' => Http::response(['data' => $data])]);
+
+        $content = $this->asMfaSuperAdmin()->get('/ops')->getContent();
+
+        // Pure SVG, no JS: the viewBox is there, 24 bars render, the peak
+        // is highlighted and the caption quantifies the day.
+        $this->assertStringContainsString('viewBox="0 0 120 36"', $content);
+        $this->assertSame(24, substr_count($content, '<rect '));
+        $this->assertStringContainsString('fill-amber-400/90', $content);
+        $this->assertStringContainsString('Error volume — last 24 h', $content);
+        $this->assertStringContainsString('events', $content);
+        $this->assertStringContainsString('peak 30/h', $content);
+        // And no script tag snuck in.
+        $this->assertStringNotContainsString('<script', $content);
+    }
+
+    public function test_overview_renders_trend_unavailable_note_when_stats_endpoint_fails(): void
+    {
+        $this->configure();
+
+        Http::fake(function ($request) {
+            // Headlines succeed, the stats endpoint 403s (scope missing).
+            return str_contains((string) $request->url(), 'events-stats')
+                ? Http::response([], 403)
+                : Http::response([
+                    ['id' => '1', 'title' => 'One issue', 'count' => 5, 'userCount' => 1, 'level' => 'error', 'permalink' => 'https://sentry.test/issues/1', 'project' => ['name' => 'Exospace']],
+                ]);
+        });
+
+        $content = $this->asMfaSuperAdmin()->get('/ops')->getContent();
+
+        // The headlines still render (their cache is NOT poisoned)...
+        $this->assertStringContainsString('One issue', $content);
+        // ...the sparkline does not, and the note says why.
+        $this->assertStringContainsString('Error trend unavailable', $content);
+        $this->assertStringNotContainsString('viewBox="0 0 120 36"', $content);
+    }
+
+    public function test_overview_renders_no_trend_at_all_when_sentry_is_unconfigured(): void
+    {
+        $this->configure(token: null, org: null);
+
+        $content = $this->asMfaSuperAdmin()->get('/ops')->getContent();
+
+        $this->assertStringNotContainsString('viewBox="0 0 120 36"', $content);
+        $this->assertStringNotContainsString('Error trend unavailable', $content);
+    }
 }

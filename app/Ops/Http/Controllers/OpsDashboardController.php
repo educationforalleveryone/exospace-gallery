@@ -93,6 +93,15 @@ class OpsDashboardController extends Controller
             $sentryTile = ['configured' => false];
         }
 
+        // Iteration 6: the 24-hour hourly error trend (Sentry events-stats)
+        // for the tile's sparkline — its own cache key + fail-soft, so a
+        // stats endpoint the token cannot read never breaks the tile.
+        try {
+            $sentryTrend = app(SentryApiClient::class)->trend();
+        } catch (\Throwable) {
+            $sentryTrend = ['configured' => false];
+        }
+
         return view('ops.overview', [
             'platform' => $platform,
             'applications' => $applications,
@@ -108,6 +117,7 @@ class OpsDashboardController extends Controller
             'backupTile' => $backupTile,
             'webhookTile' => $webhookTile,
             'sentryTile' => $sentryTile,
+            'sentryTrend' => $sentryTrend,
         ]);
     }
 

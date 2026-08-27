@@ -93,9 +93,10 @@
                     <td class="px-4 py-3 text-slate-500 text-xs">{{ $app->status_checked_at?->diffForHumans() ?? '—' }}</td>
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-1.5">
-                            @if(auth()->user()?->is_super_admin)
+                            {{-- Iteration 6: operators can run the read-only checks; restart/sync stay super-admin-only. --}}
+                            @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
                                 <a href="{{ route('ops.diagnostics.index', ['app' => $app->id]) }}" class="text-[11px] px-2 py-1 rounded border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60" title="Run read-only diagnostics for this application">Run checks</a>
-                                @if(config('ops.actions.enabled', true) && ($app->provider === 'coolify' || $app->is_self))
+                                @if(auth()->user()?->is_super_admin && config('ops.actions.enabled', true) && ($app->provider === 'coolify' || $app->is_self))
                                     <a href="{{ route('ops.actions.confirm', ['action' => 'app.restart', 'app' => $app->id]) }}" class="text-[11px] px-2 py-1 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60" title="Restart this application's container (confirmation required)">Restart…</a>
                                 @endif
                             @else

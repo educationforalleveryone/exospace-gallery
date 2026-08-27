@@ -53,7 +53,7 @@
                     </form>
                 @endif
             @else
-                <span class="text-[10px] px-2 py-1.5 rounded bg-cyan-950/50 text-cyan-300 border border-cyan-800/50 font-bold self-center" title="Lifecycle actions are operator-only">READ-ONLY VIEW</span>
+                <span class="text-[10px] px-2 py-1.5 rounded bg-cyan-950/50 text-cyan-300 border border-cyan-800/50 font-bold self-center" title="Lifecycle actions are super-admin-only — operators and viewers can still run the recommended diagnostics below.">READ-ONLY VIEW</span>
             @endif
         </div>
     </div>
@@ -128,7 +128,7 @@
                 <p class="text-xs text-slate-400 mb-3">Union of the diagnostics recommended by this incident's member events — run them from here with the incident as context.</p>
                 <div class="flex flex-wrap gap-2">
                     @foreach($incidentDiagnostics as $diagnostic)
-                        @if(auth()->user()?->is_super_admin)
+                        @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
                             <form method="POST" action="{{ route('ops.diagnostics.run') }}">
                                 @csrf
                                 <input type="hidden" name="diagnostic" value="{{ $diagnostic }}">
@@ -139,7 +139,7 @@
                                 </button>
                             </form>
                         @else
-                            <span class="text-xs px-3 py-2 rounded-lg border border-slate-800 text-slate-500">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }} — operator-only</span>
+                            <span class="text-xs px-3 py-2 rounded-lg border border-slate-800 text-slate-500">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }} — viewer (read-only)</span>
                         @endif
                     @endforeach
                 </div>

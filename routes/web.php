@@ -541,15 +541,18 @@ Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->
 // OperationalAlertService, JobHeartbeatService, spatie backups, webhook
 // ledgers, the Coolify API, Laravel logs) — see docs/OPS_DISCOVERY_AUDIT.md.
 //
-// ACCESS (Iteration 5): the outer gate is 'ops_access' — super-admins
+// ACCESS (Iteration 5 + 6): the outer gate is 'ops_access' — super-admins
 // pass exactly as before (MFA still enforced by the 'mfa' middleware),
-// and users with an ACTIVE VIEWER GRANT (ops_access_grants, managed on
-// /ops/access) may enter the READ surfaces below. Every WRITE surface
-// (incident lifecycle POSTs, diagnostic runs, the whole Actions hub,
-// credentials, access management) sits in the nested 'super_admin'
-// group — the split is at the ROUTE level, so viewer access fails
-// closed even if a UI link were ever shown by mistake. Kill switch:
-// OPS_VIEWER_ACCESS_ENABLED=false revokes all viewers instantly.
+// and users with an ACTIVE GRANT (ops_access_grants, managed on
+// /ops/access) may enter the READ surfaces below. Two tiers:
+//   viewer   — read-only (Iteration 5 behavior)
+//   operator — read + run the read-only diagnostics (Iteration 6)
+// The write surfaces stay super-admin-only in the nested 'super_admin'
+// group; the diagnostics-run POST sits in its own nested 'ops_operator'
+// group — the split is at the ROUTE level, so a viewer POSTing directly
+// gets 403 regardless of what any template renders. Kill switches:
+// OPS_VIEWER_ACCESS_ENABLED=false / OPS_OPERATOR_ACCESS_ENABLED=false
+// revoke each tier instantly.
 //
 // IMPORTANT: this group must stay ABOVE the SEO fallback route — fallback
 // only matches when nothing else does, but keeping ops routes contiguous
@@ -580,6 +583,21 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
             ->whereNumber('run')
             ->name('diagnostics.show');
 
+        // ── Operator tier (super-admins + active operator grants) ────────
+        //
+        // Diagnostic runs (Iteration 3, opened to operators in Iteration 6)
+        // — READ-ONLY checks, but they hit live subsystems and persist
+        // audited rows: the exact right to delegate without blast radius.
+        // The 'ops_operator' middleware (EnsureOpsOperator) passes
+        // super-admins and active operator grants only — viewers 403 at
+        // the route level. Throttled because some checks make live API
+        // calls. Kill switch: OPS_OPERATOR_ACCESS_ENABLED=false.
+        Route::middleware('ops_operator')->group(function () {
+            Route::post('/diagnostics/run',             [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'run'])
+                ->middleware('throttle:30,1')
+                ->name('diagnostics.run');
+        });
+
         // ── Operator surfaces (super-admin only) ─────────────────────────
         Route::middleware('super_admin')->group(function () {
             // Incident lifecycle (Iteration 2) — the module's first write
@@ -600,12 +618,8 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
                 ->middleware('throttle:30,1')
                 ->name('incidents.reopen');
 
-            // Diagnostic runs (Iteration 3) — READ-ONLY checks, but they
-            // hit live subsystems and persist audited rows: operator-only.
-            // Throttled because some checks make live API calls.
-            Route::post('/diagnostics/run',             [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'run'])
-                ->middleware('throttle:30,1')
-                ->name('diagnostics.run');
+            // Diagnostic runs moved UP into the 'ops_operator' group
+            // (Iteration 6 — operators may run them; viewers may not).
 
             // Actions (Iteration 3) — the ONLY write paths against
             // infrastructure. Allow-listed (OpsActionRegistry), throttled

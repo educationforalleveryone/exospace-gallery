@@ -143,6 +143,11 @@
         </ul>
     @endif
 
+    {{-- Iteration 6: the 24-hour error-volume sparkline (pure SVG — no JS,
+         no npm). Renders whenever the trend endpoint answered, including
+         the all-quiet case (a flat baseline is information too). --}}
+    @include('ops.partials.sentry-trend')
+
     @if(! empty($sentryTile['configured']))
         <p class="text-[10px] text-slate-600 mt-3">
             Headlines only — stack traces and release tagging live in

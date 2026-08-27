@@ -34,7 +34,11 @@
         </nav>
         <div class="flex items-center gap-2">
             @unless(auth()->user()?->is_super_admin)
-                <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-900/50 text-cyan-300 border border-cyan-700/40 font-bold" title="Read-only access — lifecycle actions, diagnostics runs, actions, credentials and access management are operator-only">VIEWER</span>
+                @if(\App\Ops\Support\OpsAccessContext::level(auth()->user()) === 'operator')
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-700/40 font-bold" title="Operator access — you can view everything and run the read-only diagnostics. Lifecycle actions, the Actions hub, credentials and access management remain super-admin-only.">OPERATOR</span>
+                @else
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-700/40 font-bold" title="Read-only access — lifecycle actions, diagnostics runs, actions, credentials and access management are super-admin-only">VIEWER</span>
+                @endif
             @endunless
             @if(auth()->user()?->is_super_admin)
                 <a href="{{ route('super.index') }}" class="px-3 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-800">Master Control</a>

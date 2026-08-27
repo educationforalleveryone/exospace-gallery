@@ -182,7 +182,7 @@ return [
         'limit' => 5,
     ],
 
-    // ── Scheduled diagnostic sweeps (Iteration 4) ──────────────────────
+    // ── Scheduled diagnostic sweeps (Iteration 4; cadences in 6) ──────
     //
     // Iteration 3 diagnostics are PULL: an operator clicks, they run.
     // Sweeps make the same read-only checks PUSH: ops:sweep-diagnostics
@@ -201,6 +201,23 @@ return [
     // Only self-scoped diagnostics from the allow-list can be swept
     // (application-scoped checks need a target the sweep doesn't have).
     // Unknown ids in the env var are skipped with a warning, never fatal.
+    //
+    // PER-CHECK CADENCE (Iteration 6): OPS_SWEEP_CADENCES throttles how
+    // often each check is actually probed when it is HEALTHY, so cheap
+    // checks stay at every-sweep while expensive ones run hourly:
+    //
+    //   OPS_SWEEP_CADENCES=server.disk:60,database.connectivity:60
+    //
+    // Semantics: "probe at most every N minutes while healthy". A check
+    // that has an OPEN sweep event is probed EVERY sweep regardless of
+    // its cadence, so recovery is always detected within one sweep
+    // interval (15 min) — cadence only ever throttles the happy path.
+    // Detection latency for a NEW problem equals the cadence, by design:
+    // an hourly disk check finds a disk problem up to an hour late —
+    // that is the trade the operator explicitly chose. Entries below the
+    // 15-minute sweep interval or for unknown ids are ignored with a
+    // warning. Last-probe bookkeeping lives in the cache (a flush just
+    // means one extra probe — harmless).
     'sweeps' => [
         'enabled' => filter_var(env('OPS_SWEEP_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         'diagnostics' => array_values(array_filter(array_map(
@@ -210,25 +227,51 @@ return [
                 'database.connectivity,redis.connectivity,queue.health,server.disk,app.scheduler',
             )),
         ))),
+        // 'id' => minutes map parsed from OPS_SWEEP_CADENCES (validation of
+        // the ids themselves happens in the command, which knows the
+        // registry; config only parses the shape).
+        'cadences' => collect(array_map('trim', explode(',', (string) env('OPS_SWEEP_CADENCES', ''))))
+            ->filter(fn ($entry) => $entry !== '' && str_contains($entry, ':'))
+            ->mapWithKeys(function ($entry) {
+                $parts = explode(':', $entry, 2);
+
+                return [trim((string) $parts[0]) => (int) ($parts[1] ?? 0)];
+            })
+            ->filter(fn ($minutes) => $minutes > 0)
+            ->all(),
     ],
 
-    // ── Viewer access / RBAC (Iteration 5) ─────────────────────────────
+    // ── Viewer access / RBAC (Iteration 5; operator tier in 6) ────────
     //
     // /ops is no longer super-admin-only: a super-admin can grant a
-    // REGULAR user (auth + verified + MFA required) read-only access
-    // from /ops/access. Grants live in ops_access_grants (a ledger —
-    // revocation sets revoked_at, history stays). The READ/WRITE split
-    // is enforced at the ROUTE level (routes/web.php): viewers see
-    // overview/applications/errors/incidents/diagnostics-results;
-    // every POST, the Actions hub, the Credentials page and the Access
-    // page remain super-admin-only.
+    // REGULAR user (auth + verified + MFA required) access from
+    // /ops/access. Grants live in ops_access_grants (a ledger —
+    // revocation sets revoked_at, history stays). Two tiers:
     //
-    // Kill switch: OPS_VIEWER_ACCESS_ENABLED=false instantly fail-closes
-    // every viewer grant (super-admins are unaffected — their access
-    // never came from a grant). An incident-response lever, not a data
-    // operation: flipping it back on restores the grants untouched.
+    //   viewer   — read-only (overview/applications/errors/incidents/
+    //              diagnostic results). The Iteration-5 tier.
+    //   operator — everything the viewer sees PLUS running the read-only
+    //              diagnostics (POST /ops/diagnostics/run, guarded by
+    //              EnsureOpsOperator at the route level). The checks are
+    //              allow-listed, redacted, audited per run — delegation
+    //              without blast radius. Never the Actions hub, never
+    //              credentials, never access management.
+    //
+    // The READ/WRITE split is enforced at the ROUTE level
+    // (routes/web.php): every POST outside the diagnostics-run surface,
+    // the Actions hub, the Credentials page and the Access page remain
+    // super-admin-only. Level changes (viewer ↔ operator) revoke +
+    // re-grant atomically — the ledger keeps both rows.
+    //
+    // Kill switches (independent, instant, delete nothing):
+    //   OPS_VIEWER_ACCESS_ENABLED=false   fail-closes every viewer grant.
+    //   OPS_OPERATOR_ACCESS_ENABLED=false fail-closes every operator grant.
+    // Super-admins are unaffected by either — their access never came
+    // from a grant. Incident-response levers, not data operations:
+    // flipping back on restores the grants untouched.
     'access' => [
         'viewer_enabled' => filter_var(env('OPS_VIEWER_ACCESS_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'operator_enabled' => filter_var(env('OPS_OPERATOR_ACCESS_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
     ],
 
     // ── Credential inventory (Iteration 5) ─────────────────────────────
@@ -246,5 +289,16 @@ return [
         // (90 days for API keys, 180 for webhooks/secrets, APP_KEY
         // policy-driven). This switch only gates the PAGE — recording a
         // rotation is a pure ledger write; there is nothing to fail-close.
+
+        // ROTATION REMINDERS (Iteration 6): ops:sweep-credentials (daily,
+        // 09:00) makes cadence lapses find the operator instead of
+        // waiting for a visit to the page — the same
+        // "problems find the operator" philosophy as the diagnostic
+        // sweep. ROTATE NOW / OVERDUE chips → one warning Slack alert
+        // (deduplicated daily) + one deduplicated SECURITY event that
+        // resolves itself when the page is worked; DUE SOON only → a
+        // gentle weekly info nudge. Kill switch below; the page itself
+        // is never gated by it.
+        'reminders_enabled' => filter_var(env('OPS_CREDENTIAL_REMINDERS_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
     ],
 ];

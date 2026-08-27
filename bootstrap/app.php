@@ -150,6 +150,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // unchanged, active viewer grants may READ. See
             // App\Ops\Http\Middleware\EnsureOpsAccess.
             'ops_access'    => \App\Ops\Http\Middleware\EnsureOpsAccess::class,
+            // Iteration 6: the operator tier gate — read-only diagnostics
+            // runs (super-admins + active 'operator' grants only).
+            'ops_operator'  => \App\Ops\Http\Middleware\EnsureOpsOperator::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

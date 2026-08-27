@@ -6,21 +6,22 @@
 <div class="mb-4">
     <h1 class="text-xl font-semibold">Access</h1>
     <p class="text-xs text-slate-400 mt-1">
-        Grant read-only OpsCenter access (overview, applications, errors, incidents, diagnostic results) to individual accounts —
-        without giving them the keys to Master Control. Lifecycle actions, diagnostic runs, the Actions hub, this page and the
-        credential inventory stay operator-only, enforced at the route level.
+        Grant OpsCenter access to individual accounts — without giving them the keys to Master Control.
+        <span class="text-cyan-300">Viewers</span> get read-only access (overview, applications, errors, incidents, diagnostic results);
+        <span class="text-amber-300">Operators</span> additionally get to run the read-only diagnostics — allow-listed, audited checks against live subsystems.
+        Lifecycle actions, the Actions hub, the credential inventory and this page stay super-admin-only, enforced at the route level.
     </p>
 </div>
 
 <div class="mb-6 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3 text-xs text-slate-400 space-y-1">
-    <p><span class="text-slate-300 font-medium">Policy for viewers:</span> verified email + MFA enabled (they are sent to MFA setup on first visit otherwise). One active grant per account; revocation is immediate.</p>
-    <p><span class="text-slate-300 font-medium">Kill switch:</span> <span class="font-mono">OPS_VIEWER_ACCESS_ENABLED=false</span> instantly fail-closes ALL viewer grants without deleting them — flip it back to restore.</p>
+    <p><span class="text-slate-300 font-medium">Policy for grantees:</span> verified email + MFA enabled (they are sent to MFA setup on first visit otherwise). One active grant per account; level changes revoke + re-grant in one step (the ledger keeps both rows); revocation is immediate.</p>
+    <p><span class="text-slate-300 font-medium">Kill switches:</span> <span class="font-mono">OPS_VIEWER_ACCESS_ENABLED=false</span> fail-closes all viewer grants; <span class="font-mono">OPS_OPERATOR_ACCESS_ENABLED=false</span> all operator grants — instantly, without deleting them. Flip either back to restore.</p>
     <p>Every grant and revocation is audited (<span class="font-mono">ops.access.granted</span> / <span class="font-mono">ops.access.revoked</span>) and announced in the ops Slack channel.</p>
 </div>
 
 {{-- ── Grant form ───────────────────────────────────────────────────────── --}}
 <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5 mb-6">
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Grant viewer access</h2>
+    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Grant access</h2>
     @if($candidates->isEmpty())
         <p class="text-sm text-slate-500">No eligible accounts: every non-super-admin user either already holds an active grant or does not exist.</p>
     @else
@@ -37,14 +38,28 @@
                     @endforeach
                 </select>
             </div>
+            <div class="min-w-[210px] pt-1">
+                <div class="flex items-center gap-3 text-xs text-slate-300">
+                    <label class="inline-flex items-center gap-1.5 cursor-pointer" title="Read-only: everything visible, nothing executable">
+                        <input type="radio" name="level" value="viewer" checked class="accent-cyan-500">
+                        <span class="text-cyan-300 font-medium">Viewer</span>
+                        <span class="text-slate-500">read-only</span>
+                    </label>
+                    <label class="inline-flex items-center gap-1.5 cursor-pointer" title="Read + run the read-only diagnostics (audited)">
+                        <input type="radio" name="level" value="operator" class="accent-amber-500">
+                        <span class="text-amber-300 font-medium">Operator</span>
+                        <span class="text-slate-500">+ run diagnostics</span>
+                    </label>
+                </div>
+            </div>
             <button class="px-5 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-sm font-medium text-slate-50 transition">Grant access</button>
         </form>
     @endif
 </section>
 
-{{-- ── Active viewers ───────────────────────────────────────────────────── --}}
+{{-- ── Active grants ───────────────────────────────────────────────────── --}}
 <section class="mb-6">
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Active viewers ({{ $activeGrants->count() }})</h2>
+    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Active grants ({{ $activeGrants->count() }})</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800">
         <table class="w-full text-sm">
             <thead class="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider">
@@ -64,7 +79,13 @@
                             <div class="text-slate-100 font-medium">{{ $grant->user?->name ?? 'deleted account' }}</div>
                             <div class="text-[11px] text-slate-500">{{ $grant->user?->email ?? "user #{$grant->user_id}" }}</div>
                         </td>
-                        <td class="px-4 py-3"><span class="text-[10px] px-2 py-1 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/50 uppercase font-bold">{{ $grant->level }}</span></td>
+                        <td class="px-4 py-3">
+                            @if($grant->level === 'operator')
+                                <span class="text-[10px] px-2 py-1 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50 uppercase font-bold" title="Read + run read-only diagnostics">{{ $grant->level }}</span>
+                            @else
+                                <span class="text-[10px] px-2 py-1 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/50 uppercase font-bold" title="Read-only">{{ $grant->level }}</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3">
                             @if(!$grant->user)
                                 <span class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-400 border border-slate-600/50">ACCOUNT DELETED</span>
@@ -79,16 +100,36 @@
                         <td class="px-4 py-3 text-slate-400 text-xs">{{ $grant->granter?->name ?? '—' }}</td>
                         <td class="px-4 py-3 text-slate-500 text-xs">{{ $grant->granted_at?->diffForHumans() }}</td>
                         <td class="px-4 py-3 text-right">
-                            <form method="POST" action="{{ route('ops.access.revoke', $grant) }}" onsubmit="return confirm('Revoke read-only OpsCenter access for {{ $grant->user?->name ?? 'this account' }}? Access ends immediately.')" class="inline">
-                                @csrf
-                                <button class="text-[11px] px-3 py-1.5 rounded border border-red-700/60 bg-red-950/40 text-red-300 hover:bg-red-900/60 font-medium">Revoke…</button>
-                            </form>
+                            <div class="inline-flex items-center gap-1.5">
+                                @if($grant->user)
+                                    {{-- Level change — the atomic revoke+re-grant lives in OpsAccessService (one click, both ledger rows). --}}
+                                    @if($grant->level === 'viewer')
+                                        <form method="POST" action="{{ route('ops.access.grant') }}" onsubmit="return confirm('Change this account to the OPERATOR tier? They will be able to run read-only diagnostics (audited) in addition to viewing.')" class="inline">
+                                            @csrf
+                                            <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
+                                            <input type="hidden" name="level" value="operator">
+                                            <button class="text-[11px] px-3 py-1.5 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60 font-medium">Make operator…</button>
+                                        </form>
+                                    @else
+                                        <form method="POST" action="{{ route('ops.access.grant') }}" onsubmit="return confirm('Downgrade this account to the VIEWER tier? They keep read access but can no longer run diagnostics.')" class="inline">
+                                            @csrf
+                                            <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
+                                            <input type="hidden" name="level" value="viewer">
+                                            <button class="text-[11px] px-3 py-1.5 rounded border border-cyan-700/60 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60 font-medium">Make viewer…</button>
+                                        </form>
+                                    @endif
+                                @endif
+                                <form method="POST" action="{{ route('ops.access.revoke', $grant) }}" onsubmit="return confirm('Revoke OpsCenter access for {{ $grant->user?->name ?? 'this account' }}? Access ends immediately.')" class="inline">
+                                    @csrf
+                                    <button class="text-[11px] px-3 py-1.5 rounded border border-red-700/60 bg-red-950/40 text-red-300 hover:bg-red-900/60 font-medium">Revoke…</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
                         <td colspan="6" class="px-4 py-10 text-center text-slate-500 text-sm">
-                            No active viewer grants — OpsCenter is super-admin only right now.
+                            No active grants — OpsCenter is super-admin only right now.
                         </td>
                     </tr>
                 @endforelse

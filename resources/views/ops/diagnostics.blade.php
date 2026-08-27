@@ -51,7 +51,8 @@
                             </span>
                         </div>
                         <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">{{ $definition['description'] }}</p>
-                        @if(auth()->user()?->is_super_admin)
+                        {{-- Iteration 6: super-admins AND operator-tier grantees can run these read-only checks (route-level: ops_operator group). --}}
+                        @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
                             <form method="POST" action="{{ route('ops.diagnostics.run') }}">
                                 @csrf
                                 <input type="hidden" name="diagnostic" value="{{ $id }}">
@@ -61,7 +62,7 @@
                                 </button>
                             </form>
                         @else
-                            <span class="block w-full text-center text-[11px] text-slate-600 border border-slate-800 rounded-lg px-3 py-2">operator-only (read-only view)</span>
+                            <span class="block w-full text-center text-[11px] text-slate-600 border border-slate-800 rounded-lg px-3 py-2">viewer (read-only)</span>
                         @endif
                     </div>
                 @endforeach

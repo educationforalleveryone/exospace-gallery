@@ -10,15 +10,19 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * OpsCenter — SentryApiClient (Iteration 4).
+ * OpsCenter — SentryApiClient (Iteration 4; error trend in 6).
  *
- * A read-only, single-endpoint bridge to the Sentry REST API backing the
- * overview's "Sentry — Unresolved Issues" tile. Following the discovery
- * audit's decision (ADR: "Sentry stays the deep-dive error UI. OpsCenter
- * summarizes and links out; it does not clone Sentry"), this client pulls
- * issue HEADLINES only — title, culprit, counts, permalink — so the
- * operator sees the full platform picture in OpsCenter and clicks through
- * to Sentry for stack traces and release tagging.
+ * A read-only, TWO-endpoint bridge to the Sentry REST API backing the
+ * overview's "Sentry — Unresolved Issues" tile:
+ *   summary() (Iteration 4) — issue HEADLINES via
+ *     GET /api/0/organizations/{org}/issues/ (title, culprit, counts,
+ *     permalink) so the operator sees the full platform picture in
+ *     OpsCenter and clicks through to Sentry for stack traces and
+ *     release tagging (ADR: summarize + link out, never clone).
+ *   trend() (Iteration 6) — the hourly error-RATE for the last 24 h via
+ *     GET /api/0/organizations/{org}/events-stats/ (yAxis=count(),
+ *     interval=1h), rendered as a pure-SVG sparkline in the same tile:
+ *     "is this spike new or the baseline?" answered at a glance.
  *
  * Independence note: SENTRY_LARAVEL_DSN (error REPORTING) and
  * SENTRY_API_TOKEN (this summary pull) are separate concerns on purpose.
@@ -26,14 +30,20 @@ use Throwable;
  *
  * Degradation contract (same family as CoolifyApiClient): NOTHING here
  * throws and the token NEVER appears in any returned payload. Every
- * failure mode — unconfigured, timeout, 401/403, malformed JSON — returns
- * a structured array the tile renders verbatim. Results (success AND
- * failure) are cached so a slow or broken Sentry API can never slow the
- * dashboard or be hammered by every page load.
+ * failure mode — unconfigured, timeout, 401/403, 404, 429, malformed
+ * JSON — returns a structured array the tile renders verbatim. Results
+ * (success AND failure) are cached so a slow or broken Sentry API can
+ * never slow the dashboard or be hammered by every page load. The trend
+ * is cached under its OWN key: a failing stats endpoint (e.g. a token
+ * without the event:read scope) must not poison the headlines cache, and
+ * vice versa.
  *
  * API: GET /api/0/organizations/{org}/issues/ with
  *   query=is:unresolved, statsPeriod=24h, project={slug} (repeated)
+ * API: GET /api/0/organizations/{org}/events-stats/ with
+ *   yAxis=count(), statsPeriod=24h, interval=1h, project={slug}
  * Docs: https://docs.sentry.io/api/events/list-an-projects-issues/
+ *       https://docs.sentry.io/api/events/get-organization-events-stats/
  */
 class SentryApiClient
 {
@@ -103,6 +113,148 @@ class SentryApiClient
         Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
 
         return $result;
+    }
+
+    /**
+     * The cached hourly error trend the tile's sparkline renders.
+     *
+     * @return array{
+     *     configured: bool,
+     *     error?: string,
+     *     fetched_at?: string,
+     *     points?: int,
+     *     total?: int,
+     *     peak?: int,
+     *     peak_hour?: string,
+     *     series?: array<int, array{ts: int, count: int}>
+     * }
+     */
+    public function trend(): array
+    {
+        if (! $this->isConfigured()) {
+            return ['configured' => false];
+        }
+
+        $key = 'ops:sentry:trend';
+
+        $cached = Cache::get($key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $result = $this->fetchTrend();
+
+        // Cache failures too — same rationale as the summary (an unhappy
+        // endpoint must not turn every dashboard load into an API hit).
+        Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetchTrend(): array
+    {
+        $base = ['configured' => true, 'fetched_at' => now()->toIso8601String()];
+
+        try {
+            $query = [
+                // yAxis/count are spelled exactly as the events-stats
+                // endpoint expects; interval=1h gives 24 points.
+                'yAxis' => 'count()',
+                'statsPeriod' => '24h',
+                'interval' => '1h',
+            ];
+
+            if ($this->projects !== []) {
+                $query['project'] = $this->projects;
+            }
+
+            $response = Http::withToken((string) $this->token)
+                ->timeout($this->timeout)
+                ->acceptJson()
+                ->get($this->baseUrl.'/api/0/organizations/'.$this->org.'/events-stats/', $query);
+        } catch (Throwable $e) {
+            Log::warning('SentryApiClient: trend request failed', ['reason' => get_class($e)]);
+
+            return $base + ['error' => 'Sentry API unreachable (network timeout or DNS failure)'];
+        }
+
+        if (! $response->successful()) {
+            $status = $response->status();
+            Log::warning('SentryApiClient: trend request failed', ['status' => $status]);
+
+            $reason = match (true) {
+                $status === 401 || $status === 403 => "Sentry rejected the API token for stats (HTTP {$status}) — the events-stats endpoint may need the event:read scope",
+                $status === 404 => "Organization '{$this->org}' not found (HTTP 404) — check SENTRY_ORG_SLUG",
+                $status === 429 => 'Sentry API rate limit hit (HTTP 429) — retrying later',
+                default => "Sentry API error (HTTP {$status})",
+            };
+
+            return $base + ['error' => $reason];
+        }
+
+        $payload = $response->json();
+        if (! is_array($payload) || ! is_array($payload['data'] ?? null)) {
+            return $base + ['error' => 'Sentry API returned an unexpected response shape'];
+        }
+
+        // Normalize: entries have been [time, {count: N}] and
+        // [{time, count}] shapes across API versions — both are handled,
+        // non-numeric rows are dropped rather than guessed at.
+        $series = [];
+        $total = 0;
+        $peak = 0;
+        $peakTs = null;
+
+        foreach ($payload['data'] as $entry) {
+            $ts = null;
+            $count = null;
+
+            if (is_array($entry)) {
+                if (array_is_list($entry) && count($entry) >= 2) {
+                    // [unix_ts, {count: N}] shape
+                    $ts = is_numeric($entry[0]) ? (int) $entry[0] : null;
+                    $count = $this->normalizeCount($entry[1]);
+                } elseif (isset($entry['time'])) {
+                    // {time: unix_ts|iso, count: N} shape
+                    $ts = is_numeric($entry['time']) ? (int) $entry['time'] : (strtotime((string) $entry['time']) ?: null);
+                    $count = $this->normalizeCount($entry['count'] ?? 0);
+                }
+            }
+
+            if ($ts === null || $ts === false) {
+                continue;
+            }
+
+            $count = max(0, $count ?? 0);
+            $series[] = ['ts' => (int) $ts, 'count' => $count];
+            $total += $count;
+
+            if ($count > $peak) {
+                $peak = $count;
+                $peakTs = (int) $ts;
+            }
+        }
+
+        if ($series === []) {
+            return $base + ['error' => 'Sentry API returned no usable data points'];
+        }
+
+        // Chronological order (Sentry returns ascending, but the chart
+        // must not depend on it).
+        usort($series, fn ($a, $b) => $a['ts'] <=> $b['ts']);
+
+        return $base + [
+            'points' => count($series),
+            'total' => $total,
+            'peak' => $peak,
+            'peak_hour' => $peakTs !== null
+                ? date('H:i', $peakTs).' UTC'
+                : '—',
+            'series' => $series,
+        ];
     }
 
     /**

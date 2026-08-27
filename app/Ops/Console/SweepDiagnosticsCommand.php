@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
 use Throwable;
 
 /**
- * OpsCenter — SweepDiagnosticsCommand (Iteration 4).
+ * OpsCenter — SweepDiagnosticsCommand (Iteration 4; cadences in 6).
  *
  * ops:sweep-diagnostics — turns Iteration 3's PULL diagnostics into a PUSH
  * watch. Every 15 minutes (Coolify scheduled task) the command probes a
@@ -29,6 +29,16 @@ use Throwable;
  *   healthy again    → the previously-recorded event is RESOLVED and an
  *                      info-level "recovered" note goes to Slack — the
  *                      story tells itself end to end.
+ *
+ * PER-CHECK CADENCE (Iteration 6): OPS_SWEEP_CADENCES throttles probing
+ * per check while it is HEALTHY ("probe at most every N minutes") — so
+ * expensive checks can run hourly while cheap ones stay at every sweep.
+ * A check with an OPEN sweep event is always probed every sweep: recovery
+ * detection is never delayed by a cadence, and a check that goes bad
+ * between its scheduled probes is found at its next due probe (detection
+ * latency = the cadence the operator chose). Skipped checks count as
+ * 'skipped' in the summary; the last-probe timestamp lives in the cache
+ * (ops:sweep:last:{id} — a cache flush just means one extra probe).
  *
  * Sweep events then flow through the normal machinery: classification,
  * correlation into incidents (ops:correlate-incidents), the dashboard,
@@ -51,6 +61,13 @@ class SweepDiagnosticsCommand extends Command
     protected $signature = 'ops:sweep-diagnostics';
 
     protected $description = 'Sweep the allow-listed self diagnostics; record deduplicated events + Slack alerts for degraded/failed findings, auto-resolve on recovery';
+
+    /**
+     * The minimum cadence a check may declare — the sweep itself runs
+     * every 15 minutes, so anything finer is meaningless noise in the
+     * config (warned + ignored, never fatal).
+     */
+    private const MIN_CADENCE_MINUTES = 15;
 
     /**
      * Sweep events get an explicit category so the error inventory groups
@@ -111,9 +128,20 @@ class SweepDiagnosticsCommand extends Command
             return self::SUCCESS;
         }
 
-        $counts = ['healthy' => 0, 'degraded' => 0, 'failed' => 0, 'inconclusive' => 0, 'recovered' => 0];
+        // Resolve + validate the per-check cadences (Iteration 6).
+        $cadences = $this->resolveCadences($ids);
+
+        $counts = ['healthy' => 0, 'degraded' => 0, 'failed' => 0, 'inconclusive' => 0, 'recovered' => 0, 'skipped' => 0];
 
         foreach ($ids as $id) {
+            // Cadence throttle (healthy path only — see shouldProbe()).
+            if (! $this->shouldProbe($id, $cadences)) {
+                $counts['skipped']++;
+                $this->line(sprintf('[%s] skipped — cadence %d min not yet elapsed, no open event', $id, $cadences[$id]));
+
+                continue;
+            }
+
             try {
                 $status = $this->sweepOne($id, $engine, $ingestor);
                 $counts[$status]++;
@@ -127,12 +155,13 @@ class SweepDiagnosticsCommand extends Command
         }
 
         $summary = sprintf(
-            'Sweep complete: %d healthy, %d degraded, %d failed, %d inconclusive, %d recovered',
+            'Sweep complete: %d healthy, %d degraded, %d failed, %d inconclusive, %d recovered, %d skipped (cadence)',
             $counts['healthy'],
             $counts['degraded'],
             $counts['failed'],
             $counts['inconclusive'],
             $counts['recovered'],
+            $counts['skipped'],
         );
 
         ($counts['degraded'] + $counts['failed']) > 0
@@ -140,6 +169,100 @@ class SweepDiagnosticsCommand extends Command
             : $this->info($summary);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Validate the configured cadences against the sweep set: keep only
+     * entries for known sweep ids with a sane value; warn (never fatal)
+     * about anything else so a typo in OPS_SWEEP_CADENCES is visible in
+     * scheduler.log without breaking the watch.
+     *
+     * @param  array<int, string>  $ids
+     * @return array<string, int>
+     */
+    private function resolveCadences(array $ids): array
+    {
+        $configured = (array) config('ops.sweeps.cadences', []);
+        $cadences = [];
+
+        foreach ($configured as $id => $minutes) {
+            $id = (string) $id;
+            $minutes = (int) $minutes;
+
+            if (! in_array($id, $ids, true)) {
+                $this->warn("Ignoring cadence for '{$id}' — not in the sweep set (unknown id, not self-scoped, or not swept).");
+
+                continue;
+            }
+
+            if ($minutes < self::MIN_CADENCE_MINUTES) {
+                $this->warn("Ignoring cadence for '{$id}' — {$minutes} min is below the {$this->minCadenceLabel()} sweep interval.");
+
+                continue;
+            }
+
+            $cadences[$id] = $minutes;
+        }
+
+        return $cadences;
+    }
+
+    private function minCadenceLabel(): string
+    {
+        return self::MIN_CADENCE_MINUTES.' min';
+    }
+
+    /**
+     * Cadence decision for one check: probe it unless (a) it HAS a
+     * cadence, (b) the last probe is more recent than that cadence, AND
+     * (c) it currently has NO open sweep event. Condition (c) is the
+     * safety valve: a check that is degraded/failed is always re-probed
+     * every sweep so its recovery is detected within one sweep interval.
+     *
+     * @param  array<string, int>  $cadences
+     */
+    private function shouldProbe(string $id, array $cadences): bool
+    {
+        if (! isset($cadences[$id])) {
+            return true; // no cadence → every sweep (Iteration-4 behavior)
+        }
+
+        if ($this->hasOpenEvent($id)) {
+            return true; // active problem — always re-probe for recovery
+        }
+
+        try {
+            $lastProbe = \Illuminate\Support\Facades\Cache::get('ops:sweep:last:'.$id);
+        } catch (Throwable) {
+            return true; // cache unavailable — probing is always safe
+        }
+
+        if (! $lastProbe instanceof \Illuminate\Support\Carbon) {
+            return true; // never probed (or cache flushed) — due now
+        }
+
+        return $lastProbe->diffInMinutes(now()) >= $cadences[$id];
+    }
+
+    /**
+     * Is there an OPEN/ACKNOWLEDGED sweep event for this check? Cheap:
+     * the cached event id first, then a single indexed title lookup
+     * (the same fallback resolvePriorEvent() uses after cache flushes).
+     */
+    private function hasOpenEvent(string $id): bool
+    {
+        $label = DiagnosticRegistry::label($id);
+        $title = "Automated sweep: {$label}";
+
+        try {
+            return OpsEvent::query()
+                ->where('source', 'sweep')
+                ->whereIn('status', ['open', 'acknowledged'])
+                ->where('title', $title)
+                ->exists();
+        } catch (Throwable) {
+            return true; // DB trouble — probe anyway (probing is harmless)
+        }
     }
 
     /**
@@ -155,6 +278,17 @@ class SweepDiagnosticsCommand extends Command
             $this->warn("Skipping unknown diagnostic '{$id}'.");
 
             return 'inconclusive';
+        }
+
+        // Cadence bookkeeping: this check was PROBED now (Iteration 6).
+        try {
+            \Illuminate\Support\Facades\Cache::put(
+                'ops:sweep:last:'.$id,
+                now(),
+                now()->addDay(),
+            );
+        } catch (Throwable) {
+            // Cache unavailable — the next sweep simply probes again.
         }
 
         // The finding line for scheduler.log / the console.

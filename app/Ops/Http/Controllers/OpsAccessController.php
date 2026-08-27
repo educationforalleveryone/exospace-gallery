@@ -13,11 +13,12 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
- * OpsCenter — OpsAccessController (Iteration 5).
+ * OpsCenter — OpsAccessController (Iteration 5; operator tier in 6).
  *
- * The management surface for viewer grants. SUPER-ADMIN ONLY (mounted
- * inside the nested 'super_admin' route group — a viewer can never reach
- * these routes, let alone grant or revoke).
+ * The management surface for access grants (viewer + operator tiers).
+ * SUPER-ADMIN ONLY (mounted inside the nested 'super_admin' route group
+ * — a grantee can never reach these routes, let alone grant, change a
+ * level, or revoke).
  *
  * Everything mutates only OpsCenter's own grant rows; every change is
  * audited and announced on Slack by OpsAccessService.
@@ -29,13 +30,13 @@ class OpsAccessController extends Controller
     ) {}
 
     /**
-     * The Access page: active viewers, recently revoked grants, and the
-     * grant form (user picker over non-super-admin accounts).
+     * The Access page: active grants (both tiers), recently revoked
+     * grants, and the grant form (user picker + level).
      */
     public function index(): View
     {
         $activeGrants = OpsAccessGrant::query()
-            ->activeViewers()
+            ->activeGranted()
             ->with(['user:id,name,email,google2fa_secret,email_verified_at', 'granter:id,name'])
             ->orderByDesc('granted_at')
             ->get();
@@ -66,18 +67,23 @@ class OpsAccessController extends Controller
     }
 
     /**
-     * Grant viewer access (by user id from the picker form).
+     * Grant access (by user id + level from the picker form). Granting a
+     * different level to an account that already holds an active grant
+     * performs the atomic level change (revoke old + grant new).
      */
     public function grant(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
+            'level' => ['nullable', 'string', 'in:'.implode(',', OpsAccessGrant::LEVELS)],
         ], [
             'user_id.exists' => 'That user account does not exist.',
+            'level.in' => 'Unknown access level.',
         ]);
 
         $target = User::find((int) $validated['user_id']);
-        $result = $this->access->grant($target, $request->user());
+        $level = (string) ($validated['level'] ?? OpsAccessGrant::LEVEL_VIEWER);
+        $result = $this->access->grant($target, $request->user(), $level);
 
         return redirect()
             ->route('ops.access.index')

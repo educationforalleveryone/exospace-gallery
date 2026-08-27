@@ -303,7 +303,7 @@ class OpsAccessControlTest extends TestCase
 
         OpsAccessGrant::create([
             'user_id' => $user->id,
-            'level' => 'operator', // not implemented — must not open the door
+            'level' => 'supervisor', // not implemented — must not open the door
             'granted_at' => now(),
         ]);
 
@@ -471,7 +471,7 @@ class OpsAccessControlTest extends TestCase
 
         $this->asViewer()->get('/ops/diagnostics')->assertOk()
             ->assertDontSee('Run diagnostic')
-            ->assertSee('operator-only');
+            ->assertSee('viewer (read-only)');
 
         $incident = $this->incident();
         $this->asViewer()->get('/ops/incidents/'.$incident->id)->assertOk()

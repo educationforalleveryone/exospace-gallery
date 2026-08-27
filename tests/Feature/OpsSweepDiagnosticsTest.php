@@ -348,4 +348,178 @@ class OpsSweepDiagnosticsTest extends TestCase
             ->expectsOutputToContain('Sweep complete')
             ->assertExitCode(0);
     }
+
+    // ── Per-check cadence (Iteration 6) ──────────────────────────────────
+
+    public function test_healthy_check_within_cadence_is_skipped(): void
+    {
+        $this->stampAllHeartbeats();
+
+        config([
+            'ops.sweeps.diagnostics' => ['queue.health'],
+            'ops.sweeps.cadences' => ['queue.health' => 60],
+        ]);
+
+        // Probed 10 minutes ago — a 60-minute cadence means NOT due.
+        \Illuminate\Support\Facades\Cache::put(
+            'ops:sweep:last:queue.health',
+            now()->subMinutes(10),
+            now()->addDay(),
+        );
+
+        $this->runSweep()
+            // NOTE: ordered — expectsOutputToContain expectations consume
+            // output lines in order, so the more specific string (which
+            // only the skip line carries) must be asserted first.
+            ->expectsOutputToContain('cadence 60 min not yet elapsed')
+            ->expectsOutputToContain('skipped')
+            ->assertExitCode(0);
+
+        // The skip must NOT refresh the last-probe stamp (otherwise a
+        // skipped check would never come due).
+        $this->assertEquals(
+            now()->subMinutes(10)->timestamp,
+            \Illuminate\Support\Facades\Cache::get('ops:sweep:last:queue.health')->timestamp,
+        );
+
+        $this->assertSame(0, $this->sweepEvents()->count());
+    }
+
+    public function test_check_is_probed_once_its_cadence_elapses(): void
+    {
+        $this->stampAllHeartbeats();
+
+        config([
+            'ops.sweeps.diagnostics' => ['queue.health'],
+            'ops.sweeps.cadences' => ['queue.health' => 60],
+        ]);
+
+        // Probed 61 minutes ago — due.
+        \Illuminate\Support\Facades\Cache::put(
+            'ops:sweep:last:queue.health',
+            now()->subMinutes(61),
+            now()->addDay(),
+        );
+
+        $this->runSweep()
+            ->expectsOutputToContain('healthy')
+            ->assertExitCode(0);
+
+        // The probe refreshed the stamp to NOW (the next hour of silence
+        // starts here).
+        $stamp = \Illuminate\Support\Facades\Cache::get('ops:sweep:last:queue.health');
+        $this->assertNotNull($stamp);
+        $this->assertGreaterThan(now()->subMinutes(2)->timestamp, $stamp->timestamp);
+    }
+
+    public function test_a_check_without_cadence_is_probed_every_sweep(): void
+    {
+        // The Iteration-4 behavior is the default: no cadence entry, no
+        // throttling, no cache bookkeeping consulted.
+        $this->stampAllHeartbeats();
+
+        config([
+            'ops.sweeps.diagnostics' => ['queue.health'],
+            'ops.sweeps.cadences' => ['server.disk' => 60], // some OTHER check
+        ]);
+
+        \Illuminate\Support\Facades\Cache::put(
+            'ops:sweep:last:queue.health',
+            now()->subMinutes(5), // recently probed — irrelevant: no cadence
+            now()->addDay(),
+        );
+
+        $this->runSweep()
+            ->expectsOutputToContain('healthy')
+            ->assertExitCode(0);
+
+        $this->assertSame(0, $this->sweepEvents()->count());
+    }
+
+    public function test_open_event_bypasses_the_cadence_for_recovery_detection(): void
+    {
+        $this->stampAllHeartbeats();
+
+        config([
+            'ops.sweeps.diagnostics' => ['queue.health'],
+            'ops.sweeps.cadences' => ['queue.health' => 60],
+        ]);
+
+        // Recently probed (would normally skip)...
+        \Illuminate\Support\Facades\Cache::put(
+            'ops:sweep:last:queue.health',
+            now()->subMinutes(10),
+            now()->addDay(),
+        );
+
+        // ...but an OPEN sweep event exists for the check: the sweep must
+        // re-probe EVERY run so recovery is detected within one sweep.
+        OpsEvent::create([
+            'fingerprint' => sha1(uniqid('', true)),
+            'source' => 'sweep',
+            'category' => 'QUEUE',
+            'severity' => 'warning',
+            'title' => 'Automated sweep: '.\App\Ops\Diagnostics\DiagnosticRegistry::label('queue.health'),
+            'status' => 'open',
+            'first_seen_at' => now()->subHour(),
+            'last_seen_at' => now()->subHour(),
+        ]);
+
+        $this->runSweep()
+            ->expectsOutputToContain('recovered')
+            ->assertExitCode(0);
+
+        $this->assertSame('resolved', OpsEvent::where('source', 'sweep')->first()->status);
+    }
+
+    public function test_cadence_below_the_sweep_interval_is_ignored_with_a_warning(): void
+    {
+        $this->stampAllHeartbeats();
+
+        config([
+            'ops.sweeps.diagnostics' => ['queue.health'],
+            'ops.sweeps.cadences' => ['queue.health' => 5], // < 15 min sweep interval
+        ]);
+
+        $this->runSweep()
+            ->expectsOutputToContain('below the 15 min sweep interval')
+            ->assertExitCode(0);
+
+        // Ignored cadence → the check ran (healthy, no skip line).
+        $this->assertSame(0, $this->sweepEvents()->count());
+    }
+
+    public function test_cadence_for_a_check_outside_the_sweep_set_is_ignored(): void
+    {
+        $this->stampAllHeartbeats();
+
+        config([
+            'ops.sweeps.diagnostics' => ['queue.health'],
+            'ops.sweeps.cadences' => ['database.connectivity' => 60], // not swept here
+        ]);
+
+        $this->runSweep()
+            ->expectsOutputToContain('not in the sweep set')
+            ->assertExitCode(0);
+
+        $this->assertSame(0, $this->sweepEvents()->count());
+    }
+
+    public function test_cadence_bookkeeping_survives_a_cache_flush(): void
+    {
+        // No last-probe stamp at all (cache flushed / first deploy):
+        // the check is simply due NOW — a flush costs one probe, nothing
+        // more, and cadence behavior resumes from the fresh stamp.
+        $this->stampAllHeartbeats();
+
+        config([
+            'ops.sweeps.diagnostics' => ['queue.health'],
+            'ops.sweeps.cadences' => ['queue.health' => 60],
+        ]);
+
+        $this->runSweep()->assertExitCode(0);
+
+        $this->assertNotNull(\Illuminate\Support\Facades\Cache::get('ops:sweep:last:queue.health'));
+        $this->assertSame(0, $this->sweepEvents()->count());
+    }
 }

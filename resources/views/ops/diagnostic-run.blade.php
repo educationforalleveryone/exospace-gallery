@@ -5,7 +5,7 @@
 @section('content')
 <div class="mb-4 flex items-center justify-between gap-4">
     <a href="{{ route('ops.diagnostics.index') }}" class="text-xs text-slate-500 hover:text-slate-300">← All diagnostics</a>
-    @if(auth()->user()?->is_super_admin)
+    @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
         <form method="POST" action="{{ route('ops.diagnostics.run') }}">
             @csrf
             <input type="hidden" name="diagnostic" value="{{ $run->diagnostic_id }}">
@@ -92,7 +92,7 @@
                 @foreach($run->next_steps as $step)
                     @if(\App\Ops\Diagnostics\DiagnosticRegistry::has($step))
                         <li>
-                            @if(auth()->user()?->is_super_admin)
+                            @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
                                 <form method="POST" action="{{ route('ops.diagnostics.run') }}" class="inline">
                                     @csrf
                                     <input type="hidden" name="diagnostic" value="{{ $step }}">

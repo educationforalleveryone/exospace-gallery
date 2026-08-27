@@ -32,7 +32,8 @@ class OpsEvent extends Model
         'DATABASE', 'MIGRATION', 'APPLICATION', 'PHP', 'LARAVEL', 'REDIS',
         'QUEUE', 'WEBHOOK', 'BUILD', 'DEPLOYMENT', 'DOCKER', 'CONTAINER',
         'STORAGE', 'NETWORK', 'AUTHENTICATION', 'AUTHORIZATION',
-        'EXTERNAL_SERVICE', 'BACKUP', 'INFRASTRUCTURE', 'UNKNOWN',
+        'EXTERNAL_SERVICE', 'BACKUP', 'INFRASTRUCTURE', 'SECURITY',
+        'UNKNOWN',
     ];
 
     protected $fillable = [

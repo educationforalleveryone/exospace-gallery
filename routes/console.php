@@ -285,3 +285,20 @@ Schedule::command('ops:sweep-diagnostics')
     ->name('ops-sweep-diagnostics')
     ->withoutOverlapping(10)
     ->onOneServer();
+
+// OpsCenter (Iteration 6): credential-rotation reminder sweep — the
+// governance counterpart of the diagnostic sweep. Daily at 09:00 it reads
+// the /ops/credentials inventory: ROTATE NOW / OVERDUE chips produce ONE
+// warning Slack alert (deduplicated per day) plus ONE deduplicated
+// SECURITY event (source 'sweep') that resolves itself once every
+// credential is back in cadence; a DUE-SOON-only state sends a gentle
+// weekly info nudge; an all-clean state sends nothing at all. Read-only
+// against the world (config-presence booleans + the ops_credentials
+// ledger — a secret VALUE never enters any payload, by construction).
+// Kill switch: OPS_CREDENTIAL_REMINDERS_ENABLED=false (the page keeps
+// working; only the proactive nudge stops).
+Schedule::command('ops:sweep-credentials')
+    ->dailyAt('09:00')
+    ->name('ops-sweep-credentials')
+    ->withoutOverlapping(30)
+    ->onOneServer();
