@@ -541,17 +541,24 @@ Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->
 // OperationalAlertService, JobHeartbeatService, spatie backups, webhook
 // ledgers, the Coolify API, Laravel logs) — see docs/OPS_DISCOVERY_AUDIT.md.
 //
-// Access bar is identical to Master Control: auth + verified + super_admin
-// + mfa. Iteration 1 is entirely READ-ONLY (aggregation only); diagnostics
-// and actions arrive in later iterations with AdminAuditLog coverage.
+// ACCESS (Iteration 5): the outer gate is 'ops_access' — super-admins
+// pass exactly as before (MFA still enforced by the 'mfa' middleware),
+// and users with an ACTIVE VIEWER GRANT (ops_access_grants, managed on
+// /ops/access) may enter the READ surfaces below. Every WRITE surface
+// (incident lifecycle POSTs, diagnostic runs, the whole Actions hub,
+// credentials, access management) sits in the nested 'super_admin'
+// group — the split is at the ROUTE level, so viewer access fails
+// closed even if a UI link were ever shown by mistake. Kill switch:
+// OPS_VIEWER_ACCESS_ENABLED=false revokes all viewers instantly.
 //
 // IMPORTANT: this group must stay ABOVE the SEO fallback route — fallback
 // only matches when nothing else does, but keeping ops routes contiguous
 // with the other super-admin surfaces keeps the file readable.
-Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])
+Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
     ->prefix('ops')
     ->name('ops.')
     ->group(function () {
+        // ── Read surfaces (super-admins + viewers) ───────────────────────
         Route::get('/',                     [\App\Ops\Http\Controllers\OpsDashboardController::class, 'overview'])->name('overview');
         Route::get('/applications',         [\App\Ops\Http\Controllers\OpsDashboardController::class, 'applications'])->name('applications');
         Route::get('/events',               [\App\Ops\Http\Controllers\OpsDashboardController::class, 'events'])->name('events');
@@ -559,59 +566,82 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])
             ->whereNumber('event')
             ->name('events.show');
 
-        // ── Incidents (Iteration 2) ──────────────────────────────────────
-        // Index + timeline detail are read-only. The three lifecycle
-        // actions (acknowledge/resolve/reopen) are the module's FIRST
-        // write paths — super-admin + MFA + throttled + audited via
-        // AdminAuditLog (ops.* actions). They alter only OpsCenter's own
-        // records, never infrastructure — that bar (password.confirm)
-        // is reserved for Iteration 3's infrastructure actions.
+        // Incidents (Iteration 2): list + timeline detail are read-only and
+        // viewer-visible; the lifecycle POSTs live in the super-admin group.
         Route::get('/incidents',                     [\App\Ops\Http\Controllers\OpsIncidentController::class, 'index'])->name('incidents.index');
         Route::get('/incidents/{incident}',          [\App\Ops\Http\Controllers\OpsIncidentController::class, 'show'])
             ->whereNumber('incident')
             ->name('incidents.show');
-        Route::post('/incidents/{incident}/acknowledge', [\App\Ops\Http\Controllers\OpsIncidentController::class, 'acknowledge'])
-            ->whereNumber('incident')
-            ->middleware('throttle:30,1')
-            ->name('incidents.acknowledge');
-        Route::post('/incidents/{incident}/resolve',     [\App\Ops\Http\Controllers\OpsIncidentController::class, 'resolve'])
-            ->whereNumber('incident')
-            ->middleware('throttle:30,1')
-            ->name('incidents.resolve');
-        Route::post('/incidents/{incident}/reopen',      [\App\Ops\Http\Controllers\OpsIncidentController::class, 'reopen'])
-            ->whereNumber('incident')
-            ->middleware('throttle:30,1')
-            ->name('incidents.reopen');
 
-        // ── Diagnostics (Iteration 3) ────────────────────────────────────
-        // READ-ONLY, allow-listed checks (database, Redis, queue,
-        // containers, deployments, server, application). The engine
-        // enforces the allow-list, redacts findings, audits every run
-        // (ops.diagnostic.run) and never executes commands or SQL beyond
-        // the fixed catalog. Throttled because some checks make live API
-        // calls.
+        // Diagnostics (Iteration 3): the catalog and PAST run results are
+        // read-only and viewer-visible; RUNNING a check is operator-only.
         Route::get('/diagnostics',                  [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'index'])->name('diagnostics.index');
-        Route::post('/diagnostics/run',             [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'run'])
-            ->middleware('throttle:30,1')
-            ->name('diagnostics.run');
         Route::get('/diagnostics/runs/{run}',       [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'show'])
             ->whereNumber('run')
             ->name('diagnostics.show');
 
-        // ── Actions (Iteration 3) ────────────────────────────────────────
-        // The ONLY write paths against infrastructure. Allow-listed
-        // (OpsActionRegistry), throttled harder, and for elevated actions:
-        // inline password verification + typed confirmation phrase enforced
-        // in OpsActionController (the framework password.confirm middleware
-        // is deliberately NOT used — its intended() redirect replays POST
-        // routes as GET and 405s). Execution, audit (ops.action.executed)
-        // and Slack announcement live in OpsActionService. Fail-closed via
-        // OPS_ACTIONS_ENABLED=false.
-        Route::get('/actions',                     [\App\Ops\Http\Controllers\OpsActionController::class, 'index'])->name('actions.index');
-        Route::get('/actions/{action}/confirm',    [\App\Ops\Http\Controllers\OpsActionController::class, 'confirm'])->name('actions.confirm');
-        Route::post('/actions/{action}',           [\App\Ops\Http\Controllers\OpsActionController::class, 'execute'])
-            ->middleware('throttle:10,1')
-            ->name('actions.execute');
+        // ── Operator surfaces (super-admin only) ─────────────────────────
+        Route::middleware('super_admin')->group(function () {
+            // Incident lifecycle (Iteration 2) — the module's first write
+            // paths: super-admin + MFA + throttled + audited via
+            // AdminAuditLog (ops.* actions). They alter only OpsCenter's
+            // own records, never infrastructure — that bar
+            // (password.confirm) is reserved for infrastructure actions.
+            Route::post('/incidents/{incident}/acknowledge', [\App\Ops\Http\Controllers\OpsIncidentController::class, 'acknowledge'])
+                ->whereNumber('incident')
+                ->middleware('throttle:30,1')
+                ->name('incidents.acknowledge');
+            Route::post('/incidents/{incident}/resolve',     [\App\Ops\Http\Controllers\OpsIncidentController::class, 'resolve'])
+                ->whereNumber('incident')
+                ->middleware('throttle:30,1')
+                ->name('incidents.resolve');
+            Route::post('/incidents/{incident}/reopen',      [\App\Ops\Http\Controllers\OpsIncidentController::class, 'reopen'])
+                ->whereNumber('incident')
+                ->middleware('throttle:30,1')
+                ->name('incidents.reopen');
+
+            // Diagnostic runs (Iteration 3) — READ-ONLY checks, but they
+            // hit live subsystems and persist audited rows: operator-only.
+            // Throttled because some checks make live API calls.
+            Route::post('/diagnostics/run',             [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'run'])
+                ->middleware('throttle:30,1')
+                ->name('diagnostics.run');
+
+            // Actions (Iteration 3) — the ONLY write paths against
+            // infrastructure. Allow-listed (OpsActionRegistry), throttled
+            // harder, and for elevated actions: inline password
+            // verification + typed confirmation phrase enforced in
+            // OpsActionController (the framework password.confirm
+            // middleware is deliberately NOT used — its intended()
+            // redirect replays POST routes as GET and 405s). Execution,
+            // audit (ops.action.executed) and Slack announcement live in
+            // OpsActionService. Fail-closed via OPS_ACTIONS_ENABLED=false.
+            Route::get('/actions',                     [\App\Ops\Http\Controllers\OpsActionController::class, 'index'])->name('actions.index');
+            Route::get('/actions/{action}/confirm',    [\App\Ops\Http\Controllers\OpsActionController::class, 'confirm'])->name('actions.confirm');
+            Route::post('/actions/{action}',           [\App\Ops\Http\Controllers\OpsActionController::class, 'execute'])
+                ->middleware('throttle:10,1')
+                ->name('actions.execute');
+
+            // Credentials (Iteration 5) — the §15 rotation checklist made
+            // live: configured-presence booleans (never values) + the
+            // rotation ledger. Governance surface → operator-only.
+            Route::get('/credentials',                       [\App\Ops\Http\Controllers\OpsCredentialController::class, 'index'])->name('credentials.index');
+            Route::post('/credentials/{key}/rotate',         [\App\Ops\Http\Controllers\OpsCredentialController::class, 'rotate'])
+                ->middleware('throttle:10,1')
+                ->name('credentials.rotate');
+
+            // Access management (Iteration 5) — who may VIEW the control
+            // plane. Super-admin only, trivially: a viewer who could grant
+            // grants would not be a viewer.
+            Route::get('/access',                            [\App\Ops\Http\Controllers\OpsAccessController::class, 'index'])->name('access.index');
+            Route::post('/access/grant',                     [\App\Ops\Http\Controllers\OpsAccessController::class, 'grant'])
+                ->middleware('throttle:10,1')
+                ->name('access.grant');
+            Route::post('/access/{grant}/revoke',            [\App\Ops\Http\Controllers\OpsAccessController::class, 'revoke'])
+                ->whereNumber('grant')
+                ->middleware('throttle:10,1')
+                ->name('access.revoke');
+        });
     });
 
 // ── SEO OS (Iteration 5): SEO landing + editorial pages ──────────────────

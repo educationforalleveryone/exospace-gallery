@@ -237,6 +237,7 @@
                 <li><span class="text-slate-400 font-medium">Iter 2:</span> incidents, correlation engine, timelines — related errors are one story.</li>
                 <li><span class="text-slate-400 font-medium">Iter 3:</span> one-click read-only diagnostics + safe actions (restart, replay).</li>
                 <li><span class="text-slate-400 font-medium">Iter 4:</span> health score, Sentry summary, backup/webhook tiles, and the 15-minute autonomous sweep — problems now find YOU (deduplicated events + Slack), no dashboard visit required.</li>
+                <li><span class="text-slate-400 font-medium">Iter 5:</span> viewer access without super-admin blast radius, the credential-rotation ledger (§15 made live), and per-application sub-scores.</li>
             </ul>
         </div>
     </section>

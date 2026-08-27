@@ -113,18 +113,31 @@ class OpsDashboardController extends Controller
 
     /**
      * Applications — the platform-wide inventory (Coolify resources +
-     * ingest-API reporters + self).
+     * ingest-API reporters + self). Iteration 5: each row carries its own
+     * sub-score (§16.2) — same verdict-cap philosophy as the platform
+     * score, scoped to the single application.
      */
     public function applications(): View
     {
+        $applications = OpsApplication::query()
+            ->withCount(['events' => fn ($q) => $q->whereIn('status', ['open', 'acknowledged'])
+                ->whereIn('severity', ['critical', 'error'])])
+            ->orderByDesc('is_self')
+            ->orderBy('kind')
+            ->orderBy('name')
+            ->get();
+
+        // Fail-soft: an unavailable score must never take the page down —
+        // rows simply render without a badge (the view handles null).
+        try {
+            $scores = $this->score->computeForApplications($applications);
+        } catch (\Throwable) {
+            $scores = [];
+        }
+
         return view('ops.applications', [
-            'applications' => OpsApplication::query()
-                ->withCount(['events' => fn ($q) => $q->whereIn('status', ['open', 'acknowledged'])
-                    ->whereIn('severity', ['critical', 'error'])])
-                ->orderByDesc('is_self')
-                ->orderBy('kind')
-                ->orderBy('name')
-                ->get(),
+            'applications' => $applications,
+            'scores' => $scores,
         ]);
     }
 

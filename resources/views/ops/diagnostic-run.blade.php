@@ -5,12 +5,14 @@
 @section('content')
 <div class="mb-4 flex items-center justify-between gap-4">
     <a href="{{ route('ops.diagnostics.index') }}" class="text-xs text-slate-500 hover:text-slate-300">← All diagnostics</a>
-    <form method="POST" action="{{ route('ops.diagnostics.run') }}">
-        @csrf
-        <input type="hidden" name="diagnostic" value="{{ $run->diagnostic_id }}">
-        @if($run->ops_application_id)<input type="hidden" name="application" value="{{ $run->ops_application_id }}">@endif
-        <button class="px-4 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium">Run again</button>
-    </form>
+    @if(auth()->user()?->is_super_admin)
+        <form method="POST" action="{{ route('ops.diagnostics.run') }}">
+            @csrf
+            <input type="hidden" name="diagnostic" value="{{ $run->diagnostic_id }}">
+            @if($run->ops_application_id)<input type="hidden" name="application" value="{{ $run->ops_application_id }}">@endif
+            <button class="px-4 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium">Run again</button>
+        </form>
+    @endif
 </div>
 
 @php
@@ -90,14 +92,18 @@
                 @foreach($run->next_steps as $step)
                     @if(\App\Ops\Diagnostics\DiagnosticRegistry::has($step))
                         <li>
-                            <form method="POST" action="{{ route('ops.diagnostics.run') }}" class="inline">
-                                @csrf
-                                <input type="hidden" name="diagnostic" value="{{ $step }}">
-                                @if($run->ops_application_id)<input type="hidden" name="application" value="{{ $run->ops_application_id }}">@endif
-                                <button class="text-xs px-3 py-1.5 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition">
-                                    ▶ Run: {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($step) }}
-                                </button>
-                            </form>
+                            @if(auth()->user()?->is_super_admin)
+                                <form method="POST" action="{{ route('ops.diagnostics.run') }}" class="inline">
+                                    @csrf
+                                    <input type="hidden" name="diagnostic" value="{{ $step }}">
+                                    @if($run->ops_application_id)<input type="hidden" name="application" value="{{ $run->ops_application_id }}">@endif
+                                    <button class="text-xs px-3 py-1.5 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition">
+                                        ▶ Run: {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($step) }}
+                                    </button>
+                                </form>
+                            @else
+                                <span class="text-xs px-3 py-1.5 rounded-lg border border-slate-800 text-slate-500">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($step) }} — operator-only</span>
+                            @endif
                         </li>
                     @else
                         <li class="text-sm text-slate-300 flex gap-2.5">

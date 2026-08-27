@@ -51,14 +51,18 @@
                             </span>
                         </div>
                         <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">{{ $definition['description'] }}</p>
-                        <form method="POST" action="{{ route('ops.diagnostics.run') }}">
-                            @csrf
-                            <input type="hidden" name="diagnostic" value="{{ $id }}">
-                            @if($application)<input type="hidden" name="application" value="{{ $application->id }}">@endif
-                            <button class="w-full px-3 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium text-slate-50 transition">
-                                Run diagnostic
-                            </button>
-                        </form>
+                        @if(auth()->user()?->is_super_admin)
+                            <form method="POST" action="{{ route('ops.diagnostics.run') }}">
+                                @csrf
+                                <input type="hidden" name="diagnostic" value="{{ $id }}">
+                                @if($application)<input type="hidden" name="application" value="{{ $application->id }}">@endif
+                                <button class="w-full px-3 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium text-slate-50 transition">
+                                    Run diagnostic
+                                </button>
+                            </form>
+                        @else
+                            <span class="block w-full text-center text-[11px] text-slate-600 border border-slate-800 rounded-lg px-3 py-2">operator-only (read-only view)</span>
+                        @endif
                     </div>
                 @endforeach
             </div>

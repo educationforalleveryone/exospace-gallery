@@ -211,4 +211,40 @@ return [
             )),
         ))),
     ],
+
+    // ── Viewer access / RBAC (Iteration 5) ─────────────────────────────
+    //
+    // /ops is no longer super-admin-only: a super-admin can grant a
+    // REGULAR user (auth + verified + MFA required) read-only access
+    // from /ops/access. Grants live in ops_access_grants (a ledger —
+    // revocation sets revoked_at, history stays). The READ/WRITE split
+    // is enforced at the ROUTE level (routes/web.php): viewers see
+    // overview/applications/errors/incidents/diagnostics-results;
+    // every POST, the Actions hub, the Credentials page and the Access
+    // page remain super-admin-only.
+    //
+    // Kill switch: OPS_VIEWER_ACCESS_ENABLED=false instantly fail-closes
+    // every viewer grant (super-admins are unaffected — their access
+    // never came from a grant). An incident-response lever, not a data
+    // operation: flipping it back on restores the grants untouched.
+    'access' => [
+        'viewer_enabled' => filter_var(env('OPS_VIEWER_ACCESS_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+    ],
+
+    // ── Credential inventory (Iteration 5) ─────────────────────────────
+    //
+    // The §15 rotation checklist, made live on /ops/credentials: which
+    // credential surfaces are configured (PRESENCE booleans only — a
+    // value never leaves the environment), when each was last rotated
+    // (the ops_credentials ledger) and what to do next (per-credential
+    // cadence + guidance). Catalog and cadences are code constants in
+    // OpsCredentialInventoryService — the catalog IS the documentation,
+    // and changing it means changing that class + its tests (same rule
+    // as the health-score formula).
+    'credentials' => [
+        // Rotation cadences are per-credential constants in the catalog
+        // (90 days for API keys, 180 for webhooks/secrets, APP_KEY
+        // policy-driven). This switch only gates the PAGE — recording a
+        // rotation is a pure ledger write; there is nothing to fail-close.
+    ],
 ];

@@ -61,7 +61,9 @@
 
     <p class="text-[10px] text-slate-600 mt-3">
         Freshness threshold: 26 h (same as the alerting service).
-        <a href="{{ route('super.index') }}" class="text-emerald-400 hover:text-emerald-300">Backup status &amp; runs live in Master Control →</a>
+        @if(auth()->user()?->is_super_admin)
+            <a href="{{ route('super.index') }}" class="text-emerald-400 hover:text-emerald-300">Backup status &amp; runs live in Master Control →</a>
+        @endif
     </p>
 </div>
 
@@ -86,7 +88,9 @@
     <p class="text-[10px] text-slate-500">
         @if($webhookTile['failed_count'] > 0)
             Oldest failure {{ $webhookTile['oldest_failed_age_hours'] !== null ? $webhookTile['oldest_failed_age_hours'].'h ago' : '—' }}.
-            <a href="{{ route('ops.actions.index') }}" class="text-amber-300 hover:text-amber-200">Replay from the Actions hub →</a>
+            @if(auth()->user()?->is_super_admin)
+                <a href="{{ route('ops.actions.index') }}" class="text-amber-300 hover:text-amber-200">Replay from the Actions hub →</a>
+            @endif
         @else
             2Checkout IPN ledger clean — every billing event processed.
         @endif

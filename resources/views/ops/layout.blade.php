@@ -25,10 +25,20 @@
             <a href="{{ route('ops.incidents.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.incidents*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Incidents</a>
             <a href="{{ route('ops.events') }}"        class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.events*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Errors &amp; Events</a>
             <a href="{{ route('ops.diagnostics.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.diagnostics*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Diagnostics</a>
-            <a href="{{ route('ops.actions.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.actions*') ? 'bg-amber-600/20 text-amber-300 border border-amber-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Actions</a>
+            {{-- Iteration 5: operator-only surfaces — viewers get 403 at the route level; the nav simply never shows the doors. --}}
+            @if(auth()->user()?->is_super_admin)
+                <a href="{{ route('ops.actions.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.actions*') ? 'bg-amber-600/20 text-amber-300 border border-amber-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Actions</a>
+                <a href="{{ route('ops.credentials.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.credentials*') ? 'bg-sky-600/20 text-sky-300 border border-sky-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Credentials</a>
+                <a href="{{ route('ops.access.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.access*') ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Access</a>
+            @endif
         </nav>
         <div class="flex items-center gap-2">
-            <a href="{{ route('super.index') }}" class="px-3 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-800">Master Control</a>
+            @unless(auth()->user()?->is_super_admin)
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-900/50 text-cyan-300 border border-cyan-700/40 font-bold" title="Read-only access — lifecycle actions, diagnostics runs, actions, credentials and access management are operator-only">VIEWER</span>
+            @endunless
+            @if(auth()->user()?->is_super_admin)
+                <a href="{{ route('super.index') }}" class="px-3 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-800">Master Control</a>
+            @endif
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button class="px-3 py-1.5 text-sm rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300">Sign out</button>

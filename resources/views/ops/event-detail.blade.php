@@ -82,21 +82,27 @@
                 <p class="text-xs text-slate-400 mb-3">Run a check with one click — read-only, audited, results explained in plain language.</p>
                 <div class="flex flex-wrap gap-2">
                     @foreach($runnable as $diagnostic)
-                        <form method="POST" action="{{ route('ops.diagnostics.run') }}">
-                            @csrf
-                            <input type="hidden" name="diagnostic" value="{{ $diagnostic }}">
-                            <input type="hidden" name="event" value="{{ $event->id }}">
-                            @if($event->ops_application_id)<input type="hidden" name="application" value="{{ $event->ops_application_id }}">@endif
-                            <button class="text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
-                                ▶ {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }}
-                            </button>
-                        </form>
+                        @if(auth()->user()?->is_super_admin)
+                            <form method="POST" action="{{ route('ops.diagnostics.run') }}">
+                                @csrf
+                                <input type="hidden" name="diagnostic" value="{{ $diagnostic }}">
+                                <input type="hidden" name="event" value="{{ $event->id }}">
+                                @if($event->ops_application_id)<input type="hidden" name="application" value="{{ $event->ops_application_id }}">@endif
+                                <button class="text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
+                                    ▶ {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }}
+                                </button>
+                            </form>
+                        @else
+                            <span class="text-xs px-3 py-2 rounded-lg border border-slate-800 text-slate-500">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }} — operator-only</span>
+                        @endif
                     @endforeach
                 </div>
                 <a href="{{ route('ops.diagnostics.index') }}" class="inline-block text-[11px] text-slate-500 hover:text-slate-300 mt-3">Browse all diagnostics →</a>
             @else
                 <p class="text-xs text-slate-500 mb-3">No specific diagnostics recommended for this error class — the general catalog may still help.</p>
-                <a href="{{ route('ops.diagnostics.index') }}" class="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium">▶ Run: Recent errors</a>
+                @if(auth()->user()?->is_super_admin)
+                    <a href="{{ route('ops.diagnostics.index') }}" class="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium">▶ Run: Recent errors</a>
+                @endif
             @endif
         </section>
 

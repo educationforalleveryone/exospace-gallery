@@ -146,6 +146,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature_flag'  => \App\Http\Middleware\EnsureFeatureFlagEnabled::class, // M-14
             'ability'       => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
             'abilities'     => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
+            // OpsCenter (Iteration 5): the /ops access gate — super-admins
+            // unchanged, active viewer grants may READ. See
+            // App\Ops\Http\Middleware\EnsureOpsAccess.
+            'ops_access'    => \App\Ops\Http\Middleware\EnsureOpsAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

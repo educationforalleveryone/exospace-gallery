@@ -67,6 +67,35 @@ use Throwable;
  * inputs from the existing read paths (ADR-6 — no new monitors, no new
  * tables, nothing persisted; the score is always derivable, so it is
  * always current by construction).
+ *
+ * ── Iteration 5: the per-application sub-score (§16.2 of the manual) ──
+ *
+ * computeApplication() applies the SAME philosophy — weighted
+ * components, reasons, verdict caps, bands — scoped to ONE application,
+ * so each row on the Applications page answers "is THIS app healthy?"
+ * while the platform score answers "is the PLATFORM healthy?".
+ *
+ *   Application health   50 %   running 100 / degraded 50 / stopped 0 /
+ *                               unknown 50 (same mapping as the platform
+ *                               applications component, so the two never
+ *                               disagree about what "degraded" is worth)
+ *   Untriaged errors     30 %   SAME penalties as the platform component
+ *                               (100 − 25×critical − 10×error − 3×warning)
+ *                               over the APP's open events not already in
+ *                               an active incident
+ *   Active incidents     20 %   SAME penalties as the platform component
+ *                               over the APP's open incidents
+ *
+ *   Caps (mirroring the platform caps, app-scoped):
+ *     app stopped                       → cap 65
+ *     app degraded                      → cap 85
+ *     any untriaged critical/error      → cap 85
+ *     any active incident               → cap 85
+ *
+ * Host subsystems and data protection are DELIBERATELY excluded: they
+ * are platform-wide facts already expressed in the platform score —
+ * copying them into every row would make a single host problem look
+ * like four app problems. Same bands (90 / 70) as the platform score.
  */
 class OpsHealthScoreService
 {
@@ -79,6 +108,16 @@ class OpsHealthScoreService
         'untriaged' => 20,
         'incidents' => 15,
         'protection' => 10,
+    ];
+
+    /**
+     * Per-application component weights — must sum to exactly 100
+     * (enforced by test). See the class docblock (§16.2).
+     */
+    public const APP_WEIGHTS = [
+        'health' => 50,
+        'untriaged' => 30,
+        'incidents' => 20,
     ];
 
     public function __construct(
@@ -293,6 +332,178 @@ class OpsHealthScoreService
         return $this->compute($input);
     }
 
+    // ── Per-application sub-score (Iteration 5, §16.2) ───────────────────
+
+    /**
+     * Pure per-application computation.
+     *
+     * @param  array{health?: string, untriaged_events?: array<string, int>, active_incidents?: array<string, int>}  $input
+     * @return array{score: int, band: string, components: array<string, array{name: string, score: int, weight: int, reasons: string[]}>, applied_caps: array<int, string>}
+     */
+    public function computeApplication(array $input): array
+    {
+        $health = (string) ($input['health'] ?? 'unknown');
+        $untriagedCounts = (array) ($input['untriaged_events'] ?? []);
+        $incidentCounts = (array) ($input['active_incidents'] ?? []);
+
+        $components = [
+            'health' => $this->appHealthComponent($health),
+            'untriaged' => $this->untriagedComponent($untriagedCounts, self::APP_WEIGHTS['untriaged']),
+            'incidents' => $this->incidentsComponent($incidentCounts, self::APP_WEIGHTS['incidents']),
+        ];
+
+        $total = 0;
+        foreach ($components as $component) {
+            $total += $component['score'] * $component['weight'];
+        }
+
+        $blend = (int) round($total / 100);
+
+        // App-scoped verdict caps — same limits, same reasoning as the
+        // platform caps: the number may never read rosier than the row's
+        // own Health label beside it.
+        $caps = [];
+
+        if ($health === 'stopped') {
+            $caps[] = ['limit' => 65, 'label' => 'Application is stopped — sub-score capped at 65'];
+        } elseif ($health === 'degraded') {
+            $caps[] = ['limit' => 85, 'label' => 'Application is degraded — sub-score capped at 85'];
+        }
+
+        if ((int) ($untriagedCounts['critical'] ?? 0) + (int) ($untriagedCounts['error'] ?? 0) > 0) {
+            $caps[] = ['limit' => 85, 'label' => 'Open untriaged critical/error event(s) — sub-score capped at 85'];
+        }
+
+        if (array_sum(array_map('intval', $incidentCounts)) > 0) {
+            $caps[] = ['limit' => 85, 'label' => 'Active incident(s) for this application — sub-score capped at 85'];
+        }
+
+        $score = $blend;
+        if ($caps !== []) {
+            $score = min($blend, ...array_column($caps, 'limit'));
+        }
+        $score = max(0, min(100, $score));
+
+        return [
+            'score' => $score,
+            'band' => $score >= 90 ? 'healthy' : ($score >= 70 ? 'degraded' : 'critical'),
+            'components' => $components,
+            'applied_caps' => array_map(fn ($cap) => $cap['label'], $caps),
+        ];
+    }
+
+    /**
+     * Batched live sub-scores for the Applications page: two grouped
+     * queries feed every row's pure computation — no per-row database
+     * round-trips, no persistence (the sub-score is as derivable as the
+     * platform score). Fail-soft per query: a missing table degrades to
+     * zero counts, never an exception.
+     *
+     * @param  iterable<int, OpsApplication>  $applications
+     * @return array<int, array{score: int, band: string, components: array<string, array{name: string, score: int, weight: int, reasons: string[]}>, applied_caps: array<int, string>}>
+     */
+    public function computeForApplications(iterable $applications): array
+    {
+        $ids = [];
+        foreach ($applications as $application) {
+            $ids[] = $application->id;
+        }
+
+        if ($ids === []) {
+            return [];
+        }
+
+        // Active incident ids — events inside them are counted as part of
+        // the incident, never twice (the same double-count rule the
+        // platform score applies).
+        $activeIds = [];
+        try {
+            $activeIds = OpsIncident::query()
+                ->whereIn('status', ['open', 'acknowledged'])
+                ->pluck('id')
+                ->all();
+        } catch (Throwable) {
+            // Incidents table absent — every event counts.
+        }
+
+        // Untriaged events per app+severity.
+        $events = [];
+        try {
+            $query = OpsEvent::query()
+                ->whereIn('ops_application_id', $ids)
+                ->whereIn('status', ['open', 'acknowledged'])
+                ->whereIn('severity', ['critical', 'error', 'warning'])
+                ->selectRaw('ops_application_id, severity, COUNT(*) as n')
+                ->groupBy('ops_application_id', 'severity');
+
+            if ($activeIds !== []) {
+                $query->where(fn ($q) => $q
+                    ->whereNull('ops_incident_id')
+                    ->orWhereNotIn('ops_incident_id', $activeIds));
+            }
+
+            $query->get()->each(function ($row) use (&$events): void {
+                $events[(int) $row->ops_application_id][(string) $row->severity] = (int) $row->n;
+            });
+        } catch (Throwable) {
+            // Events table absent — zero counts.
+        }
+
+        // Active incidents per app+severity.
+        $incidents = [];
+        try {
+            OpsIncident::query()
+                ->whereIn('status', ['open', 'acknowledged'])
+                ->whereIn('ops_application_id', $ids)
+                ->selectRaw('ops_application_id, severity, COUNT(*) as n')
+                ->groupBy('ops_application_id', 'severity')
+                ->get()
+                ->each(function ($row) use (&$incidents): void {
+                    $incidents[(int) $row->ops_application_id][(string) $row->severity] = (int) $row->n;
+                });
+        } catch (Throwable) {
+            // Table absent.
+        }
+
+        $scores = [];
+        foreach ($applications as $application) {
+            $scores[$application->id] = $this->computeApplication([
+                'health' => (string) $application->health,
+                'untriaged_events' => $events[$application->id] ?? [],
+                'active_incidents' => $incidents[$application->id] ?? [],
+            ]);
+        }
+
+        return $scores;
+    }
+
+    /**
+     * The app's own health — identical point mapping to the platform
+     * applications component (per app: running 100 / degraded 50 /
+     * stopped 0 / unknown 50), so the row badge and the platform score
+     * can never disagree about what a health state is worth.
+     *
+     * @return array{name: string, score: int, weight: int, reasons: string[]}
+     */
+    private function appHealthComponent(string $health): array
+    {
+        $score = match ($health) {
+            'running' => 100,
+            'degraded' => 50,
+            'stopped' => 0,
+            default => 50,
+        };
+
+        $reasons = match ($health) {
+            'running' => ['Application reports running:healthy'],
+            'degraded' => ['Application reports a degraded state (unhealthy / restarting / starting)'],
+            'stopped' => ['Application is stopped or exited'],
+            default => ['No health data for this application (neutral 50)'],
+        };
+
+        return ['name' => 'Application health', 'score' => $score, 'weight' => self::APP_WEIGHTS['health'], 'reasons' => $reasons];
+    }
+
     // ── Components ────────────────────────────────────────────────────────
 
     /**
@@ -359,7 +570,7 @@ class OpsHealthScoreService
      * @param  array<string, int>  $counts  critical|error|warning
      * @return array{name: string, score: int, weight: int, reasons: string[]}
      */
-    private function untriagedComponent(array $counts): array
+    private function untriagedComponent(array $counts, ?int $weight = null): array
     {
         $critical = (int) ($counts['critical'] ?? 0);
         $error = (int) ($counts['error'] ?? 0);
@@ -384,14 +595,14 @@ class OpsHealthScoreService
             $reasons[] = 'excludes events already tracked inside active incidents';
         }
 
-        return ['name' => 'Untriaged errors', 'score' => $score, 'weight' => self::WEIGHTS['untriaged'], 'reasons' => $reasons];
+        return ['name' => 'Untriaged errors', 'score' => $score, 'weight' => $weight ?? self::WEIGHTS['untriaged'], 'reasons' => $reasons];
     }
 
     /**
      * @param  array<string, int>  $counts  critical|error|warning
      * @return array{name: string, score: int, weight: int, reasons: string[]}
      */
-    private function incidentsComponent(array $counts): array
+    private function incidentsComponent(array $counts, ?int $weight = null): array
     {
         $critical = (int) ($counts['critical'] ?? 0);
         $error = (int) ($counts['error'] ?? 0);
@@ -414,7 +625,7 @@ class OpsHealthScoreService
             $reasons[] = 'No active incidents';
         }
 
-        return ['name' => 'Active incidents', 'score' => $score, 'weight' => self::WEIGHTS['incidents'], 'reasons' => $reasons];
+        return ['name' => 'Active incidents', 'score' => $score, 'weight' => $weight ?? self::WEIGHTS['incidents'], 'reasons' => $reasons];
     }
 
     /**
