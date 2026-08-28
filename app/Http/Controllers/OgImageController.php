@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\Geometry\Factories\RectangleFactory;
 
 /**
  * Generates Open Graph / Twitter card images (1200×630 PNG).
@@ -167,7 +168,15 @@ class OgImageController extends Controller
                 // Skip on unreadable image
             }
         } else {
-            $canvas->drawRectangle(0, 0)->size(600, 630)->fill('rgba(139, 92, 246, 0.15)');
+            // HOTFIX: Intervention Image v3's drawRectangle() takes
+            // ($x, $y, callable $callback) — the shape is configured inside
+            // the callback (->size()/->background()), not via a fluent
+            // ->size()->fill() chain (that was the v2 API). The old call
+            // here passed only 2 arguments and threw ArgumentCountError.
+            $canvas->drawRectangle(0, 0, function (RectangleFactory $rectangle) {
+                $rectangle->size(600, 630);
+                $rectangle->background('rgba(139, 92, 246, 0.15)');
+            });
             // Large initials placeholder
             $this->text($canvas, $artist->initials, 240, 280, '#7c3aed', 96, 'bold');
         }
@@ -262,7 +271,12 @@ class OgImageController extends Controller
             }
         } else {
             // No cover — render a decorative placeholder block
-            $canvas->drawRectangle(0, 0)->size(600, 630)->fill('rgba(139, 92, 246, 0.15)');
+            // HOTFIX: see the artist branch above for why this needs the
+            // ($x, $y, callback) form instead of a fluent chain.
+            $canvas->drawRectangle(0, 0, function (RectangleFactory $rectangle) {
+                $rectangle->size(600, 630);
+                $rectangle->background('rgba(139, 92, 246, 0.15)');
+            });
         }
 
         // Right half: text content
@@ -305,9 +319,14 @@ class OgImageController extends Controller
             // Venue badge
             if ($gallery->venueTemplate) {
                 $venueName = strtoupper($gallery->venueTemplate->name);
-                $canvas->drawRectangle($textX, 80)
-                    ->size(min(strlen($venueName) * 9 + 24, 280), 32)
-                    ->fill('#7c3aed');
+                // HOTFIX: this is the exact call that was throwing
+                // ArgumentCountError in production (2 args passed, 3
+                // expected). See the artist placeholder branch above for
+                // the full explanation.
+                $canvas->drawRectangle($textX, 80, function (RectangleFactory $rectangle) use ($venueName) {
+                    $rectangle->size(min(strlen($venueName) * 9 + 24, 280), 32);
+                    $rectangle->background('#7c3aed');
+                });
                 $this->text($canvas, $venueName, $textX + 12, 88, '#ffffff', 14, 'bold');
             }
 
@@ -457,7 +476,13 @@ class OgImageController extends Controller
                     }
                     $color = sprintf('rgba(80, 60, 140, %.3f)', $alpha);
                     try {
-                        $img->drawRectangle($x, $y)->size(4, 4)->fill($color);
+                        // HOTFIX: was silently failing this catch block on
+                        // EVERY iteration since intervention/image v3 —
+                        // the radial gradient dots never actually rendered.
+                        $img->drawRectangle($x, $y, function (RectangleFactory $rectangle) use ($color) {
+                            $rectangle->size(4, 4);
+                            $rectangle->background($color);
+                        });
                     } catch (\Throwable) {
                         // Skip on driver error
                     }
@@ -503,7 +528,13 @@ class OgImageController extends Controller
                 }
                 $color = sprintf('rgba(10, 10, 20, %.3f)', $alpha);
                 try {
-                    $img->drawRectangle($x, 0)->size(4, $h)->fill($color);
+                    // HOTFIX: was silently failing this catch block on
+                    // EVERY iteration since intervention/image v3 — the
+                    // horizontal gradient overlay never actually rendered.
+                    $img->drawRectangle($x, 0, function (RectangleFactory $rectangle) use ($color, $h) {
+                        $rectangle->size(4, $h);
+                        $rectangle->background($color);
+                    });
                 } catch (\Throwable) {
                     // Skip on driver error
                 }
