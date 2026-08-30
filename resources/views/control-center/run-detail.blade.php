@@ -36,14 +36,14 @@
 <div class="mb-6 flex flex-wrap gap-2 text-sm">
     <form method="POST" action="{{ route('control-center.profile.start', $run->profile) }}">
         @csrf
-        <button class="rounded-md bg-brand-600 px-4 py-2 font-medium hover:bg-brand-500">[Run Again · {{ $run->profile }}]</button>
+        <button class="btn btn-primary">[Run Again · {{ $run->profile }}]</button>
     </form>
     @if ($artifactPath)
         <a href="{{ route('control-center.run.artifact', $run) }}"
-           class="rounded-md border border-slate-700 px-4 py-2 hover:border-slate-500">[View Logs · JUnit]</a>
+           class="btn btn-ops-ghost">[View Logs · JUnit]</a>
     @endif
     <a href="{{ route('control-center.runs', ['profile' => $run->profile]) }}"
-       class="rounded-md border border-slate-700 px-4 py-2 hover:border-slate-500">[Profile History]</a>
+       class="btn btn-ops-ghost">[Profile History]</a>
 </div>
 
 @if ($run->blocked_reason)

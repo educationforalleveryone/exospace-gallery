@@ -118,11 +118,11 @@
                 @if($actionsEnabled)
                     <div class="px-4 py-2.5 border-t border-slate-800/70 flex flex-wrap items-center gap-2 bg-slate-900/30">
                         <a href="{{ route('ops.actions.confirm', ['action' => 'queue.retry', 'job' => $job['uuid']]) }}"
-                           class="text-xs px-3 py-1.5 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/50 font-medium">
+                           class="btn btn-sm btn-ops-emerald-ghost">
                             Retry… <span class="text-xs text-emerald-500/70 font-normal">runs the job again</span>
                         </a>
                         <a href="{{ route('ops.actions.confirm', ['action' => 'queue.forget', 'job' => $job['uuid']]) }}"
-                           class="text-xs px-3 py-1.5 rounded-lg border border-red-800/60 bg-red-950/40 text-red-300 hover:bg-red-900/50 font-medium">
+                           class="btn btn-sm btn-ops-red-ghost">
                             Forget… <span class="text-xs text-red-400/70 font-normal">deletes the only copy</span>
                         </a>
                         <span class="text-xs text-slate-600">both require password + typed phrase · audited · announced in Slack</span>

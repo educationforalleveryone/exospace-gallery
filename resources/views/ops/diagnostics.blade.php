@@ -13,13 +13,13 @@
     </div>
     <div class="flex items-center gap-2">
         <form method="GET" action="{{ route('ops.diagnostics.index') }}" class="flex items-center gap-2">
-            <select name="app" class="bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 px-3 py-2 focus:border-emerald-600 outline-none" data-change="submitForm">
+            <select name="app" class="input-ops-sm w-auto" data-change="submitForm">
                 <option value="">Target: Control plane host (self)</option>
                 @foreach($applications as $app)
                     <option value="{{ $app->id }}" @selected($application?->id === $app->id)>Target: {{ $app->name }}</option>
                 @endforeach
             </select>
-            <noscript><button class="text-xs px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Apply</button></noscript>
+            <noscript><button class="btn btn-sm btn-ops-secondary">Apply</button></noscript>
         </form>
     </div>
 </div>
@@ -60,12 +60,12 @@
                                 @if($application)<input type="hidden" name="application" value="{{ $application->id }}">@endif
                                 {{-- ITERATION-3: data-busy — the run is synchronous (seconds), the
                                      button used to stay clickable → double runs + double queue rows. --}}
-                                <button class="w-full px-3 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium text-slate-50 transition">
+                                <button class="btn btn-sm btn-ops-primary w-full">
                                     Run diagnostic
                                 </button>
                             </form>
                         @else
-                            <span class="block w-full text-center text-xs text-slate-600 border border-slate-800 rounded-lg px-3 py-2">viewer (read-only)</span>
+                            <span class="btn btn-sm btn-ops-muted w-full">viewer (read-only)</span>
                         @endif
                     </div>
                 @endforeach

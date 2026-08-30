@@ -14,11 +14,11 @@
         <div class="col-span-2">
             <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Search</label>
             <input type="text" name="q" value="{{ $filters['q'] }}" placeholder="title or message…"
-                   class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200 placeholder-slate-600 focus:border-emerald-600 focus:outline-none">
+                   class="input-ops-sm">
         </div>
         <div>
             <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Severity</label>
-            <select name="severity" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-600 focus:outline-none">
+            <select name="severity" class="input-ops-sm">
                 <option value="">All</option>
                 @foreach(\App\Ops\Models\OpsEvent::SEVERITIES as $sev)
                     <option value="{{ $sev }}" {{ $filters['severity'] === $sev ? 'selected' : '' }}>{{ ucfirst($sev) }}</option>
@@ -27,7 +27,7 @@
         </div>
         <div>
             <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Category</label>
-            <select name="category" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-600 focus:outline-none">
+            <select name="category" class="input-ops-sm">
                 <option value="">All</option>
                 @foreach(\App\Ops\Models\OpsEvent::CATEGORIES as $cat)
                     <option value="{{ $cat }}" {{ $filters['category'] === $cat ? 'selected' : '' }}>{{ $cat }}</option>
@@ -36,7 +36,7 @@
         </div>
         <div>
             <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Application</label>
-            <select name="application" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-600 focus:outline-none">
+            <select name="application" class="input-ops-sm">
                 <option value="">All</option>
                 @foreach($applications as $app)
                     <option value="{{ $app->id }}" {{ $filters['application'] == $app->id ? 'selected' : '' }}>{{ $app->name }}</option>
@@ -45,7 +45,7 @@
         </div>
         <div>
             <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Window</label>
-            <select name="hours" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-600 focus:outline-none">
+            <select name="hours" class="input-ops-sm">
                 @foreach([24 => '24 hours', 168 => '7 days', 720 => '30 days', 0 => 'All time'] as $h => $label)
                     <option value="{{ $h }}" {{ (int)$filters['hours'] === $h ? 'selected' : '' }}>{{ $label }}</option>
                 @endforeach
@@ -53,8 +53,8 @@
         </div>
     </div>
     <div class="flex flex-wrap items-center gap-3 mt-3">
-        <button class="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded text-sm font-medium">Apply filters</button>
-        <select name="status" class="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-300 text-sm focus:border-emerald-600 focus:outline-none">
+        <button class="btn btn-sm btn-ops-primary">Apply filters</button>
+        <select name="status" class="input-ops-sm w-auto">
             <option value="active" {{ $filters['status'] === 'active' ? 'selected' : '' }}>Active (open + acknowledged)</option>
             <option value="open" {{ $filters['status'] === 'open' ? 'selected' : '' }}>Open</option>
             <option value="resolved" {{ $filters['status'] === 'resolved' ? 'selected' : '' }}>Resolved</option>

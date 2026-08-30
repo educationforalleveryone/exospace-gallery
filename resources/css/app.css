@@ -27,7 +27,7 @@
        z-40        site chrome — top navs, impersonation banner, ops topbar
        z-[45]      persistent page overlays — cookie banner, feedback FAB
        z-50        dropdowns / menus / popovers (x-dropdown, notif, team)
-       z-[55]      tooltips ([data-tooltip]::after, x-tooltip)
+       z-[55]      tooltips ([data-tooltip]::after — CSS-only since iteration 8)
        z-[60]      modals — x-modal, confirm dialogs, exospaceConfirm,
                    every hand-rolled page modal
        z-[70]      command palette (may open above a modal)
@@ -178,7 +178,9 @@
        .btn-lg           hero/empty-state CTAs (44px)
        .btn-icon         square icon-only (36px, pair with aria-label!)
        Variants: primary (one per view) · secondary · ghost · danger ·
-                 danger-ghost (quiet destructive in rows/menus). */
+                 danger-ghost (quiet destructive in rows/menus) ·
+                 brand-tint · ops-* (slate sub-brand, iteration 8).
+       Variants are COLOR-ONLY — always pair with .btn (+ size class). */
     .btn {
         @apply inline-flex items-center justify-center gap-2 select-none whitespace-nowrap
                rounded-lg border border-transparent px-4 h-10 text-sm font-medium
@@ -191,28 +193,58 @@
     .btn-lg   { @apply h-11 px-5; }
     .btn-icon { @apply h-9 w-9 p-0; }
 
+    /* ITERATION-8 CASCADE FIX: variants are COLOR-ONLY. They used to
+       @apply the full .btn base, so every variant re-declared h-10/p-4/text-sm
+       AFTER .btn-sm/.btn-lg/.btn-icon in the cascade — silently killing those
+       size classes on ~104 controls (btn btn-sm btn-primary rendered 40px).
+       Variants now carry colors only; geometry comes from .btn + size class.
+       Markup contract: class="btn [btn-sm|btn-lg|btn-icon] btn-{variant}". */
     .btn-primary {
-        @apply btn bg-brand-600 text-white shadow-sm hover:bg-brand-500;
+        @apply bg-brand-600 text-white shadow-sm hover:bg-brand-500;
     }
     .btn-secondary {
-        @apply btn bg-white/[0.06] border-white/10 text-gray-200 hover:bg-white/[0.10] hover:text-white;
+        @apply bg-white/[0.06] border-white/10 text-gray-200 hover:bg-white/[0.10] hover:text-white;
     }
     .btn-ghost {
-        @apply btn text-gray-300 hover:bg-white/[0.06] hover:text-white;
+        @apply text-gray-300 hover:bg-white/[0.06] hover:text-white;
     }
     .btn-danger {
-        @apply btn bg-red-600 text-white shadow-sm hover:bg-red-500;
+        @apply bg-red-600 text-white shadow-sm hover:bg-red-500;
     }
     .btn-danger-ghost {
-        @apply btn bg-red-600/10 border-red-600/30 text-red-400 hover:bg-red-600/20 hover:text-red-300;
+        @apply bg-red-600/10 border-red-600/30 text-red-400 hover:bg-red-600/20 hover:text-red-300;
     }
     /* Brand-flavored quiet action (ITERATION-7): plan upsells, workspace
        switch, "open live" — brand accent without the weight of a primary.
        Was hand-rolled 9× in two drifting idioms (outline + tinted solid). */
     .btn-brand-tint {
-        @apply btn bg-brand-600/15 border-brand-600/40 text-brand-300
+        @apply bg-brand-600/15 border-brand-600/40 text-brand-300
                hover:bg-brand-600/25 hover:border-brand-500/60 hover:text-brand-200;
     }
+
+    /* ═══ OPS-NATIVE BUTTONS (ITERATION-8) ═══════════════════════════
+       The ops / Control Center slate sub-brand keeps its own accent voice
+       (hue map: Actions=amber · Credentials=sky · Access=cyan/amber
+       categorical · Incidents/global positive=emerald · destructive=red)
+       while borrowing the .btn geometry ladder exactly (40/32px, rounded,
+       focus ring, active scale, disabled). Color-only by design — same
+       cascade contract as the kit variants above. The four *-ghost hues
+       normalize the former 7 near-identical hand-rolled ghost strings
+       (rounded vs rounded-lg, border-700/60 vs 800/60, hover /50 vs /60,
+       px-2 py-1 vs px-3 py-1.5 vs px-3 py-2). */
+    .btn-ops-primary   { @apply bg-emerald-700 text-slate-50 shadow-sm hover:bg-emerald-600; }
+    .btn-ops-secondary { @apply bg-slate-800 text-slate-200 hover:bg-slate-700; }
+    .btn-ops-danger    { @apply bg-red-700 text-slate-50 shadow-sm hover:bg-red-600; }
+    .btn-ops-amber     { @apply bg-amber-700 text-slate-50 shadow-sm hover:bg-amber-600; }
+    .btn-ops-ghost     { @apply border-slate-700 text-slate-200 hover:border-slate-500; }
+    .btn-ops-emerald-ghost { @apply border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60; }
+    .btn-ops-amber-ghost   { @apply border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60; }
+    .btn-ops-sky-ghost     { @apply border-sky-700/60 bg-sky-950/40 text-sky-300 hover:bg-sky-900/60; }
+    .btn-ops-cyan-ghost    { @apply border-cyan-700/60 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60; }
+    .btn-ops-red-ghost     { @apply border-red-700/60 bg-red-950/40 text-red-300 hover:bg-red-900/60; }
+    /* Non-interactive state marker (viewer mode): the button-shaped label
+       that says what WOULD run. Rendered as a span — never focusable. */
+    .btn-ops-muted     { @apply border-slate-800 text-slate-500; }
 
     /* Loading state — pair with disabled:
        <button class="btn btn-primary" disabled><span class="btn-spinner"></span>Saving…</button> */
@@ -248,6 +280,21 @@
                read-only:bg-gray-900/30;
     }
     .input-sm { @apply h-8 px-2.5 text-xs rounded-md; }
+    /* ═══ OPS-NATIVE FIELDS (ITERATION-8) ════════════════════════════
+     Same geometry ladder as .input-base (h-10 / h-8) in the slate voice.
+     Focus hue bakes the ops default (emerald); section voices override it
+     with a plain focus:border-* utility (utilities outrank components):
+     credentials=sky · action-confirm=amber · Sentry mapping=cyan ·
+     Control Center=brand. Per-instance overrides (bg-slate-950 on the
+     elevated-action interstitial, font-mono, w-52/w-auto) also ride on top. */
+    .input-ops    { @apply block w-full h-10 px-3 text-sm
+                           bg-slate-900 border border-slate-700 rounded-lg
+                           text-slate-200 placeholder:text-slate-600
+                           transition-colors duration-150
+                           focus:outline-none focus:border-emerald-600
+                           disabled:opacity-50 disabled:cursor-not-allowed; }
+    .input-ops-sm { @apply h-8 px-2.5 text-xs rounded-md; }
+    select.input-ops { @apply pr-8; }
     /* Error state — add next to .input-base, and link via aria-invalid/describedby */
     .input-error {
         @apply border-red-500/70 focus:border-red-500 focus:ring-red-500/20;
@@ -364,7 +411,9 @@
     /* Progress bar fill — width set inline (dynamic %) */
     .progress-fill { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
 
-    /* CSS-only tooltip (declarative, zero-JS). Rich tooltips use <x-tooltip>. */
+    /* CSS-only tooltip (declarative, zero-JS). Pair with data-tooltip="…"
+       on any control — used by the dashboard gallery cards. (The rich
+       <x-tooltip> component was deleted in iteration 8: zero usages.) */
     [data-tooltip] { position: relative; }
     [data-tooltip]::after {
         content: attr(data-tooltip);

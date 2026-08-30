@@ -103,7 +103,7 @@ Rules: minimum UI size `text-xs` (12px) — no `text-[10px]`/`text-[11px]` in ne
 
 ## 3. Buttons
 
-One base, six variants, three sizes. One **primary** button per view.
+One base, six product variants + eleven ops variants, three sizes. One **primary** button per view. **Variants are color-only** — geometry comes from `.btn` + the size class; never omit `.btn` (the iteration-8 cascade fix: variants used to re-declare the full base, which silently killed `.btn-sm`/`.btn-lg`/`.btn-icon` on ~104 controls).
 
 ```blade
 <button class="btn btn-primary">Save changes</button>      {{-- primary action --}}
@@ -116,6 +116,14 @@ One base, six variants, three sizes. One **primary** button per view.
      the weight of a second primary. Replaces the 9 hand-rolled idioms. --}}
 <button class="btn btn-primary btn-lg">Create gallery</button>
 <button class="btn btn-icon btn-ghost" aria-label="Copy link"><svg…></button>
+
+{{-- ops sub-brand (iteration 8): same geometry ladder, slate voice.
+     primary/secondary/danger/amber = solids; ghost = slate bordered;
+     {hue}-ghost = the section-hue row action (emerald/amber/sky/cyan/red);
+     muted = non-interactive viewer-state marker (span, never a button). --}}
+<button class="btn btn-ops-primary">Resolve</button>
+<button class="btn btn-sm btn-ops-amber-ghost">Replay…</button>
+<span class="btn btn-sm btn-ops-muted">Run checks — viewer (read-only)</span>
 
 {{-- loading — always pair with disabled --}}
 <button class="btn btn-primary" disabled>
@@ -176,7 +184,7 @@ Disabled = `disabled:opacity-50 disabled:pointer-events-none` (built into `.btn`
 - `.checkbox-base` / `.radio-base` — 16px, form-plugin accent via `text-brand-600`, brand focus ring, `disabled:` variants. Never hand-roll `rounded bg-gray-700 border-gray-600 text-purple-600 …` again.
 - `.file-base` — one file-input recipe (neutral `file:` button); the purple `file:bg-purple-600` variant is retired.
 - **Error wiring is mandatory wherever `@error` feedback exists**: `class="input-base {{ $errors->has('x') ? 'input-error' : '' }}"` — a red message under a field that itself shows no error state is a broken pattern (iteration-4 sweep fixed 35 such fields).
-- OpsCenter/Control Center keep their slate field skins (`focus:border-emerald-600` etc.) — documented sub-brand exception, same geometry.
+- OpsCenter/Control Center fields use **`.input-ops` / `.input-ops-sm`** (iteration 8) — the same h-10/h-8 geometry ladder as `.input-base` in the slate voice (`bg-slate-900 border-slate-700`). Focus hue bakes the ops default (emerald); section voices override with a plain `focus:border-*` utility (sky=credentials, amber=action-confirm, cyan=Sentry mapping, brand=Control Center) — utilities outrank the component layer. Per-instance overrides (`bg-slate-950`, `font-mono`, `w-52`) ride on top the same way. Hand-rolled slate field recipes are retired.
 
 ---
 
@@ -273,7 +281,7 @@ Every floating layer uses one of these tiers. No ad-hoc `z-[9999]` — if a laye
 | Site chrome | `z-40` | top navs (app/public/ops), impersonation banner |
 | Persistent overlay | `z-[45]` | cookie banner, feedback FAB |
 | Dropdown | `z-50` | `<x-dropdown>`, notification + team panels, popovers |
-| Tooltip | `z-[55]` | `[data-tooltip]::after`, `<x-tooltip>` |
+| Tooltip | `z-[55]` | `[data-tooltip]::after` (CSS-only; the unused `<x-tooltip>` component was deleted in iteration 8) |
 | **Modal** | `z-[60]` | `<x-modal>`, confirm dialogs, `exospaceConfirm`, every hand-rolled page modal |
 | Command palette | `z-[70]`/`z-[71]` | palette backdrop + panel (may open above a modal) |
 | Toast | `z-[100]` | `<x-toast>` — always on top, never covers blocking controls |
@@ -339,3 +347,13 @@ Marked so far: feedback widget, command palette, Master Control delete/admin typ
 - **Text floor is global, including ops partials and standalone page CSS** (venue-picker badges were 9px in edit and 10px in create with two drifting recipes — now one 12px recipe). `invoices/pdf` 11px print body remains exempt.
 - **Native dialogs are banned everywhere, including the 3D runtime**: `window.prompt`/`alert()`/`confirm()` → toast / clipboard fallback / `exospaceConfirm` (gallery share fallback now uses select-and-copy; the tour uses a toast).
 - **One heading per view:** auth pages carry `sr-only` h1s (or a real one, register); MFA setup/verify merged their duplicate h2+h1 into `<x-page-header>`; `mfa-backup-codes`' `<h1>…</h2>` tag mismatch fixed.
+
+### Ops-native pass & cascade contract (iteration 8)
+
+- **Variants are color-only — the cascade contract.** Every `.btn-*` variant (product and ops) carries colors only; geometry (height, padding, radius, focus ring, active scale, disabled) comes from `.btn` + the optional size class. Before iteration 8 each variant `@apply`ed the full `.btn` base, so its `h-10 px-4 text-sm` landed after `.btn-sm`/`.btn-lg`/`.btn-icon` in the compiled cascade and silently killed those size classes on **104 controls** (every `btn btn-sm btn-*` rendered 40px since the kit shipped). If you add a variant, never `@apply btn` into it.
+- **`.btn-ops-*` is the ops/Control Center voice of the kit** — same geometry ladder, slate color language, documented hue map (Actions=amber · Credentials=sky · Access=cyan/amber categorical · emerald=global positive/Incidents · red=destructive). The four section-hue `*-ghost` classes replaced 7 near-identical hand-rolled strings that had drifted in radius, border shade, hover shade, and padding; `.btn-ops-muted` is the non-interactive viewer-state marker (a span, never focusable). Ops controls pair with `.input-ops`/`.input-ops-sm` (§5) — buttons and their neighboring filter fields share heights (40/40 form rows, 32/32 filter rows).
+- **Control Center is now shell-compatible with OpsCenter**: sticky `z-40` header with backdrop blur, `text-slate-100` body, `← App` and bordered nav actions on `.btn-ops-ghost`, brand Run buttons on the kit `.btn-primary` (its brand accent predates the pass and stays — CC is Master Control's QA sub-brand, not an ops hue).
+- **Width ladder sanction (§6.6 closed):** `max-w-page` is the app-shell width; standalone public pages (welcome sections, artworks/show, artists/show, gallery/events, seo pages) compose their own editorial ladder of `max-w-6xl` full-bleed sections and `max-w-5xl` columns inside full-screen layouts. This is deliberate composition, not drift — do not "normalize" it.
+- **Tooltip resolution (§6.7 closed):** the `[data-tooltip]` CSS mechanism stays (3 live uses on dashboard gallery cards); the unused `<x-tooltip>` component is deleted. The z-[55] tooltip tier is CSS-only now.
+- **Ops chip language stays in Blade, deliberately.** The status/chip maps (11 maps across ops/CC) share one formula — `bg-{hue}-950/60 text-{hue}-300 border-{hue}-700/50` + `bg-{hue}-400` dot — which is the documented ops counterpart of `.badge-*`/`.status-*` (darker tint for the slate canvas). The maps themselves are the semantic layer (status → hue); don't relocate them into CSS. `class="status …chip-string"` composition is sanctioned (kit shape + ops colors).
+- **Nav/filter chips and queue chips** (`rounded-md px-3 py-1.5` with hue-tinted active state; queue's `rounded-full font-mono` pills) are the sanctioned ops chip idiom — not buttons, do not migrate.

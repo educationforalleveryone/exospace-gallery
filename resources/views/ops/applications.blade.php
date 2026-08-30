@@ -12,7 +12,7 @@
         <form method="POST" action="{{ route('ops.actions.execute', 'platform.sync') }}"
               data-busy data-busy-label="Syncing…">
             @csrf
-            <button class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition" title="Run the Coolify sync immediately (read-only refresh, same as the 5-minute schedule)">↻ Sync now</button>
+            <button class="btn btn-sm btn-ops-secondary" title="Run the Coolify sync immediately (read-only refresh, same as the 5-minute schedule)">↻ Sync now</button>
         </form>
     @endif
 </div>
@@ -108,12 +108,12 @@
                         <div class="flex items-center gap-1.5">
                             {{-- Iteration 6: operators can run the read-only checks; restart/sync stay super-admin-only. --}}
                             @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
-                                <a href="{{ route('ops.diagnostics.index', ['app' => $app->id]) }}" class="text-xs px-2 py-1 rounded border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60" title="Run read-only diagnostics for this application">Run checks</a>
+                                <a href="{{ route('ops.diagnostics.index', ['app' => $app->id]) }}" class="btn btn-sm btn-ops-emerald-ghost" title="Run read-only diagnostics for this application">Run checks</a>
                                 @if(auth()->user()?->is_super_admin && config('ops.actions.enabled', true) && ($app->provider === 'coolify' || $app->is_self))
-                                    <a href="{{ route('ops.actions.confirm', ['action' => 'app.restart', 'app' => $app->id]) }}" class="text-xs px-2 py-1 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60" title="Restart this application's container (confirmation required)">Restart…</a>
+                                    <a href="{{ route('ops.actions.confirm', ['action' => 'app.restart', 'app' => $app->id]) }}" class="btn btn-sm btn-ops-amber-ghost" title="Restart this application's container (confirmation required)">Restart…</a>
                                 @endif
                             @else
-                                <span class="text-xs text-slate-600">view-only</span>
+                                <span class="btn btn-sm btn-ops-muted">view-only</span>
                             @endif
                         </div>
                     </td>
@@ -197,9 +197,9 @@
                     <input type="text" name="sentry_project_slug" value="{{ $app->sentry_project_slug }}"
                            placeholder="not mapped"
                            maxlength="100"
-                           class="flex-1 max-w-xs px-2.5 py-1.5 rounded bg-slate-950/70 border border-slate-700 text-xs font-mono text-slate-200 placeholder:text-slate-600 focus:border-cyan-600 focus:outline-none"
+                           class="input-ops-sm flex-1 max-w-xs bg-slate-950/70 font-mono focus:border-cyan-600"
                            title="Lowercase letters, digits, dashes, dots, underscores">
-                    <button type="submit" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition shrink-0">Save</button>
+                    <button type="submit" class="btn btn-sm btn-ops-secondary shrink-0">Save</button>
                 </form>
             @empty
                 <p class="px-4 py-6 text-center text-slate-500 text-xs">No applications yet — the panel populates once the platform sync runs.</p>

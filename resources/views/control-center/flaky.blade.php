@@ -10,13 +10,13 @@
 </p>
 
 <form method="GET" class="mb-4 text-sm">
-    <select name="profile" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
+    <select name="profile" class="input-ops focus:border-brand-500">
         <option value="">All profiles</option>
         @foreach ($profiles as $key => $label)
             <option value="{{ $key }}" @selected(request('profile') === $key)>{{ $label }}</option>
         @endforeach
     </select>
-    <button class="ml-2 rounded-md bg-slate-800 px-4 py-2 hover:bg-slate-700">Filter</button>
+    <button class="btn btn-ops-secondary ml-2">Filter</button>
 </form>
 
 <div class="overflow-x-auto rounded-xl border border-slate-800">

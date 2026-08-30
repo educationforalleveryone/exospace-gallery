@@ -10,7 +10,7 @@
             @csrf
             <input type="hidden" name="diagnostic" value="{{ $run->diagnostic_id }}">
             @if($run->ops_application_id)<input type="hidden" name="application" value="{{ $run->ops_application_id }}">@endif
-            <button class="px-4 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium">Run again</button>
+            <button class="btn btn-sm btn-ops-primary">Run again</button>
         </form>
     @endif
 </div>
@@ -97,12 +97,12 @@
                                     @csrf
                                     <input type="hidden" name="diagnostic" value="{{ $step }}">
                                     @if($run->ops_application_id)<input type="hidden" name="application" value="{{ $run->ops_application_id }}">@endif
-                                    <button class="text-xs px-3 py-1.5 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition whitespace-nowrap">
+                                    <button class="btn btn-sm btn-ops-emerald-ghost whitespace-nowrap">
                                         ▶ Run: {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($step) }}
                                     </button>
                                 </form>
                             @else
-                                <span class="text-xs px-3 py-1.5 rounded-lg border border-slate-800 text-slate-500">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($step) }} — operator-only</span>
+                                <span class="btn btn-sm btn-ops-muted">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($step) }} — operator-only</span>
                             @endif
                         </li>
                     @else

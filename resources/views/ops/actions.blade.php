@@ -32,7 +32,7 @@
                 @if($enabled)
                     <form method="POST" action="{{ route('ops.actions.execute', $id) }}">
                         @csrf
-                        <button class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-medium text-slate-100 transition">Refresh now</button>
+                        <button class="btn btn-sm btn-ops-secondary">Refresh now</button>
                     </form>
                 @else
                     <span class="text-xs text-slate-600">Disabled by kill switch.</span>
@@ -65,7 +65,7 @@
                     <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">{{ $definition['description'] }}</p>
                     @if($enabled)
                         <form method="GET" action="{{ route('ops.actions.confirm', $id) }}" class="flex gap-2">
-                            <select name="app" required class="flex-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 px-3 py-2 focus:border-emerald-600 outline-none">
+                            <select name="app" required class="input-ops-sm flex-1">
                                 <option value="">Pick an application…</option>
                                 @forelse($coolifyApps as $app)
                                     <option value="{{ $app->id }}">{{ $app->name }}{{ $app->is_self ? ' (control plane host)' : '' }}</option>
@@ -75,7 +75,7 @@
                             @if($coolifyApps->isEmpty())
                                 <p class="text-xs text-amber-400 mt-2">No applications reported by Coolify. Run a sync from Applications, then retry — the restart action needs a live app.</p>
                             @endif
-                            <button class="px-4 py-2 rounded-lg bg-amber-700/80 hover:bg-amber-600 text-xs font-medium text-slate-50 transition shrink-0">Continue…</button>
+                            <button class="btn btn-sm btn-ops-amber shrink-0">Continue…</button>
                         </form>
                     @else
                         <span class="text-xs text-slate-600">Disabled by kill switch.</span>
@@ -127,7 +127,7 @@
                     @endif
                 </p>
                 @if($failedJobCount !== null && $failedJobCount > 0)
-                    <a href="{{ route('ops.queue.index') }}" class="text-xs px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 font-medium text-slate-100 transition text-center">Open the failed-jobs list →</a>
+                    <a href="{{ route('ops.queue.index') }}" class="btn btn-sm btn-ops-secondary">Open the failed-jobs list →</a>
                 @else
                     <a href="{{ route('ops.queue.index') }}" class="text-xs text-slate-500 hover:text-slate-300">View the queue page anyway</a>
                 @endif
@@ -164,7 +164,7 @@
                         <td class="px-4 py-3 text-slate-500 text-xs">{{ (int) ($webhook->replay_count ?? 0) }}×</td>
                         <td class="px-4 py-3">
                             @if($enabled && $webhook->payload)
-                                <a href="{{ route('ops.actions.confirm', ['action' => 'webhook.replay', 'webhook' => $webhook->id]) }}" class="text-xs px-3 py-1.5 rounded-lg border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60 font-medium">Replay…</a>
+                                <a href="{{ route('ops.actions.confirm', ['action' => 'webhook.replay', 'webhook' => $webhook->id]) }}" class="btn btn-sm btn-ops-amber-ghost">Replay…</a>
                             @elseif(! $webhook->payload)
                                 <span class="text-xs text-slate-600">no stored payload</span>
                             @endif

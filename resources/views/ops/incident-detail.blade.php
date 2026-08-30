@@ -38,18 +38,18 @@
                 @if($incident->status === 'open')
                     <form method="POST" action="{{ route('ops.incidents.acknowledge', $incident) }}">
                         @csrf
-                        <button class="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-sm font-medium">Acknowledge</button>
+                        <button class="btn btn-ops-primary">Acknowledge</button>
                     </form>
                 @endif
                 @if($incident->status !== 'resolved')
                     <form method="POST" action="{{ route('ops.incidents.resolve', $incident) }}">
                         @csrf
-                        <button class="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-sm font-medium">Resolve</button>
+                        <button class="btn btn-ops-primary">Resolve</button>
                     </form>
                 @else
                     <form method="POST" action="{{ route('ops.incidents.reopen', $incident) }}">
                         @csrf
-                        <button class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm font-medium">Reopen</button>
+                        <button class="btn btn-ops-secondary">Reopen</button>
                     </form>
                 @endif
             @else
@@ -134,12 +134,12 @@
                                 <input type="hidden" name="diagnostic" value="{{ $diagnostic }}">
                                 <input type="hidden" name="incident" value="{{ $incident->id }}">
                                 @if($incident->ops_application_id)<input type="hidden" name="application" value="{{ $incident->ops_application_id }}">@endif
-                                <button class="text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition whitespace-nowrap" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
+                                <button class="btn btn-sm btn-ops-emerald-ghost whitespace-nowrap" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
                                     ▶ {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }}
                                 </button>
                             </form>
                         @else
-                            <span class="text-xs px-3 py-2 rounded-lg border border-slate-800 text-slate-500">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }} — viewer (read-only)</span>
+                            <span class="btn btn-sm btn-ops-muted">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }} — viewer (read-only)</span>
                         @endif
                     @endforeach
                 </div>

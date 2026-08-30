@@ -111,7 +111,7 @@
                 Type <span class="font-mono font-bold text-amber-300 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-800/60">{{ $definition['confirmation_phrase'] }}</span> to confirm
             </label>
             <input id="confirm" name="confirm" type="text" autocomplete="off" spellcheck="false"
-                   class="w-full bg-slate-950 border {{ $errors->has('confirm') ? 'border-red-600' : 'border-slate-700' }} rounded-lg px-3 py-2.5 text-sm text-slate-100 font-mono tracking-widest focus:border-amber-500 focus:outline-none"
+                   class="input-ops bg-slate-950 text-slate-100 font-mono tracking-widest focus:border-amber-500 {{ $errors->has('confirm') ? 'border-red-600' : '' }}"
                    placeholder="{{ $definition['confirmation_phrase'] }}" value="{{ old('confirm') }}">
             @error('confirm')<p class="text-xs text-red-400 mt-1.5">{{ $message }}</p>@enderror
         </div>
@@ -119,16 +119,16 @@
         <div>
             <label for="password" class="block text-sm font-medium text-slate-200 mb-1.5">Your account password</label>
             <input id="password" name="password" type="password" autocomplete="current-password"
-                   class="w-full bg-slate-950 border {{ $errors->has('password') ? 'border-red-600' : 'border-slate-700' }} rounded-lg px-3 py-2.5 text-sm text-slate-100 focus:border-amber-500 focus:outline-none">
+                   class="input-ops bg-slate-950 text-slate-100 focus:border-amber-500 {{ $errors->has('password') ? 'border-red-600' : '' }}">
             @error('password')<p class="text-xs text-red-400 mt-1.5">{{ $message }}</p>@enderror
             <p class="text-xs text-slate-500 mt-1.5">Required fresh for every elevated action — session confirmation is not carried over.</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-800/70">
-            <button type="submit" class="px-5 py-2.5 rounded-lg bg-red-700 hover:bg-red-600 text-sm font-semibold text-slate-50 transition whitespace-nowrap">
+            <button type="submit" class="btn btn-ops-danger whitespace-nowrap">
                 Execute: {{ $definition['label'] }}
             </button>
-            <a href="{{ route('ops.actions.index') }}" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm font-medium text-slate-300 transition">Cancel</a>
+            <a href="{{ route('ops.actions.index') }}" class="btn btn-ops-secondary">Cancel</a>
             <span class="text-xs text-slate-500">This will be audited and announced in Slack.</span>
         </div>
     </form>

@@ -137,7 +137,7 @@
                 <form method="POST" action="{{ route('control-center.profile.start', $key) }}">
                     @csrf
                     <button type="submit"
-                        class="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-white hover:bg-brand-500 disabled:opacity-40">
+                        class="btn btn-sm btn-primary">
                         Run {{ $meta['estimated_minutes'] ? "({$meta['estimated_minutes']} min)" : '' }}
                     </button>
                 </form>

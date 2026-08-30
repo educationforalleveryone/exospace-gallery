@@ -28,7 +28,7 @@
         <form method="POST" action="{{ route('ops.access.grant') }}" class="flex flex-wrap items-start gap-3">
             @csrf
             <div class="flex-1 min-w-[260px]">
-                <select name="user_id" required class="w-full bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 px-3 py-2.5 focus:border-emerald-600 outline-none">
+                <select name="user_id" required class="input-ops">
                     @foreach($candidates as $candidate)
                         <option value="{{ $candidate->id }}">
                             {{ $candidate->name }} — {{ $candidate->email }}
@@ -52,7 +52,7 @@
                     </label>
                 </div>
             </div>
-            <button class="px-5 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-sm font-medium text-slate-50 transition">Grant access</button>
+            <button class="btn btn-ops-primary">Grant access</button>
         </form>
     @endif
 </section>
@@ -108,14 +108,14 @@
                                             @csrf
                                             <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
                                             <input type="hidden" name="level" value="operator">
-                                            <button class="text-xs px-3 py-1.5 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60 font-medium">Make operator…</button>
+                                            <button class="btn btn-sm btn-ops-amber-ghost">Make operator…</button>
                                         </form>
                                     @else
                                         <form method="POST" action="{{ route('ops.access.grant') }}" data-confirm="Downgrade this account to the VIEWER tier? They keep read access but can no longer run diagnostics." class="inline">
                                             @csrf
                                             <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
                                             <input type="hidden" name="level" value="viewer">
-                                            <button class="text-xs px-3 py-1.5 rounded border border-cyan-700/60 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60 font-medium">Make viewer…</button>
+                                            <button class="btn btn-sm btn-ops-cyan-ghost">Make viewer…</button>
                                         </form>
                                     @endif
                                 @endif
@@ -123,7 +123,7 @@
                                      JS string — an apostrophe in the user's name broke the handler). --}}
                                 <form method="POST" action="{{ route('ops.access.revoke', $grant) }}" data-confirm="Revoke OpsCenter access for {{ $grant->user?->name ?? 'this account' }}? Access ends immediately." class="inline">
                                     @csrf
-                                    <button class="text-xs px-3 py-1.5 rounded border border-red-700/60 bg-red-950/40 text-red-300 hover:bg-red-900/60 font-medium">Revoke…</button>
+                                    <button class="btn btn-sm btn-ops-red-ghost">Revoke…</button>
                                 </form>
                             </div>
                         </td>

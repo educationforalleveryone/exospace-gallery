@@ -107,8 +107,8 @@
                         <form method="POST" action="{{ route('ops.credentials.rotate', $item['key']) }}" class="inline-flex flex-col gap-1.5 items-end"
                               data-busy data-busy-label="Recording…">
                             @csrf
-                            <input type="text" name="note" maxlength="250" placeholder="optional note (never a value!)" class="bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 px-2.5 py-1.5 w-52 focus:border-sky-600 outline-none">
-                            <button class="text-xs px-3 py-1.5 rounded border border-sky-700/60 bg-sky-950/40 text-sky-300 hover:bg-sky-900/60 font-medium" title="{{ $tooltip }}">I rotated this ✓</button>
+                            <input type="text" name="note" maxlength="250" placeholder="optional note (never a value!)" class="input-ops-sm w-52 focus:border-sky-600">
+                            <button class="btn btn-sm btn-ops-sky-ghost" title="{{ $tooltip }}">I rotated this ✓</button>
                         </form>
                     </td>
                 </tr>

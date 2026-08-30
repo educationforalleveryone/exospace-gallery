@@ -15,7 +15,7 @@
         @if(auth()->user()?->is_super_admin)
             <form method="POST" action="{{ route('ops.digest.send') }}" data-busy data-busy-label="Sending…">
                 @csrf
-                <button class="px-4 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium text-slate-50 transition">
+                <button class="btn btn-sm btn-ops-primary">
                     Send now
                 </button>
             </form>
@@ -137,7 +137,7 @@
             @if(auth()->user()?->is_super_admin)
                 <form method="POST" action="{{ route('ops.digest.weekly.send') }}" data-busy data-busy-label="Sending…">
                     @csrf
-                    <button class="px-4 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium text-slate-50 transition">
+                    <button class="btn btn-sm btn-ops-primary">
                         Send weekly review now
                     </button>
                 </form>

@@ -88,12 +88,12 @@
                                 <input type="hidden" name="diagnostic" value="{{ $diagnostic }}">
                                 <input type="hidden" name="event" value="{{ $event->id }}">
                                 @if($event->ops_application_id)<input type="hidden" name="application" value="{{ $event->ops_application_id }}">@endif
-                                <button class="text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
+                                <button class="btn btn-sm btn-ops-emerald-ghost" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
                                     ▶ {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }}
                                 </button>
                             </form>
                         @else
-                            <span class="text-xs px-3 py-2 rounded-lg border border-slate-800 text-slate-500">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }} — viewer (read-only)</span>
+                            <span class="btn btn-sm btn-ops-muted">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }} — viewer (read-only)</span>
                         @endif
                     @endforeach
                 </div>
@@ -101,7 +101,7 @@
             @else
                 <p class="text-xs text-slate-500 mb-3">No specific diagnostics recommended for this error class — the general catalog may still help.</p>
                 @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
-                    <a href="{{ route('ops.diagnostics.index') }}" class="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium">▶ Run: Recent errors</a>
+                    <a href="{{ route('ops.diagnostics.index') }}" class="btn btn-sm btn-ops-emerald-ghost">▶ Run: Recent errors</a>
                 @endif
             @endif
         </section>
