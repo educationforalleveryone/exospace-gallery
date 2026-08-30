@@ -8,12 +8,12 @@
         {{-- Status filter tabs --}}
         <div class="flex gap-2 mb-6">
             <a href="{{ route('super.feedback.index') }}"
-               class="px-4 py-2 rounded-lg text-sm font-medium transition {{ !request('status') ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
+               class="px-4 py-2 rounded-lg text-sm font-medium transition {{ !request('status') ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
                 All ({{ $counts['all'] }})
             </a>
             @foreach(['new', 'reviewed', 'resolved'] as $status)
             <a href="?status={{ $status }}"
-               class="px-4 py-2 rounded-lg text-sm font-medium transition {{ request('status') === $status ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
+               class="px-4 py-2 rounded-lg text-sm font-medium transition {{ request('status') === $status ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
                 {{ ucfirst($status) }} ({{ $counts[$status] }})
             </a>
             @endforeach
@@ -55,7 +55,7 @@
                             <span>From: <span class="text-gray-400">Anonymous</span></span>
                         @endif
                         @if($item->page_url)
-                            <span>Page: <a href="{{ $item->page_url }}" target="_blank" class="text-purple-400 hover:text-purple-300">{{ Str::limit($item->page_url, 60) }}</a></span>
+                            <span>Page: <a href="{{ $item->page_url }}" target="_blank" class="text-brand-400 hover:text-brand-300">{{ Str::limit($item->page_url, 60) }}</a></span>
                         @endif
                     </div>
                 </div>

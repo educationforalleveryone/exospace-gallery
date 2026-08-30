@@ -128,9 +128,9 @@
                          2CO-8 but NOTHING linked to it. Offer it to eligible
                          free users right above the paid CTAs. --}}
                     @if(! $user->hasUsedTrial())
-                    <div class="mb-3 rounded-xl border border-indigo-500/30 bg-indigo-950/30 px-4 py-3">
-                        <p class="text-xs text-indigo-200 leading-relaxed">
-                            Not ready to pay? <span class="font-semibold text-indigo-100">Try Pro free for 14 days</span> — every Pro feature, no card required.
+                    <div class="mb-3 rounded-xl border border-brand-500/30 bg-brand-950/30 px-4 py-3">
+                        <p class="text-xs text-brand-200 leading-relaxed">
+                            Not ready to pay? <span class="font-semibold text-brand-100">Try Pro free for 14 days</span> — every Pro feature, no card required.
                         </p>
                         <form action="{{ route('billing.start-trial', 'pro') }}" method="POST" class="mt-2.5"
                               data-busy data-busy-label="Starting trial…">
@@ -252,7 +252,7 @@
                                         @endphp
                                         @if($invoice && $invoice->pdf_path)
                                             <a href="{{ route('billing.invoice', $invoice) }}"
-                                               class="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition"
+                                               class="inline-flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 transition"
                                                target="_blank" rel="noopener">
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                                                 Download
@@ -276,8 +276,8 @@
             {{-- Refund policy link --}}
             <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6">
                 <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Need a Refund?</h2>
-                <p class="text-sm text-gray-400 mb-3">We offer a 14-day money-back guarantee. To request a refund, please email <a href="mailto:support@exospace.gallery" class="text-purple-400 hover:text-purple-300 underline">support@exospace.gallery</a> with your invoice ID.</p>
-                <a href="{{ route('refund') }}" class="text-sm text-purple-400 hover:text-purple-300 underline">Read our refund policy →</a>
+                <p class="text-sm text-gray-400 mb-3">We offer a 14-day money-back guarantee. To request a refund, please email <a href="mailto:support@exospace.gallery" class="text-brand-400 hover:text-brand-300 underline">support@exospace.gallery</a> with your invoice ID.</p>
+                <a href="{{ route('refund') }}" class="text-sm text-brand-400 hover:text-brand-300 underline">Read our refund policy →</a>
             </div>
 
         </div>

@@ -7,7 +7,7 @@
 {{-- ─────────────── Section: Identity ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-4 flex items-center gap-2">
-        <span class="w-5 h-5 rounded-full bg-purple-600/30 text-purple-400 text-xs flex items-center justify-center font-bold">1</span>
+        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">1</span>
         Identity
     </h3>
 
@@ -75,7 +75,7 @@
 {{-- ─────────────── Section: Capacity & status ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-4 flex items-center gap-2">
-        <span class="w-5 h-5 rounded-full bg-purple-600/30 text-purple-400 text-xs flex items-center justify-center font-bold">2</span>
+        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">2</span>
         Capacity & status
     </h3>
 
@@ -120,7 +120,7 @@
 {{-- ─────────────── Section: 3D Assets ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-4 flex items-center gap-2">
-        <span class="w-5 h-5 rounded-full bg-purple-600/30 text-purple-400 text-xs flex items-center justify-center font-bold">3</span>
+        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">3</span>
         3D assets & media
     </h3>
 
@@ -157,7 +157,7 @@
             <p class="text-xs text-gray-500 mt-1">HDR or EXR, max 50 MB. Overrides the preset-based HDRI in the viewer.</p>
             @error('hdri_file')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
             @if($isEdit && $venue->hdri_path)
-                <p class="text-xs text-indigo-400 mt-2">Current: <a href="{{ $venue->hdri_url }}" target="_blank" class="underline">{{ basename($venue->hdri_path) }}</a></p>
+                <p class="text-xs text-brand-400 mt-2">Current: <a href="{{ $venue->hdri_url }}" target="_blank" class="underline">{{ basename($venue->hdri_path) }}</a></p>
             @endif
         </div>
 
@@ -178,7 +178,7 @@
 {{-- ─────────────── Section: Visual config ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-1 flex items-center gap-2">
-        <span class="w-5 h-5 rounded-full bg-purple-600/30 text-purple-400 text-xs flex items-center justify-center font-bold">4</span>
+        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">4</span>
         Visual configuration
     </h3>
     <p class="text-xs text-gray-500 mb-4">This JSON drives the 3D viewer. Edit values directly or paste a config from your 3D-model pipeline. All fields are optional — the viewer falls back to defaults.</p>
@@ -208,7 +208,7 @@
 {{-- ─────────────── Section: Decorations & lighting ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-1 flex items-center gap-2">
-        <span class="w-5 h-5 rounded-full bg-purple-600/30 text-purple-400 text-xs flex items-center justify-center font-bold">5</span>
+        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">5</span>
         Decorations & custom lighting
     </h3>
     <p class="text-xs text-gray-500 mb-4">Decorations are 3D props (GLB files) placed in the room. Custom lighting fixtures are added on top of the preset lighting.</p>
@@ -234,7 +234,7 @@
 {{-- ─────────────── Section: Layouts & defaults ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-4 flex items-center gap-2">
-        <span class="w-5 h-5 rounded-full bg-purple-600/30 text-purple-400 text-xs flex items-center justify-center font-bold">6</span>
+        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">6</span>
         Layouts & default settings
     </h3>
 

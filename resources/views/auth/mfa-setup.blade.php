@@ -18,7 +18,7 @@
 
         <div class="mb-6">
             <p class="text-xs text-gray-500 mb-2">Can't scan? Enter this code manually:</p>
-            <code class="block bg-gray-800 text-green-400 text-sm font-mono p-3 rounded-lg break-all">{{ $secret }}</code>
+            <code class="block bg-gray-800 text-emerald-400 text-sm font-mono p-3 rounded-lg break-all">{{ $secret }}</code>
         </div>
 
         <form method="POST" action="{{ route('mfa.setup') }}">

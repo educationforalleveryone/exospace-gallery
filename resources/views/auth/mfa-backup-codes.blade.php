@@ -9,9 +9,9 @@
         <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p class="text-sm text-yellow-800 font-semibold mb-1">⚠️ Save these codes securely</p>
-                        <p class="text-sm text-yellow-700">
+                    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p class="text-sm text-amber-800 font-semibold mb-1">⚠️ Save these codes securely</p>
+                        <p class="text-sm text-amber-700">
                             These one-time backup codes can be used to access your account if you lose your
                             authenticator device. Each code can only be used once.
                             <strong>You will not be able to see them again.</strong>
@@ -28,7 +28,7 @@
 
                     <div class="flex gap-3">
                         <a href="{{ route('super.index') }}"
-                           class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg transition text-sm">
+                           class="inline-flex items-center px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-lg transition text-sm">
                             I've saved my codes — Continue →
                         </a>
                         <button data-click="windowPrint"

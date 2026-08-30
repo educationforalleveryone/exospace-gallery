@@ -82,14 +82,14 @@
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                                     {{ $team->members_count }} member{{ $team->members_count !== 1 ? 's' : '' }}
                                 </span>
-                                <span class="text-xs bg-purple-900/40 text-purple-400 border border-purple-800/40 px-1.5 py-0.5 rounded-full">Owner</span>
+                                <span class="text-xs bg-brand-900/40 text-brand-400 border border-brand-800/40 px-1.5 py-0.5 rounded-full">Owner</span>
                             </div>
                             <div class="flex gap-2">
                                 <a href="{{ route('admin.teams.show', $team) }}" class="flex-1 text-center text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 px-3 rounded-lg transition">Manage</a>
                                 @if(!$isActive)
                                 <form action="{{ route('admin.teams.switch', $team) }}" method="POST" class="flex-1">
                                     @csrf
-                                    <button type="submit" class="w-full text-xs bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 py-2 px-3 rounded-lg transition border border-indigo-700/30">
+                                    <button type="submit" class="w-full text-xs bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 py-2 px-3 rounded-lg transition border border-brand-700/30">
                                         Switch here
                                     </button>
                                 </form>
@@ -115,13 +115,13 @@
                     @php $isActive = auth()->user()->current_team_id === $team->id; @endphp
                     <div class="bg-gray-800 border {{ $isActive ? 'border-brand-500/50' : 'border-gray-700 hover:border-gray-600' }} rounded-xl p-5 transition relative">
                         @if($isActive)
-                            <div class="absolute top-3 right-3 flex items-center gap-1 text-xs text-green-400">
-                                <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                            <div class="absolute top-3 right-3 flex items-center gap-1 text-xs text-emerald-400">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                 Active
                             </div>
                         @endif
                         <div class="flex items-start gap-3 mb-3">
-                            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-700 to-blue-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-700 to-blue-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                                 {{ strtoupper(substr($team->name, 0, 1)) }}
                             </div>
                             <div class="min-w-0 flex-1 pr-12">
@@ -138,7 +138,7 @@
                             @if(!$isActive)
                             <form action="{{ route('admin.teams.switch', $team) }}" method="POST" class="flex-1">
                                 @csrf
-                                <button type="submit" class="w-full text-xs bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 py-2 px-3 rounded-lg transition border border-indigo-700/30">
+                                <button type="submit" class="w-full text-xs bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 py-2 px-3 rounded-lg transition border border-brand-700/30">
                                     Switch here
                                 </button>
                             </form>

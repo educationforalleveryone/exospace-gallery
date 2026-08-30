@@ -59,7 +59,7 @@
                         ['label' => 'Artwork Focuses', 'value' => number_format($totalFocuses),  'icon' => 'M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4', 'color' => 'amber'],
                         ['label' => 'Tour Starts',     'value' => number_format($tourStarts),    'icon' => 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 'color' => 'pink'],
                     ];
-                    $colorMap = ['purple'=>'text-purple-400 bg-purple-900/30', 'blue'=>'text-blue-400 bg-blue-900/30', 'teal'=>'text-teal-400 bg-teal-900/30', 'amber'=>'text-amber-400 bg-amber-900/30', 'pink'=>'text-pink-400 bg-pink-900/30'];
+                    $colorMap = ['purple'=>'text-brand-400 bg-brand-900/30', 'blue'=>'text-blue-400 bg-blue-900/30', 'teal'=>'text-teal-400 bg-teal-900/30', 'amber'=>'text-amber-400 bg-amber-900/30', 'pink'=>'text-pink-400 bg-pink-900/30'];
                 @endphp
 
                 @foreach($stats as $stat)
@@ -74,7 +74,7 @@
                         </div>
                         <div class="text-2xl font-bold text-white">{{ $stat['value'] }}</div>
                         @if($stat['label'] === 'Total Views' && $viewsTrend !== null)
-                            <div class="text-xs mt-1 {{ $viewsTrend >= 0 ? 'text-green-400' : 'text-red-400' }}">
+                            <div class="text-xs mt-1 {{ $viewsTrend >= 0 ? 'text-emerald-400' : 'text-red-400' }}">
                                 {{ $viewsTrend >= 0 ? '↑' : '↓' }} {{ abs($viewsTrend) }}% vs prev 7 days
                             </div>
                         @endif
@@ -96,7 +96,7 @@
                     @if($topArtworks->isEmpty())
                         <div class="py-8 text-center">
                             <p class="text-gray-500 text-sm mb-2">No focus events recorded yet.</p>
-                            <a href="{{ route('admin.galleries.index') }}" class="text-xs text-purple-400 hover:text-purple-300 transition underline underline-offset-2">Share your gallery to start collecting data →</a>
+                            <a href="{{ route('admin.galleries.index') }}" class="text-xs text-brand-400 hover:text-brand-300 transition underline underline-offset-2">Share your gallery to start collecting data →</a>
                         </div>
                     @else
                         @php $maxFocus = $topArtworks->first()->focus_count; @endphp
@@ -116,10 +116,10 @@
                                     <div class="flex-1 min-w-0">
                                         <div class="flex justify-between mb-1">
                                             <span class="text-sm text-gray-200 truncate max-w-[180px]">{{ $title }}</span>
-                                            <span class="text-sm font-semibold text-purple-400 ml-2 flex-shrink-0">{{ $row->focus_count }}</span>
+                                            <span class="text-sm font-semibold text-brand-400 ml-2 flex-shrink-0">{{ $row->focus_count }}</span>
                                         </div>
                                         <div class="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                                            <div class="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all"
+                                            <div class="h-full bg-gradient-to-r from-brand-500 to-blue-500 rounded-full transition-all"
                                                  style="width: {{ $pct }}%"></div>
                                         </div>
                                     </div>

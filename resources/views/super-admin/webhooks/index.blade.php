@@ -106,7 +106,7 @@
             </template>
             <div class="flex justify-end">
                 <button type="submit"
-                        class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white">
+                        class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium bg-brand-600 hover:bg-brand-500 text-white">
                     Add subscription
                 </button>
             </div>

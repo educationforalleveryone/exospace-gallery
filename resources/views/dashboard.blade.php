@@ -55,11 +55,11 @@
 
             <!-- Onboarding Progress (new users only) -->
             @if(!$onboardingComplete)
-            <div class="bg-gradient-to-r from-purple-900/20 to-indigo-900/20 border border-purple-500/25 rounded-xl p-5"
+            <div class="bg-gradient-to-r from-brand-900/20 to-brand-900/20 border border-brand-500/25 rounded-xl p-5"
                  role="region" aria-label="Getting started checklist">
                 <div class="flex items-start justify-between gap-4">
                     <div class="flex-1 min-w-0">
-                        <p class="text-xs text-purple-400 font-semibold uppercase tracking-wider mb-2">Getting Started</p>
+                        <p class="text-xs text-brand-400 font-semibold uppercase tracking-wider mb-2">Getting Started</p>
                         <div class="space-y-2.5">
                             <!-- Step 1: Account -->
                             <div class="flex items-center gap-3 text-sm">
@@ -76,11 +76,11 @@
                                     </span>
                                     <span class="text-gray-400 line-through">Create first gallery</span>
                                 @else
-                                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-purple-600 border border-purple-400 flex items-center justify-center animate-pulse" aria-current="step">
+                                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-brand-600 border border-brand-400 flex items-center justify-center animate-pulse" aria-current="step">
                                         <span class="text-white text-xs font-bold">2</span>
                                     </span>
                                     <span class="text-gray-100 font-medium">Create your first gallery</span>
-                                    <span class="text-purple-400 text-xs">← next</span>
+                                    <span class="text-brand-400 text-xs">← next</span>
                                 @endif
                             </div>
                             <!-- Step 3: Share -->
@@ -91,11 +91,11 @@
                                     </span>
                                     <span class="text-gray-400 line-through">Share & get first view</span>
                                 @elseif($galleriesCount > 0)
-                                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-purple-600 border border-purple-400 flex items-center justify-center animate-pulse" aria-current="step">
+                                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-brand-600 border border-brand-400 flex items-center justify-center animate-pulse" aria-current="step">
                                         <span class="text-white text-xs font-bold">3</span>
                                     </span>
                                     <span class="text-gray-100 font-medium">Share & get first view</span>
-                                    <span class="text-purple-400 text-xs">← next</span>
+                                    <span class="text-brand-400 text-xs">← next</span>
                                 @else
                                     <span class="flex-shrink-0 w-5 h-5 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center">
                                         <span class="text-gray-400 text-xs font-bold">3</span>
@@ -128,12 +128,12 @@
                 <!-- Total Galleries -->
                 <div class="bg-gray-800 rounded-xl border border-gray-700/60 p-5 card-lift group h-full" role="region" aria-label="Gallery count">
                     <div class="flex items-start justify-between mb-3">
-                        <div class="bg-purple-600/15 w-10 h-10 rounded-lg flex items-center justify-center group-hover:bg-purple-600/25 transition-colors" aria-hidden="true">
-                            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="bg-brand-600/15 w-10 h-10 rounded-lg flex items-center justify-center group-hover:bg-brand-600/25 transition-colors" aria-hidden="true">
+                            <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                             </svg>
                         </div>
-                        <a href="{{ route('admin.galleries.index') }}" class="text-xs text-gray-500 hover:text-purple-400 transition-colors opacity-0 group-hover:opacity-100" aria-label="View all galleries">View all →</a>
+                        <a href="{{ route('admin.galleries.index') }}" class="text-xs text-gray-500 hover:text-brand-400 transition-colors opacity-0 group-hover:opacity-100" aria-label="View all galleries">View all →</a>
                     </div>
                     <div class="text-2xl sm:text-3xl font-semibold text-gray-50 text-numeric" aria-label="{{ $galleriesCount }} galleries">{{ $galleriesCount }}</div>
                     <div class="text-sm text-gray-400 mt-0.5">Galleries</div>
@@ -148,8 +148,8 @@
                 <!-- Total Views -->
                 <div class="bg-gray-800 rounded-xl border border-gray-700/60 p-5 card-lift group h-full" role="region" aria-label="Total views">
                     <div class="flex items-start justify-between mb-3">
-                        <div class="bg-indigo-600/15 w-10 h-10 rounded-lg flex items-center justify-center group-hover:bg-indigo-600/25 transition-colors" aria-hidden="true">
-                            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="bg-brand-600/15 w-10 h-10 rounded-lg flex items-center justify-center group-hover:bg-brand-600/25 transition-colors" aria-hidden="true">
+                            <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                             </svg>
@@ -184,9 +184,9 @@
                         @if(Auth::user()->plan === 'free')
                             <span class="text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded-full border border-gray-600">Free</span>
                         @elseif(Auth::user()->plan === 'pro')
-                            <span class="text-xs bg-purple-600/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">Pro</span>
+                            <span class="text-xs bg-brand-600/20 text-brand-300 px-2 py-0.5 rounded-full border border-brand-500/30">Pro</span>
                         @else
-                            <span class="text-xs bg-indigo-600/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">Studio</span>
+                            <span class="text-xs bg-brand-600/20 text-brand-300 px-2 py-0.5 rounded-full border border-brand-500/30">Studio</span>
                         @endif
                     </div>
 
@@ -236,7 +236,7 @@
             <div class="bg-gray-800 rounded-xl border border-gray-700/60 overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-700/60 flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-gray-200">Recent Galleries</h3>
-                    <a href="{{ route('admin.galleries.index') }}" class="text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium">View all →</a>
+                    <a href="{{ route('admin.galleries.index') }}" class="text-xs text-brand-400 hover:text-brand-300 transition-colors font-medium">View all →</a>
                 </div>
                 <ul role="list" class="divide-y divide-gray-700/40">
                     @foreach($recentGalleries as $gallery)
@@ -273,7 +273,7 @@
                             <a href="{{ route('admin.galleries.edit', $gallery) }}"
                                aria-label="Edit gallery {{ $gallery->title }}"
                                data-tooltip="Edit"
-                               class="text-xs px-3 py-1.5 bg-purple-600/80 hover:bg-purple-600 text-white rounded-lg transition-colors font-medium">
+                               class="text-xs px-3 py-1.5 bg-brand-600/80 hover:bg-brand-600 text-white rounded-lg transition-colors font-medium">
                                 Edit
                             </a>
                         </div>
@@ -285,8 +285,8 @@
             @else
             <!-- Empty State — clear call to action -->
             <div class="bg-gray-800 rounded-xl border border-dashed border-gray-600 p-10 text-center" role="region" aria-label="No galleries yet">
-                <div class="mx-auto w-16 h-16 bg-purple-600/10 rounded-full flex items-center justify-center mb-4" aria-hidden="true">
-                    <svg class="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="mx-auto w-16 h-16 bg-brand-600/10 rounded-full flex items-center justify-center mb-4" aria-hidden="true">
+                    <svg class="w-8 h-8 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
                 </div>
@@ -317,8 +317,8 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
 
-                <div class="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                <div class="w-12 h-12 bg-brand-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                 </div>
 
                 <h3 id="upgrade-heading" class="text-lg font-bold text-white mb-1">You've used your 1 gallery</h3>
@@ -326,19 +326,19 @@
 
                 <div class="bg-gray-800 rounded-xl p-3 mb-5 text-left space-y-2">
                     <div class="flex items-center gap-2 text-xs text-gray-300">
-                        <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        <svg class="w-3.5 h-3.5 text-brand-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                         {{ config('plans.limits.pro.max_galleries') }} galleries · {{ config('plans.limits.pro.max_images') }} images total
                     </div>
                     <div class="flex items-center gap-2 text-xs text-gray-300">
-                        <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        <svg class="w-3.5 h-3.5 text-brand-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                         7 venues including Industrial Loft &amp; Dark Museum
                     </div>
                     <div class="flex items-center gap-2 text-xs text-gray-300">
-                        <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        <svg class="w-3.5 h-3.5 text-brand-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                         Background music + exhibition scheduling
                     </div>
                     <div class="flex items-center gap-2 text-xs text-gray-300">
-                        <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        <svg class="w-3.5 h-3.5 text-brand-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                         {{-- ITERATION-5: price belongs to the plans page (which
                              now lists one-time AND monthly) — not a feature bullet. --}}
                         No watermark

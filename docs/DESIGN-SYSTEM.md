@@ -43,7 +43,7 @@ This document is the single source of truth for anyone (human or AI) building UI
 | info / neutral notice | **blue** | `.badge-info`, `.alert-info` |
 | brand / plan tier | **brand** | `.badge-brand` (`.badge-pro` alias kept) |
 
-Legacy `green-*` classes mean success and migrate to `emerald-*` incrementally. `indigo-*` is retired from product UI (was fighting brand purple).
+Legacy `green-*`/`yellow-*` classes mean success/warning and are retired (public surface in iteration 4, app surface in iteration 6): use `emerald-*` / `amber-*`. `purple-*` and `indigo-*` are retired from product UI (they fought brand purple); remapping completed iteration 6, with the documented exceptions in §10.
 
 ### 2.2 Radii ladder
 
@@ -316,3 +316,10 @@ Marked so far: feedback widget, command palette, Master Control delete/admin typ
 - **Page `<style>` blocks own page classes only.** `*`, `body`, `nav`, or element-selector rules leak past the page onto the shared layout (this shipped on contact — `*` reset + body override killed the layout's canvas on that page). Fixed and documented; keep it that way.
 - **Marketing pages use `.badge`, `.card`, `.status-*`, `.btn` like the product** — changelog and status are the reference conversions.
 - **Standalone no-`app.css` pages** (gallery/view, closed, coming-soon, pin) keep their own coordinate systems; gallery/view's z-scale (10→200) is a documented exception (isolated WebGL document).
+
+### App-surface vocabulary (iteration 6)
+
+- **The one-accent rule now holds app-wide.** The remaining `purple-*`/`indigo-*`/`green-*`/`yellow-*` tokens on the app surface (admin, Master Control, dashboard, billing, profile, auth, shared components) were remapped same-shade to `brand-*` / `emerald-*` / `amber-*` in iteration 6 (~450 tokens, 52 files). Same-hue-family shifts only — no layout, geometry, or component recipes changed.
+- **Categorical data colors are exempt from the one-accent rule.** Where a hue distinguishes data categories (Master Control's `$statTones` tone keys, the galleries-analytics stat-icon map, QA flaky/perma-red kind colors, Chart.js canvas series), hues stay distinct — a second voice that labels a *data category* is doing real work. Never remap a categorical map mechanically; check for key collisions first (the `$statTones` `indigo` key was kept precisely because its `purple` sibling already resolves to brand).
+- **Documented sub-brands unchanged:** OpsCenter/Control Center slate skins with their per-section hue coding (Actions=amber, Credentials=sky, Access=indigo in ops/layout); the 3D runtime (`gallery/view`).
+- **Dead-brand watch:** if a component carries a retired gradient (the pre-iteration-1 `purple-400→indigo-400` wordmark survived on `teams/invitation-expired` and the unused `application-logo` until iteration 6), sweep for it when touching the component family — the logo treatment is `.logo-text`, never a page-local gradient.

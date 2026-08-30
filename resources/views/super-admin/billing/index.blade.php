@@ -136,7 +136,7 @@
         <div class="flex gap-1 text-xs items-center flex-wrap">
             @foreach(['' => 'Refunds & chargebacks', 'completed' => 'All purchases', 'refunded' => 'Full refunds', 'partial_refund' => 'Partial refunds', 'chargeback' => 'Chargebacks', 'manual' => 'Manual grants'] as $value => $label)
                 <a href="{{ route('super.billing.index', array_filter(['status' => $value])) }}"
-                   class="px-3 py-1.5 rounded-md {{ ($status ?? '') === $value || ($value === '' && !in_array($status, ['completed','refunded','partial_refund','chargeback','manual'], true)) ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
+                   class="px-3 py-1.5 rounded-md {{ ($status ?? '') === $value || ($value === '' && !in_array($status, ['completed','refunded','partial_refund','chargeback','manual'], true)) ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
                     {{ $label }}
                 </a>
             @endforeach
@@ -172,7 +172,7 @@
                     <td class="px-5 py-3 font-mono text-xs text-gray-400">{{ $tx->invoice_id }}</td>
                     <td class="px-5 py-3">
                         <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-                            {{ $tx->plan === 'studio' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400' }}">
+                            {{ $tx->plan === 'studio' ? 'bg-brand-500/20 text-brand-400' : 'bg-blue-500/20 text-blue-400' }}">
                             {{ ucfirst($tx->plan) }}
                         </span>
                     </td>

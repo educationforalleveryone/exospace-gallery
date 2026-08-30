@@ -31,7 +31,7 @@
                     </td>
                     <td class="px-5 py-3">
                         <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-                            {{ $pending->plan === 'studio' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400' }}">
+                            {{ $pending->plan === 'studio' ? 'bg-brand-500/20 text-brand-400' : 'bg-blue-500/20 text-blue-400' }}">
                             {{ ucfirst($pending->plan) }}
                         </span>
                     </td>

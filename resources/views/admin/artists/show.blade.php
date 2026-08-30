@@ -12,7 +12,7 @@
         {{-- Header card --}}
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 mb-6">
             <div class="flex items-start gap-6">
-                <div class="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-purple-900/40 to-gray-900 flex items-center justify-center flex-shrink-0">
+                <div class="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-brand-900/40 to-gray-900 flex items-center justify-center flex-shrink-0">
                     @if($artist->portrait_url)
                         <img src="{{ $artist->portrait_url }}" alt="{{ $artist->name }}" class="w-full h-full object-cover">
                     @else
@@ -44,7 +44,7 @@
                                 {{ $artist->email }}
                             </a>
                         @endif
-                        <a href="{{ route('artist.profile', $artist->slug) }}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600/40 hover:bg-purple-600/60 text-purple-200 transition">
+                        <a href="{{ route('artist.profile', $artist->slug) }}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-600/40 hover:bg-brand-600/60 text-brand-200 transition">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                             Public profile
                         </a>
@@ -56,15 +56,15 @@
         {{-- Stats --}}
         <div class="grid grid-cols-3 gap-4 mb-6">
             <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold text-purple-400">{{ $artist->images->count() }}</div>
+                <div class="text-3xl font-bold text-brand-400">{{ $artist->images->count() }}</div>
                 <div class="text-xs text-gray-500 uppercase tracking-wider mt-1">Artworks</div>
             </div>
             <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold text-purple-400">{{ $galleries->count() }}</div>
+                <div class="text-3xl font-bold text-brand-400">{{ $galleries->count() }}</div>
                 <div class="text-xs text-gray-500 uppercase tracking-wider mt-1">Galleries</div>
             </div>
             <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center">
-                <div class="text-3xl font-bold text-purple-400">{{ $artist->images->where('for_sale', true)->count() }}</div>
+                <div class="text-3xl font-bold text-brand-400">{{ $artist->images->where('for_sale', true)->count() }}</div>
                 <div class="text-xs text-gray-500 uppercase tracking-wider mt-1">For sale</div>
             </div>
         </div>
@@ -75,7 +75,7 @@
             <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 mb-4">
                 <div class="flex items-center justify-between mb-3">
                     <div>
-                        <a href="{{ route('admin.galleries.edit', $entry['gallery']) }}" class="text-gray-100 font-semibold hover:text-purple-300 transition">{{ $entry['gallery']->title }}</a>
+                        <a href="{{ route('admin.galleries.edit', $entry['gallery']) }}" class="text-gray-100 font-semibold hover:text-brand-300 transition">{{ $entry['gallery']->title }}</a>
                         @if($entry['gallery']->venueTemplate)
                             <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-700/50 text-gray-400">{{ $entry['gallery']->venueTemplate->name }}</span>
                         @endif
@@ -90,7 +90,7 @@
                                 <p class="text-white text-xs truncate">{{ $img->title ?: $img->original_name }}</p>
                             </div>
                             @if($img->for_sale)
-                                <span class="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-green-600/80 text-white text-xs font-bold">FOR SALE</span>
+                                <span class="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-emerald-600/80 text-white text-xs font-bold">FOR SALE</span>
                             @endif
                         </div>
                     @endforeach

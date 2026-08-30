@@ -69,7 +69,7 @@
                         @foreach(\App\Models\UserFeedback::CATEGORIES as $value => $label)
                         <button type="button"
                                 @click="category = '{{ $value }}'"
-                                :class="category === '{{ $value }}' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-gray-700/50 border-gray-600 text-gray-400'"
+                                :class="category === '{{ $value }}' ? 'bg-brand-600 border-brand-500 text-white' : 'bg-gray-700/50 border-gray-600 text-gray-400'"
                                 class="px-3 py-2 rounded-lg border text-sm font-medium transition text-left">
                             {{ $label }}
                         </button>

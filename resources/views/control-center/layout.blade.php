@@ -16,7 +16,7 @@
 <header class="border-b border-slate-800 bg-slate-900/60">
     <div class="mx-auto flex max-w-page items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
         <a href="{{ route('control-center.overview') }}" class="flex items-center gap-3">
-            <span class="grid size-9 place-items-center rounded-lg bg-violet-600 font-black">Q</span>
+            <span class="grid size-9 place-items-center rounded-lg bg-brand-600 font-black">Q</span>
             <div>
                 <div class="font-semibold tracking-wide">TESTING CONTROL CENTER</div>
                 <div class="text-xs text-slate-500">Exospace · Release Operations</div>

@@ -54,6 +54,9 @@
                 $statTones = [
                     'blue'   => 'bg-blue-500/10   border-blue-500/30   text-blue-300',
                     'purple' => 'bg-brand-500/10  border-brand-500/30  text-brand-300',
+                    /* ITERATION-6: 'indigo' stays a distinct data category —
+                       the 'purple' key above already resolves to brand, so
+                       mapping indigo too would render two tone keys identically. */
                     'indigo' => 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300',
                     'pink'   => 'bg-pink-500/10   border-pink-500/30   text-pink-300',
                     'gray'   => 'bg-gray-500/10   border-gray-500/30   text-gray-300',
@@ -425,7 +428,7 @@
                         {{-- User --}}
                         <td class="px-5 py-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-pink-500 flex items-center justify-center font-bold text-sm flex-shrink-0">
                                     {{ strtoupper(substr($user->name, 0, 1)) }}
                                 </div>
                                 <div>
@@ -450,9 +453,9 @@
                                     <span class="text-xs bg-red-900/60 border border-red-700/50 text-red-300 px-2 py-0.5 rounded-full w-fit">🚫 Banned</span>
                                 @endif
                                 @if($isVerified)
-                                    <span class="text-xs bg-green-900/40 border border-green-700/30 text-green-400 px-2 py-0.5 rounded-full w-fit">✓ Verified</span>
+                                    <span class="text-xs bg-emerald-900/40 border border-emerald-700/30 text-emerald-400 px-2 py-0.5 rounded-full w-fit">✓ Verified</span>
                                 @else
-                                    <span class="text-xs bg-yellow-900/40 border border-yellow-700/30 text-yellow-400 px-2 py-0.5 rounded-full w-fit">⚠ Unverified</span>
+                                    <span class="text-xs bg-amber-900/40 border border-amber-700/30 text-amber-400 px-2 py-0.5 rounded-full w-fit">⚠ Unverified</span>
                                 @endif
                             </div>
                         </td>
@@ -765,19 +768,19 @@
          :class="open ? 'flex' : 'hidden'"
          @keydown.escape.window="open = false; typed = ''"
          @click.self="open = false; typed = ''">
-        <div class="bg-gray-900 border border-purple-700/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+        <div class="bg-gray-900 border border-brand-700/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
             <button @click="open = false; typed = ''" class="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition" aria-label="Close">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
-            <h3 id="admin-modal-heading" class="text-lg font-bold text-purple-400 mb-3"
+            <h3 id="admin-modal-heading" class="text-lg font-bold text-brand-400 mb-3"
                 x-text="action === 'grant' ? 'Grant Super Admin' : 'Revoke Super Admin'"></h3>
             <div class="text-sm text-gray-400 mb-4 space-y-2">
                 <p x-show="action === 'grant'">
-                    You are about to grant <strong class="text-purple-400">super admin access</strong> to <strong x-text="userName" class="text-white"></strong>.
+                    You are about to grant <strong class="text-brand-400">super admin access</strong> to <strong x-text="userName" class="text-white"></strong>.
                     They will have full platform access including the ability to delete users, change plans, and modify any gallery.
                 </p>
                 <p x-show="action === 'revoke'">
-                    You are about to <strong class="text-purple-400">revoke super admin access</strong> from <strong x-text="userName" class="text-white"></strong>.
+                    You are about to <strong class="text-brand-400">revoke super admin access</strong> from <strong x-text="userName" class="text-white"></strong>.
                     They will lose access to /master-control/* immediately.
                 </p>
             </div>

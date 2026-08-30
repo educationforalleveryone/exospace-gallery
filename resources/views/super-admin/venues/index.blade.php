@@ -13,7 +13,7 @@
     <div class="page-shell">
 
         @if(session('status'))
-            <div class="mb-4 text-sm text-green-400 bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
+            <div class="mb-4 text-sm text-emerald-400 bg-emerald-900/20 border border-emerald-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
         @endif
 
         {{-- Filters --}}
@@ -94,7 +94,7 @@
 
                             {{-- Plan --}}
                             <td class="px-4 py-3">
-                                <span class="px-2 py-0.5 rounded-full text-xs font-semibold {{ match($venue->plan_required) { 'free' => 'bg-green-900/40 text-green-400', 'pro' => 'bg-purple-900/40 text-purple-400', default => 'bg-amber-900/40 text-amber-400' } }}">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-semibold {{ match($venue->plan_required) { 'free' => 'bg-emerald-900/40 text-emerald-400', 'pro' => 'bg-brand-900/40 text-brand-400', default => 'bg-amber-900/40 text-amber-400' } }}">
                                     {{ ucfirst($venue->plan_required) }}
                                 </span>
                             </td>
@@ -115,13 +115,13 @@
                                         <span class="text-xs px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-400" title="3D preview model attached">3D</span>
                                     @endif
                                     @if($venue->hdri_path)
-                                        <span class="text-xs px-1.5 py-0.5 rounded bg-indigo-900/40 text-indigo-400" title="Custom HDRI">HDRI</span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-brand-900/40 text-brand-400" title="Custom HDRI">HDRI</span>
                                     @endif
                                     @if($venue->decorations && count($venue->decorations))
                                         <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400" title="{{ count($venue->decorations) }} decoration props">{{ count($venue->decorations) }} props</span>
                                     @endif
                                     @if($venue->lighting_fixtures && count($venue->lighting_fixtures))
-                                        <span class="text-xs px-1.5 py-0.5 rounded bg-yellow-900/40 text-yellow-400" title="{{ count($venue->lighting_fixtures) }} custom light fixtures">{{ count($venue->lighting_fixtures) }} lights</span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400" title="{{ count($venue->lighting_fixtures) }} custom light fixtures">{{ count($venue->lighting_fixtures) }} lights</span>
                                     @endif
                                     @if($venue->default_audio_path)
                                         <span class="text-xs px-1.5 py-0.5 rounded bg-pink-900/40 text-pink-400" title="Default ambient audio">audio</span>
@@ -133,7 +133,7 @@
                             <td class="px-4 py-3">
                                 <form method="POST" action="{{ route('super.venues.toggle', $venue) }}">
                                     @csrf @method('PATCH')
-                                    <button class="text-xs {{ $venue->is_active ? 'text-green-400 hover:text-red-400' : 'text-gray-500 hover:text-green-400' }} transition">
+                                    <button class="text-xs {{ $venue->is_active ? 'text-emerald-400 hover:text-red-400' : 'text-gray-500 hover:text-emerald-400' }} transition">
                                         {{ $venue->is_active ? '● Active' : '○ Inactive' }}
                                     </button>
                                 </form>
@@ -142,7 +142,7 @@
                             {{-- Actions --}}
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-3">
-                                    <a href="{{ route('super.venues.edit', $venue) }}" class="text-xs text-purple-400 hover:text-purple-300 transition">Edit</a>
+                                    <a href="{{ route('super.venues.edit', $venue) }}" class="text-xs text-brand-400 hover:text-brand-300 transition">Edit</a>
                                     <form method="POST" action="{{ route('super.venues.toggle-featured', $venue) }}" class="inline">
                                         @csrf @method('PATCH')
                                         <button class="text-xs {{ $venue->is_featured ? 'text-amber-400 hover:text-gray-500' : 'text-gray-500 hover:text-amber-400' }} transition" title="Toggle featured">
@@ -161,7 +161,7 @@
                     @empty
                         <tr>
                             <td colspan="10" class="px-4 py-12 text-center text-gray-500">
-                                No venue templates found. <a href="{{ route('super.venues.create') }}" class="text-purple-400 hover:text-purple-300">Create your first one</a>.
+                                No venue templates found. <a href="{{ route('super.venues.create') }}" class="text-brand-400 hover:text-brand-300">Create your first one</a>.
                             </td>
                         </tr>
                     @endforelse
@@ -178,9 +178,9 @@
         <div class="mt-6 bg-gray-800/50 border border-gray-700/50 rounded-xl p-5 text-sm text-gray-400">
             <h3 class="text-gray-200 font-semibold mb-2">How venue templates work</h3>
             <ul class="space-y-1 list-disc list-inside">
-                <li>The <code class="text-purple-400">visual_config</code>, <code class="text-purple-400">material_config</code>, <code class="text-purple-400">decorations</code>, and <code class="text-purple-400">lighting_fixtures</code> JSON fields are the single source of truth for how the 3D viewer renders a venue.</li>
+                <li>The <code class="text-brand-400">visual_config</code>, <code class="text-brand-400">material_config</code>, <code class="text-brand-400">decorations</code>, and <code class="text-brand-400">lighting_fixtures</code> JSON fields are the single source of truth for how the 3D viewer renders a venue.</li>
                 <li>3D preview models (GLB), HDRI environment maps, and default ambient audio can be uploaded per-venue.</li>
-                <li>The 3D viewer reads the JSON config via the <code class="text-purple-400">VenueConfigExporter</code> service. The legacy JS switch in <code class="text-purple-400">view.blade.php</code> is kept as a fallback for backward compatibility.</li>
+                <li>The 3D viewer reads the JSON config via the <code class="text-brand-400">VenueConfigExporter</code> service. The legacy JS switch in <code class="text-brand-400">view.blade.php</code> is kept as a fallback for backward compatibility.</li>
                 <li>Galleries using a deleted venue fall back to the default "white-cube" venue automatically.</li>
             </ul>
         </div>

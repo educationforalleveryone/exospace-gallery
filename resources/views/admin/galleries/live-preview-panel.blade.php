@@ -79,7 +79,7 @@
     <div class="flex items-center justify-between mb-4">
         <div>
             <h3 class="text-lg font-semibold text-gray-100 flex items-center gap-2">
-                <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                 Live Preview & Template Controls
             </h3>
             <p class="text-sm text-gray-400 mt-1">Tweak atmosphere, materials, and post-processing in real time. Save to persist.</p>
@@ -90,7 +90,7 @@
                 Reset all overrides
             </button>
             <button type="button" id="lp-open-public"
-                    class="text-xs text-purple-300 hover:text-purple-200 border border-purple-700/50 hover:border-purple-500 rounded-lg px-3 py-1.5 transition"
+                    class="text-xs text-brand-300 hover:text-brand-200 border border-brand-700/50 hover:border-brand-500 rounded-lg px-3 py-1.5 transition"
                     data-click="openNewTab" data-arg="{{ route('gallery.view', $gallery->slug) }}">
                 Open public view
             </button>
@@ -112,7 +112,7 @@
             {{-- Overlay shown until the iframe signals ready --}}
             <div id="lp-iframe-overlay" class="absolute inset-0 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm transition-opacity">
                 <div class="text-center">
-                    <div class="inline-block w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div class="inline-block w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
                     <div class="text-xs text-gray-400 mt-3" id="lp-iframe-status">Loading 3D preview…</div>
                 </div>
             </div>

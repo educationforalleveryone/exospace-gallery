@@ -33,7 +33,7 @@
             <span class="text-xs text-gray-400 tabular-nums" data-lp-value-for="{{ $id }}">{{ $value }}</span>
             @if(!empty($unit))<span class="text-xs text-gray-500">{{ $unit }}</span>@endif
             <button type="button" data-lp-reset-for="{{ $id }}"
-                    class="text-xs text-gray-500 hover:text-purple-300 transition" title="Reset to venue default">↺</button>
+                    class="text-xs text-gray-500 hover:text-brand-300 transition" title="Reset to venue default">↺</button>
         </div>
     </div>
 

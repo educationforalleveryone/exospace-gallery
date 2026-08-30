@@ -27,7 +27,7 @@
         @foreach($crumbs as $i => $crumb)
             <li class="flex items-center gap-1.5">
                 @if($crumb->url)
-                    <a href="{{ $crumb->url }}" class="hover:text-purple-300 transition">{{ $crumb->label() }}</a>
+                    <a href="{{ $crumb->url }}" class="hover:text-brand-300 transition">{{ $crumb->label() }}</a>
                 @else
                     <span class="text-gray-400" aria-current="page">{{ $crumb->label() }}</span>
                 @endif

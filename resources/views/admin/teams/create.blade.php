@@ -35,10 +35,10 @@
 
                     <div class="bg-gray-700/30 border border-gray-600/50 rounded-lg p-4 text-xs text-gray-400 space-y-1.5">
                         <p class="font-medium text-gray-300 text-sm mb-2">What happens after you create a team:</p>
-                        <p class="flex items-center gap-2"><span class="text-green-400">✓</span> You become the team owner</p>
-                        <p class="flex items-center gap-2"><span class="text-green-400">✓</span> The team gets its own gallery workspace, separate from your personal galleries</p>
-                        <p class="flex items-center gap-2"><span class="text-green-400">✓</span> You can invite collaborators immediately</p>
-                        <p class="flex items-center gap-2"><span class="text-green-400">✓</span> Team galleries use the owner's plan limits</p>
+                        <p class="flex items-center gap-2"><span class="text-emerald-400">✓</span> You become the team owner</p>
+                        <p class="flex items-center gap-2"><span class="text-emerald-400">✓</span> The team gets its own gallery workspace, separate from your personal galleries</p>
+                        <p class="flex items-center gap-2"><span class="text-emerald-400">✓</span> You can invite collaborators immediately</p>
+                        <p class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Team galleries use the owner's plan limits</p>
                     </div>
 
                     <div class="flex gap-3 pt-2">

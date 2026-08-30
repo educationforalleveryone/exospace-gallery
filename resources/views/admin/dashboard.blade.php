@@ -118,7 +118,7 @@
                             </div>
                             {{-- Step 2 --}}
                             <div class="flex items-center gap-2 text-gray-100 text-sm font-semibold">
-                                <div class="w-5 h-5 rounded-full bg-purple-600 border border-purple-400 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                <div class="w-5 h-5 rounded-full bg-brand-600 border border-brand-400 flex items-center justify-center flex-shrink-0 animate-pulse">
                                     <span class="text-white" style="font-size:10px;font-weight:700">2</span>
                                 </div>
                                 Create a gallery
@@ -254,7 +254,7 @@
                                 </div>
                                 @if($activeCount > 0 && $topGallery)
                                     <button data-click="dashboardShare" data-args='[{{ json_encode([route('gallery.view', $topGallery->slug), $topGallery->title]) }}]'
-                                            class="flex-shrink-0 inline-flex items-center gap-1.5 text-xs bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-600/30 px-3 py-2 rounded-lg transition">
+                                            class="flex-shrink-0 inline-flex items-center gap-1.5 text-xs bg-brand-600/20 hover:bg-brand-600/40 text-brand-300 border border-brand-600/30 px-3 py-2 rounded-lg transition">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                                         Share gallery
                                     </button>
@@ -282,7 +282,7 @@
                         @if($galleriesCount > 6)
                         <div class="px-6 py-3 border-t border-gray-700/40">
                             <a href="{{ route('admin.galleries.index') }}"
-                               class="text-xs text-gray-500 hover:text-purple-400 transition">
+                               class="text-xs text-gray-500 hover:text-brand-400 transition">
                                 + {{ $galleriesCount - 6 }} more galleries →
                             </a>
                         </div>
@@ -293,7 +293,7 @@
                     <x-dashboard.card>
                         <div class="flex flex-col items-center justify-center py-10 text-center">
                             <div class="w-16 h-16 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center mb-4">
-                                <svg class="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-8 h-8 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                 </svg>
                             </div>
@@ -428,7 +428,7 @@
                     <x-dashboard.card>
                         <div class="flex items-center justify-between mb-3">
                             <span class="text-sm font-semibold text-gray-200">Plan &amp; Quota</span>
-                            <span class="text-xs px-2 py-0.5 rounded-full font-medium {{ $user->isPro() ? 'bg-purple-600/20 text-purple-300 border border-purple-600/30' : 'bg-gray-700 text-gray-400' }}">
+                            <span class="text-xs px-2 py-0.5 rounded-full font-medium {{ $user->isPro() ? 'bg-brand-600/20 text-brand-300 border border-brand-600/30' : 'bg-gray-700 text-gray-400' }}">
                                 {{ ucfirst($user->plan) }}
                             </span>
                         </div>
@@ -483,7 +483,7 @@
                                 <svg class="w-4 h-4 text-brand-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             </div>
                             <a href="{{ route('admin.teams.index') }}"
-                               class="block text-center text-xs text-gray-500 hover:text-purple-400 transition py-1">
+                               class="block text-center text-xs text-gray-500 hover:text-brand-400 transition py-1">
                                 Switch workspace →
                             </a>
                         </div>

@@ -111,7 +111,7 @@
                             @if($member->banned_at)
                                 <span class="text-red-400 text-xs">banned</span>
                             @elseif($member->is_super_admin)
-                                <span class="text-indigo-400 text-xs">super</span>
+                                <span class="text-brand-400 text-xs">super</span>
                             @else
                                 <span class="text-gray-600 text-xs">—</span>
                             @endif

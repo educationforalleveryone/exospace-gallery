@@ -116,7 +116,7 @@
                                         </div>
                                     @else
                                         <span class="text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap
-                                            {{ $role === 'owner' ? 'bg-purple-900/50 text-purple-300 border border-purple-700/50' :
+                                            {{ $role === 'owner' ? 'bg-brand-900/50 text-brand-300 border border-brand-700/50' :
                                                ($role === 'editor' ? 'bg-blue-900/50 text-blue-300 border border-blue-700/50' :
                                                 'bg-gray-700 text-gray-400 border border-gray-600') }}">
                                             {{ ucfirst($role) }}
@@ -277,7 +277,7 @@
                             <h3 class="text-white font-semibold text-sm">Team Galleries</h3>
                             @if($team->canEdit(auth()->user()))
                                 <a href="{{ route('admin.galleries.create') }}?team={{ $team->id }}"
-                                   class="text-xs text-purple-400 hover:text-purple-300 transition">+ New</a>
+                                   class="text-xs text-brand-400 hover:text-brand-300 transition">+ New</a>
                             @endif
                         </div>
                         @if($team->galleries->isEmpty())
@@ -285,7 +285,7 @@
                                 <p class="text-gray-500 text-sm">No galleries yet.</p>
                                 @if($team->canEdit(auth()->user()))
                                     <a href="{{ route('admin.galleries.create') }}?team={{ $team->id }}"
-                                       class="text-purple-400 hover:text-purple-300 text-sm mt-1 inline-block">Create the first one →</a>
+                                       class="text-brand-400 hover:text-brand-300 text-sm mt-1 inline-block">Create the first one →</a>
                                 @endif
                             </div>
                         @else
@@ -298,7 +298,7 @@
                                     </div>
                                     @if($team->canEdit(auth()->user()))
                                         <a href="{{ route('admin.galleries.edit', $gallery) }}"
-                                           class="text-xs text-gray-400 hover:text-purple-300 transition">Edit →</a>
+                                           class="text-xs text-gray-400 hover:text-brand-300 transition">Edit →</a>
                                     @else
                                         <a href="{{ route('gallery.view', $gallery->slug) }}" target="_blank"
                                            class="text-xs text-gray-500 hover:text-gray-300 transition">View →</a>
@@ -307,13 +307,13 @@
                                 @endforeach
                             </div>
                             <div class="px-5 py-3 border-t border-gray-700 flex items-center justify-between">
-                                <a href="{{ route('admin.galleries.index') }}?team={{ $team->id }}" class="text-xs text-gray-400 hover:text-purple-300 transition flex items-center gap-1">
+                                <a href="{{ route('admin.galleries.index') }}?team={{ $team->id }}" class="text-xs text-gray-400 hover:text-brand-300 transition flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
                                     View all galleries
                                 </a>
                                 @if($team->canEdit(auth()->user()))
                                 <a href="{{ route('admin.galleries.create') }}?team={{ $team->id }}"
-                                   class="text-xs bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-700/30 px-2.5 py-1 rounded-lg transition">
+                                   class="text-xs bg-brand-600/20 hover:bg-brand-600/30 text-brand-400 border border-brand-700/30 px-2.5 py-1 rounded-lg transition">
                                     + New
                                 </a>
                                 @endif

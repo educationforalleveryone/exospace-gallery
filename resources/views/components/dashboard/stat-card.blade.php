@@ -13,10 +13,10 @@
 
 @php
 $colors = [
-    'purple' => ['bg' => 'bg-purple-600',  'border' => 'hover:border-purple-500/60', 'glow' => 'hover:shadow-purple-900/30'],
-    'indigo' => ['bg' => 'bg-indigo-600',  'border' => 'hover:border-indigo-500/60', 'glow' => 'hover:shadow-indigo-900/30'],
+    'purple' => ['bg' => 'bg-brand-600',  'border' => 'hover:border-brand-500/60', 'glow' => 'hover:shadow-brand-900/30'],
+    'indigo' => ['bg' => 'bg-brand-600',  'border' => 'hover:border-brand-500/60', 'glow' => 'hover:shadow-brand-900/30'],
     'blue'   => ['bg' => 'bg-blue-600',    'border' => 'hover:border-blue-500/60',   'glow' => 'hover:shadow-blue-900/30'],
-    'green'  => ['bg' => 'bg-green-600',   'border' => 'hover:border-green-500/60',  'glow' => 'hover:shadow-green-900/30'],
+    'green'  => ['bg' => 'bg-emerald-600',   'border' => 'hover:border-emerald-500/60',  'glow' => 'hover:shadow-emerald-900/30'],
     'amber'  => ['bg' => 'bg-amber-600',   'border' => 'hover:border-amber-500/60',  'glow' => 'hover:shadow-amber-900/30'],
     'red'    => ['bg' => 'bg-red-600',     'border' => 'hover:border-red-500/60',    'glow' => 'hover:shadow-red-900/30'],
 ];

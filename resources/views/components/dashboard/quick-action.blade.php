@@ -9,11 +9,11 @@
 
 @php
 $palettes = [
-    'purple' => 'bg-purple-600/10 border-purple-500/20 hover:bg-purple-600/20 hover:border-purple-500/40 text-purple-400',
+    'purple' => 'bg-brand-600/10 border-brand-500/20 hover:bg-brand-600/20 hover:border-brand-500/40 text-brand-400',
     'blue'   => 'bg-blue-600/10 border-blue-500/20 hover:bg-blue-600/20 hover:border-blue-500/40 text-blue-400',
-    'green'  => 'bg-green-600/10 border-green-500/20 hover:bg-green-600/20 hover:border-green-500/40 text-green-400',
+    'green'  => 'bg-emerald-600/10 border-emerald-500/20 hover:bg-emerald-600/20 hover:border-emerald-500/40 text-emerald-400',
     'amber'  => 'bg-amber-600/10 border-amber-500/20 hover:bg-amber-600/20 hover:border-amber-500/40 text-amber-400',
-    'indigo' => 'bg-indigo-600/10 border-indigo-500/20 hover:bg-indigo-600/20 hover:border-indigo-500/40 text-indigo-400',
+    'indigo' => 'bg-brand-600/10 border-brand-500/20 hover:bg-brand-600/20 hover:border-brand-500/40 text-brand-400',
     'red'    => 'bg-red-600/10 border-red-500/20 hover:bg-red-600/20 hover:border-red-500/40 text-red-400',
 ];
 $cls = $disabled

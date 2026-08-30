@@ -25,7 +25,7 @@ $trendDown = $trend !== null && $trend < 0;
                 <span class="text-xs text-gray-500">total</span>
                 @if($today !== null)
                     <span class="text-xs text-gray-600 ml-1">·</span>
-                    <span class="text-xs font-semibold {{ $today > 0 ? 'text-purple-400' : 'text-gray-600' }}">
+                    <span class="text-xs font-semibold {{ $today > 0 ? 'text-brand-400' : 'text-gray-600' }}">
                         {{ number_format($today) }} today
                     </span>
                 @endif
@@ -34,7 +34,7 @@ $trendDown = $trend !== null && $trend < 0;
         <div class="flex items-center gap-2 flex-shrink-0">
             @if($trend !== null)
                 <span class="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-1 rounded-full
-                    {{ $trendUp ? 'bg-green-500/10 text-green-400' : ($trendDown ? 'bg-red-500/10 text-red-400' : 'bg-gray-700 text-gray-500') }}">
+                    {{ $trendUp ? 'bg-emerald-500/10 text-emerald-400' : ($trendDown ? 'bg-red-500/10 text-red-400' : 'bg-gray-700 text-gray-500') }}">
                     @if($trendUp)
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"/></svg>
                         +{{ $trend }}% vs last 7d
@@ -47,7 +47,7 @@ $trendDown = $trend !== null && $trend < 0;
                 </span>
             @endif
             @if($href)
-                <a href="{{ $href }}" class="text-xs text-purple-400 hover:text-purple-300 transition font-medium">
+                <a href="{{ $href }}" class="text-xs text-brand-400 hover:text-brand-300 transition font-medium">
                     Details →
                 </a>
             @endif
@@ -63,7 +63,7 @@ $trendDown = $trend !== null && $trend < 0;
         @endphp
         <div class="flex-1 flex flex-col items-center gap-0" title="{{ $days[$i] }}: {{ number_format($count) }} views">
             <div
-                class="w-full rounded-t-sm transition-all duration-500 {{ $isLast ? 'bg-purple-500' : ($count > 0 ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-700/50') }}"
+                class="w-full rounded-t-sm transition-all duration-500 {{ $isLast ? 'bg-brand-500' : ($count > 0 ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-700/50') }}"
                 style="height:{{ max($pct, $count > 0 ? 8 : 3) }}%"
             ></div>
         </div>
@@ -73,7 +73,7 @@ $trendDown = $trend !== null && $trend < 0;
     {{-- Day labels --}}
     <div class="flex gap-1.5 mt-1.5">
         @foreach($days as $i => $day)
-        <div class="flex-1 text-center text-xs {{ $i === $days->count() - 1 ? 'text-purple-400 font-medium' : 'text-gray-600' }}">{{ $day }}</div>
+        <div class="flex-1 text-center text-xs {{ $i === $days->count() - 1 ? 'text-brand-400 font-medium' : 'text-gray-600' }}">{{ $day }}</div>
         @endforeach
     </div>
 </div>

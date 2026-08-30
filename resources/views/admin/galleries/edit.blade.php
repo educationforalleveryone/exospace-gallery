@@ -205,21 +205,21 @@
             {{-- Round 4: gallery sub-nav --}}
             <div class="flex flex-wrap gap-2 text-sm">
                 <a href="{{ route('admin.galleries.events.index', $gallery) }}"
-                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-purple-500 text-gray-300 hover:text-white transition">
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-brand-500 text-gray-300 hover:text-white transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     Events
                     @if($gallery->scheduleEvents()->active()->upcoming()->count() > 0)
-                        <span class="ml-1 px-1.5 py-0.5 rounded-full bg-purple-600 text-white text-xs font-bold">{{ $gallery->scheduleEvents()->active()->upcoming()->count() }}</span>
+                        <span class="ml-1 px-1.5 py-0.5 rounded-full bg-brand-600 text-white text-xs font-bold">{{ $gallery->scheduleEvents()->active()->upcoming()->count() }}</span>
                     @endif
                 </a>
                 <a href="{{ route('admin.galleries.analytics', $gallery) }}"
-                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-purple-500 text-gray-300 hover:text-white transition">
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-brand-500 text-gray-300 hover:text-white transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                     Analytics
                 </a>
                 @if($gallery->newsletterSignups()->exists())
                 <a href="{{ route('admin.galleries.analytics', $gallery) }}#newsletter"
-                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-purple-500 text-gray-300 hover:text-white transition">
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-brand-500 text-gray-300 hover:text-white transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     {{ $gallery->newsletterSignups()->count() }} newsletter signups
                 </a>
@@ -239,17 +239,17 @@
                 $canPublish  = $imageCount > 0;
             @endphp
             @if($gallery->is_active)
-                <div class="bg-green-950/40 border border-green-700/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div class="bg-emerald-950/40 border border-emerald-700/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                     <span class="inline-flex items-center gap-2 flex-shrink-0">
                         <span class="relative flex h-2.5 w-2.5">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60"></span>
-                            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                         </span>
-                        <span class="text-green-300 font-semibold text-sm">Live</span>
+                        <span class="text-emerald-300 font-semibold text-sm">Live</span>
                     </span>
-                    <p class="flex-1 text-sm text-green-200/80">
+                    <p class="flex-1 text-sm text-emerald-200/80">
                         This exhibition is public at
-                        <a href="{{ $publicUrl }}" target="_blank" rel="noopener" class="text-green-300 underline underline-offset-2 hover:text-green-200 break-all">{{ $publicUrl }}</a>
+                        <a href="{{ $publicUrl }}" target="_blank" rel="noopener" class="text-emerald-300 underline underline-offset-2 hover:text-emerald-200 break-all">{{ $publicUrl }}</a>
                     </p>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <button type="button" data-click="copyPublicLink" data-arg="{{ $publicUrl }}"
@@ -494,7 +494,7 @@
                         <label class="block text-sm font-medium text-gray-300 mb-3">
                             Background Music
                             @if(!auth()->user()->isPro())
-                                <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2">Pro Only</span>
+                                <span class="text-xs bg-brand-600 text-white px-2 py-0.5 rounded-full ml-2">Pro Only</span>
                             @endif
                         </label>
 
@@ -504,7 +504,7 @@
                                 <!-- Current Audio Preview -->
                                 <div id="audio-preview-container" @if($gallery->audio_path) @else style="display:none;" @endif class="bg-gray-700 rounded-lg p-3 flex items-center justify-between mb-3">
                                     <div class="flex items-center">
-                                        <svg class="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-5 h-5 text-brand-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
                                         </svg>
                                         <span id="audio-filename" class="text-sm text-gray-300">
@@ -535,12 +535,12 @@
                                             <span id="audio-progress-percent">0%</span>
                                         </div>
                                         <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                            <div id="audio-progress-bar" class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300" style="width: 0%"></div>
+                                            <div id="audio-progress-bar" class="h-full bg-gradient-to-r from-brand-500 to-brand-500 transition-all duration-300" style="width: 0%"></div>
                                         </div>
                                     </div>
 
                                     <!-- Success Message (Hidden by default) -->
-                                    <div id="audio-upload-success" style="display:none;" class="mt-2 p-2 bg-green-900/50 border border-green-700 rounded text-green-300 text-sm">
+                                    <div id="audio-upload-success" style="display:none;" class="mt-2 p-2 bg-emerald-900/50 border border-emerald-700 rounded text-emerald-300 text-sm">
                                         <span id="audio-success-message">Audio uploaded successfully!</span>
                                     </div>
 
@@ -566,7 +566,7 @@
                                     <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                     <p class="text-sm text-gray-400">Add ambient audio to your gallery — ambient soundscapes, custom tracks, anything MP3.</p>
                                 </div>
-                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-purple-400 hover:text-purple-300 border border-purple-600/40 hover:border-purple-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-brand-400 hover:text-brand-300 border border-brand-600/40 hover:border-brand-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
                                     Pro — $29
                                 </a>
                             </div>
@@ -578,7 +578,7 @@
                         <label class="block text-sm font-medium text-gray-300 mb-3">
                             Custom Logo
                             @if(auth()->user()->plan !== 'studio')
-                                <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2">Studio Only</span>
+                                <span class="text-xs bg-brand-600 text-white px-2 py-0.5 rounded-full ml-2">Studio Only</span>
                             @endif
                         </label>
 
@@ -606,12 +606,12 @@
                                             <span id="logo-progress-percent">0%</span>
                                         </div>
                                         <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                            <div id="logo-progress-bar" class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300" style="width: 0%"></div>
+                                            <div id="logo-progress-bar" class="h-full bg-gradient-to-r from-brand-500 to-brand-500 transition-all duration-300" style="width: 0%"></div>
                                         </div>
                                     </div>
 
                                     <!-- Success Message (Hidden by default) -->
-                                    <div id="logo-upload-success" style="display:none;" class="mt-2 p-2 bg-green-900/50 border border-green-700 rounded text-green-300 text-sm">
+                                    <div id="logo-upload-success" style="display:none;" class="mt-2 p-2 bg-emerald-900/50 border border-emerald-700 rounded text-emerald-300 text-sm">
                                         <span id="logo-success-message">Logo uploaded successfully!</span>
                                     </div>
 
@@ -668,9 +668,9 @@
                     <!-- Exhibition Scheduling (Pro & Studio) -->
                     <div class="mb-6 pt-5 border-t border-gray-700">
                         <div class="flex items-center gap-2 mb-1">
-                            <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <svg class="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             <h3 class="block text-sm font-medium text-gray-300" id="schedule-label">Exhibition Schedule</h3>
-                            <span class="text-xs bg-purple-900/50 text-purple-300 border border-purple-700/50 px-2 py-0.5 rounded-full">Pro</span>
+                            <span class="text-xs bg-brand-900/50 text-brand-300 border border-brand-700/50 px-2 py-0.5 rounded-full">Pro</span>
                         </div>
                         <p class="text-xs text-gray-500 mb-4">Set an opening date and optional closing date. Visitors will see a countdown before opening and a "Closed" page after. Leave blank for always-open.</p>
 
@@ -699,7 +699,7 @@
                                             ? 'bg-blue-900/30 border border-blue-700/40 text-blue-300'
                                             : ($gallery->hasClosed()
                                                 ? 'bg-red-900/30 border border-red-700/40 text-red-300'
-                                                : 'bg-green-900/30 border border-green-700/40 text-green-300');
+                                                : 'bg-emerald-900/30 border border-emerald-700/40 text-emerald-300');
                                     @endphp
                                     {{ $scheduleClass }}">
                                     @if($gallery->hasNotOpenedYet())
@@ -719,7 +719,7 @@
                                     <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                     <p class="text-sm text-gray-400">Set an opening date — visitors see a live countdown. Close it automatically after the run ends.</p>
                                 </div>
-                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-purple-400 hover:text-purple-300 border border-purple-600/40 hover:border-purple-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-brand-400 hover:text-brand-300 border border-brand-600/40 hover:border-brand-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
                                     Pro — $29
                                 </a>
                             </div>
@@ -757,7 +757,7 @@
                             </div>
                             @error('custom_domain')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
                             @if($gallery->custom_domain)
-                            <p class="text-xs text-green-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline break-all">{{ $gallery->custom_domain }}</a> see this gallery.</p>
+                            <p class="text-xs text-emerald-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline break-all">{{ $gallery->custom_domain }}</a> see this gallery.</p>
                             @endif
 
                             {{-- (Task H63) — DNS verification UI. Shows the TXT
@@ -830,9 +830,9 @@
                     <div class="flex justify-end items-center gap-3 mt-6 pt-4 border-t border-gray-700">
                         <!-- Inline save feedback — shown right next to the button -->
                         <div id="save-feedback" class="hidden items-center gap-2 text-sm font-medium">
-                            <svg id="save-feedback-icon-ok" class="hidden w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            <svg id="save-feedback-icon-ok" class="hidden w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                             <svg id="save-feedback-icon-err" class="hidden w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span id="save-feedback-text" class="text-green-400"></span>
+                            <span id="save-feedback-text" class="text-emerald-400"></span>
                         </div>
                         <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg transition-colors">
                             Cancel
@@ -892,7 +892,7 @@
                     <svg class="w-10 h-10 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
                     <p class="text-gray-500 text-sm">Upload limit reached — {{ $imgUsed }} of {{ $imgMax }} images used on your plan.</p>
                     @if(!$planHolder->isPro())
-                        <a href="/pricing" class="text-xs text-purple-400 hover:text-purple-300 mt-2 inline-block underline underline-offset-2 transition">Upgrade for more image slots →</a>
+                        <a href="/pricing" class="text-xs text-brand-400 hover:text-brand-300 mt-2 inline-block underline underline-offset-2 transition">Upgrade for more image slots →</a>
                     @endif
                 </div>
                 @else
@@ -913,7 +913,7 @@
                             Current Images ({{ $gallery->images->count() }})
                         </h3>
                         @if($gallery->images->count() > 0)
-                            <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer hover:text-purple-400 transition-colors select-none">
+                            <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer hover:text-brand-400 transition-colors select-none">
                                 <input type="checkbox" id="select-all-checkbox" data-change="toggleSelectAll"
                                        class="checkbox-base">
                                 <span>Select All</span>
@@ -932,7 +932,7 @@
                 @if($gallery->images->count() > 0)
                     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5" id="gallery-grid">
                         @foreach($gallery->images as $image)
-                            <div class="gallery-card relative group bg-gray-900 border border-gray-700 rounded-lg overflow-hidden hover:border-purple-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-900/20" id="image-{{ $image->id }}" data-id="{{ $image->id }}"
+                            <div class="gallery-card relative group bg-gray-900 border border-gray-700 rounded-lg overflow-hidden hover:border-brand-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-900/20" id="image-{{ $image->id }}" data-id="{{ $image->id }}"
                                  data-metadata='{{ json_encode([
                                      'id'             => $image->id,
                                      'title'          => $image->title,
@@ -977,7 +977,7 @@
                                 <!-- Edit Details Button (ITERATION-2: artwork metadata editor) -->
                                 <button data-click="editMetadata" data-arg="{{ $image->id }}"
                                         type="button"
-                                        class="absolute top-3 left-14 bg-gray-800/80 hover:bg-purple-600 text-gray-200 hover:text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
+                                        class="absolute top-3 left-14 bg-gray-800/80 hover:bg-brand-600 text-gray-200 hover:text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
                                         title="Edit artwork details (title, price, artist…)" aria-label="Edit artwork details">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </button>
@@ -988,7 +988,7 @@
                                         {{ $image->title ?: $image->original_name }}
                                     </p>
                                     @if($image->for_sale && $image->price)
-                                        <p class="text-xs text-green-400 text-center mt-0.5" data-role="caption-price">{{ $image->formattedPrice() }}</p>
+                                        <p class="text-xs text-emerald-400 text-center mt-0.5" data-role="caption-price">{{ $image->formattedPrice() }}</p>
                                     @endif
                                 </div>
                             </div>
@@ -1047,7 +1047,7 @@
                                         <option value="{{ $artistId }}">{{ $artistName }}</option>
                                     @endforeach
                                 </select>
-                                <p class="text-xs text-gray-500 mt-1">Manage artists in <a href="{{ route('admin.artists.index') }}" class="text-purple-400 hover:text-purple-300 underline underline-offset-2">Artist profiles</a>.</p>
+                                <p class="text-xs text-gray-500 mt-1">Manage artists in <a href="{{ route('admin.artists.index') }}" class="text-brand-400 hover:text-brand-300 underline underline-offset-2">Artist profiles</a>.</p>
                             </div>
 
                             <div>
@@ -1153,7 +1153,7 @@
             parallelUploads: 2,
             timeout: 180000,
             acceptedFiles: ".jpeg,.jpg,.png,.webp",
-            dictDefaultMessage: "<span class='text-purple-400 font-bold text-lg'>Drag your artwork here</span> or <span class='underline cursor-pointer'>browse</span><br><span class='text-xs text-gray-500 mt-2 block'>Supports JPG, PNG, WEBP (Max 10MB)</span>",
+            dictDefaultMessage: "<span class='text-brand-400 font-bold text-lg'>Drag your artwork here</span> or <span class='underline cursor-pointer'>browse</span><br><span class='text-xs text-gray-500 mt-2 block'>Supports JPG, PNG, WEBP (Max 10MB)</span>",
             addRemoveLinks: true,
             uploadMultiple: false,
             autoProcessQueue: true,
@@ -1377,7 +1377,7 @@
                     if (data.formatted_price) {
                         if (!priceEl) {
                             priceEl = document.createElement('p');
-                            priceEl.className = 'text-xs text-green-400 text-center mt-0.5';
+                            priceEl.className = 'text-xs text-emerald-400 text-center mt-0.5';
                             priceEl.setAttribute('data-role', 'caption-price');
                             captionTitle?.after(priceEl);
                         }
@@ -1486,9 +1486,9 @@
                 checkbox.checked = selectAllCheckbox.checked;
                 const card = checkbox.closest('.gallery-card');
                 if (selectAllCheckbox.checked) {
-                    card.classList.add('ring-2', 'ring-purple-500', 'border-purple-500');
+                    card.classList.add('ring-2', 'ring-brand-500', 'border-brand-500');
                 } else {
-                    card.classList.remove('ring-2', 'ring-purple-500', 'border-purple-500');
+                    card.classList.remove('ring-2', 'ring-brand-500', 'border-brand-500');
                 }
             });
 
@@ -1505,10 +1505,10 @@
             allCheckboxes.forEach(cb => {
                 const card = cb.closest('.gallery-card');
                 if (cb.checked) {
-                    card.classList.add('ring-2', 'ring-purple-500', 'border-purple-500');
+                    card.classList.add('ring-2', 'ring-brand-500', 'border-brand-500');
                     cb.parentElement.style.opacity = '1';
                 } else {
-                    card.classList.remove('ring-2', 'ring-purple-500', 'border-purple-500');
+                    card.classList.remove('ring-2', 'ring-brand-500', 'border-brand-500');
                     cb.parentElement.style.opacity = '';
                 }
             });
@@ -1818,7 +1818,7 @@
 
     <!-- Reorder save bar -->
     <div id="reorder-save-bar">
-        <svg class="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+        <svg class="w-4 h-4 text-brand-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
         <span>Order changed</span>
         <button class="save-btn" data-click="saveOrder">Save Order</button>
         <button class="discard-btn" data-click="discardOrder">Discard</button>
@@ -2079,7 +2079,7 @@ function showSaveFeedback(message, isSuccess) {
     okIcon.classList.toggle('hidden', !isSuccess);
     errIcon.classList.toggle('hidden', isSuccess);
     text.textContent = message;
-    text.className = isSuccess ? 'text-green-400' : 'text-red-400';
+    text.className = isSuccess ? 'text-emerald-400' : 'text-red-400';
     fb.classList.remove('hidden');
     fb.classList.add('flex');
     clearTimeout(fb._hideTimer);

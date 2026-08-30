@@ -36,7 +36,7 @@
 <div class="mb-6 flex flex-wrap gap-2 text-sm">
     <form method="POST" action="{{ route('control-center.profile.start', $run->profile) }}">
         @csrf
-        <button class="rounded-md bg-violet-600 px-4 py-2 font-medium hover:bg-violet-500">[Run Again · {{ $run->profile }}]</button>
+        <button class="rounded-md bg-brand-600 px-4 py-2 font-medium hover:bg-brand-500">[Run Again · {{ $run->profile }}]</button>
     </form>
     @if ($artifactPath)
         <a href="{{ route('control-center.run.artifact', $run) }}"

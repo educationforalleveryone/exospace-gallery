@@ -36,7 +36,7 @@
                 </span>
             @else
                 <button data-click="openModal" data-arg="upgrade-modal"
-                        class="bg-gradient-to-r from-purple-600/80 to-indigo-600/80 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold py-2 px-5 rounded-lg transition inline-flex items-center cursor-pointer gap-2 flex-shrink-0">
+                        class="bg-gradient-to-r from-brand-600/80 to-brand-600/80 hover:from-brand-600 hover:to-brand-600 text-white font-semibold py-2 px-5 rounded-lg transition inline-flex items-center cursor-pointer gap-2 flex-shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                     Upgrade for more
                 </button>
@@ -64,10 +64,10 @@
                         @php
                             $coverImage = $gallery->images()->first();
                         @endphp
-                        <div class="bg-gray-800 border border-gray-700/80 rounded-xl overflow-hidden hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-900/10 transition-all duration-200 group card-lift">
+                        <div class="bg-gray-800 border border-gray-700/80 rounded-xl overflow-hidden hover:border-brand-500/40 hover:shadow-lg hover:shadow-brand-900/10 transition-all duration-200 group card-lift">
                             
                             <!-- Cover Image -->
-                            <div class="relative aspect-video bg-gradient-to-br from-purple-900/20 to-indigo-900/20 overflow-hidden">
+                            <div class="relative aspect-video bg-gradient-to-br from-brand-900/20 to-brand-900/20 overflow-hidden">
                                 @if($coverImage)
                                     <img src="{{ $coverImage->public_url }}"
                                          srcset="{{ $coverImage->srcset }}"
@@ -78,7 +78,7 @@
                                     <div class="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/20 to-transparent"></div>
                                 @else
                                     <div class="absolute inset-0 flex items-center justify-center">
-                                        <svg class="w-20 h-20 text-purple-500/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-20 h-20 text-brand-500/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                         </svg>
                                     </div>
@@ -88,7 +88,7 @@
                                 <!-- Status Badge -->
                                 <div class="absolute top-3 right-3 flex flex-col items-end gap-1.5">
                                     @if($gallery->is_active)
-                                        <span class="bg-green-500/90 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full font-medium">Live</span>
+                                        <span class="bg-emerald-500/90 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full font-medium">Live</span>
                                     @else
                                         <span class="bg-gray-500/90 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full font-medium">Draft</span>
                                     @endif
@@ -96,7 +96,7 @@
                                 <!-- Venue Badge -->
                                 @if($gallery->venueTemplate)
                                 <div class="absolute top-3 left-3">
-                                    <span class="bg-black/60 backdrop-blur-sm text-purple-300 text-xs px-2.5 py-1 rounded-full font-medium border border-purple-500/30">
+                                    <span class="bg-black/60 backdrop-blur-sm text-brand-300 text-xs px-2.5 py-1 rounded-full font-medium border border-brand-500/30">
                                         {{ match($gallery->venueTemplate->slug) {
                                             'white-cube'       => '',
                                             'industrial-loft'  => '',
@@ -205,13 +205,13 @@
                 <!-- PREMIUM EMPTY STATE: First-Time User Onboarding -->
                 <div class="max-w-4xl mx-auto">
                     <!-- Main Hero Card -->
-                    <div class="bg-gradient-to-br from-gray-800 via-gray-800 to-purple-900/20 border border-gray-700 rounded-2xl overflow-hidden shadow-2xl">
+                    <div class="bg-gradient-to-br from-gray-800 via-gray-800 to-brand-900/20 border border-gray-700 rounded-2xl overflow-hidden shadow-2xl">
                         
                         <!-- Animated Header Section -->
-                        <div class="relative bg-gradient-to-r from-purple-600/10 to-indigo-600/10 p-12 text-center border-b border-gray-700/50">
+                        <div class="relative bg-gradient-to-r from-brand-600/10 to-brand-600/10 p-12 text-center border-b border-gray-700/50">
                             <!-- Floating 3D Cube Animation -->
                             <div class="relative inline-block mb-6">
-                                <div class="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl blur-2xl opacity-20 animate-pulse"></div>
+                                <div class="absolute inset-0 bg-gradient-to-r from-brand-500 to-brand-500 rounded-2xl blur-2xl opacity-20 animate-pulse"></div>
                                 <div class="relative bg-brand-600 w-24 h-24 rounded-2xl flex items-center justify-center transform hover:rotate-12 transition-transform duration-500">
                                     <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
@@ -220,7 +220,7 @@
                             </div>
                             
                             <h2 class="text-3xl md:text-4xl font-bold text-gray-100 mb-3">
-                                Choose a Venue. <span class="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">Open Your Exhibition.</span>
+                                Choose a Venue. <span class="bg-gradient-to-r from-brand-400 to-brand-400 bg-clip-text text-transparent">Open Your Exhibition.</span>
                             </h2>
                             <p class="text-lg text-gray-400 max-w-2xl mx-auto">
                                 Pick from distinct 3D spaces — White Cube, Industrial Loft, Dark Museum and more. Each venue has its own architecture, scale, and atmosphere.
@@ -233,13 +233,13 @@
                                 
                                 <!-- Step 1: Name Your Gallery -->
                                 <div class="relative group">
-                                    <div class="absolute inset-0 bg-gradient-to-br from-purple-600/5 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                    <div class="relative bg-gray-900/50 border border-gray-700 rounded-xl p-6 text-center hover:border-purple-500/50 transition-all duration-300">
-                                        <div class="bg-purple-600/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
-                                            <span class="text-2xl font-bold text-purple-400">1</span>
+                                    <div class="absolute inset-0 bg-gradient-to-br from-brand-600/5 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    <div class="relative bg-gray-900/50 border border-gray-700 rounded-xl p-6 text-center hover:border-brand-500/50 transition-all duration-300">
+                                        <div class="bg-brand-600/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-500/30">
+                                            <span class="text-2xl font-bold text-brand-400">1</span>
                                         </div>
                                         <div class="mb-3">
-                                            <svg class="w-10 h-10 mx-auto text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-10 h-10 mx-auto text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                             </svg>
                                         </div>
@@ -250,13 +250,13 @@
                                 
                                 <!-- Step 2: Upload Images -->
                                 <div class="relative group">
-                                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-600/5 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                    <div class="relative bg-gray-900/50 border border-gray-700 rounded-xl p-6 text-center hover:border-indigo-500/50 transition-all duration-300">
-                                        <div class="bg-indigo-600/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/30">
-                                            <span class="text-2xl font-bold text-indigo-400">2</span>
+                                    <div class="absolute inset-0 bg-gradient-to-br from-brand-600/5 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    <div class="relative bg-gray-900/50 border border-gray-700 rounded-xl p-6 text-center hover:border-brand-500/50 transition-all duration-300">
+                                        <div class="bg-brand-600/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-500/30">
+                                            <span class="text-2xl font-bold text-brand-400">2</span>
                                         </div>
                                         <div class="mb-3">
-                                            <svg class="w-10 h-10 mx-auto text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-10 h-10 mx-auto text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                             </svg>
                                         </div>

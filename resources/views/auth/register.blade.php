@@ -12,8 +12,8 @@
         @if(isset($invitationToken))
             <input type="hidden" name="invitation_token" value="{{ $invitationToken }}">
 
-            <div class="mb-4 p-3 bg-indigo-900/40 border border-indigo-700/50 rounded-lg text-center">
-                <p class="text-indigo-300 text-sm">
+            <div class="mb-4 p-3 bg-brand-900/40 border border-brand-700/50 rounded-lg text-center">
+                <p class="text-brand-300 text-sm">
                     🎉 You were invited to join a team. Create your account to accept.
                 </p>
             </div>
@@ -88,9 +88,9 @@
         <div class="mt-6 text-center">
             <p class="text-xs text-gray-500">
                 By registering, you agree to our
-                <a href="{{ route('terms') }}" class="text-purple-400 hover:text-purple-300">Terms of Service</a>
+                <a href="{{ route('terms') }}" class="text-brand-400 hover:text-brand-300">Terms of Service</a>
                 and
-                <a href="{{ route('privacy') }}" class="text-purple-400 hover:text-purple-300">Privacy Policy</a>
+                <a href="{{ route('privacy') }}" class="text-brand-400 hover:text-brand-300">Privacy Policy</a>
             </p>
         </div>
     </form>

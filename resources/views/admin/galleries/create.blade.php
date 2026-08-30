@@ -16,7 +16,7 @@
                     Account
                 </span>
                 <span class="text-gray-700">→</span>
-                <span class="flex items-center gap-1.5 text-purple-300 font-semibold">
+                <span class="flex items-center gap-1.5 text-brand-300 font-semibold">
                     <span class="w-5 h-5 rounded-full bg-brand-600 inline-flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">2</span>
                     Gallery
                 </span>
@@ -48,9 +48,9 @@
                     @endif
 
                     @if(Auth::user()->galleries()->count() === 0)
-                    <div class="flex items-start gap-3 bg-purple-900/20 border border-purple-500/20 rounded-lg px-4 py-3 mb-5">
-                        <svg class="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                        <p class="text-xs text-purple-200 leading-relaxed">
+                    <div class="flex items-start gap-3 bg-brand-900/20 border border-brand-500/20 rounded-lg px-4 py-3 mb-5">
+                        <svg class="w-4 h-4 text-brand-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        <p class="text-xs text-brand-200 leading-relaxed">
                             <span class="font-semibold">Tip:</span> Give it a clear title — it becomes the page name when you share the link. Defaults below are fine for your first gallery; you can change everything later.
                         </p>
                     </div>
@@ -276,7 +276,7 @@ $venueAtmospheres = [
                     <div x-data="{ open: {{ $advOpen }} }" class="mt-6">
                         <button type="button" @click="open = !open"
                                 class="w-full flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-gray-200 transition border-t border-gray-700/60 pt-4 pb-2 text-left">
-                            <svg class="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                            <svg class="w-4 h-4 text-brand-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                             Advanced settings
                             @if(!Auth::user()->isPro())
                                 <span class="text-xs bg-gray-700/80 text-gray-400 px-1.5 py-0.5 rounded ml-0.5">Pro features inside</span>
@@ -294,7 +294,7 @@ $venueAtmospheres = [
                         <label class="block text-sm font-medium text-gray-200 mb-3">
                             Background Music
                             @if(!auth()->user()->isPro())
-                                <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2">Pro Only</span>
+                                <span class="text-xs bg-brand-600 text-white px-2 py-0.5 rounded-full ml-2">Pro Only</span>
                             @endif
                         </label>
                         
@@ -313,7 +313,7 @@ $venueAtmospheres = [
                                     <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                     <p class="text-sm text-gray-400">Add ambient audio to your gallery — ambient soundscapes, custom tracks, anything MP3.</p>
                                 </div>
-                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-purple-400 hover:text-purple-300 border border-purple-600/40 hover:border-purple-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-brand-400 hover:text-brand-300 border border-brand-600/40 hover:border-brand-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
                                     Pro — $29
                                 </a>
                             </div>
@@ -323,10 +323,10 @@ $venueAtmospheres = [
                     <!-- Exhibition Schedule (Pro Feature) -->
                     <div class="mb-6 p-6 bg-gray-900/50 rounded-lg border border-gray-600">
                         <div class="flex items-center gap-2 mb-1">
-                            <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <svg class="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             <h3 class="block text-sm font-medium text-gray-200">Exhibition Schedule</h3>
                             @if(!auth()->user()->isPro())
-                                <span class="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full ml-1">Pro Only</span>
+                                <span class="text-xs bg-brand-600 text-white px-2 py-0.5 rounded-full ml-1">Pro Only</span>
                             @endif
                         </div>
                         <p class="text-xs text-gray-500 mb-4">Set when this gallery opens and closes to the public. Visitors see a live countdown before opening, and a closed page after. Leave blank for always-open.</p>
@@ -352,7 +352,7 @@ $venueAtmospheres = [
                                     <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                     <p class="text-sm text-gray-400">Set an opening date — visitors see a live countdown. Close it automatically after the run ends.</p>
                                 </div>
-                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-purple-400 hover:text-purple-300 border border-purple-600/40 hover:border-purple-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-brand-400 hover:text-brand-300 border border-brand-600/40 hover:border-brand-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
                                     Pro — $29
                                 </a>
                             </div>

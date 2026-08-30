@@ -12,7 +12,7 @@
 
     <div class="page-shell-mid">
         @if(session('status'))
-            <div class="mb-4 text-sm text-green-400 bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
+            <div class="mb-4 text-sm text-emerald-400 bg-emerald-900/20 border border-emerald-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
         @endif
 
         @if($upcoming->count() > 0)
@@ -23,7 +23,7 @@
                         <div class="flex items-start justify-between gap-4">
                             <div class="flex-1">
                                 <div class="flex items-center gap-3 mb-2">
-                                    <span class="text-xs px-2 py-0.5 rounded-full bg-purple-900/40 text-purple-300 border border-purple-700/40">{{ $event->typeLabel() }}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-brand-900/40 text-brand-300 border border-brand-700/40">{{ $event->typeLabel() }}</span>
                                     @if(!$event->is_active)
                                         <span class="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-400">Draft</span>
                                     @endif
@@ -57,7 +57,7 @@
             <div class="text-center py-12 bg-gray-800/50 rounded-xl border border-gray-700/50 mb-8">
                 <p class="text-gray-400 mb-1">No upcoming events.</p>
                 <p class="text-gray-600 text-sm mb-4">Host an opening reception, artist talk, or walkthrough.</p>
-                <a href="{{ route('admin.galleries.events.create', $gallery) }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">
+                <a href="{{ route('admin.galleries.events.create', $gallery) }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Create event
                 </a>

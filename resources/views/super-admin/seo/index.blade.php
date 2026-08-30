@@ -21,7 +21,7 @@
         <nav class="flex gap-1 mb-6 border-b border-gray-700" aria-label="SEO sections">
             @foreach(['health' => 'Health', 'galleries' => 'Galleries', 'artists' => 'Artists', 'redirects' => 'Redirects', 'pages' => 'Content pages'] as $key => $label)
                 <a href="{{ route('super.seo.index', ['tab' => $key]) }}"
-                   class="px-4 py-2 text-sm rounded-t-lg transition {{ $tab === $key ? 'bg-gray-800 text-white border-b-2 border-purple-500' : 'text-gray-400 hover:text-gray-200' }}">
+                   class="px-4 py-2 text-sm rounded-t-lg transition {{ $tab === $key ? 'bg-gray-800 text-white border-b-2 border-brand-500' : 'text-gray-400 hover:text-gray-200' }}">
                     {{ $label }}
                 </a>
             @endforeach
@@ -54,7 +54,7 @@
                     @foreach($issues as $issue)
                         <div class="p-4 flex items-center justify-between gap-4">
                             <div class="flex items-center gap-3">
-                                <span class="text-xs px-2 py-0.5 rounded-full font-semibold {{ $issue['severity'] === 'warning' ? 'bg-yellow-900/40 text-yellow-300 border border-yellow-700/40' : 'bg-gray-700/40 text-gray-400 border border-gray-600/40' }}">
+                                <span class="text-xs px-2 py-0.5 rounded-full font-semibold {{ $issue['severity'] === 'warning' ? 'bg-amber-900/40 text-amber-300 border border-amber-700/40' : 'bg-gray-700/40 text-gray-400 border border-gray-600/40' }}">
                                     {{ $issue['severity'] }}
                                 </span>
                                 <span class="text-gray-300 text-sm">{{ $issue['label'] }}</span>
@@ -101,7 +101,7 @@
                                     <div class="font-medium text-gray-200">{{ $gallery->title ?: '(untitled)' }}</div>
                                     <div class="text-xs text-gray-500 mt-0.5">
                                         /gallery/{{ $gallery->slug }} · {{ $gallery->images_count }} works
-                                        @if($gallery->seoProfile?->title_override) · <span class="text-purple-400">custom title</span>@endif
+                                        @if($gallery->seoProfile?->title_override) · <span class="text-brand-400">custom title</span>@endif
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
@@ -110,9 +110,9 @@
                                     @elseif($gallery->hasPinProtection())
                                         <span class="text-xs px-2 py-0.5 rounded-full bg-gray-700/40 text-gray-400 border border-gray-600/40">PIN</span>
                                     @elseif($gallery->images_count === 0)
-                                        <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-300 border border-yellow-700/40">empty</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-300 border border-amber-700/40">empty</span>
                                     @elseif(trim((string)$gallery->description) === '')
-                                        <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-300 border border-yellow-700/40">no description</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-300 border border-amber-700/40">no description</span>
                                     @else
                                         <x-status-badge state="healthy" label="healthy" />
                                     @endif
@@ -126,7 +126,7 @@
                                 <td class="px-4 py-3 text-right">
                                     <button type="button"
                                             data-seo-toggle="gallery-{{ $gallery->id }}"
-                                            class="text-purple-400 hover:text-purple-300 text-sm transition">
+                                            class="text-brand-400 hover:text-brand-300 text-sm transition">
                                         Edit SEO
                                     </button>
                                 </td>
@@ -179,7 +179,7 @@
                                         </div>
                                         <div class="sm:col-span-2 flex justify-end gap-2">
                                             <button type="button" data-seo-toggle="gallery-{{ $gallery->id }}" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition">Cancel</button>
-                                            <button type="submit" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition">Save</button>
+                                            <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition">Save</button>
                                         </div>
                                     </form>
                                 </td>
@@ -223,7 +223,7 @@
                                     {{ $artist->seoProfile?->robots_directive ?: 'auto robots' }}
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <button type="button" data-seo-toggle="artist-{{ $artist->id }}" class="text-purple-400 hover:text-purple-300 text-sm transition">Edit SEO</button>
+                                    <button type="button" data-seo-toggle="artist-{{ $artist->id }}" class="text-brand-400 hover:text-brand-300 text-sm transition">Edit SEO</button>
                                 </td>
                             </tr>
                             <tr class="hidden" id="seo-form-artist-{{ $artist->id }}">
@@ -250,7 +250,7 @@
                                         </div>
                                         <div class="sm:col-span-2 flex justify-end gap-2">
                                             <button type="button" data-seo-toggle="artist-{{ $artist->id }}" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition">Cancel</button>
-                                            <button type="submit" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition">Save</button>
+                                            <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition">Save</button>
                                         </div>
                                     </form>
                                 </td>
@@ -286,7 +286,7 @@
                         <option value="308">308 permanent (keep method)</option>
                     </select>
                 </div>
-                <button type="submit" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition">Add redirect</button>
+                <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition">Add redirect</button>
             </form>
 
             <div class="table-wrap">
@@ -365,7 +365,7 @@
                                 <td class="px-4 py-3 text-right">
                                     <form method="POST" action="{{ route('super.seo.pages.toggle', $page) }}">
                                         @csrf
-                                        <button type="submit" class="text-purple-400 hover:text-purple-300 text-sm transition">
+                                        <button type="submit" class="text-brand-400 hover:text-brand-300 text-sm transition">
                                             {{ $page->status === 'published' ? 'Unpublish' : 'Publish' }}
                                         </button>
                                     </form>
@@ -425,7 +425,7 @@
             <div class="bg-gray-800 rounded-xl border border-gray-700 divide-y divide-gray-700/50 mb-8">
                 @foreach($acquisition['signups_by_channel'] as $channel => $count)
                     <div class="p-4 flex items-center justify-between">
-                        <span class="text-sm {{ $channel === 'organic' ? 'text-purple-300 font-semibold' : 'text-gray-300' }}">{{ ucfirst($channel) }}</span>
+                        <span class="text-sm {{ $channel === 'organic' ? 'text-brand-300 font-semibold' : 'text-gray-300' }}">{{ ucfirst($channel) }}</span>
                         <span class="text-gray-200 font-bold">{{ number_format($count) }}</span>
                     </div>
                 @endforeach
@@ -443,7 +443,7 @@
                 <div class="bg-gray-800 rounded-xl border border-gray-700 divide-y divide-gray-700/50">
                     @foreach($acquisition['top_landing_pages'] as $row)
                         <div class="p-4 flex items-center justify-between gap-4">
-                            <a href="{{ $row['landing_page'] }}" class="text-purple-400 hover:text-purple-300 text-sm font-mono truncate">{{ $row['landing_page'] }}</a>
+                            <a href="{{ $row['landing_page'] }}" class="text-brand-400 hover:text-brand-300 text-sm font-mono truncate">{{ $row['landing_page'] }}</a>
                             <span class="text-gray-200 font-bold flex-shrink-0">{{ $row['signups'] }} signup{{ $row['signups'] === 1 ? '' : 's' }}</span>
                         </div>
                     @endforeach
