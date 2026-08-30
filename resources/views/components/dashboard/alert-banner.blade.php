@@ -40,8 +40,10 @@ $iconPath = $icon ?? $defaultIcons[$type];
             </a>
         @endif
         @if($dismissKey)
-            <button @click="localStorage.setItem('{{ $dismissKey }}','1'); show=false"
-                    class="text-gray-600 hover:text-gray-400 transition p-0.5 rounded">
+            <button type="button"
+                    @click="localStorage.setItem('{{ $dismissKey }}','1'); show=false"
+                    class="flex items-center justify-center w-7 h-7 -me-1.5 rounded-md text-gray-600 hover:text-gray-400 hover:bg-white/[0.06] transition"
+                    aria-label="Dismiss notification">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>

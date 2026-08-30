@@ -81,7 +81,7 @@
                     <option value="issues" {{ $filter === 'issues' ? 'selected' : '' }}>Missing description</option>
                     <option value="all" {{ $filter === 'all' ? 'selected' : '' }}>All</option>
                 </select>
-                <button type="submit" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-100 text-sm transition">Filter</button>
+                <button type="submit" class="btn btn-secondary">Filter</button>
             </form>
 
             <div class="table-wrap">
@@ -178,8 +178,8 @@
                                             </div>
                                         </div>
                                         <div class="sm:col-span-2 flex justify-end gap-2">
-                                            <button type="button" data-seo-toggle="gallery-{{ $gallery->id }}" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition">Cancel</button>
-                                            <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition">Save</button>
+                                            <button type="button" data-seo-toggle="gallery-{{ $gallery->id }}" class="btn btn-secondary">Cancel</button>
+                                            <button type="submit" class="btn btn-primary">Save</button>
                                         </div>
                                     </form>
                                 </td>
@@ -223,7 +223,7 @@
                                     {{ $artist->seoProfile?->robots_directive ?: 'auto robots' }}
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <button type="button" data-seo-toggle="artist-{{ $artist->id }}" class="text-brand-400 hover:text-brand-300 text-sm transition">Edit SEO</button>
+                                    <button type="button" data-seo-toggle="artist-{{ $artist->id }}" class="p-1.5 -m-1 rounded text-brand-400 hover:text-brand-300 hover:bg-white/[0.06] text-sm transition">Edit SEO</button>
                                 </td>
                             </tr>
                             <tr class="hidden" id="seo-form-artist-{{ $artist->id }}">
@@ -249,8 +249,8 @@
                                                       class="input-base">{{ $artist->seoProfile?->description_override }}</textarea>
                                         </div>
                                         <div class="sm:col-span-2 flex justify-end gap-2">
-                                            <button type="button" data-seo-toggle="artist-{{ $artist->id }}" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition">Cancel</button>
-                                            <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition">Save</button>
+                                            <button type="button" data-seo-toggle="artist-{{ $artist->id }}" class="btn btn-secondary">Cancel</button>
+                                            <button type="submit" class="btn btn-primary">Save</button>
                                         </div>
                                     </form>
                                 </td>
@@ -286,7 +286,7 @@
                         <option value="308">308 permanent (keep method)</option>
                     </select>
                 </div>
-                <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition">Add redirect</button>
+                <button type="submit" class="btn btn-primary">Add redirect</button>
             </form>
 
             <div class="table-wrap">
@@ -315,7 +315,7 @@
                                     <form method="POST" action="{{ route('super.seo.redirects.destroy', $redirect) }}"
                                           data-confirm="Delete redirect /{{ $redirect->source_path }}?">
                                         @csrf @method('DELETE')
-                                        <button type="submit" class="text-red-400 hover:text-red-300 text-sm transition">Delete</button>
+                                        <button type="submit" class="btn btn-sm btn-danger-ghost">Delete</button>
                                     </form>
                                 </td>
                             </tr>
@@ -365,7 +365,7 @@
                                 <td class="px-4 py-3 text-right">
                                     <form method="POST" action="{{ route('super.seo.pages.toggle', $page) }}">
                                         @csrf
-                                        <button type="submit" class="text-brand-400 hover:text-brand-300 text-sm transition">
+                                        <button type="submit" class="p-1.5 -m-1 rounded text-brand-400 hover:text-brand-300 hover:bg-white/[0.06] text-sm transition">
                                             {{ $page->status === 'published' ? 'Unpublish' : 'Publish' }}
                                         </button>
                                     </form>

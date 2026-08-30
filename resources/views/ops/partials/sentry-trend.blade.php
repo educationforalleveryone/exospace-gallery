@@ -38,8 +38,8 @@
     @endphp
     <div class="mt-3">
         <div class="flex items-center justify-between mb-1">
-            <span class="text-[10px] uppercase tracking-wider text-slate-500">Error volume — last 24 h</span>
-            <span class="text-[10px] text-slate-500 font-mono">
+            <span class="text-xs uppercase tracking-wider text-slate-500">Error volume — last 24 h</span>
+            <span class="text-xs text-slate-500 font-mono">
                 {{ number_format((int) $trend['total']) }} events
                 @if((int) $trend['peak'] > 0) · peak {{ number_format((int) $trend['peak']) }}/h @endif
             </span>
@@ -71,5 +71,5 @@
 @elseif(! empty($trend['configured']) && ! empty($trend['error']))
     {{-- Honest degradation: the trend endpoint failed (e.g. token without
          event:read scope) — say so in one line, never hide the headlines. --}}
-    <p class="text-[10px] text-slate-600 mt-3" title="{{ $trend['error'] }}">Error trend unavailable — {{ \Illuminate\Support\Str::limit($trend['error'], 80) }}</p>
+    <p class="text-xs text-slate-600 mt-3" title="{{ $trend['error'] }}">Error trend unavailable — {{ \Illuminate\Support\Str::limit($trend['error'], 80) }}</p>
 @endif

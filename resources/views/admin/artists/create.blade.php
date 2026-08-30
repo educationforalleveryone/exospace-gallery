@@ -8,8 +8,8 @@
             @csrf
             @include('admin.artists._form-fields', ['artist' => $artist])
             <div class="flex justify-end gap-3 pt-2">
-                <a href="{{ route('admin.artists.index') }}" class="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 text-sm transition">Cancel</a>
-                <button type="submit" class="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition">Create artist</button>
+                <a href="{{ route('admin.artists.index') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Create artist</button>
             </div>
         </form>
     </div>

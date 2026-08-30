@@ -2,7 +2,7 @@
     <x-slot name="header">
         <h1 class="page-title">
             MFA Backup Codes
-        </h2>
+        </h1>
     </x-slot>
 
     <div class="py-12">

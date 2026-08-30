@@ -74,11 +74,11 @@
                             @if(auth()->user()->hasOAuthProvider('google'))
                                 <form method="POST" action="{{ route('oauth.unlink', 'google') }}">
                                     @csrf
-                                    <button type="submit" class="text-xs text-red-400 hover:text-red-300 transition">Unlink</button>
+                                    <button type="submit" class="btn btn-sm btn-danger-ghost">Unlink</button>
                                 </form>
                             @else
                                 <a href="{{ route('oauth.redirect', 'google') }}?action=link"
-                                   class="text-xs text-brand-400 hover:text-brand-300 transition font-medium">Link Google</a>
+                                   class="p-1.5 -m-1 rounded text-xs text-brand-400 hover:text-brand-300 hover:bg-white/[0.06] transition font-medium">Link Google</a>
                             @endif
                         </div>
                         @endif
@@ -95,11 +95,11 @@
                             @if(auth()->user()->hasOAuthProvider('github'))
                                 <form method="POST" action="{{ route('oauth.unlink', 'github') }}">
                                     @csrf
-                                    <button type="submit" class="text-xs text-red-400 hover:text-red-300 transition">Unlink</button>
+                                    <button type="submit" class="btn btn-sm btn-danger-ghost">Unlink</button>
                                 </form>
                             @else
                                 <a href="{{ route('oauth.redirect', 'github') }}?action=link"
-                                   class="text-xs text-brand-400 hover:text-brand-300 transition font-medium">Link GitHub</a>
+                                   class="p-1.5 -m-1 rounded text-xs text-brand-400 hover:text-brand-300 hover:bg-white/[0.06] transition font-medium">Link GitHub</a>
                             @endif
                         </div>
                         @endif

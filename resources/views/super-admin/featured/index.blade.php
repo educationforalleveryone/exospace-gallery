@@ -69,7 +69,7 @@
                             <td class="px-4 py-3">
                                 <form method="POST" action="{{ route('super.featured.toggle', $gallery) }}">
                                     @csrf @method('PATCH')
-                                    <button class="text-xs {{ $gallery->is_featured ? 'text-amber-400 hover:text-gray-500' : 'text-gray-500 hover:text-amber-400' }} transition font-medium">
+                                    <button class="p-1.5 -m-1 rounded text-xs {{ $gallery->is_featured ? 'text-amber-400 hover:text-gray-500' : 'text-gray-500 hover:text-amber-400' }} hover:bg-white/[0.06] transition font-medium">
                                         {{ $gallery->is_featured ? '★ Unfeature' : '☆ Feature' }}
                                     </button>
                                 </form>

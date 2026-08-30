@@ -29,7 +29,7 @@
 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
     <div class="flex items-center justify-between gap-2 mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Backups</h2>
-        <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $chip[$backupTile['status']] ?? $chip['unknown'] }}">{{ strtoupper($backupTile['status']) }}</span>
+        <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip[$backupTile['status']] ?? $chip['unknown'] }}">{{ strtoupper($backupTile['status']) }}</span>
     </div>
 
     @if(empty($backupTile['disks']))
@@ -45,21 +45,21 @@
                             <span class="ml-1 {{ $label[1] }} font-semibold">{{ $label[0] }}</span>
                         </div>
                         @if($disk['newest_name'] !== null)
-                            <div class="text-[10px] text-slate-500 font-mono truncate">
+                            <div class="text-xs text-slate-500 font-mono truncate">
                                 {{ $disk['newest_name'] }} · {{ $disk['newest_age_hours'] }}h old
                                 @if($disk['newest_size'] !== null) · {{ number_format($disk['newest_size'] / 1048576, 1) }} MB @endif
                             </div>
                         @else
-                            <div class="text-[10px] text-slate-500">no archives found</div>
+                            <div class="text-xs text-slate-500">no archives found</div>
                         @endif
                     </div>
-                    <span class="text-[10px] text-slate-500 shrink-0">{{ $disk['file_count'] }} file{{ $disk['file_count'] === 1 ? '' : 's' }}</span>
+                    <span class="text-xs text-slate-500 shrink-0">{{ $disk['file_count'] }} file{{ $disk['file_count'] === 1 ? '' : 's' }}</span>
                 </li>
             @endforeach
         </ul>
     @endif
 
-    <p class="text-[10px] text-slate-600 mt-3">
+    <p class="text-xs text-slate-600 mt-3">
         Freshness threshold: 26 h (same as the alerting service).
         @if(auth()->user()?->is_super_admin)
             <a href="{{ route('super.index') }}" class="text-emerald-400 hover:text-emerald-300">Backup status &amp; runs live in Master Control →</a>
@@ -71,21 +71,21 @@
 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
     <div class="flex items-center justify-between gap-2 mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Billing Webhooks</h2>
-        <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $chip[$webhookTile['status']] ?? $chip['unknown'] }}">{{ strtoupper($webhookTile['status']) }}</span>
+        <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip[$webhookTile['status']] ?? $chip['unknown'] }}">{{ strtoupper($webhookTile['status']) }}</span>
     </div>
 
     <div class="grid grid-cols-2 gap-2 mb-2">
         <div class="rounded bg-slate-950/60 border border-slate-800 px-3 py-2 text-center">
             <div class="text-lg font-bold {{ $webhookTile['failed_count'] > 0 ? 'text-red-400' : 'text-emerald-400' }}">{{ $webhookTile['failed_count'] }}</div>
-            <div class="text-[10px] uppercase tracking-wider text-slate-500">Failed</div>
+            <div class="text-xs uppercase tracking-wider text-slate-500">Failed</div>
         </div>
         <div class="rounded bg-slate-950/60 border border-slate-800 px-3 py-2 text-center">
             <div class="text-lg font-bold text-slate-300">{{ $webhookTile['processed_24h'] }}</div>
-            <div class="text-[10px] uppercase tracking-wider text-slate-500">Processed 24h</div>
+            <div class="text-xs uppercase tracking-wider text-slate-500">Processed 24h</div>
         </div>
     </div>
 
-    <p class="text-[10px] text-slate-500">
+    <p class="text-xs text-slate-500">
         @if($webhookTile['failed_count'] > 0)
             Oldest failure {{ $webhookTile['oldest_failed_age_hours'] !== null ? $webhookTile['oldest_failed_age_hours'].'h ago' : '—' }}.
             @if(auth()->user()?->is_super_admin)
@@ -102,11 +102,11 @@
     <div class="flex items-center justify-between gap-2 mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Sentry — Unresolved</h2>
         @if(! empty($sentryTile['error']))
-            <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $chip['degraded'] }}">API ERROR</span>
+            <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip['degraded'] }}">API ERROR</span>
         @elseif(($sentryTile['total_issues'] ?? 0) > 0)
-            <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $chip['degraded'] }}">{{ $sentryTile['total_issues'] }} ISSUE{{ $sentryTile['total_issues'] === 1 ? '' : 'S' }}</span>
+            <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip['degraded'] }}">{{ $sentryTile['total_issues'] }} ISSUE{{ $sentryTile['total_issues'] === 1 ? '' : 'S' }}</span>
         @else
-            <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $chip['healthy'] }}">QUIET</span>
+            <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip['healthy'] }}">QUIET</span>
         @endif
     </div>
 
@@ -118,11 +118,11 @@
         </p>
     @elseif(! empty($sentryTile['error']))
         <p class="text-xs text-amber-300">{{ $sentryTile['error'] }}</p>
-        <p class="text-[10px] text-slate-600 mt-1">Cached — the dashboard retries on the next TTL window ({{ config('ops.sentry.cache_minutes', 10) }} min). Local error tracking is unaffected.</p>
+        <p class="text-xs text-slate-600 mt-1">Cached — the dashboard retries on the next TTL window ({{ config('ops.sentry.cache_minutes', 10) }} min). Local error tracking is unaffected.</p>
     @elseif(empty($sentryTile['issues']) || count($sentryTile['issues']) === 0)
         <p class="text-xs text-slate-500">No unresolved Sentry issues in the last 24 hours.</p>
     @else
-        <p class="text-[11px] text-slate-500 mb-2">
+        <p class="text-xs text-slate-500 mb-2">
             {{ $sentryTile['total_issues'] }} issue(s) · {{ $sentryTile['total_events'] }} events · ~{{ $sentryTile['total_users'] }} users affected (24 h)
         </p>
         <ul class="space-y-2">
@@ -133,7 +133,7 @@
                         {{ \Illuminate\Support\Str::limit($issue['title'], 64) }}
                         <span class="text-slate-600">↗</span>
                     </a>
-                    <div class="text-[10px] text-slate-600 mt-0.5">
+                    <div class="text-xs text-slate-600 mt-0.5">
                         {{ $issue['count'] }}× · ~{{ $issue['user_count'] }} users
                         @if($issue['culprit'] !== '') · <span class="font-mono">{{ \Illuminate\Support\Str::limit($issue['culprit'], 40) }}</span>@endif
                         @if($issue['project'] !== '') · {{ $issue['project'] }}@endif
@@ -149,7 +149,7 @@
     @include('ops.partials.sentry-trend')
 
     @if(! empty($sentryTile['configured']))
-        <p class="text-[10px] text-slate-600 mt-3">
+        <p class="text-xs text-slate-600 mt-3">
             Headlines only — stack traces and release tagging live in
             <a href="{{ app(\App\Ops\Services\SentryApiClient::class)->issuesUrl() }}" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300">Sentry ↗</a>
         </p>

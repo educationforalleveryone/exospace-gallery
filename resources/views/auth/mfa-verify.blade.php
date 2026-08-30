@@ -1,11 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">MFA Verification</h2>
+        <x-page-header title="MFA Verification" description="Enter the 6-digit code from your authenticator app to access the super-admin panel."/>
     </x-slot>
 
 <div class="max-w-md mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold text-white mb-2">Enter Your Authenticator Code</h1>
-    <p class="text-sm text-gray-400 mb-6">Enter the 6-digit code from your authenticator app to access the super-admin panel.</p>
 
     @if(session('info'))
         <div class="mb-4 rounded-lg bg-blue-500/10 border border-blue-500/30 px-4 py-3 text-sm text-blue-300">{{ session('info') }}</div>

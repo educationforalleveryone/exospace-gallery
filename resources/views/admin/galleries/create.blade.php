@@ -98,7 +98,7 @@
     cursor: pointer;
 }
 .venue-card-inner:hover {
-    border-color: #7c3aed;
+    border-color: #7c3aed; /* = brand-600 */
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(124, 58, 237, 0.2);
 }
@@ -172,7 +172,7 @@
 }
 .venue-plan-badge {
     display: inline-block;
-    font-size: 10px;
+    font-size: 0.75rem; /* 12px text floor (ITERATION-7; was 10px here, 9px in edit) */
     font-weight: 700;
     letter-spacing: 0.06em;
     padding: 2px 7px;
@@ -180,9 +180,9 @@
     text-transform: uppercase;
     margin-top: 4px;
 }
-.venue-plan-badge-free    { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
-.venue-plan-badge-pro     { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
-.venue-plan-badge-studio  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+.venue-plan-badge-free    { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+.venue-plan-badge-pro     { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.4); }
+.venue-plan-badge-studio  { background: rgba(245,158,11,0.12); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
 </style>
 
 @php
@@ -231,7 +231,7 @@ $venueAtmospheres = [
                 <div class="venue-lock-overlay">
                     <div style="text-align:center">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 4px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-                        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;text-transform:uppercase;">{{ ucfirst($venue->plan_required) }}</div>
+                        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;text-transform:uppercase;">{{ ucfirst($venue->plan_required) }}</div>
                     </div>
                 </div>
                 @endif
@@ -252,7 +252,7 @@ $venueAtmospheres = [
                 {{-- Meta --}}
                 <div class="venue-meta">
                     <div style="font-size:12px;font-weight:600;color:#e5e7eb;line-height:1.3;">{{ $venue->name }}</div>
-                    <div style="font-size:10px;color:#6b7280;margin-top:2px;">{{ $venue->capacityLabel() }}</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">{{ $venue->capacityLabel() }}</div>
                     <span class="venue-plan-badge {{ $badgeClass }}">{{ ucfirst($venue->plan_required) }}</span>
                 </div>
 
@@ -266,7 +266,7 @@ $venueAtmospheres = [
     <div id="venue-info-accent" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
     <div>
         <div id="venue-info-name" style="font-size:13px;font-weight:600;color:#e5e7eb;"></div>
-        <div id="venue-info-desc" style="font-size:11px;color:#9ca3af;margin-top:1px;"></div>
+        <div id="venue-info-desc" style="font-size:12px;color:#9ca3af;margin-top:1px;"></div>
     </div>
 </div>
                     </div>
@@ -313,7 +313,7 @@ $venueAtmospheres = [
                                     <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                     <p class="text-sm text-gray-400">Add ambient audio to your gallery — ambient soundscapes, custom tracks, anything MP3.</p>
                                 </div>
-                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-brand-400 hover:text-brand-300 border border-brand-600/40 hover:border-brand-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
                                     Pro — $29
                                 </a>
                             </div>
@@ -352,7 +352,7 @@ $venueAtmospheres = [
                                     <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                     <p class="text-sm text-gray-400">Set an opening date — visitors see a live countdown. Close it automatically after the run ends.</p>
                                 </div>
-                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-brand-400 hover:text-brand-300 border border-brand-600/40 hover:border-brand-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
                                     Pro — $29
                                 </a>
                             </div>
@@ -367,7 +367,7 @@ $venueAtmospheres = [
                             {{-- ITERATION-2: set the expectation of the draft→publish flow. --}}
                             Created as a private draft — you'll upload artworks and hit “Publish” on the next screen.
                         </p>
-                        <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-100 font-semibold py-2 px-6 rounded-lg transition">
+                        <a href="{{ route('admin.galleries.index') }}" class="btn btn-secondary">
                             Cancel
                         </a>
                         <button type="submit" id="create-gallery-btn"
@@ -497,7 +497,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
 <div id="create-debug-panel" style="display:none; position:fixed; bottom:1rem; right:1rem; background:#111827; border:1px solid #374151; border-radius:12px; padding:1rem 1.25rem; max-width:calc(100vw - 2rem); font-size:0.78rem; font-family:monospace; box-shadow:0 20px 40px rgba(0,0,0,0.5);" class="z-[100]">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
         <span style="color:#f59e0b; font-weight:700; font-size:0.8rem;">Submitted values</span>
-        <button data-click="closeDebugPanel" style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:1rem;">x</button>
+        <button data-click="closeDebugPanel" class="btn btn-icon btn-ghost" style="font-size:1rem;">x</button>
     </div>
     <table id="create-debug-table" style="border-collapse:collapse;width:100%;"></table>
     <p style="color:#6b7280;margin-top:0.5rem;font-size:0.72rem;">If a 500 occurs, check your server log — the error message is now logged. This panel shows what was sent.</p>

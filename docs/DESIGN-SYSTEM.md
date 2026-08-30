@@ -103,7 +103,7 @@ Rules: minimum UI size `text-xs` (12px) — no `text-[10px]`/`text-[11px]` in ne
 
 ## 3. Buttons
 
-One base, five variants, three sizes. One **primary** button per view.
+One base, six variants, three sizes. One **primary** button per view.
 
 ```blade
 <button class="btn btn-primary">Save changes</button>      {{-- primary action --}}
@@ -111,6 +111,9 @@ One base, five variants, three sizes. One **primary** button per view.
 <button class="btn btn-ghost">Advanced</button>            {{-- quietest --}}
 <button class="btn btn-danger">Delete gallery</button>     {{-- destructive --}}
 <button class="btn btn-danger-ghost btn-sm">Remove</button>{{{{-- quiet destructive (rows) --}}
+<button class="btn btn-brand-tint">Pro — $29</button>      {{-- brand-flavored quiet (iteration 7):
+     plan upsells, workspace switch, "open live" — brand accent without
+     the weight of a second primary. Replaces the 9 hand-rolled idioms. --}}
 <button class="btn btn-primary btn-lg">Create gallery</button>
 <button class="btn btn-icon btn-ghost" aria-label="Copy link"><svg…></button>
 
@@ -120,7 +123,11 @@ One base, five variants, three sizes. One **primary** button per view.
 </button>
 ```
 
-Disabled = `disabled:opacity-50 disabled:pointer-events-none` (built into `.btn`). Never fake-disable with inline opacity styles; for links that must look disabled, add `aria-disabled="true"`.
+Disabled = `disabled:opacity-50 disabled:pointer-events-none` (built into `.btn`). Never fake-disable with inline opacity styles; for links that must look disabled, add `aria-disabled="true"` — or better, use a real `disabled` button when the control is state-shaped (iteration 7 migrated the pricing "Your Current Plan ✓" markers from `aria-disabled` spans to real disabled buttons).
+
+**Quiet inline controls (iteration 7).** Two sanctioned non-`.btn` idioms remain:
+- Text-style links that are form submits or row toggles inside dense meta lines / table rows get a hit-area wrapper: `class="p-1.5 -m-1 rounded … hover:bg-white/[0.06]"` — keeps the quiet look, brings the effective target to ≈32px.
+- Everything else graduates to the kit. No new bare `bg-brand-600 … rounded-lg px-4 py-2` buttons anywhere.
 
 ---
 
@@ -198,7 +205,7 @@ Every table sits in `.table-wrap` (scroll on mobile — content is never clipped
 
 **Menus** — panels `.menu-panel`, rows `.menu-item` (or `<x-dropdown-link>`), group labels `.menu-header`, dividers `.menu-separator`. Trigger buttons carry `aria-haspopup`, `:aria-expanded`, `aria-controls`.
 
-**Modals** — scrim `.modal-backdrop`, panel `.modal-panel` with `.modal-header` / `.modal-body` / `.modal-footer`. Widths: `max-w-md` confirm · `max-w-lg` form · `max-w-2xl` large. Destructive confirmations use `<x-confirm-modal>` (type-to-confirm). Ad-hoc `style="display:none"` overlays are legacy and migrate to `<x-modal>`.
+**Modals** — scrim `.modal-backdrop`, panel `.modal-panel` with `.modal-header` / `.modal-body` / `.modal-footer`. Widths: `max-w-md` confirm · `max-w-lg` form · `max-w-2xl` large. Destructive confirmations use `<x-confirm-modal>` (type-to-confirm). Ad-hoc `style="display:none"` overlays are legacy and migrate to `<x-modal>`. The chrome X is `.modal-close` (iteration 7 — one definition; was re-declared inline on 9 dialogs with drifting text colors). Inline `style="z-index:…"` on overlays is forbidden — use the safelisted ladder classes (`z-[45]`, `z-[60]`…).
 
 **Operational status language (Iteration 2)** — the four-state vocabulary for OpsCenter, Control Center and Master Control. Always dot + word — never color alone. Rendered via `<x-status-badge>` (alias map included: ok/passed→healthy, degraded/flaky→warning, failed/overdue/down→critical, queued/pending→unknown, running→info):
 
@@ -245,7 +252,7 @@ Classes (`.status`, `.status-dot`, `.status-healthy|warning|critical|info|unknow
 1. **Focus:** global `:focus-visible` ring (brand, 2px, offset 2) in `app.css` covers *everything*, including hand-rolled controls. Do not remove visible focus for aesthetics; inputs opt out (border+ring instead).
 2. **Touch targets:** minimum 32px (`btn-sm`), preferably 40px (`h-9`/`h-10`).
 3. **Icon-only buttons** always carry `aria-label`.
-4. **Semantics:** `<button>` for actions, `<a>` for navigation — never clickable `<div>`s, never `<span class="btn">` (pricing page legacy is queued for migration).
+4. **Semantics:** `<button>` for actions, `<a>` for navigation — never clickable `<div>`s, never `<span class="btn">` (the pricing-page legacy was migrated to real `disabled` buttons in iteration 7).
 5. **Dialogs:** `role="dialog"`, `aria-modal`, labelled; Escape and backdrop click close; focus is trapped (`<x-modal>`, `<x-confirm-modal>`).
 6. **Menus:** `role="menu"` + arrow-key navigation (`<x-dropdown>`).
 7. **Active nav:** `aria-current="page"` (`<x-nav-link>`).
@@ -322,4 +329,13 @@ Marked so far: feedback widget, command palette, Master Control delete/admin typ
 - **The one-accent rule now holds app-wide.** The remaining `purple-*`/`indigo-*`/`green-*`/`yellow-*` tokens on the app surface (admin, Master Control, dashboard, billing, profile, auth, shared components) were remapped same-shade to `brand-*` / `emerald-*` / `amber-*` in iteration 6 (~450 tokens, 52 files). Same-hue-family shifts only — no layout, geometry, or component recipes changed.
 - **Categorical data colors are exempt from the one-accent rule.** Where a hue distinguishes data categories (Master Control's `$statTones` tone keys, the galleries-analytics stat-icon map, QA flaky/perma-red kind colors, Chart.js canvas series), hues stay distinct — a second voice that labels a *data category* is doing real work. Never remap a categorical map mechanically; check for key collisions first (the `$statTones` `indigo` key was kept precisely because its `purple` sibling already resolves to brand).
 - **Documented sub-brands unchanged:** OpsCenter/Control Center slate skins with their per-section hue coding (Actions=amber, Credentials=sky, Access=indigo in ops/layout); the 3D runtime (`gallery/view`).
-- **Dead-brand watch:** if a component carries a retired gradient (the pre-iteration-1 `purple-400→indigo-400` wordmark survived on `teams/invitation-expired` and the unused `application-logo` until iteration 6), sweep for it when touching the component family — the logo treatment is `.logo-text`, never a page-local gradient.
+- **Dead-brand watch:** if a component carries a retired gradient (the pre-iteration-1 `purple-400→indigo-400` wordmark survived on `teams/invitation-expired` and the unused `application-logo` until iteration 6), sweep for it when touching the component family — the logo treatment is `.logo-text`, never a page-local gradient. The same failure mode hides in page `<style>` blocks and JS template literals: iteration 7 retired the reorder-bar `linear-gradient(#9333ea, #6366f1)` save button, the `#a855f7` dropzone/venue-selection hexes, and the dead `.custom-checkbox` rule in the gallery editor.
+
+### Button-kit completion & quiet-control contract (iteration 7)
+
+- **`.btn-brand-tint`** is the sixth variant: brand-flavored quiet action (`bg-brand-600/15 border-brand-600/40 text-brand-300`). Use it where `.btn-secondary` is too neutral and a second primary would over-weight the view — plan upsells, "Switch here", "Open public view".
+- **`.modal-close`** is the one dialog X. Never re-declare the 32px rounded ghost square inline again.
+- **Button graduation is complete on the app surface.** Every `<button>`/`<a>` styled as a control uses the kit, except the two sanctioned quiet-inline idioms (§3). Sub-32px form submits are bugs (profile OAuth "Unlink" was a ~16px submit — now `btn-sm btn-danger-ghost`).
+- **Text floor is global, including ops partials and standalone page CSS** (venue-picker badges were 9px in edit and 10px in create with two drifting recipes — now one 12px recipe). `invoices/pdf` 11px print body remains exempt.
+- **Native dialogs are banned everywhere, including the 3D runtime**: `window.prompt`/`alert()`/`confirm()` → toast / clipboard fallback / `exospaceConfirm` (gallery share fallback now uses select-and-copy; the tour uses a toast).
+- **One heading per view:** auth pages carry `sr-only` h1s (or a real one, register); MFA setup/verify merged their duplicate h2+h1 into `<x-page-header>`; `mfa-backup-codes`' `<h1>…</h2>` tag mismatch fixed.

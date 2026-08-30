@@ -10,7 +10,7 @@
 </p>
 
 <form method="GET" class="mb-4 text-sm">
-    <select name="profile" class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2">
+    <select name="profile" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
         <option value="">All profiles</option>
         @foreach ($profiles as $key => $label)
             <option value="{{ $key }}" @selected(request('profile') === $key)>{{ $label }}</option>

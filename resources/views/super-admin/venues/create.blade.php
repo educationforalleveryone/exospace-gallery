@@ -10,8 +10,8 @@
             @include('super-admin.venues._form-fields', ['venue' => $venue, 'categories' => $categories, 'layouts' => $layouts])
 
             <div class="flex justify-end gap-3 pt-2">
-                <a href="{{ route('super.venues.index') }}" class="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 text-sm transition">Cancel</a>
-                <button type="submit" class="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition">Create venue</button>
+                <a href="{{ route('super.venues.index') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Create venue</button>
             </div>
         </form>
     </div>

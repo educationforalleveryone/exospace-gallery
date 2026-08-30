@@ -37,7 +37,8 @@ export class GuidedTour {
     start(atIndex = 0) {
         this.artworks = this.scene.artworks.slice();
         if (this.artworks.length === 0) {
-            alert('No artworks to tour in this gallery.');
+            // ITERATION-7: native alert() replaced by the page toast
+            if (window.toast) window.toast('No artworks to tour in this gallery.', 'info');
             return;
         }
         this.active = true;

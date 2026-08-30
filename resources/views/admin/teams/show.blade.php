@@ -98,7 +98,7 @@
                                         <div x-data="{ confirming: false }" class="flex items-center">
                                             <template x-if="!confirming">
                                                 <button @click="confirming = true" type="button"
-                                                        class="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-red-400 transition hover:bg-red-900/20 rounded-lg" title="Remove from team" aria-label="Remove {{ $member->name }} from team">
+                                                        class="btn btn-icon text-gray-600 hover:text-red-400 hover:bg-red-900/20" title="Remove from team" aria-label="Remove {{ $member->name }} from team">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                                 </button>
                                             </template>
@@ -108,9 +108,9 @@
                                                     <form action="{{ route('admin.teams.remove-member', $team) }}" method="POST" class="inline">
                                                         @csrf @method('DELETE')
                                                         <input type="hidden" name="user_id" value="{{ $member->id }}">
-                                                        <button type="submit" class="inline-flex items-center h-7 px-2.5 rounded-md text-red-400 hover:text-red-200 text-xs font-semibold bg-red-600/10 hover:bg-red-600/20 transition">Yes</button>
+                                                        <button type="submit" class="btn btn-sm btn-danger-ghost">Yes</button>
                                                     </form>
-                                                    <button @click="confirming = false" type="button" class="inline-flex items-center h-7 px-2.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition">No</button>
+                                                    <button @click="confirming = false" type="button" class="btn btn-sm btn-ghost">No</button>
                                                 </div>
                                             </template>
                                         </div>
@@ -204,9 +204,9 @@
                                             <span class="text-red-300 text-xs">Revoke?</span>
                                             <form action="{{ route('admin.teams.revoke-invitation', [$team, $inv]) }}" method="POST" class="inline">
                                                 @csrf @method('DELETE')
-                                                <button type="submit" class="inline-flex items-center h-7 px-2.5 rounded-md text-red-400 hover:text-red-200 text-xs font-semibold bg-red-600/10 hover:bg-red-600/20 transition">Yes</button>
+                                                <button type="submit" class="btn btn-sm btn-danger-ghost">Yes</button>
                                             </form>
-                                            <button @click="confirming = false" type="button" class="inline-flex items-center h-7 px-2.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition">No</button>
+                                            <button @click="confirming = false" type="button" class="btn btn-sm btn-ghost">No</button>
                                         </div>
                                     </template>
                                 </div>

@@ -17,7 +17,7 @@
                         <span class="text-gray-700">·</span>
                         <form action="{{ route('admin.teams.switch-personal') }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" class="text-gray-600 hover:text-gray-400 transition text-xs underline underline-offset-2">Personal workspace</button>
+                            <button type="submit" class="p-1.5 -m-1 rounded text-xs text-gray-600 hover:text-gray-400 underline underline-offset-2 transition">Personal workspace</button>
                         </form>
                     @else
                         <span class="mx-1.5 text-gray-700">·</span>
@@ -119,14 +119,14 @@
                             {{-- Step 2 --}}
                             <div class="flex items-center gap-2 text-gray-100 text-sm font-semibold">
                                 <div class="w-5 h-5 rounded-full bg-brand-600 border border-brand-400 flex items-center justify-center flex-shrink-0 animate-pulse">
-                                    <span class="text-white" style="font-size:10px;font-weight:700">2</span>
+                                    <span class="text-white" style="font-size:12px;font-weight:700">2</span>
                                 </div>
                                 Create a gallery
                             </div>
                             {{-- Step 3 --}}
                             <div class="flex items-center gap-2 text-gray-500 text-sm">
                                 <div class="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center flex-shrink-0">
-                                    <span class="text-gray-500" style="font-size:10px;font-weight:700">3</span>
+                                    <span class="text-gray-500" style="font-size:12px;font-weight:700">3</span>
                                 </div>
                                 Share &amp; get views
                             </div>
@@ -254,7 +254,7 @@
                                 </div>
                                 @if($activeCount > 0 && $topGallery)
                                     <button data-click="dashboardShare" data-args='[{{ json_encode([route('gallery.view', $topGallery->slug), $topGallery->title]) }}]'
-                                            class="flex-shrink-0 inline-flex items-center gap-1.5 text-xs bg-brand-600/20 hover:bg-brand-600/40 text-brand-300 border border-brand-600/30 px-3 py-2 rounded-lg transition">
+                                            class="btn btn-sm btn-brand-tint flex-shrink-0">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                                         Share gallery
                                     </button>
@@ -405,17 +405,17 @@
                         </div>
                         <div class="grid grid-cols-3 gap-2">
                             <a href="{{ route('gallery.view', $topGallery->slug) }}" target="_blank"
-                               class="flex items-center justify-center gap-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 rounded-lg transition">
+                               class="btn btn-sm btn-secondary">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                 View
                             </a>
                             <button data-click="dashboardShare" data-args='[{{ json_encode([route('gallery.view', $topGallery->slug), $topGallery->title]) }}]'
-                                    class="flex items-center justify-center gap-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 rounded-lg transition">
+                                    class="btn btn-sm btn-secondary">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                                 Share
                             </button>
                             <a href="{{ route('admin.galleries.analytics', $topGallery) }}"
-                               class="flex items-center justify-center gap-1 text-xs bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 text-gray-200 py-2 rounded-lg transition">
+                               class="btn btn-sm btn-secondary">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                                 Stats
                             </a>
@@ -503,7 +503,7 @@
         <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-6 max-w-md w-full shadow-modal">
             <div class="flex items-center justify-between mb-4">
                 <h3 id="dashboard-share-title" class="text-lg font-bold text-gray-100">Share Gallery</h3>
-                <button data-click="closeDashboardShare" class="flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/[0.06] transition" aria-label="Close">
+                <button data-click="closeDashboardShare" class="modal-close" aria-label="Close">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>

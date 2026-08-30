@@ -27,7 +27,8 @@
          role="status"
          aria-live="polite"
          aria-label="Loading exhibitions"
-         style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.7); backdrop-filter:blur(4px); z-index:45; align-items:center; justify-content:center;">
+         style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.7); backdrop-filter:blur(4px); align-items:center; justify-content:center;"
+         class="z-[45]">
         <div style="text-align:center;">
             <div style="display:inline-block; width:40px; height:40px; border:3px solid rgba(167,139,250,0.2); border-top-color:#a78bfa; border-radius:50%; animation: discover-spin 0.8s linear infinite;"></div>
             <p style="margin-top:12px; color:#a78bfa; font-size:14px; font-weight:500;">Loading exhibitions&hellip;</p>

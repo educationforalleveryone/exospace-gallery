@@ -48,7 +48,7 @@
         #preview-badge {
             position: fixed; top: 12px; right: 12px;
             background: rgba(139, 92, 246, 0.85);
-            color: #fff; font-size: 11px; font-weight: 600;
+            color: #fff; font-size: 12px; font-weight: 600;
             padding: 4px 10px; border-radius: 999px;
             letter-spacing: 0.04em; text-transform: uppercase;
             z-index: 30; pointer-events: none;
@@ -81,7 +81,7 @@
         }
         #preview-loading-fill {
             height: 100%; width: 0%;
-            background: linear-gradient(90deg, #8b5cf6, #6366f1);
+            background: linear-gradient(90deg, #7c3aed, #8b5cf6); /* brand-600 → brand-500 (was brand→indigo-500 mix) */
             transition: width 0.2s ease;
         }
         #preview-loading-text {

@@ -1,11 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Set Up Multi-Factor Authentication</h2>
+        <x-page-header title="Set Up Multi-Factor Authentication" description="MFA is required for super-admin accounts. Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.)."/>
     </x-slot>
 
 <div class="max-w-md mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold text-white mb-2">Set Up Multi-Factor Authentication</h1>
-    <p class="text-sm text-gray-400 mb-6">MFA is required for super-admin accounts. Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.).</p>
 
     @if(session('warning'))
         <div class="mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-300">{{ session('warning') }}</div>

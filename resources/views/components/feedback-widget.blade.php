@@ -7,7 +7,7 @@
 <div x-data="{ open: false, submitting: false, success: false, category: 'bug', message: '' }"
      x-cloak
      x-effect="document.body.classList.toggle('overflow-y-hidden', open); if (open) $nextTick(() => $refs.panel && $refs.panel.focus())"
-     style="position: fixed; bottom: 24px; right: 24px; z-index: 45;">
+     class="fixed bottom-6 right-6 z-[45]">
 
     {{-- Floating button — z-[45] persistent-overlay tier: sits above chrome,
          under dropdowns/modals/toasts so it can never bury feedback. --}}
@@ -28,8 +28,7 @@
     <div x-show="open"
          x-transition
          data-focus-trap
-         class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
-         style="z-index: 60;"
+         class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
          role="dialog"
          aria-modal="true"
          aria-labelledby="feedback-widget-title"
@@ -42,7 +41,7 @@
             {{-- Header --}}
             <div class="flex items-center justify-between mb-4">
                 <h3 id="feedback-widget-title" class="text-lg font-bold text-white">Send Feedback</h3>
-                <button @click="open = false" class="flex items-center justify-center w-8 h-8 -me-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition" aria-label="Close">
+                <button @click="open = false" class="modal-close -me-2" aria-label="Close">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
@@ -54,7 +53,7 @@
                 </div>
                 <p class="text-white font-semibold text-lg mb-1">Thank you!</p>
                 <p class="text-gray-400 text-sm">Your feedback has been sent to our team.</p>
-                <button @click="open = false" class="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm transition">Close</button>
+                <button @click="open = false" class="btn btn-secondary mt-4">Close</button>
             </div>
 
             {{-- Form --}}

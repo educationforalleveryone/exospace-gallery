@@ -8,19 +8,19 @@
      never throws). ───────────────────────────────────────────────────────--}}
 @if($sweepStatus !== null && (count($sweepStatus['checks']) > 0 || count($sweepStatus['ignored']) > 0))
 <section class="mb-10">
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-1">Sweep cadences — what the watch actually does</h2>
+    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">Sweep cadences — what the watch actually does</h2>
     <p class="text-xs text-slate-500 mb-3">
         The autonomous sweep runs every {{ $sweepStatus['interval_minutes'] }} minutes. Cadences throttle probing
         <em>while a check is healthy</em>; a check with an open finding is probed every sweep regardless, so recovery
         is never delayed. Measure "last probed" here over a few days before tuning
-        <span class="font-mono text-[10px]">OPS_SWEEP_CADENCES</span>.
+        <span class="font-mono text-xs">OPS_SWEEP_CADENCES</span>.
         @unless($sweepStatus['enabled'])
             <span class="text-amber-300 font-semibold">The sweep is currently DISABLED (OPS_SWEEP_ENABLED=false).</span>
         @endunless
     </p>
     <div class="overflow-x-auto rounded-lg border border-slate-800">
         <table class="w-full text-sm">
-            <thead class="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider">
+            <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
                 <tr>
                     <th class="text-left px-4 py-3">Check</th>
                     <th class="text-left px-4 py-3">Cadence</th>
@@ -33,10 +33,10 @@
                     <tr class="hover:bg-slate-900/60">
                         <td class="px-4 py-3">
                             <span class="text-slate-200 font-medium">{{ $check['label'] }}</span>
-                            <span class="text-slate-600 font-mono text-[10px] ml-2">{{ $check['id'] }}</span>
+                            <span class="text-slate-600 font-mono text-xs ml-2">{{ $check['id'] }}</span>
                         </td>
                         <td class="px-4 py-3">
-                            <span class="text-[10px] px-2 py-1 rounded border {{ $check['cadence_minutes'] !== null ? 'bg-sky-950/50 text-sky-300 border-sky-800/50' : 'bg-slate-800/60 text-slate-400 border-slate-600/50' }} font-semibold">
+                            <span class="text-xs px-2 py-1 rounded border {{ $check['cadence_minutes'] !== null ? 'bg-sky-950/50 text-sky-300 border-sky-800/50' : 'bg-slate-800/60 text-slate-400 border-slate-600/50' }} font-semibold">
                                 {{ $check['cadence_label'] }}
                             </span>
                         </td>
@@ -50,9 +50,9 @@
                         </td>
                         <td class="px-4 py-3">
                             @if($check['has_open_event'])
-                                <span class="text-[10px] font-bold px-2 py-1 rounded border bg-red-950/60 text-red-300 border-red-700/50">OPEN — probed every sweep</span>
+                                <span class="text-xs font-bold px-2 py-1 rounded border bg-red-950/60 text-red-300 border-red-700/50">OPEN — probed every sweep</span>
                             @else
-                                <span class="text-[10px] px-2 py-1 rounded border bg-emerald-950/60 text-emerald-300 border-emerald-700/50 font-semibold">none</span>
+                                <span class="text-xs px-2 py-1 rounded border bg-emerald-950/60 text-emerald-300 border-emerald-700/50 font-semibold">none</span>
                             @endif
                         </td>
                     </tr>

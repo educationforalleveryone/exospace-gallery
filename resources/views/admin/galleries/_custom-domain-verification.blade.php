@@ -74,7 +74,7 @@
             <form method="POST" action="{{ route('admin.galleries.verify-domain', $gallery) }}" class="mt-3">
                 @csrf
                 <button type="submit"
-                        class="inline-flex items-center rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-500">
+                        class="btn btn-sm btn-primary">
                     Verify domain now
                 </button>
             </form>

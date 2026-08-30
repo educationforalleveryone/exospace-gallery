@@ -41,12 +41,12 @@
             <div class="min-w-[210px] pt-1">
                 <div class="flex items-center gap-3 text-xs text-slate-300">
                     <label class="inline-flex items-center gap-1.5 cursor-pointer" title="Read-only: everything visible, nothing executable">
-                        <input type="radio" name="level" value="viewer" checked class="accent-cyan-500">
+                        <input type="radio" name="level" value="viewer" checked class="h-4 w-4 accent-cyan-500">
                         <span class="text-cyan-300 font-medium">Viewer</span>
                         <span class="text-slate-500">read-only</span>
                     </label>
                     <label class="inline-flex items-center gap-1.5 cursor-pointer" title="Read + run the read-only diagnostics (audited)">
-                        <input type="radio" name="level" value="operator" class="accent-amber-500">
+                        <input type="radio" name="level" value="operator" class="h-4 w-4 accent-amber-500">
                         <span class="text-amber-300 font-medium">Operator</span>
                         <span class="text-slate-500">+ run diagnostics</span>
                     </label>

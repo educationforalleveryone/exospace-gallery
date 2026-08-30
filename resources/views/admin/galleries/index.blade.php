@@ -36,7 +36,7 @@
                 </span>
             @else
                 <button data-click="openModal" data-arg="upgrade-modal"
-                        class="bg-gradient-to-r from-brand-600/80 to-brand-600/80 hover:from-brand-600 hover:to-brand-600 text-white font-semibold py-2 px-5 rounded-lg transition inline-flex items-center cursor-pointer gap-2 flex-shrink-0">
+                        class="btn btn-primary flex-shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                     Upgrade for more
                 </button>
@@ -330,7 +330,7 @@
         <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-8 max-w-lg w-full shadow-modal">
             <div class="flex items-center justify-between mb-6">
                 <h3 id="share-modal-title" class="section-title text-lg">Share Gallery</h3>
-                <button data-click="closeModalById" data-arg="share-modal" class="flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/[0.06] transition" aria-label="Close">
+                <button data-click="closeModalById" data-arg="share-modal" class="modal-close" aria-label="Close">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>

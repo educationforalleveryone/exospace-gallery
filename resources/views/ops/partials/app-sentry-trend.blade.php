@@ -59,7 +59,7 @@
     {{-- Honest degradation: the mapped project's stats call failed (bad
          slug, missing scope, rate limit) — one amber word, reason in the
          tooltip. Silence would read exactly like "no errors". --}}
-    <span class="text-[10px] text-amber-400/90 font-semibold" title="{{ $trend['error'] }}">API error</span>
+    <span class="text-xs text-amber-400/90 font-semibold" title="{{ $trend['error'] }}">API error</span>
 @elseif($fetched)
     {{-- Configured, mapped, no error, but no usable series either — the
          practical edge; treat as a quiet day rather than a failure. --}}
@@ -68,7 +68,7 @@
     {{-- Mapped, but the API token is not configured: the mapping can be
          saved ahead of the token, and the cell says so instead of
          claiming a zero-error day. --}}
-    <span class="text-[10px] text-slate-600" title="Mapped, but SENTRY_API_TOKEN is not configured — no trend until it is set">—</span>
+    <span class="text-xs text-slate-600" title="Mapped, but SENTRY_API_TOKEN is not configured — no trend until it is set">—</span>
 @else
-    <span class="text-[10px] text-slate-600" title="Map this application to a Sentry project below (super-admin)">—</span>
+    <span class="text-xs text-slate-600" title="Map this application to a Sentry project below (super-admin)">—</span>
 @endif

@@ -74,7 +74,7 @@
             min-width: 2.5ch;
         }
         .countdown-label {
-            font-size: 0.65rem;
+            font-size: 0.75rem; /* 12px floor (ITERATION-7; was 0.65rem) */
             text-transform: uppercase;
             letter-spacing: 0.1em;
             color: #4b5563;

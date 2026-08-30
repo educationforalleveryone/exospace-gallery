@@ -723,7 +723,7 @@
          @keydown.escape.window="open = false; typed = ''"
          @click.self="open = false; typed = ''">
         <div class="bg-gray-800 border border-red-700/50 rounded-xl max-w-md w-full shadow-modal p-6 relative">
-            <button @click="open = false; typed = ''" class="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition" aria-label="Close">
+            <button @click="open = false; typed = ''" class="modal-close absolute top-3 right-3" aria-label="Close">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
             <h3 id="delete-modal-heading" class="text-lg font-bold text-red-400 mb-3">Permanently Delete User</h3>
@@ -769,7 +769,7 @@
          @keydown.escape.window="open = false; typed = ''"
          @click.self="open = false; typed = ''">
         <div class="bg-gray-900 border border-brand-700/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
-            <button @click="open = false; typed = ''" class="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition" aria-label="Close">
+            <button @click="open = false; typed = ''" class="modal-close absolute top-3 right-3" aria-label="Close">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
             <h3 id="admin-modal-heading" class="text-lg font-bold text-brand-400 mb-3"

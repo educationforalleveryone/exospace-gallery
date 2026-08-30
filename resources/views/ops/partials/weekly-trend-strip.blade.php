@@ -32,9 +32,9 @@
 
 <div class="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
     <div class="flex items-center justify-between mb-1">
-        <span class="text-[10px] uppercase tracking-wider text-slate-500">Errors by week — from review snapshots</span>
+        <span class="text-xs uppercase tracking-wider text-slate-500">Errors by week — from review snapshots</span>
         @if($bars->isNotEmpty())
-            <span class="text-[10px] text-slate-500 font-mono">{{ $bars->count() }} week{{ $bars->count() === 1 ? '' : 's' }} recorded</span>
+            <span class="text-xs text-slate-500 font-mono">{{ $bars->count() }} week{{ $bars->count() === 1 ? '' : 's' }} recorded</span>
         @endif
     </div>
 
@@ -77,7 +77,7 @@
             <span class="text-[9px] text-slate-600">{{ $bars->last()['label'] }}</span>
         </div>
     @else
-        <p class="text-[11px] text-slate-500 mt-1">
+        <p class="text-xs text-slate-500 mt-1">
             @if($bars->count() === 1)
                 One week recorded so far — the trend appears from the second Monday the review is sent.
             @else

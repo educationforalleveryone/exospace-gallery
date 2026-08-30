@@ -11,7 +11,7 @@
                         <span aria-hidden="true">·</span>
                         <form action="{{ route('admin.teams.switch-personal') }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" class="text-gray-600 hover:text-gray-400 transition underline underline-offset-2 text-xs">Switch to personal</button>
+                            <button type="submit" class="p-1.5 -m-1 rounded text-xs text-gray-600 hover:text-gray-400 underline underline-offset-2 transition">Switch to personal</button>
                         </form>
                     @else
                         <span class="text-gray-400">Personal</span>
@@ -85,16 +85,16 @@
                                 <span class="text-xs bg-brand-900/40 text-brand-400 border border-brand-800/40 px-1.5 py-0.5 rounded-full">Owner</span>
                             </div>
                             <div class="flex gap-2">
-                                <a href="{{ route('admin.teams.show', $team) }}" class="flex-1 text-center text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 px-3 rounded-lg transition">Manage</a>
+                                <a href="{{ route('admin.teams.show', $team) }}" class="btn btn-sm btn-secondary flex-1">Manage</a>
                                 @if(!$isActive)
                                 <form action="{{ route('admin.teams.switch', $team) }}" method="POST" class="flex-1">
                                     @csrf
-                                    <button type="submit" class="w-full text-xs bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 py-2 px-3 rounded-lg transition border border-brand-700/30">
+                                    <button type="submit" class="btn btn-sm btn-brand-tint w-full">
                                         Switch here
                                     </button>
                                 </form>
                                 @else
-                                <a href="{{ route('admin.galleries.index') }}" class="flex-1 text-center text-xs bg-gray-700/50 hover:bg-gray-700 text-gray-400 py-2 px-3 rounded-lg transition">
+                                <a href="{{ route('admin.galleries.index') }}" class="btn btn-sm btn-secondary flex-1">
                                     View galleries
                                 </a>
                                 @endif
@@ -134,16 +134,16 @@
                             <span class="text-gray-600 text-xs">{{ $role === 'editor' ? 'Can manage galleries' : 'View only' }}</span>
                         </div>
                         <div class="flex gap-2">
-                            <a href="{{ route('admin.teams.show', $team) }}" class="flex-1 text-center text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 px-3 rounded-lg transition">View</a>
+                            <a href="{{ route('admin.teams.show', $team) }}" class="btn btn-sm btn-secondary flex-1">View</a>
                             @if(!$isActive)
                             <form action="{{ route('admin.teams.switch', $team) }}" method="POST" class="flex-1">
                                 @csrf
-                                <button type="submit" class="w-full text-xs bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 py-2 px-3 rounded-lg transition border border-brand-700/30">
+                                <button type="submit" class="btn btn-sm btn-brand-tint w-full">
                                     Switch here
                                 </button>
                             </form>
                             @else
-                            <a href="{{ route('admin.galleries.index') }}" class="flex-1 text-center text-xs bg-gray-700/50 hover:bg-gray-700 text-gray-400 py-2 px-3 rounded-lg transition">
+                            <a href="{{ route('admin.galleries.index') }}" class="btn btn-sm btn-secondary flex-1">
                                 View galleries
                             </a>
                             @endif

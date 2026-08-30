@@ -43,10 +43,10 @@
                                 </div>
                             </div>
                             <div class="flex gap-2 flex-shrink-0">
-                                <a href="{{ route('admin.galleries.events.edit', [$gallery, $event]) }}" class="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-medium transition">Edit</a>
+                                <a href="{{ route('admin.galleries.events.edit', [$gallery, $event]) }}" class="btn btn-sm btn-secondary">Edit</a>
                                 <form method="POST" action="{{ route('admin.galleries.events.destroy', [$gallery, $event]) }}" data-confirm="Delete this event? All RSVPs will also be deleted.">
                                     @csrf @method('DELETE')
-                                    <button class="px-3 py-1.5 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-300 text-xs font-medium transition border border-red-800/40">Delete</button>
+                                    <button class="btn btn-sm btn-danger-ghost">Delete</button>
                                 </form>
                             </div>
                         </div>
@@ -57,7 +57,7 @@
             <div class="text-center py-12 bg-gray-800/50 rounded-xl border border-gray-700/50 mb-8">
                 <p class="text-gray-400 mb-1">No upcoming events.</p>
                 <p class="text-gray-600 text-sm mb-4">Host an opening reception, artist talk, or walkthrough.</p>
-                <a href="{{ route('admin.galleries.events.create', $gallery) }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition">
+                <a href="{{ route('admin.galleries.events.create', $gallery) }}" class="btn btn-primary">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Create event
                 </a>

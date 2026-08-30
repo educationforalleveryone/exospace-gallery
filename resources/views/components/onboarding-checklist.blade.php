@@ -58,8 +58,9 @@
             </svg>
             <h3 class="text-sm font-semibold text-brand-300">Get started with Exospace</h3>
         </div>
-        <button @click="dismissed = true; localStorage.setItem('exospace_onboarded', '1')"
-                class="text-gray-500 hover:text-gray-300 transition"
+        <button type="button"
+                @click="dismissed = true; localStorage.setItem('exospace_onboarded', '1')"
+                class="flex items-center justify-center w-8 h-8 -me-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition"
                 aria-label="Dismiss onboarding checklist">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>

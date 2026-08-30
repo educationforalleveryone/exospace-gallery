@@ -127,7 +127,7 @@
 <section class="mt-10 pt-8 border-t border-slate-800">
     <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
         <div>
-            <h1 class="text-xl font-semibold">Weekly Review</h1>
+            <h2 class="text-xl font-semibold">Weekly Review</h2>
             <p class="text-xs text-slate-400 mt-1">
                 The Monday deep-dive (Mondays 08:30, right behind the daily digest): trailing-7-day trends the daily cadence cannot show.
                 Informational — not a dead-man's switch; the daily digest + the watchdog carry the silence contract.

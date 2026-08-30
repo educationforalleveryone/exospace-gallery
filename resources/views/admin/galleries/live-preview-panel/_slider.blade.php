@@ -33,7 +33,9 @@
             <span class="text-xs text-gray-400 tabular-nums" data-lp-value-for="{{ $id }}">{{ $value }}</span>
             @if(!empty($unit))<span class="text-xs text-gray-500">{{ $unit }}</span>@endif
             <button type="button" data-lp-reset-for="{{ $id }}"
-                    class="text-xs text-gray-500 hover:text-brand-300 transition" title="Reset to venue default">↺</button>
+                    class="p-2 -m-1.5 rounded-md text-xs text-gray-500 hover:text-brand-300 hover:bg-white/[0.06] transition"
+                    title="Reset to venue default"
+                    aria-label="Reset {{ $label }} to venue default">↺</button>
         </div>
     </div>
 

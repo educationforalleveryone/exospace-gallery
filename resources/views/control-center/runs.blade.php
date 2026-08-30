@@ -6,13 +6,13 @@
 <h1 class="mb-6 text-2xl font-bold tracking-tight">Run History</h1>
 
 <form class="mb-4 flex flex-wrap gap-3 text-sm" method="GET">
-    <select name="profile" class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2">
+    <select name="profile" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
         <option value="">All profiles</option>
         @foreach ($profiles as $key => $label)
             <option value="{{ $key }}" @selected(request('profile') === $key)>{{ $label }}</option>
         @endforeach
     </select>
-    <select name="status" class="rounded-md border border-slate-700 bg-slate-900 px-3 py-2">
+    <select name="status" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
         <option value="">Any status</option>
         @foreach (['passed','failed','running','queued','blocked','not_executed','cancelled','timed_out'] as $s)
             <option value="{{ $s }}" @selected(request('status') === $s)>{{ strtoupper($s) }}</option>

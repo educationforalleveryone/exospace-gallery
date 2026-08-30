@@ -23,7 +23,7 @@
             <div class="flex items-center gap-2 mb-1.5">
                 <span class="text-xs font-bold px-2 py-1 rounded border {{ $sev['chip'] }}">{{ $sev['text'] }}</span>
                 <span class="text-xs px-2 py-1 rounded bg-slate-800 text-slate-400 uppercase">incident #{{ $incident->id }}</span>
-                <span class="text-xs px-2 py-1 rounded {{ $incident->status === 'open' ? 'bg-slate-800 text-slate-300' : ($incident->status === 'resolved' ? 'bg-slate-900 text-slate-500 border border-slate-800' : 'bg-indigo-950/60 text-indigo-300 border border-indigo-800/50') }}">{{ $incident->status }}</span>
+                <span class="text-xs px-2 py-1 rounded {{ $incident->status === 'open' ? 'bg-slate-800 text-slate-300' : ($incident->status === 'resolved' ? 'bg-slate-900 text-slate-500 border border-slate-800' : 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/50') }}">{{ $incident->status }}</span>
             </div>
             <h1 class="text-2xl font-semibold text-slate-50">{{ $incident->title }}</h1>
             <p class="text-xs text-slate-400 mt-1.5">
@@ -38,7 +38,7 @@
                 @if($incident->status === 'open')
                     <form method="POST" action="{{ route('ops.incidents.acknowledge', $incident) }}">
                         @csrf
-                        <button class="px-4 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-sm font-medium">Acknowledge</button>
+                        <button class="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-sm font-medium">Acknowledge</button>
                     </form>
                 @endif
                 @if($incident->status !== 'resolved')

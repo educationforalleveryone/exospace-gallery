@@ -8,8 +8,8 @@
             @csrf @method('PUT')
             @include('admin.artists._form-fields', ['artist' => $artist])
             <div class="flex justify-end gap-3 pt-2">
-                <a href="{{ route('admin.artists.index') }}" class="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 text-sm transition">Cancel</a>
-                <button type="submit" class="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition">Save changes</button>
+                <a href="{{ route('admin.artists.index') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save changes</button>
             </div>
         </form>
 
@@ -20,7 +20,7 @@
             <form method="POST" action="{{ route('admin.artists.destroy', $artist) }}"
                   data-confirm="Delete artist &quot;{{ addslashes($artist->name) }}&quot;?">
                 @csrf @method('DELETE')
-                <button type="submit" class="px-4 py-2 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-300 text-sm font-medium transition border border-red-800/40">Delete artist</button>
+                <button type="submit" class="btn btn-danger-ghost">Delete artist</button>
             </form>
         </div>
     </div>

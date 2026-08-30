@@ -1,7 +1,7 @@
 <x-guest-layout>
     @if(!isset($invitationToken))
     <div class="text-center mb-5">
-        <p class="text-base font-bold text-gray-100">Create your free account</p>
+        <h1 class="text-base font-bold text-gray-100">Create your free account</h1>
         <p class="text-xs text-gray-500 mt-1">Build a 3D gallery in under 5 minutes — no design skills needed.</p>
     </div>
     @endif

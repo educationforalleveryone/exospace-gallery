@@ -50,7 +50,7 @@
 
     <div class="modal-panel max-w-md p-6 relative">
         <button @click="open = false; typed = ''"
-                class="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition"
+                class="modal-close absolute top-3 right-3"
                 aria-label="Close">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>

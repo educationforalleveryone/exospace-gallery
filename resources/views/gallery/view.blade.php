@@ -930,8 +930,21 @@
                         window.toast('Link copied to clipboard!', 'success');
                     }
                 }).catch(() => {
-                    // Final fallback: open a prompt with the URL
-                    window.prompt('Copy this link:', shareUrl);
+                    // ITERATION-7: final fallback without native prompt (banned
+                    // dialog) — legacy select-and-copy for non-secure contexts.
+                    const ta = document.createElement('textarea');
+                    ta.value = shareUrl;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try {
+                        document.execCommand('copy');
+                        if (window.toast) window.toast('Link copied to clipboard!', 'success');
+                    } catch (e) {
+                        if (window.toast) window.toast('Copy failed — this browser blocks clipboard access', 'error');
+                    }
+                    ta.remove();
                 });
             }
         };

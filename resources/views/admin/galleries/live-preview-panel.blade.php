@@ -86,11 +86,11 @@
         </div>
         <div class="flex items-center gap-2">
             <button type="button" id="lp-reset-all"
-                    class="text-xs text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 rounded-lg px-3 py-1.5 transition">
+                    class="btn btn-sm btn-secondary">
                 Reset all overrides
             </button>
             <button type="button" id="lp-open-public"
-                    class="text-xs text-brand-300 hover:text-brand-200 border border-brand-700/50 hover:border-brand-500 rounded-lg px-3 py-1.5 transition"
+                    class="btn btn-sm btn-brand-tint"
                     data-click="openNewTab" data-arg="{{ route('gallery.view', $gallery->slug) }}">
                 Open public view
             </button>

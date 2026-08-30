@@ -29,7 +29,7 @@
                 @endforeach
             </select>
 
-            <button type="submit" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium transition">Filter</button>
+            <button type="submit" class="btn btn-secondary">Filter</button>
             @if(request('q') || request('category'))
                 <a href="{{ route('super.venues.index') }}" class="text-sm text-gray-400 hover:text-gray-200 transition">Clear</a>
             @endif
@@ -133,7 +133,7 @@
                             <td class="px-4 py-3">
                                 <form method="POST" action="{{ route('super.venues.toggle', $venue) }}">
                                     @csrf @method('PATCH')
-                                    <button class="text-xs {{ $venue->is_active ? 'text-emerald-400 hover:text-red-400' : 'text-gray-500 hover:text-emerald-400' }} transition">
+                                    <button class="p-1.5 -m-1 rounded text-xs {{ $venue->is_active ? 'text-emerald-400 hover:text-red-400' : 'text-gray-500 hover:text-emerald-400' }} hover:bg-white/[0.06] transition">
                                         {{ $venue->is_active ? '● Active' : '○ Inactive' }}
                                     </button>
                                 </form>
@@ -142,10 +142,10 @@
                             {{-- Actions --}}
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-3">
-                                    <a href="{{ route('super.venues.edit', $venue) }}" class="text-xs text-brand-400 hover:text-brand-300 transition">Edit</a>
+                                    <a href="{{ route('super.venues.edit', $venue) }}" class="p-1.5 -m-1 rounded text-xs text-brand-400 hover:text-brand-300 hover:bg-white/[0.06] transition">Edit</a>
                                     <form method="POST" action="{{ route('super.venues.toggle-featured', $venue) }}" class="inline">
                                         @csrf @method('PATCH')
-                                        <button class="text-xs {{ $venue->is_featured ? 'text-amber-400 hover:text-gray-500' : 'text-gray-500 hover:text-amber-400' }} transition" title="Toggle featured">
+                                        <button class="p-1.5 -m-1 rounded text-xs {{ $venue->is_featured ? 'text-amber-400 hover:text-gray-500' : 'text-gray-500 hover:text-amber-400' }} hover:bg-white/[0.06] transition" title="Toggle featured">
                                             {{ $venue->is_featured ? '★ Featured' : '☆ Feature' }}
                                         </button>
                                     </form>
@@ -153,7 +153,7 @@
                                           data-confirm="Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue."
                                           class="inline">
                                         @csrf @method('DELETE')
-                                        <button class="text-xs text-red-500 hover:text-red-400 transition">Delete</button>
+                                        <button class="p-1.5 -m-1 rounded text-xs text-red-500 hover:text-red-400 hover:bg-white/[0.06] transition">Delete</button>
                                     </form>
                                 </div>
                             </td>

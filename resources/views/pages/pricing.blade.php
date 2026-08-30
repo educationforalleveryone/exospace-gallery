@@ -259,9 +259,9 @@
             </li>
         </ul>
         @if($currentPlan === 'pro')
-        <span class="btn btn-primary w-full opacity-70 cursor-default pointer-events-none" aria-disabled="true">Your Current Plan ✓</span>
+        <button type="button" class="btn btn-primary w-full" disabled>Your Current Plan ✓</button>
         @elseif($currentPlan === 'studio')
-        <span class="btn btn-primary w-full opacity-70 cursor-default pointer-events-none" aria-disabled="true">Included in Studio ✓</span>
+        <button type="button" class="btn btn-primary w-full" disabled>Included in Studio ✓</button>
         @else
         <button type="button" class="btn btn-primary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-pro">Upgrade to Pro — $29</button>
         {{-- ITERATION-2 (trial wiring): surface the 14-day trial backend
@@ -330,7 +330,7 @@
             </li>
         </ul>
         @if($currentPlan === 'studio')
-        <span class="btn btn-secondary w-full opacity-70 cursor-default pointer-events-none" aria-disabled="true">Your Current Plan ✓</span>
+        <button type="button" class="btn btn-secondary w-full" disabled>Your Current Plan ✓</button>
         @else
         <button type="button" class="btn btn-secondary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-studio">Upgrade to Studio — $99</button>
         @endif

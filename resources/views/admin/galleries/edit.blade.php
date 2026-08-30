@@ -9,10 +9,11 @@
 
     <!-- Custom Premium Styles -->
     <style>
-        /* Dropzone Drag Hover State */
+        /* Dropzone Drag Hover State — ITERATION-7: rgba/hex now brand-500
+           (was the retired purple-500 #a855f7). */
         .dropzone.dz-drag-hover {
-            border-color: #a855f7 !important;
-            background: rgba(168, 85, 247, 0.05) !important;
+            border-color: #8b5cf6 !important;
+            background: rgba(139, 92, 246, 0.05) !important;
         }
 
         /* Custom scrollbar for dark theme */
@@ -36,11 +37,10 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Custom checkbox styling */
-        .custom-checkbox:checked {
-            background-color: #9333ea;
-            border-color: #9333ea;
-        }
+        /* Custom checkbox styling — ITERATION-7: rule removed. Dead since
+           iteration 4 migrated every checkbox to the kit `.checkbox-base`
+           (the old rule also hardcoded the retired pre-iteration-1 brand
+           hex #9333ea). */
 
         /* Toast notifications — ITERATION-3: the page-local `.toast-item`
            system (green/red/indigo pills, top-right, z-index 9999) was removed.
@@ -58,9 +58,9 @@
             background: #1f2937;
         }
         .venue-card-inner.selected {
-            border-color: #a855f7;
-            background: rgba(168, 85, 247, 0.2);
-            box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.2);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
         }
         .venue-check {
             position: absolute;
@@ -68,7 +68,7 @@
             right: 8px;
             width: 20px;
             height: 20px;
-            background: #a855f7;
+            background: #8b5cf6; /* brand-500 — was the retired purple-500 */
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -116,17 +116,18 @@
         }
         .venue-plan-badge {
             display: inline-block;
-            font-size: 9px;
+            font-size: 0.75rem; /* 12px text floor (ITERATION-7; was 9px —
+                                   recipe unified with galleries/create) */
             font-weight: 700;
-            padding: 2px 6px;
+            letter-spacing: 0.06em;
+            padding: 2px 7px;
             border-radius: 999px;
             margin-top: 4px;
             text-transform: uppercase;
-            letter-spacing: 0.03em;
         }
-        .venue-plan-badge-free { background: #374151; color: #9ca3af; }
-        .venue-plan-badge-pro { background: #d97706; color: #fef3c7; }
-        .venue-plan-badge-studio { background: #7c3aed; color: #e9d5ff; }
+        .venue-plan-badge-free    { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+        .venue-plan-badge-pro     { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.4); }
+        .venue-plan-badge-studio  { background: rgba(245,158,11,0.12); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
     /* ─── Reorder save bar (Round 4 polish) ─── */
     #reorder-save-bar {
         position: fixed;
@@ -153,34 +154,9 @@
     }
     #reorder-save-bar .save-btn,
     #reorder-save-bar .discard-btn {
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-        font-weight: 600;
-        font-size: 0.8rem;
-        transition: all 0.15s ease;
-        cursor: pointer;
-    }
-    #reorder-save-bar .save-btn {
-        background: linear-gradient(to right, #9333ea, #6366f1);
-        color: white;
-        border: none;
-    }
-    #reorder-save-bar .save-btn:hover:not(:disabled) {
-        background: linear-gradient(to right, #7c3aed, #4f46e5);
-        transform: translateY(-1px);
-    }
-    #reorder-save-bar .save-btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-    #reorder-save-bar .discard-btn {
-        background: #374151;
-        color: #d1d5db;
-        border: 1px solid #4b5563;
-    }
-    #reorder-save-bar .discard-btn:hover {
-        background: #4b5563;
-        color: white;
+        /* ITERATION-7: button styling moved to the kit (.btn / .btn-primary /
+           .btn-secondary on the buttons themselves). Class names kept as the
+           JS hook targets (bar.querySelector('.save-btn')). */
     }
 
     /* Drag handle cursor on image cards */
@@ -194,7 +170,7 @@
         opacity: 0.3;
     }
     #gallery-grid .gallery-card.sortable-chosen {
-        outline: 2px solid #9333ea;
+        outline: 2px solid #8b5cf6; /* brand-500 — was the retired pre-iter-1 purple */
         outline-offset: 2px;
     }
 
@@ -415,7 +391,7 @@
 
                                         <div class="venue-meta">
                                             <div style="font-size:12px;font-weight:600;color:#e5e7eb;line-height:1.3;">{{ $venue->name }}</div>
-                                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">{{ $venue->capacityLabel() }}</div>
+                                            <div style="font-size:12px;color:#6b7280;margin-top:2px;">{{ $venue->capacityLabel() }}</div>
                                             <span class="venue-plan-badge {{ $badgeClass }}">{{ ucfirst($venue->plan_required) }}</span>
                                         </div>
 
@@ -429,7 +405,7 @@
                             <div id="edit-venue-info-accent" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
                             <div>
                                 <div id="edit-venue-info-name" style="font-size:13px;font-weight:600;color:#e5e7eb;"></div>
-                                <div id="edit-venue-info-desc" style="font-size:11px;color:#9ca3af;margin-top:1px;"></div>
+                                <div id="edit-venue-info-desc" style="font-size:12px;color:#9ca3af;margin-top:1px;"></div>
                             </div>
                         </div>
                     </div>
@@ -551,7 +527,7 @@
                                             <span id="audio-error-message">Upload failed</span>
                                         </div>
                                         <button type="button" data-click="triggerFileInput" data-arg="audio-upload-input"
-                                                class="flex-shrink-0 text-xs bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-700/50 px-2.5 py-1 rounded-lg transition">
+                                                class="btn btn-sm btn-danger-ghost flex-shrink-0">
                                             Retry
                                         </button>
                                     </div>
@@ -566,7 +542,7 @@
                                     <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                     <p class="text-sm text-gray-400">Add ambient audio to your gallery — ambient soundscapes, custom tracks, anything MP3.</p>
                                 </div>
-                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-brand-400 hover:text-brand-300 border border-brand-600/40 hover:border-brand-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
                                     Pro — $29
                                 </a>
                             </div>
@@ -622,7 +598,7 @@
                                             <span id="logo-error-message">Upload failed</span>
                                         </div>
                                         <button type="button" data-click="triggerFileInput" data-arg="logo-upload-input"
-                                                class="flex-shrink-0 text-xs bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-700/50 px-2.5 py-1 rounded-lg transition">
+                                                class="btn btn-sm btn-danger-ghost flex-shrink-0">
                                             Retry
                                         </button>
                                     </div>
@@ -641,21 +617,18 @@
                                 </div>
 
                                 <div class="absolute inset-0 flex items-center justify-center">
-                                    <a href="/pricing"
-                                       class="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold px-8 py-3 rounded-lg shadow-lg transform hover:scale-105 transition-all">
-                                        <div class="flex items-center gap-2">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                            </svg>
-                                            <span>Upgrade to Studio</span>
-                                        </div>
+                                    <a href="/pricing" class="btn btn-lg btn-primary">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                        </svg>
+                                        <span>Upgrade to Studio</span>
                                     </a>
                                 </div>
                             </div>
 
-                            <div class="mt-4 bg-orange-900/20 border border-orange-700/30 rounded-lg p-4">
-                                <h4 class="text-orange-300 font-semibold text-sm mb-2">Studio Plan Benefits</h4>
-                                <ul class="text-xs text-orange-300/80 space-y-1 ml-4">
+                            <div class="mt-4 bg-brand-950/40 border border-brand-700/30 rounded-lg p-4">
+                                <h4 class="text-brand-300 font-semibold text-sm mb-2">Studio Plan Benefits</h4>
+                                <ul class="text-xs text-brand-200/80 space-y-1 ml-4">
                                     <li>• White-label your galleries with custom branding</li>
                                     <li>• Remove "Exospace" watermark completely</li>
                                     <li>• Professional presentation for clients</li>
@@ -719,7 +692,7 @@
                                     <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                     <p class="text-sm text-gray-400">Set an opening date — visitors see a live countdown. Close it automatically after the run ends.</p>
                                 </div>
-                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-brand-400 hover:text-brand-300 border border-brand-600/40 hover:border-brand-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
                                     Pro — $29
                                 </a>
                             </div>
@@ -820,7 +793,7 @@
                                     <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
                                     <p class="text-sm text-gray-400">Custom domain + branded entrance curtain are Studio-plan features.</p>
                                 </div>
-                                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold text-amber-400 hover:text-amber-300 border border-amber-600/40 hover:border-amber-500 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
                                     Studio — $99
                                 </a>
                             </div>
@@ -834,7 +807,7 @@
                             <svg id="save-feedback-icon-err" class="hidden w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                             <span id="save-feedback-text" class="text-emerald-400"></span>
                         </div>
-                        <a href="{{ route('admin.galleries.index') }}" class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg transition-colors">
+                        <a href="{{ route('admin.galleries.index') }}" class="btn btn-secondary">
                             Cancel
                         </a>
                         <button type="submit" id="update-settings-btn"
@@ -880,7 +853,7 @@
                         @endif
                     </p>
                     @if(!$planHolder->isPro())
-                    <a href="/pricing" class="flex-shrink-0 text-xs font-semibold {{ $imgFull ? 'bg-red-600 hover:bg-red-500' : 'bg-amber-600 hover:bg-amber-500' }} text-white px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                    <a href="/pricing" class="btn btn-sm flex-shrink-0 whitespace-nowrap {{ $imgFull ? 'btn-danger' : 'btn-brand-tint' }}">
                         Upgrade
                     </a>
                     @endif
@@ -921,8 +894,8 @@
                         @endif
                     </div>
                     <button id="bulk-delete-btn" data-click="bulkDelete" style="display: none;"
-                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-all shadow-lg shadow-red-900/20 flex items-center gap-2 transform hover:scale-[1.02]">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="btn btn-danger">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                         Delete Selected (<span id="selected-count">0</span>)
@@ -969,7 +942,7 @@
                                 <!-- Delete Button: Pro Style -->
                                 <button data-click="deleteImage" data-arg="{{ $image->id }}"
                                         type="button"
-                                        class="absolute top-3 right-3 bg-red-600/80 hover:bg-red-600 text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
+                                        class="btn btn-icon absolute top-3 right-3 bg-red-600/80 hover:bg-red-600 text-white shadow-lg z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
                                         title="Delete Image" aria-label="Delete image">
                                     <span class="text-lg font-bold leading-none">&times;</span>
                                 </button>
@@ -977,7 +950,7 @@
                                 <!-- Edit Details Button (ITERATION-2: artwork metadata editor) -->
                                 <button data-click="editMetadata" data-arg="{{ $image->id }}"
                                         type="button"
-                                        class="absolute top-3 left-14 bg-gray-800/80 hover:bg-brand-600 text-gray-200 hover:text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
+                                        class="btn btn-icon absolute top-3 left-14 bg-gray-800/80 hover:bg-brand-600 text-gray-200 hover:text-white shadow-lg z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
                                         title="Edit artwork details (title, price, artist…)" aria-label="Edit artwork details">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </button>
@@ -1017,7 +990,7 @@
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
                         <h3 id="metadata-modal-title" class="text-lg font-semibold text-gray-100">Artwork details</h3>
                         <button type="button" data-click="closeMetadataModal" aria-label="Close"
-                                class="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition">
+                                class="modal-close">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
@@ -1441,8 +1414,8 @@
             overlay.innerHTML = `
                 <p class="text-xs text-gray-300 text-center px-2">Delete permanently?</p>
                 <div class="flex gap-2">
-                    <button data-click="confirmDeleteImage" data-arg="${id}" class="bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">Delete</button>
-                    <button data-click="closestOverlayRemove" class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-medium px-3 py-1.5 rounded-lg transition">Cancel</button>
+                    <button data-click="confirmDeleteImage" data-arg="${id}" class="btn btn-sm btn-danger">Delete</button>
+                    <button data-click="closestOverlayRemove" class="btn btn-sm btn-secondary">Cancel</button>
                 </div>`;
             el.style.position = 'relative';
             el.appendChild(overlay);
@@ -1543,8 +1516,8 @@
             bar.innerHTML = `
                 <svg class="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 <p class="flex-1 text-sm text-red-200">Delete <strong>${ids.length} image${ids.length > 1 ? 's' : ''}</strong> permanently? This cannot be undone.</p>
-                <button data-click="executeBulkDelete" data-arg="${ids.join(',')}" class="flex-shrink-0 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">Confirm Delete</button>
-                <button data-click="removeBulkConfirmBar" class="flex-shrink-0 text-xs text-gray-400 hover:text-gray-200 px-2 py-1.5 transition">Cancel</button>`;
+                <button data-click="executeBulkDelete" data-arg="${ids.join(',')}" class="btn btn-sm btn-danger flex-shrink-0">Confirm Delete</button>
+                <button data-click="removeBulkConfirmBar" class="btn btn-sm btn-ghost flex-shrink-0">Cancel</button>`;
             document.getElementById('bulk-delete-btn').after(bar);
         }
 
@@ -1820,8 +1793,8 @@
     <div id="reorder-save-bar">
         <svg class="w-4 h-4 text-brand-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
         <span>Order changed</span>
-        <button class="save-btn" data-click="saveOrder">Save Order</button>
-        <button class="discard-btn" data-click="discardOrder">Discard</button>
+        <button class="save-btn btn btn-primary" data-click="saveOrder">Save Order</button>
+        <button class="discard-btn btn btn-secondary" data-click="discardOrder">Discard</button>
     </div>
 
     <script nonce="@nonce">
