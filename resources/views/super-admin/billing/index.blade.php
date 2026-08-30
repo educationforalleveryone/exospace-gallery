@@ -63,14 +63,16 @@
                 @if(count($digestRecipients) > 0)
                     <ul class="space-y-1">
                         @foreach($digestRecipients as $recipient)
-                            <li class="flex items-center justify-between bg-gray-800/50 border border-gray-700/40 rounded px-3 py-2" x-data="{ confirming: false }">
-                                <div class="text-sm text-gray-200">
-                                    {{ $recipient->email }}
+                            <li class="flex items-center justify-between gap-3 bg-gray-800/50 border border-gray-700/40 rounded px-3 py-2" x-data="{ confirming: false }">
+                                {{-- ITERATION-3: min-w-0 + break-all — a long email used to
+                                     stretch the row and shove the Remove control out of view. --}}
+                                <div class="text-sm text-gray-200 min-w-0">
+                                    <span class="break-all">{{ $recipient->email }}</span>
                                     <div class="text-xs text-gray-500">added {{ $recipient->created_at?->diffForHumans() }}@if($recipient->addedBy) by {{ $recipient->addedBy->name }}@endif</div>
                                 </div>
-                                <div>
+                                <div class="flex-shrink-0">
                                     <template x-if="!confirming">
-                                        <button type="button" @click="confirming = true" class="text-xs text-red-400 hover:text-red-300">Remove</button>
+                                        <button type="button" @click="confirming = true" class="btn btn-sm btn-danger-ghost">Remove</button>
                                     </template>
                                     <template x-if="confirming">
                                         <span class="flex items-center gap-2 text-xs">
@@ -78,9 +80,9 @@
                                             <form method="POST" action="{{ route('super.billing.recipients.destroy', $recipient) }}">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="text-red-400 hover:text-red-300 font-semibold">Yes</button>
+                                                <button type="submit" class="btn btn-sm btn-danger">Yes</button>
                                             </form>
-                                            <button type="button" @click="confirming = false" class="text-gray-400 hover:text-gray-300">No</button>
+                                            <button type="button" @click="confirming = false" class="btn btn-sm btn-secondary">No</button>
                                         </span>
                                     </template>
                                 </div>
@@ -93,12 +95,16 @@
                     </div>
                 @endif
 
-                <form method="POST" action="{{ route('super.billing.recipients.store') }}" class="mt-4 flex gap-2" data-submit="disableSubmitButton">
+                {{-- ITERATION-3: data-submit="disableSubmitButton" previously resolved to
+                     an undefined global on this page (defined only in teams/show) — the
+                     form had zero double-click protection. Now uses the opt-in data-busy
+                     guard (canonical helper in resources/js/app.js). --}}
+                <form method="POST" action="{{ route('super.billing.recipients.store') }}" class="mt-4 flex gap-2" data-busy data-busy-label="Adding…">
                     @csrf
                     <input type="email" name="email" required placeholder="recipient@example.com"
                            value="{{ old('email') }}"
-                           class="flex-1 bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-emerald-500 outline-none" />
-                    <button type="submit" class="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-sm">Add</button>
+                           class="input-base flex-1" />
+                    <button type="submit" class="btn btn-primary flex-shrink-0">Add</button>
                 </form>
                 @error('email')
                     <div class="mt-1 text-xs text-red-400">{{ $message }}</div>
@@ -252,7 +258,9 @@
                             @if($hook->payload)
                                 <details class="group">
                                     <summary class="cursor-pointer text-xs text-gray-400 hover:text-gray-200 select-none">▸ View payload</summary>
-                                    <pre class="mt-2 p-3 bg-black/60 border border-gray-700 rounded-lg text-xs leading-relaxed text-gray-300 overflow-x-auto max-w-md">{{ json_encode($hook->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                    {{-- ITERATION-3: max-h + scroll — multi-KB payloads rendered as
+                                     unbounded vertical blocks inside the table row. --}}
+                                    <pre class="mt-2 p-3 bg-black/60 border border-gray-700 rounded-lg text-xs leading-relaxed text-gray-300 overflow-auto max-h-80 max-w-md">{{ json_encode($hook->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                 </details>
                             @else
                                 <span class="text-xs text-gray-600">no payload stored</span>
@@ -262,8 +270,7 @@
                                   data-confirm-message="Replay {{ $hook->message_type }} (webhook #{{ $hook->id }}) through the billing pipeline? Handlers are idempotent, but a replay of a live event re-runs its side effects (emails, notifications).">
                                 @csrf
                                 <button type="submit"
-                                        class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium
-                                               {{ $hook->status === 'failed' ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-200' }}">
+                                        class="btn btn-sm {{ $hook->status === 'failed' ? 'btn-danger' : 'btn-secondary' }}">
                                     ↻ {{ $hook->status === 'failed' ? 'Retry via replay' : 'Replay' }}
                                 </button>
                             </form>
@@ -281,15 +288,8 @@
     </div>
 </div>
 
-@once
-    <script>
-        // CSP-safe delegated confirm wrapper (same pattern as Master Control).
-        document.addEventListener('submit', function (e) {
-            var form = e.target.closest('form[data-submit="exospaceConfirmWrapper"]');
-            if (!form) return;
-            var msg = form.getAttribute('data-confirm-message') || 'Are you sure?';
-            if (!window.confirm(msg)) { e.preventDefault(); }
-        });
-    </script>
-@endonce
+{{-- ITERATION-3: the @once confirm script here carried NO nonce — the CSP
+     silently blocked it in production, so webhook replay ran unconfirmed.
+     The canonical window.exospaceConfirmWrapper (resources/js/app.js) now
+     handles every data-submit="exospaceConfirmWrapper" form. --}}
 </x-app-layout>

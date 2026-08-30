@@ -231,15 +231,14 @@
                         <td class="px-5 py-3 text-right">
                             <div class="flex justify-end gap-2">
                                 <a href="{{ route('super.webhooks.deliveries', $sub) }}"
-                                   class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-700 hover:bg-gray-600 text-white"
+                                   class="btn btn-sm btn-secondary"
                                    title="View delivery history">History</a>
                                 <form method="POST" action="{{ route('super.webhooks.toggle', $sub) }}" class="inline">
                                     @csrf
                                     @method('PATCH')
                                     <button type="submit" data-submit="exospaceConfirmWrapper"
                                             data-confirm-message="{{ $sub->is_active ? 'Pause' : 'Re-enable' }} this subscription for {{ $sub->event_type }}?"
-                                            class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium
-                                                   {{ $sub->is_active ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white' }}">
+                                            class="btn btn-sm {{ $sub->is_active ? 'btn-secondary' : 'btn-primary' }}">
                                         {{ $sub->is_active ? 'Pause' : 'Enable' }}
                                     </button>
                                 </form>
@@ -249,7 +248,7 @@
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit"
-                                            class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-red-600 hover:bg-red-500 text-white">
+                                            class="btn btn-sm btn-danger-ghost">
                                         Remove
                                     </button>
                                 </form>
@@ -275,15 +274,9 @@
     </div>
 </div>
 
-@once
-    <script>
-        // CSP-safe delegated confirm wrapper (same pattern as Master Control + Billing Review).
-        document.addEventListener('submit', function (e) {
-            var form = e.target.closest('form[data-submit="exospaceConfirmWrapper"]');
-            if (!form) return;
-            var msg = form.getAttribute('data-confirm-message') || 'Are you sure?';
-            if (!window.confirm(msg)) { e.preventDefault(); }
-        });
-    </script>
-@endonce
+{{-- ITERATION-3: the @once confirm script here carried NO nonce, so the CSP
+     ('strict-dynamic', no unsafe-inline) silently blocked it in production —
+     pause/remove ran with NO confirmation at all. Confirmation now flows
+     through the canonical window.exospaceConfirmWrapper defined in
+     resources/js/app.js (delegated by the layout, Turbo-safe, styled). --}}
 </x-app-layout>

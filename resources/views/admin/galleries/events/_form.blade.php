@@ -4,6 +4,19 @@
     </x-slot>
 
     <div class="page-shell-narrow">
+        {{-- ITERATION-3 FIX: only the title field showed validation errors — a
+             failed starts_at / ends_after / location_url rule re-rendered the
+             form with NO indication anything was wrong. Banner + field errors
+             now cover every validated attribute. --}}
+        @if($errors->any())
+            <div class="alert alert-error mb-4" role="alert">
+                <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div>
+                    <p class="font-semibold">Please fix the following:</p>
+                    <ul class="list-disc list-inside mt-1 space-y-0.5">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+                </div>
+            </div>
+        @endif
         <form method="POST" action="@yield('form-action')">
             @csrf @yield('form-method')
 
@@ -37,12 +50,15 @@
                     <div>
                         <label for="starts_at" class="label-text mb-1.5">Starts at <span class="text-red-400" aria-hidden="true">*</span></label>
                         <input type="datetime-local" id="starts_at" name="starts_at" value="{{ old('starts_at', $event->starts_at ? $event->starts_at->format('Y-m-d\TH:i') : null) }}" required
-                               class="input-base">
+                               class="input-base {{ $errors->has('starts_at') ? 'input-error' : '' }}"
+                               aria-invalid="{{ $errors->has('starts_at') ? 'true' : 'false' }}">
+                        @error('starts_at')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label for="ends_at" class="label-text mb-1.5">Ends at <span class="text-gray-500 text-xs">(optional)</span></label>
                         <input type="datetime-local" id="ends_at" name="ends_at" value="{{ old('ends_at', $event->ends_at ? $event->ends_at->format('Y-m-d\TH:i') : null) }}"
-                               class="input-base">
+                               class="input-base {{ $errors->has('ends_at') ? 'input-error' : '' }}">
+                        @error('ends_at')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
@@ -64,7 +80,8 @@
                         <label for="location_url" class="label-text mb-1.5">Location URL <span class="text-gray-500 text-xs">(optional)</span></label>
                         <input type="url" id="location_url" name="location_url" value="{{ old('location_url', $event->location_url) }}"
                                placeholder="https://zoom.us/..."
-                               class="input-base">
+                               class="input-base {{ $errors->has('location_url') ? 'input-error' : '' }}">
+                        @error('location_url')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
                 </div>
 

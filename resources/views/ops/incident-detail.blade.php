@@ -129,12 +129,12 @@
                 <div class="flex flex-wrap gap-2">
                     @foreach($incidentDiagnostics as $diagnostic)
                         @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
-                            <form method="POST" action="{{ route('ops.diagnostics.run') }}">
+                            <form method="POST" action="{{ route('ops.diagnostics.run') }}" data-busy data-busy-label="Running…">
                                 @csrf
                                 <input type="hidden" name="diagnostic" value="{{ $diagnostic }}">
                                 <input type="hidden" name="incident" value="{{ $incident->id }}">
                                 @if($incident->ops_application_id)<input type="hidden" name="application" value="{{ $incident->ops_application_id }}">@endif
-                                <button class="text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
+                                <button class="text-xs px-3 py-2 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition whitespace-nowrap" title="{{ \App\Ops\Diagnostics\DiagnosticRegistry::get($diagnostic)['description'] ?? '' }}">
                                     ▶ {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($diagnostic) }}
                                 </button>
                             </form>
@@ -174,7 +174,7 @@
                 @if(data_get($incident->context, 'server'))
                     <div class="flex justify-between gap-2">
                         <dt class="text-slate-500">Server</dt>
-                        <dd class="text-slate-200">{{ data_get($incident->context, 'server') }}</dd>
+                        <dd class="text-slate-200 truncate max-w-[160px]" title="{{ data_get($incident->context, 'server') }}">{{ data_get($incident->context, 'server') }}</dd>
                     </div>
                 @endif
                 <div class="flex justify-between gap-2">

@@ -346,13 +346,13 @@ document.getElementById('contact-form').addEventListener('submit', function(e) {
         } else {
             errorMsg += 'Please try again.';
         }
-        showErrorToast(errorMsg);
+        window.toast(errorMsg, 'error');
         btn.textContent = 'Send Message';
         btn.disabled = false;
     }).catch(function(networkErr) {
         // Network error (DNS, offline, CORS) — distinctly different from
         // a server-returned failure. Show a network-specific message.
-        showErrorToast('Network error — please check your connection and try again. Or email support@exospace.gallery directly.');
+        window.toast('Network error — please try again, or email support@exospace.gallery directly.', 'error');
         btn.textContent = 'Send Message';
         btn.disabled = false;
     });
@@ -362,28 +362,9 @@ document.getElementById('contact-form').addEventListener('submit', function(e) {
  * Replaces the silent 'show success on failure' behaviour that silently
  * dropped customer leads.
  */
-function showErrorToast(message) {
-    let toast = document.getElementById('contact-error-toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'contact-error-toast';
-        toast.style.cssText = [
-            'position:fixed', 'top:20px', 'right:20px',
-            'max-width:380px', 'padding:16px 20px',
-            'background:#fef2f2', 'color:#991b1b',
-            'border:1px solid #fecaca', 'border-radius:6px',
-            'box-shadow:0 4px 12px rgba(0,0,0,0.1)',
-            'font-size:14px', 'line-height:1.5', 'z-index:9999',
-        ].join(';');
-        document.body.appendChild(toast);
-    }
-    toast.textContent = message;
-    toast.style.display = 'block';
-    clearTimeout(window.__contactToastTimer);
-    window.__contactToastTimer = setTimeout(function() {
-        toast.style.display = 'none';
-    }, 6000);
-}
+// ITERATION-3: the page-local showErrorToast (light-theme, top-right,
+// z-index 9999) was removed — window.toast() from <x-toast> is the single
+// toast system on this layout.
 </script>
 
 @endsection

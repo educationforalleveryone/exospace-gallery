@@ -32,7 +32,7 @@
                             I've saved my codes — Continue →
                         </a>
                         <button data-click="windowPrint"
-                                class="inline-flex items-center px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition text-sm">
+                                class="btn btn-secondary">
                             Print codes
                         </button>
                     </div>

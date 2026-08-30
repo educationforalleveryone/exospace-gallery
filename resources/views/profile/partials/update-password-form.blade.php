@@ -34,15 +34,8 @@
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
 
-            @if (session('status') === 'password-updated')
-                <p
-                    x-data="{ show: true }"
-                    x-show="show"
-                    x-transition
-                    x-init="setTimeout(() => show = false, 2000)"
-                    class="text-sm text-green-400"
-                >{{ __('Saved.') }}</p>
-            @endif
+            {{-- ITERATION-3: the transient "Saved." pill was removed — the
+                 layout toast announces password-updated (humanized) once. --}}
         </div>
     </form>
 </section>

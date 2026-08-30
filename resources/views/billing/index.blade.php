@@ -6,19 +6,10 @@
 <div class="page-shell">
 
 
-    {{-- Flash messages --}}
-    @if(session('success'))
-        <div class="mb-6 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-300" role="status">{{ session('success') }}</div>
-    @endif
-    @if(session('info'))
-        <div class="mb-6 rounded-lg bg-blue-500/10 border border-blue-500/30 px-4 py-3 text-sm text-blue-300" role="status">{{ session('info') }}</div>
-    @endif
-    @if(session('warning'))
-        <div class="mb-6 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-300" role="status">{{ session('warning') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="mb-6 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-300" role="alert">{{ session('error') }}</div>
-    @endif
+    {{-- ITERATION-3: flash banners removed — every flash key here is already
+         announced by the layout's <x-toast>, so this page showed each message
+         TWICE (banner + toast). The toast is the single transient-feedback
+         channel; persistent plan-state context stays in the cards below. --}}
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -99,18 +90,17 @@
                     <form action="{{ route('billing.cancel-subscription') }}" method="POST"
                           data-confirm="Cancel your subscription? You'll keep access until {{ $user->subscription_ends_at?->format('M j, Y') }}, then be downgraded to Free.">
                         @csrf
-                        <button type="submit"
-                                class="w-full bg-transparent border border-red-600/40 hover:bg-red-600/10 text-red-400 font-medium py-2 rounded-xl transition text-sm">
+                        <button type="submit" class="btn btn-danger-ghost w-full">
                             Cancel Subscription
                         </button>
                     </form>
                 </div>
                 @elseif($user->canReactivateSubscription())
                 <div class="mt-4">
-                    <form action="{{ route('billing.reactivate-subscription') }}" method="POST">
+                    <form action="{{ route('billing.reactivate-subscription') }}" method="POST"
+                          data-busy data-busy-label="Reactivating…">
                         @csrf
-                        <button type="submit"
-                                class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold py-2 rounded-xl transition text-sm">
+                        <button type="submit" class="btn btn-primary w-full">
                             Reactivate Subscription
                         </button>
                     </form>
@@ -132,10 +122,10 @@
                         <p class="text-xs text-indigo-200 leading-relaxed">
                             Not ready to pay? <span class="font-semibold text-indigo-100">Try Pro free for 14 days</span> — every Pro feature, no card required.
                         </p>
-                        <form action="{{ route('billing.start-trial', 'pro') }}" method="POST" class="mt-2.5">
+                        <form action="{{ route('billing.start-trial', 'pro') }}" method="POST" class="mt-2.5"
+                              data-busy data-busy-label="Starting trial…">
                             @csrf
-                            <button type="submit"
-                                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 rounded-xl transition text-sm">
+                            <button type="submit" class="btn btn-secondary w-full">
                                 Start 14-day Pro trial
                             </button>
                         </form>
@@ -153,26 +143,22 @@
                         Pro — $29 one-time
                     </a>
                     @if($hasRecurringPro)
-                    <a href="{{ route('billing.upgrade', 'pro') }}?recurring=1"
-                       class="block w-full bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-2 rounded-xl transition text-sm text-center border border-gray-600">
+                    <a href="{{ route('billing.upgrade', 'pro') }}?recurring=1" class="btn btn-secondary w-full">
                         Pro — ${{ $recurringProPrice }}/month
                     </a>
                     @endif
-                    <a href="{{ route('billing.upgrade', 'studio') }}"
-                       class="block w-full bg-gradient-to-r from-amber-500 to-red-500 hover:from-amber-400 hover:to-red-400 text-white font-bold py-2.5 rounded-xl transition text-sm text-center">
+                    <a href="{{ route('billing.upgrade', 'studio') }}" class="btn btn-primary w-full">
                         Studio — $99 one-time
                     </a>
                     @if($hasRecurringStudio)
-                    <a href="{{ route('billing.upgrade', 'studio') }}?recurring=1"
-                       class="block w-full bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-2 rounded-xl transition text-sm text-center border border-gray-600">
+                    <a href="{{ route('billing.upgrade', 'studio') }}?recurring=1" class="btn btn-secondary w-full">
                         Studio — ${{ $recurringStudioPrice }}/month
                     </a>
                     @endif
                 </div>
                 @elseif($user->plan === 'pro')
                 <div class="mt-6">
-                    <a href="{{ route('billing.upgrade', 'studio') }}"
-                       class="block w-full bg-gradient-to-r from-amber-500 to-red-500 hover:from-amber-400 hover:to-red-400 text-white font-bold py-2.5 rounded-xl transition text-sm text-center">
+                    <a href="{{ route('billing.upgrade', 'studio') }}" class="btn btn-primary w-full">
                         Upgrade to Studio — $99
                     </a>
                 </div>
@@ -210,7 +196,11 @@
                 <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Transaction History</h2>
 
                 @if($transactions->isEmpty())
-                    <p class="text-sm text-gray-500 py-8 text-center">No transactions yet. Upgrade to Pro or Studio to unlock more galleries, images, and features.</p>
+                    <div class="empty-state">
+                        <svg class="w-10 h-10 text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                        <p class="text-gray-300 text-sm font-medium">No transactions yet</p>
+                        <p class="text-gray-500 text-xs mt-1 max-w-xs">Purchases, renewals and refunds for this account will be listed here. Upgrade to Pro or Studio to unlock more galleries and images.</p>
+                    </div>
                 @else
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">

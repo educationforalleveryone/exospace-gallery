@@ -91,7 +91,10 @@
     </section>
 
     {{-- The confirmation form: typed phrase + password --}}
-    <form method="POST" action="{{ route('ops.actions.execute', $actionId) }}" class="rounded-lg border border-slate-800 bg-slate-900/60 p-6 space-y-5">
+    {{-- ITERATION-3: data-busy — restart/replay/forget are slow, the Execute
+         button used to stay clickable for the whole run. --}}
+    <form method="POST" action="{{ route('ops.actions.execute', $actionId) }}" class="rounded-lg border border-slate-800 bg-slate-900/60 p-6 space-y-5"
+          data-busy data-busy-label="Executing…">
         @csrf
         @if($application)
             <input type="hidden" name="application" value="{{ $application->id }}">
@@ -122,7 +125,7 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-800/70">
-            <button type="submit" class="px-5 py-2.5 rounded-lg bg-red-700 hover:bg-red-600 text-sm font-semibold text-slate-50 transition">
+            <button type="submit" class="px-5 py-2.5 rounded-lg bg-red-700 hover:bg-red-600 text-sm font-semibold text-slate-50 transition whitespace-nowrap">
                 Execute: {{ $definition['label'] }}
             </button>
             <a href="{{ route('ops.actions.index') }}" class="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm font-medium text-slate-300 transition">Cancel</a>

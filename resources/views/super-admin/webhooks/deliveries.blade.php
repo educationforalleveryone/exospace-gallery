@@ -22,11 +22,19 @@
                 @else
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/15 text-gray-400 border border-gray-500/30">paused</span>
                 @endif
-                <a href="{{ route('super.webhooks.toggle', $subscription) }}" data-method="PATCH" data-submit="exospaceConfirmLink"
-                   data-confirm-message="{{ $subscription->is_active ? 'Pause' : 'Re-enable' }} this subscription?"
-                   class="text-xs text-gray-400 hover:text-gray-200 underline">
-                    {{ $subscription->is_active ? 'Pause' : 'Enable' }}
-                </a>
+                {{-- ITERATION-3: this was an <a data-method="PATCH"> whose
+                     synthesizing script carried no nonce → CSP-blocked in
+                     production → clicking navigated via GET → 405. It is a
+                     real POST form now (same route, same confirm). --}}
+                <form method="POST" action="{{ route('super.webhooks.toggle', $subscription) }}" class="inline">
+                    @csrf
+                    @method('PATCH')
+                    <button type="submit" data-submit="exospaceConfirmWrapper"
+                            data-confirm-message="{{ $subscription->is_active ? 'Pause' : 'Re-enable' }} this subscription?"
+                            class="btn btn-sm btn-secondary">
+                        {{ $subscription->is_active ? 'Pause' : 'Enable' }}
+                    </button>
+                </form>
             </div>
         </div>
         <div class="grid md:grid-cols-3 gap-3">
@@ -143,30 +151,12 @@
     </div>
 
     <div class="mt-6">
-        <a href="{{ route('super.webhooks.index') }}" class="text-sm text-indigo-300 hover:text-indigo-200">← Back to subscriptions</a>
+        <a href="{{ route('super.webhooks.index') }}" class="back-link">← Back to subscriptions</a>
     </div>
 </div>
 
-@once
-    <script>
-        // CSP-safe delegated confirm wrapper for the toggle link (uses data-method + a link).
-        // Same pattern as the form wrapper on the index page, but for hyperlinks.
-        document.addEventListener('click', function (e) {
-            var link = e.target.closest('a[data-submit="exospaceConfirmLink"]');
-            if (!link) return;
-            var msg = link.getAttribute('data-confirm-message') || 'Are you sure?';
-            if (!window.confirm(msg)) { e.preventDefault(); return; }
-            // Synthesize a POST form so PATCH/DELETE on a link works.
-            e.preventDefault();
-            var form = document.createElement('form');
-            form.method = 'POST';
-            form.action = link.href;
-            var csrf = document.createElement('input'); csrf.type = 'hidden'; csrf.name = '_token'; csrf.value = '{{ csrf_token() }}';
-            var method = document.createElement('input'); method.type = 'hidden'; method.name = '_method'; method.value = link.getAttribute('data-method') || 'POST';
-            form.appendChild(csrf); form.appendChild(method);
-            document.body.appendChild(form);
-            form.submit();
-        });
-    </script>
-@endonce
+{{-- ITERATION-3: the @once PATCH-link synthesizer script carried no nonce —
+     CSP blocked it in production, so the Pause/Enable link performed a raw
+     GET → 405. Replaced by the real form above; the canonical
+     exospaceConfirmWrapper (resources/js/app.js) provides the confirm. --}}
 </x-app-layout>

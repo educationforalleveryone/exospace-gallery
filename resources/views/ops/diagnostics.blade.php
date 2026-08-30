@@ -13,7 +13,7 @@
     </div>
     <div class="flex items-center gap-2">
         <form method="GET" action="{{ route('ops.diagnostics.index') }}" class="flex items-center gap-2">
-            <select name="app" class="bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 px-3 py-2 focus:border-emerald-600 outline-none" onchange="this.form.submit()">
+            <select name="app" class="bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 px-3 py-2 focus:border-emerald-600 outline-none" data-change="submitForm">
                 <option value="">Target: Control plane host (self)</option>
                 @foreach($applications as $app)
                     <option value="{{ $app->id }}" @selected($application?->id === $app->id)>Target: {{ $app->name }}</option>
@@ -53,10 +53,13 @@
                         <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">{{ $definition['description'] }}</p>
                         {{-- Iteration 6: super-admins AND operator-tier grantees can run these read-only checks (route-level: ops_operator group). --}}
                         @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
-                            <form method="POST" action="{{ route('ops.diagnostics.run') }}">
+                            <form method="POST" action="{{ route('ops.diagnostics.run') }}"
+                                  data-busy data-busy-label="Running…">
                                 @csrf
                                 <input type="hidden" name="diagnostic" value="{{ $id }}">
                                 @if($application)<input type="hidden" name="application" value="{{ $application->id }}">@endif
+                                {{-- ITERATION-3: data-busy — the run is synchronous (seconds), the
+                                     button used to stay clickable → double runs + double queue rows. --}}
                                 <button class="w-full px-3 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium text-slate-50 transition">
                                     Run diagnostic
                                 </button>

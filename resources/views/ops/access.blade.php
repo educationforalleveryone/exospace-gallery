@@ -104,14 +104,14 @@
                                 @if($grant->user)
                                     {{-- Level change — the atomic revoke+re-grant lives in OpsAccessService (one click, both ledger rows). --}}
                                     @if($grant->level === 'viewer')
-                                        <form method="POST" action="{{ route('ops.access.grant') }}" onsubmit="return confirm('Change this account to the OPERATOR tier? They will be able to run read-only diagnostics (audited) in addition to viewing.')" class="inline">
+                                        <form method="POST" action="{{ route('ops.access.grant') }}" data-confirm="Change this account to the OPERATOR tier? They will be able to run read-only diagnostics (audited) in addition to viewing." class="inline">
                                             @csrf
                                             <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
                                             <input type="hidden" name="level" value="operator">
                                             <button class="text-xs px-3 py-1.5 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60 font-medium">Make operator…</button>
                                         </form>
                                     @else
-                                        <form method="POST" action="{{ route('ops.access.grant') }}" onsubmit="return confirm('Downgrade this account to the VIEWER tier? They keep read access but can no longer run diagnostics.')" class="inline">
+                                        <form method="POST" action="{{ route('ops.access.grant') }}" data-confirm="Downgrade this account to the VIEWER tier? They keep read access but can no longer run diagnostics." class="inline">
                                             @csrf
                                             <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
                                             <input type="hidden" name="level" value="viewer">
@@ -119,7 +119,9 @@
                                         </form>
                                     @endif
                                 @endif
-                                <form method="POST" action="{{ route('ops.access.revoke', $grant) }}" onsubmit="return confirm('Revoke OpsCenter access for {{ $grant->user?->name ?? 'this account' }}? Access ends immediately.')" class="inline">
+                                {{-- ITERATION-3: message moved into an attribute (was interpolated into a
+                                     JS string — an apostrophe in the user's name broke the handler). --}}
+                                <form method="POST" action="{{ route('ops.access.revoke', $grant) }}" data-confirm="Revoke OpsCenter access for {{ $grant->user?->name ?? 'this account' }}? Access ends immediately." class="inline">
                                     @csrf
                                     <button class="text-xs px-3 py-1.5 rounded border border-red-700/60 bg-red-950/40 text-red-300 hover:bg-red-900/60 font-medium">Revoke…</button>
                                 </form>

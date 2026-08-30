@@ -142,46 +142,42 @@
                                      URL 404s while draft, so View/Share are meaningless). --}}
                                 @if($gallery->is_active)
                                 <div class="grid grid-cols-2 gap-2 mb-2">
-                                    <a href="{{ route('gallery.view', $gallery->slug) }}" target="_blank"
-                                       class="bg-gray-700 hover:bg-gray-600 text-center text-gray-100 font-medium py-2 px-3 rounded-lg transition text-sm">
+                                    <a href="{{ route('gallery.view', $gallery->slug) }}" target="_blank" class="btn btn-secondary">
                                         View
                                     </a>
-                                    <button data-click="shareGallery" data-args='[{{ json_encode([route('gallery.view', $gallery->slug), $gallery->title]) }}]'
-                                       class="bg-blue-600 hover:bg-blue-700 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">
+                                    <button data-click="shareGallery" data-args='[{{ json_encode([route('gallery.view', $gallery->slug), $gallery->title]) }}]' class="btn btn-secondary">
                                         Share
                                     </button>
                                 </div>
                                 @elseif($canEdit)
                                 <div class="grid grid-cols-2 gap-2 mb-2">
-                                    <a href="{{ route('admin.galleries.preview', $gallery) }}" target="_blank"
-                                       class="bg-gray-700 hover:bg-gray-600 text-center text-gray-100 font-medium py-2 px-3 rounded-lg transition text-sm">
+                                    <a href="{{ route('admin.galleries.preview', $gallery) }}" target="_blank" class="btn btn-secondary">
                                         Preview
                                     </a>
                                     @if($gallery->images->isNotEmpty())
-                                    <form action="{{ route('admin.galleries.publish', $gallery) }}" method="POST">
+                                    <form action="{{ route('admin.galleries.publish', $gallery) }}" method="POST"
+                                          data-busy data-busy-label="Publishing…">
                                         @csrf
-                                        <button type="submit"
-                                                class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-center text-white font-semibold py-2 px-3 rounded-lg transition text-sm">
+                                        <button type="submit" class="btn btn-primary w-full">
                                             Publish
                                         </button>
                                     </form>
                                     @else
                                     <a href="{{ route('admin.galleries.edit', $gallery) }}#image-upload-dropzone"
                                        title="Upload at least one artwork to publish"
-                                       class="bg-gray-700 text-gray-400 cursor-not-allowed text-center font-medium py-2 px-3 rounded-lg transition text-sm">
+                                       aria-disabled="true"
+                                       class="btn btn-secondary opacity-60 cursor-not-allowed">
                                         Publish
                                     </a>
                                     @endif
                                 </div>
                                 @endif
                                 <div class="grid grid-cols-2 gap-2">
-                                    <a href="{{ route('admin.galleries.edit', $gallery) }}"
-                                       class="bg-purple-600 hover:bg-purple-700 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">
+                                    <a href="{{ route('admin.galleries.edit', $gallery) }}" class="btn btn-primary">
                                         Edit
                                     </a>
                                     @if($canEdit)
-                                    <button data-click="confirmDelete" data-args='[{{ $gallery->id }}, {{ json_encode($gallery->title) }}]'
-                                       class="bg-red-700/80 hover:bg-red-600 text-center text-white font-medium py-2 px-3 rounded-lg transition text-sm">
+                                    <button data-click="confirmDelete" data-args='[{{ $gallery->id }}, {{ json_encode($gallery->title) }}]' class="btn btn-danger">
                                         Delete
                                     </button>
                                     @endif
@@ -328,11 +324,13 @@
     </div>
 
     <!-- Share Modal -->
-    <div id="share-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
-        <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-8 max-w-lg w-full mx-4 shadow-modal">
+    <div id="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title"
+         style="display:none;"
+         class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-8 max-w-lg w-full shadow-modal">
             <div class="flex items-center justify-between mb-6">
-                <h3 class="section-title text-lg">Share Gallery</h3>
-                <button data-click="closeModalById" data-arg="share-modal" class="text-gray-400 hover:text-gray-200">
+                <h3 id="share-modal-title" class="section-title text-lg">Share Gallery</h3>
+                <button data-click="closeModalById" data-arg="share-modal" class="flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/[0.06] transition" aria-label="Close">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -344,7 +342,7 @@
             <div class="bg-gray-900 border border-gray-700 rounded-lg p-4 mb-4">
                 <div class="flex items-center justify-between gap-3">
                     <input type="text" id="share-url" readonly class="bg-transparent text-gray-300 flex-1 outline-none text-sm" value="">
-                    <button data-click="copyShareUrl" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition text-sm font-medium flex items-center gap-2">
+                    <button data-click="copyShareUrl" class="btn btn-primary flex-shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                         </svg>
@@ -379,7 +377,9 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div id="delete-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
+    <div id="delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title"
+         style="display:none;"
+         class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
         <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-8 max-w-md w-full mx-4 shadow-modal">
             <div class="flex items-center gap-4 mb-4">
                 <div class="w-12 h-12 rounded-xl bg-red-900/30 flex items-center justify-center flex-shrink-0">
@@ -388,7 +388,7 @@
                     </svg>
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold text-gray-100">Delete Gallery</h3>
+                    <h3 id="delete-modal-title" class="text-lg font-bold text-gray-100">Delete Gallery</h3>
                     <p class="text-sm text-gray-400">This action cannot be undone.</p>
                 </div>
             </div>
@@ -398,7 +398,7 @@
                 @method('DELETE')
                 <div class="flex gap-3 justify-end">
                     <button type="button" data-click="closeModalById" data-arg="delete-modal"
-                            class="bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold px-5 py-2.5 rounded-lg transition text-sm">
+                            class="btn btn-secondary">
                         Cancel
                     </button>
                     <button type="submit"
@@ -416,14 +416,14 @@
         function confirmDelete(galleryId, galleryTitle) {
             document.getElementById('delete-gallery-name').textContent = galleryTitle;
             document.getElementById('delete-form').action = '/admin/galleries/' + galleryId;
-            document.getElementById('delete-modal').style.display = 'flex';
+            openModal('delete-modal');
         }
 
         function shareGallery(url, title) {
             document.getElementById('share-url').value = url;
             document.getElementById('share-title').textContent = title;
-            document.getElementById('share-modal').style.display = 'flex';
             document.getElementById('copy-btn-text').textContent = 'Copy';
+            openModal('share-modal');
         }
 
         function copyShareUrl() {
@@ -445,17 +445,10 @@
             });
         }
 
-        // Close modals on ESC key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                document.getElementById('share-modal').style.display = 'none';
-                document.getElementById('delete-modal').style.display = 'none';
-            }
-        });
-
-        // CSP-safe delegated modal helpers (replaced inline onclick handlers)
-        window.closeModalById = function(id) { const m = document.getElementById(id); if (m) m.style.display = 'none'; };
-        window.closeBackdropIfTarget = function(el, e) { if (e.target === el) el.style.display = 'none'; };
+        // ITERATION-3: Escape / backdrop click / Tab trap / scroll lock for
+        // both modals are handled by the shared modal system in app.js —
+        // the page-local Escape sweeper + backdrop helper were removed
+        // (they also stacked a listener on every Turbo visit).
 
         // Open QR code in new tab — the route returns a PNG
         function openQrCode(el, e) {
@@ -478,7 +471,10 @@
                 const original = btn.innerHTML;
                 btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Copied!';
                 setTimeout(() => { btn.innerHTML = original; }, 2000);
-            }).catch(() => alert('Could not copy. Here is the snippet:\n\n' + snippet));
+            }).catch(() => {
+                // Clipboard unavailable — surface the snippet instead of failing silently.
+                window.toast('Clipboard unavailable — copy the URL from the field above', 'error');
+            });
         }
     </script>
 

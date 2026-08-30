@@ -97,7 +97,7 @@ $dropdownId = 'dd-' . uniqid();
          @click="open = false"
          @keydown.arrow-down.prevent="focusNext()"
          @keydown.arrow-up.prevent="focusPrev()"
-         @keydown.escape.prevent="open = false; $refs.previousElementSibling?.focus()">
+         @keydown.escape.prevent="open = false; document.getElementById('{{ $dropdownId }}-trigger')?.focus()">
         <div class="menu-panel {{ $contentClasses }}">
             {{ $content }}
         </div>

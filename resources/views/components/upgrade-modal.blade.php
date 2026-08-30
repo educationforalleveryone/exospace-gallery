@@ -1,11 +1,13 @@
 @props(['trigger' => 'upgrade-modal'])
 
+{{-- ITERATION-3: z-[60] modal tier (was z-50 — same tier as dropdowns); close
+     control is a proper 32px hit target. --}}
 <div id="{{ $trigger }}"
-     class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
+     class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] hidden items-center justify-center p-4"
      role="dialog" aria-modal="true" aria-labelledby="{{ $trigger }}-heading">
     <div class="bg-gray-900 border border-gray-700 rounded-2xl max-w-sm w-full shadow-2xl p-6 text-center relative">
         <button data-click="closeModal" data-arg="{{ $trigger }}"
-                class="absolute top-3 right-3 text-gray-500 hover:text-gray-300 transition" aria-label="Close">
+                class="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition" aria-label="Close">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
 

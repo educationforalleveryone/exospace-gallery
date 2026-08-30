@@ -320,7 +320,7 @@
             </li>
         </ul>
         @if($currentPlan === 'studio')
-        <span class="btn btn-outline" style="opacity:0.7;cursor:default;pointer-events:none;">Your Current Plan ✓</span>
+        <span class="btn btn-outline opacity-70 cursor-default pointer-events-none" aria-disabled="true">Your Current Plan ✓</span>
         @else
         <a href="#" class="btn btn-outline" data-click="openModalAnchor" data-arg="upgrade-modal-studio">Upgrade to Studio — $99</a>
         @endif
@@ -490,7 +490,7 @@
 </section>
 
 <!-- Pro Upgrade Modal -->
-<div id="upgrade-modal-pro" role="dialog" aria-modal="true" aria-labelledby="modal-pro-title" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
+<div id="upgrade-modal-pro" role="dialog" aria-modal="true" aria-labelledby="modal-pro-title" style="display:none;" class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
     <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
 
         <h3 id="modal-pro-title" style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Pro — $29</h3>
@@ -524,7 +524,7 @@
 </div>
 
 <!-- Studio Upgrade Modal -->
-<div id="upgrade-modal-studio" role="dialog" aria-modal="true" aria-labelledby="modal-studio-title" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
+<div id="upgrade-modal-studio" role="dialog" aria-modal="true" aria-labelledby="modal-studio-title" style="display:none;" class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
     <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
 
         <h3 id="modal-studio-title" style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Studio — $99</h3>

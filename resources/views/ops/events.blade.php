@@ -52,7 +52,7 @@
             </select>
         </div>
     </div>
-    <div class="flex items-center gap-3 mt-3">
+    <div class="flex flex-wrap items-center gap-3 mt-3">
         <button class="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded text-sm font-medium">Apply filters</button>
         <select name="status" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-slate-300 text-sm focus:border-emerald-600 focus:outline-none">
             <option value="active" {{ $filters['status'] === 'active' ? 'selected' : '' }}>Active (open + acknowledged)</option>

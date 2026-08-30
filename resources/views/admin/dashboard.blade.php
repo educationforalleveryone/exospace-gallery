@@ -52,9 +52,9 @@
     <div class="page-shell space-y-5">
 
             {{-- ── Flash ─────────────────────────────────────────────────────── --}}
-            @if(session('status'))
-                <x-dashboard.alert-banner type="success" :text="session('status')"/>
-            @endif
+            {{-- ITERATION-3: the session('status') banner was removed — the
+                 layout <x-toast> announces the same flash, so it appeared twice. --}}
+
 
             {{-- ── Contextual Alerts ─────────────────────────────────────────── --}}
             @if(count($alerts))
@@ -498,12 +498,13 @@
 
     {{-- ── Share Modal (reuses the same pattern as galleries/index) ──────── --}}
     <div id="dashboard-share-modal"
-         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:50;align-items:center;justify-content:center;backdrop-filter:blur(4px);"
-         data-click="closeBackdropIfTarget">
-        <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-6 max-w-md w-full mx-4 shadow-modal">
+         role="dialog" aria-modal="true" aria-labelledby="dashboard-share-title"
+         style="display:none;"
+         class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-6 max-w-md w-full shadow-modal">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-gray-100">Share Gallery</h3>
-                <button data-click="closeDashboardShare" class="text-gray-400 hover:text-gray-200 transition p-1">
+                <h3 id="dashboard-share-title" class="text-lg font-bold text-gray-100">Share Gallery</h3>
+                <button data-click="closeDashboardShare" class="flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/[0.06] transition" aria-label="Close">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
@@ -523,13 +524,14 @@
 
     {{-- ── Upgrade Modal ────────────────────────────────────────────────── --}}
     <div id="upgrade-modal"
-         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:50;align-items:center;justify-content:center;backdrop-filter:blur(4px);"
-         data-click="closeBackdropIfTarget">
+         role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title"
+         style="display:none;"
+         class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
         <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-8 max-w-sm w-full mx-4 text-center shadow-modal">
             <div class="w-14 h-14 bg-brand-500/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
             </div>
-            <h3 class="text-xl font-bold text-white mb-2">Gallery limit reached</h3>
+            <h3 id="upgrade-modal-title" class="text-xl font-bold text-white mb-2">Gallery limit reached</h3>
             <p class="text-gray-400 text-sm mb-6">Upgrade to Pro for {{ config('plans.limits.pro.max_galleries') }} galleries, no watermarks, and full analytics.</p>
             <a href="/pricing" class="btn btn-primary w-full mb-2">
                 View Plans
@@ -545,12 +547,16 @@
     @if($isNewUser && !$team)
     <div x-data="{ show: !localStorage.getItem('exospace_welcomed') }"
          x-show="show" x-cloak
+         x-effect="document.body.classList.toggle('overflow-y-hidden', show)"
+         @keydown.escape.window="localStorage.setItem('exospace_welcomed','1'); show=false"
          @click.self="localStorage.setItem('exospace_welcomed','1'); show=false"
-         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] items-center justify-center p-4"
+    >
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0"
          x-transition:enter-end="opacity-100">
         <div @click.stop
+             role="dialog" aria-modal="true" aria-labelledby="welcome-heading"
              class="bg-gray-800 border border-gray-600/50 rounded-xl max-w-md w-full shadow-modal overflow-hidden"
              x-transition:enter="transition ease-out duration-200 delay-50"
              x-transition:enter-start="opacity-0 translate-y-2"
@@ -559,7 +565,7 @@
                 <div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-3">
                     <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                 </div>
-                <h2 class="text-xl font-bold text-white">Welcome to Exospace!</h2>
+                <h2 id="welcome-heading" class="text-xl font-bold text-white">Welcome to Exospace!</h2>
                 <p class="text-brand-200 text-sm mt-1">Your 3D gallery platform is ready.</p>
             </div>
             <div class="p-7">
@@ -599,10 +605,10 @@
         document.getElementById('ds-url').value   = url;
         document.getElementById('ds-title').textContent = title;
         document.getElementById('ds-copy-label').textContent = 'Copy';
-        document.getElementById('dashboard-share-modal').style.display = 'flex';
+        openModal('dashboard-share-modal');
     }
     function closeDashboardShare() {
-        document.getElementById('dashboard-share-modal').style.display = 'none';
+        closeModal('dashboard-share-modal');
     }
     function copyDashboardUrl() {
         const input = document.getElementById('ds-url');
@@ -618,27 +624,38 @@
         });
     }
     function showUpgradeModal() {
-        document.getElementById('upgrade-modal').style.display = 'flex';
+        openModal('upgrade-modal');
     }
 
-    // CSP-safe delegated modal helpers (replaced inline onclick handlers)
-    window.closeModalById = function(id) { const m = document.getElementById(id); if (m) m.style.display = 'none'; };
-    window.closeBackdropIfTarget = function(el, e) { if (e.target === el) el.style.display = 'none'; };
+    // ITERATION-3: closeDashboardShare/showUpgradeModal + both modals now run
+    // on the shared modal system (scroll lock, trap, focus restore). The
+    // page-local closeModalById / closeBackdropIfTarget helpers are handled
+    // by the global system; closeModalById is kept as a thin alias because
+    // upgrade-modal's "Maybe later" button still references it.
+    window.closeModalById = function(id) { closeModal(id); };
 
     // ── ESC to close any modal ───────────────────────────────────────────────
     document.addEventListener('keydown', e => {
         if (e.key !== 'Escape') return;
         ['dashboard-share-modal', 'upgrade-modal'].forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.style.display = 'none';
+            if (el) closeModal(el);
         });
     });
 
     // ── Auto-refresh stat cards every 60s (near-real-time) ──────────────────
-    // Only refresh when the tab is visible and user has galleries
+    // Only refresh when the tab is visible and user has galleries.
+    // ITERATION-3: the refresh chain previously kept running AFTER navigating
+    // away (Turbo swaps the body but the timeout lives on window), polling the
+    // WHATEVER page was current forever, and a second visit stacked a second
+    // chain. Now: one global chain slot + cancelled on turbo:before-visit.
     @if($galleriesCount > 0)
     (function () {
+        if (window.__exospaceStatRefreshChain) clearTimeout(window.__exospaceStatRefreshChain);
         let timer;
+        window.__exospaceStatRefreshChain = timer;
+        const cancelOnNav = () => clearTimeout(timer);
+        document.addEventListener('turbo:before-visit', cancelOnNav, { once: true });
         function scheduleRefresh() {
             clearTimeout(timer);
             timer = setTimeout(() => {

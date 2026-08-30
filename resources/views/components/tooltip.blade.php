@@ -79,7 +79,7 @@ $positionClass = $positionClasses[$position] ?? $positionClasses['top'];
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-95"
         x-cloak
-        class="absolute z-50 {{ $positionClass }} pointer-events-none max-w-xs whitespace-normal rounded-lg border border-gray-700 bg-ink-950 px-3 py-2 text-xs font-medium text-gray-100 shadow-xl"
+        class="absolute z-[55] {{ $positionClass }} pointer-events-none max-w-xs whitespace-normal rounded-lg border border-gray-700 bg-ink-950 px-3 py-2 text-xs font-medium text-gray-100 shadow-xl"
     >
         {{-- ITERATION-1 FIX: `$slots` does not exist in Blade components --}}
         {{-- (named slots arrive as their own variables — $content here, --}}

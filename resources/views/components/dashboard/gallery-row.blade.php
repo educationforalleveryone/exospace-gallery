@@ -65,21 +65,21 @@ $isEmpty = ($gallery->images_count ?? 0) === 0;
         @if($gallery->is_active)
         <a href="{{ route('gallery.view', $gallery->slug) }}"
            target="_blank"
-           class="inline-flex items-center gap-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1.5 rounded-lg transition"
+           class="inline-flex items-center gap-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 h-8 rounded-lg transition"
            title="View live">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
             <span class="hidden sm:inline">View</span>
         </a>
         <button
             data-click="dashboardShare" data-args='[{{ json_encode(route('gallery.view', $gallery->slug)) }},{{ json_encode($gallery->title) }}]'
-            class="inline-flex items-center gap-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1.5 rounded-lg transition"
+            class="inline-flex items-center gap-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 h-8 rounded-lg transition"
             title="Share">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
             <span class="hidden sm:inline">Share</span>
         </button>
         @endif
         <a href="{{ route('admin.galleries.edit', $gallery) }}"
-           class="inline-flex items-center gap-1 text-xs bg-purple-700/30 hover:bg-purple-700/60 text-purple-300 px-2.5 py-1.5 rounded-lg transition"
+           class="inline-flex items-center gap-1 text-xs bg-purple-700/30 hover:bg-purple-700/60 text-purple-300 px-2.5 h-8 rounded-lg transition"
            title="Edit">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             <span class="hidden sm:inline">Edit</span>

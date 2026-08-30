@@ -124,7 +124,7 @@
                         </form>
                     @else
                         <a href="{{ route('login') }}" class="text-sm text-gray-300 hover:text-white transition">Log in</a>
-                        <a href="{{ route('register') }}" class="text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold px-4 py-2 rounded-lg transition">
+                        <a href="{{ route('register') }}" class="btn btn-primary">
                             Get Started
                         </a>
                     @endauth
@@ -184,74 +184,47 @@
     <x-toast />
 
     <script nonce="@nonce">
-    function openModal(id)  { const m=document.getElementById(id); m.style.display='flex'; m.classList.add('flex');
-        // A11Y-7: Focus the first focusable element in the modal
-        const focusable = m.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        if (focusable.length) focusable[0].focus();
-        m._focusTrap = (e) => {
-            if (e.key !== 'Tab') return;
-            const f = m.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-            if (f.length === 0) return;
-            const first = f[0], last = f[f.length - 1];
-            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-        };
-        m.addEventListener('keydown', m._focusTrap);
-    }
-    function closeModal(id) { const m=document.getElementById(id); m.style.display='none'; m.classList.remove('flex');
-        if (m._focusTrap) { m.removeEventListener('keydown', m._focusTrap); }
-    }
-    document.addEventListener('DOMContentLoaded',()=>{
-        document.querySelectorAll('[role="dialog"]').forEach(m=>{
-            m.addEventListener('click', e=>{ if(e.target===m) closeModal(m.id); });
-        });
-        document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('[role="dialog"]').forEach(m=>closeModal(m.id)); });
-    });
+    // ── Modal system (ITERATION-3) ─────────────────────────────────────────
+    // openModal/closeModal + the global backdrop/Escape/Tab-trap/scroll-lock
+    // system now live in resources/js/app.js, shared with the admin layout.
+    // Previously this layout shipped its own drifted copy (with a focus trap
+    // but no scroll lock) bound at DOMContentLoaded — which never re-fires
+    // after a Turbo Drive navigation, so pricing modals lost backdrop-close.
+    //
+    // CRITICAL FIX: form[data-confirm] and [data-confirm-click] guards were
+    // also bound per-element at DOMContentLoaded and silently disappeared on
+    // every Turbo-navigated page. All handlers below are delegated on
+    // `document` (guarded, one-time) and route through the styled
+    // window.exospaceConfirm() dialog instead of native confirm().
+    if (!window.__exospacePublicDelegatesInit) {
+        window.__exospacePublicDelegatesInit = true;
 
-    // (Task H46 / audit MX5) — Register the PWA service worker for offline
-    // gallery caching. Progressive enhancement — if registration fails,
-    // the site works normally online.
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js').catch(() => {
-                // SW registration failed — silent no-op
+        document.addEventListener('submit', (e) => {
+            const form = e.target.closest?.('form[data-confirm]');
+            if (!form || form.__exospaceConfirming) return;
+            e.preventDefault();
+            form.__exospaceConfirming = true;
+            window.exospaceConfirm(e, form.getAttribute('data-confirm')).finally(() => {
+                form.__exospaceConfirming = false;
             });
         });
-    }
 
-    // ── CSP-safe image fallback ────────────────────────────────────────────
-    // Replaces inline `onerror="this.style.display='none'"` handlers that
-    // CSP blocks. Any <img> tagged with class `venue-thumb-img` (or any
-    // img carrying `data-fallback-hide`) that fails to load is hidden so
-    // the CSS gradient / placeholder sibling shows through.
-    document.addEventListener('DOMContentLoaded', () => {
-        const hide = (img) => {
-            img.style.visibility = 'hidden';
-            img.setAttribute('aria-hidden', 'true');
-        };
-        document.querySelectorAll('img.venue-thumb-img, img[data-fallback-hide]').forEach(img => {
-            if (img.complete && img.naturalWidth === 0) hide(img);
-            img.addEventListener('error', () => hide(img));
-        });
-    });
-
-    // ── CSP-safe delegated action handlers (mirrors layouts/app.blade.php) ──
-    // Replaces inline onclick/onchange/oninput/onsubmit with declarative
-    // data-* attributes. See layouts/app.blade.php for full docs.
-    document.addEventListener('DOMContentLoaded', () => {
-        // CSP-safe confirm-on-submit forms
-        document.querySelectorAll('form[data-confirm]').forEach(form => {
-            form.addEventListener('submit', (e) => {
-                if (!window.confirm(form.dataset.confirm)) e.preventDefault();
+        document.addEventListener('click', (e) => {
+            const el = e.target.closest('[data-confirm-click]');
+            if (!el || el.__exospaceConfirming) return;
+            e.preventDefault();
+            el.__exospaceConfirming = true;
+            window.exospaceConfirm(e, el.getAttribute('data-confirm-click')).then((ok) => {
+                el.__exospaceConfirming = false;
+                if (!ok) return;
+                const form = el.closest('form');
+                if (form) { window.exospaceGuardForm(form); form.submit(); }
+                else if (el.matches('a[href]')) window.location.href = el.getAttribute('href');
             });
         });
-        // CSP-safe confirm-on-click buttons/links
-        document.querySelectorAll('[data-confirm-click]').forEach(el => {
-            el.addEventListener('click', (e) => {
-                if (!window.confirm(el.dataset.confirmClick)) e.preventDefault();
-            });
-        });
+
         // Delegated data-click / data-change / data-input / data-submit
+        // (mirrors layouts/app.blade.php — see there for full docs).
         const delegate = (eventName, attr) => {
             document.addEventListener(eventName, (e) => {
                 const el = e.target.closest(`[${attr}]`);
@@ -272,7 +245,22 @@
         delegate('change', 'data-change');
         delegate('input', 'data-input');
         delegate('submit', 'data-submit');
-    });
+    }
+
+    // (Task H46 / audit MX5) — Register the PWA service worker for offline
+    // gallery caching. Progressive enhancement — if registration fails,
+    // the site works normally online.
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch(() => {
+                // SW registration failed — silent no-op
+            });
+        });
+    }
+    // ITERATION-3: the old DOMContentLoaded-bound image-fallback and
+    // per-element confirm/delegate blocks were removed — all of that
+    // behavior now lives in resources/js/app.js (guarded, delegated,
+    // Turbo-safe) and in the shared modal system.
     </script>
 </body>
 </html>

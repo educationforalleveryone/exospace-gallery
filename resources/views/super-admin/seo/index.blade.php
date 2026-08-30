@@ -388,7 +388,8 @@
                 </div>
                 <form method="GET">
                     <input type="hidden" name="tab" value="acquisition">
-                    <select name="days" onchange="this.form.submit()" class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                    {{-- ITERATION-3: inline onchange → canonical data-change helper --}}
+                    <select name="days" data-change="submitForm" class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
                         {{-- ITERATION-1 FIX (fatal parse error): the loop variable --}}
                         {{-- was written as \$d (backslash-dollar). Blade passes --}}
                         {{-- the raw token through to PHP, producing `echo \$d` --}}
@@ -452,12 +453,17 @@
     </div>
 
     {{-- Toggle inline SEO forms (CSP-safe, no inline handlers) --}}
+    {{-- ITERATION-3: one-time guard — Turbo re-executes this script on every
+         visit, stacking duplicate listeners; two toggles = no visible change. --}}
     <script nonce="@nonce">
-        document.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-seo-toggle]');
-            if (!btn) return;
-            const row = document.getElementById('seo-form-' + btn.dataset.seoToggle);
-            if (row) row.classList.toggle('hidden');
-        });
+        if (!window.__seoToggleInit) {
+            window.__seoToggleInit = true;
+            document.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-seo-toggle]');
+                if (!btn) return;
+                const row = document.getElementById('seo-form-' + btn.dataset.seoToggle);
+                if (row) row.classList.toggle('hidden');
+            });
+        }
     </script>
 </x-app-layout>

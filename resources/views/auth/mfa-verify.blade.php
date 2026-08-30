@@ -23,7 +23,7 @@
                 <p class="text-red-400 text-sm mt-2">{{ $message }}</p>
             @enderror
 
-            <button type="submit" class="w-full mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-xl transition">
+            <button type="submit" class="w-full mt-4 btn btn-primary w-full mt-4">
                 Verify
             </button>
         </form>

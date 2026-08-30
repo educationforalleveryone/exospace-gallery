@@ -141,21 +141,21 @@
                 @if(data_get($event->context, 'http'))
                     <div>
                         <h3 class="text-xs uppercase tracking-wider text-slate-500 mb-1.5">HTTP context</h3>
-                        <pre class="text-xs text-slate-400 bg-slate-950/70 rounded border border-slate-800 p-3 overflow-x-auto font-mono">{{ json_encode(data_get($event->context, 'http'), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                        <pre class="text-xs text-slate-400 bg-slate-950/70 rounded border border-slate-800 p-3 overflow-auto max-h-80 font-mono">{{ json_encode(data_get($event->context, 'http'), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                     </div>
                 @endif
 
                 @if(data_get($event->context, 'stack'))
                     <div>
                         <h3 class="text-xs uppercase tracking-wider text-slate-500 mb-1.5">Stack excerpt (first frames)</h3>
-                        <pre class="text-xs text-slate-400 bg-slate-950/70 rounded border border-slate-800 p-3 overflow-x-auto font-mono">{{ implode("\n", data_get($event->context, 'stack', [])) }}</pre>
+                        <pre class="text-xs text-slate-400 bg-slate-950/70 rounded border border-slate-800 p-3 overflow-auto max-h-80 font-mono">{{ implode("\n", data_get($event->context, 'stack', [])) }}</pre>
                     </div>
                 @endif
 
                 @if($event->context && data_get($event->context, 'http') === null && data_get($event->context, 'stack') === null)
                     <div>
                         <h3 class="text-xs uppercase tracking-wider text-slate-500 mb-1.5">Context</h3>
-                        <pre class="text-xs text-slate-400 bg-slate-950/70 rounded border border-slate-800 p-3 overflow-x-auto font-mono">{{ json_encode($event->context, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                        <pre class="text-xs text-slate-400 bg-slate-950/70 rounded border border-slate-800 p-3 overflow-auto max-h-80 font-mono">{{ json_encode($event->context, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                     </div>
                 @endif
 
@@ -203,7 +203,7 @@
             @if($commit || $deployment)
                 <ul class="text-xs text-slate-300 space-y-1.5">
                     @if($commit)<li>Commit <span class="font-mono text-slate-200">{{ \Illuminate\Support\Str::limit($commit, 10, '') }}</span> is associated with this event.</li>@endif
-                    @if($deployment)<li>Deployment context: <span class="font-mono">{{ $deployment }}</span></li>@endif
+                    @if($deployment)<li>Deployment context: <span class="font-mono break-all">{{ \Illuminate\Support\Str::limit($deployment, 48) }}</span></li>@endif
                 </ul>
             @else
                 <p class="text-xs text-slate-400">No deployment or commit correlated with this event yet. The correlation engine links recent deployments automatically when they share the window.</p>

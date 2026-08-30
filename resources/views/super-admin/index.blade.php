@@ -575,15 +575,36 @@
                         </td>
                     </tr>
                     @endforeach
+                    @if($users->isEmpty())
+                        <tr>
+                            <td colspan="6" class="px-5 py-12 text-center">
+                                <div class="empty-state">
+                                    <svg class="w-10 h-10 text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                    <p class="text-gray-300 text-sm font-medium">No users yet</p>
+                                    <p class="text-gray-500 text-xs mt-1">Users appear here as soon as they register.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    @endif
+                    {{-- ITERATION-3: the client-side filter used to leave a fully
+                         blank tbody when no row matched — this row is toggled
+                         by applyFilters() below. --}}
+                    <tr id="usersNoResults" class="hidden">
+                        <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-500">
+                            No users match the current search / filters.
+                            <button type="button" id="usersResetFilters" class="action-link ms-2">Reset filters</button>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
     <!-- Ban Modal -->
-    <div id="banModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center px-4">
+    <div id="banModal" role="dialog" aria-modal="true" aria-labelledby="ban-modal-title"
+         class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] hidden items-center justify-center px-4">
         <div class="bg-gray-800 border border-red-700/50 rounded-xl p-6 w-full max-w-md shadow-modal">
-            <h3 class="text-lg font-bold text-white mb-1">Ban User</h3>
+            <h3 id="ban-modal-title" class="text-lg font-bold text-white mb-1">Ban User</h3>
             <p class="text-gray-400 text-sm mb-4">Banning <strong id="banUserName" class="text-white"></strong>. They will be blocked from logging in.</p>
             <form id="banForm" method="POST">
                 @csrf
@@ -605,68 +626,37 @@
     </div>
 
     <script nonce="@nonce">
-        // ── CSP-safe delegated action handlers (mirrors layouts/app.blade.php) ──
-        // Replaces inline onclick/onchange/onsubmit with declarative data-* attrs.
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('form[data-confirm]').forEach(form => {
-                form.addEventListener('submit', (e) => {
-                    if (!window.confirm(form.dataset.confirm)) e.preventDefault();
-                });
-            });
-            document.querySelectorAll('[data-confirm-click]').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    if (!window.confirm(el.dataset.confirmClick)) e.preventDefault();
-                });
-            });
-            const delegate = (eventName, attr) => {
-                document.addEventListener(eventName, (e) => {
-                    const el = e.target.closest(`[${attr}]`);
-                    if (!el) return;
-                    const fn = window[el.getAttribute(attr)];
-                    if (typeof fn !== 'function') return;
-                    if (el.dataset.args) {
-                        try { fn.call(el, ...JSON.parse(el.dataset.args), e); }
-                        catch (err) { console.warn('[data-action] invalid JSON args:', el.dataset.args, err); }
-                    } else if (el.dataset.arg !== undefined) {
-                        fn.call(el, el.dataset.arg, e);
-                    } else {
-                        fn.call(el, el, e);
-                    }
-                });
-            };
-            delegate('click', 'data-click');
-            delegate('change', 'data-change');
-            delegate('input', 'data-input');
-            delegate('submit', 'data-submit');
-        });
+        // ITERATION-3: the page-local DOMContentLoaded delegate block (confirm
+        // forms, data-confirm-click, data-click/… delegation) was REMOVED —
+        // layouts/app.blade.php now ships those delegates bound once to
+        // `document`, so they keep working after every Turbo navigation.
+        // (The old per-element bindings silently died post-Turbo, which left
+        // impersonate/unban/verify actions unguarded.)
 
-        // CSP-safe delegated change handler: confirm + submit form
+        // CSP-safe delegated change handler: styled confirm + guarded submit
         window.confirmChangePlan = function(message, e) {
-            if (window.confirm(message)) {
-                const form = e.target.closest('form');
-                if (form) form.submit();
-            }
+            window.exospaceConfirm(e, message);
         };
 
-        // Ban modal
+        // Ban modal — uses the shared openModal/closeModal helpers (app.js):
+        // body scroll lock, focus trap, Escape, backdrop click, focus restore.
         function openBanModal(userId, userName) {
             document.getElementById('banUserName').textContent = userName;
             document.getElementById('banForm').action = '/master-control/users/' + userId + '/ban';
-            document.getElementById('banModal').classList.remove('hidden');
+            openModal('banModal');
         }
         function closeBanModal() {
-            document.getElementById('banModal').classList.add('hidden');
+            closeModal('banModal');
         }
-        document.getElementById('banModal').addEventListener('click', function(e) {
-            if (e.target === this) closeBanModal();
-        });
+        // (backdrop click + Escape for #banModal are handled globally by the
+        // shared modal system — role="dialog" + id is all that is required.)
 
         // Search & filter
         const search     = document.getElementById('userSearch');
         const planFilter = document.getElementById('planFilter');
         const statusFilter = document.getElementById('statusFilter');
 
-        function applyFilters() {
+        var applyFilters = function() {
             const q      = search.value.toLowerCase();
             const plan   = planFilter.value;
             const status = statusFilter.value;
@@ -683,9 +673,28 @@
             });
         }
 
+        // ITERATION-3: toggle the no-results row so a filtered-to-empty
+        // table never renders as a blank area.
+        const noResultsRow = document.getElementById('usersNoResults');
+        const baseApplyFilters = applyFilters;
+        applyFilters = function() {
+            baseApplyFilters();
+            if (noResultsRow) {
+                const anyVisible = [...document.querySelectorAll('.user-row')]
+                    .some((row) => row.style.display !== 'none');
+                noResultsRow.classList.toggle('hidden', anyVisible);
+            }
+        };
+
         search.addEventListener('input', applyFilters);
         planFilter.addEventListener('change', applyFilters);
         statusFilter.addEventListener('change', applyFilters);
+
+        const resetBtn = document.getElementById('usersResetFilters');
+        if (resetBtn) resetBtn.addEventListener('click', () => {
+            search.value = ''; planFilter.value = ''; statusFilter.value = '';
+            applyFilters();
+        });
     </script>
 
 
@@ -698,7 +707,7 @@
          @keydown.escape.window="open = false; typed = ''"
          @click.self="open = false; typed = ''">
         <div class="bg-gray-800 border border-red-700/50 rounded-xl max-w-md w-full shadow-modal p-6 relative">
-            <button @click="open = false; typed = ''" class="absolute top-3 right-3 text-gray-500 hover:text-gray-300" aria-label="Close">
+            <button @click="open = false; typed = ''" class="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition" aria-label="Close">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
             <h3 id="delete-modal-heading" class="text-lg font-bold text-red-400 mb-3">Permanently Delete User</h3>
@@ -726,9 +735,9 @@
                 <input type="hidden" name="_method" value="DELETE">
                 <div class="flex gap-3">
                     <button type="button" @click="open = false; typed = ''"
-                            class="flex-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-2.5 rounded-xl transition text-sm">Cancel</button>
+                            class="btn btn-secondary flex-1">Cancel</button>
                     <button type="submit" :disabled="typed !== 'DELETE'"
-                            class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-40 disabled:cursor-not-allowed">Delete User</button>
+                            class="btn btn-danger flex-1">Delete User</button>
                 </div>
             </form>
         </div>
@@ -742,7 +751,7 @@
          @keydown.escape.window="open = false; typed = ''"
          @click.self="open = false; typed = ''">
         <div class="bg-gray-900 border border-purple-700/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
-            <button @click="open = false; typed = ''" class="absolute top-3 right-3 text-gray-500 hover:text-gray-300" aria-label="Close">
+            <button @click="open = false; typed = ''" class="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition" aria-label="Close">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
             <h3 id="admin-modal-heading" class="text-lg font-bold text-purple-400 mb-3"
@@ -769,10 +778,10 @@
                 @csrf
                 <div class="flex gap-3">
                     <button type="button" @click="open = false; typed = ''"
-                            class="flex-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-2.5 rounded-xl transition text-sm">Cancel</button>
+                            class="btn btn-secondary flex-1">Cancel</button>
                     <button type="submit"
                             :disabled="(action === 'grant' && typed !== 'GRANT') || (action === 'revoke' && typed !== 'REVOKE')"
-                            class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                            class="btn btn-primary flex-1"
                             x-text="action === 'grant' ? 'Grant Access' : 'Revoke Access'"></button>
                 </div>
             </form>

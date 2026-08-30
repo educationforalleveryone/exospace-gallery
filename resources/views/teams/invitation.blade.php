@@ -88,13 +88,13 @@
                         <div class="space-y-3">
                             <form action="{{ url('/team-invitations/' . $token . '/accept') }}" method="POST">
                                 @csrf
-                                <button type="submit" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition">
+                                <button type="submit" class="w-full py-3 btn btn-lg btn-primary w-full">
                                     Accept &amp; Join Team
                                 </button>
                             </form>
                             <form action="{{ url('/team-invitations/' . $token . '/decline') }}" method="POST">
                                 @csrf
-                                <button type="submit" class="w-full py-3 bg-transparent border border-gray-600 hover:border-gray-500 text-gray-400 hover:text-gray-300 font-medium rounded-xl transition text-sm">
+                                <button type="submit" class="btn btn-lg btn-secondary w-full">
                                     Decline Invitation
                                 </button>
                             </form>
@@ -111,7 +111,7 @@
                             </p>
                         </div>
                         <a href="{{ route('login') }}?redirect={{ urlencode(request()->fullUrl()) }}"
-                           class="block w-full text-center py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition">
+                           class="block w-full text-center py-3 btn btn-lg btn-primary w-full">
                             Log In to Accept
                         </a>
                     @else
@@ -119,11 +119,11 @@
                         <p class="text-gray-400 text-sm text-center mb-4">You'll need an Exospace account to join.</p>
                         <div class="space-y-3">
                             <a href="{{ route('register') }}?invitation={{ $token }}"
-                               class="block w-full text-center py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition">
+                               class="block w-full text-center py-3 btn btn-lg btn-primary w-full">
                                 Create Account &amp; Join
                             </a>
                             <a href="{{ route('login') }}?redirect={{ urlencode(request()->fullUrl()) }}"
-                               class="block w-full text-center py-3 border border-gray-600 hover:border-gray-500 text-gray-300 font-medium rounded-xl transition text-sm">
+                               class="btn btn-lg btn-secondary w-full">
                                 Already have an account? Log In
                             </a>
                         </div>

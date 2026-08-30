@@ -51,7 +51,7 @@
             color: #fff; font-size: 11px; font-weight: 600;
             padding: 4px 10px; border-radius: 999px;
             letter-spacing: 0.04em; text-transform: uppercase;
-            z-index: 1000; pointer-events: none;
+            z-index: 30; pointer-events: none;
             backdrop-filter: blur(4px);
         }
 

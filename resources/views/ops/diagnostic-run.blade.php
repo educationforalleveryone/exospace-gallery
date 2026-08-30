@@ -6,7 +6,7 @@
 <div class="mb-4 flex items-center justify-between gap-4">
     <a href="{{ route('ops.diagnostics.index') }}" class="text-xs text-slate-500 hover:text-slate-300">← All diagnostics</a>
     @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
-        <form method="POST" action="{{ route('ops.diagnostics.run') }}">
+        <form method="POST" action="{{ route('ops.diagnostics.run') }}" data-busy data-busy-label="Running…">
             @csrf
             <input type="hidden" name="diagnostic" value="{{ $run->diagnostic_id }}">
             @if($run->ops_application_id)<input type="hidden" name="application" value="{{ $run->ops_application_id }}">@endif
@@ -93,11 +93,11 @@
                     @if(\App\Ops\Diagnostics\DiagnosticRegistry::has($step))
                         <li>
                             @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
-                                <form method="POST" action="{{ route('ops.diagnostics.run') }}" class="inline">
+                                <form method="POST" action="{{ route('ops.diagnostics.run') }}" class="inline" data-busy data-busy-label="Running…">
                                     @csrf
                                     <input type="hidden" name="diagnostic" value="{{ $step }}">
                                     @if($run->ops_application_id)<input type="hidden" name="application" value="{{ $run->ops_application_id }}">@endif
-                                    <button class="text-xs px-3 py-1.5 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition">
+                                    <button class="text-xs px-3 py-1.5 rounded-lg border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-medium transition whitespace-nowrap">
                                         ▶ Run: {{ \App\Ops\Diagnostics\DiagnosticRegistry::label($step) }}
                                     </button>
                                 </form>
@@ -124,7 +124,7 @@
             <dl class="space-y-2 text-xs">
                 <div class="flex justify-between gap-2"><dt class="text-slate-500">Diagnostic</dt><dd class="text-slate-200 font-mono text-xs">{{ $run->diagnostic_id }}</dd></div>
                 <div class="flex justify-between gap-2"><dt class="text-slate-500">Application</dt><dd class="text-slate-200">{{ $run->application?->name ?? 'Control plane (self)' }}</dd></div>
-                <div class="flex justify-between gap-2"><dt class="text-slate-500">Run by</dt><dd class="text-slate-200">{{ $run->actor?->email ?? 'system' }}</dd></div>
+                <div class="flex justify-between gap-2"><dt class="text-slate-500">Run by</dt><dd class="text-slate-200 break-all text-right">{{ $run->actor?->email ?? 'system' }}</dd></div>
                 <div class="flex justify-between gap-2"><dt class="text-slate-500">Trigger</dt><dd class="text-slate-200">{{ $run->sourceLabel() }}</dd></div>
                 @if($run->source === 'event' && $run->source_id)
                     <a href="{{ route('ops.events.show', $run->source_id) }}" class="inline-block text-emerald-400 hover:text-emerald-300 text-xs">View the triggering event →</a>

@@ -98,14 +98,15 @@
                          role="menu"
                          aria-labelledby="notif-dropdown-trigger"
                          style="display: none;"
-                         class="absolute right-0 mt-2 w-80 menu-panel z-50">
+                         class="absolute end-0 right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] menu-panel z-50">
 
                         <div class="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
                             <p class="text-gray-300 text-sm font-semibold">Notifications</p>
                             @if($navUnreadCount > 0)
                                 <form method="POST" action="{{ route('notifications.mark-all-read') }}">
                                     @csrf
-                                    <button type="submit" class="text-xs font-medium text-brand-400 hover:text-brand-300 transition">Mark all read</button>
+                                    {{-- ITERATION-3: padded to a 32px touch target (was a bare text-xs link) --}}
+                                    <button type="submit" class="inline-flex items-center h-8 px-2 -me-1 rounded-md text-xs font-medium text-brand-400 hover:text-brand-300 hover:bg-brand-500/10 transition">Mark all read</button>
                                 </form>
                             @endif
                         </div>
@@ -334,8 +335,8 @@
         <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-gray-700">
             <div class="px-4">
-                <div class="font-medium text-base text-gray-200">{{ Auth::user()->name }}</div>
-                <div class="font-medium text-sm text-gray-400">{{ Auth::user()->email }}</div>
+                <div class="font-medium text-base text-gray-200 break-words">{{ Auth::user()->name }}</div>
+                <div class="font-medium text-sm text-gray-400 truncate">{{ Auth::user()->email }}</div>
             </div>
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">{{ __('Profile') }}</x-responsive-nav-link>

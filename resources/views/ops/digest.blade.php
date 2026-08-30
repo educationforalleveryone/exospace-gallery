@@ -13,7 +13,7 @@
     </div>
     <div class="flex flex-col items-end gap-2">
         @if(auth()->user()?->is_super_admin)
-            <form method="POST" action="{{ route('ops.digest.send') }}">
+            <form method="POST" action="{{ route('ops.digest.send') }}" data-busy data-busy-label="Sending…">
                 @csrf
                 <button class="px-4 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium text-slate-50 transition">
                     Send now
@@ -111,7 +111,7 @@
             <div class="text-xs text-slate-500 font-mono mb-2">
                 🔵 *OpsCenter morning digest — {{ now()->format('Y-m-d H:i') }}* [{{ app()->environment() }}/INFO]
             </div>
-            <pre class="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">{{ $text }}</pre>
+            <pre class="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed max-h-96 overflow-y-auto">{{ $text }}</pre>
         </div>
         <p class="text-xs text-slate-600 mt-2">
             Rendered by the same <span class="font-mono">compose() + render()</span> pair the 08:15 task uses —
@@ -135,7 +135,7 @@
         </div>
         <div class="flex flex-col items-end gap-2">
             @if(auth()->user()?->is_super_admin)
-                <form method="POST" action="{{ route('ops.digest.weekly.send') }}">
+                <form method="POST" action="{{ route('ops.digest.weekly.send') }}" data-busy data-busy-label="Sending…">
                     @csrf
                     <button class="px-4 py-2 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-xs font-medium text-slate-50 transition">
                         Send weekly review now
@@ -224,7 +224,7 @@
                 <div class="text-xs text-slate-500 font-mono mb-2">
                     🔵 *OpsCenter weekly review — {{ now()->format('Y-m-d') }}* [{{ app()->environment() }}/INFO]
                 </div>
-                <pre class="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">{{ $weeklyText }}</pre>
+                <pre class="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed max-h-96 overflow-y-auto">{{ $weeklyText }}</pre>
             </div>
             <p class="text-xs text-slate-600 mt-2">
                 Rendered by the same <span class="font-mono">compose() + render()</span> pair the Monday 08:30 task uses —

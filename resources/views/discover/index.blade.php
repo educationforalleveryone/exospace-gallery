@@ -46,26 +46,28 @@
                 var el = document.getElementById('discover-loading-overlay');
                 if (el) el.style.display = 'flex';
             }
-            document.addEventListener('DOMContentLoaded', function() {
-                var navLinks = document.querySelectorAll('a[href^="?"], a[href*="page="], a[href*="sort="], a[href*="venue="]');
-                navLinks.forEach(function(link) {
-                    link.addEventListener('click', showLoading);
+            // ITERATION-3 FIX: the selectors here were malformed ('aref^="?"],' — a
+            // SyntaxError at parse time), so the listeners never attached and the
+            // overlay never showed; bindings also lived in DOMContentLoaded,
+            // which never re-fires after a Turbo navigation. Delegated + guarded
+            // now, with correct selectors.
+            if (!window.__discoverOverlayInit) {
+                window.__discoverOverlayInit = true;
+                document.addEventListener('click', function(e) {
+                    if (e.target.closest('a[href^="?"], a[href*="page="], a[href*="sort="], a[href*="venue="]')) showLoading();
                 });
-                var venueForm = document.querySelector('form[method="GET"]');
-                if (venueForm) {
-                    venueForm.addEventListener('submit', showLoading);
-                }
-            });
+                document.addEventListener('submit', function(e) {
+                    if (e.target && e.target.matches('form[method="GET"]')) showLoading();
+                }, true);
+            }
             window.addEventListener('pageshow', function() {
                 var el = document.getElementById('discover-loading-overlay');
                 if (el) el.style.display = 'none';
             });
         })();
 
-        // CSP-safe delegated change handler: submit the parent form
-        window.submitForm = function(el, e) {
-            if (el.form) el.form.submit();
-        };
+        // ITERATION-3: the page-local submitForm was removed — the canonical
+        // helper lives in resources/js/app.js and survives Turbo navigation.
     </script>
 
     <div class="max-w-7xl mx-auto px-4 py-10">

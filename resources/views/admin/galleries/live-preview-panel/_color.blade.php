@@ -44,7 +44,7 @@
     </div>
 
     <div data-lp-hint-popover="{{ $id }}"
-         class="hidden absolute z-50 mt-1 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 text-xs text-gray-300">
+         class="hidden mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 text-xs text-gray-300">
         <div>{{ $hint }}</div>
         <div class="mt-2 pt-2 border-t border-gray-700 text-xs text-gray-500">
             Venue default: <span class="text-gray-400 font-mono">{{ strtoupper($hexDefault) }}</span>

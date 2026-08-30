@@ -284,7 +284,7 @@ $venueAtmospheres = [
                             <svg class="w-4 h-4 ml-auto flex-shrink-0 transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </button>
 
-                        <div x-show="open"
+                        <div x-show="open" x-cloak style="display:none"
                              x-transition:enter="transition ease-out duration-150"
                              x-transition:enter-start="opacity-0 -translate-y-1"
                              x-transition:enter-end="opacity-100 translate-y-0">
@@ -480,6 +480,10 @@ document.querySelector('form').addEventListener('submit', function(e) {
     for (const [k, v] of fd.entries()) {
         if (k !== '_token') debugLines.push(`<tr><td style="color:#9ca3af;padding:2px 12px 2px 0">${k}</td><td style="color:#e5e7eb">${v || '<em style="color:#6b7280">empty</em>'}</td></tr>`);
     }
+    window.closeDebugPanel = function(el) {
+        const panel = el ? el.closest('#create-debug-panel') : document.getElementById('create-debug-panel');
+        if (panel) panel.style.display = 'none';
+    };
     const debugPanel = document.getElementById('create-debug-panel');
     if (debugPanel) {
         document.getElementById('create-debug-table').innerHTML = debugLines.join('');
@@ -496,10 +500,10 @@ document.querySelector('form').addEventListener('submit', function(e) {
 
 <!-- Debug panel: shows submitted form values if a 500 occurs -->
 @if(app()->environment('local'))
-<div id="create-debug-panel" style="display:none; position:fixed; bottom:1rem; right:1rem; z-index:9999; background:#111827; border:1px solid #374151; border-radius:12px; padding:1rem 1.25rem; max-width:380px; font-size:0.78rem; font-family:monospace; box-shadow:0 20px 40px rgba(0,0,0,0.5);">
+<div id="create-debug-panel" style="display:none; position:fixed; bottom:1rem; right:1rem; z-index:100; background:#111827; border:1px solid #374151; border-radius:12px; padding:1rem 1.25rem; max-width:calc(100vw - 2rem); font-size:0.78rem; font-family:monospace; box-shadow:0 20px 40px rgba(0,0,0,0.5);">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
         <span style="color:#f59e0b; font-weight:700; font-size:0.8rem;">Submitted values</span>
-        <button onclick="this.closest('#create-debug-panel').style.display='none'" style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:1rem;">x</button>
+        <button data-click="closeDebugPanel" style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:1rem;">x</button>
     </div>
     <table id="create-debug-table" style="border-collapse:collapse;width:100%;"></table>
     <p style="color:#6b7280;margin-top:0.5rem;font-size:0.72rem;">If a 500 occurs, check your server log — the error message is now logged. This panel shows what was sent.</p>

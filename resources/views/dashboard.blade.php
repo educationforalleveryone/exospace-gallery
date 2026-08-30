@@ -42,10 +42,7 @@
          for onboarding state. Both systems used the same localStorage key
          'exospace_onboarded' — dismissing either suppressed both, which was
          confusing. Now only the inline checklist controls onboarding display. --}}
-    <div class="page-shell space-y-6"
-         x-data="{
-            showUpgradeModal: false
-         }">
+    <div class="page-shell space-y-6">
 
             @if($galleriesCount > 0)
             <div class="flex justify-end">
@@ -308,13 +305,14 @@
         {{-- P2-14: Welcome modal removed — inline checklist is the single
              onboarding source of truth. --}}
 
-        <!-- Upgrade limit modal -->
+        <!-- Upgrade limit modal — ITERATION-3: uses the shared modal system
+             (z-[60] tier, scroll lock, focus trap, Escape, backdrop click). -->
         <div id="upgrade-modal"
-             class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
+             class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] hidden items-center justify-center p-4"
              role="dialog" aria-modal="true" aria-labelledby="upgrade-heading">
             <div class="bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal max-w-sm w-full p-6 text-center relative">
                 <button data-click="closeUpgradeModal"
-                        class="absolute top-3 right-3 text-gray-500 hover:text-gray-300 transition"
+                        class="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition"
                         aria-label="Close">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -357,20 +355,12 @@
             </div>
         </div>
         <script nonce="@nonce">
-        function showUpgradeModal() {
-            const m = document.getElementById('upgrade-modal');
-            m.style.display = 'flex';
-            m.classList.add('flex');
-            m.addEventListener('keydown', e => { if (e.key === 'Escape') closeUpgradeModal(); });
-        }
-        function closeUpgradeModal() {
-            const m = document.getElementById('upgrade-modal');
-            m.style.display = 'none';
-            m.classList.remove('flex');
-        }
-        document.getElementById('upgrade-modal').addEventListener('click', e => {
-            if (e.target === e.currentTarget) closeUpgradeModal();
-        });
+        // ITERATION-3: the per-open Escape listener (added on EVERY open —
+        // unbounded listener growth) and the per-element backdrop handler are
+        // gone; the shared modal system in app.js handles Escape, backdrop
+        // click, Tab trap, scroll lock and focus restore for this dialog.
+        function showUpgradeModal() { openModal('upgrade-modal'); }
+        function closeUpgradeModal() { closeModal('upgrade-modal'); }
         </script>
     </div>
 </x-app-layout>

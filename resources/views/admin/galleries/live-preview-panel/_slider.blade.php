@@ -47,9 +47,14 @@
            value="{{ $value }}"
            class="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-purple-500" />
 
-    {{-- Hover hint popover — shows on hover/focus of the label --}}
+    {{-- Hover hint popover — shows on hover/focus of the label.
+         ITERATION-3: was absolute z-50 — the hint opened INSIDE the sidebar's
+         overflow-y-auto scroll container and got clipped for sliders near the
+         panel edges. Now it flows inline (grid block) so it can never clip;
+         no z-index required. --}}
+
     <div data-lp-hint-popover="{{ $id }}"
-         class="hidden absolute z-50 mt-1 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 text-xs text-gray-300">
+         class="hidden mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 text-xs text-gray-300">
         <div class="flex items-start gap-2">
             {{-- SVG mini-mockup showing the effect direction --}}
             <div class="flex-shrink-0 w-16 h-12 bg-gray-800 rounded border border-gray-700 overflow-hidden">

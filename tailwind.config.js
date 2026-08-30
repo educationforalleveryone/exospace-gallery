@@ -173,6 +173,10 @@ export default {
         // Operational status language (OpsCenter / Control Center / Master Control)
         'status', 'status-dot', 'status-healthy', 'status-warning',
         'status-critical', 'status-info', 'status-unknown',
+        // Z-index ladder (iteration 3) — the only sanctioned floating tiers.
+        // Safelisted so helpers that build class strings in JS (app.js
+        // exospaceConfirm, modal system) can never ship without them.
+        'z-30', 'z-40', 'z-[45]', 'z-50', 'z-[55]', 'z-[60]', 'z-[70]', 'z-[71]', 'z-[100]',
     ],
 
     plugins: [forms],

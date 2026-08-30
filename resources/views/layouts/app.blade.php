@@ -39,11 +39,11 @@
         @endphp
         @if($isImpersonating)
             @php $impersonatedUser = auth()->user(); @endphp
-            <div class="bg-amber-600 text-black px-4 py-2 flex items-center justify-between gap-4 sticky top-0 z-50">
-                <div class="flex items-center gap-2 text-sm font-medium">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    You are viewing the site as <strong>{{ $impersonatedUser?->name }}</strong> ({{ $impersonatedUser?->email }}).
-                    All actions are logged.
+            <div class="bg-amber-600 text-black px-4 py-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 sticky top-0 z-40">
+                <div class="flex items-center gap-2 text-sm font-medium min-w-0">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <span class="min-w-0">You are viewing the site as <strong class="break-words">{{ $impersonatedUser?->name }}</strong> <span class="break-all">({{ $impersonatedUser?->email }})</span>.
+                    All actions are logged.</span>
                 </div>
                 <form method="POST" action="{{ route('super.stop-impersonating') }}">
                     @csrf
@@ -123,103 +123,73 @@
             })();
         }
         </script>
+        {{-- ITERATION-3: openModal/closeModal + the global modal system
+             (backdrop click, Escape, Tab trap, scroll lock, focus restore)
+             moved into resources/js/app.js so the admin and public layouts
+             share ONE implementation. `showUpgradeModal` is kept as the
+             historical alias used by dashboard CTAs. --}}
         <script nonce="@nonce">
-        function openModal(id)  { const m=document.getElementById(id); m.style.display='flex'; m.classList.add('flex'); }
-        function closeModal(id) { const m=document.getElementById(id); m.style.display='none'; m.classList.remove('flex'); }
-        // close on backdrop click
-        // FIX (Iter-002): this used to query [role="dialog"] and bind a click
-        // listener directly to each modal found at DOMContentLoaded time.
-        // DOMContentLoaded fires once per real page load — Turbo Drive swaps
-        // in new pages (with new modals) without ever firing it again, so
-        // any modal on a Turbo-navigated page had no backdrop-click or
-        // Escape-to-close behavior. Switched to delegated listeners on
-        // `document` (bound once, guarded) which work for modals present now
-        // or added to any future page.
-        if (!window.__exospaceModalHandlersInit) {
-            window.__exospaceModalHandlersInit = true;
-            document.addEventListener('click', e => {
-                const m = e.target.closest('[role="dialog"]');
-                if (m && e.target === m) closeModal(m.id);
-            });
-            document.addEventListener('keydown', e => {
-                if (e.key === 'Escape') document.querySelectorAll('[role="dialog"]').forEach(m => closeModal(m.id));
-            });
-        }
-        // alias for existing calls
         function showUpgradeModal(){ openModal('upgrade-modal'); }
         </script>
         <script nonce="@nonce">
-        // ── CSP-safe image fallback ────────────────────────────────────────────
-        // Replaces inline `onerror="this.style.display='none'"` handlers that
-        // CSP blocks. Any <img> tagged with class `venue-thumb-img` (or any
-        // img carrying `data-fallback-hide`) that fails to load is hidden so
-        // the CSS gradient / placeholder sibling shows through.
-        // FIX (Iter-002): this used to bind an 'error' listener directly to
-        // each matching <img> found at DOMContentLoaded time. DOMContentLoaded
-        // only fires once (Turbo Drive swaps <body> on later navigations
-        // without reloading the document), so images on every page after the
-        // first never got this handler at all — broken thumbnails stayed
-        // visible as browser broken-image icons instead of being hidden.
-        // 'error' doesn't bubble, so we listen on `document` with
-        // capture=true instead: bound once, survives every Turbo navigation,
-        // and covers images added at any point in the future.
-        if (!window.__exospaceImgFallbackInit) {
-            window.__exospaceImgFallbackInit = true;
-            const hide = (img) => {
-                img.style.visibility = 'hidden';
-                img.setAttribute('aria-hidden', 'true');
-            };
-            const scanForCached404s = () => {
-                document.querySelectorAll('img.venue-thumb-img, img[data-fallback-hide]').forEach(img => {
-                    // If the browser already tried and failed before our listener
-                    // attached (cached 404), check complete/naturalWidth.
-                    if (img.complete && img.naturalWidth === 0) hide(img);
-                });
-            };
-            document.addEventListener('error', (e) => {
-                const img = e.target;
-                if (img.tagName === 'IMG' && img.matches('.venue-thumb-img, [data-fallback-hide]')) hide(img);
-            }, true);
-            document.addEventListener('turbo:load', scanForCached404s);
-            scanForCached404s();
-        }
+        // ── CSP-safe global interaction delegates (ITERATION-3) ───────────────
+        // CRITICAL FIX: logout links, data-confirm forms and data-confirm-click
+        // buttons were previously bound PER-ELEMENT inside DOMContentLoaded.
+        // DOMContentLoaded fires once per real page load — Turbo Drive swaps
+        // <body> on later navigations without ever firing it again, so on
+        // every Turbo-navigated page:
+        //   • Sign out submitted via GET → 405 error
+        //   • every data-confirm / data-confirm-click guard silently
+        //     disappeared → destructive actions ran WITHOUT confirmation.
+        // All handlers below are delegated on `document` (which persists
+        // across Turbo navigations) inside one-time guards, so they work on
+        // the first page AND on every Turbo-swapped page after it.
+        //
+        // data-confirm / data-confirm-click now route through the styled
+        // window.exospaceConfirm() dialog instead of native window.confirm()
+        // (one confirm mechanism, one visual language, double-submit guarded).
+        if (!window.__exospaceDelegatesInit) {
+            window.__exospaceDelegatesInit = true;
 
-        // ── CSP-safe logout links ─────────────────────────────────────────────
-        // The navigation has <a href="/logout" onclick="event.preventDefault();
-        //   this.closest('form').submit();">Sign out</a> wrapped in a <form>.
-        // CSP blocks the inline onclick. We replace it with a delegated
-        // listener: any element with [data-logout-link] inside a <form> will
-        // submit that form instead of navigating.
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('[data-logout-link]').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    e.preventDefault();
+            // ── CSP-safe logout links ─────────────────────────────────────
+            // <a href="/logout" data-logout-link> inside a <form> submits the
+            // form instead of navigating (native GET would 405).
+            document.addEventListener('click', (e) => {
+                const el = e.target.closest('[data-logout-link]');
+                if (!el) return;
+                e.preventDefault();
+                const form = el.closest('form');
+                if (form) form.submit();
+            });
+
+            // ── Confirm-on-submit forms ───────────────────────────────────
+            // <form data-confirm="Are you sure?">…</form>
+            document.addEventListener('submit', (e) => {
+                const form = e.target.closest?.('form[data-confirm]');
+                if (!form || form.__exospaceConfirming) return;
+                e.preventDefault();
+                form.__exospaceConfirming = true;
+                window.exospaceConfirm(e, form.getAttribute('data-confirm')).finally(() => {
+                    form.__exospaceConfirming = false;
+                });
+            });
+
+            // ── Confirm-on-click buttons/links ────────────────────────────
+            document.addEventListener('click', (e) => {
+                const el = e.target.closest('[data-confirm-click]');
+                if (!el || el.__exospaceConfirming) return;
+                e.preventDefault();
+                el.__exospaceConfirming = true;
+                window.exospaceConfirm(e, el.getAttribute('data-confirm-click')).then((ok) => {
+                    el.__exospaceConfirming = false;
+                    if (!ok) return;
                     const form = el.closest('form');
-                    if (form) form.submit();
+                    if (form) { window.exospaceGuardForm(form); form.submit(); }
+                    else if (el.matches('a[href]')) window.location.href = el.getAttribute('href');
                 });
             });
 
-            // ── CSP-safe confirm-on-submit forms ──────────────────────────────
-            // Replaces inline onsubmit="return confirm('...')" with a delegated
-            // listener. Any form carrying data-confirm="..." will prompt.
-            document.querySelectorAll('form[data-confirm]').forEach(form => {
-                form.addEventListener('submit', (e) => {
-                    if (!window.confirm(form.dataset.confirm)) {
-                        e.preventDefault();
-                    }
-                });
-            });
-
-            // ── CSP-safe confirm-on-click buttons/links ───────────────────────
-            document.querySelectorAll('[data-confirm-click]').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    if (!window.confirm(el.dataset.confirmClick)) {
-                        e.preventDefault();
-                    }
-                });
-            });
-
-            // ── CSP-safe delegated action handlers ────────────────────────────
+            // ── Delegated action handlers ─────────────────────────────────
             // Replaces inline onclick="fn(arg)" / onchange="fn(this)" /
             // oninput="fn(this, event)" with declarative attributes:
             //
@@ -256,7 +226,7 @@
             delegate('change', 'data-change');
             delegate('input', 'data-input');
             delegate('submit', 'data-submit');
-        });
+        }
         </script>
         {{-- M-19: In-app feedback widget (floating button on all admin pages) --}}
         @include('components.feedback-widget')

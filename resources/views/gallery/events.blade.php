@@ -25,12 +25,8 @@
         </div>
 
 
-        @if(session('status'))
-            <div class="mb-6 p-4 rounded-lg bg-green-900/20 border border-green-700/30 text-green-300 text-sm">{{ session('status') }}</div>
-        @endif
-        @if(session('error'))
-            <div class="mb-6 p-4 rounded-lg bg-red-900/20 border border-red-700/30 text-red-300 text-sm">{{ session('error') }}</div>
-        @endif
+        {{-- ITERATION-3: session flash banners removed — the public layout's
+             <x-toast> announces these flashes; showing both duplicated every message. --}}
 
         {{-- Upcoming events --}}
         @if($upcoming->count() > 0)

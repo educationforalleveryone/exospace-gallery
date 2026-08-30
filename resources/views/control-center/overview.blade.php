@@ -109,7 +109,7 @@
             </header>
 
             @if ($latest && $latest->total > 0)
-                <dl class="mb-3 grid grid-cols-4 gap-2 text-center text-xs">
+                <dl class="mb-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                     <div class="rounded-md bg-slate-800/60 py-2"><dt class="text-slate-500">tests</dt><dd class="mt-0.5 font-semibold">{{ number_format($latest->total) }}</dd></div>
                     <div class="rounded-md bg-emerald-950/60 py-2"><dt class="text-emerald-600">pass</dt><dd class="mt-0.5 font-semibold text-emerald-300">{{ number_format($latest->passed) }}</dd></div>
                     <div class="rounded-md bg-red-950/60 py-2"><dt class="text-red-500">fail</dt><dd class="mt-0.5 font-semibold text-red-300">{{ $latest->failed + $latest->errored }}</dd></div>

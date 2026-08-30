@@ -18,6 +18,25 @@
      • Radius ladder: md = chips · lg = controls · xl = surfaces. Nothing else.
      • Status hues: success=emerald warning=amber danger=red info=blue.
      • Minimum text size in UI = 12px (text-xs). No text-[10px] in new code.
+
+   ── Z-INDEX LADDER (iteration 3 — ONE layering system, no ad-hoc z) ──────
+     Every floating layer in the product uses one of these tiers:
+
+       z-10/z-20   in-card overlays (badges, hover controls INSIDE a card)
+       z-30        sticky in-page elements (reorder bars)
+       z-40        site chrome — top navs, impersonation banner, ops topbar
+       z-[45]      persistent page overlays — cookie banner, feedback FAB
+       z-50        dropdowns / menus / popovers (x-dropdown, notif, team)
+       z-[55]      tooltips ([data-tooltip]::after, x-tooltip)
+       z-[60]      modals — x-modal, confirm dialogs, exospaceConfirm,
+                   every hand-rolled page modal
+       z-[70]      command palette (may open above a modal)
+       z-[100]     toasts (always on top, never cover-blocking controls)
+
+     Rules: never use z-[9999]-style magic numbers; if a layer doesn't fit
+     the ladder, the ladder is wrong — extend IT, not the element.
+     Avoid creating stacking contexts (transform/filter/backdrop-blur on
+     ancestors of floating layers) — see docs/DESIGN-SYSTEM.md §8.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @tailwind base;
@@ -281,8 +300,10 @@
     /* ═══ MODALS ══════════════════════════════════════════════════════════
        One dialog language for every modal in the product (x-modal,
        x-confirm-modal, upgrade modal). Panel widths: max-w-md standard,
-       max-w-lg form, max-w-2xl large. */
-    .modal-backdrop { @apply fixed inset-0 z-50 bg-black/70 backdrop-blur-sm; }
+       max-w-lg form, max-w-2xl large.
+       ITERATION-3: backdrop lifted z-50 → z-[60] so modals always cover
+       dropdown menus (also z-50) regardless of DOM order. */
+    .modal-backdrop { @apply fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm; }
     .modal-panel    { @apply w-full bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal; }
     /* Standard modal interior — header / body / footer bands */
     .modal-header   { @apply px-6 py-4 border-b border-gray-700/60; }
@@ -322,7 +343,7 @@
         transition: opacity 0.15s;
         border: 1px solid #374151;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-        z-index: 60;
+        z-index: 55; /* tooltip tier of the z-ladder — above dropdowns, under modals */
     }
     [data-tooltip]:hover::after,
     [data-tooltip]:focus-visible::after { opacity: 1; }

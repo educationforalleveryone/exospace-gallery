@@ -38,10 +38,10 @@
                         {{ $r->score }}
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="text-sm font-medium text-gray-200">{{ $r->user?->name ?? 'Unknown' }}</span>
-                            <span class="text-xs text-gray-500">{{ $r->user?->email }}</span>
-                            <span class="text-xs text-gray-600">{{ $r->responded_at?->diffForHumans() }}</span>
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1 min-w-0">
+                            <span class="text-sm font-medium text-gray-200 truncate max-w-[160px]">{{ $r->user?->name ?? 'Unknown' }}</span>
+                            <span class="text-xs text-gray-500 truncate max-w-[200px]">{{ $r->user?->email }}</span>
+                            <span class="text-xs text-gray-600 flex-shrink-0">{{ $r->responded_at?->diffForHumans() }}</span>
                         </div>
                         @if($r->feedback)
                             <p class="text-sm text-gray-400">{{ $r->feedback }}</p>

@@ -42,51 +42,10 @@
             border-color: #9333ea;
         }
 
-        /* Toast notifications */
-        .toast-container {
-            position: fixed;
-            top: 1.25rem;
-            right: 1.25rem;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            pointer-events: none;
-        }
-        .toast-item {
-            pointer-events: auto;
-            padding: 0.75rem 1.25rem;
-            border-radius: 0.75rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
-            animation: toast-in 0.3s ease-out, toast-out 0.3s ease-in forwards;
-            animation-delay: 0s, 2.7s;
-            max-width: 360px;
-        }
-        .toast-item.success {
-            background: rgba(16, 185, 129, 0.9);
-            color: #fff;
-            border: 1px solid rgba(52, 211, 153, 0.4);
-        }
-        .toast-item.error {
-            background: rgba(239, 68, 68, 0.9);
-            color: #fff;
-            border: 1px solid rgba(248, 113, 113, 0.4);
-        }
-        .toast-item.info {
-            background: rgba(99, 102, 241, 0.9);
-            color: #fff;
-            border: 1px solid rgba(129, 140, 248, 0.4);
-        }
-        @keyframes toast-in {
-            from { opacity: 0; transform: translateX(100%) scale(0.95); }
-            to { opacity: 1; transform: translateX(0) scale(1); }
-        }
-        @keyframes toast-out {
-            from { opacity: 1; transform: translateX(0) scale(1); }
-            to { opacity: 0; transform: translateX(100%) scale(0.95); }
-        }
+        /* Toast notifications — ITERATION-3: the page-local `.toast-item`
+           system (green/red/indigo pills, top-right, z-index 9999) was removed.
+           The kit `window.toast()` from <x-toast> is used instead — same call
+           signature, one visual language, correct stacking tier. */
 
         /* Venue card styles */
         .venue-card-inner {
@@ -174,7 +133,7 @@
         bottom: 1.5rem;
         left: 50%;
         transform: translateX(-50%);
-        z-index: 1000;
+        z-index: 30; /* sticky-page tier of the z-ladder */
         display: none; /* hidden by default; JS shows via display:flex */
         align-items: center;
         gap: 0.75rem;
@@ -241,9 +200,6 @@
 
     </style>
 
-    <!-- Toast container (rendered immediately) -->
-    <div id="toast-container" class="toast-container"></div>
-
     <div class="page-shell space-y-6">
 
             {{-- Round 4: gallery sub-nav --}}
@@ -297,15 +253,14 @@
                     </p>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <button type="button" data-click="copyPublicLink" data-arg="{{ $publicUrl }}"
-                                class="inline-flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-100 text-sm font-medium px-3 py-2 rounded-lg transition">
+                                class="btn btn-secondary">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             Copy link
                         </button>
                         <form action="{{ route('admin.galleries.unpublish', $gallery) }}" method="POST"
                               data-confirm="Unpublish this exhibition? The public link will stop working immediately.">
                             @csrf
-                            <button type="submit"
-                                    class="inline-flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium px-3 py-2 rounded-lg transition">
+                            <button type="submit" class="btn btn-secondary">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
                                 Unpublish
                             </button>
@@ -325,15 +280,16 @@
                     </p>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <a href="{{ route('admin.galleries.preview', $gallery) }}" target="_blank" rel="noopener"
-                           class="inline-flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-100 text-sm font-medium px-3 py-2 rounded-lg transition">
+                           class="btn btn-secondary">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             Preview
                         </a>
-                        <form action="{{ route('admin.galleries.publish', $gallery) }}" method="POST">
+                        <form action="{{ route('admin.galleries.publish', $gallery) }}" method="POST"
+                              {{ $canPublish ? 'data-busy data-busy-label="Publishing…"' : '' }}>
                             @csrf
-                            <button type="submit" {{ $canPublish ? '' : 'disabled' }}
+                            <button type="submit" {{ $canPublish ? '' : 'disabled aria-disabled="true"' }}
                                     title="{{ $canPublish ? 'Make this exhibition public' : 'Upload at least one artwork to publish' }}"
-                                    class="inline-flex items-center gap-1.5 {{ $canPublish ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-lg shadow-green-900/30' : 'bg-gray-700 cursor-not-allowed opacity-60' }} text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                                    class="btn {{ $canPublish ? 'btn-primary' : 'btn-secondary opacity-60 cursor-not-allowed' }}">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             Publish
                             </button>
@@ -346,7 +302,7 @@
             <div class="bg-gray-800 border border-gray-700 shadow-lg sm:rounded-lg p-6">
                 <h3 class="text-lg font-medium text-gray-100 mb-4">Gallery Settings</h3>
 
-                <form action="{{ route('admin.galleries.update', $gallery) }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('admin.galleries.update', $gallery) }}" method="POST" enctype="multipart/form-data" id="gallery-settings-form">
                     @csrf
                     @method('PUT')
 
@@ -810,7 +766,7 @@
                             </div>
                             @error('custom_domain')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
                             @if($gallery->custom_domain)
-                            <p class="text-xs text-green-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline">{{ $gallery->custom_domain }}</a> see this gallery.</p>
+                            <p class="text-xs text-green-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline break-all">{{ $gallery->custom_domain }}</a> see this gallery.</p>
                             @endif
 
                             {{-- (Task H63) — DNS verification UI. Shows the TXT
@@ -1003,7 +959,7 @@
                                  ]) }}'>
 
                                 <!-- 3B: Selection Checkbox -->
-                                <div class="absolute top-3 left-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <div class="absolute top-3 left-3 z-20 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
                                     <input type="checkbox" value="{{ $image->id }}"
                                            data-change="updateSelection"
                                            class="image-checkbox w-5 h-5 rounded border-gray-600 bg-gray-700 text-purple-600 shadow-lg focus:ring-2 focus:ring-purple-500 cursor-pointer transition-all">
@@ -1022,16 +978,16 @@
                                 <!-- Delete Button: Pro Style -->
                                 <button data-click="deleteImage" data-arg="{{ $image->id }}"
                                         type="button"
-                                        class="absolute top-3 right-3 bg-red-600/80 hover:bg-red-600 text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100"
-                                        title="Delete Image">
+                                        class="absolute top-3 right-3 bg-red-600/80 hover:bg-red-600 text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
+                                        title="Delete Image" aria-label="Delete image">
                                     <span class="text-lg font-bold leading-none">&times;</span>
                                 </button>
 
                                 <!-- Edit Details Button (ITERATION-2: artwork metadata editor) -->
                                 <button data-click="editMetadata" data-arg="{{ $image->id }}"
                                         type="button"
-                                        class="absolute top-3 left-14 bg-gray-800/80 hover:bg-purple-600 text-gray-200 hover:text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100"
-                                        title="Edit artwork details (title, price, artist…)">
+                                        class="absolute top-3 left-14 bg-gray-800/80 hover:bg-purple-600 text-gray-200 hover:text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
+                                        title="Edit artwork details (title, price, artist…)" aria-label="Edit artwork details">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </button>
 
@@ -1064,14 +1020,13 @@
                  editor. Populated from the card's data-metadata blob; saved
                  via fetch, card caption updates in place. --}}
             <div id="metadata-modal" role="dialog" aria-modal="true" aria-labelledby="metadata-modal-title"
-                 style="display:none; position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px);"
-                 class="items-center justify-center p-4 overflow-y-auto"
-                 data-click="closeMetadataModalIfBackdrop">
-                <div class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-2xl mx-auto my-8" role="document">
+                 style="display:none;"
+                 class="fixed inset-0 z-[60] items-center justify-center p-4 overflow-y-auto bg-black/75 backdrop-blur-sm">
+                <div class="bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal w-full max-w-2xl mx-auto my-8" role="document">
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700">
                         <h3 id="metadata-modal-title" class="text-lg font-semibold text-gray-100">Artwork details</h3>
                         <button type="button" data-click="closeMetadataModal" aria-label="Close"
-                                class="text-gray-500 hover:text-gray-300 transition">
+                                class="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
@@ -1169,9 +1124,9 @@
 
                         <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-700">
                             <button type="button" data-click="closeMetadataModal"
-                                    class="bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium px-4 py-2 rounded-lg transition text-sm">Cancel</button>
+                                    class="btn btn-secondary">Cancel</button>
                             <button type="submit" id="metadata-save-btn"
-                                    class="btn btn-sm btn-primary">
+                                    class="btn btn-primary">
                                 Save details
                             </button>
                         </div>
@@ -1183,15 +1138,10 @@
     <!-- Dropzone & Scripts -->
     
     <script nonce="@nonce">
-        // ─── Toast Notification System ───────────────────────────
-        function toast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const el = document.createElement('div');
-            el.className = `toast-item ${type}`;
-            el.textContent = message;
-            container.appendChild(el);
-            setTimeout(() => el.remove(), 3200);
-        }
+        // ITERATION-3: the page-local toast() shadowed window.toast and drew a
+        // second, visually-different toast system (plus its own CSS block and
+        // z-index 9999 container). Removed — toast() calls in this script now
+        // resolve to the kit window.toast() from <x-toast>.
 
         // ─── Dropzone Config ────────────────────────────────────
         // FIX (Iter-002): this used to be assigned directly to
@@ -1374,22 +1324,15 @@
                 }
             }
 
-            metadataModal().style.display = 'flex';
+            openModal(metadataModal());
         };
 
         window.closeMetadataModal = function() {
-            if (metadataModal()) metadataModal().style.display = 'none';
+            // Shared helper (app.js): removes scroll lock, pops the modal
+            // stack, restores focus. Backdrop click + Escape + Tab trap are
+            // handled by the global modal system.
+            if (metadataModal()) closeModal(metadataModal());
         };
-
-        window.closeMetadataModalIfBackdrop = function(el, e) {
-            // Only close if the click landed directly on the backdrop.
-            if (e.target === el) el.style.display = 'none';
-        };
-
-        // Escape closes the metadata modal (registered once per page load).
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') window.closeMetadataModal();
-        });
 
         window.saveMetadata = function(form, e) {
             e.preventDefault();
@@ -1791,7 +1734,15 @@
             });
         }
         // ─── AJAX form submit — no page navigation so no "leave site" dialog ───
-        document.querySelector('form[action*="galleries"]').addEventListener('submit', function(e) {
+        // ITERATION-3 CRITICAL FIX: this handler used
+        // document.querySelector('form[action*="galleries"]') — which matches
+        // the FIRST such form in the DOM. Depending on publish state that was
+        // the Unpublish form or this one, so "Update Settings" silently lost
+        // its AJAX flow and Publish/Unpublish were hijacked into a fetch that
+        // followed the redirect, failed res.json() and showed a fake
+        // "Network error" while the action actually succeeded. Scoped to the
+        // settings form id now.
+        document.getElementById('gallery-settings-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const form = this;
             const btn = document.getElementById('update-settings-btn');
@@ -1842,7 +1793,7 @@
         var _pauseDirty = false; // paused while venue card selection syncs dropdowns
         (function() {
             let ready = false;
-            const form = document.querySelector('form[action*="galleries"]');
+            const form = document.getElementById('gallery-settings-form');
             if (!form) return;
             setTimeout(function() {
                 ready = true;
@@ -1867,9 +1818,10 @@
             const modal = document.getElementById('unsaved-changes-modal');
             document.getElementById('unsaved-leave-btn').onclick = () => {
                 dirty = false;
+                closeModal(modal);
                 window.location.href = destination;
             };
-            modal.style.display = 'flex';
+            openModal(modal);
         }
     </script>
 
@@ -2000,7 +1952,7 @@
                     if (typeof toast === 'function') toast('Image order saved', 'success');
                     else if (window.toast) window.toast('Image order saved', 'success');
                 } catch (err) {
-                    alert('Could not save order: ' + err.message);
+                    toast('Could not save the new order: ' + (err && err.message ? err.message : 'please try again'), 'error');
                 } finally {
                     saveBtn.disabled = false;
                     discardBtn.disabled = false;
@@ -2149,25 +2101,26 @@ function showSaveFeedback(message, isSuccess) {
 
 <!-- Custom "Unsaved changes" modal — replaces native browser dialog -->
 <div id="unsaved-changes-modal"
-     style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); align-items:center; justify-content:center;"
-     data-click="closeUnsavedChangesModalIfBackdrop">
-    <div style="background:#1f2937; border:1px solid #374151; border-radius:16px; padding:2rem; max-width:400px; width:90%; box-shadow:0 25px 60px rgba(0,0,0,0.5);">
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:1rem;">
-            <div style="width:40px; height:40px; border-radius:10px; background:rgba(245,158,11,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                <svg width="20" height="20" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+     role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title"
+     style="display:none;"
+     class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+    <div class="bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal p-8 max-w-sm w-full">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                <svg width="20" height="20" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
             </div>
             <div>
-                <p style="font-size:1rem; font-weight:700; color:#f1f5f9; margin:0;">Unsaved changes</p>
-                <p style="font-size:0.82rem; color:#94a3b8; margin:2px 0 0;">Your gallery settings have not been saved yet.</p>
+                <p id="unsaved-changes-title" class="text-base font-bold text-gray-50 m-0">Unsaved changes</p>
+                <p class="text-sm text-gray-400 m-0 mt-0.5">Your gallery settings have not been saved yet.</p>
             </div>
         </div>
-        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:1.5rem;">
+        <div class="flex justify-end gap-2.5 mt-6">
             <button data-click="closeUnsavedChangesModal"
-                    style="background:#374151; border:none; color:#d1d5db; font-size:0.875rem; font-weight:600; padding:0.6rem 1.25rem; border-radius:8px; cursor:pointer;">
+                    class="btn btn-secondary">
                 Keep editing
             </button>
             <button id="unsaved-leave-btn"
-                    style="background:linear-gradient(135deg,#ef4444,#dc2626); border:none; color:#fff; font-size:0.875rem; font-weight:600; padding:0.6rem 1.25rem; border-radius:8px; cursor:pointer;">
+                    class="btn btn-danger">
                 Leave without saving
             </button>
         </div>

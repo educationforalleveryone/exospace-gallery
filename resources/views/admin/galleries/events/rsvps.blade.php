@@ -50,8 +50,10 @@
                 <button data-click="copyEmails" class="btn btn-sm btn-secondary">Copy all emails</button>
             </div>
         @else
-            <div class="text-center py-12 bg-gray-800/50 rounded-xl border border-gray-700/50">
-                <p class="text-gray-400">No RSVPs yet.</p>
+            <div class="empty-state bg-gray-800/50 rounded-xl border border-gray-700/50">
+                <svg class="w-10 h-10 text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <p class="text-gray-300 text-sm font-medium">No RSVPs yet</p>
+                <p class="text-gray-500 text-xs mt-1 max-w-xs">Visitors can reserve a spot from the gallery's event schedule. Responses will appear here as they come in.</p>
             </div>
         @endif
     </div>
@@ -61,8 +63,11 @@
             const emails = @json($rsvps->pluck('email')->unique()->values());
             const text = emails.join(', ');
             navigator.clipboard.writeText(text).then(() => {
-                alert('Copied ' + emails.length + ' email(s) to clipboard');
-            }).catch(() => alert(text));
+                window.toast('Copied ' + emails.length + ' email(s) to clipboard', 'success');
+            }).catch(() => {
+                // Clipboard unavailable — select the text is not possible here, tell the user.
+                window.toast('Clipboard unavailable — please copy the emails manually', 'error');
+            });
         }
     </script>
 </x-app-layout>

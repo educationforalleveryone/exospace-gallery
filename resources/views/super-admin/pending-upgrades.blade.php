@@ -4,9 +4,9 @@
     </x-slot>
 
     <div class="page-shell">
-    @if(session('success'))
-        <div class="mb-4 alert alert-success" role="status">{{ session('success') }}</div>
-    @endif
+    {{-- ITERATION-3: the inline session banner was removed — <x-toast> in the
+         app layout already announces this flash, so the user saw it twice. --}}
+
 
     <div class="table-wrap">
             <table class="table-base min-w-[760px]">
@@ -70,7 +70,7 @@
                             @csrf
                             <button type="submit"
                                     data-submit="exospaceConfirmWrapper" data-arg="Manually upgrade {{ $pending->user->name }} to {{ ucfirst($pending->plan) }}? This bypasses 2Checkout payment verification."
-                                    class="text-xs bg-purple-600 hover:bg-purple-500 text-white font-medium px-3 py-1.5 rounded-lg transition">
+                                    class="btn btn-sm btn-primary">
                                 Manual Upgrade
                             </button>
                         </form>
@@ -91,11 +91,10 @@
     </div>
 </div>
 
-{{-- CSP-safe wrapper so exospaceConfirm receives (event, message) — the
-    delegated data-submit handler calls fn(arg, event). --}}
-<script nonce="@nonce">
-window.exospaceConfirmWrapper = function(arg, e) {
-    return window.exospaceConfirm(e, arg);
-};
-</script>
+{{-- ITERATION-3: the page-local exospaceConfirmWrapper definition was
+    removed — the canonical one lives in resources/js/app.js. Keeping it here
+    caused cross-page pollution: after visiting this page once, other pages
+    that use data-submit="exospaceConfirmWrapper" with a data-confirm-message
+    form attribute resolved THIS wrapper with a form element as the message
+    ("[object HTMLFormElement]" in the dialog). --}}
 </x-app-layout>

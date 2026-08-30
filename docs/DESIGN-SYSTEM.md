@@ -237,7 +237,45 @@ Classes (`.status`, `.status-dot`, `.status-healthy|warning|critical|info|unknow
 
 ---
 
-## 9. Token discipline for future work
+## 9. Z-index ladder (iteration 3 — ONE layering system)
+
+Every floating layer uses one of these tiers. No ad-hoc `z-[9999]` — if a layer doesn't fit, extend the ladder, not the element.
+
+| Tier | Value | Contains |
+|---|---|---|
+| In-card | `z-10` / `z-20` | badges, hover controls *inside* a card |
+| Sticky page | `z-30` | reorder bars, in-page sticky toolbars |
+| Site chrome | `z-40` | top navs (app/public/ops), impersonation banner |
+| Persistent overlay | `z-[45]` | cookie banner, feedback FAB |
+| Dropdown | `z-50` | `<x-dropdown>`, notification + team panels, popovers |
+| Tooltip | `z-[55]` | `[data-tooltip]::after`, `<x-tooltip>` |
+| **Modal** | `z-[60]` | `<x-modal>`, confirm dialogs, `exospaceConfirm`, every hand-rolled page modal |
+| Command palette | `z-[70]`/`z-[71]` | palette backdrop + panel (may open above a modal) |
+| Toast | `z-[100]` | `<x-toast>` — always on top, never covers blocking controls |
+
+**Rules:**
+
+1. Modals sit *above* dropdowns — a `z-[60]` scrim must bury any open menu.
+2. Toasts are topmost; feedback must never be buried by the thing it reports on.
+3. Avoid creating stacking contexts between a floating layer and `<body>`: no `transform` / `filter` / `backdrop-blur` on ancestors of dropdowns/modals. (`.card-lift` hover transforms, `.pageIn` animation — keep them opacity-only or dropdown-free.)
+4. `overflow: hidden/auto` on an ancestor clips `absolute` popovers regardless of z — render such popovers in-flow (see live-preview hints) or fix the container.
+
+### Modal architecture
+
+- **Alpine dialogs:** `<x-modal>` (event-driven, focus trap, scroll lock) and `<x-confirm-modal>` (type-to-confirm). The kit `.btn-spinner` + `disabled` is the loading story.
+- **Imperative dialogs:** any element with `role="dialog"` + `id` + `aria-modal` + the `hidden`/`flex` pattern works with the shared `openModal(id)` / `closeModal(id)` helpers in `resources/js/app.js` — they add body scroll lock, focus movement (prefer a `[data-autofocus]` child), Tab trap, backdrop click, Escape (top-most first), and focus restore. Page-local modal JS is a bug, not a pattern.
+
+### Interaction reliability rules (iteration 3)
+
+1. **Confirms:** one mechanism — `window.exospaceConfirm()` (styled, focus-restoring, double-submit-guarded). Wire via `form[data-confirm]` / `[data-confirm-click]` / `form[data-submit="exospaceConfirmWrapper"] data-confirm-message="…"`. Never `onsubmit="return confirm(…)"`, never `window.confirm` in page scripts.
+2. **Double-submit:** opt-in guard — `form[data-busy] [data-busy-label="Publishing…"]`. Every POST that spends money, mutates state irreversibly, or runs longer than ~1s carries it. Confirmed forms are guarded by `exospaceConfirm` automatically.
+3. **Turbo safety:** Turbo Drive swaps `<body>` without re-firing `DOMContentLoaded`. All global listeners are delegated on `document` inside one-time `window.__exospace*Init` guards (see `layouts/app.blade.php`, `resources/js/app.js`). Page scripts that bind per-element must not rely on DOMContentLoaded; page-local `addEventListener` on `document` needs a guard or will stack per visit.
+4. **Feedback:** transient confirmation = toast only (pages must not re-render flash banners — the toast owns session flashes). Persistent context = banner/alert. Async actions disable their trigger + show `.btn-spinner`. `alert()` is banned.
+5. **Toasts:** identical toasts within 900ms are suppressed; error/warning are assertive (`role=alert`); success/info polite.
+
+---
+
+## 10. Token discipline for future work
 
 - **No hex literals in Blade.** Use tokens; if a token is missing, add it to the scale in `tailwind.config.js` — deliberately, not ad hoc.
 - **New pattern → new class.** If you write the same recipe twice, promote it to `app.css` and document it here.

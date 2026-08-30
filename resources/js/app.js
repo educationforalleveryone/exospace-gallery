@@ -76,106 +76,370 @@ window.Turbo = Turbo;
 // ─────────────────────────────────────────────────────────────────────────────
 // exospaceConfirm — styled replacement for browser confirm() (Task H42)
 //
-// Replaces native confirm() dialogs with a styled modal that matches the
-// app's dark theme. Used by admin views for reversible destructive actions
-// (artist delete, event delete, gallery duplicate, venue delete).
+// ITERATION-3 hardening (interaction-reliability pass):
+//   1. Enter no longer force-submits the form. Previously ANY Enter press in
+//      the dialog called form.submit() — even when focus was on Cancel, so
+//      "confirming a cancel" destroyed data. Native button activation already
+//      handles Enter/Space on the focused button; the global handler now only
+//      listens for Escape.
+//   2. The message is inserted with textContent (was innerHTML with raw
+//      interpolation — a crafted display name could inject markup, e.g.
+//      <img onerror>).
+//   3. Focus is restored to the invoking element after close (was dropped to
+//      <body>), and Tab is trapped inside the dialog.
+//   4. On confirm, the form's submit buttons are disabled + given a spinner
+//      (exospaceGuardForm) before submit — no double submissions.
+//   5. Stacking: uses the documented z-[60] modal tier (was z-[200] ad-hoc).
 //
-// Irreversible actions (delete user, toggle super-admin) use the
-// type-to-confirm <x-confirm-modal> component instead.
+// Usage (CSP-safe, via the layout delegates):
+//   <form data-confirm="Delete this artist?">…</form>
+//   <button data-confirm-click="Remove member?">…</button>
+//   <form data-submit="exospaceConfirmWrapper" data-confirm-message="…">…</form>
 //
-// Usage in Blade:
-//   <form onsubmit="return exospaceConfirm(event, 'Delete this artist?')">
-//
-// The function returns a Promise<boolean>. For onsubmit handlers, it
-// prevents the default submission, shows the dialog, and submits the
-// form programmatically if the user confirms.
+// The function returns a Promise<boolean> and — when the triggering element
+// lives inside a form — submits that form programmatically on confirm.
 // ─────────────────────────────────────────────────────────────────────────────
 window.exospaceConfirm = function(event, message) {
-    // If event is a real Event, prevent default submission
+    // If event is a real Event, prevent the default submission/navigation.
     if (event && event.preventDefault) {
         event.preventDefault();
     }
 
-    // Find the form to submit
-    const form = event?.target?.closest('form') || (event?.target?.tagName === 'FORM' ? event.target : null);
+    // Find the form to submit (submit event target IS the form; for clicks
+    // it is the nearest ancestor form).
+    const target = event?.target;
+    const form = target?.closest ? target.closest('form') : null;
+    // Remember where focus came from so it can be restored on close.
+    const invoker = document.activeElement;
 
     return new Promise((resolve) => {
-        // Create modal elements
-        const overlay = document.createElement('div');
-        overlay.className = 'fixed inset-0 bg-black/75 backdrop-blur-sm z-[200] flex items-center justify-center p-4';
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-labelledby', 'exospace-confirm-title');
-
-        overlay.innerHTML = `
-            <div class="bg-gray-900 border border-gray-700 rounded-2xl max-w-sm w-full shadow-2xl p-6 text-center">
-                <div class="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/>
-                    </svg>
-                </div>
-                <h3 id="exospace-confirm-title" class="text-lg font-bold text-white mb-2">Confirm Action</h3>
-                <p class="text-sm text-gray-400 mb-6">${message}</p>
-                <div class="flex gap-3">
-                    <button type="button" id="exospace-confirm-cancel"
-                            class="flex-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-2.5 rounded-xl transition text-sm">
-                        Cancel
-                    </button>
-                    <button type="button" id="exospace-confirm-ok"
-                            class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition text-sm">
-                        Confirm
-                    </button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
-
-        // Focus the Cancel button by default (safer — user must actively choose Confirm)
-        const cancelBtn = overlay.querySelector('#exospace-confirm-cancel');
-        const okBtn = overlay.querySelector('#exospace-confirm-ok');
-        cancelBtn.focus();
-
-        const cleanup = () => {
+        const finish = (result) => {
+            document.removeEventListener('keydown', onKeydown, true);
             overlay.remove();
-            document.removeEventListener('keydown', onKeydown);
+            if (result && form) {
+                window.exospaceGuardForm(form);
+                form.submit();
+            }
+            if (invoker && document.contains(invoker)) {
+                try { invoker.focus(); } catch (e) { /* detached — ignore */ }
+            }
+            resolve(result);
         };
 
         const onKeydown = (e) => {
             if (e.key === 'Escape') {
-                cleanup();
-                resolve(false);
-            } else if (e.key === 'Enter') {
-                cleanup();
-                if (form) form.submit();
-                resolve(true);
+                e.stopPropagation();
+                finish(false);
+            } else if (e.key === 'Tab') {
+                // Focus trap — keep Tab cycling between the two buttons.
+                const focusables = [cancelBtn, okBtn];
+                const first = focusables[0];
+                const last = focusables[focusables.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault(); last.focus();
+                } else if (!e.shiftKey && (document.activeElement === last || !overlay.contains(document.activeElement))) {
+                    e.preventDefault(); first.focus();
+                }
             }
+            // NOTE: no Enter branch on purpose — native activation of the
+            // focused button already submits/cancels correctly.
         };
 
-        cancelBtn.addEventListener('click', () => {
-            cleanup();
-            resolve(false);
-        });
+        // Build the dialog with DOM APIs (no innerHTML for user-controlled text).
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] flex items-center justify-center p-4';
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'exospace-confirm-title');
+        overlay.setAttribute('aria-describedby', 'exospace-confirm-message');
 
-        okBtn.addEventListener('click', () => {
-            cleanup();
-            if (form) form.submit();
-            resolve(true);
-        });
+        const panel = document.createElement('div');
+        panel.className = 'bg-gray-800 border border-gray-600/50 rounded-xl max-w-sm w-full shadow-modal p-6 text-center';
+
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4';
+        iconWrap.innerHTML = '<svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/></svg>';
+
+        const title = document.createElement('h3');
+        title.id = 'exospace-confirm-title';
+        title.className = 'text-base font-semibold text-white mb-2';
+        title.textContent = 'Confirm Action';
+
+        const body = document.createElement('p');
+        body.id = 'exospace-confirm-message';
+        body.className = 'text-sm text-gray-400 mb-6 break-words';
+        body.textContent = message ?? 'Are you sure?'; // textContent — XSS-safe
+
+        const btnRow = document.createElement('div');
+        btnRow.className = 'flex gap-3';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.id = 'exospace-confirm-cancel';
+        cancelBtn.className = 'btn btn-secondary flex-1';
+        cancelBtn.textContent = 'Cancel';
+        const okBtn = document.createElement('button');
+        okBtn.type = 'button';
+        okBtn.id = 'exospace-confirm-ok';
+        okBtn.className = 'btn btn-danger flex-1';
+        okBtn.textContent = 'Confirm';
+
+        btnRow.append(cancelBtn, okBtn);
+        panel.append(iconWrap, title, body, btnRow);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        // Focus the Cancel button by default (safer — user must actively choose Confirm)
+        cancelBtn.focus();
+
+        cancelBtn.addEventListener('click', () => finish(false));
+        okBtn.addEventListener('click', () => finish(true));
 
         // Backdrop click = cancel
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                cleanup();
-                resolve(false);
-            }
+            if (e.target === overlay) finish(false);
         });
 
-        document.addEventListener('keydown', onKeydown);
+        document.addEventListener('keydown', onKeydown, true);
+    });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Canonical cross-page submit helpers (ITERATION-3).
+//
+// These were previously defined per-page (and referenced cross-page), so they
+// resolved to `undefined` on every page except the one that defined them —
+// e.g. `data-submit="disableSubmitButton"` on Master Control → Billing Review
+// did nothing. They now live here, on `window`, so every layout that loads
+// app.js has them.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Guard a form against double submission: disables every submit button,
+ * marks the form aria-busy, and swaps button labels for a spinner when a
+ * data-busy-label is provided. Auto-restores after 60s as a safety net and
+ * immediately on bfcache restores (pageshow).
+ */
+window.exospaceGuardForm = function(form) {
+    if (!form || form.__exospaceBusy) return;
+    form.__exospaceBusy = true;
+    form.setAttribute('aria-busy', 'true');
+    const buttons = form.querySelectorAll('button[type="submit"], button:not([type])');
+    buttons.forEach((btn) => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+        const label = form.getAttribute('data-busy-label') || btn.getAttribute('data-busy-label');
+        if (label) {
+            btn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span class="ms-2">' + label + '</span>';
+        }
+    });
+    // Safety net: if navigation never happens (e.g. server stalls then the
+    // user stays), restore interactivity after 60s.
+    clearTimeout(form.__exospaceBusyTimer);
+    form.__exospaceBusyTimer = setTimeout(() => window.exospaceUnguardForm(form), 60000);
+};
+
+window.exospaceUnguardForm = function(form) {
+    if (!form) return;
+    form.__exospaceBusy = false;
+    form.removeAttribute('aria-busy');
+    clearTimeout(form.__exospaceBusyTimer);
+    form.querySelectorAll('button[aria-busy]').forEach((btn) => {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        if (btn.dataset.originalHtml) {
+            btn.innerHTML = btn.dataset.originalHtml;
+            delete btn.dataset.originalHtml;
+        }
+    });
+};
+
+// Restore guarded forms after bfcache back-navigation.
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted) {
+        document.querySelectorAll('form[aria-busy]').forEach((f) => window.exospaceUnguardForm(f));
+    }
+});
+
+/**
+ * Opt-in double-submit guard. Add `data-busy` (and optionally
+ * `data-busy-label="Publishing…"` / per-button `data-busy-label`) to any
+ * standard POST form that must not be submitted twice:
+ *   <form method="POST" action="…" data-busy data-busy-label="Publishing…">
+ * Forms that confirm first via data-confirm / exospaceConfirm are guarded
+ * inside exospaceConfirm itself, so they do NOT need data-busy.
+ */
+document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (!form.hasAttribute('data-busy')) return;
+    if (form.hasAttribute('data-confirm')) return; // confirmed path guards itself
+    if (form.__exospaceBusy) { e.preventDefault(); return; }
+    window.exospaceGuardForm(form);
+}, true); // capture — runs before form-level listeners
+
+/**
+ * data-submit="exospaceConfirmWrapper" — canonical confirm wrapper.
+ * Handles BOTH historical call shapes:
+ *   <button data-submit="exospaceConfirmWrapper" data-arg="Message…">  (pending-upgrades)
+ *   <form  data-submit="exospaceConfirmWrapper" data-confirm-message="…"> (webhooks/billing)
+ * The layout delegate calls fn.call(el, argOrEl, event).
+ */
+window.exospaceConfirmWrapper = function(arg, e) {
+    const el = this;
+    const msg = (typeof arg === 'string' && arg && arg !== '[object HTMLFormElement]')
+        ? arg
+        : (el.getAttribute?.('data-confirm-message') || el.getAttribute?.('data-confirm') || 'Are you sure?');
+    return window.exospaceConfirm(e, msg);
+};
+
+/**
+ * data-submit="disableSubmitButton" — canonical submit-button disabler.
+ * The layout delegate calls fn.call(form, form, event).
+ */
+window.disableSubmitButton = function(form) {
+    window.exospaceGuardForm(form);
+};
+
+/**
+ * data-change="submitForm" — canonical auto-submit-on-change helper for
+ * filter selects (replaces inline onchange="this.form.submit()").
+ */
+window.submitForm = function(el) {
+    const form = el.closest ? el.closest('form') : null;
+    if (form) form.requestSubmit ? form.requestSubmit() : form.submit();
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared imperative modal helpers (ITERATION-3).
+//
+// Previously layouts/app.blade.php and layouts/public.blade.php each defined
+// their own openModal/closeModal — the public one had a focus trap, the admin
+// one didn't, neither had a body scroll lock, and both were re-defined per
+// layout. They now live here once, with the full behavior set:
+//
+//   - body scroll lock while any modal is open (stack-aware)
+//   - focus moves to [data-autofocus] or the first focusable element
+//   - Tab is trapped inside the top-most open modal
+//   - focus is restored to the element that opened the modal
+//   - Escape closes the top-most modal (delegated listeners below)
+//   - click on the backdrop closes (delegated listeners below)
+//
+// Any element with role="dialog" + an id can use this system:
+//   openModal('share-modal')  /  closeModal('share-modal')
+// Hand-rolled modals only need role="dialog", aria-modal="true", an id and
+// (ideally) aria-labelledby — no per-page JS plumbing.
+// ─────────────────────────────────────────────────────────────────────────────
+window.__exospaceModalStack = window.__exospaceModalStack || [];
+
+window.openModal = function(id) {
+    const m = typeof id === 'string' ? document.getElementById(id) : id;
+    if (!m) return;
+    m.style.display = 'flex';
+    m.classList.add('flex');
+    m.classList.remove('hidden');
+    if (!window.__exospaceModalStack.includes(m)) {
+        m.__exospaceReturnFocus = document.activeElement;
+        window.__exospaceModalStack.push(m);
+    }
+    document.body.classList.add('overflow-y-hidden');
+    // Move focus in — prefer an explicit [data-autofocus] target.
+    const focusables = m.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    const target = m.querySelector('[data-autofocus]') || focusables[0];
+    if (target) setTimeout(() => target.focus(), 50);
+};
+
+window.closeModal = function(id) {
+    const m = typeof id === 'string' ? document.getElementById(id) : id;
+    if (!m) return;
+    m.style.display = 'none';
+    m.classList.remove('flex');
+    window.__exospaceModalStack = window.__exospaceModalStack.filter((x) => x !== m);
+    if (window.__exospaceModalStack.length === 0) {
+        document.body.classList.remove('overflow-y-hidden');
+    }
+    const back = m.__exospaceReturnFocus;
+    if (back && document.contains(back)) {
+        try { back.focus(); } catch (e) { /* detached — ignore */ }
+    }
+    m.__exospaceReturnFocus = null;
+};
+
+// One-time global modal behavior: backdrop click + Escape + Tab trap.
+// Bound to `document` (which survives Turbo Drive body swaps), guarded so
+// Turbo re-executing bundle code never stacks duplicates.
+if (!window.__exospaceModalSystemInit) {
+    window.__exospaceModalSystemInit = true;
+
+    // Backdrop click closes (only when the click lands on the dialog root).
+    // Alpine-managed dialogs (root carries x-data) are skipped — their own
+    // @click.self owns visibility; writing style.display from outside would
+    // permanently break their reopen.
+    document.addEventListener('click', (e) => {
+        const m = e.target.closest('[role="dialog"]');
+        if (!m || e.target !== m || !m.id) return;
+        if (m.closest('[x-data]')) return;
+        if (m.style.display !== 'none') closeModal(m);
     });
 
-    // Return false to prevent the default form submission (the Promise
-    // handles it asynchronously). For non-form contexts, the caller
-    // should await the Promise.
-    return false;
-};
+    // Escape closes the top-most open modal (stack-managed ones only).
+    // IMPORTANT: no `[role=dialog]` fallback sweep here on purpose —
+    // Alpine-driven dialogs (e.g. Master Control's type-to-confirm modals)
+    // own their visibility via :class bindings; writing style.display from
+    // outside would permanently break their reopen. Every openModal()-based
+    // dialog is already in the stack, so it gets closed above; Alpine
+    // dialogs close themselves via their own @keydown.escape.window.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const stack = window.__exospaceModalStack;
+        if (stack.length > 0) closeModal(stack[stack.length - 1]);
+    });
+
+    // Tab trap for the top-most open modal.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Tab') return;
+        const stack = window.__exospaceModalStack;
+        if (stack.length === 0) return;
+        const m = stack[stack.length - 1];
+        const focusables = m.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && (document.activeElement === first || !m.contains(document.activeElement))) {
+            e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && (document.activeElement === last || !m.contains(document.activeElement))) {
+            e.preventDefault(); first.focus();
+        }
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CSP-safe image fallback (moved here from the layouts — ITERATION-3).
+// Replaces inline `onerror="this.style.display='none'"` handlers that CSP
+// blocks. Any <img> tagged with class `venue-thumb-img` (or any img carrying
+// `data-fallback-hide`) that fails to load is hidden so the CSS gradient /
+// placeholder sibling shows through. 'error' doesn't bubble, so we listen on
+// `document` with capture=true: bound once, survives every Turbo navigation,
+// and covers images added at any point in the future.
+// ─────────────────────────────────────────────────────────────────────────────
+if (!window.__exospaceImgFallbackInit) {
+    window.__exospaceImgFallbackInit = true;
+    const hideImg = (img) => {
+        img.style.visibility = 'hidden';
+        img.setAttribute('aria-hidden', 'true');
+    };
+    const scanForCached404s = () => {
+        document.querySelectorAll('img.venue-thumb-img, img[data-fallback-hide]').forEach(img => {
+            // If the browser already tried and failed before our listener
+            // attached (cached 404), check complete/naturalWidth.
+            if (img.complete && img.naturalWidth === 0) hideImg(img);
+        });
+    };
+    document.addEventListener('error', (e) => {
+        const img = e.target;
+        if (img.tagName === 'IMG' && img.matches('.venue-thumb-img, [data-fallback-hide]')) hideImg(img);
+    }, true);
+    document.addEventListener('turbo:load', scanForCached404s);
+    scanForCached404s();
+}

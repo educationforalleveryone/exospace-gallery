@@ -6,14 +6,17 @@
 @auth
 <div x-data="{ open: false, submitting: false, success: false, category: 'bug', message: '' }"
      x-cloak
-     style="position: fixed; bottom: 24px; right: 24px; z-index: 100;">
+     x-effect="document.body.classList.toggle('overflow-y-hidden', open)"
+     style="position: fixed; bottom: 24px; right: 24px; z-index: 45;">
 
-    {{-- Floating button --}}
+    {{-- Floating button — z-[45] persistent-overlay tier: sits above chrome,
+         under dropdowns/modals/toasts so it can never bury feedback. --}}
     <button @click="open = true; success = false; message = ''"
             x-show="!open"
             x-transition
-            class="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold rounded-full shadow-lg shadow-purple-900/30 transition-all duration-200 hover:scale-105"
-            aria-label="Send feedback">
+            class="flex items-center gap-2 px-4 py-3 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-full shadow-lg shadow-brand-900/30 transition-all duration-200"
+            aria-label="Send feedback"
+            aria-haspopup="dialog">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
         <span class="text-sm">Feedback</span>
     </button>
@@ -22,17 +25,20 @@
     <div x-show="open"
          x-transition
          class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
-         style="z-index: 200;"
+         style="z-index: 60;"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="feedback-widget-title"
          @keydown.escape.window="open = false"
          @click="if($event.target === $el) open = false">
 
-        <div class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl max-w-md w-full p-6"
+        <div class="bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal max-w-md w-full p-6"
              @click.stop>
 
             {{-- Header --}}
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-white">Send Feedback</h3>
-                <button @click="open = false" class="text-gray-500 hover:text-gray-300 transition">
+                <h3 id="feedback-widget-title" class="text-lg font-bold text-white">Send Feedback</h3>
+                <button @click="open = false" class="flex items-center justify-center w-8 h-8 -me-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition" aria-label="Close">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
@@ -49,7 +55,7 @@
 
             {{-- Form --}}
             <form x-show="!success"
-                  @submit.prevent="submitting = true; fetch('{{ route('feedback.store') }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '', 'Accept': 'application/json' }, body: JSON.stringify({ category: category, message: message }) }).then(r => r.json()).then(data => { if(data.success) { success = true; } else { alert(data.error || 'Failed to submit'); } }).catch(e => alert('Network error')).finally(() => submitting = false)"
+                  @submit.prevent="submitting = true; fetch('{{ route('feedback.store') }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '', 'Accept': 'application/json' }, body: JSON.stringify({ category: category, message: message }) }).then(r => r.json()).then(data => { if(data.success) { success = true; } else { window.toast(data.error || 'Failed to submit feedback', 'error'); } }).catch(e => window.toast('Network error — please try again', 'error')).finally(() => submitting = false)"
                   class="space-y-4">
 
                 {{-- Category --}}
@@ -83,9 +89,10 @@
                 {{-- Submit --}}
                 <button type="submit"
                         :disabled="submitting || !message.trim()"
-                        class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition text-sm">
+                        class="btn btn-primary w-full">
+                    <span class="btn-spinner" x-show="submitting" aria-hidden="true"></span>
                     <span x-show="!submitting">Send Feedback</span>
-                    <span x-show="submitting">Sending...</span>
+                    <span x-show="submitting">Sending…</span>
                 </button>
 
                 <p class="text-xs text-gray-500 text-center">

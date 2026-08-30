@@ -17,7 +17,7 @@
 <body class="font-sans bg-slate-950 text-slate-100 min-h-screen antialiased">
 
 {{-- ── Header ─────────────────────────────────────────────────────────── --}}
-<header class="bg-slate-900/80 border-b border-slate-800 backdrop-blur sticky top-0 z-20">
+<header class="bg-slate-900/80 border-b border-slate-800 backdrop-blur sticky top-0 z-40">
     <div class="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center font-bold text-slate-950">O</div>
@@ -67,6 +67,24 @@
     @if(session('error'))
         <div class="mb-4 rounded-lg border border-red-700/50 bg-red-950/40 px-4 py-3 text-red-300 text-sm">{{ session('error') }}</div>
     @endif
+    {{-- ITERATION-3 FIX: info + warning flashes were never rendered in this
+         layout — the MFA-required warning (EnsureOpsAccess middleware) and
+         Sentry-mapping notices were silently swallowed. --}}
+    @if(session('warning'))
+        <div class="mb-4 rounded-lg border border-amber-700/50 bg-amber-950/40 px-4 py-3 text-amber-300 text-sm">{{ session('warning') }}</div>
+    @endif
+    @if(session('info'))
+        <div class="mb-4 rounded-lg border border-blue-700/50 bg-blue-950/40 px-4 py-3 text-blue-300 text-sm">{{ session('info') }}</div>
+    @endif
+    {{-- ITERATION-3 FIX: validation errors from ops forms (access grants,
+         credential rotations, Sentry mapping) appeared NOWHERE — the forms
+         silently re-rendered. One layout-level banner covers all of them. --}}
+    @if($errors->any())
+        <div class="mb-4 rounded-lg border border-red-700/50 bg-red-950/40 px-4 py-3 text-red-300 text-sm" role="alert">
+            <p class="font-semibold mb-1">Please fix the following:</p>
+            <ul class="list-disc list-inside space-y-0.5">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+        </div>
+    @endif
 
     @yield('content')
 </main>
@@ -75,22 +93,28 @@
     // CSP-safe clickable rows: any [data-href] element navigates on click or
     // Enter/Space (keyboard), replacing inline onclick= handlers. Also makes
     // rows reachable by keyboard (tabindex=0) when set by the view.
-    (function () {
-        function go(el) {
-            const href = el.getAttribute('data-href');
-            if (href) window.location.href = href;
-        }
-        document.addEventListener('click', (e) => {
-            const row = e.target.closest('[data-href]');
-            if (row && ! e.target.closest('a, button, form, input, select, textarea')) go(row);
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            if (e.target.matches('input, textarea, select, button, a')) return;
-            const row = e.target.closest('[data-href]');
-            if (row) { e.preventDefault(); go(row); }
-        });
-    })();
+    // ITERATION-3: one-time guard — Turbo re-executes this <script> on every
+    // navigation, which previously stacked duplicate listeners (harmless but
+    // leaky; the guard makes the intent explicit).
+    if (!window.__opsRowNavInit) {
+        window.__opsRowNavInit = true;
+        (function () {
+            function go(el) {
+                const href = el.getAttribute('data-href');
+                if (href) window.location.href = href;
+            }
+            document.addEventListener('click', (e) => {
+                const row = e.target.closest('[data-href]');
+                if (row && ! e.target.closest('a, button, form, input, select, textarea')) go(row);
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                if (e.target.matches('input, textarea, select, button, a')) return;
+                const row = e.target.closest('[data-href]');
+                if (row) { e.preventDefault(); go(row); }
+            });
+        })();
+    }
 </script>
 
 <footer class="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-8 text-xs text-slate-600 border-t border-slate-800/60 mt-8">

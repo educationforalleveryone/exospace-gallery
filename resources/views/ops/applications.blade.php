@@ -9,7 +9,8 @@
         <p class="text-xs text-slate-400 mt-1">Everything the control plane knows about — synced from Coolify every 5 minutes, plus self-reporting apps. Each row carries its own sub-score (same verdict-cap philosophy as the platform score — §16.2 of the master manual).</p>
     </div>
     @if(auth()->user()?->is_super_admin)
-        <form method="POST" action="{{ route('ops.actions.execute', 'platform.sync') }}">
+        <form method="POST" action="{{ route('ops.actions.execute', 'platform.sync') }}"
+              data-busy data-busy-label="Syncing…">
             @csrf
             <button class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition" title="Run the Coolify sync immediately (read-only refresh, same as the 5-minute schedule)">↻ Sync now</button>
         </form>
@@ -50,7 +51,7 @@
                                     {{ $app->name }}
                                     @if($app->is_self)<span class="text-xs px-2 py-0.5 rounded bg-cyan-900/50 text-cyan-300 border border-cyan-700/40 font-semibold">SELF</span>@endif
                                 </div>
-                                <div class="text-xs text-slate-500 font-mono">{{ $app->slug }}</div>
+                                <div class="text-xs text-slate-500 font-mono truncate max-w-[180px]" title="{{ $app->slug }}">{{ $app->slug }}</div>
                             </div>
                         </div>
                     </td>

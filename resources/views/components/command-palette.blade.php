@@ -34,13 +34,22 @@ if (! $enabled) {
 }
 @endphp
 
-{{-- The palette is hidden by default (x-cloak) and shown via Alpine. --}}
+{{-- The palette is hidden by default (x-cloak) and shown via Alpine.
+     ITERATION-3 CRITICAL FIX: the old bindings were
+     @keydown.k.window.prevent / @keydown.slash.window.prevent —
+     Alpine applies .prevent BEFORE the expression, so (1) pressing plain
+     "k" anywhere opened the palette AND swallowed the keystroke, and
+     (2) "/" could not be typed into any input on admin pages at all.
+     Now: Cmd/Ctrl+K (the real shortcut), and "/" only preventDefaults
+     when it would actually open the palette (not while typing). --}}
 <div
     x-data="commandPalette()"
     x-init="init()"
     x-cloak
-    @keydown.k.window.prevent="open($event)"
-    @keydown.slash.window.prevent="if(!$event.target.matches('input,textarea,[contenteditable]')) open($event)"
+    x-effect="document.body.classList.toggle('overflow-y-hidden', isOpen)"
+    @keydown.ctrl.k.window.prevent="open($event)"
+    @keydown.meta.k.window.prevent="open($event)"
+    @keydown.slash.window="if(!$event.target.matches('input,textarea,[contenteditable]') && !$event.ctrlKey && !$event.metaKey && !$event.altKey){ $event.preventDefault(); open($event) }"
     @keydown.escape.window="close()"
 >
     {{-- Backdrop --}}
@@ -52,7 +61,7 @@ if (! $enabled) {
         x-transition:leave="transition ease-in duration-100"
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
-        class="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm"
         @click="close()"
         aria-hidden="true"
     ></div>
@@ -66,7 +75,7 @@ if (! $enabled) {
         x-transition:leave="transition ease-in duration-100"
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-95"
-        class="fixed top-[15vh] left-1/2 -translate-x-1/2 z-[201] w-[92vw] max-w-xl bg-ink-950 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden"
+        class="fixed top-[15vh] left-1/2 -translate-x-1/2 z-[71] w-[92vw] max-w-xl bg-ink-950 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-palette-title"
@@ -92,14 +101,14 @@ if (! $enabled) {
                 autocomplete="off"
                 spellcheck="false"
             />
-            <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-gray-500 bg-ink-800 border border-gray-700 rounded">ESC</kbd>
+            <kbd class="px-1.5 py-0.5 text-xs font-mono text-gray-500 bg-ink-800 border border-gray-700 rounded">ESC</kbd>
         </div>
 
         {{-- Results list --}}
         <div class="max-h-[60vh] overflow-y-auto py-2" role="listbox" aria-label="Available commands">
             <template x-for="(group, groupIdx) in filteredGroups" :key="group.label">
                 <div class="py-1">
-                    <div class="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500" x-text="group.label"></div>
+                    <div class="px-4 py-1 text-xs font-semibold uppercase tracking-wider text-gray-500" x-text="group.label"></div>
                     <template x-for="(item, itemIdx) in group.items" :key="item.id">
                         <button
                             type="button"
@@ -112,7 +121,7 @@ if (! $enabled) {
                         >
                             <span class="flex-shrink-0 w-5 h-5 text-gray-400" x-html="item.icon"></span>
                             <span class="flex-1 truncate" x-text="item.label"></span>
-                            <span class="text-[10px] text-gray-500 font-mono" x-text="item.shortcut || ''"></span>
+                            <span class="text-xs text-gray-500 font-mono" x-text="item.shortcut || ''"></span>
                         </button>
                     </template>
                 </div>
@@ -125,7 +134,7 @@ if (! $enabled) {
         </div>
 
         {{-- Footer hint --}}
-        <div class="px-4 py-2 border-t border-gray-800 flex items-center justify-between text-[10px] text-gray-500">
+        <div class="px-4 py-2 border-t border-gray-800 flex items-center justify-between text-xs text-gray-500">
             <div class="flex items-center gap-3">
                 <span class="inline-flex items-center gap-1"><kbd class="px-1 py-0.5 font-mono bg-ink-800 border border-gray-700 rounded">↑↓</kbd> navigate</span>
                 <span class="inline-flex items-center gap-1"><kbd class="px-1 py-0.5 font-mono bg-ink-800 border border-gray-700 rounded">↵</kbd> select</span>
@@ -256,6 +265,9 @@ function commandPalette() {
             if (event && event.key === '/' && event.target.matches('input, textarea, [contenteditable]')) {
                 return;
             }
+            if (this.isOpen) return;
+            // Remember focus so it can be restored on close (ITERATION-3).
+            this._previouslyFocused = document.activeElement;
             this.isOpen = true;
             this.query = '';
             this.selectedIndex = 0;
@@ -265,9 +277,16 @@ function commandPalette() {
         },
 
         close() {
+            if (!this.isOpen) return;
             this.isOpen = false;
             this.query = '';
             this.selectedIndex = 0;
+            // Restore focus to the trigger context (ITERATION-3).
+            const back = this._previouslyFocused;
+            if (back && document.contains(back) && typeof back.focus === 'function') {
+                try { back.focus(); } catch (e) { /* detached — ignore */ }
+            }
+            this._previouslyFocused = null;
         },
     };
 }
