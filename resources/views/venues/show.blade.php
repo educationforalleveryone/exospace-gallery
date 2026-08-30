@@ -7,7 +7,7 @@
 
 @section('content')
     <div class="bg-gradient-to-br from-gray-900 via-brand-950/30 to-gray-900 border-b border-gray-800">
-        <div class="max-w-7xl mx-auto px-4 py-14">
+        <div class="max-w-page mx-auto px-4 py-14">
             <div class="max-w-3xl">
                 <p class="text-brand-400 text-sm font-semibold tracking-widest uppercase mb-2">
                     @if($venue->category && isset(\App\Models\VenueTemplate::CATEGORIES[$venue->category]))
@@ -30,7 +30,7 @@
         </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 py-10">
+    <div class="max-w-page mx-auto px-4 py-10">
         <div class="mb-6">
             <x-breadcrumbs :crumbs="$breadcrumbs" />
         </div>

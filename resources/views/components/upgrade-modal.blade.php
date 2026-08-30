@@ -23,7 +23,7 @@
                  "Unlimited galleries, 50 images per gallery" which was
                  wrong on both counts: Pro is 5 galleries / 100 images
                  TOTAL (across all personal galleries, not per-gallery). --}}
-            @foreach(['5 galleries · 100 images total', '7 venues including Industrial Loft & Dark Museum', 'Background music & exhibition scheduling', 'No Exospace watermark — $29 one-time'] as $feat)
+            @foreach(['5 galleries · 100 images total', '7 venues including Industrial Loft & Dark Museum', 'Background music & exhibition scheduling', 'No Exospace watermark'] as $feat)
             <div class="flex items-center gap-2 text-xs text-gray-300">
                 <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                 {{ $feat }}
@@ -31,12 +31,24 @@
             @endforeach
         </div>
 
+        @php
+            // ITERATION-5 (billing truth): surface the monthly alternative from
+            // the same config the billing portal uses (M-1), and stop styling
+            // this CTA with a hand-rolled gradient — the kit owns buttons.
+            $hasRecurringPro   = config('services.2checkout.recurring_product_id_pro');
+            $recurringProPrice = config('services.2checkout.recurring_price_pro_monthly', '4.99');
+        @endphp
         <div class="space-y-2">
-            <a href="{{ route('billing.upgrade', 'pro') }}" class="block w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2.5 rounded-xl transition text-sm active:scale-95 text-center">
+            <a href="{{ route('billing.upgrade', 'pro') }}" class="btn btn-primary w-full">
                 Upgrade to Pro — $29
             </a>
+            @if($hasRecurringPro)
+            <a href="{{ route('billing.upgrade', 'pro') }}?recurring=1" class="btn btn-secondary w-full">
+                or ${{ $recurringProPrice }}/month — cancel anytime
+            </a>
+            @endif
             <button data-click="closeModal" data-arg="{{ $trigger }}"
-                    class="block w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-2.5 rounded-xl transition text-sm">
+                    class="btn btn-ghost w-full">
                 Not now
             </button>
         </div>

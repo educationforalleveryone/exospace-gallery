@@ -34,7 +34,13 @@
             Plan: {{ ucfirst($plan) }}<br>
             Invoice ID: {{ $invoiceId }}<br>
             Status: Completed<br>
-            Type: Lifetime (one-time purchase)
+            {{-- ITERATION-5 (billing truth): this email fires for BOTH one-time
+                 purchases and monthly subscriptions (the Mailable receives no
+                 billing-type flag), so the receipt can no longer hardcode
+                 "Lifetime (one-time purchase)" — subscribers were receiving a
+                 false receipt. Neutral wording matches the invoice PDF's
+                 generic fallback; the billing portal shows the exact type. --}}
+            Type: {{ ucfirst($plan) }} plan purchase
         </div>
         <p style="font-size: 13px; color: #9ca3af;">Keep this invoice ID for your records. You can also view it anytime in your <a href="{{ config('app.url') }}/billing" style="color: #667eea;">billing portal</a>.</p>
         @endif

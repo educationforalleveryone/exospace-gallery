@@ -61,13 +61,16 @@
         /* Hide visitor-only UI that doesn't make sense in preview */
         #newsletter-form, #share-btn, #events-link { display: none !important; }
 
-        /* Compact loading bar so the curator sees the scene is still booting */
+        /* Compact loading bar so the curator sees the scene is still booting.
+           ITERATION-5: z-index 999 (magic number) → z-[60], the ladder's
+           full-screen overlay tier — covers site chrome (z-40) and the
+           badge (z-30) during boot, sits under toasts/command palette. */
         #preview-loading {
             position: fixed; inset: 0;
             background: #0a0a0a;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            z-index: 999; transition: opacity 0.4s ease;
+            z-index: 60; transition: opacity 0.4s ease;
         }
         #preview-loading.hidden { opacity: 0; pointer-events: none; }
         #preview-loading-bar {

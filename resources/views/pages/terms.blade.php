@@ -67,14 +67,14 @@
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">6. Subscription and Payment</h2>
             <p class="text-gray-300 leading-relaxed mb-4">
-                Some features of the Service require a one-time paid upgrade. By purchasing a plan, you agree to pay all applicable fees. Pro and Studio plans are lifetime licenses — there are no recurring charges or automatic renewals. All fees are non-refundable except as explicitly stated in our <a href="/refund-policy" class="text-brand-400 hover:text-brand-300">Refund Policy</a>, which includes a 14-day money-back guarantee.
+                Some features of the Service require a paid upgrade. Plans are available either as a one-time purchase (lifetime access) or as an optional monthly subscription. By purchasing a plan, you agree to pay all applicable fees. One-time purchases are a single payment and remain active for the lifetime of your account. Monthly subscriptions renew automatically at the end of each billing cycle until cancelled; you can cancel at any time from your billing page and will keep access until the end of the current billing cycle. All fees are non-refundable except as explicitly stated in our <a href="/refund-policy" class="text-brand-400 hover:text-brand-300">Refund Policy</a>, which includes a 14-day money-back guarantee.
             </p>
         </section>
 
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">7. Cancellation and Termination</h2>
             <p class="text-gray-300 leading-relaxed mb-4">
-                As our plans are one-time purchases with no recurring billing, there is nothing to cancel. Your plan remains active for the lifetime of your account. We reserve the right to suspend or terminate your account if you violate these Terms of Service or engage in fraudulent activity.
+                One-time purchases remain active for the lifetime of your account — there is nothing to cancel. Monthly subscriptions can be cancelled at any time from your billing page; cancellation stops future charges, and your plan stays active until the end of the current billing cycle, after which your account reverts to the Free plan. We reserve the right to suspend or terminate your account if you violate these Terms of Service or engage in fraudulent activity.
             </p>
         </section>
 

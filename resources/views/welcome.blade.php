@@ -96,7 +96,7 @@ $testimonials = [
     {{-- Subtle grid pattern overlay (premium texture) --}}
     <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: linear-gradient(rgb(255 255 255 / 0.5) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.5) 1px, transparent 1px); background-size: 64px 64px;" aria-hidden="true"></div>
 
-    <div class="max-w-7xl mx-auto text-center relative">
+    <div class="max-w-page mx-auto text-center relative">
         {{-- Trust pill above the headline --}}
         <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-sm font-medium mb-6">
             <span class="relative flex h-2 w-2">
@@ -181,7 +181,7 @@ $testimonials = [
 
 {{-- Featured Galleries Section (ITERATION-3 NEW) --}}
 <section class="py-20 px-4 bg-ink-950">
-    <div class="max-w-7xl mx-auto">
+    <div class="max-w-page mx-auto">
         <div class="text-center mb-12">
             <h2 class="text-3xl md:text-4xl font-bold mb-3">Galleries Built with Exospace</h2>
             <p class="text-lg text-gray-400">Real exhibitions created by real artists — explore them in 3D.</p>
@@ -221,7 +221,7 @@ $testimonials = [
 
 {{-- Features Section --}}
 <section id="features" class="py-20 px-4 bg-ink-900">
-    <div class="max-w-7xl mx-auto">
+    <div class="max-w-page mx-auto">
         <div class="text-center mb-16">
             <h2 class="text-4xl md:text-5xl font-bold mb-4">Why Choose Exospace?</h2>
             <p class="text-xl text-gray-400">Everything you need to showcase art in virtual reality</p>
@@ -266,7 +266,7 @@ $testimonials = [
 
 {{-- Testimonials Section (ITERATION-3 NEW) --}}
 <section class="py-20 px-4 bg-ink-950">
-    <div class="max-w-7xl mx-auto">
+    <div class="max-w-page mx-auto">
         <div class="text-center mb-12">
             <h2 class="text-3xl md:text-4xl font-bold mb-3">Loved by Artists & Curators</h2>
             <p class="text-lg text-gray-400">Hear from creators using Exospace to showcase their work.</p>

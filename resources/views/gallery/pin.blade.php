@@ -14,7 +14,10 @@
             display: flex; align-items: center; justify-content: center;
             font-family: system-ui, -apple-system, sans-serif;
         }
-        .card {
+        /* ITERATION-5: renamed .card → .pin-card — this standalone document
+           loads app.css, and the old name collided with the design system's
+           .card component class (different recipe, same selector). */
+        .pin-card {
             width: 100%; max-width: 400px; padding: 2.5rem;
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.10);
@@ -71,7 +74,7 @@
     </style>
 </head>
 <body>
-    <div class="card">
+    <div class="pin-card">
         <div class="lock-icon" aria-hidden="true">
             <svg width="24" height="24" fill="none" stroke="#8b5cf6" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">

@@ -45,8 +45,11 @@
         </section>
 
         <section>
-            <h2 class="text-xl font-semibold text-gray-100 mb-3">Lifetime Plans</h2>
-            <p>All Exospace plans (Pro and Studio) are one-time lifetime purchases with no recurring billing. Refund requests made within 14 days of purchase are eligible for a <strong class="text-gray-100">full refund</strong>. No pro-rated refunds apply as there is no subscription cycle.</p>
+            <h2 class="text-xl font-semibold text-gray-100 mb-3">Plan Purchases — One-Time &amp; Monthly</h2>
+            {{-- ITERATION-5 (billing truth): plans are available as one-time
+                 purchases AND as monthly subscriptions; the previous copy
+                 claimed there was "no subscription cycle". --}}
+            <p>Exospace plans (Pro and Studio) can be purchased either as a one-time lifetime purchase or as an optional monthly subscription. For one-time purchases, refund requests made within 14 days of purchase are eligible for a <strong class="text-gray-100">full refund</strong>. For monthly subscriptions, you can cancel at any time from your billing page — cancellation stops future charges, and payments already made are covered by the same 14-day money-back guarantee from the original purchase date.</p>
         </section>
 
         <section>

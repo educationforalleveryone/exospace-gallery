@@ -111,6 +111,16 @@
                 @endif
 
                 {{-- Upgrade CTAs --}}
+                @php
+                    // M-1: Offer both one-time + recurring (subscription) options.
+                    // ITERATION-5: moved ABOVE the plan branches — the pro→studio
+                    // branch below also needs these vars (it previously lived
+                    // inside the free branch only).
+                    $recurringProPrice = config('services.2checkout.recurring_price_pro_monthly', '4.99');
+                    $recurringStudioPrice = config('services.2checkout.recurring_price_studio_monthly', '14.99');
+                    $hasRecurringPro = config('services.2checkout.recurring_product_id_pro');
+                    $hasRecurringStudio = config('services.2checkout.recurring_product_id_studio');
+                @endphp
                 @if($user->plan === 'free')
                 <div class="mt-6 space-y-2">
                     {{-- ITERATION-2 (trial wiring): the 14-day trial backend
@@ -132,12 +142,6 @@
                     </div>
                     @endif
                     {{-- M-1: Offer both one-time + recurring (subscription) options --}}
-                    @php
-                        $recurringProPrice = config('services.2checkout.recurring_price_pro_monthly', '4.99');
-                        $recurringStudioPrice = config('services.2checkout.recurring_price_studio_monthly', '14.99');
-                        $hasRecurringPro = config('services.2checkout.recurring_product_id_pro');
-                        $hasRecurringStudio = config('services.2checkout.recurring_product_id_studio');
-                    @endphp
                     <a href="{{ route('billing.upgrade', 'pro') }}"
                        class="btn btn-primary w-full">
                         Pro — $29 one-time
@@ -157,10 +161,17 @@
                     @endif
                 </div>
                 @elseif($user->plan === 'pro')
-                <div class="mt-6">
+                <div class="mt-6 space-y-2">
                     <a href="{{ route('billing.upgrade', 'studio') }}" class="btn btn-primary w-full">
                         Upgrade to Studio — $99
                     </a>
+                    @if($hasRecurringStudio)
+                    {{-- ITERATION-5: monthly alternative — same parity the free
+                         plan branch above already had. --}}
+                    <a href="{{ route('billing.upgrade', 'studio') }}?recurring=1" class="btn btn-secondary w-full">
+                        Studio — ${{ $recurringStudioPrice }}/month
+                    </a>
+                    @endif
                 </div>
                 @endif
             </div>

@@ -339,13 +339,15 @@
                     </div>
                     <div class="flex items-center gap-2 text-xs text-gray-300">
                         <svg class="w-3.5 h-3.5 text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                        No watermark — $29 one-time
+                        {{-- ITERATION-5: price belongs to the plans page (which
+                             now lists one-time AND monthly) — not a feature bullet. --}}
+                        No watermark
                     </div>
                 </div>
 
                 <div class="space-y-2">
                     <a href="/pricing" class="btn btn-primary w-full">
-                        See Plans — from $29
+                        See Plans &amp; Pricing
                     </a>
                     <button data-click="closeUpgradeModal"
                             class="btn btn-secondary w-full">

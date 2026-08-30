@@ -494,7 +494,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
 
 <!-- Debug panel: shows submitted form values if a 500 occurs -->
 @if(app()->environment('local'))
-<div id="create-debug-panel" style="display:none; position:fixed; bottom:1rem; right:1rem; z-index:100; background:#111827; border:1px solid #374151; border-radius:12px; padding:1rem 1.25rem; max-width:calc(100vw - 2rem); font-size:0.78rem; font-family:monospace; box-shadow:0 20px 40px rgba(0,0,0,0.5);">
+<div id="create-debug-panel" style="display:none; position:fixed; bottom:1rem; right:1rem; background:#111827; border:1px solid #374151; border-radius:12px; padding:1rem 1.25rem; max-width:calc(100vw - 2rem); font-size:0.78rem; font-family:monospace; box-shadow:0 20px 40px rgba(0,0,0,0.5);" class="z-[100]">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
         <span style="color:#f59e0b; font-weight:700; font-size:0.8rem;">Submitted values</span>
         <button data-click="closeDebugPanel" style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:1rem;">x</button>

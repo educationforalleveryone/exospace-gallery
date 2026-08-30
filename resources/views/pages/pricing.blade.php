@@ -6,11 +6,23 @@
 @extends('layouts.public')
 
 @section('title', 'Pricing — Exospace 3D Gallery')
-@section('description', 'Create museum-quality 3D art exhibitions. Free to start. Pro $29 one-time. Studio $99 one-time with custom domains and white-label branding.')
+@section('description', 'Create museum-quality 3D art exhibitions. Free to start. Pro $29 one-time or $4.99/mo. Studio $99 one-time or $14.99/mo — custom domains and white-label branding.')
 
 @php
     // CONV-3: Determine the current user's plan for "already on this plan" state
     $currentPlan = auth()->check() ? auth()->user()->plan : null;
+
+    // ITERATION-5 (billing truth): monthly subscription options are a real
+    // product (M-1: cancel/reactivate routes, dunning emails, webhook
+    // recurring lifecycle). Surface the monthly alternative from the SAME
+    // config the billing portal uses — and only when the recurring 2Checkout
+    // products are actually configured. Until iteration 5 this page claimed
+    // "No subscription. No recurring charges.", which contradicted the
+    // welcome page and the billing portal.
+    $recurringProPrice    = config('services.2checkout.recurring_price_pro_monthly', '4.99');
+    $recurringStudioPrice = config('services.2checkout.recurring_price_studio_monthly', '14.99');
+    $hasRecurringPro      = config('services.2checkout.recurring_product_id_pro');
+    $hasRecurringStudio   = config('services.2checkout.recurring_product_id_studio');
 @endphp
 
 @section('content')
@@ -132,6 +144,13 @@
         font-size: 0.82rem; color: #9ca3af; line-height: 1.7; padding-top: 0.6rem;
     }
 
+    /* ITERATION-5: monthly alternative under the card price (rendered only
+       when the recurring product is configured). */
+    .card-cycle {
+        font-size: 0.78rem; color: #9ca3af; text-align: center;
+        margin: -0.6rem 0 0.9rem;
+    }
+
     @media (max-width: 720px) {
         .pricing-hero { padding: 3rem 1.5rem 2rem; }
         .pricing-cards { padding: 0 1rem; }
@@ -210,6 +229,9 @@
             <span class="amount">29</span>
             <span class="period">/ one-time</span>
         </div>
+        @if($hasRecurringPro)
+        <p class="card-cycle">or ${{ $recurringProPrice }}/mo — cancel anytime</p>
+        @endif
         <p class="card-desc">For serious creators. More venues, more images, no watermark.</p>
         <ul class="features">
             <li>
@@ -268,6 +290,9 @@
             <span class="amount">99</span>
             <span class="period">/ one-time</span>
         </div>
+        @if($hasRecurringStudio)
+        <p class="card-cycle">or ${{ $recurringStudioPrice }}/mo — cancel anytime</p>
+        @endif
         <p class="card-desc">For agencies and professionals. Every venue, custom domains, white-label branding.</p>
         <ul class="features">
             <li>
@@ -320,7 +345,8 @@
     </div>
     <p>
         Transactions processed securely via <strong>2Checkout</strong>.<br>
-        Instant digital access granted upon payment. No subscription. No recurring charges.
+        Instant digital access upon payment. Pay once for lifetime access, or choose a
+        monthly subscription — cancel anytime from your billing page.
     </p>
 </div>
 
@@ -454,7 +480,13 @@
     <h2>Questions?</h2>
     <details class="faq-item">
         <summary>Is there a free trial for Pro? <span class="plus">+</span></summary>
-        <p>Yes — the Free plan lets you build a real gallery with the full 3D viewer (1 gallery, 10 images, two venues), and registered Free users can start a <strong>14-day Pro trial</strong> with no card required. You can also explore Pro and Studio anytime with the paid one-time options.</p>
+        <p>Yes — the Free plan lets you build a real gallery with the full 3D viewer (1 gallery, 10 images, two venues), and registered Free users can start a <strong>14-day Pro trial</strong> with no card required. You can also explore Pro and Studio anytime with the paid one-time or monthly plans.</p>
+    </details>
+    <details class="faq-item">
+        {{-- ITERATION-5: subscriptions are a real product (M-1) — the page
+             needs an explicit answer instead of claiming they don't exist. --}}
+        <summary>Do I have to subscribe? <span class="plus">+</span></summary>
+        <p>No. Every plan is available as a <strong>one-time purchase with lifetime access</strong>. If you prefer a lower upfront cost, Pro and Studio are also available as optional monthly subscriptions — same features, cancel anytime from your billing page.</p>
     </details>
     <details class="faq-item">
         <summary>Can I upgrade later? <span class="plus">+</span></summary>
@@ -480,7 +512,7 @@
     <div class="bg-ink-900 border border-gray-700/60 rounded-2xl p-8 sm:p-10 max-w-[440px] w-[90%] text-center">
 
         <h3 id="modal-pro-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Pro — $29</h3>
-        <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access. No subscription.</p>
+        <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access.</p>
         <ul class="text-left text-[13px] text-gray-400 my-5 ps-5 leading-8 list-disc">
             <li>5 galleries · 100 images total</li>
             <li>7 venues: White Cube, Infinite Void, Industrial Loft, Dark Museum, Zen Gallery, Crystal Cathedral, Nebula Drift</li>
@@ -492,6 +524,12 @@
         <a href="{{ route('billing.upgrade', 'pro') }}" class="btn btn-primary w-full mb-3">
             Pay Securely with 2Checkout →
         </a>
+        @if($hasRecurringPro)
+        {{-- ITERATION-5: same monthly alternative the billing portal offers (M-1). --}}
+        <a href="{{ route('billing.upgrade', 'pro') }}?recurring=1" class="btn btn-secondary w-full mb-3">
+            or ${{ $recurringProPrice }}/month — cancel anytime
+        </a>
+        @endif
         @else
         {{-- CONV-6: Direct deep-link to register with ?redirect=billing/upgrade/pro.
              After registration + email verification, the user lands directly on
@@ -512,7 +550,7 @@
     <div class="bg-ink-900 border border-gray-700/60 rounded-2xl p-8 sm:p-10 max-w-[440px] w-[90%] text-center">
 
         <h3 id="modal-studio-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Studio — $99</h3>
-        <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access. No subscription.</p>
+        <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access.</p>
         <ul class="text-left text-[13px] text-gray-400 my-5 ps-5 leading-8 list-disc">
             <li>Unlimited galleries · 500 images total</li>
             <li>All 11 venues including Penthouse, Cyber Gallery, Sculpture Garden, Mirror Lake</li>
@@ -525,6 +563,12 @@
         <a href="{{ route('billing.upgrade', 'studio') }}" class="btn btn-primary w-full mb-3">
             Pay Securely with 2Checkout →
         </a>
+        @if($hasRecurringStudio)
+        {{-- ITERATION-5: same monthly alternative the billing portal offers (M-1). --}}
+        <a href="{{ route('billing.upgrade', 'studio') }}?recurring=1" class="btn btn-secondary w-full mb-3">
+            or ${{ $recurringStudioPrice }}/month — cancel anytime
+        </a>
+        @endif
         @else
         {{-- CONV-6: Same deep-link pattern as Pro modal above. --}}
         <a href="{{ route('register') }}?redirect={{ urlencode('billing/upgrade/studio') }}" class="btn btn-primary w-full mb-3">
@@ -552,6 +596,7 @@
 @php
     $pricingFaqs = [
         ['question' => 'Is there a free trial for Pro?', 'answer' => 'The Free plan lets you build a real gallery with the full 3D viewer, and registered Free users can start a 14-day Pro trial with no card required.'],
+        ['question' => 'Do I have to subscribe?', 'answer' => 'No. Every plan is available as a one-time purchase with lifetime access. Pro and Studio are also available as optional monthly subscriptions with the same features — cancel anytime.'],
         ['question' => 'Can I upgrade later?', 'answer' => 'Yes. Start Free and upgrade to Pro or Studio at any time. Your existing gallery and images carry over instantly.'],
         ['question' => 'What payment methods do you accept?', 'answer' => 'We accept all major credit cards, PayPal, and other methods available through 2Checkout at checkout.'],
         ['question' => 'What happens to my gallery if I don\'t upgrade?', 'answer' => 'Nothing. Your gallery stays live and public. The only difference is the small "Created with Exospace" watermark in the corner.'],

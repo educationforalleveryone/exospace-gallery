@@ -4,8 +4,14 @@ You're almost there, {{ $user->name }}!
 
 You started upgrading to {{ ucfirst($pendingUpgrade->plan) }} but didn't finish checkout. No worries — your upgrade is still waiting.
 
-{{ ucfirst($pendingUpgrade->plan) }} Plan — {{ $pendingUpgrade->plan === 'studio' ? '$99 one-time' : '$29 one-time' }}
-Lifetime access — no subscription
+@php
+    // ITERATION-5 (billing truth): match the checkout type the user
+    // actually started — recurring vs one-time (see abandoned-cart.blade.php).
+    $recurringProductId = config('services.2checkout.recurring_product_id_' . $pendingUpgrade->plan);
+    $isRecurringCheckout = $recurringProductId && (string) $pendingUpgrade->product_id === (string) $recurringProductId;
+@endphp
+{{ ucfirst($pendingUpgrade->plan) }} Plan — @if($isRecurringCheckout)${{ config('services.2checkout.recurring_price_' . $pendingUpgrade->plan . '_monthly', $pendingUpgrade->plan === 'studio' ? '14.99' : '4.99') }}/month@else{{ $pendingUpgrade->plan === 'studio' ? '$99 one-time' : '$29 one-time' }}@endif
+@if($isRecurringCheckout)Monthly subscription — cancel anytime@else Lifetime access — one-time purchase@endif
 
 @if($pendingUpgrade->plan === 'pro')
 What you'll unlock:
@@ -23,7 +29,7 @@ What you'll unlock:
 
 COMPLETE YOUR UPGRADE:
 
-{{ config('app.url') }}/billing/upgrade/{{ $pendingUpgrade->plan }}
+{{ config('app.url') }}/billing/upgrade/{{ $pendingUpgrade->plan }}{{ $isRecurringCheckout ? '?recurring=1' : '' }}
 
 Click the link above to start a new checkout with 2Checkout. Your upgrade activates automatically after payment.
 

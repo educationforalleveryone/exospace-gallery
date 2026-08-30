@@ -30,10 +30,32 @@
 
         <p>You started upgrading to <strong>{{ ucfirst($pendingUpgrade->plan) }}</strong> but didn't finish checkout. No worries — your upgrade is still waiting.</p>
 
+        @php
+            // ITERATION-5 (billing truth): a pending upgrade can be a
+            // RECURRING (subscription) checkout — BillingController selects
+            // the recurring 2Checkout product when ?recurring=1 and stores
+            // its product_id on the pending row. The old copy hardcoded
+            // "$99/$29 one-time — Lifetime access — no subscription",
+            // which was wrong for abandoned subscription checkouts.
+            $recurringProductId = config('services.2checkout.recurring_product_id_' . $pendingUpgrade->plan);
+            $isRecurringCheckout = $recurringProductId && (string) $pendingUpgrade->product_id === (string) $recurringProductId;
+        @endphp
         <div class="plan-box">
             <div class="plan-name">{{ ucfirst($pendingUpgrade->plan) }} Plan</div>
-            <div class="plan-price">{{ $pendingUpgrade->plan === 'studio' ? '$99 one-time' : '$29 one-time' }}</div>
-            <div style="font-size: 0.875rem; color: #6b7280; margin-top: 4px;">Lifetime access — no subscription</div>
+            <div class="plan-price">
+                @if($isRecurringCheckout)
+                    ${{ config('services.2checkout.recurring_price_' . $pendingUpgrade->plan . '_monthly', $pendingUpgrade->plan === 'studio' ? '14.99' : '4.99') }}/month
+                @else
+                    {{ $pendingUpgrade->plan === 'studio' ? '$99 one-time' : '$29 one-time' }}
+                @endif
+            </div>
+            <div style="font-size: 0.875rem; color: #6b7280; margin-top: 4px;">
+                @if($isRecurringCheckout)
+                    Monthly subscription — cancel anytime
+                @else
+                    Lifetime access — one-time purchase
+                @endif
+            </div>
         </div>
 
         @if($pendingUpgrade->plan === 'pro')
@@ -58,7 +80,7 @@
         </div>
         @endif
 
-        <a href="{{ route('billing.upgrade', $pendingUpgrade->plan) }}" class="btn">
+        <a href="{{ route('billing.upgrade', $pendingUpgrade->plan) }}{{ $isRecurringCheckout ? '?recurring=1' : '' }}" class="btn">
             Complete Your Upgrade →
         </a>
 
