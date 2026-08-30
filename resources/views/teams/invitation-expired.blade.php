@@ -14,9 +14,9 @@
         <a href="/" class="logo-text text-3xl mb-8 inline-block">
             Exospace
         </a>
-        <div class="bg-gray-800 border border-gray-700 rounded-2xl p-10 shadow-2xl">
+        <div class="bg-gray-800 border border-gray-700 rounded-2xl p-10 shadow-card-hover">
             <div class="text-5xl mb-4">⏰</div>
-            <h1 class="text-white text-xl font-bold mb-3">Invitation Expired</h1>
+            <h1 class="page-title text-white mb-3">Invitation Expired</h1>
             <p class="text-gray-400 text-sm mb-2">
                 This invitation to join <strong class="text-gray-200">{{ $invitation->team->name }}</strong> has expired.
             </p>

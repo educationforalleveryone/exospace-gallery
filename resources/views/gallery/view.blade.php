@@ -927,7 +927,7 @@
                 // Fallback: copy to clipboard + show toast
                 navigator.clipboard?.writeText(shareUrl).then(() => {
                     if (window.toast) {
-                        window.toast('Link copied to clipboard!', 'success');
+                        window.toast('Link copied', 'success');
                     }
                 }).catch(() => {
                     // ITERATION-7: final fallback without native prompt (banned
@@ -940,7 +940,7 @@
                     ta.select();
                     try {
                         document.execCommand('copy');
-                        if (window.toast) window.toast('Link copied to clipboard!', 'success');
+                        if (window.toast) window.toast('Link copied', 'success');
                     } catch (e) {
                         if (window.toast) window.toast('Copy failed — this browser blocks clipboard access', 'error');
                     }

@@ -4,20 +4,20 @@
     </x-slot>
 
     <div class="page-shell-mid space-y-6">
-            <div class="p-4 sm:p-8 bg-gray-800 shadow-lg sm:rounded-lg border border-gray-700">
+            <div class="card card-pad">
                 <div class="max-w-xl">
                     @include('profile.partials.update-profile-information-form')
                 </div>
             </div>
 
-            <div class="p-4 sm:p-8 bg-gray-800 shadow-lg sm:rounded-lg border border-gray-700">
+            <div class="card card-pad">
                 <div class="max-w-xl">
                     @include('profile.partials.update-password-form')
                 </div>
             </div>
 
             {{-- SEC-4: MFA section — opt-in for regular users, required for super-admins --}}
-            <div class="p-4 sm:p-8 bg-gray-800 shadow-lg sm:rounded-lg border border-gray-700">
+            <div class="card card-pad">
                 <div class="max-w-xl">
                     <h3 class="text-lg font-medium text-gray-100">Multi-Factor Authentication (MFA)</h3>
                     <p class="mt-1 text-sm text-gray-400">
@@ -56,7 +56,7 @@
                 $hasGithub = !empty(config('services.github.client_id'));
             @endphp
             @if($hasGoogle || $hasGithub)
-            <div class="p-4 sm:p-8 bg-gray-800 shadow-lg sm:rounded-lg border border-gray-700">
+            <div class="card card-pad">
                 <div class="max-w-xl">
                     <h3 class="text-lg font-medium text-gray-100">Connected Accounts</h3>
                     <p class="mt-1 text-sm text-gray-400">Link your social accounts for one-click sign-in.</p>
@@ -108,7 +108,7 @@
             </div>
             @endif
 
-            <div class="p-4 sm:p-8 bg-gray-800 shadow-lg sm:rounded-lg border border-gray-700">
+            <div class="card card-pad">
                 <div class="max-w-xl">
                     @include('profile.partials.delete-user-form')
                 </div>

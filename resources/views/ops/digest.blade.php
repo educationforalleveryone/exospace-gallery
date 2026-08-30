@@ -5,7 +5,7 @@
 @section('content')
 <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
     <div>
-        <h1 class="text-xl font-semibold">Morning Digest</h1>
+        <h1 class="page-title text-slate-50">Morning Digest</h1>
         <p class="text-xs text-slate-400 mt-1">
             One Slack message a day (08:15) that unifies everything the control plane watches.
             This preview renders the <em>exact</em> message the scheduled task sends — same composer, same renderer, no drift.
@@ -80,7 +80,7 @@
             <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 flex flex-col">
                 <div class="flex items-start justify-between gap-2 mb-2">
                     <h3 class="text-sm font-semibold text-slate-100">{{ strtoupper($section['label'] ?? $section['key']) }}</h3>
-                    <span class="text-xs font-bold px-1.5 py-0.5 rounded border {{ $statusStyles[$section['status']] ?? $statusStyles['unavailable'] }} shrink-0">
+                    <span class="text-xs font-semibold px-1.5 py-0.5 rounded border {{ $statusStyles[$section['status']] ?? $statusStyles['unavailable'] }} shrink-0">
                         {{ $statusLabels[$section['status']] ?? 'UNAVAILABLE' }}
                     </span>
                 </div>
@@ -106,7 +106,7 @@
 
     {{-- ── The exact Slack message ───────────────────────────────────── --}}
     <section class="mb-6">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">The exact Slack message</h2>
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">The exact Slack message</h2>
         <div class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-4">
             <div class="text-xs text-slate-500 font-mono mb-2">
                 🔵 *OpsCenter morning digest — {{ now()->format('Y-m-d H:i') }}* [{{ app()->environment() }}/INFO]
@@ -203,7 +203,7 @@
                 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 flex flex-col">
                     <div class="flex items-start justify-between gap-2 mb-2">
                         <h3 class="text-sm font-semibold text-slate-100">{{ strtoupper($section['label'] ?? $section['key']) }}</h3>
-                        <span class="text-xs font-bold px-1.5 py-0.5 rounded border {{ $statusStyles[$section['status']] ?? $statusStyles['unavailable'] }} shrink-0">
+                        <span class="text-xs font-semibold px-1.5 py-0.5 rounded border {{ $statusStyles[$section['status']] ?? $statusStyles['unavailable'] }} shrink-0">
                             {{ $statusLabels[$section['status']] ?? 'UNAVAILABLE' }}
                         </span>
                     </div>
@@ -219,7 +219,7 @@
 
         {{-- The exact weekly Slack message --}}
         <section class="mb-6">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">The exact weekly Slack message</h2>
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">The exact weekly Slack message</h2>
             <div class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-4">
                 <div class="text-xs text-slate-500 font-mono mb-2">
                     🔵 *OpsCenter weekly review — {{ now()->format('Y-m-d') }}* [{{ app()->environment() }}/INFO]

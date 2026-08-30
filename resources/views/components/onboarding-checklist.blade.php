@@ -49,7 +49,7 @@
 <div x-data="{ dismissed: localStorage.getItem('exospace_onboarded') === '1' }"
      x-show="!dismissed"
      x-cloak
-     class="bg-gradient-to-br from-brand-900/30 to-brand-900/20 border border-brand-700/30 rounded-2xl p-5 mb-6">
+     class="bg-gradient-to-br from-brand-900/30 to-brand-900/20 border border-brand-700/30 rounded-xl p-5 mb-6">
 
     <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2">
@@ -157,7 +157,7 @@
 window.copyGalleryLink = function(url) {
     if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(function() {
-            if (window.toast) window.toast('Gallery link copied!', 'success');
+            if (window.toast) window.toast('Link copied', 'success');
         });
     }
 };

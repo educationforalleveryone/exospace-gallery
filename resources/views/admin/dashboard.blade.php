@@ -17,7 +17,7 @@
                         <span class="text-gray-700">·</span>
                         <form action="{{ route('admin.teams.switch-personal') }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" class="p-1.5 -m-1 rounded text-xs text-gray-600 hover:text-gray-400 underline underline-offset-2 transition">Personal workspace</button>
+                            <button type="submit" class="p-1.5 -m-1 rounded text-xs text-gray-500 hover:text-gray-400 underline underline-offset-2 transition">Personal workspace</button>
                         </form>
                     @else
                         <span class="mx-1.5 text-gray-700">·</span>
@@ -99,10 +99,11 @@
             </div>
             @endif
 
-            {{-- ── Onboarding strip (zero-gallery users only) ────────────────── --}}
+            {{-- ── Onboarding strip (zero-gallery users only) ──────────────────
+                 ITERATION-9: dropped the stacked radial-gradient decoration —
+                 one gradient is the voice; two compete. --}}
             @if($galleriesCount === 0)
             <div class="relative overflow-hidden rounded-xl border border-brand-500/25 bg-gradient-to-r from-brand-950/60 to-brand-900/30 p-5">
-                <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(168,85,247,0.08),transparent_60%)]"></div>
                 <div class="relative flex flex-col sm:flex-row sm:items-center gap-4">
                     <div class="flex-1">
                         <p class="text-sm font-semibold text-brand-200 mb-2">
@@ -159,8 +160,14 @@
                 />
             @endif
 
-            {{-- ── Stat Cards ─────────────────────────────────────────────────── --}}
-            <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4" data-stat-grid>
+            {{-- ── Stat Cards ───────────────────────────────────────────────────
+                 ITERATION-9 de-duplication: gallery counts appeared in THREE
+                 of the four tiles (Total, Live, Quota) and the views trend
+                 appeared in BOTH the stat card and the sparkline card below.
+                 Now: Total (with live·draft as its sub-line), Views (count +
+                 today badge — the chart owns the trend), and Quota/Team.
+                 Three questions, three tiles, one answer each. --}}
+            <div class="grid grid-cols-2 xl:grid-cols-3 gap-4" data-stat-grid>
 
                 <x-dashboard.stat-card
                     label="Total Galleries"
@@ -177,19 +184,7 @@
                     :value="number_format($views7)"
                     icon="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                     color="blue"
-                    :trend="$viewsTrend"
-                    trendLabel="vs prior 7d"
                     :badge="$viewsToday > 0 ? $viewsToday . ' today' : null"
-                />
-
-                <x-dashboard.stat-card
-                    label="Live Galleries"
-                    :value="$activeCount"
-                    icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    color="green"
-                    :sub="$galleriesCount > 0 ? ($activeCount === $galleriesCount ? 'All published' : $draftCount . ' still draft') : null"
-                    :subColor="$activeCount === $galleriesCount && $galleriesCount > 0 ? 'green' : 'gray'"
-                    :href="route('admin.galleries.index')"
                 />
 
                 @if(!$team)
@@ -403,7 +398,7 @@
                             <span>·</span>
                             <span>{{ $topGallery->images_count }} {{ Str::plural('image', $topGallery->images_count) }}</span>
                         </div>
-                        <div class="grid grid-cols-3 gap-2">
+                        <div class="flex flex-wrap gap-2">
                             <a href="{{ route('gallery.view', $topGallery->slug) }}" target="_blank"
                                class="btn btn-sm btn-secondary">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
@@ -439,7 +434,7 @@
                             <span class="{{ $galleryQuotaPercent >= 90 ? 'text-amber-400 font-semibold' : '' }}">{{ $galleryQuotaPercent }}%</span>
                         </div>
                         <div class="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden mb-4">
-                            <div class="h-1.5 rounded-full transition-all duration-700
+                            <div class="progress-fill h-1.5 rounded-full
                                 {{ $galleryQuotaPercent >= 90 ? 'bg-red-500' : 'bg-brand-500' }}"
                                  style="width:{{ $galleryQuotaPercent }}%">
                             </div>
@@ -451,7 +446,7 @@
                                 <span>{{ config('plans.limits.pro.max_galleries') }} galleries · {{ $user->max_images }} images per gallery</span>
                             </div>
                             @if($user->plan_expires_at)
-                            <div class="mt-2 text-xs text-gray-600">
+                            <div class="mt-2 text-xs text-gray-500">
                                 Renews {{ $user->plan_expires_at->format('M j, Y') }}
                             </div>
                             @endif
@@ -499,10 +494,10 @@
     <div id="dashboard-share-modal"
          role="dialog" aria-modal="true" aria-labelledby="dashboard-share-title"
          style="display:none;"
-         class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+         class="fixed inset-0 z-[60] items-center justify-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
         <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-6 max-w-md w-full shadow-modal">
             <div class="flex items-center justify-between mb-4">
-                <h3 id="dashboard-share-title" class="text-lg font-bold text-gray-100">Share Gallery</h3>
+                <h3 id="dashboard-share-title" class="modal-title">Share Gallery</h3>
                 <button data-click="closeDashboardShare" class="modal-close" aria-label="Close">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -517,7 +512,7 @@
                     <span id="ds-copy-label">Copy</span>
                 </button>
             </div>
-            <p class="text-xs text-gray-600">Anyone with this link can view the 3D gallery in their browser.</p>
+            <p class="text-xs text-gray-500">Anyone with this link can view the 3D gallery in their browser.</p>
         </div>
     </div>
 
@@ -525,12 +520,12 @@
     <div id="upgrade-modal"
          role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title"
          style="display:none;"
-         class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+         class="fixed inset-0 z-[60] items-center justify-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
         <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-8 max-w-sm w-full mx-4 text-center shadow-modal">
             <div class="w-14 h-14 bg-brand-500/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
             </div>
-            <h3 id="upgrade-modal-title" class="text-xl font-bold text-white mb-2">Gallery limit reached</h3>
+            <h3 id="upgrade-modal-title" class="modal-title mb-2">Gallery limit reached</h3>
             <p class="text-gray-400 text-sm mb-6">Upgrade to Pro for {{ config('plans.limits.pro.max_galleries') }} galleries, no watermarks, and full analytics.</p>
             <a href="/pricing" class="btn btn-primary w-full mb-2">
                 View Plans
@@ -557,7 +552,7 @@
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0"
          x-transition:enter-end="opacity-100"
-         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center overflow-y-auto p-4"
     >
         <div @click.stop
              role="dialog" aria-modal="true" aria-labelledby="welcome-heading"
@@ -569,7 +564,7 @@
                 <div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-3">
                     <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                 </div>
-                <h2 id="welcome-heading" class="text-xl font-bold text-white">Welcome to Exospace!</h2>
+                <h2 id="welcome-heading" class="modal-title text-white">Welcome to Exospace!</h2>
                 <p class="text-brand-200 text-sm mt-1">Your 3D gallery platform is ready.</p>
             </div>
             <div class="p-7">

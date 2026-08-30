@@ -21,7 +21,8 @@
  *     without interrupting the user.
  *   - Error toasts use `role="alert"` (assertive) instead of `role="status"`,
  *     per WCAG ARIA-11. Other toasts use `role="status"` (polite).
- *   - Each toast auto-dismisses after 3.5s with a 300ms exit animation.
+ *   - Each toast auto-dismisses after 3.5s (success/info) or 7s (error /
+ *     warning — errors must outlive a glance) with a 300ms exit animation.
  *
  * Turbo Drive compatibility:
  *   - The `window.toast` function is defined on `window` (not inside an IIFE)
@@ -74,15 +75,18 @@ window.toast = function(message, type = 'success') {
     const assertive = type === 'error' || type === 'warning';
     const el = document.createElement('div');
     el.setAttribute('role', assertive ? 'alert' : 'status');
-    el.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium text-gray-100 shadow-2xl backdrop-blur-sm ${colors[type] || colors.info} transition-all duration-300 translate-y-2 opacity-0 min-w-[260px] max-w-[calc(100vw-2rem)] sm:max-w-sm`;
+    el.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium text-gray-100 shadow-menu backdrop-blur-sm ${colors[type] || colors.info} transition-all duration-300 translate-y-2 opacity-0 min-w-[260px] max-w-[calc(100vw-2rem)] sm:max-w-sm`;
     el.innerHTML = `${icons[type] || icons.info}<span class="flex-1"></span>`;
     el.querySelector('span').textContent = message; // XSS-safe (textContent, not innerHTML)
     container.appendChild(el);
     requestAnimationFrame(() => { el.classList.remove('translate-y-2', 'opacity-0'); });
+    // ITERATION-9: per-type durations — errors/warnings used to vanish at the
+    // same 3.5s as successes, the shortest-lived messages in the product.
+    const TTL = (type === 'error' || type === 'warning') ? 7000 : 3500;
     setTimeout(() => {
         el.classList.add('translate-y-2', 'opacity-0');
         setTimeout(() => el.remove(), 300);
-    }, 3500);
+    }, TTL);
 };
 
 // ITERATION-3: controllers flash raw locale keys for a few success paths
@@ -90,8 +94,8 @@ window.toast = function(message, type = 'success') {
 // contextual feedback, so the toast would show the LITERAL key string —
 // translate the known ones to human text instead of leaking internals.
 const __exospaceFlashLabels = {
-    'profile-updated': 'Profile updated.',
-    'password-updated': 'Password updated.',
+    'profile-updated': 'Profile updated',
+    'password-updated': 'Password updated',
     'verification-link-sent': 'Verification link sent!',
 };
 const __humanize = (v) => __exospaceFlashLabels[v] ?? v;

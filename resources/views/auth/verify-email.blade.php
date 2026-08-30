@@ -5,7 +5,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
         </div>
-        <h1 class="text-xl font-bold text-gray-100 mb-1">Check your inbox</h1>
+        <h1 class="page-title mb-1">Check your inbox</h1>
         <p class="text-sm text-gray-400 leading-relaxed">
             We sent a verification link to your email. Click it to activate your account and get started.
         </p>
@@ -54,7 +54,7 @@
         </form>
     </div>
 
-    <p class="mt-4 text-center text-xs text-gray-600">
+    <p class="mt-4 text-center text-xs text-gray-500">
         Didn't get an email? Check your spam folder, or resend above.
     </p>
 </x-guest-layout>

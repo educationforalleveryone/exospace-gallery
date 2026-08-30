@@ -144,7 +144,9 @@ class GalleryController extends Controller
             ]);
             return back()
                 ->withInput()
-                ->with('error', 'Could not create gallery: ' . $e->getMessage());
+                // ITERATION-9: the raw exception message (paths, SQL) used to be
+                // echoed to curators. Calm, actionable copy; details stay in the log.
+                ->with('error', 'We couldn\'t create your gallery — nothing was lost. Please try again; if it keeps failing, contact support and mention what you were doing.');
         }
 
         // If a custom domain was set, register it in Coolify so Traefik

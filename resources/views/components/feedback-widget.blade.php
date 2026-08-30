@@ -14,7 +14,7 @@
     <button @click="open = true; success = false; message = ''"
             x-show="!open"
             x-transition
-            class="flex items-center gap-2 px-4 py-3 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-full shadow-lg shadow-brand-900/30 transition-all duration-200"
+            class="flex items-center gap-2 px-4 py-3 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-full shadow-card-hover transition-all duration-200"
             aria-label="Send feedback"
             aria-haspopup="dialog">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
@@ -28,7 +28,7 @@
     <div x-show="open"
          x-transition
          data-focus-trap
-         class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+         class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center overflow-y-auto p-4"
          role="dialog"
          aria-modal="true"
          aria-labelledby="feedback-widget-title"
@@ -40,7 +40,7 @@
 
             {{-- Header --}}
             <div class="flex items-center justify-between mb-4">
-                <h3 id="feedback-widget-title" class="text-lg font-bold text-white">Send Feedback</h3>
+                <h3 id="feedback-widget-title" class="modal-title">Send Feedback</h3>
                 <button @click="open = false" class="modal-close -me-2" aria-label="Close">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -51,7 +51,7 @@
                 <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
                     <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                 </div>
-                <p class="text-white font-semibold text-lg mb-1">Thank you!</p>
+                <p class="text-white font-semibold text-sm mb-1">Thank you!</p>
                 <p class="text-gray-400 text-sm">Your feedback has been sent to our team.</p>
                 <button @click="open = false" class="btn btn-secondary mt-4">Close</button>
             </div>
@@ -68,6 +68,7 @@
                         @foreach(\App\Models\UserFeedback::CATEGORIES as $value => $label)
                         <button type="button"
                                 @click="category = '{{ $value }}'"
+                                :aria-pressed="category === '{{ $value }}' ? 'true' : 'false'"
                                 :class="category === '{{ $value }}' ? 'bg-brand-600 border-brand-500 text-white' : 'bg-gray-700/50 border-gray-600 text-gray-400'"
                                 class="px-3 py-2 rounded-lg border text-sm font-medium transition text-left">
                             {{ $label }}

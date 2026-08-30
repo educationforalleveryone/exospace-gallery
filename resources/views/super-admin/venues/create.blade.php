@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header title="New venue template" :back="route('super.venues.index')" backLabel="Venues"/>
+        <x-page-header title="New Venue Template" :back="route('super.venues.index')" backLabel="Venues"/>
     </x-slot>
 
     <div class="page-shell-mid">
-        <form method="POST" action="{{ route('super.venues.store') }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('super.venues.store') }}" enctype="multipart/form-data" data-busy data-busy-label="Uploading…">
             @csrf
 
             @include('super-admin.venues._form-fields', ['venue' => $venue, 'categories' => $categories, 'layouts' => $layouts])

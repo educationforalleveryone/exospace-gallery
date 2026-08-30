@@ -14,7 +14,7 @@
             </a>
         </div>
 
-        <div class="bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden shadow-2xl">
+        <div class="bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden shadow-card-hover">
             <div class="h-1.5 bg-gradient-to-r from-brand-600 to-brand-400"></div>
             <div class="p-8">
 
@@ -23,7 +23,7 @@
                     {{ strtoupper(substr($team?->name ?? 'E', 0, 1)) }}
                 </div>
 
-                <h1 class="text-white text-xl font-bold text-center mb-2">You're invited!</h1>
+                <h1 class="page-title text-white text-center mb-2">You're invited!</h1>
                 {{-- ITERATION-1 P0 FIX (500 on every invitation email link): --}}
                 {{-- the controller passes $team = null for visitors who --}}
                 {{-- are not the invited recipient (privacy — team name is --}}
@@ -130,7 +130,7 @@
                     @endif
                 @endauth
 
-                <p class="text-gray-600 text-xs text-center mt-5">
+                <p class="text-gray-500 text-xs text-center mt-5">
                     Expires {{ $invitation->expires_at->diffForHumans() }}
                 </p>
             </div>

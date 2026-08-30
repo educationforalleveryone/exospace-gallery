@@ -26,8 +26,8 @@
                 <tr class="border-b border-gray-800 last:border-0 hover:bg-gray-800/30 transition">
                     <td class="px-5 py-3">
                         <div class="text-gray-200 font-medium">{{ $pending->user->name }}</div>
-                        <div class="text-xs text-gray-500">{{ $pending->user->email }}</div>
-                        <div class="text-xs text-gray-600">Current plan: {{ ucfirst($pending->user->plan) }}</div>
+                        <div class="text-xs text-gray-500 break-all">{{ $pending->user->email }}</div>
+                        <div class="text-xs text-gray-500">Current plan: {{ ucfirst($pending->user->plan) }}</div>
                     </td>
                     <td class="px-5 py-3">
                         <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
@@ -44,7 +44,7 @@
                             <span class="inline-flex items-center rounded-full bg-gray-500/20 px-2 py-0.5 text-xs text-gray-400">Expired</span>
                         @endif
                         @if($pending->notified_at)
-                            <div class="text-xs text-gray-600 mt-1">Nudged {{ $pending->notified_at->diffForHumans() }}</div>
+                            <div class="text-xs text-gray-500 mt-1">Nudged {{ $pending->notified_at->diffForHumans() }}</div>
                         @endif
                     </td>
                     <td class="px-5 py-3 text-gray-400 text-xs">

@@ -8,9 +8,6 @@
     </x-slot>
 
     <div class="page-shell">
-        @if(session('status'))
-            <div class="mb-4 alert alert-success" role="status">{{ session('status') }}</div>
-        @endif
 
         <form method="GET" class="mb-5">
             <input type="text" name="q" value="{{ request('q') }}"
@@ -76,7 +73,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="px-4 py-12 text-center text-gray-500">No galleries found.</td></tr>
+                        <tr><td colspan="8" class="table-empty">No live galleries are available to feature. Publish a gallery first, then return here — featured slots drive homepage traffic. <a href="{{ route('admin.galleries.index') }}" class="text-brand-400 hover:text-brand-300 underline underline-offset-2">Go to galleries</a></td></tr>
                     @endforelse
                 </tbody>
             </table>

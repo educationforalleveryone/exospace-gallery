@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="mb-4">
-    <h1 class="text-xl font-semibold">Credentials — rotation governance</h1>
+    <h1 class="page-title text-slate-50">Credentials</h1>
     <p class="text-xs text-slate-400 mt-1">
         The §15 checklist of the master manual, made live: what credential surfaces exist, which are configured,
         when each was last rotated, and what to do next. <strong class="text-slate-300">Values are never stored,

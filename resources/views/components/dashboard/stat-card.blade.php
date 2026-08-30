@@ -13,12 +13,12 @@
 
 @php
 $colors = [
-    'purple' => ['bg' => 'bg-brand-600',  'border' => 'hover:border-brand-500/60', 'glow' => 'hover:shadow-brand-900/30'],
-    'indigo' => ['bg' => 'bg-brand-600',  'border' => 'hover:border-brand-500/60', 'glow' => 'hover:shadow-brand-900/30'],
-    'blue'   => ['bg' => 'bg-blue-600',    'border' => 'hover:border-blue-500/60',   'glow' => 'hover:shadow-blue-900/30'],
-    'green'  => ['bg' => 'bg-emerald-600',   'border' => 'hover:border-emerald-500/60',  'glow' => 'hover:shadow-emerald-900/30'],
-    'amber'  => ['bg' => 'bg-amber-600',   'border' => 'hover:border-amber-500/60',  'glow' => 'hover:shadow-amber-900/30'],
-    'red'    => ['bg' => 'bg-red-600',     'border' => 'hover:border-red-500/60',    'glow' => 'hover:shadow-red-900/30'],
+    'purple' => ['bg' => 'bg-brand-600',  'border' => 'hover:border-brand-500/60'],
+    'indigo' => ['bg' => 'bg-brand-600',  'border' => 'hover:border-brand-500/60'],
+    'blue'   => ['bg' => 'bg-blue-600',    'border' => 'hover:border-blue-500/60'],
+    'green'  => ['bg' => 'bg-emerald-600',   'border' => 'hover:border-emerald-500/60'],
+    'amber'  => ['bg' => 'bg-amber-600',   'border' => 'hover:border-amber-500/60'],
+    'red'    => ['bg' => 'bg-red-600',     'border' => 'hover:border-red-500/60'],
 ];
 $c      = $colors[$color] ?? $colors['purple'];
 $tag    = $href ? 'a' : 'div';
@@ -30,7 +30,7 @@ $trendFlat = $trend !== null && $trend === 0;
 
 <{{ $tag }}
     @if($href) href="{{ $href }}" @endif
-    class="relative h-full bg-gray-800 overflow-hidden rounded-xl border border-gray-700/80 {{ $c['border'] }} {{ $c['glow'] }} shadow-lg hover:shadow-xl transition-all duration-200 {{ $href ? 'cursor-pointer' : '' }}"
+    class="relative h-full bg-gray-800 overflow-hidden rounded-xl border border-gray-700/60 {{ $c['border'] }} shadow-card hover:shadow-card-hover transition-all duration-200 {{ $href ? 'cursor-pointer' : '' }}"
 >
     {{-- Subtle top accent line --}}
     <div class="absolute top-0 inset-x-0 h-px {{ $c['bg'] }} opacity-60"></div>
@@ -57,19 +57,19 @@ $trendFlat = $trend !== null && $trend === 0;
             @if($trend !== null)
                 @if($trendUp)
                     <span class="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-400">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"/></svg>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"/></svg>
                         +{{ $trend }}%
                     </span>
                 @elseif($trendDown)
                     <span class="inline-flex items-center gap-0.5 text-xs font-semibold text-red-400">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/></svg>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/></svg>
                         {{ $trend }}%
                     </span>
                 @else
                     <span class="text-xs text-gray-500 font-medium">→ flat</span>
                 @endif
                 @if($trendLabel)
-                    <span class="text-xs text-gray-600">{{ $trendLabel }}</span>
+                    <span class="text-xs text-gray-500">{{ $trendLabel }}</span>
                 @endif
             @elseif($sub)
                 <span class="text-xs {{ match($subColor) { 'green' => 'text-emerald-400', 'red' => 'text-red-400', 'amber' => 'text-amber-400', default => 'text-gray-500' } }}">{{ $sub }}</span>

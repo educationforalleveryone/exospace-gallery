@@ -16,6 +16,11 @@
 </head>
 <body class="font-sans bg-slate-950 text-slate-100 min-h-screen antialiased">
 
+<!-- ITERATION-9: skip link — parity with the app/public layouts -->
+<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-emerald-600 focus:text-slate-950 focus:rounded-md focus:font-semibold">
+    Skip to content
+</a>
+
 {{-- ── Header ─────────────────────────────────────────────────────────── --}}
 <header class="bg-slate-900/80 border-b border-slate-800 backdrop-blur sticky top-0 z-40">
     <div class="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -27,18 +32,18 @@
             </div>
         </div>
         <nav class="flex flex-wrap items-center gap-1 text-sm" aria-label="OpsCenter sections">
-            <a href="{{ route('ops.overview') }}"      class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.overview') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Overview</a>
-            <a href="{{ route('ops.digest.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.digest*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Digest</a>
-            <a href="{{ route('ops.applications') }}"  class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.applications') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Applications</a>
-            <a href="{{ route('ops.incidents.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.incidents*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Incidents</a>
-            <a href="{{ route('ops.events') }}"        class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.events*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Errors &amp; Events</a>
-            <a href="{{ route('ops.diagnostics.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.diagnostics*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Diagnostics</a>
-            <a href="{{ route('ops.queue.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.queue*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Queue</a>
+            <a href="{{ route('ops.overview') }}"      class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.overview') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Overview</a>
+            <a href="{{ route('ops.digest.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.digest*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Digest</a>
+            <a href="{{ route('ops.applications') }}"  class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.applications') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Applications</a>
+            <a href="{{ route('ops.incidents.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.incidents*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Incidents</a>
+            <a href="{{ route('ops.events') }}"        class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.events*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Errors &amp; Events</a>
+            <a href="{{ route('ops.diagnostics.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.diagnostics*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Diagnostics</a>
+            <a href="{{ route('ops.queue.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.queue*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Queue</a>
             {{-- Iteration 5: operator-only surfaces — viewers get 403 at the route level; the nav simply never shows the doors. --}}
             @if(auth()->user()?->is_super_admin)
-                <a href="{{ route('ops.actions.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.actions*') ? 'bg-amber-600/20 text-amber-300 border border-amber-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Actions</a>
-                <a href="{{ route('ops.credentials.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.credentials*') ? 'bg-sky-600/20 text-sky-300 border border-sky-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Credentials</a>
-                <a href="{{ route('ops.access.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.access*') ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Access</a>
+                <a href="{{ route('ops.actions.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.actions*') ? 'bg-amber-600/20 text-amber-300 border border-amber-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Actions</a>
+                <a href="{{ route('ops.credentials.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.credentials*') ? 'bg-sky-600/20 text-sky-300 border border-sky-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Credentials</a>
+                <a href="{{ route('ops.access.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.access*') ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Access</a>
             @endif
         </nav>
         <div class="flex items-center gap-2">
@@ -60,7 +65,7 @@
     </div>
 </header>
 
-<main class="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+<main id="main-content" class="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
     @if(session('success'))
         <div class="mb-4 rounded-lg border border-emerald-700/50 bg-emerald-950/40 px-4 py-3 text-emerald-300 text-sm">{{ session('success') }}</div>
     @endif

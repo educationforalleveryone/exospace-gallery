@@ -22,7 +22,7 @@
         @if($venues->count() > 0)
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 @foreach($venues as $venue)
-                    <a href="{{ route('venues.show', $venue->slug) }}" class="group bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden hover:border-brand-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-900/20 transition-all duration-300">
+                    <a href="{{ route('venues.show', $venue->slug) }}" class="card card-interactive card-lift group overflow-hidden">
                         <div class="aspect-[4/3] bg-gradient-to-br from-brand-900/30 to-gray-900 overflow-hidden relative">
                             @if($venue->thumbnail_path)
                                 <img src="{{ asset('storage/' . $venue->thumbnail_path) }}"
@@ -50,7 +50,8 @@
             </div>
         @else
             <div class="text-center py-24">
-                <p class="text-gray-400">No published venues with live exhibitions yet.</p>
+                <p class="text-lg font-semibold text-gray-200 mb-2">Every venue is quiet right now.</p>
+                <p class="text-sm text-gray-500 max-w-md mx-auto">No published venues are hosting live exhibitions at the moment. Check back soon — or preview each venue's space below the listings.</p>
             </div>
         @endif
 

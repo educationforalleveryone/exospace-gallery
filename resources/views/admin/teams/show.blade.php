@@ -1,59 +1,53 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
-            <div class="flex items-center gap-3 min-w-0">
-                <div class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white font-semibold text-base shrink-0" aria-hidden="true">
-                    {{ strtoupper(substr($team->name, 0, 1)) }}
-                </div>
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2.5 flex-wrap">
-                        <h1 class="page-title break-words">{{ $team->name }}</h1>
-                        <span class="badge {{ $userRole === 'owner' ? 'badge-brand' :
-                               ($userRole === 'editor' ? 'badge-info' : 'badge-neutral') }}">
-                            {{ ucfirst($userRole) }}
-                        </span>
-                        @if(auth()->user()->current_team_id === $team->id)
-                            <span class="text-xs text-emerald-400 flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" aria-hidden="true"></span>
-                                Active
-                            </span>
-                        @endif
+        <x-page-header :back="route('admin.teams.index')" backLabel="All Teams">
+            <x-slot:heading>
+                <div class="flex items-center gap-2.5 flex-wrap">
+                    <div class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white font-semibold text-base shrink-0" aria-hidden="true">
+                        {{ strtoupper(substr($team->name, 0, 1)) }}
                     </div>
-                    @if($team->description)
-                        <p class="text-gray-500 text-sm mt-0.5">{{ $team->description }}</p>
-                    @else
-                        <p class="text-gray-600 text-sm mt-0.5">{{ $team->members->count() }} member{{ $team->members->count() !== 1 ? 's' : '' }} · owned by {{ $team->owner->name }}</p>
+                    <h1 class="page-title break-words">{{ $team->name }}</h1>
+                    <span class="badge {{ $userRole === 'owner' ? 'badge-brand' :
+                           ($userRole === 'editor' ? 'badge-info' : 'badge-neutral') }}">
+                        {{ ucfirst($userRole) }}
+                    </span>
+                    @if(auth()->user()->current_team_id === $team->id)
+                        <span class="text-xs text-emerald-400 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" aria-hidden="true"></span>
+                            Active
+                        </span>
                     @endif
                 </div>
-            </div>
-            <div class="flex items-center gap-2">
+            </x-slot:heading>
+            @if($team->description)
+                <x-slot:description>{{ $team->description }}</x-slot:description>
+            @else
+                <x-slot:description>{{ $team->members->count() }} member{{ $team->members->count() !== 1 ? 's' : '' }} · owned by {{ $team->owner->name }}</x-slot:description>
+            @endif
+            <x-slot:actions>
                 @if(auth()->user()->current_team_id !== $team->id)
                     <form action="{{ route('admin.teams.switch', $team) }}" method="POST">
                         @csrf
                         <button type="submit" class="btn btn-sm btn-secondary">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
                             Switch here
                         </button>
                     </form>
                 @endif
-                <a href="{{ route('admin.teams.index') }}" class="text-gray-500 hover:text-gray-300 text-sm transition flex items-center gap-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                    All Teams
-                </a>
-            </div>
-        </div>
+            </x-slot:actions>
+        </x-page-header>
     </x-slot>
 
-    <div class="page-shell space-y-8">
+    <div class="page-shell space-y-6">
 
             @if($errors->any())
-                <div class="flex items-start gap-3 p-4 bg-red-950/50 border border-red-700/60 text-red-300 rounded-xl">
-                    <svg class="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div class="alert alert-error items-start">
+                    <svg class="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <ul class="text-sm space-y-0.5">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
                 </div>
             @endif
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                 {{-- LEFT COLUMN: Members + Invite --}}
                 <div class="lg:col-span-2 space-y-6">
@@ -61,9 +55,9 @@
                     {{-- Members List --}}
                     <div class="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center">
-                            <h3 class="text-white font-semibold">Members <span class="text-gray-500 font-normal text-sm ml-1">{{ $team->members->count() }}</span></h3>
+                            <h2 class="text-white font-semibold">Members <span class="text-gray-500 font-normal text-sm ml-1">{{ $team->members->count() }}</span></h2>
                             @if($userRole === 'owner')
-                                <p class="text-gray-600 text-xs">Changes save immediately</p>
+                                <p class="text-gray-500 text-xs">Changes save immediately</p>
                             @endif
                         </div>
                         <div class="divide-y divide-gray-700/60">
@@ -77,7 +71,7 @@
                                     <div class="min-w-0">
                                         <p class="text-sm font-medium text-gray-200 flex items-center gap-1.5">
                                             <span class="truncate">{{ $member->name }}</span>
-                                            @if($isYou) <span class="text-gray-600 text-xs font-normal flex-shrink-0">(you)</span> @endif
+                                            @if($isYou) <span class="text-gray-500 text-xs font-normal flex-shrink-0">(you)</span> @endif
                                         </p>
                                         <p class="text-gray-500 text-xs truncate">{{ $member->email }}</p>
                                     </div>
@@ -88,7 +82,7 @@
                                         <form action="{{ route('admin.teams.update-role', $team) }}" method="POST" class="role-form">
                                             @csrf @method('PATCH')
                                             <input type="hidden" name="user_id" value="{{ $member->id }}">
-                                            <select name="role" data-change="submitRoleChange"
+                                            <select aria-label="Change member role" name="role" data-change="submitRoleChange"
                                                     class="input-base input-sm cursor-pointer">
                                                 <option value="editor" {{ $role === 'editor' ? 'selected' : '' }}>Editor</option>
                                                 <option value="viewer" {{ $role === 'viewer' ? 'selected' : '' }}>Viewer</option>
@@ -98,7 +92,7 @@
                                         <div x-data="{ confirming: false }" class="flex items-center">
                                             <template x-if="!confirming">
                                                 <button @click="confirming = true" type="button"
-                                                        class="btn btn-icon text-gray-600 hover:text-red-400 hover:bg-red-900/20" title="Remove from team" aria-label="Remove {{ $member->name }} from team">
+                                                        class="btn btn-icon text-gray-400 hover:text-red-400 hover:bg-red-900/20" title="Remove from team" aria-label="Remove {{ $member->name }} from team">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                                 </button>
                                             </template>
@@ -141,7 +135,7 @@
                                 <label for="invite-email" class="label-text mb-1.5">Email address</label>
                                 <input type="email" id="invite-email" name="email" placeholder="colleague@example.com" required
                                        value="{{ old('email') }}"
-                                       class="input-base {{ $errors->has('email') ? 'input-error' : '' }}">
+                                       class="input-base {{ $errors->has('email') ? 'input-error' : '' }}" @error('email') aria-invalid="true" aria-describedby="email-error" @enderror>
                                 @error('email')
                                     <p class="text-red-400 text-xs mt-1.5 flex items-center gap-1">
                                         <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -183,7 +177,7 @@
                     @if($pendingInvitations->isNotEmpty())
                     <div class="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-700">
-                            <h3 class="text-white font-semibold">Pending Invitations ({{ $pendingInvitations->count() }})</h3>
+                            <h2 class="text-white font-semibold">Pending Invitations ({{ $pendingInvitations->count() }})</h2>
                         </div>
                         <div class="divide-y divide-gray-700">
                             @foreach($pendingInvitations as $inv)
@@ -282,7 +276,7 @@
                         </div>
                         @if($team->galleries->isEmpty())
                             <div class="px-5 py-6 text-center">
-                                <p class="text-gray-500 text-sm">No galleries yet.</p>
+                                <p class="text-sm text-gray-400">{{ $team->name }} has no galleries yet. Members with the Editor role can create one, and it will show up here instantly.</p>
                                 @if($team->canEdit(auth()->user()))
                                     <a href="{{ route('admin.galleries.create') }}?team={{ $team->id }}"
                                        class="text-brand-400 hover:text-brand-300 text-sm mt-1 inline-block">Create the first one →</a>

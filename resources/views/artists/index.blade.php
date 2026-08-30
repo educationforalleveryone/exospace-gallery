@@ -23,7 +23,7 @@
         @if($artists->count() > 0)
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
                 @foreach($artists as $artist)
-                    <a href="{{ route('artist.profile', $artist->slug) }}" class="group bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden hover:border-brand-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-900/20 transition-all duration-300">
+                    <a href="{{ route('artist.profile', $artist->slug) }}" class="card card-interactive card-lift group overflow-hidden">
                         <div class="aspect-square bg-gradient-to-br from-brand-900/40 to-gray-900 relative overflow-hidden">
                             @php $coverImage = $covers[$artist->id] ?? null; @endphp
                             @if($coverImage)
@@ -53,7 +53,8 @@
             </div>
         @else
             <div class="text-center py-24">
-                <p class="text-gray-400">No public artist profiles yet.</p>
+                <p class="text-lg font-semibold text-gray-200 mb-2">No artists are on public display yet.</p>
+                <p class="text-sm text-gray-500 max-w-md mx-auto">Curator profiles appear here once they publish artwork. In the meantime, explore the exhibitions that are already open.</p>
                 <a href="{{ route('discover') }}" class="inline-block mt-4 text-brand-400 hover:text-brand-300 transition">Browse 3D exhibitions instead →</a>
             </div>
         @endif

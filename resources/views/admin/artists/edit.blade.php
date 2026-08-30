@@ -4,7 +4,7 @@
     </x-slot>
 
     <div class="page-shell-narrow">
-        <form method="POST" action="{{ route('admin.artists.update', $artist) }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('admin.artists.update', $artist) }}" enctype="multipart/form-data" data-busy data-busy-label="Saving…">
             @csrf @method('PUT')
             @include('admin.artists._form-fields', ['artist' => $artist])
             <div class="flex justify-end gap-3 pt-2">
@@ -15,10 +15,10 @@
 
         {{-- Danger zone --}}
         <div class="mt-8 bg-red-950/20 border border-red-900/40 rounded-xl p-5">
-            <h3 class="text-red-300 font-semibold text-sm mb-2">Danger zone</h3>
+            <h2 class="text-red-300 font-semibold text-sm mb-2">Danger zone</h2>
             <p class="text-xs text-red-400/70 mb-3">Deleting an artist leaves their artworks intact but removes attribution.</p>
             <form method="POST" action="{{ route('admin.artists.destroy', $artist) }}"
-                  data-confirm="Delete artist &quot;{{ addslashes($artist->name) }}&quot;?">
+                  data-confirm="Delete artist &quot;{{ addslashes($artist->name) }}&quot;?" data-confirm-button="Delete">
                 @csrf @method('DELETE')
                 <button type="submit" class="btn btn-danger-ghost">Delete artist</button>
             </form>

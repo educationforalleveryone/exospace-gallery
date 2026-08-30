@@ -386,9 +386,12 @@
        x-confirm-modal, upgrade modal). Panel widths: max-w-md standard,
        max-w-lg form, max-w-2xl large.
        ITERATION-3: backdrop lifted z-50 → z-[60] so modals always cover
-       dropdown menus (also z-50) regardless of DOM order. */
+       dropdown menus (also z-50) regardless of DOM order.
+       ITERATION-9: .modal-title ends the four competing heading recipes
+       (text-lg/xl × bold/semibold) — one dialog heading voice. */
     .modal-backdrop { @apply fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm; }
     .modal-panel    { @apply w-full bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal; }
+    .modal-title    { @apply text-lg font-semibold text-gray-50; }
     /* Standard modal interior — header / body / footer bands */
     .modal-header   { @apply px-6 py-4 border-b border-gray-700/60; }
     .modal-body     { @apply px-6 py-5; }
@@ -401,6 +404,13 @@
     /* ═══ MISC SHARED ═════════════════════════════════════════════════════ */
     .empty-state { @apply flex flex-col items-center justify-center py-12 px-6 text-center; }
     .action-link { @apply text-sm font-medium text-gray-400 hover:text-white transition-colors duration-150; }
+
+    /* Content well — secondary content INSIDE a card (feature lists, quoted
+       blocks, metadata rows). One step darker than .card so nested groups
+       read as layered, not as cards-in-cards. ITERATION-9: replaces the
+       bg-gray-800-in-gray-800 "invisible nested card" and the ad-hoc
+       bg-gray-900/50 rounded-lg p-4 recipes. */
+    .well { @apply rounded-lg bg-gray-900/60 border border-gray-700/40 p-4; }
 
     /* Brand wordmark — ONE definition. Previously every page defined its own
        `.gradient-text` with different stops (footer rendered unstyled on

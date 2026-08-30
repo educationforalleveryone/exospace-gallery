@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="mb-4">
-    <h1 class="text-xl font-semibold">Incidents</h1>
+    <h1 class="page-title text-slate-50">Incidents</h1>
     <p class="text-xs text-slate-400 mt-1">Correlated event chains — one operational story, not five unrelated errors. Root causes are ranked candidates, never certainties.</p>
 </div>
 

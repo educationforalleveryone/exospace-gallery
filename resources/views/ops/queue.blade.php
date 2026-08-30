@@ -5,7 +5,7 @@
 @section('content')
 <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-semibold">Queue — failed jobs</h1>
+        <h1 class="page-title text-slate-50">Queue</h1>
         <p class="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
             Every job that exhausted its retry attempts, newest first. Retrying and deleting happen
             one job at a time from here — with password + typed confirmation — so the queue worker,
@@ -81,7 +81,7 @@
             <div class="px-4 py-3 flex flex-wrap items-start gap-x-4 gap-y-2">
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-sm font-medium text-slate-100 font-mono text-[13px]">{{ $job['job'] }}</span>
+                        <span class="text-sm font-medium text-slate-100 font-mono">{{ $job['job'] }}</span>
                         <span class="text-xs px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 font-mono">queue: {{ $job['queue'] }}</span>
                         <span class="text-xs px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-500 border border-slate-700/60 font-mono">{{ $job['connection'] }}</span>
                     </div>

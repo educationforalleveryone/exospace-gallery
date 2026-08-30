@@ -72,9 +72,9 @@
             @endforeach
         </svg>
         <div class="flex items-center justify-between mt-1">
-            <span class="text-[9px] text-slate-600">{{ $bars->first()['label'] }}</span>
-            <span class="text-[9px] text-slate-600">each bar = one week's new errors (hover for detail)</span>
-            <span class="text-[9px] text-slate-600">{{ $bars->last()['label'] }}</span>
+            <span class="text-xs text-slate-600">{{ $bars->first()['label'] }}</span>
+            <span class="text-xs text-slate-600">each bar = one week's new errors (hover for detail)</span>
+            <span class="text-xs text-slate-600">{{ $bars->last()['label'] }}</span>
         </div>
     @else
         <p class="text-xs text-slate-500 mt-1">

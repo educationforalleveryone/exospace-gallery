@@ -9,7 +9,7 @@
         <div class="mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-300">{{ session('warning') }}</div>
     @endif
 
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6">
+    <div class="card card-pad">
         <div class="text-center mb-6">
             <img src="{{ $qrCodeData }}" alt="MFA QR Code" class="mx-auto rounded-lg bg-white p-4" style="width: 200px; height: 200px;">
         </div>
@@ -21,10 +21,10 @@
 
         <form method="POST" action="{{ route('mfa.setup') }}">
             @csrf
-            <label for="code" class="block text-sm text-gray-300 mb-2">Enter the 6-digit code from your app:</label>
+            <label for="code" class="label-text mb-1.5">Enter the 6-digit code from your app:</label>
             <input type="text" id="code" name="code" required pattern="\d{6}" maxlength="6"
                    inputmode="numeric" autocomplete="one-time-code"
-                   class="input-base h-12 text-center text-2xl tracking-widest {{ $errors->has('code') ? 'input-error' : '' }}"
+                   class="input-base h-12 text-center text-2xl tracking-widest {{ $errors->has('code') ? 'input-error' : '' }}" @error('code') aria-invalid="true" aria-describedby="code-error" @enderror
                    placeholder="000000">
             @error('code')
                 <p class="text-red-400 text-sm mt-2">{{ $message }}</p>

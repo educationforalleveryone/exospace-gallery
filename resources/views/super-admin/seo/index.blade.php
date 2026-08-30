@@ -13,9 +13,6 @@
     </x-slot>
 
     <div class="page-shell">
-        @if(session('status'))
-            <div class="mb-4 alert alert-success" role="status">{{ session('status') }}</div>
-        @endif
 
         {{-- Tabs --}}
         <nav class="flex gap-1 mb-6 border-b border-gray-700" aria-label="SEO sections">
@@ -38,13 +35,13 @@
                     ['Active redirects', $summary['active_redirects']],
                 ] as [$label, $value])
                     <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                        <p class="text-3xl font-bold text-white">{{ number_format($value) }}</p>
+                        <p class="text-2xl font-semibold text-white text-numeric">{{ number_format($value) }}</p>
                         <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">{{ $label }}</p>
                     </div>
                 @endforeach
             </div>
 
-            <h3 class="text-gray-200 font-semibold mb-3">Issues</h3>
+            <h2 class="text-gray-200 font-semibold mb-3">Issues</h2>
             @if(count($issues) === 0)
                 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-gray-400 text-sm">
                     No SEO quality issues found — every public entity meets its quality gate.
@@ -64,7 +61,7 @@
                     @endforeach
                 </div>
             @endif
-            <p class="text-gray-600 text-xs mt-4">
+            <p class="text-gray-500 text-xs mt-4">
                 Data reflects the platform's own content (what crawlers can see). Search-engine performance lives in
                 Google Search Console / Bing Webmaster Tools — see docs/MASTER_MANUAL_OPERATIONS.md.
             </p>
@@ -76,7 +73,7 @@
                 <input type="hidden" name="tab" value="galleries">
                 <input type="text" name="q" value="{{ $search }}" placeholder="Search title or slug…"
                        class="input-base max-w-sm flex-1">
-                <select name="filter" class="input-base">
+                <select aria-label="Filter by type" name="filter" class="input-base">
                     <option value="public" {{ $filter === 'public' ? 'selected' : '' }}>Public &amp; non-empty</option>
                     <option value="issues" {{ $filter === 'issues' ? 'selected' : '' }}>Missing description</option>
                     <option value="all" {{ $filter === 'all' ? 'selected' : '' }}>All</option>
@@ -161,16 +158,16 @@
                                         </div>
                                         <div class="flex gap-3">
                                             <div class="flex-1">
-                                                <label class="block text-xs text-gray-500 mb-1">Sitemap</label>
-                                                <select name="sitemap_include" class="input-base">
+                                                <label for="seo-sitemap" class="block text-xs text-gray-500 mb-1">Sitemap</label>
+                                                <select id="seo-sitemap" name="sitemap_include" class="input-base">
                                                     <option value="">auto</option>
                                                     <option value="1" {{ $gallery->seoProfile?->sitemap_include === true ? 'selected' : '' }}>force include</option>
                                                     <option value="0" {{ $gallery->seoProfile?->sitemap_include === false ? 'selected' : '' }}>force exclude</option>
                                                 </select>
                                             </div>
                                             <div class="flex-1">
-                                                <label class="block text-xs text-gray-500 mb-1">Structured data</label>
-                                                <select name="structured_data" class="input-base">
+                                                <label for="seo-structured" class="block text-xs text-gray-500 mb-1">Structured data</label>
+                                                <select id="seo-structured" name="structured_data" class="input-base">
                                                     <option value="">auto</option>
                                                     <option value="1" {{ $gallery->seoProfile?->structured_data_enabled === true ? 'selected' : '' }}>enabled</option>
                                                     <option value="0" {{ $gallery->seoProfile?->structured_data_enabled === false ? 'selected' : '' }}>disabled</option>
@@ -185,7 +182,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No galleries match.</td></tr>
+                            <tr><td colspan="4" class="table-empty">Nothing to index under these filters — galleries appear once they pass the quality gate. <a href="{{ url()->current() }}" class="text-brand-400 hover:text-brand-300 underline underline-offset-2">Clear filter</a></td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -256,7 +253,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No artists match.</td></tr>
+                            <tr><td colspan="4" class="table-empty">No artists match the current filter. <a href="{{ url()->current() }}" class="text-brand-400 hover:text-brand-300 underline underline-offset-2">Clear filter</a></td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -279,8 +276,8 @@
                            class="input-base">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">Status</label>
-                    <select name="status_code" class="input-base">
+                    <label for="seo-status-code" class="block text-xs text-gray-500 mb-1">Status</label>
+                    <select id="seo-status-code" name="status_code" class="input-base">
                         <option value="301">301 permanent</option>
                         <option value="302">302 temporary</option>
                         <option value="308">308 permanent (keep method)</option>
@@ -308,12 +305,12 @@
                                 <td class="px-4 py-3 font-mono text-xs text-gray-400">{{ $redirect->destination }}</td>
                                 <td class="px-4 py-3">{{ $redirect->status_code }}</td>
                                 <td class="px-4 py-3">{{ number_format($redirect->hits) }}
-                                    @if($redirect->last_hit_at)<span class="text-xs text-gray-600"> · {{ $redirect->last_hit_at->diffForHumans() }}</span>@endif
+                                    @if($redirect->last_hit_at)<span class="text-xs text-gray-500"> · {{ $redirect->last_hit_at->diffForHumans() }}</span>@endif
                                 </td>
                                 <td class="px-4 py-3">{{ $redirect->is_active ? '✓' : '—' }}</td>
                                 <td class="px-4 py-3 text-right">
                                     <form method="POST" action="{{ route('super.seo.redirects.destroy', $redirect) }}"
-                                          data-confirm="Delete redirect /{{ $redirect->source_path }}?">
+                                          data-confirm="Delete redirect /{{ $redirect->source_path }}?" data-confirm-button="Delete">
                                         @csrf @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-danger-ghost">Delete</button>
                                     </form>
@@ -389,7 +386,7 @@
                 <form method="GET">
                     <input type="hidden" name="tab" value="acquisition">
                     {{-- ITERATION-3: inline onchange → canonical data-change helper --}}
-                    <select name="days" data-change="submitForm" class="input-base">
+                    <select aria-label="Filter by time window" name="days" data-change="submitForm" class="input-base">
                         {{-- ITERATION-1 FIX (fatal parse error): the loop variable --}}
                         {{-- was written as \$d (backslash-dollar). Blade passes --}}
                         {{-- the raw token through to PHP, producing `echo \$d` --}}
@@ -404,7 +401,7 @@
 
             <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                    <p class="text-3xl font-bold text-white">{{ number_format($acquisition['organic_signups']) }}</p>
+                    <p class="text-2xl font-semibold text-white text-numeric">{{ number_format($acquisition['organic_signups']) }}</p>
                     <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Organic signups</p>
                 </div>
                 <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
@@ -412,16 +409,16 @@
                     <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Organic share of tracked signups</p>
                 </div>
                 <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                    <p class="text-3xl font-bold text-white">{{ number_format($acquisition['organic_galleries']['galleries']) }}</p>
+                    <p class="text-2xl font-semibold text-white text-numeric">{{ number_format($acquisition['organic_galleries']['galleries']) }}</p>
                     <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Galleries by organic users</p>
                 </div>
                 <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                    <p class="text-3xl font-bold text-white">{{ number_format($acquisition['organic_galleries']['users_with_galleries']) }}</p>
+                    <p class="text-2xl font-semibold text-white text-numeric">{{ number_format($acquisition['organic_galleries']['users_with_galleries']) }}</p>
                     <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Organic users who created</p>
                 </div>
             </div>
 
-            <h3 class="text-gray-200 font-semibold mb-3">Signups by channel</h3>
+            <h2 class="text-gray-200 font-semibold mb-3">Signups by channel</h2>
             <div class="bg-gray-800 rounded-xl border border-gray-700 divide-y divide-gray-700/50 mb-8">
                 @foreach($acquisition['signups_by_channel'] as $channel => $count)
                     <div class="p-4 flex items-center justify-between">
@@ -434,7 +431,7 @@
                 </div>
             </div>
 
-            <h3 class="text-gray-200 font-semibold mb-3">Top organic landing pages (by resulting signups)</h3>
+            <h2 class="text-gray-200 font-semibold mb-3">Top organic landing pages (by resulting signups)</h2>
             @if($acquisition['top_landing_pages']->isEmpty())
                 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-gray-400 text-sm">
                     No organic signups with landing-page data yet in this window.

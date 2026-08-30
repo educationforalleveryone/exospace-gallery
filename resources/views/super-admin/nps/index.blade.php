@@ -6,11 +6,11 @@
     <div class="page-shell-mid">
 
         {{-- NPS Score Banner --}}
-        <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 mb-6">
+        <div class="card card-pad mb-6">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-400 uppercase tracking-wider mb-1">Net Promoter Score</p>
-                    <p class="text-5xl font-bold {{ $stats['nps_score'] >= 0 ? 'text-emerald-400' : 'text-red-400' }}">
+                    <p class="text-4xl font-semibold text-numeric {{ $stats['nps_score'] >= 0 ? 'text-emerald-400' : 'text-red-400' }}">
                         {{ $stats['nps_score'] > 0 ? '+' : '' }}{{ $stats['nps_score'] }}
                     </p>
                     <p class="text-xs text-gray-500 mt-1">Range: -100 to +100 | Based on {{ $stats['total'] }} responses</p>
@@ -27,7 +27,7 @@
         {{-- Responses --}}
         @if($responses->isEmpty())
             <div class="text-center py-16">
-                <p class="text-gray-400">No NPS responses yet.</p>
+                <p class="text-sm text-gray-400">No survey responses recorded yet. Responses arrive as galleries collect visitors — scores stay here once the first one lands.</p>
             </div>
         @else
             <div class="space-y-3">

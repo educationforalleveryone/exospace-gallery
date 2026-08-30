@@ -5,7 +5,7 @@
 @section('content')
 <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
     <div>
-        <h1 class="text-xl font-semibold">Diagnostics</h1>
+        <h1 class="page-title text-slate-50">Diagnostics</h1>
         <p class="text-xs text-slate-400 mt-1">
             One-click, read-only checks — no SSH, no Docker commands, no remembering anything.
             Every run is audited; results are explained in plain language.
@@ -13,7 +13,7 @@
     </div>
     <div class="flex items-center gap-2">
         <form method="GET" action="{{ route('ops.diagnostics.index') }}" class="flex items-center gap-2">
-            <select name="app" class="input-ops-sm w-auto" data-change="submitForm">
+            <select aria-label="Filter by application" name="app" class="input-ops-sm w-auto" data-change="submitForm">
                 <option value="">Target: Control plane host (self)</option>
                 @foreach($applications as $app)
                     <option value="{{ $app->id }}" @selected($application?->id === $app->id)>Target: {{ $app->name }}</option>
@@ -40,7 +40,7 @@
             $groupDiagnostics = collect($diagnostics)->where('group', $group);
         @endphp
         <section>
-            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">{{ $group }}</h2>
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">{{ $group }}</h2>
             <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                 @foreach($groupDiagnostics as $id => $definition)
                     <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 flex flex-col">
@@ -79,7 +79,7 @@
 
 {{-- ── Recent runs ────────────────────────────────────────────────────── --}}
 <section>
-    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Recent runs</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Recent runs</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800">
         <table class="w-full text-sm">
             <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">

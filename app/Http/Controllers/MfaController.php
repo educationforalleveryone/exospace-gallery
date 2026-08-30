@@ -73,7 +73,9 @@ class MfaController extends Controller
                 'error'   => $e->getMessage(),
             ]);
             return redirect()->route('admin.dashboard')
-                ->with('error', 'MFA setup could not be completed. Please ensure the pragmarx/google2fa-qrcode package is installed. Contact support if the problem persists.');
+                // ITERATION-9: never surface package names to users — the log
+                // has the technical detail; the message stays calm and useful.
+                ->with('error', 'MFA couldn\'t be set up right now — this is a server configuration issue, not anything you did. Support has the details; please try again shortly.');
         }
     }
 

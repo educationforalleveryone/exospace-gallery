@@ -183,6 +183,21 @@ window.exospaceConfirm = function(event, message) {
         okBtn.className = 'btn btn-danger flex-1';
         okBtn.textContent = 'Confirm';
 
+        // ITERATION-9: verb-matched confirm button + neutral styling for
+        // non-destructive actions. Forms opt in with data-confirm-button="Duplicate"
+        // and (optionally) data-confirm-danger="false". Defaults unchanged.
+        const trigger = event?.target;
+        const verbHost = trigger?.closest ? trigger.closest('[data-confirm-button]') : null;
+        if (verbHost) {
+            okBtn.textContent = verbHost.getAttribute('data-confirm-button');
+            if (verbHost.getAttribute('data-confirm-danger') === 'false') {
+                okBtn.className = 'btn btn-primary flex-1';
+                iconWrap.className = 'w-12 h-12 bg-brand-500/10 rounded-full flex items-center justify-center mx-auto mb-4';
+                iconWrap.innerHTML = '<svg class="w-6 h-6 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+                title.textContent = 'Please Confirm';
+            }
+        }
+
         btnRow.append(cancelBtn, okBtn);
         panel.append(iconWrap, title, body, btnRow);
         overlay.appendChild(panel);
@@ -231,7 +246,10 @@ window.exospaceGuardForm = function(form) {
         if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
         const label = form.getAttribute('data-busy-label') || btn.getAttribute('data-busy-label');
         if (label) {
-            btn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span class="ms-2">' + label + '</span>';
+            // ITERATION-9: the .btn base already provides gap-2 — the extra
+            // ms-2 doubled the spinner→label spacing to 16px on every busy
+            // control product-wide.
+            btn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>' + label + '</span>';
         }
     });
     // Safety net: if navigation never happens (e.g. server stalls then the

@@ -135,7 +135,7 @@
                     @if($referrers->isEmpty())
                         <div class="py-8 text-center">
                             <p class="text-gray-500 text-sm mb-1">No traffic recorded yet.</p>
-                            <p class="text-gray-600 text-xs">Direct visits and referrers will appear here once people view your gallery.</p>
+                            <p class="text-gray-500 text-xs">Direct visits and referrers will appear here once people view your gallery.</p>
                         </div>
                     @else
                         @php $maxRef = $referrers->first()->count; @endphp

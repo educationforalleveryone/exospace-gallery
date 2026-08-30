@@ -7,7 +7,7 @@
     x-transition:enter="transition ease-out duration-300"
     x-transition:enter-start="opacity-0 translate-y-4"
     x-transition:enter-end="opacity-100 translate-y-0"
-    class="fixed bottom-0 left-0 right-0 z-[45] bg-gray-900 border-t border-gray-700 shadow-lg"
+    class="fixed bottom-0 left-0 right-0 z-[45] bg-gray-900 border-t border-gray-700 shadow-menu"
     style="display: none;"
 >
     <div class="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

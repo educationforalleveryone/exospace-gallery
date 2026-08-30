@@ -18,7 +18,7 @@
 @section('content')
 <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
     <div>
-        <h1 class="text-2xl font-bold tracking-tight">Status Wall</h1>
+        <h1 class="page-title text-slate-50">Status Wall</h1>
         <p class="text-sm text-slate-500">
             @if ($git_commit)
                 Build <span class="font-mono text-slate-300">{{ $git_commit }}</span> · {{ $git_branch }} · last activity {{ $lastActivity?->diffForHumans() }}
@@ -47,9 +47,9 @@
 
 @if (($flaky)->isNotEmpty())
     <div class="mb-6 rounded-xl border border-purple-900 bg-purple-950/30 p-4 text-sm text-purple-200">
-        ❄ <b>{{ $flaky->where('kind','flaky')->count() }}</b> flaky ·
-          <b>{{ $flaky->where('kind','perma-red')->count() }}</b> perma-red ·
-          <b>{{ $flaky->where('kind','recently-broken')->count() }}</b> recently-broken
+        ❄ <span class="font-semibold">{{ $flaky->where('kind','flaky')->count() }}</span> flaky ·
+          <span class="font-semibold">{{ $flaky->where('kind','perma-red')->count() }}</span> perma-red ·
+          <span class="font-semibold">{{ $flaky->where('kind','recently-broken')->count() }}</span> recently-broken
         <a href="{{ route('control-center.flaky') }}" class="ml-2 underline decoration-dotted hover:text-white">open reliability board →</a>
     </div>
 @endif
@@ -68,7 +68,7 @@
                 }}</span>
                 <div class="min-w-0 flex-1">
                     <div class="flex items-baseline gap-2">
-                        <b>{{ $gate['label'] }}</b>
+                        <span class="font-semibold">{{ $gate['label'] }}</span>
                         @if ($gate['mode'] !== 'blocking')
                             <span class="text-xs uppercase text-amber-400">advisory</span>
                         @endif

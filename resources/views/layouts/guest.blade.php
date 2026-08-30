@@ -23,6 +23,11 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-gray-100 antialiased bg-ink-900">
+        <!-- ITERATION-9: skip link + <main> landmark — auth pages are the
+             highest-traffic entry point and had neither. -->
+        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand-600 focus:text-white focus:rounded-lg focus:font-semibold">
+            Skip to content
+        </a>
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-ink-900">
             <div>
                 <a href="/" class="logo-text text-2xl">
@@ -30,11 +35,11 @@
                 </a>
             </div>
 
-            <div class="w-full mt-6 flex flex-col lg:flex-row lg:items-start lg:justify-center lg:gap-10 lg:max-w-4xl px-4 sm:px-0">
+            <main id="main-content" class="w-full mt-6 flex flex-col lg:flex-row lg:items-start lg:justify-center lg:gap-10 lg:max-w-4xl px-4 sm:px-0">
 
                 {{-- Feature sidebar (lg+ only) --}}
                 <div class="hidden lg:flex flex-col justify-center gap-5 lg:w-72 flex-shrink-0 pt-6 pb-2">
-                    <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Why Exospace</p>
+                    <p class="eyebrow">Why Exospace</p>
                     <div class="space-y-4">
                         <div class="flex items-start gap-3">
                             <div class="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -73,15 +78,15 @@
                             </div>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-600 mt-2">Free to start — no credit card needed.</p>
+                    <p class="text-xs text-gray-500 mt-2">Free to start — no credit card needed.</p>
                 </div>
 
                 {{-- Auth card --}}
-                <div class="w-full sm:max-w-md lg:w-96 px-6 py-8 bg-gray-800/90 border border-gray-700/80 shadow-2xl overflow-hidden sm:rounded-xl flex-shrink-0 relative">
+                <div class="w-full sm:max-w-md lg:w-96 px-6 py-8 bg-gray-800/90 border border-gray-700/80 shadow-card-hover overflow-hidden sm:rounded-xl flex-shrink-0 relative">
     <div class="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-brand-500 to-transparent"></div>
                     {{ $slot }}
                 </div>
-            </div>
+            </main>
             </div>
             
             <div class="mt-6 text-center">

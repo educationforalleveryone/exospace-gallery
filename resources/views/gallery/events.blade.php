@@ -69,9 +69,9 @@
                                     @csrf
                                     <p class="text-sm text-gray-300 font-medium mb-3">RSVP to attend:</p>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <input type="text" name="name" placeholder="Your name" required
+                                        <input type="text" name="name" placeholder="Your name" required aria-label="Your name"
                                                class="input-base">
-                                        <input type="email" name="email" placeholder="Your email" required
+                                        <input type="email" name="email" placeholder="Your email" required aria-label="Your email"
                                                class="input-base">
                                     </div>
                                     {{-- P3-19: Cloudflare Turnstile captcha (invisible when enabled) --}}

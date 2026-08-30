@@ -27,7 +27,7 @@
                     <input type="text" id="title" name="title" value="{{ old('title', $event->title) }}" required maxlength="200"
                            placeholder="Opening Reception: Reflections 2026"
                            class="input-base">
-                    @error('title')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+                    @error('title')<p id=\"title-error\" class=\"text-sm text-red-400 mt-1\">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
@@ -50,15 +50,15 @@
                     <div>
                         <label for="starts_at" class="label-text mb-1.5">Starts at <span class="text-red-400" aria-hidden="true">*</span></label>
                         <input type="datetime-local" id="starts_at" name="starts_at" value="{{ old('starts_at', $event->starts_at ? $event->starts_at->format('Y-m-d\TH:i') : null) }}" required
-                               class="input-base {{ $errors->has('starts_at') ? 'input-error' : '' }}"
+                               class="input-base {{ $errors->has('starts_at') ? 'input-error' : '' }}" @error('starts_at') aria-invalid="true" aria-describedby="starts_at-error" @enderror
                                aria-invalid="{{ $errors->has('starts_at') ? 'true' : 'false' }}">
-                        @error('starts_at')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+                        @error('starts_at')<p id=\"starts_at-error\" class=\"text-sm text-red-400 mt-1\">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label for="ends_at" class="label-text mb-1.5">Ends at <span class="text-gray-500 text-xs">(optional)</span></label>
                         <input type="datetime-local" id="ends_at" name="ends_at" value="{{ old('ends_at', $event->ends_at ? $event->ends_at->format('Y-m-d\TH:i') : null) }}"
-                               class="input-base {{ $errors->has('ends_at') ? 'input-error' : '' }}">
-                        @error('ends_at')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+                               class="input-base {{ $errors->has('ends_at') ? 'input-error' : '' }}" @error('ends_at') aria-invalid="true" aria-describedby="ends_at-error" @enderror>
+                        @error('ends_at')<p id=\"ends_at-error\" class=\"text-sm text-red-400 mt-1\">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
@@ -80,8 +80,8 @@
                         <label for="location_url" class="label-text mb-1.5">Location URL <span class="text-gray-500 text-xs">(optional)</span></label>
                         <input type="url" id="location_url" name="location_url" value="{{ old('location_url', $event->location_url) }}"
                                placeholder="https://zoom.us/..."
-                               class="input-base {{ $errors->has('location_url') ? 'input-error' : '' }}">
-                        @error('location_url')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+                               class="input-base {{ $errors->has('location_url') ? 'input-error' : '' }}" @error('location_url') aria-invalid="true" aria-describedby="location_url-error" @enderror>
+                        @error('location_url')<p id=\"location_url-error\" class=\"text-sm text-red-400 mt-1\">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
@@ -100,7 +100,7 @@
 
             <div class="flex justify-end gap-3 pt-2">
                 <a href="{{ route('admin.galleries.events.index', $gallery) }}" class="btn btn-secondary">Cancel</a>
-                <button type="submit" class="btn btn-primary">@yield('submit-label', 'Create event')</button>
+                <button type="submit" class="btn btn-primary" data-busy data-busy-label="Saving…">@yield('submit-label', 'Create event')</button>
             </div>
         </form>
     </div>

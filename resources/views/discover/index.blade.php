@@ -30,13 +30,13 @@
          style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.7); backdrop-filter:blur(4px); align-items:center; justify-content:center;"
          class="z-[45]">
         <div style="text-align:center;">
-            <div style="display:inline-block; width:40px; height:40px; border:3px solid rgba(167,139,250,0.2); border-top-color:#a78bfa; border-radius:50%; animation: discover-spin 0.8s linear infinite;"></div>
-            <p style="margin-top:12px; color:#a78bfa; font-size:14px; font-weight:500;">Loading exhibitions&hellip;</p>
+            {{-- ITERATION-9: kit spinner + brand tokens replace the inline hex
+                 loader (the "no hex in Blade" rule). Reduced-motion users get
+                 a static ring via the global override in app.css. --}}
+            <span class="btn-spinner text-brand-400" style="width:40px;height:40px;border-width:3px;" aria-hidden="true"></span>
+            <p style="margin-top:12px; font-size:14px; font-weight:500;" class="text-brand-400">Loading exhibitions&hellip;</p>
         </div>
     </div>
-    <style>
-        @keyframes discover-spin { to { transform: rotate(360deg); } }
-    </style>
     <script nonce="@nonce">
         // Show the overlay whenever an in-page navigation happens (pagination
         // link, sort link, or venue filter form submit). Hide it on page load
@@ -76,7 +76,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div class="flex items-center gap-3">
                 <form method="GET" class="flex items-center gap-2">
-                    <select name="venue" data-change="submitForm" class="input-base">
+                    <select aria-label="Filter by venue" name="venue" data-change="submitForm" class="input-base">
                         <option value="">All venues</option>
                         @foreach($venues as $id => $name)
                             <option value="{{ $id }}" {{ (string)$venueId === (string)$id ? 'selected' : '' }}>{{ $name }}</option>
@@ -86,7 +86,7 @@
                 </form>
             </div>
 
-            <div class="flex items-center gap-1 text-sm">
+            <div class="flex flex-wrap items-center gap-1 gap-y-2 text-sm">
                 <span class="text-gray-500 mr-2">Sort:</span>
                 <a href="?sort=featured{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'featured' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Featured</a>
                 <a href="?sort=views{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'views' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Most viewed</a>
@@ -103,7 +103,7 @@
         @if($galleries->count() > 0)
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 @foreach($galleries as $gallery)
-                    <a href="{{ $gallery->public_url }}" class="group bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden hover:border-brand-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-900/20 transition-all duration-300">
+                    <a href="{{ $gallery->public_url }}" class="card card-interactive card-lift group overflow-hidden">
                         {{-- Cover --}}
                         <div class="aspect-[4/3] bg-gray-900 overflow-hidden relative">
                             @if($gallery->coverImage)
@@ -144,9 +144,9 @@
             </div>
         @else
             <div class="text-center py-24">
-                <svg class="w-16 h-16 mx-auto mb-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                <p class="text-gray-400 mb-2">No public exhibitions found.</p>
-                <p class="text-gray-600 text-sm">Check back soon — new galleries open every week.</p>
+                <svg class="w-16 h-16 mx-auto mb-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <p class="text-lg font-semibold text-gray-200 mb-2">No exhibitions match your search.</p>
+                <p class="text-sm text-gray-500 max-w-md mx-auto">New galleries open every week — check back soon, or browse everything with the filters cleared. Looking to open your own exhibition? <a href="{{ route('register') }}" class="text-brand-400 hover:text-brand-300 underline underline-offset-2">Create one free</a>.</p>
             </div>
         @endif
     </div>

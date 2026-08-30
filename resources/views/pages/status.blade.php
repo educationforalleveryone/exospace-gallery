@@ -62,7 +62,7 @@
             <div class="card flex items-center justify-between px-6 py-5">
                 <div class="flex items-center gap-3">
                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $icons[$key] ?? '' }}"/></svg>
-                    <span class="text-[15px] font-semibold text-gray-200">{{ $labels[$key] ?? ucfirst($key) }}</span>
+                    <span class="text-base font-semibold text-gray-200">{{ $labels[$key] ?? ucfirst($key) }}</span>
                 </div>
                 <x-status-badge :state="$st['state']" :label="$st['label']" />
             </div>

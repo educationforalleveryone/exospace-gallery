@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="mb-4">
-    <h1 class="text-xl font-semibold">Access</h1>
+    <h1 class="page-title text-slate-50">Access</h1>
     <p class="text-xs text-slate-400 mt-1">
         Grant OpsCenter access to individual accounts — without giving them the keys to Master Control.
         <span class="text-cyan-300">Viewers</span> get read-only access (overview, applications, errors, incidents, diagnostic results);
@@ -21,14 +21,14 @@
 
 {{-- ── Grant form ───────────────────────────────────────────────────────── --}}
 <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5 mb-6">
-    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Grant access</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Grant access</h2>
     @if($candidates->isEmpty())
         <p class="text-sm text-slate-500">No eligible accounts: every non-super-admin user either already holds an active grant or does not exist.</p>
     @else
         <form method="POST" action="{{ route('ops.access.grant') }}" class="flex flex-wrap items-start gap-3">
             @csrf
             <div class="flex-1 min-w-[260px]">
-                <select name="user_id" required class="input-ops">
+                <select aria-label="Select user" name="user_id" required class="input-ops">
                     @foreach($candidates as $candidate)
                         <option value="{{ $candidate->id }}">
                             {{ $candidate->name }} — {{ $candidate->email }}
@@ -59,7 +59,7 @@
 
 {{-- ── Active grants ───────────────────────────────────────────────────── --}}
 <section class="mb-6">
-    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Active grants ({{ $activeGrants->count() }})</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Active grants ({{ $activeGrants->count() }})</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800">
         <table class="w-full text-sm">
             <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
@@ -104,14 +104,14 @@
                                 @if($grant->user)
                                     {{-- Level change — the atomic revoke+re-grant lives in OpsAccessService (one click, both ledger rows). --}}
                                     @if($grant->level === 'viewer')
-                                        <form method="POST" action="{{ route('ops.access.grant') }}" data-confirm="Change this account to the OPERATOR tier? They will be able to run read-only diagnostics (audited) in addition to viewing." class="inline">
+                                        <form method="POST" action="{{ route('ops.access.grant') }}" data-confirm="Change this account to the OPERATOR tier? They will be able to run read-only diagnostics (audited) in addition to viewing." data-confirm-button="Grant" class="inline">
                                             @csrf
                                             <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
                                             <input type="hidden" name="level" value="operator">
                                             <button class="btn btn-sm btn-ops-amber-ghost">Make operator…</button>
                                         </form>
                                     @else
-                                        <form method="POST" action="{{ route('ops.access.grant') }}" data-confirm="Downgrade this account to the VIEWER tier? They keep read access but can no longer run diagnostics." class="inline">
+                                        <form method="POST" action="{{ route('ops.access.grant') }}" data-confirm="Downgrade this account to the VIEWER tier? They keep read access but can no longer run diagnostics." data-confirm-button="Downgrade" class="inline">
                                             @csrf
                                             <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
                                             <input type="hidden" name="level" value="viewer">
@@ -121,7 +121,7 @@
                                 @endif
                                 {{-- ITERATION-3: message moved into an attribute (was interpolated into a
                                      JS string — an apostrophe in the user's name broke the handler). --}}
-                                <form method="POST" action="{{ route('ops.access.revoke', $grant) }}" data-confirm="Revoke OpsCenter access for {{ $grant->user?->name ?? 'this account' }}? Access ends immediately." class="inline">
+                                <form method="POST" action="{{ route('ops.access.revoke', $grant) }}" data-confirm="Revoke OpsCenter access for {{ $grant->user?->name ?? 'this account' }}? Access ends immediately." data-confirm-button="Revoke" class="inline">
                                     @csrf
                                     <button class="btn btn-sm btn-ops-red-ghost">Revoke…</button>
                                 </form>
@@ -142,7 +142,7 @@
 
 {{-- ── Revoked history ──────────────────────────────────────────────────── --}}
 <section>
-    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Revoked (history, most recent first)</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Revoked (history, most recent first)</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800/60">
         <table class="w-full text-sm">
             <thead class="bg-slate-900/60 text-slate-500 text-xs uppercase tracking-wider">

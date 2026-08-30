@@ -29,7 +29,7 @@
 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
     <div class="flex items-center justify-between gap-2 mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Backups</h2>
-        <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip[$backupTile['status']] ?? $chip['unknown'] }}">{{ strtoupper($backupTile['status']) }}</span>
+        <span class="text-xs font-semibold px-2 py-1 rounded border {{ $chip[$backupTile['status']] ?? $chip['unknown'] }}">{{ strtoupper($backupTile['status']) }}</span>
     </div>
 
     @if(empty($backupTile['disks']))
@@ -71,7 +71,7 @@
 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
     <div class="flex items-center justify-between gap-2 mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Billing Webhooks</h2>
-        <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip[$webhookTile['status']] ?? $chip['unknown'] }}">{{ strtoupper($webhookTile['status']) }}</span>
+        <span class="text-xs font-semibold px-2 py-1 rounded border {{ $chip[$webhookTile['status']] ?? $chip['unknown'] }}">{{ strtoupper($webhookTile['status']) }}</span>
     </div>
 
     <div class="grid grid-cols-2 gap-2 mb-2">
@@ -102,11 +102,11 @@
     <div class="flex items-center justify-between gap-2 mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Sentry — Unresolved</h2>
         @if(! empty($sentryTile['error']))
-            <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip['degraded'] }}">API ERROR</span>
+            <span class="text-xs font-semibold px-2 py-1 rounded border {{ $chip['degraded'] }}">API ERROR</span>
         @elseif(($sentryTile['total_issues'] ?? 0) > 0)
-            <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip['degraded'] }}">{{ $sentryTile['total_issues'] }} ISSUE{{ $sentryTile['total_issues'] === 1 ? '' : 'S' }}</span>
+            <span class="text-xs font-semibold px-2 py-1 rounded border {{ $chip['degraded'] }}">{{ $sentryTile['total_issues'] }} ISSUE{{ $sentryTile['total_issues'] === 1 ? '' : 'S' }}</span>
         @else
-            <span class="text-xs font-bold px-2 py-1 rounded border {{ $chip['healthy'] }}">QUIET</span>
+            <span class="text-xs font-semibold px-2 py-1 rounded border {{ $chip['healthy'] }}">QUIET</span>
         @endif
     </div>
 

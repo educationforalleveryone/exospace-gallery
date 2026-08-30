@@ -11,9 +11,6 @@
     </x-slot>
 
     <div class="page-shell">
-        @if(session('status'))
-            <div class="mb-4 alert alert-success" role="status">{{ session('status') }}</div>
-        @endif
 
         {{-- Search --}}
         <form method="GET" class="mb-5">
@@ -36,7 +33,7 @@
                             @endif
                         </div>
                         <div class="p-4">
-                            <h3 class="text-gray-100 font-semibold truncate">{{ $artist->name }}</h3>
+                            <h2 class="text-gray-100 font-semibold truncate">{{ $artist->name }}</h2>
                             @if($artist->location)
                                 <p class="text-gray-400 text-xs mt-0.5 truncate">{{ $artist->location }}</p>
                             @endif
@@ -47,9 +44,9 @@
                         </div>
                     </a>
                     <div class="px-4 pb-3 flex gap-2">
-                        <a href="{{ route('admin.artists.edit', $artist) }}" class="flex-1 text-center bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-medium py-2 rounded-lg transition">Edit</a>
+                        <a href="{{ route('admin.artists.edit', $artist) }}" class="btn btn-sm btn-secondary flex-1">Edit</a>
                         <form method="POST" action="{{ route('admin.artists.destroy', $artist) }}"
-                              data-confirm="Delete artist &quot;{{ addslashes($artist->name) }}&quot;? Their artworks will remain but become unattributed."
+                              data-confirm="Delete artist &quot;{{ addslashes($artist->name) }}&quot;? Their artworks will remain but become unattributed." data-confirm-button="Delete"
                               class="inline">
                             @csrf @method('DELETE')
                             <button class="btn btn-sm btn-danger-ghost">Delete</button>

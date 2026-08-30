@@ -40,9 +40,9 @@
          rather than env-only so changes are attributable + survive deploys. The
          UI-managed list takes precedence over BILLING_EXPORT_EMAIL once any
          recipient is added. --}}
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
+    <div class="card card-pad mb-8">
         <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
-            <h2 class="text-lg font-bold text-white">📬 Weekly billing digest recipients</h2>
+            <h2 class="modal-title">📬 Weekly billing digest recipients</h2>
             <div class="text-xs text-gray-500">scheduled Mondays 07:00 · audit-logged · recipients across deploys</div>
         </div>
         <p class="text-xs text-gray-400 mb-4">
@@ -132,7 +132,7 @@
 
     {{-- ── Money events (transactions) ─────────────────────────────────── --}}
     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h2 class="text-lg font-bold text-white">💳 Money events</h2>
+        <h2 class="modal-title">💳 Money events</h2>
         <div class="flex gap-1 text-xs items-center flex-wrap">
             @foreach(['' => 'Refunds & chargebacks', 'completed' => 'All purchases', 'refunded' => 'Full refunds', 'partial_refund' => 'Partial refunds', 'chargeback' => 'Chargebacks', 'manual' => 'Manual grants'] as $value => $label)
                 <a href="{{ route('super.billing.index', array_filter(['status' => $value])) }}"
@@ -193,7 +193,7 @@
                     <td class="px-5 py-3 text-xs text-gray-500">{{ $tx->created_at?->format('M j, Y g:ia') }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="px-5 py-8 text-center text-gray-500">No transactions with this status.</td></tr>
+                <tr><td colspan="6" class="table-empty">No transactions match the selected status. Switch status to see more, or check the 2Checkout merchant dashboard for the full ledger. <a href="{{ url()->current() }}" class="text-brand-400 hover:text-brand-300 underline underline-offset-2">Show all</a></td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -204,7 +204,7 @@
 
     {{-- ── Webhook ledger ────────────────────────────────────────────────── --}}
     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h2 class="text-lg font-bold text-white">📨 Webhook ledger</h2>
+        <h2 class="modal-title">📨 Webhook ledger</h2>
         <div class="flex gap-1 text-xs items-center">
             <a href="{{ route('super.billing.index', ['webhook_status' => 'failed']) }}"
                class="px-3 py-1.5 rounded-md {{ request('webhook_status') === 'failed' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">

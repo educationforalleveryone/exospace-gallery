@@ -21,7 +21,7 @@
             </p>
         </div>
         <div class="text-right">
-            <div class="text-3xl font-bold {{ $band['text'] }}">{{ $healthScore['score'] }}<span class="text-base text-slate-500 font-normal">/100</span></div>
+            <div class="text-2xl font-semibold text-numeric {{ $band['text'] }}">{{ $healthScore['score'] }}<span class="text-base text-slate-500 font-normal">/100</span></div>
             <div class="text-xs uppercase tracking-wider text-slate-500">{{ strtoupper($healthScore['band']) }}</div>
         </div>
     </div>
@@ -54,7 +54,7 @@
          the blend would suggest. --}}
     @if(! empty($healthScore['applied_caps']))
         <div class="mt-4 rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-3">
-            <div class="text-xs font-bold uppercase tracking-wider text-amber-300 mb-1.5">Verdict caps applied</div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-amber-300 mb-1.5">Verdict caps applied</div>
             <ul class="space-y-1">
                 @foreach($healthScore['applied_caps'] as $cap)
                     <li class="text-xs text-amber-200/90 flex gap-2"><span class="text-amber-600">▸</span>{{ $cap }}</li>

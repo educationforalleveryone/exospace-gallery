@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header title="New artist" :back="route('admin.artists.index')" backLabel="Artists"/>
+        <x-page-header title="New Artist" :back="route('admin.artists.index')" backLabel="Artists"/>
     </x-slot>
 
     <div class="page-shell-narrow">
-        <form method="POST" action="{{ route('admin.artists.store') }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('admin.artists.store') }}" enctype="multipart/form-data" data-busy data-busy-label="Saving…">
             @csrf
             @include('admin.artists._form-fields', ['artist' => $artist])
             <div class="flex justify-end gap-3 pt-2">

@@ -1,7 +1,7 @@
 <x-guest-layout>
     @if(!isset($invitationToken))
     <div class="text-center mb-5">
-        <h1 class="text-base font-bold text-gray-100">Create your free account</h1>
+        <h1 class="page-title">Create your free account</h1>
         <p class="text-xs text-gray-500 mt-1">Build a 3D gallery in under 5 minutes — no design skills needed.</p>
     </div>
     @endif
@@ -22,7 +22,7 @@
         <!-- Name -->
         <div>
             <x-input-label for="name" :value="__('Name')" />
-            <x-text-input id="name" class="block mt-1 w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" />
+            <x-text-input id="name" class="block w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" />
             <x-input-error :messages="$errors->get('name')" class="mt-2" />
         </div>
 
@@ -31,11 +31,11 @@
             <x-input-label for="email" :value="__('Email')" />
             @if(isset($invitationEmail))
                 {{-- Email is locked to the invitation address --}}
-                <x-text-input id="email" class="block mt-1 w-full opacity-75 cursor-not-allowed" type="email" name="email"
+                <x-text-input id="email" class="block w-full opacity-75 cursor-not-allowed" type="email" name="email"
                     :value="$invitationEmail" required autocomplete="username" readonly />
                 <p class="mt-1 text-xs text-gray-500">This email is tied to your invitation and cannot be changed.</p>
             @else
-                <x-text-input id="email" class="block mt-1 w-full" type="email" name="email"
+                <x-text-input id="email" class="block w-full" type="email" name="email"
                     :value="old('email')" required autocomplete="username" />
             @endif
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
@@ -44,7 +44,7 @@
         <!-- Password -->
         <div class="mt-4">
             <x-input-label for="password" :value="__('Password')" />
-            <x-text-input id="password" class="block mt-1 w-full"
+            <x-text-input id="password" class="block w-full"
                             type="password"
                             name="password"
                             required autocomplete="new-password" />
@@ -54,7 +54,7 @@
         <!-- Confirm Password -->
         <div class="mt-4">
             <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
-            <x-text-input id="password_confirmation" class="block mt-1 w-full"
+            <x-text-input id="password_confirmation" class="block w-full"
                             type="password"
                             name="password_confirmation" required autocomplete="new-password" />
             <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />

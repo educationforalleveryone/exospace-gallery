@@ -12,9 +12,6 @@
 
     <div class="page-shell">
 
-        @if(session('status'))
-            <div class="mb-4 text-sm text-emerald-400 bg-emerald-900/20 border border-emerald-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
-        @endif
 
         {{-- Filters --}}
         <form method="GET" class="mb-5 flex flex-wrap items-center gap-3">
@@ -22,7 +19,7 @@
                    placeholder="Search venues…"
                    class="input-base w-64">
 
-            <select name="category" class="input-base">
+            <select aria-label="Filter by category" name="category" class="input-base">
                 <option value="">All categories</option>
                 @foreach($categories as $key => $label)
                     <option value="{{ $key }}" {{ request('category') === $key ? 'selected' : '' }}>{{ $label }}</option>
@@ -150,7 +147,7 @@
                                         </button>
                                     </form>
                                     <form method="POST" action="{{ route('super.venues.destroy', $venue) }}"
-                                          data-confirm="Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue."
+                                          data-confirm="Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue." data-confirm-button="Delete"
                                           class="inline">
                                         @csrf @method('DELETE')
                                         <button class="p-1.5 -m-1 rounded text-xs text-red-500 hover:text-red-400 hover:bg-white/[0.06] transition">Delete</button>

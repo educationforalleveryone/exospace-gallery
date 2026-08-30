@@ -3,16 +3,16 @@
 @section('title', 'Runs')
 
 @section('content')
-<h1 class="mb-6 text-2xl font-bold tracking-tight">Run History</h1>
+<h1 class="page-title text-slate-50 mb-6">Run History</h1>
 
 <form class="mb-4 flex flex-wrap gap-3 text-sm" method="GET">
-    <select name="profile" class="input-ops focus:border-brand-500">
+    <select aria-label="Filter by profile" name="profile" class="input-ops focus:border-brand-500">
         <option value="">All profiles</option>
         @foreach ($profiles as $key => $label)
             <option value="{{ $key }}" @selected(request('profile') === $key)>{{ $label }}</option>
         @endforeach
     </select>
-    <select name="status" class="input-ops focus:border-brand-500">
+    <select aria-label="Filter by status" name="status" class="input-ops focus:border-brand-500">
         <option value="">Any status</option>
         @foreach (['passed','failed','running','queued','blocked','not_executed','cancelled','timed_out'] as $s)
             <option value="{{ $s }}" @selected(request('status') === $s)>{{ strtoupper($s) }}</option>

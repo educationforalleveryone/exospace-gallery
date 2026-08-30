@@ -189,7 +189,7 @@ $testimonials = [
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             @foreach($featuredGalleries as $gallery)
-                <a href="{{ $gallery['url'] }}" class="block group bg-gradient-to-br from-ink-800 to-ink-900 rounded-2xl overflow-hidden border border-gray-700 hover:border-brand-500/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
+                <a href="{{ $gallery['url'] }}" class="block group bg-gradient-to-br from-ink-800 to-ink-900 rounded-2xl overflow-hidden border border-gray-700 hover:border-brand-500/60 card-lift">
                     {{-- Cover art (real image when available, gradient otherwise) --}}
                     <div class="aspect-[4/3] relative bg-gradient-to-br {{ $gallery['gradient'] }} flex items-end p-4">
                         @if($gallery['cover'])
@@ -229,7 +229,7 @@ $testimonials = [
 
         <div class="grid md:grid-cols-3 gap-8">
             {{-- Feature 1 --}}
-            <div class="bg-ink-800 p-8 rounded-2xl border border-gray-700 hover:border-brand-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
+            <div class="bg-ink-800 p-8 rounded-2xl border border-gray-700 hover:border-brand-500/40 card-lift">
                 <div class="bg-brand-500 w-14 h-14 rounded-xl flex items-center justify-center mb-6 shadow-glow">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
@@ -240,7 +240,7 @@ $testimonials = [
             </div>
 
             {{-- Feature 2 --}}
-            <div class="bg-ink-800 p-8 rounded-2xl border border-gray-700 hover:border-brand-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
+            <div class="bg-ink-800 p-8 rounded-2xl border border-gray-700 hover:border-brand-500/40 card-lift">
                 <div class="bg-brand-600 w-14 h-14 rounded-xl flex items-center justify-center mb-6 shadow-glow">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
@@ -251,7 +251,7 @@ $testimonials = [
             </div>
 
             {{-- Feature 3 --}}
-            <div class="bg-ink-800 p-8 rounded-2xl border border-gray-700 hover:border-brand-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
+            <div class="bg-ink-800 p-8 rounded-2xl border border-gray-700 hover:border-brand-500/40 card-lift">
                 <div class="bg-blue-600 w-14 h-14 rounded-xl flex items-center justify-center mb-6">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>

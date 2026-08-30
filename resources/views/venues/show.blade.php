@@ -40,7 +40,7 @@
         @if($galleries->count() > 0)
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 @foreach($galleries as $gallery)
-                    <a href="{{ $gallery->public_url }}" class="group bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden hover:border-brand-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-900/20 transition-all duration-300">
+                    <a href="{{ $gallery->public_url }}" class="card card-interactive card-lift group overflow-hidden">
                         <div class="aspect-[4/3] bg-gray-900 overflow-hidden relative">
                             @if($gallery->coverImage)
                                 <img src="{{ $gallery->coverImage->public_url }}"

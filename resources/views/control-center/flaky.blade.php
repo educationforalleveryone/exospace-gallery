@@ -3,14 +3,14 @@
 @section('title', 'Flaky Board')
 
 @section('content')
-<h1 class="mb-2 text-2xl font-bold tracking-tight">Reliability Board</h1>
+<h1 class="page-title text-slate-50 mb-2">Reliability Board</h1>
 <p class="mb-6 text-sm text-slate-500">
-    Flaky tests are <b class="text-purple-400">not hidden</b> — they alternate pass/fail and will bite release day.
+    Flaky tests are <span class="font-semibold text-purple-400">not hidden</span> — they alternate pass/fail and will bite release day.
     Perma-red entries are listed too, so nothing vanishes silently.
 </p>
 
 <form method="GET" class="mb-4 text-sm">
-    <select name="profile" class="input-ops focus:border-brand-500">
+    <select aria-label="Filter by profile" name="profile" class="input-ops focus:border-brand-500">
         <option value="">All profiles</option>
         @foreach ($profiles as $key => $label)
             <option value="{{ $key }}" @selected(request('profile') === $key)>{{ $label }}</option>

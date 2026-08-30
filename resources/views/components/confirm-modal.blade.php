@@ -40,7 +40,7 @@
      x-cloak
      {{-- data-focus-trap: delegated Tab containment from app.js (ITERATION-4). --}}
      data-focus-trap
-     class="modal-backdrop hidden items-center justify-center p-4"
+     class="modal-backdrop hidden items-center justify-center overflow-y-auto p-4"
      role="dialog"
      aria-modal="true"
      aria-labelledby="{{ $id }}-heading"

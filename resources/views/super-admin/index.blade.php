@@ -22,14 +22,8 @@
 
     <div class="page-shell">
         {{-- Flash messages --}}
-        <div class="mb-6 space-y-2">
-            @if(session('success'))
-                <div class="alert alert-success" role="status">{{ session('success') }}</div>
-            @endif
-            @if(session('error'))
-                <div class="alert alert-error" role="alert">{{ session('error') }}</div>
-            @endif
-        </div>
+        {{-- ITERATION-9: flash banners removed — the layout's <x-toast> already
+             announces these keys (billing/admin-dashboard precedent). --}}
 
     <!-- Platform Statistics -->
     <div class="pt-6">
@@ -65,34 +59,17 @@
                     'orange' => 'bg-orange-500/10 border-orange-500/30 text-orange-300',
                 ];
             @endphp
-            <div class="bg-gray-800/60 border rounded-lg p-3 text-center {{ $statTones[$stat['color']] ?? $statTones['gray'] }}">
+            <div class="bg-gray-800/60 border rounded-xl p-4 text-center {{ $statTones[$stat['color']] ?? $statTones['gray'] }}">
                 <div class="text-2xl font-semibold text-numeric">{{ $stat['val'] }}</div>
                 <div class="text-xs text-gray-400 mt-0.5">{{ $stat['label'] }}</div>
             </div>
             @endforeach
         </div>
 
-        {{-- M-14: Feature Flags status panel --}}
-        <div class="mb-8 bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Feature Flags</h3>
-            <div class="flex flex-wrap gap-2">
-                @php $flags = \App\Services\FeatureFlag::all(); @endphp
-                @foreach($flags as $name => $enabled)
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
-                                 {{ $enabled ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/30' : 'bg-gray-800 text-gray-500 border border-gray-700' }}">
-                        @if($enabled)
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
-                        @else
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
-                        @endif
-                        {{ $name }}
-                    </span>
-                @endforeach
-            </div>
-        </div>
-
-        {{-- ITERATION 8: Backup health tile — surfaces the worst of the
+        {{-- ITERATION 8/9: Backup health tile — surfaces the worst of the
              three backup heartbeat statuses (db / files / clean) at-a-glance.
+             ITERATION-9 moved it ABOVE feature flags: "is anything wrong?"
+             outranks configuration metadata in a health-first hierarchy.
              Same data JobHeartbeatService already tracks (no new queries).
              Hidden on a fresh install with no stamps AND no acks (the
              monitor's missing-job grace window hasn't started yet — same
@@ -135,16 +112,36 @@
             </div>
         @endif
 
+        {{-- M-14: Feature Flags — configuration metadata, collapsed until asked
+             for (ITERATION-9): it outranked the health signal by position. --}}
+        <details class="mb-8 card card-pad">
+            <summary class="eyebrow cursor-pointer select-none">Feature Flags</summary>
+            <div class="flex flex-wrap gap-2 mt-3">
+                @php $flags = \App\Services\FeatureFlag::all(); @endphp
+                @foreach($flags as $name => $enabled)
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                                 {{ $enabled ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/30' : 'bg-gray-800 text-gray-500 border border-gray-700' }}">
+                        @if($enabled)
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                        @else
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                        @endif
+                        {{ $name }}
+                    </span>
+                @endforeach
+            </div>
+        </details>
+
         {{-- ITERATION 4: Onboarding funnel + TTFE. Was weekly-console-report-only —
              the product's headline metric (time to first published exhibition)
              is now visible continuously. Data: OnboardingMetricsService (cached 30/60 min). --}}
-        <div class="mb-8 bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
+        <div class="mb-8 card card-pad">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Onboarding Funnel &amp; TTFE</h3>
+                <h3 class="eyebrow">Onboarding Funnel &amp; TTFE</h3>
                 <div class="flex gap-1">
                     @foreach([7, 30, 90] as $period)
                         <a href="{{ route('super.index', ['days' => $period]) }}"
-                           class="px-3 py-1 rounded-md text-xs font-medium {{ $onboardingDays === $period ? 'bg-brand-600 text-white' : 'bg-white/[0.06] text-gray-400 hover:bg-white/[0.10] hover:text-gray-200' }}">
+                           class="px-3 py-1 rounded-md text-xs font-medium transition-colors duration-150 {{ $onboardingDays === $period ? 'bg-brand-600 text-white' : 'bg-white/[0.06] text-gray-400 hover:bg-white/[0.10] hover:text-gray-200' }}">
                             {{ $period }}d
                         </a>
                     @endforeach
@@ -287,9 +284,9 @@
              CohortRetentionMetricsService (cached 30/60 min); truthful bounded
              activity: a login (users.last_login_at) OR a gallery update in the
              week. Trend from retention_snapshots persisted weekly. --}}
-        <div class="mb-8 bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
+        <div class="mb-8 card card-pad">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">🔁 Weekly cohort retention</h3>
+                <h3 class="eyebrow">🔁 Weekly cohort retention</h3>
                 <div class="text-xs text-gray-600">active = login or gallery update in the week · * = week not closed yet</div>
             </div>
 
@@ -383,13 +380,13 @@
         <div class="flex gap-3 mb-4">
             <input type="text" id="userSearch" placeholder="Search by name or email..."
                    class="input-base flex-1">
-            <select id="planFilter" class="input-base sm:w-40">
+            <select aria-label="Filter users by plan" id="planFilter" class="input-base sm:w-40">
                 <option value="">All Plans</option>
                 <option value="free">Free</option>
                 <option value="pro">Pro</option>
                 <option value="studio">Studio</option>
             </select>
-            <select id="statusFilter" class="input-base sm:w-44">
+            <select aria-label="Filter users by status" id="statusFilter" class="input-base sm:w-44">
                 <option value="">All Status</option>
                 <option value="banned">Banned</option>
                 <option value="unverified">Unverified</option>
@@ -441,7 +438,7 @@
                                             <span class="text-xs bg-red-600 px-1.5 py-0.5 rounded">ADMIN</span>
                                         @endif
                                     </div>
-                                    <div class="text-xs text-gray-400">{{ $user->email }}</div>
+                                    <div class="text-xs text-gray-400 break-all">{{ $user->email }}</div>
                                 </div>
                             </div>
                         </td>
@@ -465,7 +462,7 @@
                             @if(! $isSelf)
                             <form method="POST" action="{{ route('super.updatePlan', $user) }}">
                                 @csrf
-                                <select name="plan" data-change="confirmChangePlan" data-arg="Change plan for {{ $user->name }}?"
+                                <select aria-label="Change plan" name="plan" data-change="confirmChangePlan" data-arg="Change plan for {{ $user->name }}?"
                                         class="input-sm input-base">
                                     <option value="free"   {{ $user->plan === 'free'   ? 'selected' : '' }}>FREE</option>
                                     <option value="pro"    {{ $user->plan === 'pro'    ? 'selected' : '' }}>PRO</option>
@@ -614,9 +611,9 @@
 
     <!-- Ban Modal -->
     <div id="banModal" role="dialog" aria-modal="true" aria-labelledby="ban-modal-title"
-         class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] hidden items-center justify-center px-4">
+         class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] hidden items-center justify-center overflow-y-auto px-4">
         <div class="bg-gray-800 border border-red-700/50 rounded-xl p-6 w-full max-w-md shadow-modal">
-            <h3 id="ban-modal-title" class="text-lg font-bold text-white mb-1">Ban User</h3>
+            <h3 id="ban-modal-title" class="modal-title mb-1">Ban User</h3>
             <p class="text-gray-400 text-sm mb-4">Banning <strong id="banUserName" class="text-white"></strong>. They will be blocked from logging in.</p>
             <form id="banForm" method="POST">
                 @csrf
@@ -717,7 +714,7 @@
          x-cloak
          x-effect="document.body.classList.toggle('overflow-y-hidden', open)"
          data-focus-trap
-         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden items-center justify-center p-4"
+         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden items-center justify-center overflow-y-auto p-4"
          role="dialog" aria-modal="true" aria-labelledby="delete-modal-heading"
          :class="open ? 'flex' : 'hidden'"
          @keydown.escape.window="open = false; typed = ''"
@@ -726,7 +723,7 @@
             <button @click="open = false; typed = ''" class="modal-close absolute top-3 right-3" aria-label="Close">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
-            <h3 id="delete-modal-heading" class="text-lg font-bold text-red-400 mb-3">Permanently Delete User</h3>
+            <h3 id="delete-modal-heading" class="modal-title text-red-400 mb-3">Permanently Delete User</h3>
             <div class="text-sm text-gray-400 mb-4 space-y-2">
                 <p>You are about to <strong class="text-red-400">permanently delete</strong> <strong x-text="userName" class="text-white"></strong>.</p>
                 <p>This will delete:</p>
@@ -763,16 +760,16 @@
          x-cloak
          x-effect="document.body.classList.toggle('overflow-y-hidden', open)"
          data-focus-trap
-         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden items-center justify-center p-4"
+         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden items-center justify-center overflow-y-auto p-4"
          role="dialog" aria-modal="true" aria-labelledby="admin-modal-heading"
          :class="open ? 'flex' : 'hidden'"
          @keydown.escape.window="open = false; typed = ''"
          @click.self="open = false; typed = ''">
-        <div class="bg-gray-900 border border-brand-700/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+        <div class="modal-panel bg-gray-900 border-brand-700/50 max-w-md p-6 relative">
             <button @click="open = false; typed = ''" class="modal-close absolute top-3 right-3" aria-label="Close">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
-            <h3 id="admin-modal-heading" class="text-lg font-bold text-brand-400 mb-3"
+            <h3 id="admin-modal-heading" class="modal-title text-brand-400 mb-3"
                 x-text="action === 'grant' ? 'Grant Super Admin' : 'Revoke Super Admin'"></h3>
             <div class="text-sm text-gray-400 mb-4 space-y-2">
                 <p x-show="action === 'grant'">

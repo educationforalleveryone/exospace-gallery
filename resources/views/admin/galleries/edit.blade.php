@@ -234,7 +234,7 @@
                             Copy link
                         </button>
                         <form action="{{ route('admin.galleries.unpublish', $gallery) }}" method="POST"
-                              data-confirm="Unpublish this exhibition? The public link will stop working immediately.">
+                              data-confirm="Unpublish this exhibition? The public link will stop working immediately." data-confirm-button="Unpublish">
                             @csrf
                             <button type="submit" class="btn btn-secondary">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
@@ -275,7 +275,7 @@
             @endif
 
             <!-- 1. Gallery Settings -->
-            <div class="bg-gray-800 border border-gray-700 shadow-lg sm:rounded-lg p-6">
+            <div class="card card-pad">
                 <h3 class="text-lg font-medium text-gray-100 mb-4">Gallery Settings</h3>
 
                 <form action="{{ route('admin.galleries.update', $gallery) }}" method="POST" enctype="multipart/form-data" id="gallery-settings-form">
@@ -285,14 +285,14 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Title -->
                         <div class="mb-4 md:col-span-2">
-                            <label for="edit-title" class="block text-sm font-medium text-gray-400 mb-2">Title</label>
+                            <label for="edit-title" class="label-text mb-1.5">Title</label>
                             <input type="text" id="edit-title" name="title" value="{{ old('title', $gallery->title) }}" required
                                 class="input-base mt-1">
                         </div>
 
                         <!-- Description -->
                         <div class="mb-4 md:col-span-2">
-                            <label for="edit-description" class="block text-sm font-medium text-gray-400 mb-2">Description</label>
+                            <label for="edit-description" class="label-text mb-1.5">Description</label>
                             <textarea name="description" id="edit-description" rows="3" class="input-base mt-1">{{ old('description', $gallery->description) }}</textarea>
                         </div>
 
@@ -300,16 +300,16 @@
                              Leave blank to use the automatic titles/descriptions
                              generated from the gallery's real content. --}}
                         <div class="mb-4">
-                            <label for="edit-seo-title" class="block text-sm font-medium text-gray-400 mb-2">
-                                SEO title <span class="text-gray-600 font-normal">(optional — auto-generated when empty)</span>
+                            <label for="edit-seo-title" class="label-text mb-1.5">
+                                SEO title <span class="text-gray-500 font-normal">(optional — auto-generated when empty)</span>
                             </label>
                             <input type="text" id="edit-seo-title" name="seo_title" value="{{ old('seo_title', $gallery->seoProfile?->title_override) }}" maxlength="200"
                                    placeholder="{{ $gallery->title }} — 3D Virtual Exhibition"
                                    class="input-base mt-1">
                         </div>
                         <div class="mb-4">
-                            <label for="edit-seo-description" class="block text-sm font-medium text-gray-400 mb-2">
-                                SEO description <span class="text-gray-600 font-normal">(optional — max 300 chars)</span>
+                            <label for="edit-seo-description" class="label-text mb-1.5">
+                                SEO description <span class="text-gray-500 font-normal">(optional — max 300 chars)</span>
                             </label>
                             <textarea name="seo_description" id="edit-seo-description" rows="2" maxlength="300"
                                       placeholder="Shown in search results and social cards. Auto-generated from your description when empty."
@@ -412,7 +412,7 @@
 
                     {{-- ── Advanced overrides (collapsed) ───────────── --}}
                     <div x-data="{ open: false }" class="mb-4">
-                        <button type="button" @click="open = !open"
+                        <button type="button" @click="open = !open" :aria-expanded="open ? 'true' : 'false'" aria-controls="advanced-overrides"
                                 class="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition border-t border-gray-700/60 pt-3 pb-1 w-full text-left">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                             Override venue materials
@@ -421,9 +421,9 @@
                         {{-- ITERATION-4: x-cloak + display guard added — the panel
                              content flashed open for a frame before Alpine init
                              (its sibling in galleries/create already had this). --}}
-                        <div x-show="open" x-transition x-cloak style="display: none;" class="grid grid-cols-2 gap-3 mt-3">
+                        <div id="advanced-overrides" x-show="open" x-transition x-cloak style="display: none;" class="grid grid-cols-2 gap-3 mt-3">
                             <div>
-                                <label for="input_wall_texture" class="block text-xs text-gray-500 mb-1">Wall</label>
+                                <label for="adv_wall" class="block text-xs text-gray-500 mb-1">Wall</label>
                                 <select id="adv_wall" class="input-base">
                                     @foreach(['white'=>'White','concrete'=>'Concrete','brick'=>'Brick','wood'=>'Wood','plaster'=>'Plaster','marble'=>'Marble','velvet'=>'Velvet'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->wall_texture == $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -431,7 +431,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label for="input_floor_material" class="block text-xs text-gray-500 mb-1">Floor</label>
+                                <label for="adv_floor" class="block text-xs text-gray-500 mb-1">Floor</label>
                                 <select id="adv_floor" class="input-base">
                                     @foreach(['wood'=>'Wood','marble'=>'Marble','concrete'=>'Concrete','terrazzo'=>'Terrazzo','grass'=>'Grass','sand'=>'Sand'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->floor_material == $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -439,7 +439,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label for="input_frame_style" class="block text-xs text-gray-500 mb-1">Frame</label>
+                                <label for="adv_frame" class="block text-xs text-gray-500 mb-1">Frame</label>
                                 <select id="adv_frame" class="input-base">
                                     @foreach(['modern'=>'Modern (Black)','classic'=>'Classic (Gold)','minimal'=>'Minimal','gold'=>'Gold','silver'=>'Silver','bronze'=>'Bronze','black'=>'Black'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->frame_style == $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -447,7 +447,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label for="input_lighting_preset" class="block text-xs text-gray-500 mb-1">Lighting</label>
+                                <label for="adv_lighting" class="block text-xs text-gray-500 mb-1">Lighting</label>
                                 <select id="adv_lighting" class="input-base">
                                     @foreach(['bright'=>'Bright','moody'=>'Moody','dramatic'=>'Dramatic'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->lighting_preset == $v ? 'selected' : '' }}>{{ $l }}</option>
@@ -511,7 +511,7 @@
                                             <span id="audio-progress-percent">0%</span>
                                         </div>
                                         <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                            <div id="audio-progress-bar" class="h-full bg-gradient-to-r from-brand-500 to-brand-500 transition-all duration-300" style="width: 0%"></div>
+                                            <div id="audio-progress-bar" class="progress-fill h-full bg-brand-500" style="width: 0%"></div>
                                         </div>
                                     </div>
 
@@ -582,7 +582,7 @@
                                             <span id="logo-progress-percent">0%</span>
                                         </div>
                                         <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                                            <div id="logo-progress-bar" class="h-full bg-gradient-to-r from-brand-500 to-brand-500 transition-all duration-300" style="width: 0%"></div>
+                                            <div id="logo-progress-bar" class="progress-fill h-full bg-brand-500" style="width: 0%"></div>
                                         </div>
                                     </div>
 
@@ -725,10 +725,10 @@
                                 <input type="text" id="edit-custom-domain" name="custom_domain"
                                     value="{{ old('custom_domain', $gallery->custom_domain) }}"
                                     placeholder="gallery.yourdomain.com"
-                                    class="input-base pl-16 mt-1 text-sm font-mono {{ $errors->has('custom_domain') ? 'input-error' : '' }}"
+                                    class="input-base pl-16 mt-1 text-sm font-mono {{ $errors->has('custom_domain') ? 'input-error' : '' }}" @error('custom_domain') aria-invalid="true" aria-describedby="custom_domain-error" @enderror
                                     pattern="^([a-z0-9-]+\.)+[a-z]{2,}$">
                             </div>
-                            @error('custom_domain')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+                            @error('custom_domain')<p id=\"custom_domain-error\" class=\"text-sm text-red-400 mt-1\">{{ $message }}</p>@enderror
                             @if($gallery->custom_domain)
                             <p class="text-xs text-emerald-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline break-all">{{ $gallery->custom_domain }}</a> see this gallery.</p>
                             @endif
@@ -820,7 +820,7 @@
             </div>
 
             <!-- 2. Image Upload Area -->
-            <div class="bg-gray-800 border border-gray-700 shadow-lg sm:rounded-lg p-6">
+            <div class="card card-pad">
                 <h3 class="text-lg font-medium text-gray-100 mb-4">Upload Artworks</h3>
 
                 @php
@@ -878,7 +878,7 @@
             </div>
 
             <!-- 3. Existing Images Grid -->
-            <div class="bg-gray-800 border border-gray-700 shadow-lg sm:rounded-lg p-6">
+            <div class="card card-pad">
                 <!-- 3A: Updated Header with Bulk Action Button and Select All -->
                 <div class="flex justify-between items-center mb-6">
                     <div class="flex items-center gap-4">
@@ -905,7 +905,7 @@
                 @if($gallery->images->count() > 0)
                     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5" id="gallery-grid">
                         @foreach($gallery->images as $image)
-                            <div class="gallery-card relative group bg-gray-900 border border-gray-700 rounded-lg overflow-hidden hover:border-brand-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-900/20" id="image-{{ $image->id }}" data-id="{{ $image->id }}"
+                            <div class="gallery-card relative group bg-gray-900 border border-gray-700 rounded-lg overflow-hidden hover:border-brand-500 transition-colors" id="image-{{ $image->id }}" data-id="{{ $image->id }}"
                                  data-metadata='{{ json_encode([
                                      'id'             => $image->id,
                                      'title'          => $image->title,
@@ -1238,7 +1238,7 @@
         window.copyPublicLink = function(url) {
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(url).then(function() {
-                    toast('Gallery link copied!', 'success');
+                    toast('Link copied', 'success');
                 });
             } else {
                 // Legacy fallback for non-secure contexts (plain HTTP dev).
@@ -1246,7 +1246,7 @@
                 input.value = url;
                 document.body.appendChild(input);
                 input.select();
-                try { document.execCommand('copy'); toast('Gallery link copied!', 'success'); }
+                try { document.execCommand('copy'); toast('Link copied', 'success'); }
                 catch (err) { toast('Could not copy — please copy from the address bar', 'error'); }
                 input.remove();
             }
@@ -1916,7 +1916,7 @@
                     if (typeof toast === 'function') toast('Image order saved', 'success');
                     else if (window.toast) window.toast('Image order saved', 'success');
                 } catch (err) {
-                    toast('Could not save the new order: ' + (err && err.message ? err.message : 'please try again'), 'error');
+                    toast('Could not save the new order — nothing was lost. Please try again.', 'error');
                 } finally {
                     saveBtn.disabled = false;
                     discardBtn.disabled = false;
@@ -2067,7 +2067,7 @@ function showSaveFeedback(message, isSuccess) {
 <div id="unsaved-changes-modal"
      role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title"
      style="display:none;"
-     class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+     class="fixed inset-0 z-[60] items-center justify-center overflow-y-auto p-4 bg-black/65 backdrop-blur-sm">
     <div class="bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal p-8 max-w-sm w-full">
         <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">

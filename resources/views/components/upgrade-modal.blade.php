@@ -3,9 +3,9 @@
 {{-- ITERATION-3: z-[60] modal tier (was z-50 — same tier as dropdowns); close
      control is a proper 32px hit target. --}}
 <div id="{{ $trigger }}"
-     class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] hidden items-center justify-center p-4"
+     class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] hidden items-center justify-center overflow-y-auto p-4"
      role="dialog" aria-modal="true" aria-labelledby="{{ $trigger }}-heading">
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl max-w-sm w-full shadow-2xl p-6 text-center relative">
+    <div class="modal-panel max-w-sm p-6 text-center relative my-auto">
         <button data-click="closeModal" data-arg="{{ $trigger }}"
                 class="modal-close absolute top-3 right-3" aria-label="Close">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -15,10 +15,10 @@
             <svg class="w-6 h-6 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
         </div>
 
-        <h3 id="{{ $trigger }}-heading" class="text-lg font-bold text-white mb-1">You've reached your gallery limit</h3>
+        <h3 id="{{ $trigger }}-heading" class="modal-title mb-1">You've reached your gallery limit</h3>
         <p class="text-sm text-gray-400 mb-4">Pro gives you more galleries, more images, background music, exhibition scheduling, and no watermark.</p>
 
-        <div class="bg-gray-800 rounded-xl p-3 mb-5 text-left space-y-2">
+        <div class="well p-3 mb-5 text-left space-y-2">
             {{-- (Task H04 / audit H6) — fixed copy. Previous version said
                  "Unlimited galleries, 50 images per gallery" which was
                  wrong on both counts: Pro is 5 galleries / 100 images

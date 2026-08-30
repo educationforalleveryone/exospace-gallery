@@ -16,17 +16,17 @@
 
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
     <div>
-        <h1 class="text-2xl font-bold tracking-tight">
+        <h1 class="page-title text-slate-50">
             {{ $run->profile }} <span class="font-mono text-sm text-slate-500">#{{ $run->id }}</span>
         </h1>
         <p class="text-xs text-slate-500">
-            env <b>{{ $run->environment }}</b> · trigger {{ $run->trigger }} · runner {{ $run->runner ?? '—' }}
+            env <span class="font-semibold">{{ $run->environment }}</span> · trigger {{ $run->trigger }} · runner {{ $run->runner ?? '—' }}
             @if ($run->git_commit) · commit <span class="font-mono">{{ Str::limit($run->git_commit, 10, '') }}</span> @endif
             @if ($run->git_branch) · branch {{ $run->git_branch }} @endif
         </p>
     </div>
     <div class="text-right">
-        <span class="text-3xl font-black {{ $color }}">{{ strtoupper($run->displayStatus()) }}</span>
+        <span class="text-2xl font-semibold text-numeric {{ $color }}">{{ strtoupper($run->displayStatus()) }}</span>
         @if ($run->duration_ms)
             <div class="text-xs text-slate-500">wall clock {{ number_format($run->duration_ms / 1000, 1) }}s</div>
         @endif
@@ -48,7 +48,7 @@
 
 @if ($run->blocked_reason)
     <div class="mb-6 rounded-lg border border-amber-800 bg-amber-950/50 px-4 py-3 text-sm text-amber-200">
-        <b>Honest status note:</b> {{ $run->blocked_reason }}
+        <span class="font-semibold">Honest status note:</span> {{ $run->blocked_reason }}
     </div>
 @endif
 
@@ -70,7 +70,7 @@
             : ($run->failure_class === 'mixed' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-red-900 bg-red-950/40 text-red-200')
     }}">
         @if ($run->failure_class === 'infrastructure')
-            🧰 <b>Test infrastructure failure.</b> The environment (DB / Redis / disk / config) broke — this is NOT an application regression. Fix the environment first.
+            🧰 <span class="font-semibold">Test infrastructure failure.</span> The environment (DB / Redis / disk / config) broke — this is NOT an application regression. Fix the environment first.
         @elseif ($run->failure_class === 'mixed')
             ⚠️ Mixed: some environment failures and some application failures. Resolve infra noise before judging the app failures.
         @else
@@ -85,7 +85,7 @@
     @php $fc = $case->failureClass(); $hist = $history[$case->test_identifier] ?? null; @endphp
     <article class="mb-4 rounded-xl border border-slate-800 bg-slate-900/50 p-5">
         <header class="mb-2 flex flex-wrap items-center gap-2">
-            <span class="rounded border px-1.5 py-0.5 text-xs font-bold uppercase {{
+            <span class="rounded border px-1.5 py-0.5 text-xs font-semibold uppercase {{
                 $fc==='infrastructure' ? 'border-sky-700 text-sky-300' : ($fc==='application' ? 'border-red-700 text-red-300' : 'border-slate-600 text-slate-400') }}">
                 {{ $fc ?? $case->status }}
             </span>
@@ -105,12 +105,12 @@
 
         @if ($hist)
             <footer class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
-                <span>executions: <b class="text-slate-300">{{ $hist['executions'] }}</b></span>
+                <span>executions: <span class="font-semibold text-slate-300">{{ $hist['executions'] }}</span></span>
                 @if ($hist['pass_rate'] !== null)
-                    <span>pass rate (profile history): <b class="{{ $hist['pass_rate'] >= 90 ? 'text-emerald-400' : 'text-amber-400' }}">{{ $hist['pass_rate'] }}%</b></span>
+                    <span>pass rate (profile history): <span class="font-semibold {{ $hist['pass_rate'] >= 90 ? 'text-emerald-400' : 'text-amber-400' }}">{{ $hist['pass_rate'] }}%</span></span>
                 @endif
                 @if ($hist['previous_pass'])
-                    <span>last green: <b class="text-emerald-400">{{ \Carbon\Carbon::parse($hist['previous_pass'])->diffForHumans() }}</b></span>
+                    <span>last green: <span class="font-semibold text-emerald-400">{{ \Carbon\Carbon::parse($hist['previous_pass'])->diffForHumans() }}</span></span>
                     @if ($hist['pass_rate'] !== null && $hist['pass_rate'] < 90)
                         <span class="text-purple-400">❄ flaky candidate — reliability tracked in Iteration 3</span>
                     @endif

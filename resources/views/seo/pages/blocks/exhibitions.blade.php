@@ -7,7 +7,7 @@
     @endif
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         @foreach(($context['items'] ?? []) as $gallery)
-            <a href="{{ $gallery->public_url }}" class="group bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden hover:border-brand-500 hover:-translate-y-1 transition-all duration-300">
+            <a href="{{ $gallery->public_url }}" class="card card-interactive card-lift group overflow-hidden">
                 <div class="aspect-[4/3] bg-gray-900 overflow-hidden">
                     @if($gallery->coverImage)
                         <img src="{{ $gallery->coverImage->public_url }}" srcset="{{ $gallery->coverImage->srcset }}" sizes="(max-width: 768px) 100vw, 33vw" alt="{{ $gallery->title }}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">

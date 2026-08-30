@@ -65,7 +65,7 @@
         @endphp
         <div class="bg-gray-900/50 border border-gray-700/30 rounded-lg p-4 mb-6">
             <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">📈 Cohort retention curve — W0 to W7</h3>
+                <h2 class="eyebrow">📈 Cohort retention curve — W0 to W7</h2>
                 <div class="text-xs text-gray-600">{{ $curvePoints }} point{{ $curvePoints === 1 ? '' : 's' }} recorded · week {{ $weekIndex }} highlighted</div>
             </div>
             <div class="h-48"><canvas id="cohort-curve-chart" role="img" aria-label="{{ $curveAria }}"></canvas></div>

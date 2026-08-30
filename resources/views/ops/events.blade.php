@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="mb-4">
-    <h1 class="text-xl font-semibold">Errors &amp; Events</h1>
+    <h1 class="page-title text-slate-50">Errors &amp; Events</h1>
     <p class="text-xs text-slate-400 mt-1">Normalized, deduplicated events from every source — application logs, exceptions, the Coolify API, and self-reporting applications.</p>
 </div>
 
@@ -18,7 +18,7 @@
         </div>
         <div>
             <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Severity</label>
-            <select name="severity" class="input-ops-sm">
+            <select aria-label="Filter by severity" name="severity" class="input-ops-sm">
                 <option value="">All</option>
                 @foreach(\App\Ops\Models\OpsEvent::SEVERITIES as $sev)
                     <option value="{{ $sev }}" {{ $filters['severity'] === $sev ? 'selected' : '' }}>{{ ucfirst($sev) }}</option>
@@ -27,7 +27,7 @@
         </div>
         <div>
             <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Category</label>
-            <select name="category" class="input-ops-sm">
+            <select aria-label="Filter by category" name="category" class="input-ops-sm">
                 <option value="">All</option>
                 @foreach(\App\Ops\Models\OpsEvent::CATEGORIES as $cat)
                     <option value="{{ $cat }}" {{ $filters['category'] === $cat ? 'selected' : '' }}>{{ $cat }}</option>
@@ -36,7 +36,7 @@
         </div>
         <div>
             <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Application</label>
-            <select name="application" class="input-ops-sm">
+            <select aria-label="Filter by application" name="application" class="input-ops-sm">
                 <option value="">All</option>
                 @foreach($applications as $app)
                     <option value="{{ $app->id }}" {{ $filters['application'] == $app->id ? 'selected' : '' }}>{{ $app->name }}</option>
@@ -45,7 +45,7 @@
         </div>
         <div>
             <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Window</label>
-            <select name="hours" class="input-ops-sm">
+            <select aria-label="Filter by time window" name="hours" class="input-ops-sm">
                 @foreach([24 => '24 hours', 168 => '7 days', 720 => '30 days', 0 => 'All time'] as $h => $label)
                     <option value="{{ $h }}" {{ (int)$filters['hours'] === $h ? 'selected' : '' }}>{{ $label }}</option>
                 @endforeach
@@ -54,13 +54,13 @@
     </div>
     <div class="flex flex-wrap items-center gap-3 mt-3">
         <button class="btn btn-sm btn-ops-primary">Apply filters</button>
-        <select name="status" class="input-ops-sm w-auto">
+        <select aria-label="Filter by status" name="status" class="input-ops-sm w-auto">
             <option value="active" {{ $filters['status'] === 'active' ? 'selected' : '' }}>Active (open + acknowledged)</option>
             <option value="open" {{ $filters['status'] === 'open' ? 'selected' : '' }}>Open</option>
             <option value="resolved" {{ $filters['status'] === 'resolved' ? 'selected' : '' }}>Resolved</option>
             <option value="all" {{ $filters['status'] === 'all' ? 'selected' : '' }}>All statuses</option>
         </select>
-        <a href="{{ route('ops.events') }}" class="text-xs text-slate-500 hover:text-slate-300">Reset</a>
+        <a href="{{ route('ops.events') }}" class="p-1.5 -m-1 text-xs text-slate-500 hover:text-slate-300">Reset</a>
     </div>
 </form>
 
@@ -90,7 +90,7 @@
                 @endphp
                 <tr class="hover:bg-slate-900/60 cursor-pointer" data-href="{{ route('ops.events.show', $event) }}" tabindex="0" aria-label="Open event: {{ $event->title ?? $event->message }}">
                     <td class="px-4 py-3">
-                        <span class="text-xs font-bold px-2 py-1 rounded border {{ $sev[1] }} {{ $sev[2] }} {{ $sev[0] }}">{{ strtoupper($event->severity) }}</span>
+                        <span class="text-xs font-semibold px-2 py-1 rounded border {{ $sev[1] }} {{ $sev[2] }} {{ $sev[0] }}">{{ strtoupper($event->severity) }}</span>
                     </td>
                     <td class="px-4 py-3 max-w-md">
                         <div class="text-slate-100 font-medium truncate">{{ $event->title }}</div>

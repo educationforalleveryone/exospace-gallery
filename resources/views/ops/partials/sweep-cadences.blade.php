@@ -8,7 +8,7 @@
      never throws). ───────────────────────────────────────────────────────--}}
 @if($sweepStatus !== null && (count($sweepStatus['checks']) > 0 || count($sweepStatus['ignored']) > 0))
 <section class="mb-10">
-    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">Sweep cadences — what the watch actually does</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-1">Sweep cadences — what the watch actually does</h2>
     <p class="text-xs text-slate-500 mb-3">
         The autonomous sweep runs every {{ $sweepStatus['interval_minutes'] }} minutes. Cadences throttle probing
         <em>while a check is healthy</em>; a check with an open finding is probed every sweep regardless, so recovery
@@ -50,7 +50,7 @@
                         </td>
                         <td class="px-4 py-3">
                             @if($check['has_open_event'])
-                                <span class="text-xs font-bold px-2 py-1 rounded border bg-red-950/60 text-red-300 border-red-700/50">OPEN — probed every sweep</span>
+                                <span class="text-xs font-semibold px-2 py-1 rounded border bg-red-950/60 text-red-300 border-red-700/50">OPEN — probed every sweep</span>
                             @else
                                 <span class="text-xs px-2 py-1 rounded border bg-emerald-950/60 text-emerald-300 border-emerald-700/50 font-semibold">none</span>
                             @endif

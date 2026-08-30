@@ -6,15 +6,12 @@
     </x-slot>
 
     <div class="page-shell">
-        @if(session('success'))
-            <div class="mb-6 alert alert-success" role="status">{{ session('success') }}</div>
-        @endif
 
     <!-- Galleries List -->
     <div class="pt-2">
         @if($galleries->count() === 0)
             <div class="empty-state card border-dashed">
-                <h3 class="section-title mb-1">No galleries yet</h3>
+                <h2 class="section-title mb-1">No galleries yet</h2>
                 <p class="text-sm text-gray-500">This user hasn't created any galleries.</p>
             </div>
         @else
@@ -24,7 +21,7 @@
                         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-3 mb-2">
-                                    <h3 class="text-xl font-semibold break-words">{{ $gallery->title }}</h3>
+                                    <h3 class="text-base font-semibold break-words">{{ $gallery->title }}</h3>
                                     @if($gallery->is_active)
                                         <span class="badge badge-success">Active</span>
                                     @else

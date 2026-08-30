@@ -4,7 +4,7 @@
     </x-slot>
 
     <div class="page-shell-narrow">
-            <div class="bg-gray-800 border border-gray-700 rounded-xl p-8">
+            <div class="card card-pad">
 
                 @if($errors->any())
                     <div class="mb-6 p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg">

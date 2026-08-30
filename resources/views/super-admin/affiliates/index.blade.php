@@ -28,7 +28,7 @@
         {{-- Per-affiliate table --}}
         @if(empty($affiliates))
             <div class="text-center py-16">
-                <p class="text-gray-400">No affiliate referrals yet.</p>
+                <p class="text-sm text-gray-400">No referrals have been tracked yet. Shares of your referral link will register here with their plan conversions.</p>
                 <p class="text-gray-600 text-sm mt-2">Set TWOCHECKOUT_AFFILIATE_ID or pass ?ref=AFFILIATE_ID on upgrade URLs to start tracking.</p>
             </div>
         @else

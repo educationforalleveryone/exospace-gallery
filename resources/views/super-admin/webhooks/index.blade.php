@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header title="Outbound webhook subscriptions" :back="route('super.index')" backLabel="Master Control">
+        <x-page-header title="Outbound Webhook Subscriptions" :back="route('super.index')" backLabel="Master Control">
             <x-slot:description>
                 <div class="page-subtitle max-w-3xl">
                     Per-event subscriptions for the <code>OutboundWebhookService</code> dispatch fan-out — a security team that only wants to subscribe to
@@ -26,9 +26,9 @@
     @endif
 
     {{-- ── Env-var state tile ─────────────────────────────────────────── --}}
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
+    <div class="card card-pad mb-8">
         <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
-            <h2 class="text-lg font-bold text-white">Environment default</h2>
+            <h2 class="modal-title">Environment default</h2>
             <div class="text-xs text-gray-500">always-on · sync dispatch · HMAC-SHA256 signature · 3 retries (1+3+9s)</div>
         </div>
         <p class="text-xs text-gray-400 mb-3">
@@ -61,40 +61,40 @@
     </div>
 
     {{-- ── Add subscription form ─────────────────────────────────────── --}}
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
-        <h2 class="text-lg font-bold text-white mb-3">Add a subscription</h2>
+    <div class="card card-pad mb-8">
+        <h2 class="modal-title mb-3">Add a subscription</h2>
         <form method="POST" action="{{ route('super.webhooks.store') }}" class="space-y-3" x-data="{ custom: false }">
             @csrf
             <div class="grid md:grid-cols-3 gap-3">
                 <div>
-                    <label for="event_type" class="block text-xs text-gray-400 mb-1">Event type</label>
+                    <label for="event_type" class="label-text mb-1.5">Event type</label>
                     <select id="event_type" name="event_type" required
                             @change="custom = $event.target.value === '__custom__'"
-                            class="input-base {{ $errors->has('event_type') ? 'input-error' : '' }}">
+                            class="input-base {{ $errors->has('event_type') ? 'input-error' : '' }}" @error('event_type') aria-invalid="true" aria-describedby="event_type-error" @enderror>
                         <option value="" disabled selected>— Select an event —</option>
                         @foreach($knownEvents as $ev)
                             <option value="{{ $ev }}">{{ $ev }}</option>
                         @endforeach
                         <option value="__custom__">— Other (custom event name) —</option>
                     </select>
-                    @error('event_type') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                    @error('event_type') <p id=\"event_type-error\" class=\"mt-1 text-sm text-red-400\">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label for="target_url" class="block text-xs text-gray-400 mb-1">Target URL (https://...)</label>
+                    <label for="target_url" class="label-text mb-1.5">Target URL (https://...)</label>
                     <input id="target_url" name="target_url" type="url" required placeholder="https://hooks.example.com/exospace"
                            value="{{ old('target_url') }}"
-                           class="input-base font-mono {{ $errors->has('target_url') ? 'input-error' : '' }}">
-                    @error('target_url') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                           class="input-base font-mono {{ $errors->has('target_url') ? 'input-error' : '' }}" @error('target_url') aria-invalid="true" aria-describedby="target_url-error" @enderror>
+                    @error('target_url') <p id=\"target_url-error\" class=\"mt-1 text-sm text-red-400\">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label for="secret" class="block text-xs text-gray-400 mb-1">
+                    <label for="secret" class="label-text mb-1.5">
                         Per-subscription secret
                         <span class="text-gray-600">(optional — overrides OUTBOUND_WEBHOOK_SECRET)</span>
                     </label>
                     <input id="secret" name="secret" type="text" autocomplete="off" placeholder="leave empty to use global secret"
                            value="{{ old('secret') }}"
-                           class="input-base font-mono {{ $errors->has('secret') ? 'input-error' : '' }}">
-                    @error('secret') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                           class="input-base font-mono {{ $errors->has('secret') ? 'input-error' : '' }}" @error('secret') aria-invalid="true" aria-describedby="secret-error" @enderror>
+                    @error('secret') <p id=\"secret-error\" class=\"mt-1 text-sm text-red-400\">{{ $message }}</p> @enderror
                 </div>
             </div>
             <template x-if="custom">
@@ -130,9 +130,9 @@
         ksort($byEvent);
     @endphp
     @if(! empty($byEvent))
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
+    <div class="card card-pad mb-8">
         <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h2 class="text-lg font-bold text-white">Per-event subscription counts</h2>
+            <h2 class="modal-title">Per-event subscription counts</h2>
             <div class="text-xs text-gray-500">aggregated across all pages</div>
         </div>
         <p class="text-xs text-gray-400 mb-3">
@@ -158,9 +158,9 @@
     @endif
 
     {{-- ── Subscriptions list ────────────────────────────────────────── --}}
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden">
+    <div class="card overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white">Active subscriptions</h2>
+            <h2 class="modal-title">Active subscriptions</h2>
             <div class="text-xs text-gray-500">
                 @if($subscriptions instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
                     {{ $subscriptions->total() }} total · paginated 25/page

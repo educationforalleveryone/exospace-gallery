@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="mb-4">
-    <h1 class="text-xl font-semibold">Actions</h1>
+    <h1 class="page-title text-slate-50">Actions</h1>
     <p class="text-xs text-slate-400 mt-1">
         The only operations that change state outside the control plane — deliberately few, deliberately explicit.
     </p>
@@ -19,7 +19,7 @@
 
 {{-- ── Risk none: refresh ─────────────────────────────────────────────── --}}
 <section class="mb-8">
-    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Safe — no confirmation needed</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Safe — no confirmation needed</h2>
     <div class="grid md:grid-cols-2 gap-4">
         @foreach($actions as $id => $definition)
             @if($definition['risk'] !== 'none')@continue @endif
@@ -44,7 +44,7 @@
 
 {{-- ── Risk elevated: infrastructure actions ──────────────────────────── --}}
 <section class="mb-8">
-    <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-3">Elevated — password + typed confirmation required</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-3">Elevated — password + typed confirmation required</h2>
     <div class="rounded-lg border border-amber-900/40 bg-amber-950/20 px-4 py-3 text-xs text-amber-200/90 mb-4 leading-relaxed">
         These actions change infrastructure or re-apply external events. Every execution requires your password and a
         typed confirmation phrase, is recorded in the audit log, and is announced in the ops Slack channel. They are
@@ -65,7 +65,7 @@
                     <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">{{ $definition['description'] }}</p>
                     @if($enabled)
                         <form method="GET" action="{{ route('ops.actions.confirm', $id) }}" class="flex gap-2">
-                            <select name="app" required class="input-ops-sm flex-1">
+                            <select aria-label="Select application" name="app" required class="input-ops-sm flex-1">
                                 <option value="">Pick an application…</option>
                                 @forelse($coolifyApps as $app)
                                     <option value="{{ $app->id }}">{{ $app->name }}{{ $app->is_self ? ' (control plane host)' : '' }}</option>
@@ -159,7 +159,7 @@
                         <td class="px-4 py-3 text-slate-300 font-mono text-xs">#{{ $webhook->id }}</td>
                         <td class="px-4 py-3 text-slate-200 text-xs">{{ $webhook->message_type ?? '—' }}</td>
                         <td class="px-4 py-3 text-slate-400 font-mono text-xs">{{ $webhook->invoice_id ?? '—' }}</td>
-                        <td class="px-4 py-3"><span class="text-xs font-bold px-2 py-1 rounded bg-red-950/60 text-red-300 border border-red-800/50">FAILED</span></td>
+                        <td class="px-4 py-3"><span class="text-xs font-semibold px-2 py-1 rounded bg-red-950/60 text-red-300 border border-red-800/50">FAILED</span></td>
                         <td class="px-4 py-3 text-slate-500 text-xs">{{ $webhook->updated_at?->diffForHumans() ?? '—' }}</td>
                         <td class="px-4 py-3 text-slate-500 text-xs">{{ (int) ($webhook->replay_count ?? 0) }}×</td>
                         <td class="px-4 py-3">
@@ -179,7 +179,7 @@
 
 {{-- ── Recent executed actions (audit ledger view) ────────────────────── --}}
 <section>
-    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Recent executed actions</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Recent executed actions</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800">
         <table class="w-full text-sm">
             <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
@@ -197,7 +197,7 @@
                     <tr class="hover:bg-slate-900/60">
                         <td class="px-4 py-3 text-slate-200 font-mono text-xs">{{ data_get($entry->payload, 'action', '?') }}</td>
                         <td class="px-4 py-3">
-                            <span class="text-xs font-bold px-2 py-1 rounded border {{ $outcome === 'success' ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/50' : 'bg-red-950/60 text-red-300 border-red-800/50' }}">{{ strtoupper((string) $outcome) }}</span>
+                            <span class="text-xs font-semibold px-2 py-1 rounded border {{ $outcome === 'success' ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/50' : 'bg-red-950/60 text-red-300 border-red-800/50' }}">{{ strtoupper((string) $outcome) }}</span>
                         </td>
                         <td class="px-4 py-3 text-slate-400 text-xs">{{ $entry->target_type === \App\Ops\Models\OpsApplication::class ? 'application' : ($entry->target_type === \App\Models\ProcessedWebhook::class ? 'webhook' : '—') }} #{{ $entry->target_id }}</td>
                         <td class="px-4 py-3 text-slate-400 text-xs max-w-md"><span class="line-clamp-1">{{ data_get($entry->payload, 'message', '') }}</span></td>

@@ -78,7 +78,7 @@ if (! $enabled) {
         x-transition:leave="transition ease-in duration-100"
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-95"
-        class="fixed top-[15vh] left-1/2 -translate-x-1/2 z-[71] w-[92vw] max-w-xl bg-ink-950 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden"
+        class="fixed top-[15vh] left-1/2 -translate-x-1/2 z-[71] w-[92vw] max-w-xl bg-ink-950 border border-gray-700 rounded-2xl shadow-modal overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-palette-title"

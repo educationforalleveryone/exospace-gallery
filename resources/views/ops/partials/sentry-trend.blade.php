@@ -61,11 +61,11 @@
             @endforeach
         </svg>
         <div class="flex items-center justify-between mt-1">
-            <span class="text-[9px] text-slate-600">-24 h</span>
+            <span class="text-xs text-slate-600">-24 h</span>
             @if((int) $trend['peak'] > 0 && $peakTs !== null)
-                <span class="text-[9px] text-amber-500/80">peak {{ date('H:i', $peakTs) }} UTC</span>
+                <span class="text-xs text-amber-500/80">peak {{ date('H:i', $peakTs) }} UTC</span>
             @endif
-            <span class="text-[9px] text-slate-600">now</span>
+            <span class="text-xs text-slate-600">now</span>
         </div>
     </div>
 @elseif(! empty($trend['configured']) && ! empty($trend['error']))

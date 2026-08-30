@@ -62,7 +62,7 @@ $padding = $compact ? 'py-8 px-4' : 'py-12 px-6';
 @endphp
 
 <div class="flex flex-col items-center justify-center text-center {{ $padding }}" role="status">
-    <div class="mb-4 rounded-2xl bg-gradient-to-br from-brand-500/10 to-brand-700/5 p-4 ring-1 ring-inset ring-brand-500/20">
+    <div class="mb-4 rounded-xl bg-gradient-to-br from-brand-500/10 to-brand-700/5 p-4 ring-1 ring-inset ring-brand-500/20">
         <svg class="w-10 h-10 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             {!! $iconContent !!}
         </svg>

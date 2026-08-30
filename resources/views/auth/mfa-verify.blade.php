@@ -9,13 +9,13 @@
         <div class="mb-4 rounded-lg bg-blue-500/10 border border-blue-500/30 px-4 py-3 text-sm text-blue-300">{{ session('info') }}</div>
     @endif
 
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6">
+    <div class="card card-pad">
         <form method="POST" action="{{ route('mfa.verify') }}">
             @csrf
-            <label for="code" class="block text-sm text-gray-300 mb-2">6-digit code:</label>
+            <label for="code" class="label-text mb-1.5">6-digit code:</label>
             <input type="text" id="code" name="code" required pattern="\d{6}" maxlength="6" autofocus
                    inputmode="numeric" autocomplete="one-time-code"
-                   class="input-base h-12 text-center text-2xl tracking-widest {{ $errors->has('code') ? 'input-error' : '' }}"
+                   class="input-base h-12 text-center text-2xl tracking-widest {{ $errors->has('code') ? 'input-error' : '' }}" @error('code') aria-invalid="true" aria-describedby="code-error" @enderror
                    placeholder="000000">
             @error('code')
                 <p class="text-red-400 text-sm mt-2">{{ $message }}</p>

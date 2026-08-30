@@ -32,7 +32,7 @@
 
     <div class="page-shell-narrow">
         @php $venueTemplates ??= collect(); @endphp
-            <div class="bg-gray-800 overflow-hidden shadow-card sm:rounded-lg p-6 border border-gray-700/60 card">
+            <div class="card card-pad overflow-hidden">
                 
                 <form action="{{ route('admin.galleries.store') }}" method="POST" enctype="multipart/form-data">
     @if(isset($team))
@@ -58,9 +58,9 @@
 
                     <!-- Title -->
                     <div class="mb-4">
-                        <label for="title" class="block text-sm font-medium text-gray-200 mb-2">Gallery Title <span class="text-red-400" aria-hidden="true">*</span></label>
+                        <label for="title" class="label-text mb-1.5">Gallery Title <span class="text-red-400" aria-hidden="true">*</span></label>
                         <input type="text" id="title" name="title" value="{{ old('title') }}" required aria-required="true"
-                            class="input-base mt-1 {{ $errors->has('title') ? 'input-error' : '' }}">
+                            class="input-base mt-1 {{ $errors->has('title') ? 'input-error' : '' }}" @error('title') aria-invalid="true" aria-describedby="title-error" @enderror>
                         @error('title')
                             <p class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
                         @enderror
@@ -68,9 +68,9 @@
 
                     <!-- Description -->
                     <div class="mb-4">
-                        <label for="description" class="block text-sm font-medium text-gray-200 mb-2">Description</label>
+                        <label for="description" class="label-text mb-1.5">Description</label>
                         <textarea name="description" id="description" rows="3"
-                            class="input-base mt-1 {{ $errors->has('description') ? 'input-error' : '' }}">{{ old('description') }}</textarea>
+                            class="input-base mt-1 {{ $errors->has('description') ? 'input-error' : '' }}" @error('description') aria-invalid="true" aria-describedby="description-error" @enderror>{{ old('description') }}</textarea>
                         @error('description')
                             <p class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
                         @enderror
@@ -497,7 +497,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
 <div id="create-debug-panel" style="display:none; position:fixed; bottom:1rem; right:1rem; background:#111827; border:1px solid #374151; border-radius:12px; padding:1rem 1.25rem; max-width:calc(100vw - 2rem); font-size:0.78rem; font-family:monospace; box-shadow:0 20px 40px rgba(0,0,0,0.5);" class="z-[100]">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
         <span style="color:#f59e0b; font-weight:700; font-size:0.8rem;">Submitted values</span>
-        <button data-click="closeDebugPanel" class="btn btn-icon btn-ghost" style="font-size:1rem;">x</button>
+        <button data-click="closeDebugPanel" class="btn btn-icon btn-ghost" aria-label="Close debug panel">&times;</button>
     </div>
     <table id="create-debug-table" style="border-collapse:collapse;width:100%;"></table>
     <p style="color:#6b7280;margin-top:0.5rem;font-size:0.72rem;">If a 500 occurs, check your server log — the error message is now logged. This panel shows what was sent.</p>

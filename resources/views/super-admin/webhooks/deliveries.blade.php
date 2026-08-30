@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header title="Delivery ledger" :back="route('super.webhooks.index')" backLabel="Outbound webhooks"/>
+        <x-page-header title="Delivery Ledger" :back="route('super.webhooks.index')" backLabel="Outbound webhooks"/>
     </x-slot>
 
     <div class="page-shell">
@@ -13,9 +13,9 @@
     </p>
 
     {{-- ── Subscription metadata tile ──────────────────────────────────── --}}
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
+    <div class="card card-pad mb-8">
         <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <h2 class="text-lg font-bold text-white">Subscription</h2>
+            <h2 class="modal-title">Subscription</h2>
             <div class="flex items-center gap-2">
                 @if($subscription->is_active)
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">active</span>
@@ -78,9 +78,9 @@
     </div>
 
     {{-- ── Deliveries table ──────────────────────────────────────────────── --}}
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden">
+    <div class="card overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white">Delivery history</h2>
+            <h2 class="modal-title">Delivery history</h2>
             <div class="text-xs text-gray-500">
                 @if($deliveries instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
                     {{ $deliveries->total() }} total · paginated 50/page · newest first

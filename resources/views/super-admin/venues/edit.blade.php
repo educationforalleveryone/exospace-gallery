@@ -10,7 +10,7 @@
     </x-slot>
 
     <div class="page-shell-mid">
-        <form method="POST" action="{{ route('super.venues.update', $venue) }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('super.venues.update', $venue) }}" enctype="multipart/form-data" data-busy data-busy-label="Saving…">
             @csrf @method('PUT')
 
             @include('super-admin.venues._form-fields', ['venue' => $venue, 'categories' => $categories, 'layouts' => $layouts])
@@ -27,10 +27,10 @@
 
         {{-- Danger zone --}}
         <div class="mt-8 bg-red-950/20 border border-red-900/40 rounded-xl p-5">
-            <h3 class="text-red-300 font-semibold text-sm mb-2">Danger zone</h3>
+            <h2 class="text-red-300 font-semibold text-sm mb-2">Danger zone</h2>
             <p class="text-xs text-red-400/70 mb-3">Deleting a venue resets every gallery using it back to the default "white-cube" venue. This cannot be undone.</p>
             <form method="POST" action="{{ route('super.venues.destroy', $venue) }}"
-                  data-confirm="Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue.">
+                  data-confirm="Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue." data-confirm-button="Delete">
                 @csrf @method('DELETE')
                 <button type="submit" class="btn btn-danger-ghost">
                     Delete this venue

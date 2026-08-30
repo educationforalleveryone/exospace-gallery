@@ -1,43 +1,42 @@
 <x-app-layout>
     <x-slot name="header">
         @php $currentTeam = auth()->user()->currentTeam(); @endphp
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div class="min-w-0">
-                <h1 class="page-title">Teams</h1>
-                <p class="page-subtitle flex flex-wrap items-center gap-x-1.5">
-                    Active workspace:
-                    @if($currentTeam)
-                        <span class="text-brand-400 font-medium">{{ $currentTeam->name }}</span>
-                        <span aria-hidden="true">·</span>
-                        <form action="{{ route('admin.teams.switch-personal') }}" method="POST" class="inline">
-                            @csrf
-                            <button type="submit" class="p-1.5 -m-1 rounded text-xs text-gray-600 hover:text-gray-400 underline underline-offset-2 transition">Switch to personal</button>
-                        </form>
-                    @else
-                        <span class="text-gray-400">Personal</span>
-                    @endif
-                </p>
-            </div>
-            <a href="{{ route('admin.teams.create') }}" class="btn btn-primary shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                New Team
-            </a>
-        </div>
+        <x-page-header title="Teams">
+            <x-slot:description>
+                Active workspace:
+                @if($currentTeam)
+                    <span class="text-brand-400 font-medium">{{ $currentTeam->name }}</span>
+                    <span aria-hidden="true">·</span>
+                    <form action="{{ route('admin.teams.switch-personal') }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="p-1.5 -m-1 rounded text-xs text-gray-500 hover:text-gray-400 underline underline-offset-2 transition">Switch to personal</button>
+                    </form>
+                @else
+                    <span class="text-gray-400">Personal</span>
+                @endif
+            </x-slot:description>
+            <x-slot:actions>
+                <a href="{{ route('admin.teams.create') }}" class="btn btn-primary shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    New Team
+                </a>
+            </x-slot:actions>
+        </x-page-header>
     </x-slot>
 
-    <div class="page-shell space-y-8">
+    <div class="page-shell space-y-6">
 
             {{-- Info callout for free users --}}
             @if(auth()->user()->plan === 'free')
-            <div class="mb-6 alert alert-info">
-                <svg class="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div class="alert alert-info">
+                <svg class="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <p class="text-sm text-blue-200">Teams use the <strong>owner's plan</strong>. If the team owner is on Pro, all members get Pro gallery limits. Your personal galleries follow your own plan.</p>
             </div>
             @endif
 
             {{-- Teams I Own --}}
             <div>
-                <h3 class="text-lg font-semibold text-gray-200 mb-4">Teams You Own</h3>
+                <h2 class="section-title mb-4">Teams You Own</h2>
                 @if($ownedTeams->isEmpty())
                     <div class="bg-gray-800/50 border border-gray-700/60 border-dashed rounded-xl p-8">
                         <div class="max-w-sm mx-auto text-center">
@@ -57,7 +56,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach($ownedTeams as $team)
                         @php $isActive = auth()->user()->current_team_id === $team->id; @endphp
-                        <div class="bg-gray-800 border {{ $isActive ? 'border-brand-500/50' : 'border-gray-700 hover:border-gray-600' }} rounded-xl p-5 transition group relative">
+                        <div class="bg-gray-800 border {{ $isActive ? 'border-brand-500/50' : 'border-gray-700 hover:border-gray-600' }} rounded-xl card-pad transition group relative">
                             @if($isActive)
                                 <div class="absolute top-3 right-3 flex items-center gap-1 text-xs text-emerald-400">
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
@@ -73,7 +72,7 @@
                                     @if($team->description)
                                         <p class="text-gray-500 text-xs mt-0.5 line-clamp-1">{{ $team->description }}</p>
                                     @else
-                                        <p class="text-gray-600 text-xs mt-0.5">No description</p>
+                                        <p class="text-gray-500 text-xs mt-0.5">No description</p>
                                     @endif
                                 </div>
                             </div>
@@ -108,12 +107,12 @@
             {{-- Teams I'm a Member Of --}}
             @if($memberTeams->isNotEmpty())
             <div>
-                <h3 class="text-lg font-semibold text-gray-200 mb-4">Teams You're In</h3>
+                <h2 class="text-lg font-semibold text-gray-200 mb-4">Teams You're In</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($memberTeams as $team)
                     @php $role = auth()->user()->teamRole($team); @endphp
                     @php $isActive = auth()->user()->current_team_id === $team->id; @endphp
-                    <div class="bg-gray-800 border {{ $isActive ? 'border-brand-500/50' : 'border-gray-700 hover:border-gray-600' }} rounded-xl p-5 transition relative">
+                    <div class="bg-gray-800 border {{ $isActive ? 'border-brand-500/50' : 'border-gray-700 hover:border-gray-600' }} rounded-xl card-pad transition relative">
                         @if($isActive)
                             <div class="absolute top-3 right-3 flex items-center gap-1 text-xs text-emerald-400">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -131,7 +130,7 @@
                         </div>
                         <div class="flex items-center gap-2 mb-4">
                             <span class="text-xs {{ $role === 'editor' ? 'bg-blue-900/40 text-blue-400 border-blue-800/40' : 'bg-gray-700 text-gray-400 border-gray-600' }} border px-1.5 py-0.5 rounded-full capitalize">{{ $role }}</span>
-                            <span class="text-gray-600 text-xs">{{ $role === 'editor' ? 'Can manage galleries' : 'View only' }}</span>
+                            <span class="text-gray-500 text-xs">{{ $role === 'editor' ? 'Can manage galleries' : 'View only' }}</span>
                         </div>
                         <div class="flex gap-2">
                             <a href="{{ route('admin.teams.show', $team) }}" class="btn btn-sm btn-secondary flex-1">View</a>

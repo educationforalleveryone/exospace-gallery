@@ -5,7 +5,7 @@
 @section('content')
 <div class="flex items-center justify-between mb-4">
     <div>
-        <h1 class="text-xl font-semibold">Applications</h1>
+        <h1 class="page-title text-slate-50">Applications</h1>
         <p class="text-xs text-slate-400 mt-1">Everything the control plane knows about — synced from Coolify every 5 minutes, plus self-reporting apps. Each row carries its own sub-score (same verdict-cap philosophy as the platform score — §16.2 of the master manual).</p>
     </div>
     @if(auth()->user()?->is_super_admin)
@@ -80,7 +80,7 @@
                     @endphp
                     <td class="px-4 py-3">
                         @if($appScore)
-                            <span class="text-xs font-bold px-2 py-1 rounded border {{ $scoreStyles[$appScore['band']] }}" title="{{ $scoreTooltip ?? '' }}">{{ $appScore['score'] }}</span>
+                            <span class="text-xs font-semibold px-2 py-1 rounded border {{ $scoreStyles[$appScore['band']] }}" title="{{ $scoreTooltip ?? '' }}">{{ $appScore['score'] }}</span>
                         @else
                             <span class="text-slate-600 text-xs">—</span>
                         @endif

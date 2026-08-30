@@ -165,10 +165,11 @@ export default {
         'menu-panel', 'menu-item', 'menu-header', 'menu-separator',
         // Modals
         'modal-backdrop', 'modal-panel', 'modal-header', 'modal-body', 'modal-footer',
+        'modal-title',
         // Typography & misc
         'page-title', 'page-subtitle', 'section-title', 'section-header', 'eyebrow',
         'text-numeric', 'action-link', 'empty-state', 'gradient-text', 'logo-text',
-        'progress-fill', 'page-content', 'mobile-menu-open',
+        'progress-fill', 'page-content', 'mobile-menu-open', 'well',
         // Page composition (iteration 2)
         'page-shell', 'page-shell-mid', 'page-shell-narrow', 'back-link',
         // Operational status language (OpsCenter / Control Center / Master Control)

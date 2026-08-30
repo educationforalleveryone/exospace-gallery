@@ -20,7 +20,7 @@
                     @endif
                 </div>
                 <div class="flex-1">
-                    <h1 class="text-2xl font-bold text-gray-100">{{ $artist->name }}</h1>
+                    <h2 class="section-title">{{ $artist->name }}</h2>
                     @if($artist->location)
                         <p class="text-gray-400 text-sm mt-1">{{ $artist->location }}</p>
                     @endif

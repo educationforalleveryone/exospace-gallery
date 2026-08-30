@@ -13,6 +13,10 @@
     @vite(['resources/css/app.css'])
 </head>
 <body class="font-sans min-h-screen bg-slate-950 text-slate-100 antialiased">
+<!-- ITERATION-9: skip link — parity with the app/public layouts -->
+<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand-600 focus:text-white focus:rounded-lg focus:font-semibold">
+    Skip to content
+</a>
 <header class="sticky top-0 z-40 border-b border-slate-800 bg-slate-900/60 backdrop-blur">
     <div class="mx-auto flex max-w-page items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
         <a href="{{ route('control-center.overview') }}" class="flex items-center gap-3">
@@ -22,19 +26,19 @@
                 <div class="text-xs text-slate-500">Exospace · Release Operations</div>
             </div>
         </a>
-        <nav class="flex gap-2 text-sm" aria-label="Control Center sections">
+        <nav class="flex flex-wrap items-center gap-2 text-sm" aria-label="Control Center sections">
             <a href="{{ route('control-center.overview') }}"
-               class="rounded-md px-3 py-1.5 {{ request()->routeIs('control-center.overview') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Overview</a>
+               class="rounded-md px-3 py-1.5 transition-colors duration-150 {{ request()->routeIs('control-center.overview') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Overview</a>
             <a href="{{ route('control-center.flaky') }}"
-               class="rounded-md px-3 py-1.5 {{ request()->routeIs('control-center.flaky') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Reliability</a>
+               class="rounded-md px-3 py-1.5 transition-colors duration-150 {{ request()->routeIs('control-center.flaky') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Reliability</a>
             <a href="{{ route('control-center.runs') }}"
-               class="rounded-md px-3 py-1.5 {{ request()->routeIs('control-center.runs','control-center.run.show') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Runs</a>
-            <a href="/" class="btn btn-sm btn-ops-ghost ml-2">← App</a>
+               class="rounded-md px-3 py-1.5 transition-colors duration-150 {{ request()->routeIs('control-center.runs','control-center.run.show') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Runs</a>
+            <a href="/" class="btn btn-sm btn-ops-ghost">← App</a>
         </nav>
     </div>
 </header>
 
-<main class="mx-auto max-w-page px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+<main id="main-content" class="mx-auto max-w-page px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
     @if (session('info'))
         <div class="mb-4 rounded-lg border border-sky-800 bg-sky-950/60 px-4 py-3 text-sm text-sky-200">{{ session('info') }}</div>
     @endif

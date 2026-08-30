@@ -23,7 +23,7 @@
         @if($feedback->isEmpty())
             <div class="text-center py-16">
                 <svg class="w-16 h-16 mx-auto mb-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-                <p class="text-gray-400">No feedback yet.</p>
+                <p class="text-sm text-gray-400">No feedback has been submitted through the widget yet. The widget is live on every gallery page — responses land here in real time.</p>
             </div>
         @else
             <div class="space-y-4">
@@ -37,7 +37,7 @@
                         <form method="POST" action="{{ route('super.feedback.update-status', $item) }}" class="flex gap-1">
                             @csrf
                             @method('PATCH')
-                            <select name="status" data-change="submitForm"
+                            <select aria-label="Filter by status" name="status" data-change="submitForm"
                                     class="input-sm input-base w-auto">
                                 @foreach(['new', 'reviewed', 'resolved'] as $status)
                                     <option value="{{ $status }}" {{ $item->status === $status ? 'selected' : '' }}>{{ ucfirst($status) }}</option>

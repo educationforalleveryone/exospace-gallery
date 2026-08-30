@@ -16,16 +16,16 @@
 
     <div class="rounded-xl border border-amber-700/60 bg-amber-950/30 p-5 mb-6">
         <div class="flex items-center gap-2 mb-2">
-            <span class="text-xs font-bold px-2 py-1 rounded bg-amber-900/70 text-amber-200 border border-amber-700/60">CONFIRMATION REQUIRED</span>
-            <span class="text-xs font-bold px-2 py-1 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50">RISK: ELEVATED</span>
+            <span class="text-xs font-semibold px-2 py-1 rounded bg-amber-900/70 text-amber-200 border border-amber-700/60">CONFIRMATION REQUIRED</span>
+            <span class="text-xs font-semibold px-2 py-1 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50">RISK: ELEVATED</span>
         </div>
-        <h1 class="text-2xl font-semibold text-slate-50">{{ $definition['label'] }}</h1>
+        <h1 class="page-title text-slate-50">{{ $definition['label'] }}</h1>
         <p class="text-sm text-slate-300 mt-1.5">{{ $definition['description'] }}</p>
     </div>
 
     {{-- Target --}}
     <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5 mb-6">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Target</h2>
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Target</h2>
         @if($application)
             <div class="text-sm text-slate-100 font-medium flex items-center gap-2">
                 {{ $application->name }}
@@ -49,7 +49,7 @@
                 <div class="flex justify-between border-b border-slate-800/60 py-1"><dt class="text-slate-500">Previous replays</dt><dd class="text-slate-300">{{ (int) ($webhook->replay_count ?? 0) }}×</dd></div>
             </dl>
         @elseif($failedJob)
-            <div class="text-sm text-slate-100 font-medium font-mono text-[13px] break-all">{{ $failedJob['job'] }}</div>
+            <div class="text-sm text-slate-100 font-medium font-mono break-all">{{ $failedJob['job'] }}</div>
             <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
                 <div class="flex justify-between border-b border-slate-800/60 py-1"><dt class="text-slate-500">Queue</dt><dd class="text-slate-300 font-mono text-xs">{{ $failedJob['queue'] }}</dd></div>
                 <div class="flex justify-between border-b border-slate-800/60 py-1"><dt class="text-slate-500">Connection</dt><dd class="text-slate-300 font-mono text-xs">{{ $failedJob['connection'] }}</dd></div>
@@ -68,7 +68,7 @@
     {{-- Consequences: will / won't --}}
     <div class="grid md:grid-cols-2 gap-4 mb-6">
         <section class="rounded-lg border border-red-900/50 bg-red-950/20 p-5">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-red-400 mb-3">This WILL</h2>
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-red-400 mb-3">This WILL</h2>
             <ul class="space-y-2">
                 @foreach($definition['will_do'] as $item)
                     <li class="text-xs text-slate-300 flex gap-2"><span class="text-red-400 mt-0.5">▸</span><span>{{ $item }}</span></li>
@@ -76,7 +76,7 @@
             </ul>
         </section>
         <section class="rounded-lg border border-emerald-900/50 bg-emerald-950/20 p-5">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">This will NOT</h2>
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">This will NOT</h2>
             <ul class="space-y-2">
                 @foreach($definition['wont_do'] as $item)
                     <li class="text-xs text-slate-300 flex gap-2"><span class="text-emerald-400 mt-0.5">▸</span><span>{{ $item }}</span></li>
@@ -86,7 +86,7 @@
     </div>
 
     <section class="rounded-lg border border-amber-900/50 bg-amber-950/20 p-5 mb-6">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">Bottom line</h2>
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-2">Bottom line</h2>
         <p class="text-sm text-slate-300 leading-relaxed">{{ $definition['consequence'] }}</p>
     </section>
 

@@ -11,12 +11,9 @@
     </x-slot>
 
     <div class="page-shell-mid">
-        @if(session('status'))
-            <div class="mb-4 text-sm text-emerald-400 bg-emerald-900/20 border border-emerald-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
-        @endif
 
         @if($upcoming->count() > 0)
-            <h3 class="text-gray-200 font-semibold mb-3">Upcoming ({{ $upcoming->count() }})</h3>
+            <h2 class="text-gray-200 font-semibold mb-3">Upcoming ({{ $upcoming->count() }})</h2>
             <div class="space-y-3 mb-8">
                 @foreach($upcoming as $event)
                     <div class="bg-gray-800 border border-gray-700 rounded-xl p-5">
@@ -44,7 +41,7 @@
                             </div>
                             <div class="flex gap-2 flex-shrink-0">
                                 <a href="{{ route('admin.galleries.events.edit', [$gallery, $event]) }}" class="btn btn-sm btn-secondary">Edit</a>
-                                <form method="POST" action="{{ route('admin.galleries.events.destroy', [$gallery, $event]) }}" data-confirm="Delete this event? All RSVPs will also be deleted.">
+                                <form method="POST" action="{{ route('admin.galleries.events.destroy', [$gallery, $event]) }}" data-confirm="Delete this event? All RSVPs will also be deleted." data-confirm-button="Delete">
                                     @csrf @method('DELETE')
                                     <button class="btn btn-sm btn-danger-ghost">Delete</button>
                                 </form>
@@ -56,7 +53,7 @@
         @else
             <div class="text-center py-12 bg-gray-800/50 rounded-xl border border-gray-700/50 mb-8">
                 <p class="text-gray-400 mb-1">No upcoming events.</p>
-                <p class="text-gray-600 text-sm mb-4">Host an opening reception, artist talk, or walkthrough.</p>
+                <p class="text-gray-500 text-sm mb-4">Host an opening reception, artist talk, or walkthrough.</p>
                 <a href="{{ route('admin.galleries.events.create', $gallery) }}" class="btn btn-primary">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Create event
@@ -65,7 +62,7 @@
         @endif
 
         @if($past->count() > 0)
-            <h3 class="text-gray-200 font-semibold mb-3">Past events</h3>
+            <h2 class="text-gray-200 font-semibold mb-3">Past events</h2>
             <div class="space-y-2">
                 @foreach($past as $event)
                     <div class="bg-gray-800/40 border border-gray-700/40 rounded-lg p-3 flex items-center justify-between opacity-75">
