@@ -1,11 +1,14 @@
-<nav x-data="{ open: false }" class="bg-gray-800 border-b border-gray-700 relative z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<nav x-data="{ open: false }" class="bg-ink-900/95 backdrop-blur border-b border-gray-800 relative z-40">
+    <div class="max-w-page mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('admin.dashboard') }}" class="text-2xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                        Exospace
+                    <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-2.5 group">
+                        <span class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center shadow-sm group-hover:bg-brand-500 transition-colors" aria-hidden="true">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/></svg>
+                        </span>
+                        <span class="logo-text text-lg">Exospace</span>
                     </a>
                 </div>
 
@@ -48,8 +51,8 @@
                         @endphp
                         <div class="hidden sm:flex sm:items-center sm:ms-4">
                             <a href="/pricing"
-                               class="inline-flex items-center px-3 py-1.5 {{ $navAtLimit ? 'bg-orange-600/20 border-orange-500/40 text-orange-300 hover:bg-orange-600/30' : 'bg-purple-600/20 border-purple-500/30 text-purple-400 hover:bg-purple-600/30 hover:border-purple-500/50' }} border rounded-lg transition-all duration-200 text-sm font-semibold group">
-                                <svg class="w-3.5 h-3.5 mr-1.5 group-hover:scale-110 transition-transform flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                               class="inline-flex items-center px-3 h-8 {{ $navAtLimit ? 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20' : 'bg-brand-500/10 border-brand-500/30 text-brand-400 hover:bg-brand-500/20 hover:border-brand-500/50' }} border rounded-lg transition-all duration-200 text-xs font-semibold group">
+                                <svg class="w-3.5 h-3.5 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                 </svg>
                                 @if($navAtLimit)
@@ -76,7 +79,7 @@
                 @endphp
                 <div x-data="{ notifOpen: false }" class="relative" @keydown.escape.window="notifOpen = false">
                     <button @click="notifOpen = !notifOpen"
-                            class="relative inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-700 hover:border-gray-600 bg-gray-800/80 hover:bg-gray-750 text-gray-400 hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            class="relative inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-700/80 hover:border-gray-600 bg-white/[0.03] hover:bg-white/[0.07] text-gray-400 hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/80"
                             aria-label="Notifications"
                             id="notif-dropdown-trigger"
                             aria-haspopup="true"
@@ -95,7 +98,7 @@
                          role="menu"
                          aria-labelledby="notif-dropdown-trigger"
                          style="display: none;"
-                         class="absolute right-0 mt-2 w-80 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+                         class="absolute right-0 mt-2 w-80 menu-panel z-50">
 
                         <div class="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
                             <p class="text-gray-300 text-sm font-semibold">Notifications</p>
@@ -158,7 +161,7 @@
                 --}}
                 <div x-data="{ teamOpen: false }" class="relative" @keydown.escape.window="teamOpen = false">
                     <button @click="teamOpen = !teamOpen"
-                            class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-700/60 hover:bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-300 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            class="inline-flex items-center gap-2 px-3 h-9 bg-white/[0.04] hover:bg-white/[0.08] border border-gray-700/80 rounded-lg text-sm text-gray-300 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/80"
                             id="team-dropdown-trigger"
                             aria-label="Switch team context"
                             aria-haspopup="true"
@@ -181,7 +184,7 @@
                          role="menu"
                          aria-labelledby="team-dropdown-trigger"
                          style="display: none;"
-                         class="absolute right-0 mt-2 w-52 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+                         class="absolute right-0 mt-2 w-52 menu-panel z-50">
 
                         <div class="px-3 py-2 border-b border-gray-700">
                             <p class="text-gray-500 text-xs uppercase tracking-wider font-medium">Switch context</p>
@@ -205,7 +208,7 @@
                         <form action="{{ route('admin.teams.switch', $t) }}" method="POST">
                             @csrf
                             <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-700 transition text-left {{ $currentTeam?->id === $t->id ? 'bg-gray-700/40' : '' }}">
-                                <span class="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-700 to-indigo-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                                <span class="w-6 h-6 rounded-lg bg-brand-700 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">
                                     {{ strtoupper(substr($t->name, 0, 1)) }}
                                 </span>
                                 <span class="flex-1 min-w-0">
@@ -233,8 +236,8 @@
                 <!-- User Dropdown -->
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
-                        <button class="inline-flex items-center gap-2 px-2.5 py-1.5 border border-gray-700 hover:border-gray-600 text-sm font-medium rounded-lg text-gray-300 bg-gray-800/80 hover:bg-gray-750 hover:text-white focus:outline-none transition-all duration-150">
-                            <span class="w-6 h-6 rounded-md bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{{ strtoupper(substr(Auth::user()->name, 0, 1)) }}</span>
+                        <button class="inline-flex items-center gap-2 px-2.5 h-9 border border-gray-700/80 hover:border-gray-600 text-sm font-medium rounded-lg text-gray-300 bg-white/[0.03] hover:bg-white/[0.07] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/80 transition-all duration-150">
+                            <span class="w-6 h-6 rounded-md bg-brand-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">{{ strtoupper(substr(Auth::user()->name, 0, 1)) }}</span>
                             <span class="max-w-[120px] truncate">{{ Auth::user()->name }}</span>
                             <svg class="fill-current h-3.5 w-3.5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -305,6 +308,14 @@
             <x-responsive-nav-link :href="route('admin.teams.index')" :active="request()->routeIs('admin.teams.*')">
                 {{ __('Teams') }}
             </x-responsive-nav-link>
+
+            {{-- ITERATION-1 FIX: Master Control was missing from the mobile menu —
+                 super-admins could not reach /master-control from a phone. --}}
+            @if(auth()->check() && auth()->user()->is_super_admin)
+                <x-responsive-nav-link :href="route('super.index')" :active="request()->routeIs('super.*')">
+                    {{ __('Master Control') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->

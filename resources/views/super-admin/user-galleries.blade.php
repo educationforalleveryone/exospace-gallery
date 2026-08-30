@@ -27,7 +27,7 @@
     <!-- Success Message -->
     @if(session('success'))
         <div class="max-w-7xl mx-auto px-6 mt-4">
-            <div class="bg-green-500/20 border border-green-500 text-green-300 px-4 py-3 rounded-lg">
+            <div class="alert alert-success">
                 ✅ {{ session('success') }}
             </div>
         </div>
@@ -50,9 +50,9 @@
                                 <div class="flex items-center gap-3 mb-2">
                                     <h3 class="text-2xl font-bold">{{ $gallery->title }}</h3>
                                     @if($gallery->is_active)
-                                        <span class="px-3 py-1 bg-green-600 text-xs rounded-full">ACTIVE</span>
+                                        <span class="badge badge-success">Active</span>
                                     @else
-                                        <span class="px-3 py-1 bg-red-600 text-xs rounded-full">INACTIVE</span>
+                                        <span class="badge badge-danger">Inactive</span>
                                     @endif
                                 </div>
                                 

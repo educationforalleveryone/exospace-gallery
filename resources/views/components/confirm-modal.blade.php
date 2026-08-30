@@ -19,8 +19,8 @@
         </x-confirm-modal>
 
     The modal:
+      - Uses the shared dialog language (.modal-panel / .btn-* / .input-base)
       - Has role="dialog", aria-modal="true", aria-labelledby
-      - Traps focus (Alpine x-trap)
       - Closes on Escape and backdrop click
       - Requires the user to type the confirm-text exactly
       - Submit button is disabled until the typed text matches
@@ -38,7 +38,7 @@
 <div id="{{ $id }}"
      x-data="{ open: false, typed: '' }"
      x-cloak
-     class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
+     class="modal-backdrop hidden items-center justify-center p-4"
      role="dialog"
      aria-modal="true"
      aria-labelledby="{{ $id }}-heading"
@@ -46,16 +46,16 @@
      @keydown.escape.window="open = false; typed = ''"
      @click.self="open = false; typed = ''">
 
-    <div class="bg-gray-900 border {{ $danger ? 'border-red-700/50' : 'border-gray-700' }} rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+    <div class="modal-panel max-w-md p-6 relative">
         <button @click="open = false; typed = ''"
-                class="absolute top-3 right-3 text-gray-500 hover:text-gray-300 transition"
+                class="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition"
                 aria-label="Close">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
         </button>
 
-        <h3 id="{{ $id }}-heading" class="text-lg font-bold {{ $danger ? 'text-red-400' : 'text-white' }} mb-3">
+        <h3 id="{{ $id }}-heading" class="section-title {{ $danger ? 'text-red-400' : 'text-white' }} mb-3">
             {{ $title }}
         </h3>
 
@@ -63,15 +63,15 @@
             {{ $slot }}
         </div>
 
-        <div class="bg-gray-800/50 rounded-lg p-3 mb-4">
-            <label for="{{ $id }}-input" class="block text-xs text-gray-500 mb-1">
+        <div class="bg-gray-900/50 rounded-lg p-3 mb-4">
+            <label for="{{ $id }}-input" class="hint-text block mb-1.5">
                 Type <code class="text-gray-300 font-mono">{{ $confirmText }}</code> to confirm
             </label>
             <input
                 id="{{ $id }}-input"
                 type="text"
                 x-model="typed"
-                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                class="input-base"
                 autocomplete="off"
                 aria-describedby="{{ $id }}-hint"
             >
@@ -86,12 +86,12 @@
             <div class="flex gap-3">
                 <button type="button"
                         @click="open = false; typed = ''"
-                        class="flex-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-2.5 rounded-xl transition text-sm">
+                        class="btn btn-secondary flex-1">
                     Cancel
                 </button>
                 <button type="submit"
                         :disabled="typed !== '{{ $confirmText }}'"
-                        class="flex-1 {{ $danger ? 'bg-red-600 hover:bg-red-500' : 'bg-purple-600 hover:bg-purple-500' }} text-white font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                        class="btn {{ $danger ? 'btn-danger' : 'btn-primary' }} flex-1">
                     {{ $actionLabel }}
                 </button>
             </div>
@@ -100,11 +100,12 @@
 </div>
 
 <script nonce="@nonce">
-// Helper to open the modal from a button's onclick
+// Helper to open the modal from a button's data-click attribute.
+// CSP-safe: call it via data-click="openConfirmModal" data-arg="the-modal-id".
 window.openConfirmModal = function(id) {
     const modal = document.getElementById(id);
     if (modal && modal._x_dataStack) {
-        modal.__x.$data.open = true;
+        modal._x_dataStack[0].open = true;
         setTimeout(() => {
             const input = modal.querySelector('input[type="text"]');
             if (input) input.focus();

@@ -21,51 +21,14 @@
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-        <style>
-            /* Global polish: smooth scrolling, better focus rings, reduced-motion respect */
-            html { scroll-behavior: smooth; }
-            @media (prefers-reduced-motion: reduce) {
-                *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-            }
-            /* Focus-visible ring consistent across interactive elements */
-            *:focus-visible {
-                outline: 2px solid rgb(139 92 246);
-                outline-offset: 2px;
-                border-radius: 4px;
-            }
-            /* P2-15: Removed unused .skeleton CSS class (defined but never used) */
-            /* Smooth page-level fade-in */
-            @keyframes pageIn {
-                from { opacity: 0; }
-                to   { opacity: 1; }
-            }
-            /* transform removed from pageIn: transform on <main> creates a stacking
-               context that buries nav dropdown panels even when nav has z-40. */
-            .page-content { animation: pageIn 0.25s ease-out; }
-            /* Card hover lift */
-            .card-lift { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
-            .card-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(139,92,246,0.12); }
-            /* Tooltip */
-            [data-tooltip] { position: relative; }
-            [data-tooltip]::after {
-                content: attr(data-tooltip);
-                position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-                background: #111827; color: #f3f4f6; font-size: 0.75rem;
-                padding: 4px 8px; border-radius: 6px; white-space: nowrap;
-                opacity: 0; pointer-events: none; transition: opacity 0.15s;
-                border: 1px solid #374151;
-            }
-            [data-tooltip]:hover::after { opacity: 1; }
-            /* Progress bar animations */
-            .progress-fill { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-            /* Mobile nav slide */
-            @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
-            .mobile-menu-open { animation: slideDown 0.2s ease-out; }
-        </style>
+        {{-- ITERATION-1: all global CSS (focus ring, page fade, card-lift, tooltip,
+             progress, reduced-motion) moved into resources/css/app.css so every
+             layout — guest, public, ops, control-center — inherits the same
+             behavior. Nothing layout-specific remains inline here. --}}
     </head>
-    <body class="font-sans antialiased bg-[#0f1117] text-gray-100">
+    <body class="font-sans antialiased bg-ink-900 text-gray-100">
         <!-- Skip to main content (accessibility) -->
-        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-purple-600 focus:text-white focus:rounded-lg focus:font-semibold">
+        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand-600 focus:text-white focus:rounded-lg focus:font-semibold">
             Skip to main content
         </a>
 
@@ -92,13 +55,13 @@
             </div>
         @endif
 
-        <div class="min-h-screen bg-[#0f1117]">
+        <div class="min-h-screen bg-ink-900">
             @include('layouts.navigation')
 
             <!-- Page Heading -->
             @isset($header)
-                <header class="bg-gray-800/40 border-b border-gray-700/40">
-                    <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                <header class="bg-ink-800/60 border-b border-gray-800">
+                    <div class="max-w-page mx-auto py-5 px-4 sm:px-6 lg:px-8">
                         {{ $header }}
                     </div>
                 </header>

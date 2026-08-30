@@ -87,30 +87,22 @@
         /feed.xml (SitemapController::feed) but readers couldn't find it. --}}
     <link rel="alternate" type="application/rss+xml" title="Exospace — Featured 3D Exhibitions" href="{{ url('/feed.xml') }}">
 
-    <style>
-        html { scroll-behavior: smooth; }
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-        }
-        *:focus-visible {
-            outline: 2px solid rgb(139 92 246);
-            outline-offset: 2px;
-            border-radius: 4px;
-        }
-    </style>
+    {{-- ITERATION-1: global focus ring, reduced-motion and smooth-scroll now live
+         in resources/css/app.css (loaded below) so every layout shares them. --}}
+
 </head>
-<body class="font-sans antialiased bg-[#0f1117] text-gray-100 min-h-screen flex flex-col">
+<body class="font-sans antialiased bg-ink-900 text-gray-100 min-h-screen flex flex-col">
     {{-- Skip to content (accessibility) --}}
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-purple-600 focus:text-white focus:rounded-lg focus:font-semibold">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand-600 focus:text-white focus:rounded-lg focus:font-semibold">
         Skip to main content
     </a>
 
     {{-- Public nav (simplified version of the admin nav) --}}
-    <nav x-data="{ mobileMenuOpen: false }" class="border-b border-gray-800/60 bg-[#0f1117]/95 backdrop-blur sticky top-0 z-40" aria-label="Main navigation">
+    <nav x-data="{ mobileMenuOpen: false }" class="border-b border-gray-800/60 bg-ink-900/95 backdrop-blur sticky top-0 z-40" aria-label="Main navigation">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-8">
-                    <a href="/" class="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
+                    <a href="/" class="logo-text text-xl">
                         Exospace
                     </a>
                     <div class="hidden md:flex items-center gap-6">
@@ -150,7 +142,7 @@
             </div>
         </div>
         {{-- Mobile menu --}}
-        <div x-show="mobileMenuOpen" x-cloak id="mobile-public-nav" class="md:hidden border-t border-gray-800 bg-[#0f1117]">
+        <div x-show="mobileMenuOpen" x-cloak id="mobile-public-nav" class="md:hidden border-t border-gray-800 bg-ink-900">
             <div class="px-4 py-3 space-y-2">
                 <a href="/#features" class="block py-2 text-sm text-gray-300 hover:text-white">Features</a>
                 <a href="{{ route('discover') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Discover</a>

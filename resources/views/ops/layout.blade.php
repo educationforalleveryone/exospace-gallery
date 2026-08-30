@@ -4,10 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- ITERATION-1: internal tool page — keep out of search indexes (parity with
+         the app layout, which has carried this since Iter-013). --}}
+    <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Overview') — OpsCenter</title>
+    {{-- ITERATION-1: same Inter webfont as the rest of the product — OpsCenter
+         previously fell back to system fonts. --}}
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
+<body class="font-sans bg-slate-950 text-slate-100 min-h-screen antialiased">
 
 {{-- ── Header ─────────────────────────────────────────────────────────── --}}
 <header class="bg-slate-900/80 border-b border-slate-800 backdrop-blur sticky top-0 z-20">

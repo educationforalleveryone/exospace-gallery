@@ -7,9 +7,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Testing Control Center') · Exospace</title>
+    {{-- ITERATION-1: same Inter webfont as the rest of the product. --}}
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css'])
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-200 antialiased">
+<body class="font-sans min-h-screen bg-slate-950 text-slate-200 antialiased">
 <header class="border-b border-slate-800 bg-slate-900/60">
     <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <a href="{{ route('control-center.overview') }}" class="flex items-center gap-3">

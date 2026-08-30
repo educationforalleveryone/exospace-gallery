@@ -181,9 +181,9 @@
     text-transform: uppercase;
     margin-top: 4px;
 }
-.badge-free    { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
-.badge-pro     { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
-.badge-studio  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+.venue-plan-badge-free    { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.venue-plan-badge-pro     { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+.venue-plan-badge-studio  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
 </style>
 
 @php
@@ -208,7 +208,7 @@ $venueAtmospheres = [
             $accessible = $venue->isAccessibleBy(auth()->user());
             $isSelected = old('venue_template_id', $venueTemplates->firstWhere('plan_required', 'free')?->id) == $venue->id;
             $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '??', 'accent' => '#555'];
-            $badgeClass = match($venue->plan_required) { 'pro' => 'badge-pro', 'studio' => 'badge-studio', default => 'badge-free' };
+            $badgeClass = match($venue->plan_required) { 'pro' => 'venue-plan-badge-pro', 'studio' => 'venue-plan-badge-studio', default => 'venue-plan-badge-free' };
         @endphp
         <div class="venue-card"
              data-venue-id="{{ $venue->id }}"

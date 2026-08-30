@@ -26,8 +26,8 @@ $cls = $disabled
     @if($disabled) data-click="noopDisabled" aria-disabled="true" @endif
     class="flex flex-col items-center text-center p-3.5 rounded-xl border {{ $cls }}"
 >
-    <div class="w-9 h-9 rounded-lg flex items-center justify-center mb-2.5 bg-current/10">
-        <svg class="w-4.5 h-4.5" style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="w-9 h-9 rounded-lg flex items-center justify-center mb-2.5 bg-white/10">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $icon }}"/>
         </svg>
     </div>

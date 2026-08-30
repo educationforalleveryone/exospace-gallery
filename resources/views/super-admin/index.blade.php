@@ -22,40 +22,40 @@
                     </h1>
                     <p class="text-gray-400 text-sm">God Mode • Super Admin Dashboard</p>
                 </div>
-                <div class="flex gap-4 items-center">
-                    <a href="{{ route('admin.dashboard') }}" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition text-sm">
+                <div class="flex flex-wrap gap-2 items-center justify-end">
+                    <a href="{{ route('admin.dashboard') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         ← Dashboard
                     </a>
-                    <a href="{{ route('super.venues.index') }}" class="px-4 py-2 bg-purple-800 hover:bg-purple-700 rounded-lg transition text-sm">
+                    <a href="{{ route('super.venues.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         🏛️ Venue Templates
                     </a>
-                    <a href="{{ route('super.featured.index') }}" class="px-4 py-2 bg-amber-700 hover:bg-amber-600 rounded-lg transition text-sm">
+                    <a href="{{ route('super.featured.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         ⭐ Featured
                     </a>
-                    <a href="{{ route('super.seo.index') }}" class="px-4 py-2 bg-indigo-800 hover:bg-indigo-700 rounded-lg transition text-sm">
+                    <a href="{{ route('super.seo.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         🔍 SEO Operations
                     </a>
-                    <a href="{{ route('super.pending-upgrades.index') }}" class="px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded-lg transition text-sm">
+                    <a href="{{ route('super.pending-upgrades.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         💳 Pending Upgrades
                     </a>
-                    <a href="{{ route('super.billing.index') }}" class="px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg transition text-sm">
+                    <a href="{{ route('super.billing.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         🧾 Billing Review
                     </a>
-                    <a href="{{ route('super.webhooks.index') }}" class="px-4 py-2 bg-cyan-800 hover:bg-cyan-700 rounded-lg transition text-sm">
+                    <a href="{{ route('super.webhooks.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         📡 Outbound Webhooks
                     </a>
-                    <a href="{{ route('super.feedback.index') }}" class="px-4 py-2 bg-teal-800 hover:bg-teal-700 rounded-lg transition text-sm">
+                    <a href="{{ route('super.feedback.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         💬 Feedback
                     </a>
-                    <a href="{{ route('super.nps.index') }}" class="px-4 py-2 bg-pink-800 hover:bg-pink-700 rounded-lg transition text-sm">
+                    <a href="{{ route('super.nps.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         📊 NPS
                     </a>
-                    <a href="{{ route('super.affiliates.index') }}" class="px-4 py-2 bg-green-800 hover:bg-green-700 rounded-lg transition text-sm">
+                    <a href="{{ route('super.affiliates.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
                         🤝 Affiliates
                     </a>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
-                        <button class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition text-sm">Logout</button>
+                        <button class="px-3 py-1.5 bg-red-600/90 hover:bg-red-600 border border-red-500/30 rounded-lg transition text-sm text-white">Logout</button>
                     </form>
                 </div>
             </div>
@@ -78,7 +78,7 @@
 
     <!-- Platform Statistics -->
     <div class="max-w-7xl mx-auto px-6 py-8">
-        <h2 class="text-xl font-bold mb-4 text-gray-300 uppercase tracking-wider text-sm">📊 Platform Statistics</h2>
+        <h2 class="eyebrow mb-4">📊 Platform Statistics</h2>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-3 mb-10">
             @foreach([
                 ['val' => $stats['total_users'],     'label' => 'Total Users',    'color' => 'blue'],
@@ -91,8 +91,24 @@
                 ['val' => $stats['banned_users'],     'label' => 'Banned',         'color' => 'red'],
                 ['val' => $stats['unverified_users'], 'label' => 'Unverified',     'color' => 'orange'],
             ] as $stat)
-            <div class="bg-{{ $stat['color'] }}-900/30 border border-{{ $stat['color'] }}-700/30 rounded-lg p-3 text-center">
-                <div class="text-2xl font-bold text-{{ $stat['color'] }}-300">{{ $stat['val'] }}</div>
+            @php
+                /* ITERATION-1 FIX: these classes were previously interpolated
+                   (bg-{{ $stat['color'] }}-900/30), which Tailwind's JIT cannot
+                   see — half the tiles rendered unstyled in production. Explicit
+                   literal classes compile correctly. */
+                $statTones = [
+                    'blue'   => 'bg-blue-500/10   border-blue-500/30   text-blue-300',
+                    'purple' => 'bg-brand-500/10  border-brand-500/30  text-brand-300',
+                    'indigo' => 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300',
+                    'pink'   => 'bg-pink-500/10   border-pink-500/30   text-pink-300',
+                    'gray'   => 'bg-gray-500/10   border-gray-500/30   text-gray-300',
+                    'yellow' => 'bg-amber-500/10  border-amber-500/30  text-amber-300',
+                    'red'    => 'bg-red-500/10    border-red-500/30    text-red-300',
+                    'orange' => 'bg-orange-500/10 border-orange-500/30 text-orange-300',
+                ];
+            @endphp
+            <div class="bg-gray-800/60 border rounded-lg p-3 text-center {{ $statTones[$stat['color']] ?? $statTones['gray'] }}">
+                <div class="text-2xl font-semibold text-numeric">{{ $stat['val'] }}</div>
                 <div class="text-xs text-gray-400 mt-0.5">{{ $stat['label'] }}</div>
             </div>
             @endforeach
@@ -415,7 +431,7 @@
         </div>
 
         <!-- Users Table -->
-        <h2 class="text-xl font-bold mb-4 text-gray-300 uppercase tracking-wider text-sm">👥 All Users</h2>
+        <h2 class="eyebrow mb-4">👥 All Users</h2>
         <div class="bg-black/40 border border-gray-700 rounded-xl overflow-hidden">
             <table class="w-full" id="usersTable">
                 <thead class="bg-gray-800/60 border-b border-gray-700">

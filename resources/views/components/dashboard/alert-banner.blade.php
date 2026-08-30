@@ -11,7 +11,7 @@ $styles = [
     'info'    => ['wrap' => 'bg-blue-950/50 border-blue-700/50',   'icon' => 'text-blue-400',  'text' => 'text-blue-200',  'action' => 'text-blue-300 hover:text-blue-100'],
     'warning' => ['wrap' => 'bg-amber-950/50 border-amber-700/50', 'icon' => 'text-amber-400', 'text' => 'text-amber-200', 'action' => 'text-amber-300 hover:text-amber-100'],
     'error'   => ['wrap' => 'bg-red-950/50 border-red-700/50',     'icon' => 'text-red-400',   'text' => 'text-red-200',   'action' => 'text-red-300 hover:text-red-100'],
-    'success' => ['wrap' => 'bg-green-950/50 border-green-700/50', 'icon' => 'text-green-400', 'text' => 'text-green-200', 'action' => 'text-green-300 hover:text-green-100'],
+    'success' => ['wrap' => 'bg-emerald-950/50 border-emerald-700/50', 'icon' => 'text-emerald-400', 'text' => 'text-emerald-200', 'action' => 'text-emerald-300 hover:text-emerald-100'],
     'upgrade' => ['wrap' => 'bg-purple-950/60 border-purple-600/40', 'icon' => 'text-purple-400', 'text' => 'text-purple-200', 'action' => 'text-purple-300 hover:text-white'],
 ];
 $s = $styles[$type] ?? $styles['info'];

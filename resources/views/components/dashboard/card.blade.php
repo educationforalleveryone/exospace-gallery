@@ -5,18 +5,18 @@
     'noBorder'  => false,
 ])
 
-<div class="bg-gray-800 overflow-hidden shadow-lg rounded-xl border {{ $noBorder ? 'border-transparent' : 'border-gray-700' }}">
+<div class="card shadow-card overflow-hidden">
     @if($title)
-    <div class="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-        <h3 class="text-base font-semibold text-gray-100">{{ $title }}</h3>
+    <div class="px-6 py-4 border-b border-gray-700/60 flex items-center justify-between">
+        <h3 class="section-title">{{ $title }}</h3>
         @if($action)
-            <a href="{{ $action['href'] }}" class="text-sm text-purple-400 hover:text-purple-300 transition font-medium">
+            <a href="{{ $action['href'] }}" class="action-link text-brand-400 hover:text-brand-300">
                 {{ $action['label'] }}
             </a>
         @endif
     </div>
     @endif
-    <div @class(['p-6' => $padding])>
+    <div @class(['card-pad' => $padding])>
         {{ $slot }}
     </div>
 </div>

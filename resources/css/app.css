@@ -1,3 +1,25 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXOSPHERE → EXOSPACE DESIGN SYSTEM (app.css)
+   ═══════════════════════════════════════════════════════════════════════════
+   This file is the canonical UI kit for the entire product (admin app, auth,
+   public marketing, OpsCenter, Control Center). Every layout loads it.
+
+   Canonical documentation: docs/DESIGN-SYSTEM.md
+
+   LAYERS OF THIS FILE
+     1. base        — resets, focus, scrollbars, autofill, reduced motion
+     2. components  — the component classes (buttons, cards, inputs, badges,
+                      alerts, tables, menus, modals, typography)
+     3. plain CSS   — keyframes + a few effects that Tailwind can't express
+
+   RULES FOR FUTURE WORK (enforced in review, documented in the design doc)
+     • Never introduce a new hex literal in a Blade file — use tokens.
+     • Never re-style a button/card/input by hand — extend the classes here.
+     • Radius ladder: md = chips · lg = controls · xl = surfaces. Nothing else.
+     • Status hues: success=emerald warning=amber danger=red info=blue.
+     • Minimum text size in UI = 12px (text-xs). No text-[10px] in new code.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,7 +27,19 @@
 /* Hide Alpine-controlled elements until Alpine initialises — prevents flash/auto-open */
 [x-cloak] { display: none !important; }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   1. BASE
+   ───────────────────────────────────────────────────────────────────────────── */
 @layer base {
+    html {
+        scroll-behavior: smooth;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11'; /* Inter: calmer a/g/y */
+    }
+
     /* Improved scrollbar for dark theme */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #111827; }
@@ -13,47 +47,271 @@
     ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
 
     /* Selection colour */
-    ::selection { background: rgba(139,92,246,0.35); color: #f3f4f6; }
+    ::selection { background: rgba(139, 92, 246, 0.35); color: #f3f4f6; }
+
+    /* ── Global keyboard focus ring ────────────────────────────────────────
+       One visible, brand-colored focus indicator for EVERYTHING — including
+       the hundreds of hand-rolled buttons that have no focus classes of
+       their own. Component classes (.btn, .input-base) opt out and provide
+       their own ring/outline because they need finer control. */
+    *:focus-visible {
+        outline: 2px solid rgba(139, 92, 246, 0.8);
+        outline-offset: 2px;
+    }
+    /* Inputs announce focus via border + ring instead (see .input-base) */
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+        outline: none;
+    }
+
+    /* Autofill on dark surfaces — stops Chrome's white flash */
+    input:-webkit-autofill,
+    textarea:-webkit-autofill,
+    select:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0 1000px #111827 inset;
+        -webkit-text-fill-color: #f3f4f6;
+        caret-color: #f3f4f6;
+        transition: background-color 9999s ease-out;
+    }
+
+    /* Respect reduced motion globally (animations, transitions, smooth scroll) */
+    @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   2. COMPONENTS — the shared UI kit
+   ───────────────────────────────────────────────────────────────────────────── */
 @layer components {
-    /* Consistent button base */
+
+    /* ═══ TYPOGRAPHY ══════════════════════════════════════════════════════
+       Scale (all Inter):
+         page-title    20→24px / semibold / tight — one per page (h1/h2 in $header)
+         page-subtitle 14px   / regular  / gray-400 — supporting line under page-title
+         section-title 16px   / semibold — card headers, panel headers (h3)
+         eyebrow       12px   / semibold / uppercase / wide — overline labels
+         body          14px   (default text-sm)
+         label-text    14px   / medium — form labels
+         hint-text     12px   / gray-500 — helper + metadata
+       Minimum UI size = text-xs (12px). Weights used: 400/500/600 only —
+       700+ is reserved for marketing heroes and stat values. */
+    .page-title    { @apply text-xl sm:text-2xl font-semibold tracking-tight leading-tight text-gray-50; }
+    .page-subtitle { @apply mt-1 text-sm text-gray-400; }
+    .section-title { @apply text-base font-semibold text-gray-100; }
+    .eyebrow       { @apply text-xs font-semibold text-gray-500 uppercase tracking-wider; }
+    .label-text    { @apply block text-sm font-medium text-gray-300; }
+    .hint-text     { @apply text-xs text-gray-500; }
+    .text-numeric  { @apply tabular-nums tracking-tight; }
+
+    /* BC alias — original name kept, same recipe */
+    .section-header { @apply text-xs font-semibold text-gray-500 uppercase tracking-wider; }
+
+    /* ═══ BUTTONS ═════════════════════════════════════════════════════════
+       .btn              base — default size h-10 (40px, AA touch target)
+       .btn-sm           dense toolbars/table rows (32px)
+       .btn-lg           hero/empty-state CTAs (44px)
+       .btn-icon         square icon-only (36px, pair with aria-label!)
+       Variants: primary (one per view) · secondary · ghost · danger ·
+                 danger-ghost (quiet destructive in rows/menus). */
     .btn {
-        @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900;
+        @apply inline-flex items-center justify-center gap-2 select-none whitespace-nowrap
+               rounded-lg border border-transparent px-4 h-10 text-sm font-medium
+               transition-all duration-150 active:scale-[0.98]
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/80
+               focus-visible:ring-offset-2 focus-visible:ring-offset-ink-900
+               disabled:opacity-50 disabled:pointer-events-none;
     }
+    .btn-sm   { @apply h-8 px-3 text-xs gap-1.5 rounded-md; }
+    .btn-lg   { @apply h-11 px-5; }
+    .btn-icon { @apply h-9 w-9 p-0; }
+
     .btn-primary {
-        @apply btn bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white hover:shadow-lg hover:shadow-purple-900/40;
+        @apply btn bg-brand-600 text-white shadow-sm hover:bg-brand-500;
+    }
+    .btn-secondary {
+        @apply btn bg-white/[0.06] border-white/10 text-gray-200 hover:bg-white/[0.10] hover:text-white;
     }
     .btn-ghost {
-        @apply btn bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300;
+        @apply btn text-gray-300 hover:bg-white/[0.06] hover:text-white;
+    }
+    .btn-danger {
+        @apply btn bg-red-600 text-white shadow-sm hover:bg-red-500;
+    }
+    .btn-danger-ghost {
+        @apply btn bg-red-600/10 border-red-600/30 text-red-400 hover:bg-red-600/20 hover:text-red-300;
     }
 
-    /* Card: unified look */
+    /* Loading state — pair with disabled:
+       <button class="btn btn-primary" disabled><span class="btn-spinner"></span>Saving…</button> */
+    .btn-spinner {
+        @apply inline-block w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin;
+    }
+
+    /* ═══ CARDS ═══════════════════════════════════════════════════════════ */
     .card {
         @apply bg-gray-800 rounded-xl border border-gray-700/60;
     }
-
-    /* Input base */
-    .input-base {
-        @apply bg-gray-800 border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors;
+    /* Standard interior padding for a .card */
+    .card-pad        { @apply p-5 sm:p-6; }
+    /* Clickable cards — lists of galleries/artists/venues */
+    .card-interactive {
+        @apply transition-all duration-200 cursor-pointer
+               hover:border-gray-600 hover:shadow-card-hover;
     }
+    /* Selection state — pair with .card-interactive or .card */
+    .card-selected   { @apply border-brand-500/60 ring-1 ring-brand-500/30; }
 
-    /* Status badge */
-    .badge { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border; }
-    .badge-success { @apply bg-green-900/40 text-green-400 border-green-700/40; }
-    .badge-warn    { @apply bg-yellow-900/40 text-yellow-400 border-yellow-700/40; }
-    .badge-neutral { @apply bg-gray-700 text-gray-400 border-gray-600; }
-    .badge-pro     { @apply bg-purple-600/20 text-purple-300 border-purple-500/30; }
+    /* ═══ FORMS ═══════════════════════════════════════════════════════════
+       One input recipe for the whole product. Inset well (darker than its
+       container) so it reads correctly on both the canvas and on cards. */
+    .input-base {
+        @apply block w-full h-10 px-3.5 text-sm
+               bg-gray-900/60 border border-gray-600/80 rounded-lg
+               text-gray-100 placeholder-gray-500 shadow-sm
+               transition-colors duration-150
+               focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20
+               hover:border-gray-500/80
+               disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-900/30
+               read-only:bg-gray-900/30;
+    }
+    .input-sm { @apply h-8 px-2.5 text-xs rounded-md; }
+    /* Error state — add next to .input-base, and link via aria-invalid/describedby */
+    .input-error {
+        @apply border-red-500/70 focus:border-red-500 focus:ring-red-500/20;
+    }
+    textarea.input-base { @apply h-auto min-h-[80px] py-2.5; }
+    select.input-base   { @apply pr-8; }
 
-    /* Table rows */
-    .table-row-base { @apply border-b border-gray-700/50 hover:bg-white/[0.025] transition-colors; }
+    /* ═══ BADGES ══════════════════════════════════════════════════════════
+       Tinted pills — one recipe, five semantic hues. Status mapping:
+       success=emerald warning=amber danger=red info=blue neutral=gray
+       brand=purple (plan tiers, "Pro" markers). */
+    .badge {
+        @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border;
+    }
+    .badge-success  { @apply bg-emerald-500/10 text-emerald-400 border-emerald-500/30; }
+    .badge-warning  { @apply bg-amber-500/10 text-amber-400 border-amber-500/30; }
+    .badge-danger   { @apply bg-red-500/10 text-red-400 border-red-500/30; }
+    .badge-info     { @apply bg-blue-500/10 text-blue-400 border-blue-500/30; }
+    .badge-neutral  { @apply bg-gray-500/10 text-gray-400 border-gray-500/30; }
+    .badge-brand    { @apply bg-brand-500/10 text-brand-400 border-brand-500/30; }
 
-    /* Section header */
-    .section-header { @apply text-xs font-semibold text-gray-500 uppercase tracking-wider; }
+    /* BC aliases — deprecated, use the semantic names above */
+    .badge-warn { @apply badge-warning; }
+    .badge-pro  { @apply badge-brand; }
 
-    /* Muted action link */
-    .action-link { @apply text-sm text-gray-400 hover:text-white transition-colors duration-150 font-medium; }
+    /* ═══ ALERTS / BANNERS ════════════════════════════════════════════════ */
+    .alert { @apply flex items-start gap-3 px-4 py-3 rounded-lg border text-sm; }
+    .alert-info    { @apply bg-blue-950/40 border-blue-800/60 text-blue-200; }
+    .alert-success { @apply bg-emerald-950/40 border-emerald-800/60 text-emerald-200; }
+    .alert-warning { @apply bg-amber-950/40 border-amber-800/60 text-amber-200; }
+    .alert-error   { @apply bg-red-950/40 border-red-800/60 text-red-200; }
+    .alert-brand   { @apply bg-brand-950/40 border-brand-800/60 text-brand-200; }
 
-    /* Empty state */
-    .empty-state { @apply flex flex-col items-center justify-center py-16 text-center; }
+    /* ═══ TABLES ══════════════════════════════════════════════════════════
+       <div class="table-wrap">
+         <table class="table-base">
+           <thead><tr><th class="table-head-cell">…</th></tr></thead>
+           <tbody><tr class="table-row-base"><td class="table-cell">…</td></tr></tbody>
+         </table>
+       </div> */
+    .table-wrap      { @apply overflow-x-auto rounded-xl border border-gray-700/60; }
+    .table-base      { @apply w-full text-sm text-start; }
+    .table-head      { @apply bg-gray-900/50; }
+    .table-head-cell { @apply px-4 py-3 text-start text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap; }
+    .table-cell      { @apply px-4 py-3.5 align-middle; }
+    .table-row-base  { @apply border-b border-gray-700/40 transition-colors hover:bg-white/[0.025]; }
+    .table-empty     { @apply px-4 py-12 text-center text-sm text-gray-500; }
+
+    /* ═══ MENUS / DROPDOWNS ═══════════════════════════════════════════════ */
+    .menu-panel     { @apply rounded-xl border border-gray-600/60 bg-gray-800 shadow-menu overflow-hidden; }
+    .menu-item      { @apply flex items-center w-full px-3.5 py-2 text-start text-sm text-gray-300
+                            hover:bg-white/[0.05] hover:text-white focus:outline-none
+                            focus:bg-white/[0.05] focus:text-white transition duration-150; }
+    .menu-header    { @apply px-3.5 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider; }
+    .menu-separator { @apply border-t border-gray-700/60 my-1; }
+
+    /* ═══ MODALS ══════════════════════════════════════════════════════════
+       One dialog language for every modal in the product (x-modal,
+       x-confirm-modal, upgrade modal). Panel widths: max-w-md standard,
+       max-w-lg form, max-w-2xl large. */
+    .modal-backdrop { @apply fixed inset-0 z-50 bg-black/70 backdrop-blur-sm; }
+    .modal-panel    { @apply w-full bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal; }
+    /* Standard modal interior — header / body / footer bands */
+    .modal-header   { @apply px-6 py-4 border-b border-gray-700/60; }
+    .modal-body     { @apply px-6 py-5; }
+    .modal-footer   { @apply px-6 py-4 border-t border-gray-700/60 flex items-center justify-end gap-3; }
+
+    /* ═══ MISC SHARED ═════════════════════════════════════════════════════ */
+    .empty-state { @apply flex flex-col items-center justify-center py-12 px-6 text-center; }
+    .action-link { @apply text-sm font-medium text-gray-400 hover:text-white transition-colors duration-150; }
+
+    /* Brand wordmark — ONE definition. Previously every page defined its own
+       `.gradient-text` with different stops (footer rendered unstyled on
+       pages that didn't define it). */
+    .gradient-text { @apply bg-gradient-to-r from-brand-400 to-brand-300 bg-clip-text text-transparent; }
+    .logo-text     { @apply font-bold tracking-tight gradient-text; }
+
+    /* Progress bar fill — width set inline (dynamic %) */
+    .progress-fill { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+
+    /* CSS-only tooltip (declarative, zero-JS). Rich tooltips use <x-tooltip>. */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #08090d;
+        color: #f3f4f6;
+        font-size: 0.75rem;
+        line-height: 1.4;
+        padding: 4px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s;
+        border: 1px solid #374151;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        z-index: 60;
+    }
+    [data-tooltip]:hover::after,
+    [data-tooltip]:focus-visible::after { opacity: 1; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   3. PLAIN CSS — keyframes & effects (outside @layer so they always ship)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Page-level fade-in. NOTE: no transform here on purpose — a transform on
+   <main> creates a stacking context that buries nav dropdown panels. */
+@keyframes pageIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.page-content { animation: pageIn 0.25s ease-out; }
+
+/* Mobile nav slide */
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.mobile-menu-open { animation: slideDown 0.2s ease-out; }
+
+/* Card hover lift — the ONLY colored shadow in the system (brand-tinted) */
+.card-lift {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.12);
 }

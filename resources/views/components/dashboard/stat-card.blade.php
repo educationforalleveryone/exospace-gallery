@@ -38,7 +38,7 @@ $trendFlat = $trend !== null && $trend === 0;
     <div class="p-5">
         <div class="flex items-start justify-between mb-3">
             <div class="{{ $c['bg'] }} w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
-                <svg class="w-4.5 h-4.5 text-white" style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-[18px] h-[18px] text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $icon }}"/>
                 </svg>
             </div>
@@ -50,13 +50,13 @@ $trendFlat = $trend !== null && $trend === 0;
             </div>
         </div>
 
-        <div class="text-2xl font-bold text-gray-100 tabular-nums leading-none tracking-tight mb-1">{{ $value }}</div>
+        <div class="text-2xl font-semibold text-gray-50 text-numeric leading-none mb-1">{{ $value }}</div>
         <div class="text-sm text-gray-400 mb-2">{{ $label }}</div>
 
         <div class="flex items-center gap-2 min-h-[18px]">
             @if($trend !== null)
                 @if($trendUp)
-                    <span class="inline-flex items-center gap-0.5 text-xs font-semibold text-green-400">
+                    <span class="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-400">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"/></svg>
                         +{{ $trend }}%
                     </span>
@@ -72,7 +72,7 @@ $trendFlat = $trend !== null && $trend === 0;
                     <span class="text-xs text-gray-600">{{ $trendLabel }}</span>
                 @endif
             @elseif($sub)
-                <span class="text-xs {{ match($subColor) { 'green' => 'text-green-400', 'red' => 'text-red-400', 'amber' => 'text-amber-400', default => 'text-gray-500' } }}">{{ $sub }}</span>
+                <span class="text-xs {{ match($subColor) { 'green' => 'text-emerald-400', 'red' => 'text-red-400', 'amber' => 'text-amber-400', default => 'text-gray-500' } }}">{{ $sub }}</span>
             @endif
         </div>
     </div>

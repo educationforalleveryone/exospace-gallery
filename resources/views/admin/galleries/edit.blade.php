@@ -167,9 +167,9 @@
             text-transform: uppercase;
             letter-spacing: 0.03em;
         }
-        .badge-free { background: #374151; color: #9ca3af; }
-        .badge-pro { background: #d97706; color: #fef3c7; }
-        .badge-studio { background: #7c3aed; color: #e9d5ff; }
+        .venue-plan-badge-free { background: #374151; color: #9ca3af; }
+        .venue-plan-badge-pro { background: #d97706; color: #fef3c7; }
+        .venue-plan-badge-studio { background: #7c3aed; color: #e9d5ff; }
     /* ─── Reorder save bar (Round 4 polish) ─── */
     #reorder-save-bar {
         position: fixed;
@@ -422,7 +422,7 @@
                                     $accessible = $venue->isAccessibleBy(auth()->user());
                                     $isSelected = $gallery->venue_template_id == $venue->id;
                                     $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '??', 'accent' => '#555'];
-                                    $badgeClass = match($venue->plan_required) { 'pro' => 'badge-pro', 'studio' => 'badge-studio', default => 'badge-free' };
+                                    $badgeClass = match($venue->plan_required) { 'pro' => 'venue-plan-badge-pro', 'studio' => 'venue-plan-badge-studio', default => 'venue-plan-badge-free' };
                                 @endphp
                                 <div class="edit-venue-card"
                                      data-venue-id="{{ $venue->id }}"
@@ -953,7 +953,7 @@
                 </div>
                 @else
                 <form action="{{ route('admin.images.store', $gallery) }}"
-                      class="dropzone border-dashed border-2 border-gray-600 rounded-lg bg-gray-750/50 hover:bg-gray-750 transition-all duration-300 cursor-pointer"
+                      class="dropzone border-dashed border-2 border-gray-600 rounded-lg bg-gray-900/40 hover:bg-gray-900/70 transition-all duration-300 cursor-pointer"
                       id="image-upload-dropzone">
                     @csrf
                 </form>
