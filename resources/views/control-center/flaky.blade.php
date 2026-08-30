@@ -38,7 +38,7 @@
                     };
                 @endphp
                 <tr class="hover:bg-slate-900/40">
-                    <td class="px-4 py-3"><span class="rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase {{ $kindStyle }}">{{ $t['kind'] }}</span></td>
+                    <td class="px-4 py-3"><x-status-badge :state="$t['kind'] === 'flaky' ? 'warning' : ($t['kind'] === 'perma_fail' ? 'critical' : 'warning')" :label="$t['kind']" /></td>
                     <td class="px-4 py-3"><code class="text-xs">{{ $t['test_identifier'] }}</code></td>
                     <td class="px-4 py-3 text-xs">{{ $t['profile'] }}</td>
                     <td class="px-4 py-3">{{ $t['executions'] }}</td>

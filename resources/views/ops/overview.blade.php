@@ -35,7 +35,7 @@
                     <span>PLATFORM STATUS: <span class="text-2xl align-middle ml-1">{{ $hero['label'] }}</span></span>
                     {{-- Iteration 4: the quantified verdict — same band as the status label, with the breakdown card right below --}}
                     <span class="inline-flex items-baseline gap-1.5 px-3 py-1 rounded-lg border {{ $scoreStyle }} text-sm font-bold align-middle" title="Weighted health score — see the breakdown below">
-                        <span class="text-xl">{{ $healthScore['score'] }}</span><span class="text-[10px] font-normal opacity-70">/100</span>
+                        <span class="text-xl">{{ $healthScore['score'] }}</span><span class="text-xs font-normal opacity-70">/100</span>
                     </span>
                 </h1>
                 <p class="text-xs text-slate-400 mt-0.5">
@@ -46,15 +46,15 @@
         <div class="flex gap-3 text-center">
             <div class="rounded-lg bg-slate-950/60 border border-slate-800 px-4 py-2">
                 <div class="text-xl font-bold {{ ($openCounts['critical'] ?? 0) > 0 ? 'text-red-400' : 'text-slate-400' }}">{{ $openCounts['critical'] ?? 0 }}</div>
-                <div class="text-[10px] uppercase tracking-wider text-slate-500">Critical</div>
+                <div class="text-xs uppercase tracking-wider text-slate-500">Critical</div>
             </div>
             <div class="rounded-lg bg-slate-950/60 border border-slate-800 px-4 py-2">
                 <div class="text-xl font-bold {{ ($openCounts['error'] ?? 0) > 0 ? 'text-orange-400' : 'text-slate-400' }}">{{ $openCounts['error'] ?? 0 }}</div>
-                <div class="text-[10px] uppercase tracking-wider text-slate-500">Errors</div>
+                <div class="text-xs uppercase tracking-wider text-slate-500">Errors</div>
             </div>
             <div class="rounded-lg bg-slate-950/60 border border-slate-800 px-4 py-2">
                 <div class="text-xl font-bold {{ ($openCounts['warning'] ?? 0) > 0 ? 'text-amber-400' : 'text-slate-400' }}">{{ $openCounts['warning'] ?? 0 }}</div>
-                <div class="text-[10px] uppercase tracking-wider text-slate-500">Warnings</div>
+                <div class="text-xs uppercase tracking-wider text-slate-500">Warnings</div>
             </div>
         </div>
     </div>
@@ -87,8 +87,8 @@
             @endphp
             <a href="{{ route('ops.incidents.show', $incident) }}" class="block rounded-lg border {{ $sevStyle }} p-4 hover:brightness-125 transition">
                 <div class="flex items-center justify-between gap-2">
-                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-950/60 text-slate-300 border border-slate-700/50">{{ strtoupper($incident->severity) }} · #{{ $incident->id }}</span>
-                    <span class="text-[10px] text-slate-500">{{ $incident->event_count }} events · {{ $incident->confidence }} confidence</span>
+                    <x-status-badge :state="$incident->severity === 'error' ? 'critical' : $incident->severity" :label="strtoupper($incident->severity).'. #'.$incident->id" />
+                    <span class="text-xs text-slate-500">{{ $incident->event_count }} events · {{ $incident->confidence }} confidence</span>
                 </div>
                 <div class="text-sm font-medium text-slate-100 mt-1.5">{{ $incident->title }}</div>
                 <div class="text-xs text-slate-400 mt-1">{{ $incident->rootCauseStatement() }}</div>
@@ -125,12 +125,12 @@
                                 <div>
                                     <div class="font-medium text-slate-100 flex items-center gap-2">
                                         {{ $app->name }}
-                                        @if($app->is_self)<span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-900/50 text-cyan-300 border border-cyan-700/40 font-semibold">SELF</span>@endif
-                                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/50 uppercase">{{ $app->kind }}</span>
+                                        @if($app->is_self)<span class="text-xs px-1.5 py-0.5 rounded bg-cyan-900/50 text-cyan-300 border border-cyan-700/40 font-semibold">SELF</span>@endif
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/50 uppercase">{{ $app->kind }}</span>
                                     </div>
-                                    <div class="text-[11px] text-slate-500 mt-0.5 font-mono truncate max-w-[220px]">{{ $app->url ?? $app->slug }}</div>
+                                    <div class="text-xs text-slate-500 mt-0.5 font-mono truncate max-w-[220px]">{{ $app->url ?? $app->slug }}</div>
                                 </div>
-                                <span class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded border {{ $style['chip'] }}">
+                                <span class="status {{ $style['chip'] }}">
                                     <span class="w-1.5 h-1.5 rounded-full {{ $style['dot'] }}"></span>{{ $style['label'] }}
                                 </span>
                             </div>
@@ -167,11 +167,11 @@
                             <div class="flex items-center justify-between gap-3">
                                 <div class="min-w-0">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border {{ $sev[2] }} {{ $sev[0] }} {{ $sev[1] }}">{{ $sev[3] }}</span>
-                                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">{{ $event->category }}</span>
+                                        <span class="text-xs font-bold px-1.5 py-0.5 rounded border {{ $sev[2] }} {{ $sev[0] }} {{ $sev[1] }}">{{ $sev[3] }}</span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">{{ $event->category }}</span>
                                         <span class="text-sm font-medium text-slate-100 truncate">{{ $event->title }}</span>
                                     </div>
-                                    <div class="text-[11px] text-slate-500 mt-1">
+                                    <div class="text-xs text-slate-500 mt-1">
                                         {{ $event->application?->name ?? 'Unattributed' }} · last seen {{ $event->last_seen_at?->diffForHumans() }} · {{ $event->occurrence_count }}× occurrence{{ $event->occurrence_count === 1 ? '' : 's' }}
                                     </div>
                                 </div>
@@ -189,7 +189,7 @@
         <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
             <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">{{ $selfApp?->name ?? 'Host Application' }} — Subsystems</h2>
             @php $selfStyle = $statusStyles[$selfChecks['status']] ?? $statusStyles['unknown']; @endphp
-            <div class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded border {{ $selfStyle['chip'] }} mb-3">
+            <div class="status {{ $selfStyle['chip'] }} mb-3">
                 <span class="w-1.5 h-1.5 rounded-full {{ $selfStyle['dot'] }}"></span>{{ $selfStyle['label'] }}
             </div>
             <ul class="space-y-1.5">
@@ -199,7 +199,7 @@
                     <li class="text-xs text-emerald-400">All subsystem checks passed (DB, cache, queue, scheduler, backups, disk)</li>
                 @endforelse
             </ul>
-            <p class="text-[10px] text-slate-600 mt-3">Checks mirror /health, JobHeartbeatService, backup freshness and disk thresholds — read-only, no new monitors.</p>
+            <p class="text-xs text-slate-600 mt-3">Checks mirror /health, JobHeartbeatService, backup freshness and disk thresholds — read-only, no new monitors.</p>
         </div>
 
         <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
@@ -211,10 +211,10 @@
                     @foreach($recentDeployments as $deployment)
                         <li>
                             <a href="{{ route('ops.events.show', $deployment) }}" class="text-xs text-slate-200 hover:text-emerald-300">
-                                <span class="font-mono px-1.5 py-0.5 rounded text-[10px] {{ $deployment->severity === 'critical' ? 'bg-red-950/60 text-red-300' : 'bg-emerald-950/60 text-emerald-300' }}">{{ strtoupper($deployment->category) }}</span>
+                                <span class="font-mono px-1.5 py-0.5 rounded text-xs {{ $deployment->severity === 'critical' ? 'bg-red-950/60 text-red-300' : 'bg-emerald-950/60 text-emerald-300' }}">{{ strtoupper($deployment->category) }}</span>
                                 {{ $deployment->title }}
                             </a>
-                            <div class="text-[10px] text-slate-600 mt-0.5">
+                            <div class="text-xs text-slate-600 mt-0.5">
                                 {{ $deployment->application?->name }} · {{ $deployment->last_seen_at?->diffForHumans() }}
                                 @if(data_get($deployment->context, 'commit')) · commit {{ \Illuminate\Support\Str::limit(data_get($deployment->context, 'commit'), 8, '') }}@endif
                             </div>
@@ -233,7 +233,7 @@
 
         <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
             <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Shipped</h2>
-            <ul class="text-[11px] text-slate-500 space-y-1.5">
+            <ul class="text-xs text-slate-500 space-y-1.5">
                 <li><span class="text-slate-400 font-medium">Iter 2:</span> incidents, correlation engine, timelines — related errors are one story.</li>
                 <li><span class="text-slate-400 font-medium">Iter 3:</span> one-click read-only diagnostics + safe actions (restart, replay).</li>
                 <li><span class="text-slate-400 font-medium">Iter 4:</span> health score, Sentry summary, backup/webhook tiles, and the 15-minute autonomous sweep — problems now find YOU (deduplicated events + Slack), no dashboard visit required.</li>

@@ -1,18 +1,15 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Pending Upgrades</h2>
+        <x-page-header title="Pending Upgrades" description="Users who clicked &quot;Upgrade&quot; but haven't completed 2Checkout checkout. Expired or abandoned upgrades can be manually reviewed here." :back="route('super.index')" backLabel="Master Control"/>
     </x-slot>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-    <h1 class="text-2xl font-bold text-white mb-2">Pending Upgrades</h1>
-    <p class="text-sm text-gray-400 mb-6">Users who clicked "Upgrade" but haven't completed 2Checkout checkout. Expired or abandoned upgrades can be manually reviewed here.</p>
-
+    <div class="page-shell">
     @if(session('success'))
-        <div class="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-300" role="status">{{ session('success') }}</div>
+        <div class="mb-4 alert alert-success" role="status">{{ session('success') }}</div>
     @endif
 
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden">
-        <table class="w-full text-sm">
+    <div class="table-wrap">
+            <table class="table-base min-w-[760px]">
             <thead>
                 <tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
                     <th class="px-5 py-3">User</th>

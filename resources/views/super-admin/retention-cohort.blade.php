@@ -1,12 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Cohort drill-down</h2>
+        <x-page-header :title="'Cohort '.$cohort->format('M j, Y').' — Week '.$weekIndex" :back="route('super.index')" backLabel="Master Control"/>
     </x-slot>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-    <a href="{{ route('super.index') }}" class="text-sm text-gray-400 hover:text-white mb-4 inline-block">← Back to Master Control</a>
-
-    <h1 class="text-2xl font-bold text-white mb-2">🔁 Cohort {{ $cohort->format('M j, Y') }} — Week {{ $weekIndex }}</h1>
+    <div class="page-shell">
     <p class="text-sm text-gray-400 mb-6">
         Members who registered during the week of <strong>{{ $cohort->format('M j') }}</strong> –
         <strong>{{ $cohort->copy()->addDays(6)->format('M j, Y') }}</strong>, with their activity status
@@ -33,19 +30,19 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 text-center">
             <div class="text-2xl font-bold text-white">{{ number_format($size) }}</div>
-            <div class="text-[11px] text-gray-500 mt-0.5">Cohort size</div>
+            <div class="text-xs text-gray-500 mt-0.5">Cohort size</div>
         </div>
         <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 text-center">
             <div class="text-2xl font-bold text-emerald-400">{{ number_format($activeCount) }}</div>
-            <div class="text-[11px] text-gray-500 mt-0.5">Active in week {{ $weekIndex }}</div>
+            <div class="text-xs text-gray-500 mt-0.5">Active in week {{ $weekIndex }}</div>
         </div>
         <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 text-center">
             <div class="text-2xl font-bold text-emerald-300">{{ $pct }}%</div>
-            <div class="text-[11px] text-gray-500 mt-0.5">Retained (live)</div>
+            <div class="text-xs text-gray-500 mt-0.5">Retained (live)</div>
         </div>
         <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 text-center">
             <div class="text-2xl font-bold text-gray-400">{{ $periodStart->format('M j') }} – {{ $periodEnd->copy()->subDay()->format('M j') }}</div>
-            <div class="text-[11px] text-gray-500 mt-0.5">Period window</div>
+            <div class="text-xs text-gray-500 mt-0.5">Period window</div>
         </div>
     </div>
 
@@ -69,10 +66,10 @@
         <div class="bg-gray-900/50 border border-gray-700/30 rounded-lg p-4 mb-6">
             <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
                 <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">📈 Cohort retention curve — W0 to W7</h3>
-                <div class="text-[10px] text-gray-600">{{ $curvePoints }} point{{ $curvePoints === 1 ? '' : 's' }} recorded · week {{ $weekIndex }} highlighted</div>
+                <div class="text-xs text-gray-600">{{ $curvePoints }} point{{ $curvePoints === 1 ? '' : 's' }} recorded · week {{ $weekIndex }} highlighted</div>
             </div>
             <div class="h-48"><canvas id="cohort-curve-chart" role="img" aria-label="{{ $curveAria }}"></canvas></div>
-            <div class="text-[10px] text-gray-600 mt-1">% of this cohort active (login or gallery update) in each of their first 8 weeks after registration. Higher is better. The highlighted column is the week you clicked through from the matrix.</div>
+            <div class="text-xs text-gray-600 mt-1">% of this cohort active (login or gallery update) in each of their first 8 weeks after registration. Higher is better. The highlighted column is the week you clicked through from the matrix.</div>
         </div>
     @endif
 
@@ -81,8 +78,8 @@
     </div>
 
     {{-- Members table — same shape as the dashboard users table --}}
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden">
-        <table class="w-full text-sm">
+    <div class="table-wrap">
+            <table class="table-base min-w-[760px]">
             <thead>
                 <tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
                     <th class="px-5 py-3">User</th>
@@ -105,9 +102,9 @@
                         <td class="px-5 py-3 text-gray-400 text-xs">{{ $member->last_login_at?->diffForHumans() ?? '—' }}</td>
                         <td class="px-5 py-3 text-center">
                             @if((int) ($member->active_in_period ?? 0) === 1)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-900/40 text-emerald-300 border border-emerald-700/30">active</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-900/40 text-emerald-300 border border-emerald-700/30">active</span>
                             @else
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-800 text-gray-500 border border-gray-700/30">inactive</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-500 border border-gray-700/30">inactive</span>
                             @endif
                         </td>
                         <td class="px-5 py-3 text-center">

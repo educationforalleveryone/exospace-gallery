@@ -168,6 +168,11 @@ export default {
         'page-title', 'page-subtitle', 'section-title', 'section-header', 'eyebrow',
         'text-numeric', 'action-link', 'empty-state', 'gradient-text', 'logo-text',
         'progress-fill', 'page-content', 'mobile-menu-open',
+        // Page composition (iteration 2)
+        'page-shell', 'page-shell-mid', 'page-shell-narrow', 'back-link',
+        // Operational status language (OpsCenter / Control Center / Master Control)
+        'status', 'status-dot', 'status-healthy', 'status-warning',
+        'status-critical', 'status-info', 'status-unknown',
     ],
 
     plugins: [forms],

@@ -1,13 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('admin.artists.index') }}" class="text-gray-400 hover:text-gray-200 transition text-sm">← Artists</a>
-            <span class="text-gray-600">/</span>
-            <h2 class="font-semibold text-xl text-gray-100">Edit: {{ $artist->name }}</h2>
-        </div>
+        <x-page-header :title="'Edit: '.$artist->name" :back="route('admin.artists.index')" backLabel="Artists"/>
     </x-slot>
 
-    <div class="py-8 max-w-2xl mx-auto px-4">
+    <div class="page-shell-narrow">
         <form method="POST" action="{{ route('admin.artists.update', $artist) }}" enctype="multipart/form-data">
             @csrf @method('PUT')
             @include('admin.artists._form-fields', ['artist' => $artist])

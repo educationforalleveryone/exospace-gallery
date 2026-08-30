@@ -4,33 +4,33 @@
             $activeTeam = auth()->user()->currentTeam();
             $canEdit = !$activeTeam || $activeTeam->canEdit(auth()->user());
         @endphp
-        <div class="flex justify-between items-center gap-4">
-            <div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="min-w-0">
                 @if($activeTeam)
                     <div class="flex items-center gap-2 mb-0.5">
-                        <span class="w-6 h-6 rounded-md bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{{ strtoupper(substr($activeTeam->name, 0, 1)) }}</span>
-                        <h2 class="font-semibold text-xl text-gray-100 leading-tight">{{ $activeTeam->name }}</h2>
+                        <span class="w-6 h-6 rounded-md bg-brand-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" aria-hidden="true">{{ strtoupper(substr($activeTeam->name, 0, 1)) }}</span>
+                        <h1 class="page-title break-words">{{ $activeTeam->name }}</h1>
                     </div>
-                    <p class="text-xs text-gray-500 flex items-center gap-1.5">
-                        <span class="capitalize text-{{ $canEdit ? 'indigo' : 'gray' }}-400">{{ ucfirst(auth()->user()->teamRole($activeTeam)) }}</span>
+                    <p class="text-xs text-gray-500 flex items-center gap-1.5 flex-wrap">
+                        <span class="capitalize text-{{ $canEdit ? 'brand' : 'gray' }}-400">{{ ucfirst(auth()->user()->teamRole($activeTeam)) }}</span>
                         <span class="text-gray-700">·</span>
                         <span>Team workspace</span>
                         <span class="text-gray-700">·</span>
-                        <a href="{{ route('admin.teams.show', $activeTeam) }}" class="text-gray-500 hover:text-purple-400 transition">Manage team →</a>
+                        <a href="{{ route('admin.teams.show', $activeTeam) }}" class="text-gray-500 hover:text-brand-400 transition">Manage team →</a>
                     </p>
                 @else
-                    <h2 class="font-semibold text-xl text-gray-100 leading-tight">My Galleries</h2>
-                    <p class="text-xs text-gray-500 mt-0.5">Personal workspace</p>
+                    <h1 class="page-title">My Galleries</h1>
+                    <p class="page-subtitle">Personal workspace</p>
                 @endif
             </div>
             @if($canEdit && (auth()->user()->canCreateGallery() || $activeTeam))
                 <a href="{{ route('admin.galleries.create') }}{{ $activeTeam ? '?team=' . $activeTeam->id : '' }}"
-                   class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-5 rounded-lg transition inline-flex items-center gap-2 flex-shrink-0">
+                   class="btn btn-primary shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     New Gallery
                 </a>
             @elseif(!$canEdit)
-                <span class="inline-flex items-center gap-1.5 text-xs bg-gray-700/60 border border-gray-600 text-gray-400 px-3 py-1.5 rounded-lg">
+                <span class="inline-flex items-center gap-1.5 text-xs bg-gray-700/60 border border-gray-600 text-gray-400 px-3 py-1.5 rounded-lg shrink-0">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                     View only
                 </span>
@@ -44,18 +44,17 @@
         </div>
     </x-slot>
 
-    <div class="py-8 sm:py-10">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+    <div class="page-shell">
 
             @if(session('upgrade'))
                 <script nonce="@nonce">document.addEventListener('DOMContentLoaded', () => openModal('upgrade-modal'));</script>
             @endif
 
             @if(!auth()->user()->canCreateGallery() && !$activeTeam)
-            <div class="mb-6 flex items-center gap-3 bg-purple-950/50 border border-purple-600/40 rounded-xl px-4 py-3">
-                <svg class="w-4 h-4 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <p class="flex-1 text-sm text-purple-200">You're on the Free plan — 1 gallery maximum. Upgrade to Pro for {{ config('plans.limits.pro.max_galleries') }} galleries and more image slots.</p>
-                <a href="/pricing" class="flex-shrink-0 text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition whitespace-nowrap">Upgrade — $29</a>
+            <div class="mb-6 alert alert-brand">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <p class="flex-1">You're on the Free plan — 1 gallery maximum. Upgrade to Pro for {{ config('plans.limits.pro.max_galleries') }} galleries and more image slots.</p>
+                <a href="/pricing" class="btn btn-sm btn-primary shrink-0 whitespace-nowrap">Upgrade — $29</a>
             </div>
             @endif
 
@@ -192,7 +191,7 @@
                                       data-confirm="Duplicate this gallery? A copy with all images will be created.">
                                     @csrf
                                     <button type="submit"
-                                            class="w-full bg-gray-700 hover:bg-gray-600 text-center text-gray-200 font-medium py-2 px-3 rounded-lg transition text-sm flex items-center justify-center gap-1.5">
+                                            class="btn btn-sm btn-secondary w-full">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                         Duplicate
                                     </button>
@@ -217,7 +216,7 @@
                             <!-- Floating 3D Cube Animation -->
                             <div class="relative inline-block mb-6">
                                 <div class="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl blur-2xl opacity-20 animate-pulse"></div>
-                                <div class="relative bg-gradient-to-br from-purple-600 to-indigo-600 w-24 h-24 rounded-2xl flex items-center justify-center transform hover:rotate-12 transition-transform duration-500">
+                                <div class="relative bg-brand-600 w-24 h-24 rounded-2xl flex items-center justify-center transform hover:rotate-12 transition-transform duration-500">
                                     <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                                     </svg>
@@ -292,7 +291,7 @@
                             <!-- CTA Section -->
                             <div class="text-center">
                                 <a href="{{ route('admin.galleries.create') }}" 
-                                   class="inline-flex items-center gap-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-4 px-10 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/50 text-lg group">
+                                   class="btn btn-primary btn-lg">
                                     <svg class="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                     </svg>
@@ -326,15 +325,13 @@
                     </div>
                 </div>
             @endif
-
-        </div>
     </div>
 
     <!-- Share Modal -->
     <div id="share-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
-        <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 max-w-lg w-full mx-4">
+        <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-8 max-w-lg w-full mx-4 shadow-modal">
             <div class="flex items-center justify-between mb-6">
-                <h3 class="text-2xl font-bold text-gray-100">Share Gallery</h3>
+                <h3 class="section-title text-lg">Share Gallery</h3>
                 <button data-click="closeModalById" data-arg="share-modal" class="text-gray-400 hover:text-gray-200">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -368,12 +365,12 @@
             {{-- Quick-share shortcuts: QR code + embed snippet --}}
             <div class="grid grid-cols-2 gap-3 mt-4">
                 <a href="#" data-click="openQrCode"
-                   class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium py-2.5 px-4 rounded-lg transition text-center flex items-center justify-center gap-2">
+                   class="btn btn-secondary w-full">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h.01M4 20h4M12 8a4 4 0 100-8 4 4 0 000 8zm8-4a4 4 0 11-8 0 4 4 0 018 0zM4 4h4v4H4V4z"/></svg>
                     QR Code
                 </a>
                 <a href="#" data-click="copyEmbedSnippet"
-                   class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium py-2.5 px-4 rounded-lg transition text-center flex items-center justify-center gap-2">
+                   class="btn btn-secondary w-full">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
                     Embed code
                 </a>
@@ -383,7 +380,7 @@
 
     <!-- Delete Confirmation Modal -->
     <div id="delete-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px);" data-click="closeBackdropIfTarget">
-        <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+        <div class="bg-gray-800 border border-gray-600/50 rounded-xl p-8 max-w-md w-full mx-4 shadow-modal">
             <div class="flex items-center gap-4 mb-4">
                 <div class="w-12 h-12 rounded-xl bg-red-900/30 flex items-center justify-center flex-shrink-0">
                     <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -405,7 +402,7 @@
                         Cancel
                     </button>
                     <button type="submit"
-                            class="bg-red-600 hover:bg-red-500 text-white font-semibold px-5 py-2.5 rounded-lg transition text-sm">
+                            class="btn btn-danger">
                         Yes, Delete Gallery
                     </button>
                 </div>

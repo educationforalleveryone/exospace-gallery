@@ -1,9 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Feedback</h2>
+        <x-page-header title="Feedback" :back="route('super.index')" backLabel="Master Control"/>
     </x-slot>
 
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <div class="page-shell-mid">
 
         {{-- Status filter tabs --}}
         <div class="flex gap-2 mb-6">
@@ -38,7 +38,7 @@
                             @csrf
                             @method('PATCH')
                             <select name="status" data-change="submitForm"
-                                    class="text-xs bg-gray-800 border border-gray-600 rounded-lg px-2 py-1 text-gray-300 focus:border-purple-500 outline-none">
+                                    class="input-sm input-base w-auto">
                                 @foreach(['new', 'reviewed', 'resolved'] as $status)
                                     <option value="{{ $status }}" {{ $item->status === $status ? 'selected' : '' }}>{{ ucfirst($status) }}</option>
                                 @endforeach

@@ -1,14 +1,13 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('admin.artists.index') }}" class="text-gray-400 hover:text-gray-200 transition text-sm">← Artists</a>
-            <span class="text-gray-600">/</span>
-            <h2 class="font-semibold text-xl text-gray-100">{{ $artist->name }}</h2>
-            <a href="{{ route('admin.artists.edit', $artist) }}" class="ml-3 text-sm text-purple-400 hover:text-purple-300">Edit →</a>
-        </div>
+        <x-page-header :title="$artist->name" :back="route('admin.artists.index')" backLabel="Artists">
+            <x-slot:actions>
+                <a href="{{ route('admin.artists.edit', $artist) }}" class="btn btn-secondary btn-sm">Edit</a>
+            </x-slot:actions>
+        </x-page-header>
     </x-slot>
 
-    <div class="py-8 max-w-5xl mx-auto px-4">
+    <div class="page-shell-mid">
 
         {{-- Header card --}}
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 mb-6">
@@ -88,10 +87,10 @@
                         <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-700 group relative">
                             <img src="{{ asset($img->path) }}" alt="{{ $img->title ?: $img->original_name }}" class="w-full h-full object-cover">
                             <div class="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition flex items-end p-2 opacity-0 group-hover:opacity-100">
-                                <p class="text-white text-[10px] truncate">{{ $img->title ?: $img->original_name }}</p>
+                                <p class="text-white text-xs truncate">{{ $img->title ?: $img->original_name }}</p>
                             </div>
                             @if($img->for_sale)
-                                <span class="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-green-600/80 text-white text-[9px] font-bold">FOR SALE</span>
+                                <span class="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-green-600/80 text-white text-xs font-bold">FOR SALE</span>
                             @endif
                         </div>
                     @endforeach

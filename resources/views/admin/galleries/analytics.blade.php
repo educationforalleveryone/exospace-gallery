@@ -1,21 +1,12 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-100 leading-tight">
-                Analytics — {{ $gallery->title }}
-            </h2>
-            <a href="{{ route('admin.galleries.edit', $gallery) }}"
-               class="text-sm text-gray-400 hover:text-purple-400 transition-colors">
-                ← Back to Gallery
-            </a>
-        </div>
+        <x-page-header :title="'Analytics — '.$gallery->title" :back="route('admin.galleries.edit', $gallery)" backLabel="Back to gallery"/>
     </x-slot>
 
     {{-- ITERATION-2 (AUDIT-P1-2.2): Replaced 40 lines of hand-coded animate-pulse
          divs with <x-skeleton> component calls. Same visual result, 80% less
          template code, and the skeleton pattern is now reusable across pages. --}}
-    <div id="analytics-skeleton" class="py-10 bg-gray-900 min-h-screen">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+    <div id="analytics-skeleton" class="page-shell space-y-6">
             {{-- Skeleton stat cards (5 cards in a responsive grid) --}}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                 @for($i = 0; $i < 5; $i++)
@@ -52,12 +43,11 @@
                     </div>
                 @endfor
             </div>
-        </div>
     </div>
 
     <!-- Actual content (hidden until loaded) -->
-    <div id="analytics-content" style="display:none;" class="py-10 bg-gray-900 min-h-screen">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+    <div id="analytics-content" style="display:none;" class="page-shell space-y-6">
+
 
             {{-- ── Overview stat cards ─────────────────────────────── --}}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -171,10 +161,6 @@
                 </div>
             </div>
 
-        </div>
-    </div>
-
-        </div>
     </div><!-- end #analytics-content -->
 
     {{-- Chart.js ──────────────────────────────────────────────────────── --}}

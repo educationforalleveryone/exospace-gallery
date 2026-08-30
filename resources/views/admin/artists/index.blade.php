@@ -1,34 +1,31 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-100 leading-tight">Artists</h2>
-                <p class="text-sm text-gray-400 mt-0.5">Manage artist profiles for attribution · {{ $artists->total() }} total</p>
-            </div>
-            <a href="{{ route('admin.artists.create') }}"
-               class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                New artist
-            </a>
-        </div>
+        <x-page-header title="Artists" :description="'Manage artist profiles for attribution · '.$artists->total().' total'">
+            <x-slot:actions>
+                <a href="{{ route('admin.artists.create') }}" class="btn btn-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    New artist
+                </a>
+            </x-slot:actions>
+        </x-page-header>
     </x-slot>
 
-    <div class="py-8 max-w-7xl mx-auto px-4">
+    <div class="page-shell">
         @if(session('status'))
-            <div class="mb-4 text-sm text-green-400 bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
+            <div class="mb-4 alert alert-success" role="status">{{ session('status') }}</div>
         @endif
 
         {{-- Search --}}
         <form method="GET" class="mb-5">
             <input type="text" name="q" value="{{ request('q') }}"
                    placeholder="Search artists by name, bio, or location…"
-                   class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm w-full max-w-md focus:border-purple-500 focus:ring-purple-500">
+                   class="input-base max-w-md">
         </form>
 
         {{-- Grid --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             @forelse($artists as $artist)
-                <div class="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden hover:border-purple-500 hover:-translate-y-1 transition-all duration-300">
+                <div class="card card-interactive card-lift overflow-hidden">
                     <a href="{{ route('admin.artists.show', $artist) }}">
                         {{-- Portrait or initials --}}
                         <div class="aspect-square bg-gradient-to-br from-purple-900/20 to-gray-900 flex items-center justify-center overflow-hidden">

@@ -1,14 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Billing Review</h2>
+        <x-page-header title="Billing Review" description="Refunds, chargebacks and the 2Checkout webhook ledger — transactions, stored IPN payloads and admin audit records in one place. Webhook payloads are retained 90 days; replays run through the same idempotent pipeline as live ingress." :back="route('super.index')" backLabel="Master Control"/>
     </x-slot>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-    <h1 class="text-2xl font-bold text-white mb-2">🧾 Billing Review</h1>
-    <p class="text-sm text-gray-400 mb-6">
-        Refunds, chargebacks and the 2Checkout webhook ledger — the three sources of truth (transactions, stored IPN payloads, admin audit records) joined in one place.
-        Webhook payloads are retained 90 days. Replays run through the same idempotent pipeline as live ingress.
-    </p>
+    <div class="page-shell">
+
 
     @if(session('success'))
         <div class="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-300" role="status">{{ session('success') }}</div>
@@ -35,7 +31,7 @@
         @foreach($tiles as $tile)
             <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 text-center">
                 <div class="text-xl font-bold {{ $tile['color'] }}">{{ $tile['value'] }}</div>
-                <div class="text-[11px] text-gray-500 mt-0.5">{{ $tile['label'] }}</div>
+                <div class="text-xs text-gray-500 mt-0.5">{{ $tile['label'] }}</div>
             </div>
         @endforeach
     </div>
@@ -47,7 +43,7 @@
     <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
         <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
             <h2 class="text-lg font-bold text-white">📬 Weekly billing digest recipients</h2>
-            <div class="text-[11px] text-gray-500">scheduled Mondays 07:00 · audit-logged · recipients across deploys</div>
+            <div class="text-xs text-gray-500">scheduled Mondays 07:00 · audit-logged · recipients across deploys</div>
         </div>
         <p class="text-xs text-gray-400 mb-4">
             Every Monday a CSV of the previous week's money events + a weekly summary is emailed to the recipients below. The list is managed here once you add the first address — the <code>BILLING_EXPORT_EMAIL</code> env var remains the zero-deploy fallback for an empty list.
@@ -70,7 +66,7 @@
                             <li class="flex items-center justify-between bg-gray-800/50 border border-gray-700/40 rounded px-3 py-2" x-data="{ confirming: false }">
                                 <div class="text-sm text-gray-200">
                                     {{ $recipient->email }}
-                                    <div class="text-[10px] text-gray-500">added {{ $recipient->created_at?->diffForHumans() }}@if($recipient->addedBy) by {{ $recipient->addedBy->name }}@endif</div>
+                                    <div class="text-xs text-gray-500">added {{ $recipient->created_at?->diffForHumans() }}@if($recipient->addedBy) by {{ $recipient->addedBy->name }}@endif</div>
                                 </div>
                                 <div>
                                     <template x-if="!confirming">
@@ -118,7 +114,7 @@
                             <li class="bg-gray-800/30 border border-dashed border-gray-700 rounded px-3 py-2 text-sm text-gray-400">{{ $email }}</li>
                         @endforeach
                     </ul>
-                    <p class="mt-2 text-[10px] text-gray-500">Edit via the Coolify env var on the deployment config.</p>
+                    <p class="mt-2 text-xs text-gray-500">Edit via the Coolify env var on the deployment config.</p>
                 @else
                     <div class="text-sm text-gray-500 py-4 text-center bg-gray-800/30 border border-dashed border-gray-700 rounded">
                         Not configured.
@@ -148,8 +144,8 @@
         </div>
     </div>
 
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden mb-10">
-        <table class="w-full text-sm">
+    <div class="table-wrap mb-10">
+            <table class="table-base min-w-[760px]">
             <thead>
                 <tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
                     <th class="px-5 py-3">User</th>
@@ -218,8 +214,8 @@
         </div>
     </div>
 
-    <div class="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden">
-        <table class="w-full text-sm">
+    <div class="table-wrap">
+            <table class="table-base min-w-[760px]">
             <thead>
                 <tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
                     <th class="px-5 py-3">Received</th>
@@ -236,7 +232,7 @@
                     <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap">
                         {{ $hook->processed_at?->format('M j, Y g:ia') ?? '—' }}
                         @if($hook->last_replayed_at)
-                            <div class="text-[10px] text-blue-500">last replayed {{ $hook->last_replayed_at->diffForHumans() }}</div>
+                            <div class="text-xs text-blue-500">last replayed {{ $hook->last_replayed_at->diffForHumans() }}</div>
                         @endif
                     </td>
                     <td class="px-5 py-3 font-mono text-xs text-gray-300">{{ $hook->message_type }}</td>
@@ -256,10 +252,10 @@
                             @if($hook->payload)
                                 <details class="group">
                                     <summary class="cursor-pointer text-xs text-gray-400 hover:text-gray-200 select-none">▸ View payload</summary>
-                                    <pre class="mt-2 p-3 bg-black/60 border border-gray-700 rounded-lg text-[10px] leading-relaxed text-gray-300 overflow-x-auto max-w-md">{{ json_encode($hook->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                    <pre class="mt-2 p-3 bg-black/60 border border-gray-700 rounded-lg text-xs leading-relaxed text-gray-300 overflow-x-auto max-w-md">{{ json_encode($hook->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                 </details>
                             @else
-                                <span class="text-[10px] text-gray-600">no payload stored</span>
+                                <span class="text-xs text-gray-600">no payload stored</span>
                             @endif
                             <form method="POST" action="{{ route('super.billing.replay', $hook->id) }}"
                                   data-submit="exospaceConfirmWrapper"

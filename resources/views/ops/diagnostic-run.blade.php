@@ -36,9 +36,9 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <div class="flex items-center gap-2 mb-1.5">
-                <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $statusStyles['chip'] }}">{{ $statusStyles['text'] }}</span>
-                <span class="text-[10px] px-2 py-1 rounded bg-slate-800/80 text-slate-400 font-mono">{{ $run->diagnostic_id }}</span>
-                <span class="text-[10px] px-2 py-1 rounded bg-slate-800/80 text-slate-400">run #{{ $run->id }}</span>
+                <span class="status {{ $statusStyles['chip'] }}">{{ $statusStyles['text'] }}</span>
+                <span class="text-xs px-2 py-1 rounded bg-slate-800/80 text-slate-400 font-mono">{{ $run->diagnostic_id }}</span>
+                <span class="text-xs px-2 py-1 rounded bg-slate-800/80 text-slate-400">run #{{ $run->id }}</span>
             </div>
             <h1 class="text-2xl font-semibold text-slate-50">{{ $definition['label'] ?? $run->diagnostic_id }}</h1>
             <p class="text-sm text-slate-300 mt-1.5">{{ $run->summary }}</p>
@@ -57,7 +57,7 @@
 
         {{-- Findings --}}
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-4">What was checked</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-4">What was checked</h2>
             @if(empty($run->findings))
                 <p class="text-sm text-slate-400">No individual checks were recorded for this run.</p>
             @else
@@ -79,7 +79,7 @@
         {{-- Interpretation --}}
         @if($run->interpretation)
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">What this means</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">What this means</h2>
             <p class="text-sm text-slate-300 leading-relaxed">{{ $run->interpretation }}</p>
         </section>
         @endif
@@ -87,7 +87,7 @@
         {{-- Next steps --}}
         @if(!empty($run->next_steps))
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Suggested next steps</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Suggested next steps</h2>
             <ul class="space-y-2.5">
                 @foreach($run->next_steps as $step)
                     @if(\App\Ops\Diagnostics\DiagnosticRegistry::has($step))
@@ -120,9 +120,9 @@
     {{-- ── Side column ─────────────────────────────────────────────────── --}}
     <div class="space-y-6">
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">Run details</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Run details</h2>
             <dl class="space-y-2 text-xs">
-                <div class="flex justify-between gap-2"><dt class="text-slate-500">Diagnostic</dt><dd class="text-slate-200 font-mono text-[10px]">{{ $run->diagnostic_id }}</dd></div>
+                <div class="flex justify-between gap-2"><dt class="text-slate-500">Diagnostic</dt><dd class="text-slate-200 font-mono text-xs">{{ $run->diagnostic_id }}</dd></div>
                 <div class="flex justify-between gap-2"><dt class="text-slate-500">Application</dt><dd class="text-slate-200">{{ $run->application?->name ?? 'Control plane (self)' }}</dd></div>
                 <div class="flex justify-between gap-2"><dt class="text-slate-500">Run by</dt><dd class="text-slate-200">{{ $run->actor?->email ?? 'system' }}</dd></div>
                 <div class="flex justify-between gap-2"><dt class="text-slate-500">Trigger</dt><dd class="text-slate-200">{{ $run->sourceLabel() }}</dd></div>
@@ -139,14 +139,14 @@
 
         @if($definition)
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">About this diagnostic</h2>
-            <p class="text-[11px] text-slate-500 leading-relaxed">{{ $definition['description'] }}</p>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">About this diagnostic</h2>
+            <p class="text-xs text-slate-500 leading-relaxed">{{ $definition['description'] }}</p>
         </section>
         @endif
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Safety</h2>
-            <p class="text-[11px] text-slate-500 leading-relaxed">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Safety</h2>
+            <p class="text-xs text-slate-500 leading-relaxed">
                 This check is read-only: it executes a fixed, allow-listed routine from the control plane's own code —
                 no shell commands, no arbitrary SQL, no container access. Its output was redacted before storage and
                 the run is recorded in the admin audit log.

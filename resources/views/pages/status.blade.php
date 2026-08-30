@@ -4,7 +4,7 @@
 @section('description', 'Real-time system status for Exospace 3D Gallery.')
 
 @section('content')
-<div style="max-width: 720px; margin: 0 auto; padding: 4rem 1.5rem;">
+<div class="max-w-3xl mx-auto px-6 py-16">
 
     {{-- Header --}}
     <div style="text-align: center; margin-bottom: 3rem;">

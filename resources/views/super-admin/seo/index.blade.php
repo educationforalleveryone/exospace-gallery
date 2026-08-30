@@ -1,22 +1,20 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-100 leading-tight">SEO Operations</h2>
-                <p class="text-sm text-gray-400 mt-0.5">Health, overrides, redirects &amp; content pages</p>
-            </div>
-            <form method="POST" action="{{ route('super.seo.rebuild') }}">
-                @csrf
-                <button type="submit" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition">
-                    Rebuild SEO caches
-                </button>
-            </form>
-        </div>
+        <x-page-header title="SEO Operations" description="Health, overrides, redirects &amp; content pages" :back="route('super.index')" backLabel="Master Control">
+            <x-slot:actions>
+                <form method="POST" action="{{ route('super.seo.rebuild') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-primary">
+                        Rebuild SEO caches
+                    </button>
+                </form>
+            </x-slot:actions>
+        </x-page-header>
     </x-slot>
 
-    <div class="py-8 max-w-7xl mx-auto px-4">
+    <div class="page-shell">
         @if(session('status'))
-            <div class="mb-4 text-sm text-green-400 bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
+            <div class="mb-4 alert alert-success" role="status">{{ session('status') }}</div>
         @endif
 
         {{-- Tabs --}}
@@ -77,7 +75,7 @@
             <form method="GET" class="mb-5 flex gap-3">
                 <input type="hidden" name="tab" value="galleries">
                 <input type="text" name="q" value="{{ $search }}" placeholder="Search title or slug…"
-                       class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm flex-1 max-w-sm focus:border-purple-500 focus:ring-purple-500">
+                       class="input-base max-w-sm flex-1">
                 <select name="filter" class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
                     <option value="public" {{ $filter === 'public' ? 'selected' : '' }}>Public &amp; non-empty</option>
                     <option value="issues" {{ $filter === 'issues' ? 'selected' : '' }}>Missing description</option>
@@ -86,8 +84,8 @@
                 <button type="submit" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-100 text-sm transition">Filter</button>
             </form>
 
-            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <table class="w-full text-sm text-gray-300">
+            <div class="table-wrap">
+                <table class="table-base min-w-[720px]">
                     <thead class="bg-gray-900/50 text-xs text-gray-500 uppercase tracking-wider">
                         <tr>
                             <th class="px-4 py-3 text-left">Gallery</th>
@@ -116,7 +114,7 @@
                                     @elseif(trim((string)$gallery->description) === '')
                                         <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-300 border border-yellow-700/40">no description</span>
                                     @else
-                                        <span class="text-xs px-2 py-0.5 rounded-full bg-green-900/40 text-green-300 border border-green-700/40">healthy</span>
+                                        <x-status-badge state="healthy" label="healthy" />
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-xs text-gray-500">
@@ -200,11 +198,11 @@
             <form method="GET" class="mb-5">
                 <input type="hidden" name="tab" value="artists">
                 <input type="text" name="q" value="{{ $search }}" placeholder="Search artist…"
-                       class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm w-full max-w-md focus:border-purple-500 focus:ring-purple-500">
+                       class="input-base max-w-md">
             </form>
 
-            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <table class="w-full text-sm text-gray-300">
+            <div class="table-wrap">
+                <table class="table-base min-w-[720px]">
                     <thead class="bg-gray-900/50 text-xs text-gray-500 uppercase tracking-wider">
                         <tr>
                             <th class="px-4 py-3 text-left">Artist</th>
@@ -291,8 +289,8 @@
                 <button type="submit" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition">Add redirect</button>
             </form>
 
-            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <table class="w-full text-sm text-gray-300">
+            <div class="table-wrap">
+                <table class="table-base min-w-[720px]">
                     <thead class="bg-gray-900/50 text-xs text-gray-500 uppercase tracking-wider">
                         <tr>
                             <th class="px-4 py-3 text-left">From</th>
@@ -335,8 +333,8 @@
             <p class="text-gray-500 text-sm mb-4">
                 Create pages with <code class="text-gray-400">php artisan seo:make-page &#123;slug&#125;</code>. Full block editing via tinker.
             </p>
-            <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <table class="w-full text-sm text-gray-300">
+            <div class="table-wrap">
+                <table class="table-base min-w-[720px]">
                     <thead class="bg-gray-900/50 text-xs text-gray-500 uppercase tracking-wider">
                         <tr>
                             <th class="px-4 py-3 text-left">Page</th>
@@ -356,7 +354,7 @@
                                 <td class="px-4 py-3">{{ $page->type }}</td>
                                 <td class="px-4 py-3">
                                     @if($page->status === 'published' && !$page->isScheduled())
-                                        <span class="text-xs px-2 py-0.5 rounded-full bg-green-900/40 text-green-300 border border-green-700/40">published</span>
+                                        <x-status-badge state="healthy" label="published" />
                                     @elseif($page->isScheduled())
                                         <span class="text-xs px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-300 border border-blue-700/40">scheduled {{ $page->published_at->format('M j') }}</span>
                                     @else
@@ -409,7 +407,7 @@
                     <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Organic signups</p>
                 </div>
                 <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                    <p class="text-3xl font-bold {{ $acquisition['organic_share'] >= 30 ? 'text-green-400' : 'text-white' }}">{{ $acquisition['organic_share'] }}%</p>
+                    <p class="text-3xl font-semibold text-numeric {{ $acquisition['organic_share'] >= 30 ? 'text-emerald-400' : 'text-gray-50' }}">{{ $acquisition['organic_share'] }}%</p>
                     <p class="text-xs text-gray-500 mt-1 uppercase tracking-wider">Organic share of tracked signups</p>
                 </div>
                 <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">

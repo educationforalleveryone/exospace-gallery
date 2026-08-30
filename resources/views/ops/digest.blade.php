@@ -19,7 +19,7 @@
                     Send now
                 </button>
             </form>
-            <span class="text-[10px] text-slate-500">Bypasses the daily dedup — for testing.</span>
+            <span class="text-xs text-slate-500">Bypasses the daily dedup — for testing.</span>
         @endif
     </div>
 </div>
@@ -27,24 +27,24 @@
 {{-- ── Meta strip ─────────────────────────────────────────────────────── --}}
 <div class="grid sm:grid-cols-3 gap-3 mb-6">
     <div class="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
-        <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Next scheduled</div>
+        <div class="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Next scheduled</div>
         <div class="text-sm text-slate-200">Daily at 08:15</div>
-        <div class="text-[11px] text-slate-500 mt-0.5">after the nightly batch, before the 09:00 credential reminder</div>
+        <div class="text-xs text-slate-500 mt-0.5">after the nightly batch, before the 09:00 credential reminder</div>
     </div>
     <div class="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
-        <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Last sent</div>
+        <div class="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Last sent</div>
         @if($lastSent)
             <div class="text-sm text-slate-200">{{ $lastSent['at']->diffForHumans() }}</div>
-            <div class="text-[11px] text-slate-500 mt-0.5">trigger: {{ $lastSent['trigger'] }} · {{ $lastSent['at']->format('Y-m-d H:i') }}</div>
+            <div class="text-xs text-slate-500 mt-0.5">trigger: {{ $lastSent['trigger'] }} · {{ $lastSent['at']->format('Y-m-d H:i') }}</div>
         @else
             <div class="text-sm text-slate-400">Not sent yet</div>
-            <div class="text-[11px] text-slate-500 mt-0.5">the first delivery lands at the next 08:15 run</div>
+            <div class="text-xs text-slate-500 mt-0.5">the first delivery lands at the next 08:15 run</div>
         @endif
     </div>
     <div class="rounded-lg border {{ $enabled ? 'border-slate-800 bg-slate-900/40' : 'border-amber-800/50 bg-amber-950/30' }} px-4 py-3">
-        <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Scheduled send</div>
+        <div class="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Scheduled send</div>
         <div class="text-sm {{ $enabled ? 'text-slate-200' : 'text-amber-300' }}">{{ $enabled ? 'Enabled' : 'Disabled' }}</div>
-        <div class="text-[11px] text-slate-500 mt-0.5">
+        <div class="text-xs text-slate-500 mt-0.5">
             {{ $enabled ? 'OPS_MORNING_DIGEST_ENABLED (default)' : 'OPS_MORNING_DIGEST_ENABLED=false — the preview and Send now still work' }}
         </div>
     </div>
@@ -80,7 +80,7 @@
             <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 flex flex-col">
                 <div class="flex items-start justify-between gap-2 mb-2">
                     <h3 class="text-sm font-semibold text-slate-100">{{ strtoupper($section['label'] ?? $section['key']) }}</h3>
-                    <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border {{ $statusStyles[$section['status']] ?? $statusStyles['unavailable'] }} shrink-0">
+                    <span class="text-xs font-bold px-1.5 py-0.5 rounded border {{ $statusStyles[$section['status']] ?? $statusStyles['unavailable'] }} shrink-0">
                         {{ $statusLabels[$section['status']] ?? 'UNAVAILABLE' }}
                     </span>
                 </div>
@@ -106,14 +106,14 @@
 
     {{-- ── The exact Slack message ───────────────────────────────────── --}}
     <section class="mb-6">
-        <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">The exact Slack message</h2>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">The exact Slack message</h2>
         <div class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-4">
-            <div class="text-[10px] text-slate-500 font-mono mb-2">
+            <div class="text-xs text-slate-500 font-mono mb-2">
                 🔵 *OpsCenter morning digest — {{ now()->format('Y-m-d H:i') }}* [{{ app()->environment() }}/INFO]
             </div>
             <pre class="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">{{ $text }}</pre>
         </div>
-        <p class="text-[11px] text-slate-600 mt-2">
+        <p class="text-xs text-slate-600 mt-2">
             Rendered by the same <span class="font-mono">compose() + render()</span> pair the 08:15 task uses —
             byte-for-byte what Slack receives (the envelope line above is added by the alert service).
         </p>
@@ -141,7 +141,7 @@
                         Send weekly review now
                     </button>
                 </form>
-                <span class="text-[10px] text-slate-500">Bypasses the dedup — for testing.</span>
+                <span class="text-xs text-slate-500">Bypasses the dedup — for testing.</span>
             @endif
         </div>
     </div>
@@ -149,24 +149,24 @@
     {{-- Weekly meta strip --}}
     <div class="grid sm:grid-cols-3 gap-3 mb-6">
         <div class="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
-            <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Next scheduled</div>
+            <div class="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Next scheduled</div>
             <div class="text-sm text-slate-200">Mondays at 08:30</div>
-            <div class="text-[11px] text-slate-500 mt-0.5">inside the morning-briefing block, before the 08:45 watchdog</div>
+            <div class="text-xs text-slate-500 mt-0.5">inside the morning-briefing block, before the 08:45 watchdog</div>
         </div>
         <div class="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
-            <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Last sent</div>
+            <div class="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Last sent</div>
             @if($weeklyLastSent)
                 <div class="text-sm text-slate-200">{{ $weeklyLastSent['at']->diffForHumans() }}</div>
-                <div class="text-[11px] text-slate-500 mt-0.5">trigger: {{ $weeklyLastSent['trigger'] }} · {{ $weeklyLastSent['at']->format('Y-m-d H:i') }}</div>
+                <div class="text-xs text-slate-500 mt-0.5">trigger: {{ $weeklyLastSent['trigger'] }} · {{ $weeklyLastSent['at']->format('Y-m-d H:i') }}</div>
             @else
                 <div class="text-sm text-slate-400">Not sent yet</div>
-                <div class="text-[11px] text-slate-500 mt-0.5">the first delivery lands at the next Monday 08:30 run</div>
+                <div class="text-xs text-slate-500 mt-0.5">the first delivery lands at the next Monday 08:30 run</div>
             @endif
         </div>
         <div class="rounded-lg border {{ $weeklyEnabled ? 'border-slate-800 bg-slate-900/40' : 'border-amber-800/50 bg-amber-950/30' }} px-4 py-3">
-            <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Scheduled send</div>
+            <div class="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Scheduled send</div>
             <div class="text-sm {{ $weeklyEnabled ? 'text-slate-200' : 'text-amber-300' }}">{{ $weeklyEnabled ? 'Enabled' : 'Disabled' }}</div>
-            <div class="text-[11px] text-slate-500 mt-0.5">
+            <div class="text-xs text-slate-500 mt-0.5">
                 {{ $weeklyEnabled ? 'OPS_WEEKLY_REVIEW_ENABLED (default)' : 'OPS_WEEKLY_REVIEW_ENABLED=false — informational only, nothing is suspended' }}
             </div>
         </div>
@@ -203,7 +203,7 @@
                 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 flex flex-col">
                     <div class="flex items-start justify-between gap-2 mb-2">
                         <h3 class="text-sm font-semibold text-slate-100">{{ strtoupper($section['label'] ?? $section['key']) }}</h3>
-                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border {{ $statusStyles[$section['status']] ?? $statusStyles['unavailable'] }} shrink-0">
+                        <span class="text-xs font-bold px-1.5 py-0.5 rounded border {{ $statusStyles[$section['status']] ?? $statusStyles['unavailable'] }} shrink-0">
                             {{ $statusLabels[$section['status']] ?? 'UNAVAILABLE' }}
                         </span>
                     </div>
@@ -219,14 +219,14 @@
 
         {{-- The exact weekly Slack message --}}
         <section class="mb-6">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">The exact weekly Slack message</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">The exact weekly Slack message</h2>
             <div class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-4">
-                <div class="text-[10px] text-slate-500 font-mono mb-2">
+                <div class="text-xs text-slate-500 font-mono mb-2">
                     🔵 *OpsCenter weekly review — {{ now()->format('Y-m-d') }}* [{{ app()->environment() }}/INFO]
                 </div>
                 <pre class="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">{{ $weeklyText }}</pre>
             </div>
-            <p class="text-[11px] text-slate-600 mt-2">
+            <p class="text-xs text-slate-600 mt-2">
                 Rendered by the same <span class="font-mono">compose() + render()</span> pair the Monday 08:30 task uses —
                 byte-for-byte what Slack receives. Every section derives from the control plane's own tables (ops_events,
                 ops_incidents, ops_diagnostic_runs, admin_audit_logs) — no new Sentry endpoint is speculated.
@@ -235,7 +235,7 @@
     @endif
 </section>
 
-<div class="mt-4 text-[11px] text-slate-600 space-y-1">
+<div class="mt-4 text-xs text-slate-600 space-y-1">
     <p>The silence contract: alerts fire on problems, the digest fires on TIME — an all-quiet morning still gets its message, so a silent morning is itself a signal.</p>
     <p>The digest watchdog (daily 08:45, Iteration 8) enforces that contract mechanically: a missing or stale “last sent” stamp while the digest is enabled raises one warning alert + one INFRASTRUCTURE event that auto-resolves the next healthy morning (<span class="font-mono">OPS_DIGEST_WATCHDOG_ENABLED</span>).</p>
     <p>Manual sends are super-admin only, throttled and audited (<span class="font-mono">ops.digest.sent</span> / <span class="font-mono">ops.weekly_review.sent</span>). They deliberately bypass the daily dedup: a test send that silently disappeared would look exactly like a broken webhook.</p>

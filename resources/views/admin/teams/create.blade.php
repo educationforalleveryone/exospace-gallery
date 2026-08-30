@@ -1,10 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Create New Team</h2>
+        <x-page-header title="Create New Team" :back="route('admin.teams.index')" backLabel="All teams"/>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-xl mx-auto sm:px-6 lg:px-8">
+    <div class="page-shell-narrow">
             <div class="bg-gray-800 border border-gray-700 rounded-xl p-8">
 
                 @if($errors->any())
@@ -44,7 +43,7 @@
 
                     <div class="flex gap-3 pt-2">
                         <button type="submit" id="create-team-btn"
-                                class="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed">
+                                class="btn btn-primary flex-1 disabled:opacity-60">
                             <svg id="create-team-spinner" class="hidden animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                             <span id="create-team-label">Create Team</span>
                         </button>
@@ -64,5 +63,5 @@
                 </form>
             </div>
         </div>
-    </div>
+
 </x-app-layout>

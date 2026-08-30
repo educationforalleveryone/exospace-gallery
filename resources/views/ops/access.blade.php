@@ -21,7 +21,7 @@
 
 {{-- ── Grant form ───────────────────────────────────────────────────────── --}}
 <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5 mb-6">
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Grant access</h2>
+    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Grant access</h2>
     @if($candidates->isEmpty())
         <p class="text-sm text-slate-500">No eligible accounts: every non-super-admin user either already holds an active grant or does not exist.</p>
     @else
@@ -59,10 +59,10 @@
 
 {{-- ── Active grants ───────────────────────────────────────────────────── --}}
 <section class="mb-6">
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Active grants ({{ $activeGrants->count() }})</h2>
+    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Active grants ({{ $activeGrants->count() }})</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800">
         <table class="w-full text-sm">
-            <thead class="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider">
+            <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
                 <tr>
                     <th class="text-left px-4 py-3">Account</th>
                     <th class="text-left px-4 py-3">Level</th>
@@ -77,22 +77,22 @@
                     <tr class="hover:bg-slate-900/60">
                         <td class="px-4 py-3">
                             <div class="text-slate-100 font-medium">{{ $grant->user?->name ?? 'deleted account' }}</div>
-                            <div class="text-[11px] text-slate-500">{{ $grant->user?->email ?? "user #{$grant->user_id}" }}</div>
+                            <div class="text-xs text-slate-500">{{ $grant->user?->email ?? "user #{$grant->user_id}" }}</div>
                         </td>
                         <td class="px-4 py-3">
                             @if($grant->level === 'operator')
-                                <span class="text-[10px] px-2 py-1 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50 uppercase font-bold" title="Read + run read-only diagnostics">{{ $grant->level }}</span>
+                                <span class="text-xs px-2 py-1 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50 uppercase font-bold" title="Read + run read-only diagnostics">{{ $grant->level }}</span>
                             @else
-                                <span class="text-[10px] px-2 py-1 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/50 uppercase font-bold" title="Read-only">{{ $grant->level }}</span>
+                                <span class="text-xs px-2 py-1 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/50 uppercase font-bold" title="Read-only">{{ $grant->level }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-3">
                             @if(!$grant->user)
-                                <span class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-400 border border-slate-600/50">ACCOUNT DELETED</span>
+                                <span class="text-xs px-2 py-1 rounded bg-slate-800 text-slate-400 border border-slate-600/50">ACCOUNT DELETED</span>
                             @elseif($grant->user->email_verified_at && !empty($grant->user->google2fa_secret))
-                                <span class="text-[10px] px-2 py-1 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-700/50 font-bold">YES</span>
+                                <span class="text-xs px-2 py-1 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-700/50 font-bold">YES</span>
                             @else
-                                <span class="text-[10px] px-2 py-1 rounded bg-amber-950/60 text-amber-300 border border-amber-700/50 font-bold">
+                                <span class="text-xs px-2 py-1 rounded bg-amber-950/60 text-amber-300 border border-amber-700/50 font-bold">
                                     {{ !$grant->user->email_verified_at ? 'EMAIL UNVERIFIED' : 'MFA SETUP NEEDED' }}
                                 </span>
                             @endif
@@ -108,20 +108,20 @@
                                             @csrf
                                             <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
                                             <input type="hidden" name="level" value="operator">
-                                            <button class="text-[11px] px-3 py-1.5 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60 font-medium">Make operator…</button>
+                                            <button class="text-xs px-3 py-1.5 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60 font-medium">Make operator…</button>
                                         </form>
                                     @else
                                         <form method="POST" action="{{ route('ops.access.grant') }}" onsubmit="return confirm('Downgrade this account to the VIEWER tier? They keep read access but can no longer run diagnostics.')" class="inline">
                                             @csrf
                                             <input type="hidden" name="user_id" value="{{ $grant->user_id }}">
                                             <input type="hidden" name="level" value="viewer">
-                                            <button class="text-[11px] px-3 py-1.5 rounded border border-cyan-700/60 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60 font-medium">Make viewer…</button>
+                                            <button class="text-xs px-3 py-1.5 rounded border border-cyan-700/60 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60 font-medium">Make viewer…</button>
                                         </form>
                                     @endif
                                 @endif
                                 <form method="POST" action="{{ route('ops.access.revoke', $grant) }}" onsubmit="return confirm('Revoke OpsCenter access for {{ $grant->user?->name ?? 'this account' }}? Access ends immediately.')" class="inline">
                                     @csrf
-                                    <button class="text-[11px] px-3 py-1.5 rounded border border-red-700/60 bg-red-950/40 text-red-300 hover:bg-red-900/60 font-medium">Revoke…</button>
+                                    <button class="text-xs px-3 py-1.5 rounded border border-red-700/60 bg-red-950/40 text-red-300 hover:bg-red-900/60 font-medium">Revoke…</button>
                                 </form>
                             </div>
                         </td>
@@ -140,10 +140,10 @@
 
 {{-- ── Revoked history ──────────────────────────────────────────────────── --}}
 <section>
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">Revoked (history, most recent first)</h2>
+    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Revoked (history, most recent first)</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800/60">
         <table class="w-full text-sm">
-            <thead class="bg-slate-900/60 text-slate-500 text-[11px] uppercase tracking-wider">
+            <thead class="bg-slate-900/60 text-slate-500 text-xs uppercase tracking-wider">
                 <tr>
                     <th class="text-left px-4 py-3">Account</th>
                     <th class="text-left px-4 py-3">Granted by</th>
@@ -154,7 +154,7 @@
             <tbody class="divide-y divide-slate-800/40">
                 @forelse($revokedGrants as $grant)
                     <tr class="text-slate-500">
-                        <td class="px-4 py-2.5">{{ $grant->user?->name ?? 'deleted account' }} <span class="text-[11px]">({{ $grant->user?->email ?? "user #{$grant->user_id}" }})</span></td>
+                        <td class="px-4 py-2.5">{{ $grant->user?->name ?? 'deleted account' }} <span class="text-xs">({{ $grant->user?->email ?? "user #{$grant->user_id}" }})</span></td>
                         <td class="px-4 py-2.5 text-xs">{{ $grant->granter?->name ?? '—' }}</td>
                         <td class="px-4 py-2.5 text-xs">{{ $grant->granted_at?->diffForHumans() }}</td>
                         <td class="px-4 py-2.5 text-xs">{{ $grant->revoked_at?->diffForHumans() }}</td>

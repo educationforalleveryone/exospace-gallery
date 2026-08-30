@@ -10,14 +10,14 @@
 
 {{-- ── Filters ───────────────────────────────────────────────────────── --}}
 <form method="GET" action="{{ route('ops.events') }}" class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 mb-4">
-    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
         <div class="col-span-2">
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Search</label>
+            <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Search</label>
             <input type="text" name="q" value="{{ $filters['q'] }}" placeholder="title or message…"
                    class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200 placeholder-slate-600 focus:border-emerald-600 focus:outline-none">
         </div>
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Severity</label>
+            <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Severity</label>
             <select name="severity" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-600 focus:outline-none">
                 <option value="">All</option>
                 @foreach(\App\Ops\Models\OpsEvent::SEVERITIES as $sev)
@@ -26,7 +26,7 @@
             </select>
         </div>
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Category</label>
+            <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Category</label>
             <select name="category" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-600 focus:outline-none">
                 <option value="">All</option>
                 @foreach(\App\Ops\Models\OpsEvent::CATEGORIES as $cat)
@@ -35,7 +35,7 @@
             </select>
         </div>
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Application</label>
+            <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Application</label>
             <select name="application" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-600 focus:outline-none">
                 <option value="">All</option>
                 @foreach($applications as $app)
@@ -44,7 +44,7 @@
             </select>
         </div>
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Window</label>
+            <label class="block text-xs uppercase tracking-wider text-slate-500 mb-1">Window</label>
             <select name="hours" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-slate-200 focus:border-emerald-600 focus:outline-none">
                 @foreach([24 => '24 hours', 168 => '7 days', 720 => '30 days', 0 => 'All time'] as $h => $label)
                     <option value="{{ $h }}" {{ (int)$filters['hours'] === $h ? 'selected' : '' }}>{{ $label }}</option>
@@ -67,7 +67,7 @@
 {{-- ── Events table ──────────────────────────────────────────────────── --}}
 <div class="overflow-x-auto rounded-lg border border-slate-800">
     <table class="w-full text-sm">
-        <thead class="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider">
+        <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
             <tr>
                 <th class="text-left px-4 py-3">Severity</th>
                 <th class="text-left px-4 py-3">What</th>
@@ -88,26 +88,26 @@
                         'info'     => ['text-slate-300','bg-slate-800/60','border-slate-700/50'],
                     ][$event->severity] ?? ['text-slate-300','bg-slate-800/60','border-slate-700/50'];
                 @endphp
-                <tr class="hover:bg-slate-900/60 cursor-pointer" onclick="window.location='{{ route('ops.events.show', $event) }}'">
+                <tr class="hover:bg-slate-900/60 cursor-pointer" data-href="{{ route('ops.events.show', $event) }}" tabindex="0" aria-label="Open event: {{ $event->title ?? $event->message }}">
                     <td class="px-4 py-3">
-                        <span class="text-[9px] font-bold px-2 py-1 rounded border {{ $sev[1] }} {{ $sev[2] }} {{ $sev[0] }}">{{ strtoupper($event->severity) }}</span>
+                        <span class="text-xs font-bold px-2 py-1 rounded border {{ $sev[1] }} {{ $sev[2] }} {{ $sev[0] }}">{{ strtoupper($event->severity) }}</span>
                     </td>
                     <td class="px-4 py-3 max-w-md">
                         <div class="text-slate-100 font-medium truncate">{{ $event->title }}</div>
-                        @if($event->message)<div class="text-[11px] text-slate-500 truncate">{{ \Illuminate\Support\Str::limit($event->message, 90) }}</div>@endif
+                        @if($event->message)<div class="text-xs text-slate-500 truncate">{{ \Illuminate\Support\Str::limit($event->message, 90) }}</div>@endif
                     </td>
                     <td class="px-4 py-3 text-slate-300">{{ $event->application?->name ?? '—' }}</td>
-                    <td class="px-4 py-3"><span class="text-[10px] font-mono text-slate-400">{{ $event->category }}</span></td>
+                    <td class="px-4 py-3"><span class="text-xs font-mono text-slate-400">{{ $event->category }}</span></td>
                     <td class="px-4 py-3">
                         <span class="text-slate-200 font-semibold">{{ $event->occurrence_count }}</span>
-                        <span class="text-[10px] text-slate-600">/ {{ $event->total_count }} total</span>
+                        <span class="text-xs text-slate-600">/ {{ $event->total_count }} total</span>
                     </td>
                     <td class="px-4 py-3 text-xs text-slate-400">
                         <div>first {{ $event->first_seen_at?->diffForHumans() }}</div>
                         <div>last {{ $event->last_seen_at?->diffForHumans() }}</div>
                     </td>
                     <td class="px-4 py-3">
-                        <span class="text-[10px] px-2 py-1 rounded {{ $event->status === 'open' ? 'bg-slate-800 text-slate-300' : ($event->status === 'resolved' ? 'bg-slate-900 text-slate-500 border border-slate-800' : 'bg-indigo-950/60 text-indigo-300 border border-indigo-800/50') }}">{{ $event->status }}</span>
+                        <x-status-badge :state="$event->status === 'resolved' ? 'healthy' : ($event->status === 'open' ? 'warning' : 'info')" :label="$event->status" />
                     </td>
                 </tr>
             @empty

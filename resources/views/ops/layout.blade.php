@@ -18,15 +18,15 @@
 
 {{-- ── Header ─────────────────────────────────────────────────────────── --}}
 <header class="bg-slate-900/80 border-b border-slate-800 backdrop-blur sticky top-0 z-20">
-    <div class="max-w-7xl mx-auto px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center font-bold text-slate-950">O</div>
             <div>
                 <div class="font-semibold leading-tight">OpsCenter</div>
-                <div class="text-[11px] text-slate-400 leading-tight">Operations Control Plane</div>
+                <div class="text-xs text-slate-400 leading-tight">Operations Control Plane</div>
             </div>
         </div>
-        <nav class="flex flex-wrap items-center gap-1 text-sm">
+        <nav class="flex flex-wrap items-center gap-1 text-sm" aria-label="OpsCenter sections">
             <a href="{{ route('ops.overview') }}"      class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.overview') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Overview</a>
             <a href="{{ route('ops.digest.index') }}" class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.digest*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Digest</a>
             <a href="{{ route('ops.applications') }}"  class="px-3 py-1.5 rounded-md {{ request()->routeIs('ops.applications') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Applications</a>
@@ -44,9 +44,9 @@
         <div class="flex items-center gap-2">
             @unless(auth()->user()?->is_super_admin)
                 @if(\App\Ops\Support\OpsAccessContext::level(auth()->user()) === 'operator')
-                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-700/40 font-bold" title="Operator access — you can view everything and run the read-only diagnostics. Lifecycle actions, the Actions hub, credentials and access management remain super-admin-only.">OPERATOR</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-700/40 font-semibold" title="Operator access — you can view everything and run the read-only diagnostics. Lifecycle actions, the Actions hub, credentials and access management remain super-admin-only.">OPERATOR</span>
                 @else
-                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-700/40 font-bold" title="Read-only access — lifecycle actions, diagnostics runs, actions, credentials and access management are super-admin-only">VIEWER</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-700/40 font-semibold" title="Read-only access — lifecycle actions, diagnostics runs, actions, credentials and access management are super-admin-only">VIEWER</span>
                 @endif
             @endunless
             @if(auth()->user()?->is_super_admin)
@@ -60,7 +60,7 @@
     </div>
 </header>
 
-<main class="max-w-7xl mx-auto px-6 py-6">
+<main class="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
     @if(session('success'))
         <div class="mb-4 rounded-lg border border-emerald-700/50 bg-emerald-950/40 px-4 py-3 text-emerald-300 text-sm">{{ session('success') }}</div>
     @endif
@@ -71,7 +71,29 @@
     @yield('content')
 </main>
 
-<footer class="max-w-7xl mx-auto px-6 py-8 text-[11px] text-slate-600 border-t border-slate-800/60 mt-8">
+<script nonce="@nonce">
+    // CSP-safe clickable rows: any [data-href] element navigates on click or
+    // Enter/Space (keyboard), replacing inline onclick= handlers. Also makes
+    // rows reachable by keyboard (tabindex=0) when set by the view.
+    (function () {
+        function go(el) {
+            const href = el.getAttribute('data-href');
+            if (href) window.location.href = href;
+        }
+        document.addEventListener('click', (e) => {
+            const row = e.target.closest('[data-href]');
+            if (row && ! e.target.closest('a, button, form, input, select, textarea')) go(row);
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            if (e.target.matches('input, textarea, select, button, a')) return;
+            const row = e.target.closest('[data-href]');
+            if (row) { e.preventDefault(); go(row); }
+        });
+    })();
+</script>
+
+<footer class="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-8 text-xs text-slate-600 border-t border-slate-800/60 mt-8">
     OpsCenter aggregates Coolify, Docker/Laravel logs, Sentry-side errors, backups, queues and health checks.
     Coolify remains the deployment plane. — <span class="font-mono">docs/OPS_DISCOVERY_AUDIT.md</span>
 </footer>

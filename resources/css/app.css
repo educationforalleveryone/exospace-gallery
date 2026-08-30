@@ -113,6 +113,46 @@
     /* BC alias — original name kept, same recipe */
     .section-header { @apply text-xs font-semibold text-gray-500 uppercase tracking-wider; }
 
+    /* ═══ PAGE COMPOSITION ════════════════════════════════════════════════
+       Three sanctioned page containers — no page invents its own wrapper.
+       The layout's $header band uses the identical horizontal padding ramp
+       (px-4 sm:px-6 lg:px-8 at max-w-page), so header titles and page
+       content always share a left edge on full-width pages.
+
+         .page-shell         default  — dashboards, list/table pages, editors
+         .page-shell-mid     4xl      — detail pages, settings, secondary lists
+         .page-shell-narrow  2xl      — focused single-purpose forms
+
+       (Marketing/public pages are composed by layouts/public — different
+       rhythm by design, documented in docs/DESIGN-SYSTEM.md.) */
+    .page-shell        { @apply max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10; }
+    .page-shell-mid    { @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8; }
+    .page-shell-narrow { @apply max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8; }
+
+    /* Quiet back-navigation row used inside <x-page-header> (and standalone) */
+    .back-link { @apply inline-flex items-center gap-1.5 text-sm font-medium text-gray-400
+                        hover:text-white transition-colors duration-150; }
+
+    /* ═══ OPERATIONAL STATUS LANGUAGE ════════════════════════════════════
+       The four-state vocabulary for OpsCenter / Control Center / Master
+       Control: HEALTHY · WARNING · CRITICAL · UNKNOWN (+ info for running
+       / neutral activity). Always dot + word — never color alone.
+       Square-ish (rounded-md) to visually distinguish operational state
+       chips from customer-facing .badge pills (rounded-full). */
+    .status         { @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border
+                             text-xs font-semibold whitespace-nowrap; }
+    .status-dot     { @apply w-1.5 h-1.5 rounded-full shrink-0; }
+    .status-healthy  { @apply bg-emerald-500/10 border-emerald-500/30 text-emerald-300; }
+    .status-healthy  .status-dot { @apply bg-emerald-400; }
+    .status-warning  { @apply bg-amber-500/10 border-amber-500/30 text-amber-300; }
+    .status-warning  .status-dot { @apply bg-amber-400; }
+    .status-critical { @apply bg-red-500/10 border-red-500/30 text-red-300; }
+    .status-critical .status-dot { @apply bg-red-400; }
+    .status-info     { @apply bg-blue-500/10 border-blue-500/30 text-blue-300; }
+    .status-info     .status-dot { @apply bg-blue-400; }
+    .status-unknown  { @apply bg-gray-500/10 border-gray-500/30 text-gray-300; }
+    .status-unknown  .status-dot { @apply bg-gray-400; }
+
     /* ═══ BUTTONS ═════════════════════════════════════════════════════════
        .btn              base — default size h-10 (40px, AA touch target)
        .btn-sm           dense toolbars/table rows (32px)

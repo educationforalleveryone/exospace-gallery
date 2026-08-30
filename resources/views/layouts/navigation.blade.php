@@ -1,4 +1,4 @@
-<nav x-data="{ open: false }" class="bg-ink-900/95 backdrop-blur border-b border-gray-800 relative z-40">
+<nav x-data="{ open: false }" aria-label="Primary" class="bg-ink-900/95 backdrop-blur border-b border-gray-800 relative z-40">
     <div class="max-w-page mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex">
@@ -49,7 +49,7 @@
                             $navAtLimit = !auth()->user()->canCreateGallery();
                             $navNearLimit = auth()->user()->max_galleries > 0 && ($navGalleryCount / auth()->user()->max_galleries) >= 0.8;
                         @endphp
-                        <div class="hidden sm:flex sm:items-center sm:ms-4">
+                        <div class="hidden lg:flex lg:items-center lg:ms-4">
                             <a href="/pricing"
                                class="inline-flex items-center px-3 h-8 {{ $navAtLimit ? 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20' : 'bg-brand-500/10 border-brand-500/30 text-brand-400 hover:bg-brand-500/20 hover:border-brand-500/50' }} border rounded-lg transition-all duration-200 text-xs font-semibold group">
                                 <svg class="w-3.5 h-3.5 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -105,34 +105,35 @@
                             @if($navUnreadCount > 0)
                                 <form method="POST" action="{{ route('notifications.mark-all-read') }}">
                                     @csrf
-                                    <button type="submit" class="text-xs text-purple-400 hover:text-purple-300 transition">Mark all read</button>
+                                    <button type="submit" class="text-xs font-medium text-brand-400 hover:text-brand-300 transition">Mark all read</button>
                                 </form>
                             @endif
                         </div>
 
                         <div class="max-h-96 overflow-y-auto">
                             @if($navNotifications->isEmpty())
-                                <div class="px-4 py-8 text-center text-gray-500 text-sm">
-                                    No notifications yet
+                                <div class="px-4 py-8 text-center">
+                                    <p class="text-sm text-gray-400">No notifications yet</p>
+                                    <p class="hint-text mt-1">Activity about your galleries and teams will appear here.</p>
                                 </div>
                             @else
                                 @foreach($navNotifications as $notif)
-                                    <div class="px-4 py-3 border-b border-gray-700/50 {{ $notif->isUnread() ? 'bg-purple-900/10' : '' }}">
+                                    <div class="px-4 py-3 border-b border-gray-700/50 {{ $notif->isUnread() ? 'bg-brand-500/[0.07]' : '' }}">
                                         <form method="POST" action="{{ route('notifications.read', $notif) }}">
                                             @csrf
                                             <button type="submit" class="w-full text-left">
                                                 <div class="flex items-start gap-2">
                                                     @if($notif->isUnread())
-                                                        <span class="w-2 h-2 rounded-full bg-purple-400 mt-1.5 flex-shrink-0"></span>
+                                                        <span class="w-2 h-2 rounded-full bg-brand-400 mt-1.5 flex-shrink-0" aria-hidden="true"></span>
                                                     @else
-                                                        <span class="w-2 h-2 rounded-full bg-gray-600 mt-1.5 flex-shrink-0"></span>
+                                                        <span class="w-2 h-2 rounded-full bg-gray-600 mt-1.5 flex-shrink-0" aria-hidden="true"></span>
                                                     @endif
                                                     <div class="flex-1 min-w-0">
                                                         <p class="text-sm font-medium text-gray-200">{{ $notif->title }}</p>
                                                         @if($notif->body)
                                                             <p class="text-xs text-gray-400 mt-0.5 line-clamp-2">{{ $notif->body }}</p>
                                                         @endif
-                                                        <p class="text-[10px] text-gray-600 mt-1">{{ $notif->created_at->diffForHumans() }}</p>
+                                                        <p class="text-xs text-gray-500 mt-1">{{ $notif->created_at->diffForHumans() }}</p>
                                                     </div>
                                                 </div>
                                             </button>
@@ -168,7 +169,7 @@
                             :aria-expanded="teamOpen.toString()"
                             aria-controls="team-dropdown-panel">
                         @if($currentTeam)
-                            <span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" aria-hidden="true"></span>
                             <span class="max-w-[120px] truncate font-medium">{{ $currentTeam->name }}</span>
                         @else
                             <span class="w-2 h-2 rounded-full bg-gray-500 flex-shrink-0"></span>
@@ -187,18 +188,18 @@
                          class="absolute right-0 mt-2 w-52 menu-panel z-50">
 
                         <div class="px-3 py-2 border-b border-gray-700">
-                            <p class="text-gray-500 text-xs uppercase tracking-wider font-medium">Switch context</p>
+                            <p class="menu-header">Switch context</p>
                         </div>
 
                         {{-- Personal --}}
                         <form action="{{ route('admin.teams.switch-personal') }}" method="POST">
                             @csrf
-                            <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-gray-700 transition text-sm text-left {{ ! $currentTeam ? 'text-white' : 'text-gray-400' }}">
+                            <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.05] transition text-sm text-left {{ ! $currentTeam ? 'text-white' : 'text-gray-400' }}">
                                 <span class="w-6 h-6 rounded-lg bg-gray-700 border border-gray-600 flex items-center justify-center text-xs font-bold">
                                     {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
                                 </span>
                                 <span>Personal</span>
-                                @if(! $currentTeam) <svg class="w-3.5 h-3.5 text-green-400 ml-auto" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> @endif
+                                @if(! $currentTeam) <svg class="w-3.5 h-3.5 text-emerald-400 ml-auto" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> @endif
                             </button>
                         </form>
 
@@ -207,7 +208,7 @@
                         @php $tRole = auth()->user()->teamRole($t); @endphp
                         <form action="{{ route('admin.teams.switch', $t) }}" method="POST">
                             @csrf
-                            <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-700 transition text-left {{ $currentTeam?->id === $t->id ? 'bg-gray-700/40' : '' }}">
+                            <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.05] transition text-left {{ $currentTeam?->id === $t->id ? 'bg-white/[0.05]' : '' }}">
                                 <span class="w-6 h-6 rounded-lg bg-brand-700 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">
                                     {{ strtoupper(substr($t->name, 0, 1)) }}
                                 </span>
@@ -216,14 +217,14 @@
                                     <span class="block text-xs text-gray-600 capitalize">{{ $tRole }}</span>
                                 </span>
                                 @if($currentTeam?->id === $t->id)
-                                    <svg class="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                    <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                 @endif
                             </button>
                         </form>
                         @endforeach
 
                         <div class="border-t border-gray-700 px-3 py-2">
-                            <a href="{{ route('admin.teams.create') }}" class="flex items-center gap-2 text-xs text-purple-400 hover:text-purple-300 transition py-1">
+                            <a href="{{ route('admin.teams.create') }}" class="flex items-center gap-2 text-xs font-medium text-brand-400 hover:text-brand-300 transition py-1">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                                 New Team
                             </a>
@@ -279,7 +280,7 @@
             <!-- Hamburger -->
             <div class="-me-2 flex items-center sm:hidden">
                 <button @click="open = ! open"
-                        class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-700 focus:outline-none focus:bg-gray-700 focus:text-gray-500 focus-visible:ring-2 focus-visible:ring-indigo-500 transition duration-150 ease-in-out"
+                        class="inline-flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/80 transition duration-150 ease-in-out"
                         id="mobile-nav-toggle"
                         :aria-label="open ? 'Close menu' : 'Open menu'"
                         :aria-expanded="open.toString()"
@@ -314,6 +315,18 @@
             @if(auth()->check() && auth()->user()->is_super_admin)
                 <x-responsive-nav-link :href="route('super.index')" :active="request()->routeIs('super.*')">
                     {{ __('Master Control') }}
+                </x-responsive-nav-link>
+            @endif
+
+            {{-- ITERATION-2 FIX: Billing + plan upgrade were desktop-only
+                 (user dropdown / nav chip). On a phone there was no way to
+                 reach billing or upgrade at all. --}}
+            <x-responsive-nav-link :href="route('billing.index')">
+                {{ __('Billing') }}
+            </x-responsive-nav-link>
+            @if(auth()->check() && auth()->user()->plan === 'free')
+                <x-responsive-nav-link :href="url('/pricing')">
+                    {{ __('Upgrade to Pro') }}
                 </x-responsive-nav-link>
             @endif
         </div>

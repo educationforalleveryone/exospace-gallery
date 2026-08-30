@@ -1,6 +1,6 @@
 # Exospace Design System
 
-**Status:** Canonical — Iteration 1 of the premium-SaaS UI rework.
+**Status:** Canonical — Iteration 2 of the premium-SaaS UI rework (layout, navigation, responsive UX).
 **Location of the kit:** `resources/css/app.css` (component classes) + `tailwind.config.js` (tokens).
 **Applies to:** admin app, auth, billing, profile, Master Control (super-admin), OpsCenter, Control Center, public marketing pages, auth pages.
 
@@ -70,8 +70,16 @@ Never stack `shadow-lg shadow-purple-900/40`-style colored shadows on arbitrary 
 
 ### 2.4 Spacing, controls, motion
 
-- **Page container:** `max-w-page` (80rem) with `px-4 sm:px-6 lg:px-8`. Narrow content: `max-w-3xl`/`max-w-2xl` for forms and detail pages.
-- **Page vertical rhythm:** `py-8 sm:py-10` under the header; section stacks `space-y-6`; card grids `gap-4`–`gap-6`.
+- **Page containers (Iteration 2 — three sanctioned wrappers, nothing ad hoc):**
+
+  | Class | Width | Use |
+  |---|---|---|
+  | `.page-shell` | `max-w-page` (1280px) | dashboards, list/table pages, editors, billing |
+  | `.page-shell-mid` | `max-w-4xl` (896px) | detail pages, settings (profile), secondary lists |
+  | `.page-shell-narrow` | `max-w-2xl` (672px) | focused single-purpose forms |
+
+  All three share the horizontal padding ramp `px-4 sm:px-6 lg:px-8` and vertical rhythm `py-8 sm:py-10` (narrow/mid: `py-8`) — identical to the layout's header band, so page titles and content always share a left edge. Marketing/public pages compose via `layouts/public` (different rhythm by design).
+- **Section stacks:** `space-y-6`; card grids `gap-4`–`gap-6`.
 - **Control heights:** `h-8` (dense) · `h-10` (default buttons/inputs) · `h-11` (hero CTA) · `h-9` (icon buttons, nav controls).
 - **Icon sizes:** 16px inline / 18px card icons / 20px nav icons.
 - **Motion:** `duration-150` interactions, `duration-200` panels, `active:scale-[0.98]` on buttons only. `prefers-reduced-motion` is globally respected in `app.css`.
@@ -174,15 +182,43 @@ Every table sits in `.table-wrap` (scroll on mobile — content is never clipped
 
 **Modals** — scrim `.modal-backdrop`, panel `.modal-panel` with `.modal-header` / `.modal-body` / `.modal-footer`. Widths: `max-w-md` confirm · `max-w-lg` form · `max-w-2xl` large. Destructive confirmations use `<x-confirm-modal>` (type-to-confirm). Ad-hoc `style="display:none"` overlays are legacy and migrate to `<x-modal>`.
 
+**Operational status language (Iteration 2)** — the four-state vocabulary for OpsCenter, Control Center and Master Control. Always dot + word — never color alone. Rendered via `<x-status-badge>` (alias map included: ok/passed→healthy, degraded/flaky→warning, failed/overdue/down→critical, queued/pending→unknown, running→info):
+
+```blade
+<x-status-badge state="healthy" />                 {{-- ● Healthy (emerald) --}}
+<x-status-badge state="degraded" label="Degraded" />{{-- ● Degraded (amber) --}}
+<x-status-badge state="failed" label="FAILED" />    {{-- ● FAILED (red) --}}
+<x-status-badge state="unknown" />                  {{-- ● Unknown (gray) --}}
+```
+
+Classes (`.status`, `.status-dot`, `.status-healthy|warning|critical|info|unknown`) live in `app.css`; square-ish `rounded-md` distinguishes operational chips from customer-facing `.badge` pills. State vocabulary per domain may vary (incident severity, credential rotation, backup health) — the *visual* result is always one identical pill language.
+
+**Pagination** — `{{ $x->links() }}` renders the dark override in `resources/views/vendor/pagination/tailwind.blade.php` (result count + `btn-sm` page buttons, `aria-current` on the current page). Do not hand-roll pagination markup.
+
 ---
 
 ## 7. Navigation & layout
 
 - Admin shell: `layouts/app.blade.php` + `layouts/navigation.blade.php` — canvas `bg-ink-900`, top nav `bg-ink-900/95 backdrop-blur`, hairline `border-gray-800`.
 - Page header band: `bg-ink-800/60 border-b border-gray-800`, container `max-w-page … py-5`.
-- Every page provides its title via the `$header` slot using `.page-title`; the layout injects a visually-hidden `h1` fallback for screen readers.
+- **Page composition (Iteration 2):** every authenticated page renders its title block through `<x-page-header>` inside the `$header` slot:
+
+  ```blade
+  <x-slot name="header">
+      <x-page-header :title="$gallery->title" description="…" :back="route('…')" backLabel="All galleries">
+          <x-slot:actions>
+              <a href="…" class="btn btn-primary">Primary action</a>
+          </x-slot:actions>
+      </x-page-header>
+  </x-slot>
+  ```
+
+  It renders: back link / breadcrumb row → visible `h1.page-title` → description → meta row → action area (right-aligned ≥lg, stacked on mobile, `flex-wrap`). Pages that only supply an `h2` in the slot had **no h1 at all** (the layout's sr-only fallback doesn't fire when a slot exists) — `<x-page-header>` fixes this by emitting the real `h1`.
+- **Primary nav:** Dashboard / Galleries / Artists / Teams (+ Master Control for super-admins). Do not add more items — extend the user dropdown or the page-level tool row instead. Free-plan upgrade chip is `lg`-only to prevent collisions at 1024px; Billing + Upgrade are in the mobile menu.
+- **Section tool rows** (Master Control): `flex flex-wrap gap-2` of `.btn.btn-sm.btn-ghost` links inside the header band — never a fixed-width row.
+- **Back navigation:** detail/edit pages pass `:back` to `<x-page-header>` — one consistent ← pattern instead of ad-hoc links.
 - Brand wordmark: `.logo-text` (single definition — never define per-page gradients).
-- OpsCenter / Control Center keep their slate identities but share the font (Inter), the global focus ring, and `noindex` (ops).
+- OpsCenter / Control Center keep their slate identities but share the font (Inter), the global focus ring, `noindex`, the container ramp, and (Iteration 2) the `.status-*` language. Clickable table rows use `data-href` + a delegated nonced script (CSP-safe, keyboard operable) — inline `onclick` handlers are forbidden.
 
 ---
 

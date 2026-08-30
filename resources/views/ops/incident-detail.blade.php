@@ -21,9 +21,9 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <div class="flex items-center gap-2 mb-1.5">
-                <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $sev['chip'] }}">{{ $sev['text'] }}</span>
-                <span class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-400 uppercase">incident #{{ $incident->id }}</span>
-                <span class="text-[10px] px-2 py-1 rounded {{ $incident->status === 'open' ? 'bg-slate-800 text-slate-300' : ($incident->status === 'resolved' ? 'bg-slate-900 text-slate-500 border border-slate-800' : 'bg-indigo-950/60 text-indigo-300 border border-indigo-800/50') }}">{{ $incident->status }}</span>
+                <span class="text-xs font-bold px-2 py-1 rounded border {{ $sev['chip'] }}">{{ $sev['text'] }}</span>
+                <span class="text-xs px-2 py-1 rounded bg-slate-800 text-slate-400 uppercase">incident #{{ $incident->id }}</span>
+                <span class="text-xs px-2 py-1 rounded {{ $incident->status === 'open' ? 'bg-slate-800 text-slate-300' : ($incident->status === 'resolved' ? 'bg-slate-900 text-slate-500 border border-slate-800' : 'bg-indigo-950/60 text-indigo-300 border border-indigo-800/50') }}">{{ $incident->status }}</span>
             </div>
             <h1 class="text-2xl font-semibold text-slate-50">{{ $incident->title }}</h1>
             <p class="text-xs text-slate-400 mt-1.5">
@@ -53,7 +53,7 @@
                     </form>
                 @endif
             @else
-                <span class="text-[10px] px-2 py-1.5 rounded bg-cyan-950/50 text-cyan-300 border border-cyan-800/50 font-bold self-center" title="Lifecycle actions are super-admin-only — operators and viewers can still run the recommended diagnostics below.">READ-ONLY VIEW</span>
+                <span class="text-xs px-2 py-1.5 rounded bg-cyan-950/50 text-cyan-300 border border-cyan-800/50 font-bold self-center" title="Lifecycle actions are super-admin-only — operators and viewers can still run the recommended diagnostics below.">READ-ONLY VIEW</span>
             @endif
         </div>
     </div>
@@ -65,7 +65,7 @@
     <div class="lg:col-span-2 space-y-6">
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-4">Incident timeline</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-4">Incident timeline</h2>
 
             @if($timeline->isEmpty())
                 <p class="text-sm text-slate-400">No member events recorded.</p>
@@ -85,13 +85,13 @@
                             <span class="absolute -left-[7px] mt-1.5 w-3.5 h-3.5 rounded-full border-2 border-slate-950 {{ $dot }}"></span>
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="text-xs text-slate-500 font-mono w-32 shrink-0">{{ $event->first_seen_at?->format('H:i') ?? '—' }}</span>
-                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded {{ $sev['chip'] }}">{{ strtoupper($event->severity) }}</span>
-                                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{{ $event->category }}</span>
-                                @if($isRoot)<span class="text-[9px] px-1.5 py-0.5 rounded bg-fuchsia-950/60 text-fuchsia-300 border border-fuchsia-800/50 font-bold">ROOT CAUSE CANDIDATE</span>@endif
+                                <span class="text-xs font-bold px-1.5 py-0.5 rounded {{ $sev['chip'] }}">{{ strtoupper($event->severity) }}</span>
+                                <span class="text-xs font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{{ $event->category }}</span>
+                                @if($isRoot)<span class="text-xs px-1.5 py-0.5 rounded bg-fuchsia-950/60 text-fuchsia-300 border border-fuchsia-800/50 font-bold">ROOT CAUSE CANDIDATE</span>@endif
                             </div>
                             <a href="{{ route('ops.events.show', $event) }}" class="block text-sm text-slate-200 hover:text-emerald-300 mt-1">{{ $event->title }}</a>
                             @if($event->occurrence_count > 1)
-                                <span class="text-[10px] text-slate-500">{{ $event->occurrence_count }}× occurrences · last {{ $event->last_seen_at?->diffForHumans() }}</span>
+                                <span class="text-xs text-slate-500">{{ $event->occurrence_count }}× occurrences · last {{ $event->last_seen_at?->diffForHumans() }}</span>
                             @endif
                         </li>
                     @endforeach
@@ -100,7 +100,7 @@
         </section>
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Root cause candidate</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Root cause candidate</h2>
             <p class="text-sm text-slate-200 font-medium">{{ $incident->rootCauseStatement() }}</p>
             @if($incident->confidence === 'high')
                 <p class="text-xs text-slate-400 mt-2">A causal event (deployment / build / migration) demonstrably preceded these symptoms — strong evidence for a change-triggered failure.</p>
@@ -115,12 +115,12 @@
         </section>
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Why it matters</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Why it matters</h2>
             <p class="text-sm text-slate-300">{{ $incident->impactStatement() }}</p>
         </section>
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Recommended next steps</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Recommended next steps</h2>
             @php
                 $incidentDiagnostics = \App\Ops\Diagnostics\DiagnosticEngine::runnableForEvents($timeline);
             @endphp
@@ -146,14 +146,14 @@
             @else
                 <p class="text-xs text-slate-500 mb-3">No specific diagnostics recommended — inspect the timeline events.</p>
             @endif
-            <a href="{{ route('ops.diagnostics.index') }}" class="inline-block text-[11px] text-slate-500 hover:text-slate-300 mt-3">Browse all diagnostics →</a>
+            <a href="{{ route('ops.diagnostics.index') }}" class="inline-block text-xs text-slate-500 hover:text-slate-300 mt-3">Browse all diagnostics →</a>
         </section>
     </div>
 
     {{-- ── Side column ────────────────────────────────────────────────── --}}
     <div class="space-y-6">
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">Related</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Related</h2>
             <dl class="space-y-2 text-xs">
                 <div class="flex justify-between gap-2">
                     <dt class="text-slate-500">Application</dt>
@@ -162,13 +162,13 @@
                 @if(data_get($incident->context, 'deployment_uuid'))
                     <div class="flex justify-between gap-2">
                         <dt class="text-slate-500">Deployment</dt>
-                        <dd class="text-slate-200 font-mono text-[10px]">{{ \Illuminate\Support\Str::limit(data_get($incident->context, 'deployment_uuid'), 14) }}</dd>
+                        <dd class="text-slate-200 font-mono text-xs">{{ \Illuminate\Support\Str::limit(data_get($incident->context, 'deployment_uuid'), 14) }}</dd>
                     </div>
                 @endif
                 @if(data_get($incident->context, 'commit'))
                     <div class="flex justify-between gap-2">
                         <dt class="text-slate-500">Commit</dt>
-                        <dd class="text-slate-200 font-mono text-[10px]">{{ \Illuminate\Support\Str::limit(data_get($incident->context, 'commit'), 10, '') }}</dd>
+                        <dd class="text-slate-200 font-mono text-xs">{{ \Illuminate\Support\Str::limit(data_get($incident->context, 'commit'), 10, '') }}</dd>
                     </div>
                 @endif
                 @if(data_get($incident->context, 'server'))
@@ -201,8 +201,8 @@
         </section>
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">How correlation works</h2>
-            <p class="text-[11px] text-slate-500 leading-relaxed">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">How correlation works</h2>
+            <p class="text-xs text-slate-500 leading-relaxed">
                 Events on the same application within a 30-minute window join one incident. A deployment, build or
                 migration event up to 60 minutes earlier becomes the root-cause candidate (high confidence).
                 Correlation runs every 5 minutes plus immediately for critical errors. Root causes are ranked

@@ -1,9 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">NPS Dashboard</h2>
+        <x-page-header title="NPS Dashboard" :back="route('super.index')" backLabel="Master Control"/>
     </x-slot>
 
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <div class="page-shell-mid">
 
         {{-- NPS Score Banner --}}
         <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 mb-6">

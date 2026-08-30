@@ -14,7 +14,7 @@
 </head>
 <body class="font-sans min-h-screen bg-slate-950 text-slate-200 antialiased">
 <header class="border-b border-slate-800 bg-slate-900/60">
-    <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+    <div class="mx-auto flex max-w-page items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
         <a href="{{ route('control-center.overview') }}" class="flex items-center gap-3">
             <span class="grid size-9 place-items-center rounded-lg bg-violet-600 font-black">Q</span>
             <div>
@@ -22,7 +22,7 @@
                 <div class="text-xs text-slate-500">Exospace · Release Operations</div>
             </div>
         </a>
-        <nav class="flex gap-2 text-sm">
+        <nav class="flex gap-2 text-sm" aria-label="Control Center sections">
             <a href="{{ route('control-center.overview') }}"
                class="rounded-md px-3 py-1.5 {{ request()->routeIs('control-center.overview') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white' }}">Overview</a>
             <a href="{{ route('control-center.flaky') }}"
@@ -34,7 +34,7 @@
     </div>
 </header>
 
-<main class="mx-auto max-w-7xl px-6 py-8">
+<main class="mx-auto max-w-page px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
     @if (session('info'))
         <div class="mb-4 rounded-lg border border-sky-800 bg-sky-950/60 px-4 py-3 text-sm text-sky-200">{{ session('info') }}</div>
     @endif
@@ -48,7 +48,7 @@
     @yield('content')
 </main>
 
-<footer class="mx-auto max-w-7xl px-6 pb-10 text-xs text-slate-600">
+<footer class="mx-auto max-w-page px-4 sm:px-6 lg:px-8 pb-10 text-xs text-slate-600">
     Production safety is enforced at every layer: destructive suites can never target exospace.gallery.
 </footer>
 </body>

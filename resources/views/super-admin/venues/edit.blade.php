@@ -1,16 +1,15 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('super.venues.index') }}" class="text-gray-400 hover:text-gray-200 transition text-sm">← Venues</a>
-            <span class="text-gray-600">/</span>
-            <h2 class="font-semibold text-xl text-gray-100">Edit: {{ $venue->name }}</h2>
-            @if($venue->is_draft)
-                <span class="text-xs px-2 py-0.5 rounded bg-amber-900/40 text-amber-400">DRAFT</span>
-            @endif
-        </div>
+        <x-page-header :title="'Edit: '.$venue->name" :back="route('super.venues.index')" backLabel="Venues">
+            <x-slot:meta>
+                @if($venue->is_draft)
+                    <span class="badge badge-warning">Draft</span>
+                @endif
+            </x-slot:meta>
+        </x-page-header>
     </x-slot>
 
-    <div class="py-8 max-w-4xl mx-auto px-4">
+    <div class="page-shell-mid">
         <form method="POST" action="{{ route('super.venues.update', $venue) }}" enctype="multipart/form-data">
             @csrf @method('PUT')
 

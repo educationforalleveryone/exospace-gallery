@@ -70,7 +70,7 @@
                     <div class="flex items-baseline gap-2">
                         <b>{{ $gate['label'] }}</b>
                         @if ($gate['mode'] !== 'blocking')
-                            <span class="text-[10px] uppercase text-amber-400">advisory</span>
+                            <span class="text-xs uppercase text-amber-400">advisory</span>
                         @endif
                     </div>
                     <div class="truncate text-xs text-slate-500" title="{{ $gate['note'] }}">{{ $gate['note'] }}</div>
@@ -141,7 +141,7 @@
                         Run {{ $meta['estimated_minutes'] ? "({$meta['estimated_minutes']} min)" : '' }}
                     </button>
                 </form>
-                <span class="ml-auto rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide
+                <span class="ml-auto rounded border px-1.5 py-0.5 text-xs uppercase tracking-wide
                     {{ $meta['safety']==='prod-safe-read' ? 'border-teal-700 text-teal-400' : 'border-slate-700 text-slate-500' }}">
                     {{ $meta['safety'] }}
                 </span>

@@ -1,17 +1,19 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Outbound Webhooks</h2>
+        <x-page-header title="Outbound webhook subscriptions" :back="route('super.index')" backLabel="Master Control">
+            <x-slot:description>
+                <div class="page-subtitle max-w-3xl">
+                    Per-event subscriptions for the <code>OutboundWebhookService</code> dispatch fan-out — a security team that only wants to subscribe to
+                    <code>billing.recipient_added</code> / <code>_removed</code> events no longer has to also receive every <code>gallery.published</code> /
+                    <code>user.upgraded</code> event the env-var subscriber receives. DB-backed, audit-logged add/remove + enable/disable (pause a noisy
+                    subscriber without losing its config). The env-var <code>OUTBOUND_WEBHOOK_URL</code> remains the always-on default subscription
+                    (every event it's configured for is dispatched to it, regardless of the DB list).
+                </div>
+            </x-slot:description>
+        </x-page-header>
     </x-slot>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-    <h1 class="text-2xl font-bold text-white mb-2">📡 Outbound webhook subscriptions</h1>
-    <p class="text-sm text-gray-400 mb-6">
-        Per-event subscriptions for the <code>OutboundWebhookService</code> dispatch fan-out — a security team that only wants to subscribe to
-        <code>billing.recipient_added</code> / <code>_removed</code> events no longer has to also receive every <code>gallery.published</code> /
-        <code>user.upgraded</code> event the env-var subscriber receives. DB-backed, audit-logged add/remove + enable/disable (pause a noisy
-        subscriber without losing its config). The env-var <code>OUTBOUND_WEBHOOK_URL</code> remains the always-on default subscription
-        (every event it's configured for is dispatched to it, regardless of the DB list).
-    </p>
+    <div class="page-shell">
 
     @if(session('success'))
         <div class="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-300" role="status">{{ session('success') }}</div>
@@ -27,7 +29,7 @@
     <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
         <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
             <h2 class="text-lg font-bold text-white">Environment default</h2>
-            <div class="text-[11px] text-gray-500">always-on · sync dispatch · HMAC-SHA256 signature · 3 retries (1+3+9s)</div>
+            <div class="text-xs text-gray-500">always-on · sync dispatch · HMAC-SHA256 signature · 3 retries (1+3+9s)</div>
         </div>
         <p class="text-xs text-gray-400 mb-3">
             The <code>OUTBOUND_WEBHOOK_URL</code> env var (configured in Coolify) is treated as a default subscription: every event the
@@ -36,7 +38,7 @@
         </p>
         <div class="grid md:grid-cols-2 gap-4">
             <div class="bg-gray-800/50 border border-gray-700/40 rounded px-3 py-2">
-                <div class="text-[10px] text-gray-500 uppercase tracking-wider">OUTBOUND_WEBHOOK_URL</div>
+                <div class="text-xs text-gray-500 uppercase tracking-wider">OUTBOUND_WEBHOOK_URL</div>
                 <div class="text-sm text-gray-200 font-mono break-all">
                     @if($envUrl)
                         {{ $envUrl }}
@@ -46,7 +48,7 @@
                 </div>
             </div>
             <div class="bg-gray-800/50 border border-gray-700/40 rounded px-3 py-2">
-                <div class="text-[10px] text-gray-500 uppercase tracking-wider">OUTBOUND_WEBHOOK_SECRET</div>
+                <div class="text-xs text-gray-500 uppercase tracking-wider">OUTBOUND_WEBHOOK_SECRET</div>
                 <div class="text-sm text-gray-200 font-mono">
                     @if($envSecretSet)
                         <span class="text-emerald-300">configured (HMAC signing on)</span>
@@ -131,7 +133,7 @@
     <div class="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-8">
         <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
             <h2 class="text-lg font-bold text-white">Per-event subscription counts</h2>
-            <div class="text-[11px] text-gray-500">aggregated across all pages</div>
+            <div class="text-xs text-gray-500">aggregated across all pages</div>
         </div>
         <p class="text-xs text-gray-400 mb-3">
             Quick triage surface — at a glance see which events have multiple subscribers (a noisy event the security team
@@ -141,7 +143,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             @foreach($byEvent as $eventType => $counts)
                 <div class="bg-gray-800/50 border border-gray-700/40 rounded-lg px-4 py-3">
-                    <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 break-all">{{ $eventType }}</div>
+                    <div class="text-xs text-gray-500 uppercase tracking-wider mb-1 break-all">{{ $eventType }}</div>
                     <div class="flex items-center gap-3 text-sm">
                         <span class="text-emerald-300 font-mono">{{ $counts['active'] }} active</span>
                         @if($counts['paused'] > 0)
@@ -159,7 +161,7 @@
     <div class="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white">Active subscriptions</h2>
-            <div class="text-[11px] text-gray-500">
+            <div class="text-xs text-gray-500">
                 @if($subscriptions instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator)
                     {{ $subscriptions->total() }} total · paginated 25/page
                 @else
@@ -167,16 +169,17 @@
                 @endif
             </div>
         </div>
-        <table class="min-w-full divide-y divide-gray-800">
+        <div class="overflow-x-auto">
+        <table class="table-base min-w-[820px] divide-y divide-gray-800">
             <thead class="bg-gray-800/50">
                 <tr>
-                    <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Event</th>
-                    <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Target URL</th>
-                    <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Secret</th>
-                    <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                    <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Last delivery</th>
-                    <th class="px-5 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Added</th>
-                    <th class="px-5 py-2 text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
+                    <th class="px-5 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Event</th>
+                    <th class="px-5 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Target URL</th>
+                    <th class="px-5 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Secret</th>
+                    <th class="px-5 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                    <th class="px-5 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Last delivery</th>
+                    <th class="px-5 py-2 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Added</th>
+                    <th class="px-5 py-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-800">
@@ -199,9 +202,9 @@
                         </td>
                         <td class="px-5 py-3">
                             @if($sub->is_active)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">active</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">active</span>
                             @else
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-500/15 text-gray-400 border border-gray-500/30">paused</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/15 text-gray-400 border border-gray-500/30">paused</span>
                             @endif
                         </td>
                         <td class="px-5 py-3 text-xs">
@@ -213,7 +216,7 @@
                                         <span class="text-red-400">✗ {{ $latest->http_status ? 'HTTP ' . $latest->http_status : 'no response' }}</span>
                                     @endif
                                     <span class="text-gray-500"> · attempt {{ $latest->attempt_count }}/{{ \App\Services\OutboundWebhookService::MAX_RETRIES }}</span>
-                                    <div class="text-[10px] text-gray-500">{{ $latest->delivered_at?->diffForHumans() }}</div>
+                                    <div class="text-xs text-gray-500">{{ $latest->delivered_at?->diffForHumans() }}</div>
                                 </a>
                             @else
                                 <span class="text-gray-600" title="no delivery recorded yet — the dispatch path hasn't fired for this subscription since the ledger was created">—</span>
@@ -222,7 +225,7 @@
                         <td class="px-5 py-3 text-xs text-gray-400">
                             {{ $sub->created_at?->diffForHumans() }}
                             @if($sub->addedBy)
-                                <div class="text-[10px] text-gray-500">by {{ $sub->addedBy->name }}</div>
+                                <div class="text-xs text-gray-500">by {{ $sub->addedBy->name }}</div>
                             @endif
                         </td>
                         <td class="px-5 py-3 text-right">
@@ -263,6 +266,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
         @if($subscriptions instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator && $subscriptions->hasPages())
             <div class="px-5 py-3 border-t border-gray-800">
                 {{ $subscriptions->links() }}

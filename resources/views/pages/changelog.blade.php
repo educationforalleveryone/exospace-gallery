@@ -4,7 +4,7 @@
 @section('description', 'See what\'s new in Exospace — feature releases, improvements, and bug fixes.')
 
 @section('content')
-<div style="max-width: 800px; margin: 0 auto; padding: 4rem 1.5rem;">
+<div class="max-w-3xl mx-auto px-6 py-16">
 
     {{-- Header --}}
     <div style="text-align: center; margin-bottom: 3rem;">

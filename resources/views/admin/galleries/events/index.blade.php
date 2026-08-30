@@ -1,20 +1,16 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <a href="{{ route('admin.galleries.edit', $gallery) }}" class="text-gray-400 hover:text-gray-200 transition text-sm">← {{ $gallery->title }}</a>
-                <span class="text-gray-600">/</span>
-                <h2 class="font-semibold text-xl text-gray-100">Events</h2>
-            </div>
-            <a href="{{ route('admin.galleries.events.create', $gallery) }}"
-               class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                New event
-            </a>
-        </div>
+        <x-page-header title="Events" :back="route('admin.galleries.edit', $gallery)" :backLabel="$gallery->title">
+            <x-slot:actions>
+                <a href="{{ route('admin.galleries.events.create', $gallery) }}" class="btn btn-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    New event
+                </a>
+            </x-slot:actions>
+        </x-page-header>
     </x-slot>
 
-    <div class="py-8 max-w-5xl mx-auto px-4">
+    <div class="page-shell-mid">
         @if(session('status'))
             <div class="mb-4 text-sm text-green-400 bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
         @endif

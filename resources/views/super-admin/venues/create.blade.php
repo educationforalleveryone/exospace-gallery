@@ -1,13 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('super.venues.index') }}" class="text-gray-400 hover:text-gray-200 transition text-sm">← Venues</a>
-            <span class="text-gray-600">/</span>
-            <h2 class="font-semibold text-xl text-gray-100">New venue template</h2>
-        </div>
+        <x-page-header title="New venue template" :back="route('super.venues.index')" backLabel="Venues"/>
     </x-slot>
 
-    <div class="py-8 max-w-4xl mx-auto px-4">
+    <div class="page-shell-mid">
         <form method="POST" action="{{ route('super.venues.store') }}" enctype="multipart/form-data">
             @csrf
 

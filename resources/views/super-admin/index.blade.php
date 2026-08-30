@@ -1,84 +1,39 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>🎯 Master Control - ExoSpace</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    {{-- ITERATION 5: Chart.js for the TTFE trend (same admin-vendor bundle
-         the gallery analytics page uses; window.Chart global). --}}
+<x-app-layout>
     @vite(['resources/js/admin-vendor.js'])
-</head>
-<body class="bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white min-h-screen">
 
-    <!-- Header -->
-    <div class="bg-black/50 backdrop-blur-md border-b border-red-500/30">
-        <div class="max-w-7xl mx-auto px-6 py-4">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h1 class="text-3xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-                        🎯 MASTER CONTROL
-                    </h1>
-                    <p class="text-gray-400 text-sm">God Mode • Super Admin Dashboard</p>
-                </div>
-                <div class="flex flex-wrap gap-2 items-center justify-end">
-                    <a href="{{ route('admin.dashboard') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        ← Dashboard
-                    </a>
-                    <a href="{{ route('super.venues.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        🏛️ Venue Templates
-                    </a>
-                    <a href="{{ route('super.featured.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        ⭐ Featured
-                    </a>
-                    <a href="{{ route('super.seo.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        🔍 SEO Operations
-                    </a>
-                    <a href="{{ route('super.pending-upgrades.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        💳 Pending Upgrades
-                    </a>
-                    <a href="{{ route('super.billing.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        🧾 Billing Review
-                    </a>
-                    <a href="{{ route('super.webhooks.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        📡 Outbound Webhooks
-                    </a>
-                    <a href="{{ route('super.feedback.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        💬 Feedback
-                    </a>
-                    <a href="{{ route('super.nps.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        📊 NPS
-                    </a>
-                    <a href="{{ route('super.affiliates.index') }}" class="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 rounded-lg transition text-sm text-gray-200">
-                        🤝 Affiliates
-                    </a>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button class="px-3 py-1.5 bg-red-600/90 hover:bg-red-600 border border-red-500/30 rounded-lg transition text-sm text-white">Logout</button>
-                    </form>
-                </div>
-            </div>
+    <x-slot name="header">
+        <x-page-header title="Master Control" description="Super-admin control plane — platform statistics, users, and operational tools.">
+            <x-slot:meta>
+                <nav aria-label="Master Control sections" class="flex flex-wrap gap-2">
+                    <a href="{{ route('admin.dashboard') }}" class="btn btn-sm btn-ghost">← Dashboard</a>
+                    <a href="{{ route('super.venues.index') }}" class="btn btn-sm btn-ghost">Venue Templates</a>
+                    <a href="{{ route('super.featured.index') }}" class="btn btn-sm btn-ghost">Featured</a>
+                    <a href="{{ route('super.seo.index') }}" class="btn btn-sm btn-ghost">SEO Operations</a>
+                    <a href="{{ route('super.pending-upgrades.index') }}" class="btn btn-sm btn-ghost">Pending Upgrades</a>
+                    <a href="{{ route('super.billing.index') }}" class="btn btn-sm btn-ghost">Billing Review</a>
+                    <a href="{{ route('super.webhooks.index') }}" class="btn btn-sm btn-ghost">Outbound Webhooks</a>
+                    <a href="{{ route('super.feedback.index') }}" class="btn btn-sm btn-ghost">Feedback</a>
+                    <a href="{{ route('super.nps.index') }}" class="btn btn-sm btn-ghost">NPS</a>
+                    <a href="{{ route('super.affiliates.index') }}" class="btn btn-sm btn-ghost">Affiliates</a>
+                </nav>
+            </x-slot:meta>
+        </x-page-header>
+    </x-slot>
+
+    <div class="page-shell">
+        {{-- Flash messages --}}
+        <div class="mb-6 space-y-2">
+            @if(session('success'))
+                <div class="alert alert-success" role="status">{{ session('success') }}</div>
+            @endif
+            @if(session('error'))
+                <div class="alert alert-error" role="alert">{{ session('error') }}</div>
+            @endif
         </div>
-    </div>
-
-    <!-- Flash Messages -->
-    <div class="max-w-7xl mx-auto px-6 mt-4 space-y-2">
-        @if(session('success'))
-            <div class="bg-green-500/20 border border-green-500 text-green-300 px-4 py-3 rounded-lg flex items-center gap-2">
-                ✅ {{ session('success') }}
-            </div>
-        @endif
-        @if(session('error'))
-            <div class="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg flex items-center gap-2">
-                ❌ {{ session('error') }}
-            </div>
-        @endif
-    </div>
 
     <!-- Platform Statistics -->
-    <div class="max-w-7xl mx-auto px-6 py-8">
-        <h2 class="eyebrow mb-4">📊 Platform Statistics</h2>
+    <div class="pt-6">
+        <h2 class="eyebrow mb-4">Platform Statistics</h2>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-3 mb-10">
             @foreach([
                 ['val' => $stats['total_users'],     'label' => 'Total Users',    'color' => 'blue'],
@@ -116,7 +71,7 @@
 
         {{-- M-14: Feature Flags status panel --}}
         <div class="mb-8 bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">🚩 Feature Flags</h3>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Feature Flags</h3>
             <div class="flex flex-wrap gap-2">
                 @php $flags = \App\Services\FeatureFlag::all(); @endphp
                 @foreach($flags as $name => $enabled)
@@ -154,8 +109,8 @@
                     <div class="flex items-center gap-3">
                         <span class="text-2xl">{{ $bc['icon'] }}</span>
                         <div>
-                            <h3 class="text-sm font-semibold {{ $bc['text'] }} uppercase tracking-wider">🗄️ Backup health — {{ $bc['label'] }}</h3>
-                            <p class="text-[11px] text-gray-500 mt-0.5">Heartbeats stamped by the <code>exospace:backup</code> wrapper (Iteration 7). Per-type status below; Slack alerts fire on failure (critical for db/files, warning for clean).</p>
+                            <h3 class="text-sm font-semibold {{ $bc['text'] }} uppercase tracking-wider">Backup health — {{ $bc['label'] }}</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Heartbeats stamped by the <code>exospace:backup</code> wrapper (Iteration 7). Per-type status below; Slack alerts fire on failure (critical for db/files, warning for clean).</p>
                         </div>
                     </div>
                 </div>
@@ -168,7 +123,7 @@
                         <div class="border border-gray-700/50 rounded-lg px-3 py-2 text-xs bg-black/30">
                             <div class="flex items-center justify-between mb-1">
                                 <span class="font-semibold text-gray-300">{{ $type['label'] }}</span>
-                                <span class="{{ $tc['text'] }}">{{ $tc['icon'] }} {{ $type['status'] }}</span>
+                                <x-status-badge :state="$tc['state']" :label="$type['status']" />
                             </div>
                             <div class="text-gray-500">last run: <span class="text-gray-400">{{ $lastLabel }}</span></div>
                         </div>
@@ -182,11 +137,11 @@
              is now visible continuously. Data: OnboardingMetricsService (cached 30/60 min). --}}
         <div class="mb-8 bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">📈 Onboarding Funnel &amp; TTFE</h3>
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Onboarding Funnel &amp; TTFE</h3>
                 <div class="flex gap-1">
                     @foreach([7, 30, 90] as $period)
                         <a href="{{ route('super.index', ['days' => $period]) }}"
-                           class="px-3 py-1 rounded-md text-xs font-medium {{ $onboardingDays === $period ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
+                           class="px-3 py-1 rounded-md text-xs font-medium {{ $onboardingDays === $period ? 'bg-brand-600 text-white' : 'bg-white/[0.06] text-gray-400 hover:bg-white/[0.10] hover:text-gray-200' }}">
                             {{ $period }}d
                         </a>
                     @endforeach
@@ -196,8 +151,8 @@
             @php
                 $funnel = [
                     ['label' => 'Registered',       'value' => $onboarding['registered'],      'color' => 'bg-blue-500'],
-                    ['label' => 'Created gallery',  'value' => $onboarding['created_gallery'], 'color' => 'bg-indigo-500'],
-                    ['label' => 'Uploaded image',   'value' => $onboarding['uploaded_image'],  'color' => 'bg-purple-500'],
+                    ['label' => 'Created gallery',  'value' => $onboarding['created_gallery'], 'color' => 'bg-brand-500'],
+                    ['label' => 'Uploaded image',   'value' => $onboarding['uploaded_image'],  'color' => 'bg-brand-400'],
                     ['label' => 'Published',        'value' => $onboarding['published'],       'color' => 'bg-emerald-500'],
                     ['label' => 'Got first view',   'value' => $onboarding['got_views'],       'color' => 'bg-amber-500'],
                 ];
@@ -269,7 +224,7 @@
             <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
                 <div class="flex items-center justify-between mb-2">
                     <div class="text-xs text-gray-500 uppercase tracking-wider">TTFE / TTFG trend — weekly snapshots ({{ $onboardingDays }}d window)</div>
-                    <div class="text-[10px] text-gray-600">{{ count($onboardingTrend) }} point{{ count($onboardingTrend) === 1 ? '' : 's' }} recorded{{ count($releaseAnnotations) > 0 ? ' · ' . count($releaseAnnotations) . ' release marker' . (count($releaseAnnotations) === 1 ? '' : 's') : '' }}{{ count($anomalyAnnotations ?? []) > 0 ? ' · ' . count($anomalyAnnotations) . ' anomal' . (count($anomalyAnnotations) === 1 ? 'y' : 'ies') : '' }}</div>
+                    <div class="text-xs text-gray-600">{{ count($onboardingTrend) }} point{{ count($onboardingTrend) === 1 ? '' : 's' }} recorded{{ count($releaseAnnotations) > 0 ? ' · ' . count($releaseAnnotations) . ' release marker' . (count($releaseAnnotations) === 1 ? '' : 's') : '' }}{{ count($anomalyAnnotations ?? []) > 0 ? ' · ' . count($anomalyAnnotations) . ' anomal' . (count($anomalyAnnotations) === 1 ? 'y' : 'ies') : '' }}</div>
                 </div>
                 @if(count($onboardingTrend) >= 2)
                     @php
@@ -287,7 +242,7 @@
                         if ($ttfeAnomalies > 0) { $ttfeAria .= ", {$ttfeAnomalies} anomal" . ($ttfeAnomalies === 1 ? 'y' : 'ies'); }
                     @endphp
                     <div class="h-56"><canvas id="ttfe-trend-chart" role="img" aria-label="{{ $ttfeAria }}"></canvas></div>
-                    <div class="text-[10px] text-gray-600 mt-1">Average hours from signup to first gallery (TTFG) and first published exhibition (TTFE). Lower is better. Dashed lines mark releases (from the /changelog calendar). Amber/emerald rings mark weeks that deviate >2σ from the trailing mean.</div>
+                    <div class="hint-text mt-1">Average hours from signup to first gallery (TTFG) and first published exhibition (TTFE). Lower is better. Dashed lines mark releases (from the /changelog calendar). Amber/emerald rings mark weeks that deviate >2σ from the trailing mean.</div>
                 @else
                     <div class="text-sm text-gray-500 py-6 text-center">
                         Trend appears after the second weekly snapshot — the first is already recorded and will chart next Monday.
@@ -316,10 +271,10 @@
                 <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
                     <div class="flex items-center justify-between mb-2">
                         <div class="text-xs text-gray-500 uppercase tracking-wider">Funnel-stage conversion trend — weekly snapshots ({{ $onboardingDays }}d window)</div>
-                        <div class="text-[10px] text-gray-600">{{ $fsPoints }} point{{ $fsPoints === 1 ? '' : 's' }} recorded · 4 stages{{ $fsAnomalyTotal > 0 ? ' · ' . $fsAnomalyTotal . ' anomal' . ($fsAnomalyTotal === 1 ? 'y' : 'ies') : '' }}</div>
+                        <div class="text-xs text-gray-600">{{ $fsPoints }} point{{ $fsPoints === 1 ? '' : 's' }} recorded · 4 stages{{ $fsAnomalyTotal > 0 ? ' · ' . $fsAnomalyTotal . ' anomal' . ($fsAnomalyTotal === 1 ? 'y' : 'ies') : '' }}</div>
                     </div>
                     <div class="h-56"><canvas id="funnel-stage-trend-chart" role="img" aria-label="{{ $fsAria }}"></canvas></div>
-                    <div class="text-[10px] text-gray-600 mt-1">Conversion rate per funnel stage, weekly. Higher is better. Amber rings mark weeks a stage rate drops >2σ below the trailing mean (worse — stage drop); emerald rings mark weeks a stage rate rises >2σ above (better).</div>
+                    <div class="hint-text mt-1">Conversion rate per funnel stage, weekly. Higher is better. Amber rings mark weeks a stage rate drops >2σ below the trailing mean (worse — stage drop); emerald rings mark weeks a stage rate rises >2σ above (better).</div>
                 </div>
             @endif
         </div>
@@ -332,7 +287,7 @@
         <div class="mb-8 bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">🔁 Weekly cohort retention</h3>
-                <div class="text-[10px] text-gray-600">active = login or gallery update in the week · * = week not closed yet</div>
+                <div class="text-xs text-gray-600">active = login or gallery update in the week · * = week not closed yet</div>
             </div>
 
             <div class="overflow-x-auto">
@@ -388,7 +343,7 @@
             <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
                 <div class="flex items-center justify-between mb-2">
                     <div class="text-xs text-gray-500 uppercase tracking-wider">Week-1 / Week-2 retention trend — weekly snapshots</div>
-                    <div class="text-[10px] text-gray-600">{{ count($retentionTrendW1) }} point{{ count($retentionTrendW1) === 1 ? '' : 's' }} recorded{{ (count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) > 0 ? ' · ' . (count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) . ' anomal' . ((count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) === 1 ? 'y' : 'ies') : '' }}</div>
+                    <div class="text-xs text-gray-600">{{ count($retentionTrendW1) }} point{{ count($retentionTrendW1) === 1 ? '' : 's' }} recorded{{ (count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) > 0 ? ' · ' . (count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) . ' anomal' . ((count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) === 1 ? 'y' : 'ies') : '' }}</div>
                 </div>
                 @if(count($retentionTrendW1) >= 2)
                     @php
@@ -403,7 +358,7 @@
                         if ($retAnomalies > 0) { $retAria .= ", {$retAnomalies} anomal" . ($retAnomalies === 1 ? 'y' : 'ies'); }
                     @endphp
                     <div class="h-56"><canvas id="retention-trend-chart" role="img" aria-label="{{ $retAria }}"></canvas></div>
-                    <div class="text-[10px] text-gray-600 mt-1">% of each cohort active (login or gallery update) in their 1st / 2nd week after registration. Higher is better. Amber rings mark weeks that drop >2σ below the trailing mean (churn up); emerald rings mark weeks that rise >2σ above.</div>
+                    <div class="hint-text mt-1">% of each cohort active (login or gallery update) in their 1st / 2nd week after registration. Higher is better. Amber rings mark weeks that drop >2σ below the trailing mean (churn up); emerald rings mark weeks that rise >2σ above.</div>
                 @else
                     <div class="text-sm text-gray-500 py-6 text-center">
                         Trend appears after the second weekly snapshot — the first is already recorded and will chart next Monday.
@@ -415,14 +370,14 @@
         <!-- Search / Filter -->
         <div class="flex gap-3 mb-4">
             <input type="text" id="userSearch" placeholder="Search by name or email..."
-                   class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:border-red-500 outline-none">
-            <select id="planFilter" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:border-red-500 outline-none">
+                   class="input-base flex-1">
+            <select id="planFilter" class="input-base sm:w-40">
                 <option value="">All Plans</option>
                 <option value="free">Free</option>
                 <option value="pro">Pro</option>
                 <option value="studio">Studio</option>
             </select>
-            <select id="statusFilter" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:border-red-500 outline-none">
+            <select id="statusFilter" class="input-base sm:w-44">
                 <option value="">All Status</option>
                 <option value="banned">Banned</option>
                 <option value="unverified">Unverified</option>
@@ -431,9 +386,9 @@
         </div>
 
         <!-- Users Table -->
-        <h2 class="eyebrow mb-4">👥 All Users</h2>
-        <div class="bg-black/40 border border-gray-700 rounded-xl overflow-hidden">
-            <table class="w-full" id="usersTable">
+        <h2 class="eyebrow mb-4">All Users</h2>
+        <div class="table-wrap">
+            <table class="table-base min-w-[880px]" id="usersTable">
                 <thead class="bg-gray-800/60 border-b border-gray-700">
                     <tr>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase">User</th>
@@ -499,17 +454,14 @@
                             <form method="POST" action="{{ route('super.updatePlan', $user) }}">
                                 @csrf
                                 <select name="plan" data-change="confirmChangePlan" data-arg="Change plan for {{ $user->name }}?"
-                                        class="bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-white focus:border-red-500 outline-none">
+                                        class="input-sm input-base">
                                     <option value="free"   {{ $user->plan === 'free'   ? 'selected' : '' }}>FREE</option>
                                     <option value="pro"    {{ $user->plan === 'pro'    ? 'selected' : '' }}>PRO</option>
                                     <option value="studio" {{ $user->plan === 'studio' ? 'selected' : '' }}>STUDIO</option>
                                 </select>
                             </form>
                             @else
-                                <span class="text-xs px-2 py-1 rounded-lg
-                                    {{ $user->plan === 'free' ? 'bg-gray-700 text-gray-300' : '' }}
-                                    {{ $user->plan === 'pro' ? 'bg-yellow-800/60 text-yellow-300' : '' }}
-                                    {{ $user->plan === 'studio' ? 'bg-purple-800/60 text-purple-300' : '' }}">
+                                <span class="badge {{ $user->plan === 'free' ? 'badge-neutral' : '' }} {{ $user->plan === 'pro' ? 'badge-brand' : '' }} {{ $user->plan === 'studio' ? 'badge-info' : '' }}">
                                     {{ strtoupper($user->plan) }}
                                 </span>
                             @endif
@@ -517,7 +469,7 @@
 
                         {{-- Galleries --}}
                         <td class="px-5 py-4">
-                            <a href="{{ route('super.user-galleries', $user) }}" class="text-blue-400 hover:text-blue-300 text-sm transition">
+                            <a href="{{ route('super.user-galleries', $user) }}" class="text-brand-400 hover:text-brand-300 text-sm transition">
                                 {{ $user->galleries_count }} galleries →
                             </a>
                         </td>
@@ -539,14 +491,14 @@
                                         @csrf
                                         <button type="submit"
                                                 data-confirm-click="Unban {{ $user->name }}?"
-                                                class="px-3 py-1.5 bg-green-700 hover:bg-green-600 rounded-lg text-xs transition">
-                                            ✅ Unban
+                                                class="btn btn-sm btn-secondary">
+                                            Unban
                                         </button>
                                     </form>
                                 @else
                                     <button data-click="openBanModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}]'
-                                            class="px-3 py-1.5 bg-orange-700 hover:bg-orange-600 rounded-lg text-xs transition">
-                                        🚫 Ban
+                                            class="btn btn-sm btn-danger-ghost">
+                                        Ban
                                     </button>
                                 @endif
 
@@ -556,8 +508,8 @@
                                         @csrf
                                         <button type="submit"
                                                 data-confirm-click="Manually verify email for {{ $user->name }}?"
-                                                class="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 rounded-lg text-xs transition">
-                                            ✉ Verify
+                                                class="btn btn-sm btn-secondary">
+                                            Verify
                                         </button>
                                     </form>
                                 @else
@@ -565,8 +517,8 @@
                                         @csrf
                                         <button type="submit"
                                                 data-confirm-click="Revoke email verification for {{ $user->name }}? They will need to verify again."
-                                                class="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded-lg text-xs transition">
-                                            ✉ Unverify
+                                                class="btn btn-sm btn-secondary">
+                                            Unverify
                                         </button>
                                     </form>
                                 @endif
@@ -575,14 +527,14 @@
                                 @if(! $user->is_super_admin)
                                     <button type="button"
                                             data-click="openAdminModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}, "grant"]'
-                                            class="px-3 py-1.5 bg-purple-800 hover:bg-purple-700 rounded-lg text-xs transition">
-                                        👑 Make Admin
+                                            class="btn btn-sm btn-secondary">
+                                        Make Admin
                                     </button>
                                 @else
                                     <button type="button"
                                             data-click="openAdminModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}, "revoke"]'
-                                            class="px-3 py-1.5 bg-purple-900/50 border border-purple-700 hover:bg-purple-800 rounded-lg text-xs transition text-purple-300">
-                                        👑 Revoke Admin
+                                            class="btn btn-sm btn-danger-ghost">
+                                        Revoke Admin
                                     </button>
                                 @endif
 
@@ -593,8 +545,8 @@
                                         @csrf
                                         <button type="submit"
                                                 data-confirm-click="Log in as {{ $user->name }}? You will see the site from their perspective. Click &quot;Return to admin&quot; to stop."
-                                                class="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 rounded-lg text-xs transition">
-                                            🔑 Login As
+                                                class="btn btn-sm btn-secondary">
+                                            Login As
                                         </button>
                                     </form>
                                 @endif
@@ -604,8 +556,8 @@
                                 @if(! $user->is_super_admin)
                                     <button type="button"
                                             data-click="openDeleteModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}]'
-                                            class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs transition">
-                                        🗑 Delete
+                                            class="btn btn-sm btn-danger">
+                                        Delete
                                     </button>
                                 @endif
 
@@ -630,7 +582,7 @@
 
     <!-- Ban Modal -->
     <div id="banModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center px-4">
-        <div class="bg-gray-900 border border-red-700/50 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        <div class="bg-gray-800 border border-red-700/50 rounded-xl p-6 w-full max-w-md shadow-modal">
             <h3 class="text-lg font-bold text-white mb-1">Ban User</h3>
             <p class="text-gray-400 text-sm mb-4">Banning <strong id="banUserName" class="text-white"></strong>. They will be blocked from logging in.</p>
             <form id="banForm" method="POST">
@@ -638,13 +590,13 @@
                 <div class="mb-4">
                     <label class="block text-sm text-gray-400 mb-1.5">Reason <span class="text-gray-600">(optional)</span></label>
                     <textarea name="reason" rows="3" placeholder="e.g. Violation of terms of service"
-                              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:border-red-500 outline-none resize-none"></textarea>
+                              class="input-base resize-none"></textarea>
                 </div>
                 <div class="flex gap-3">
-                    <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 py-2.5 rounded-lg font-medium transition text-sm">
-                        🚫 Confirm Ban
+                    <button type="submit" class="btn btn-danger flex-1">
+                        Confirm Ban
                     </button>
-                    <button type="button" data-click="closeBanModal" class="px-5 bg-gray-700 hover:bg-gray-600 py-2.5 rounded-lg transition text-sm">
+                    <button type="button" data-click="closeBanModal" class="btn btn-secondary">
                         Cancel
                     </button>
                 </div>
@@ -745,7 +697,7 @@
          :class="open ? 'flex' : 'hidden'"
          @keydown.escape.window="open = false; typed = ''"
          @click.self="open = false; typed = ''">
-        <div class="bg-gray-900 border border-red-700/50 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+        <div class="bg-gray-800 border border-red-700/50 rounded-xl max-w-md w-full shadow-modal p-6 relative">
             <button @click="open = false; typed = ''" class="absolute top-3 right-3 text-gray-500 hover:text-gray-300" aria-label="Close">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
@@ -1421,30 +1373,34 @@
     @endif
 
     <script nonce="@nonce">
-    // (Task H32) Modal openers for type-to-confirm destructive actions
+    // (Task H32) Modal openers for type-to-confirm destructive actions.
+    // ITERATION-2 FIX: these used the Alpine v2 API (modal.__x), which never
+    // exists under Alpine 3 — the caller-side guard made the buttons silently
+    // do nothing. Same intent, the working Alpine 3 accessor.
     function openDeleteModal(userId, userName) {
         const modal = document.getElementById('deleteConfirmModal');
-        if (modal.__x) {
-            modal.__x.$data.open = true;
-            modal.__x.$data.userId = userId;
-            modal.__x.$data.userName = userName;
-            modal.__x.$data.typed = '';
+        if (window.Alpine) {
+            const data = Alpine.$data(modal);
+            data.open = true;
+            data.userId = userId;
+            data.userName = userName;
+            data.typed = '';
         }
         setTimeout(() => document.getElementById('delete-confirm-input')?.focus(), 100);
     }
 
     function openAdminModal(userId, userName, action) {
         const modal = document.getElementById('adminConfirmModal');
-        if (modal.__x) {
-            modal.__x.$data.open = true;
-            modal.__x.$data.userId = userId;
-            modal.__x.$data.userName = userName;
-            modal.__x.$data.action = action;
-            modal.__x.$data.typed = '';
+        if (window.Alpine) {
+            const data = Alpine.$data(modal);
+            data.open = true;
+            data.userId = userId;
+            data.userName = userName;
+            data.action = action;
+            data.typed = '';
         }
         setTimeout(() => document.getElementById('admin-confirm-input')?.focus(), 100);
     }
     </script>
-
-</body>
-</html>
+    </div><!-- /.page-shell -->
+</x-app-layout>

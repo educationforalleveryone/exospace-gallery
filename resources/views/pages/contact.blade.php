@@ -15,32 +15,11 @@
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
-        /* ── Nav ── */
-        nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .nav-logo {
-            font-size: 1.25rem;
-            font-weight: 800;
-            letter-spacing: 0.2em;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-decoration: none;
-        }
-        .nav-links a {
-            color: #94a3b8;
-            text-decoration: none;
-            margin-left: 1.75rem;
-            font-size: 0.9rem;
-            transition: color 0.2s;
-        }
-        .nav-links a:hover { color: #fff; }
+        /* ── Nav ──
+           (ITERATION-2: removed the vestigial nav rules. Their markup no
+           longer exists on this page, and the bare `nav {}` element selector
+           leaked onto the shared public layout nav — narrowing it to 1200px
+           with different padding only on this page.) */
 
         /* ── Page layout ── */
         .page {

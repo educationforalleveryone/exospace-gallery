@@ -1,24 +1,25 @@
 <x-app-layout>
     <x-slot name="header">
-        <div>
-            <h2 class="font-semibold text-xl text-gray-100 leading-tight">Featured Exhibitions</h2>
-            <p class="text-sm text-gray-400 mt-0.5">Curate which galleries appear at the top of <a href="{{ route('discover') }}" target="_blank" class="text-purple-400 hover:underline">/discover</a></p>
-        </div>
+        <x-page-header title="Featured Exhibitions" :back="route('super.index')" backLabel="Master Control">
+            <x-slot:description>
+                <p>Curate which galleries appear at the top of <a href="{{ route('discover') }}" target="_blank" rel="noopener" class="text-brand-400 hover:underline">/discover</a></p>
+            </x-slot:description>
+        </x-page-header>
     </x-slot>
 
-    <div class="py-8 max-w-7xl mx-auto px-4">
+    <div class="page-shell">
         @if(session('status'))
-            <div class="mb-4 text-sm text-green-400 bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
+            <div class="mb-4 alert alert-success" role="status">{{ session('status') }}</div>
         @endif
 
         <form method="GET" class="mb-5">
             <input type="text" name="q" value="{{ request('q') }}"
                    placeholder="Search by gallery or curator name…"
-                   class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm w-full max-w-md focus:border-purple-500 focus:ring-purple-500">
+                   class="input-base max-w-md">
         </form>
 
-        <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-            <table class="w-full text-sm text-gray-300">
+        <div class="table-wrap bg-gray-800">
+            <table class="table-base min-w-[760px]">
                 <thead class="bg-gray-900/50 text-xs text-gray-500 uppercase tracking-wider">
                     <tr>
                         <th class="px-4 py-3 text-left">Cover</th>

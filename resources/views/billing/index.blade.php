@@ -1,15 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Billing</h2>
+        <x-page-header title="Billing" description="Manage your subscription, view past invoices, and request refunds."/>
     </x-slot>
 
-<div class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+<div class="page-shell">
 
-    {{-- Page header --}}
-    <div class="mb-8">
-        <h1 class="text-2xl font-bold text-white">Billing</h1>
-        <p class="text-sm text-gray-400 mt-1">Manage your subscription, view past invoices, and request refunds.</p>
-    </div>
 
     {{-- Flash messages --}}
     @if(session('success'))
@@ -154,7 +149,7 @@
                         $hasRecurringStudio = config('services.2checkout.recurring_product_id_studio');
                     @endphp
                     <a href="{{ route('billing.upgrade', 'pro') }}"
-                       class="block w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2.5 rounded-xl transition text-sm text-center">
+                       class="btn btn-primary w-full">
                         Pro — $29 one-time
                     </a>
                     @if($hasRecurringPro)

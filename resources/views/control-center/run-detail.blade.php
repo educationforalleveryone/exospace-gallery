@@ -57,7 +57,7 @@
                ['errored',$run->errored],['skipped',$run->skipped],['duration',
                $run->duration_ms ? number_format($run->duration_ms/1000,1).'s' : '—']] as [$label,$value])
         <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-center">
-            <div class="text-[11px] uppercase tracking-wide text-slate-500">{{ $label }}</div>
+            <div class="text-xs uppercase tracking-wide text-slate-500">{{ $label }}</div>
             <div class="mt-1 text-xl font-semibold">{{ is_numeric($value) ? number_format($value) : $value }}</div>
         </div>
     @endforeach
@@ -85,7 +85,7 @@
     @php $fc = $case->failureClass(); $hist = $history[$case->test_identifier] ?? null; @endphp
     <article class="mb-4 rounded-xl border border-slate-800 bg-slate-900/50 p-5">
         <header class="mb-2 flex flex-wrap items-center gap-2">
-            <span class="rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase {{
+            <span class="rounded border px-1.5 py-0.5 text-xs font-bold uppercase {{
                 $fc==='infrastructure' ? 'border-sky-700 text-sky-300' : ($fc==='application' ? 'border-red-700 text-red-300' : 'border-slate-600 text-slate-400') }}">
                 {{ $fc ?? $case->status }}
             </span>
@@ -99,7 +99,7 @@
         @if ($case->detail && trim($case->detail) !== trim((string) $case->message))
             <details class="mb-2 text-xs">
                 <summary class="cursor-pointer text-slate-400 hover:text-slate-300">stack trace / full detail</summary>
-                <pre class="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-black/40 p-3 text-[11px] text-slate-400">{{ $case->detail }}</pre>
+                <pre class="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-black/40 p-3 text-xs text-slate-400">{{ $case->detail }}</pre>
             </details>
         @endif
 

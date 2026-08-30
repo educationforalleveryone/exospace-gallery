@@ -16,19 +16,19 @@
 <div class="grid sm:grid-cols-4 gap-3 mb-6">
     <div class="rounded-lg border {{ $counts['rotate_now'] > 0 ? 'border-red-700/60 bg-red-950/30' : 'border-slate-800 bg-slate-900/40' }} px-4 py-3">
         <div class="text-2xl font-bold {{ $counts['rotate_now'] > 0 ? 'text-red-300' : 'text-slate-300' }}">{{ $counts['rotate_now'] }}</div>
-        <div class="text-[11px] text-slate-400 uppercase tracking-wider mt-0.5">Rotate now</div>
+        <div class="text-xs text-slate-400 uppercase tracking-wider mt-0.5">Rotate now</div>
     </div>
     <div class="rounded-lg border {{ $counts['overdue'] > 0 ? 'border-orange-700/60 bg-orange-950/30' : 'border-slate-800 bg-slate-900/40' }} px-4 py-3">
         <div class="text-2xl font-bold {{ $counts['overdue'] > 0 ? 'text-orange-300' : 'text-slate-300' }}">{{ $counts['overdue'] }}</div>
-        <div class="text-[11px] text-slate-400 uppercase tracking-wider mt-0.5">Overdue</div>
+        <div class="text-xs text-slate-400 uppercase tracking-wider mt-0.5">Overdue</div>
     </div>
     <div class="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
         <div class="text-2xl font-bold text-amber-300">{{ $counts['due_soon'] }}</div>
-        <div class="text-[11px] text-slate-400 uppercase tracking-wider mt-0.5">Due soon</div>
+        <div class="text-xs text-slate-400 uppercase tracking-wider mt-0.5">Due soon</div>
     </div>
     <div class="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
         <div class="text-2xl font-bold text-emerald-300">{{ $counts['ok'] }}</div>
-        <div class="text-[11px] text-slate-400 uppercase tracking-wider mt-0.5">Within cadence</div>
+        <div class="text-xs text-slate-400 uppercase tracking-wider mt-0.5">Within cadence</div>
     </div>
 </div>
 
@@ -43,7 +43,7 @@
 {{-- ── Inventory table ─────────────────────────────────────────────────── --}}
 <div class="overflow-x-auto rounded-lg border border-slate-800">
     <table class="w-full text-sm">
-        <thead class="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider">
+        <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
             <tr>
                 <th class="text-left px-4 py-3">Credential</th>
                 <th class="text-left px-4 py-3">Env vars</th>
@@ -77,18 +77,18 @@
                 <tr class="hover:bg-slate-900/60 align-top">
                     <td class="px-4 py-3">
                         <div class="text-slate-100 font-medium">{{ $item['name'] }}</div>
-                        <div class="text-[11px] text-slate-500">{{ $item['category'] }}</div>
+                        <div class="text-xs text-slate-500">{{ $item['category'] }}</div>
                         @if($item['notes'])
-                            <div class="text-[11px] text-slate-400 mt-1 italic">“{{ $item['notes'] }}”</div>
+                            <div class="text-xs text-slate-400 mt-1 italic">“{{ $item['notes'] }}”</div>
                         @endif
                     </td>
                     <td class="px-4 py-3">
                         @foreach($item['env'] as $var)
-                            <div class="text-[11px] font-mono text-slate-400">{{ $var }}</div>
+                            <div class="text-xs font-mono text-slate-400">{{ $var }}</div>
                         @endforeach
                     </td>
                     <td class="px-4 py-3">
-                        <span class="text-[10px] px-2 py-1 rounded border {{ $item['configured'] ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50' : 'bg-slate-800/60 text-slate-400 border-slate-600/50' }} font-bold">
+                        <span class="text-xs px-2 py-1 rounded border {{ $item['configured'] ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50' : 'bg-slate-800/60 text-slate-400 border-slate-600/50' }} font-semibold">
                             {{ $item['configured'] ? 'YES' : 'NOT SET' }}
                         </span>
                     </td>
@@ -101,13 +101,13 @@
                         @endif
                     </td>
                     <td class="px-4 py-3">
-                        <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $statusStyles[$item['status']] }}" title="{{ $tooltip }}">{{ $statusLabels[$item['status']] }}</span>
+                        <x-status-badge :state="match($item['status']) { 'rotate_now', 'overdue' => 'critical', 'due_soon' => 'warning', 'ok' => 'healthy', default => 'unknown' }" :label="$statusLabels[$item['status']]" :title="$tooltip" />
                     </td>
                     <td class="px-4 py-3 text-right">
                         <form method="POST" action="{{ route('ops.credentials.rotate', $item['key']) }}" class="inline-flex flex-col gap-1.5 items-end">
                             @csrf
-                            <input type="text" name="note" maxlength="250" placeholder="optional note (never a value!)" class="bg-slate-900 border border-slate-700 rounded-lg text-[11px] text-slate-200 px-2.5 py-1.5 w-52 focus:border-sky-600 outline-none">
-                            <button class="text-[11px] px-3 py-1.5 rounded border border-sky-700/60 bg-sky-950/40 text-sky-300 hover:bg-sky-900/60 font-medium" title="{{ $tooltip }}">I rotated this ✓</button>
+                            <input type="text" name="note" maxlength="250" placeholder="optional note (never a value!)" class="bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 px-2.5 py-1.5 w-52 focus:border-sky-600 outline-none">
+                            <button class="text-xs px-3 py-1.5 rounded border border-sky-700/60 bg-sky-950/40 text-sky-300 hover:bg-sky-900/60 font-medium" title="{{ $tooltip }}">I rotated this ✓</button>
                         </form>
                     </td>
                 </tr>
@@ -116,7 +116,7 @@
     </table>
 </div>
 
-<div class="mt-4 text-[11px] text-slate-600 space-y-1">
+<div class="mt-4 text-xs text-slate-600 space-y-1">
     <p>How to use: rotate in the provider's dashboard first (guidance on each row; full walkthrough in the master manual §13 + §15), then record it here. Recording writes the ledger row, an <span class="font-mono">ops.credential.rotated</span> audit entry and a Slack note — it changes nothing else.</p>
     <p>“UNTRACKED” = the credential is optional and has no recorded rotation: recording one starts the cadence clock. Cadences: 90 days for API keys/tokens, 180 days for webhooks and secret words; APP_KEY is policy-driven (rotation logs every user out once — maintenance window only).</p>
     <p>Configured = the env var is present and non-empty (a yes/no read from cached config). The probe cannot return, and the ledger cannot store, a secret value.</p>

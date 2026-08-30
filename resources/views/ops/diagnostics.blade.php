@@ -40,13 +40,13 @@
             $groupDiagnostics = collect($diagnostics)->where('group', $group);
         @endphp
         <section>
-            <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">{{ $group }}</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">{{ $group }}</h2>
             <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                 @foreach($groupDiagnostics as $id => $definition)
                     <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 flex flex-col">
                         <div class="flex items-start justify-between gap-2 mb-1.5">
                             <h3 class="text-sm font-semibold text-slate-100">{{ $definition['label'] }}</h3>
-                            <span class="text-[9px] px-1.5 py-0.5 rounded border {{ $definition['scope'] === 'self' ? 'bg-cyan-950/50 text-cyan-300 border-cyan-800/50' : 'bg-emerald-950/50 text-emerald-300 border-emerald-800/50' }} font-semibold shrink-0">
+                            <span class="text-xs px-2 py-0.5 rounded border {{ $definition['scope'] === 'self' ? 'bg-cyan-950/50 text-cyan-300 border-cyan-800/50' : 'bg-emerald-950/50 text-emerald-300 border-emerald-800/50' }} font-semibold shrink-0">
                                 {{ $definition['scope'] === 'self' ? 'SELF' : 'PER APP' }}
                             </span>
                         </div>
@@ -62,7 +62,7 @@
                                 </button>
                             </form>
                         @else
-                            <span class="block w-full text-center text-[11px] text-slate-600 border border-slate-800 rounded-lg px-3 py-2">viewer (read-only)</span>
+                            <span class="block w-full text-center text-xs text-slate-600 border border-slate-800 rounded-lg px-3 py-2">viewer (read-only)</span>
                         @endif
                     </div>
                 @endforeach
@@ -76,10 +76,10 @@
 
 {{-- ── Recent runs ────────────────────────────────────────────────────── --}}
 <section>
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Recent runs</h2>
+    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Recent runs</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800">
         <table class="w-full text-sm">
-            <thead class="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider">
+            <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
                 <tr>
                     <th class="text-left px-4 py-3">Status</th>
                     <th class="text-left px-4 py-3">Diagnostic</th>
@@ -101,7 +101,7 @@
                         ];
                     @endphp
                     <tr class="hover:bg-slate-900/60">
-                        <td class="px-4 py-3"><span class="text-[10px] font-bold px-2 py-1 rounded border {{ $statusStyles[$run->status] ?? $statusStyles['inconclusive'] }}">{{ $run->statusLabel() }}</span></td>
+                        <td class="px-4 py-3"><x-status-badge :state="match($run->status) { 'healthy' => 'healthy', 'degraded' => 'warning', 'failed' => 'critical', default => 'unknown' }" :label="$run->statusLabel()" /></td>
                         <td class="px-4 py-3"><a href="{{ route('ops.diagnostics.show', $run) }}" class="text-slate-200 hover:text-emerald-300 font-medium">{{ \App\Ops\Diagnostics\DiagnosticRegistry::label($run->diagnostic_id) }}</a></td>
                         <td class="px-4 py-3 text-slate-400">{{ $run->application?->name ?? 'Control plane (self)' }}</td>
                         <td class="px-4 py-3 text-slate-300 max-w-md"><span class="line-clamp-1">{{ $run->summary }}</span></td>
@@ -122,7 +122,7 @@
     </div>
 </section>
 
-<div class="mt-4 text-[11px] text-slate-600 space-y-1">
+<div class="mt-4 text-xs text-slate-600 space-y-1">
     <p>Diagnostics are read-only by construction: the engine runs a fixed, allow-listed catalog of checks — never commands, never arbitrary SQL, never docker exec.</p>
     <p>Results are redacted, persisted for {{ config('ops.diagnostics.retention_days', 30) }} days and audited (AdminAuditLog <span class="font-mono">ops.diagnostic.run</span>).</p>
 </div>

@@ -1,9 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">Affiliate Dashboard</h2>
+        <x-page-header title="Affiliate Dashboard" :back="route('super.index')" backLabel="Master Control"/>
     </x-slot>
 
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <div class="page-shell-mid">
 
         {{-- Totals --}}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -32,8 +32,8 @@
                 <p class="text-gray-600 text-sm mt-2">Set TWOCHECKOUT_AFFILIATE_ID or pass ?ref=AFFILIATE_ID on upgrade URLs to start tracking.</p>
             </div>
         @else
-            <div class="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden">
-                <table class="w-full text-sm">
+            <div class="table-wrap">
+                <table class="table-base min-w-[680px]">
                     <thead>
                         <tr class="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-700">
                             <th class="py-3 px-4">Affiliate ID</th>

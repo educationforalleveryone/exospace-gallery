@@ -1,22 +1,20 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-wrap justify-between items-start gap-4">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
+        <div class="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white font-semibold text-base shrink-0" aria-hidden="true">
                     {{ strtoupper(substr($team->name, 0, 1)) }}
                 </div>
-                <div>
-                    <div class="flex items-center gap-2.5">
-                        <h2 class="font-semibold text-xl text-gray-100 leading-tight">{{ $team->name }}</h2>
-                        <span class="text-xs px-2 py-0.5 rounded-full font-medium
-                            {{ $userRole === 'owner' ? 'bg-purple-900/60 text-purple-300 border border-purple-700/50' :
-                               ($userRole === 'editor' ? 'bg-blue-900/60 text-blue-300 border border-blue-700/50' :
-                                'bg-gray-700 text-gray-400 border border-gray-600') }}">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <h1 class="page-title break-words">{{ $team->name }}</h1>
+                        <span class="badge {{ $userRole === 'owner' ? 'badge-brand' :
+                               ($userRole === 'editor' ? 'badge-info' : 'badge-neutral') }}">
                             {{ ucfirst($userRole) }}
                         </span>
                         @if(auth()->user()->current_team_id === $team->id)
-                            <span class="text-xs text-green-400 flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>
+                            <span class="text-xs text-emerald-400 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" aria-hidden="true"></span>
                                 Active
                             </span>
                         @endif
@@ -46,8 +44,7 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
+    <div class="page-shell space-y-8">
 
             @if($errors->any())
                 <div class="flex items-start gap-3 p-4 bg-red-950/50 border border-red-700/60 text-red-300 rounded-xl">
@@ -74,7 +71,7 @@
                             @php $role = $member->pivot->role; $isYou = $member->id === auth()->id(); @endphp
                             <div class="px-6 py-3.5 flex items-center justify-between gap-4 {{ $isYou ? 'bg-gray-800/60' : '' }}">
                                 <div class="flex items-center gap-3 min-w-0">
-                                    <div class="w-8 h-8 rounded-full {{ $member->id === $team->owner_id ? 'bg-gradient-to-br from-purple-600 to-indigo-600' : 'bg-gray-700 border border-gray-600' }} flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                                    <div class="w-8 h-8 rounded-full {{ $member->id === $team->owner_id ? 'bg-brand-600' : 'bg-gray-700 border border-gray-600' }} flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                                         {{ strtoupper(substr($member->name, 0, 1)) }}
                                     </div>
                                     <div class="min-w-0">
@@ -355,7 +352,6 @@
 
                 </div>
             </div>
-        </div>
     </div>
     <script nonce="@nonce">
     function submitRoleChange(select) {

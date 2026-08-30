@@ -19,14 +19,14 @@
 
 {{-- ── Risk none: refresh ─────────────────────────────────────────────── --}}
 <section class="mb-8">
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Safe — no confirmation needed</h2>
+    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Safe — no confirmation needed</h2>
     <div class="grid md:grid-cols-2 gap-4">
         @foreach($actions as $id => $definition)
             @if($definition['risk'] !== 'none')@continue @endif
             <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
                 <div class="flex items-start justify-between gap-2 mb-1.5">
                     <h3 class="text-sm font-semibold text-slate-100">{{ $definition['label'] }}</h3>
-                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/50 text-emerald-300 border border-emerald-800/50 font-semibold shrink-0">RISK: NONE</span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-950/50 text-emerald-300 border border-emerald-800/50 font-semibold shrink-0">RISK: NONE</span>
                 </div>
                 <p class="text-xs text-slate-400 leading-relaxed mb-4">{{ $definition['description'] }}</p>
                 @if($enabled)
@@ -44,7 +44,7 @@
 
 {{-- ── Risk elevated: infrastructure actions ──────────────────────────── --}}
 <section class="mb-8">
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-3">Elevated — password + typed confirmation required</h2>
+    <h2 class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-3">Elevated — password + typed confirmation required</h2>
     <div class="rounded-lg border border-amber-900/40 bg-amber-950/20 px-4 py-3 text-xs text-amber-200/90 mb-4 leading-relaxed">
         These actions change infrastructure or re-apply external events. Every execution requires your password and a
         typed confirmation phrase, is recorded in the audit log, and is announced in the ops Slack channel. They are
@@ -60,7 +60,7 @@
                 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-5 flex flex-col">
                     <div class="flex items-start justify-between gap-2 mb-1.5">
                         <h3 class="text-sm font-semibold text-slate-100">{{ $definition['label'] }}</h3>
-                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50 font-semibold shrink-0">RISK: ELEVATED</span>
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50 font-semibold shrink-0">RISK: ELEVATED</span>
                     </div>
                     <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">{{ $definition['description'] }}</p>
                     @if($enabled)
@@ -86,7 +86,7 @@
             <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-5 flex flex-col">
                 <div class="flex items-start justify-between gap-2 mb-1.5">
                     <h3 class="text-sm font-semibold text-slate-100">{{ $definition['label'] }}</h3>
-                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50 font-semibold shrink-0">RISK: ELEVATED</span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50 font-semibold shrink-0">RISK: ELEVATED</span>
                 </div>
                 <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">
                     {{ $definition['description'] }}
@@ -110,7 +110,7 @@
             <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-5 flex flex-col">
                 <div class="flex items-start justify-between gap-2 mb-1.5">
                     <h3 class="text-sm font-semibold text-slate-100">{{ $queueDefinition['label'] }}</h3>
-                    <span class="text-[9px] px-1.5 py-0.5 rounded {{ $queueId === 'queue.forget' ? 'bg-red-950/60 text-red-300 border border-red-800/50' : 'bg-amber-950/60 text-amber-300 border border-amber-800/50' }} font-semibold shrink-0">RISK: ELEVATED</span>
+                    <span class="text-xs px-1.5 py-0.5 rounded {{ $queueId === 'queue.forget' ? 'bg-red-950/60 text-red-300 border border-red-800/50' : 'bg-amber-950/60 text-amber-300 border border-amber-800/50' }} font-semibold shrink-0">RISK: ELEVATED</span>
                 </div>
                 <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">
                     {{ $queueDefinition['description'] }}
@@ -138,7 +138,7 @@
     @if($failedWebhooks->isNotEmpty())
     <div class="overflow-x-auto rounded-lg border border-slate-800">
         <table class="w-full text-sm">
-            <thead class="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider">
+            <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
                 <tr>
                     <th class="text-left px-4 py-3">Webhook</th>
                     <th class="text-left px-4 py-3">Type</th>
@@ -155,14 +155,14 @@
                         <td class="px-4 py-3 text-slate-300 font-mono text-xs">#{{ $webhook->id }}</td>
                         <td class="px-4 py-3 text-slate-200 text-xs">{{ $webhook->message_type ?? '—' }}</td>
                         <td class="px-4 py-3 text-slate-400 font-mono text-xs">{{ $webhook->invoice_id ?? '—' }}</td>
-                        <td class="px-4 py-3"><span class="text-[10px] font-bold px-2 py-1 rounded bg-red-950/60 text-red-300 border border-red-800/50">FAILED</span></td>
+                        <td class="px-4 py-3"><span class="text-xs font-bold px-2 py-1 rounded bg-red-950/60 text-red-300 border border-red-800/50">FAILED</span></td>
                         <td class="px-4 py-3 text-slate-500 text-xs">{{ $webhook->updated_at?->diffForHumans() ?? '—' }}</td>
                         <td class="px-4 py-3 text-slate-500 text-xs">{{ (int) ($webhook->replay_count ?? 0) }}×</td>
                         <td class="px-4 py-3">
                             @if($enabled && $webhook->payload)
                                 <a href="{{ route('ops.actions.confirm', ['action' => 'webhook.replay', 'webhook' => $webhook->id]) }}" class="text-xs px-3 py-1.5 rounded-lg border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60 font-medium">Replay…</a>
                             @elseif(! $webhook->payload)
-                                <span class="text-[10px] text-slate-600">no stored payload</span>
+                                <span class="text-xs text-slate-600">no stored payload</span>
                             @endif
                         </td>
                     </tr>
@@ -175,10 +175,10 @@
 
 {{-- ── Recent executed actions (audit ledger view) ────────────────────── --}}
 <section>
-    <h2 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3">Recent executed actions</h2>
+    <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">Recent executed actions</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800">
         <table class="w-full text-sm">
-            <thead class="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider">
+            <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
                 <tr>
                     <th class="text-left px-4 py-3">Action</th>
                     <th class="text-left px-4 py-3">Outcome</th>
@@ -193,7 +193,7 @@
                     <tr class="hover:bg-slate-900/60">
                         <td class="px-4 py-3 text-slate-200 font-mono text-xs">{{ data_get($entry->payload, 'action', '?') }}</td>
                         <td class="px-4 py-3">
-                            <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $outcome === 'success' ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/50' : 'bg-red-950/60 text-red-300 border-red-800/50' }}">{{ strtoupper((string) $outcome) }}</span>
+                            <span class="text-xs font-bold px-2 py-1 rounded border {{ $outcome === 'success' ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/50' : 'bg-red-950/60 text-red-300 border-red-800/50' }}">{{ strtoupper((string) $outcome) }}</span>
                         </td>
                         <td class="px-4 py-3 text-slate-400 text-xs">{{ $entry->target_type === \App\Ops\Models\OpsApplication::class ? 'application' : ($entry->target_type === \App\Models\ProcessedWebhook::class ? 'webhook' : '—') }} #{{ $entry->target_id }}</td>
                         <td class="px-4 py-3 text-slate-400 text-xs max-w-md"><span class="line-clamp-1">{{ data_get($entry->payload, 'message', '') }}</span></td>
@@ -209,7 +209,7 @@
     </div>
 </section>
 
-<div class="mt-4 text-[11px] text-slate-600 space-y-1">
+<div class="mt-4 text-xs text-slate-600 space-y-1">
     <p>Every action — success or failure — is audited (<span class="font-mono">ops.action.executed</span>), announced in Slack, and recorded in the control plane's own event timeline.</p>
     <p>Queue jobs are handled one at a time from the <a href="{{ route('ops.queue.index') }}" class="text-slate-400 hover:text-slate-200 underline underline-offset-2">failed-jobs page</a> — bulk retry/flush is deliberately absent.</p>
     <p>Need something more invasive (stop, redeploy, run migrations, scale)? That is Coolify's job — this control plane aggregates and diagnoses; it does not replace the deployment plane.</p>

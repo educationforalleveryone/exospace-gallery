@@ -1,54 +1,30 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $user->name }}'s Galleries - Master Control</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body class="bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white min-h-screen">
-    
-    <!-- Header -->
-    <div class="bg-black/50 backdrop-blur-md border-b border-red-500/30">
-        <div class="max-w-7xl mx-auto px-6 py-4">
-            <div class="flex justify-between items-center">
-                <div>
-                    <a href="{{ route('super.index') }}" class="text-gray-400 hover:text-white text-sm mb-2 inline-block">
-                        ← Back to Master Control
-                    </a>
-                    <h1 class="text-3xl font-bold">{{ $user->name }}'s Galleries</h1>
-                    <p class="text-gray-400 text-sm">{{ $user->email }} • {{ strtoupper($user->plan) }} Plan</p>
-                </div>
-            </div>
-        </div>
-    </div>
+<x-app-layout>
+    <x-slot name="header">
+        <x-page-header :title="$user->name.'\'s Galleries'"
+                       :description="$user->email.' · '.strtoupper($user->plan).' Plan'"
+                       :back="route('super.index')" backLabel="Master Control"/>
+    </x-slot>
 
-    <!-- Success Message -->
-    @if(session('success'))
-        <div class="max-w-7xl mx-auto px-6 mt-4">
-            <div class="alert alert-success">
-                ✅ {{ session('success') }}
-            </div>
-        </div>
-    @endif
+    <div class="page-shell">
+        @if(session('success'))
+            <div class="mb-6 alert alert-success" role="status">{{ session('success') }}</div>
+        @endif
 
     <!-- Galleries List -->
-    <div class="max-w-7xl mx-auto px-6 py-8">
+    <div class="pt-2">
         @if($galleries->count() === 0)
-            <div class="bg-gray-800/30 border border-gray-700 rounded-lg p-12 text-center">
-                <div class="text-6xl mb-4">🎨</div>
-                <h3 class="text-xl font-bold mb-2">No Galleries Yet</h3>
-                <p class="text-gray-400">This user hasn't created any galleries.</p>
+            <div class="empty-state card border-dashed">
+                <h3 class="section-title mb-1">No galleries yet</h3>
+                <p class="text-sm text-gray-500">This user hasn't created any galleries.</p>
             </div>
         @else
             <div class="grid gap-6">
                 @foreach($galleries as $gallery)
-                    <div class="bg-black/40 border border-gray-700 rounded-lg p-6 hover:border-gray-600 transition">
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
+                    <div class="card card-pad">
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                            <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-3 mb-2">
-                                    <h3 class="text-2xl font-bold">{{ $gallery->title }}</h3>
+                                    <h3 class="text-xl font-semibold break-words">{{ $gallery->title }}</h3>
                                     @if($gallery->is_active)
                                         <span class="badge badge-success">Active</span>
                                     @else
@@ -60,43 +36,41 @@
                                     <p class="text-gray-400 mb-4">{{ $gallery->description }}</p>
                                 @endif
 
-                                <div class="flex gap-6 text-sm text-gray-400">
-                                    <div>🖼️ {{ $gallery->images_count }} images</div>
-                                    <div>👁️ {{ number_format($gallery->view_count) }} views</div>
-                                    <div>🕐 Created {{ $gallery->created_at->diffForHumans() }}</div>
+                                <div class="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-400">
+                                    <span>{{ $gallery->images_count }} images</span>
+                                    <span>{{ number_format($gallery->view_count) }} views</span>
+                                    <span>Created {{ $gallery->created_at->diffForHumans() }}</span>
                                 </div>
 
-                                <div class="mt-4 flex gap-2">
+                                <div class="mt-4 flex flex-wrap gap-2">
                                     <a href="{{ route('gallery.view', $gallery->slug) }}" 
-                                       target="_blank"
-                                       class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition">
-                                        👁️ View Gallery
+                                       target="_blank" rel="noopener"
+                                       class="btn btn-sm btn-secondary">
+                                        View Gallery
                                     </a>
                                     
                                     <form method="POST" action="{{ route('super.toggleGallery', $gallery) }}" class="inline">
                                         @csrf
                                         <button type="submit" 
-                                                class="px-4 py-2 {{ $gallery->is_active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' }} rounded-lg text-sm transition">
-                                            {{ $gallery->is_active ? '🔒 Deactivate' : '✅ Activate' }}
+                                                class="btn btn-sm {{ $gallery->is_active ? 'btn-danger-ghost' : 'btn-primary' }}">
+                                            {{ $gallery->is_active ? 'Deactivate' : 'Activate' }}
                                         </button>
                                     </form>
                                 </div>
                             </div>
 
-                            <div class="ml-6">
-                                <div class="text-right text-sm text-gray-400">
-                                    <div>Wall: {{ ucfirst($gallery->wall_texture) }}</div>
-                                    <div>Frame: {{ ucfirst($gallery->frame_style) }}</div>
-                                    <div>Lighting: {{ ucfirst($gallery->lighting_preset) }}</div>
-                                </div>
+                            <div class="shrink-0 sm:text-right text-sm text-gray-400">
+                                <div>Wall: {{ ucfirst($gallery->wall_texture) }}</div>
+                                <div>Frame: {{ ucfirst($gallery->frame_style) }}</div>
+                                <div>Lighting: {{ ucfirst($gallery->lighting_preset) }}</div>
                             </div>
                         </div>
 
                         <!-- Gallery Images Preview -->
                         @if($gallery->images->count() > 0)
                             <div class="mt-6 pt-6 border-t border-gray-700">
-                                <h4 class="text-sm font-semibold mb-3 text-gray-400">IMAGES</h4>
-                                <div class="grid grid-cols-6 gap-2">
+                                <h4 class="eyebrow mb-3">Images</h4>
+                                <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12 gap-2">
                                     @foreach($gallery->images->take(12) as $image)
                                         <div class="aspect-square bg-gray-800 rounded overflow-hidden">
                                             <img src="{{ asset($image->path) }}" 
@@ -117,6 +91,5 @@
             </div>
         @endif
     </div>
-
-</body>
-</html>
+    </div><!-- /.page-shell -->
+</x-app-layout>

@@ -1,19 +1,16 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-100 leading-tight">Venue Templates</h2>
-                <p class="text-sm text-gray-400 mt-0.5">Data-driven 3D exhibition environments · {{ $venues->total() }} total</p>
-            </div>
-            <a href="{{ route('super.venues.create') }}"
-               class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                New venue
-            </a>
-        </div>
+        <x-page-header title="Venue Templates" :description="'Data-driven 3D exhibition environments · '.$venues->total().' total'" :back="route('super.index')" backLabel="Master Control">
+            <x-slot:actions>
+                <a href="{{ route('super.venues.create') }}" class="btn btn-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    New venue
+                </a>
+            </x-slot:actions>
+        </x-page-header>
     </x-slot>
 
-    <div class="py-8 max-w-7xl mx-auto px-4">
+    <div class="page-shell">
 
         @if(session('status'))
             <div class="mb-4 text-sm text-green-400 bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-3">{{ session('status') }}</div>
@@ -39,8 +36,8 @@
         </form>
 
         {{-- Table --}}
-        <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-            <table class="w-full text-sm text-gray-300">
+        <div class="table-wrap">
+            <table class="table-base min-w-[720px]">
                 <thead class="bg-gray-900/50 text-xs text-gray-500 uppercase tracking-wider">
                     <tr>
                         <th class="px-4 py-3 text-left">Preview</th>
@@ -84,7 +81,7 @@
                                 @if($venue->tags && count($venue->tags))
                                     <div class="flex flex-wrap gap-1 mt-1">
                                         @foreach(array_slice($venue->tags, 0, 3) as $tag)
-                                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400">#{{ $tag }}</span>
+                                            <span class="text-xs px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400">#{{ $tag }}</span>
                                         @endforeach
                                     </div>
                                 @endif
@@ -115,19 +112,19 @@
                             <td class="px-4 py-3">
                                 <div class="flex gap-1 flex-wrap">
                                     @if($venue->preview_model_path)
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-400" title="3D preview model attached">3D</span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-400" title="3D preview model attached">3D</span>
                                     @endif
                                     @if($venue->hdri_path)
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900/40 text-indigo-400" title="Custom HDRI">HDRI</span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-indigo-900/40 text-indigo-400" title="Custom HDRI">HDRI</span>
                                     @endif
                                     @if($venue->decorations && count($venue->decorations))
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400" title="{{ count($venue->decorations) }} decoration props">{{ count($venue->decorations) }} props</span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400" title="{{ count($venue->decorations) }} decoration props">{{ count($venue->decorations) }} props</span>
                                     @endif
                                     @if($venue->lighting_fixtures && count($venue->lighting_fixtures))
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-900/40 text-yellow-400" title="{{ count($venue->lighting_fixtures) }} custom light fixtures">{{ count($venue->lighting_fixtures) }} lights</span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-yellow-900/40 text-yellow-400" title="{{ count($venue->lighting_fixtures) }} custom light fixtures">{{ count($venue->lighting_fixtures) }} lights</span>
                                     @endif
                                     @if($venue->default_audio_path)
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-pink-900/40 text-pink-400" title="Default ambient audio">audio</span>
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-pink-900/40 text-pink-400" title="Default ambient audio">audio</span>
                                     @endif
                                 </div>
                             </td>

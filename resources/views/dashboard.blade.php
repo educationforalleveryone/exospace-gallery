@@ -11,27 +11,30 @@
     @endphp
 
     <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 class="font-bold text-lg text-gray-100 leading-tight tracking-tight">Dashboard</h2>
-                <p class="text-xs text-gray-500 mt-0.5 hidden sm:block">
-                    <kbd class="px-1 py-0.5 bg-gray-700 rounded text-gray-400 text-[10px] font-mono">G</kbd>
-                    <kbd class="px-1 py-0.5 bg-gray-700 rounded text-gray-400 text-[10px] font-mono">N</kbd>
-                    new gallery &nbsp;·&nbsp;
-                    <kbd class="px-1 py-0.5 bg-gray-700 rounded text-gray-400 text-[10px] font-mono">G</kbd>
-                    <kbd class="px-1 py-0.5 bg-gray-700 rounded text-gray-400 text-[10px] font-mono">L</kbd>
+        <x-page-header :title="'Good '.(now()->hour < 12 ? 'morning' : (now()->hour < 17 ? 'afternoon' : 'evening')).', '.Str::before(Auth::user()->name, ' ')"
+                       :description="$galleriesCount > 0 ? 'Here is your activity at a glance.' : 'Let us get your first gallery up.'">
+            <x-slot:meta>
+                <p class="hint-text flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-400 font-mono">G</kbd>
+                    <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-400 font-mono">N</kbd>
+                    new gallery
+                    <span aria-hidden="true">·</span>
+                    <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-400 font-mono">G</kbd>
+                    <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-400 font-mono">L</kbd>
                     all galleries
                 </p>
-            </div>
-            <a href="{{ route('admin.galleries.create') }}"
-               aria-label="Create new gallery"
-               class="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-2.5 rounded-lg font-semibold text-sm hover:from-purple-500 hover:to-indigo-500 transition-all duration-200 hover:shadow-lg hover:shadow-purple-900/40 active:scale-95 focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-                </svg>
-                Create Gallery
-            </a>
-        </div>
+            </x-slot:meta>
+            <x-slot:actions>
+                <a href="{{ route('admin.galleries.create') }}"
+                   aria-label="Create new gallery"
+                   class="btn btn-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Create Gallery
+                </a>
+            </x-slot:actions>
+        </x-page-header>
     </x-slot>
 
     {{-- P2-14 FIX: Removed the welcome modal (System A). The inline "Getting
@@ -39,29 +42,19 @@
          for onboarding state. Both systems used the same localStorage key
          'exospace_onboarded' — dismissing either suppressed both, which was
          confusing. Now only the inline checklist controls onboarding display. --}}
-    <div class="py-8 sm:py-10"
+    <div class="page-shell space-y-6"
          x-data="{
             showUpgradeModal: false
          }">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-            <!-- Greeting -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <h3 class="text-xl sm:text-2xl font-bold text-gray-100 tracking-tight">
-                        Good {{ now()->hour < 12 ? 'morning' : (now()->hour < 17 ? 'afternoon' : 'evening') }}, {{ Str::before(Auth::user()->name, ' ') }}
-                    </h3>
-                    <p class="text-sm text-gray-500 mt-0.5">
-                        {{ $galleriesCount > 0 ? 'Here\'s your activity at a glance.' : 'Let\'s get your first gallery up.' }}
-                    </p>
-                </div>
-                @if($galleriesCount > 0)
-                <span class="hidden sm:inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-800 border border-gray-700 px-3 py-1.5 rounded-full">
-                    <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+            @if($galleriesCount > 0)
+            <div class="flex justify-end">
+                <span class="inline-flex items-center gap-1.5 text-xs text-gray-400 bg-gray-800 border border-gray-700 px-3 py-1.5 rounded-full">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true"></span>
                     Active
                 </span>
-                @endif
             </div>
+            @endif
 
             <!-- Onboarding Progress (new users only) -->
             @if(!$onboardingComplete)
@@ -73,21 +66,21 @@
                         <div class="space-y-2.5">
                             <!-- Step 1: Account -->
                             <div class="flex items-center gap-3 text-sm">
-                                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 border border-green-500/60 flex items-center justify-center" aria-hidden="true">
-                                    <svg class="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/60 flex items-center justify-center" aria-hidden="true">
+                                    <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                 </span>
                                 <span class="text-gray-400 line-through">Create account</span>
                             </div>
                             <!-- Step 2: Gallery -->
                             <div class="flex items-center gap-3 text-sm">
                                 @if($galleriesCount > 0)
-                                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 border border-green-500/60 flex items-center justify-center" aria-hidden="true">
-                                        <svg class="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/60 flex items-center justify-center" aria-hidden="true">
+                                        <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                     </span>
                                     <span class="text-gray-400 line-through">Create first gallery</span>
                                 @else
                                     <span class="flex-shrink-0 w-5 h-5 rounded-full bg-purple-600 border border-purple-400 flex items-center justify-center animate-pulse" aria-current="step">
-                                        <span class="text-white text-[10px] font-bold">2</span>
+                                        <span class="text-white text-xs font-bold">2</span>
                                     </span>
                                     <span class="text-gray-100 font-medium">Create your first gallery</span>
                                     <span class="text-purple-400 text-xs">← next</span>
@@ -96,19 +89,19 @@
                             <!-- Step 3: Share -->
                             <div class="flex items-center gap-3 text-sm">
                                 @if($totalViews > 0)
-                                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 border border-green-500/60 flex items-center justify-center">
-                                        <svg class="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/60 flex items-center justify-center">
+                                        <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                     </span>
                                     <span class="text-gray-400 line-through">Share & get first view</span>
                                 @elseif($galleriesCount > 0)
                                     <span class="flex-shrink-0 w-5 h-5 rounded-full bg-purple-600 border border-purple-400 flex items-center justify-center animate-pulse" aria-current="step">
-                                        <span class="text-white text-[10px] font-bold">3</span>
+                                        <span class="text-white text-xs font-bold">3</span>
                                     </span>
                                     <span class="text-gray-100 font-medium">Share & get first view</span>
                                     <span class="text-purple-400 text-xs">← next</span>
                                 @else
                                     <span class="flex-shrink-0 w-5 h-5 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center">
-                                        <span class="text-gray-400 text-[10px] font-bold">3</span>
+                                        <span class="text-gray-400 text-xs font-bold">3</span>
                                     </span>
                                     <span class="text-gray-500">Share your 3D exhibition</span>
                                 @endif
@@ -118,13 +111,13 @@
                     <!-- CTA -->
                     @if(!$isAtLimit)
                         <a href="{{ route('admin.galleries.create') }}"
-                           class="flex-shrink-0 inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold px-4 py-2.5 rounded-lg transition-all duration-200 text-sm active:scale-95 hover:shadow-lg hover:shadow-purple-900/40">
+                           class="btn btn-primary btn-sm shrink-0">
                             Continue
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                         </a>
                     @else
                         <a href="/pricing"
-                           class="flex-shrink-0 inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white font-semibold px-4 py-2.5 rounded-lg transition-all duration-200 text-sm active:scale-95">
+                           class="btn btn-primary btn-sm shrink-0">
                             Upgrade →
                         </a>
                     @endif
@@ -136,7 +129,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 
                 <!-- Total Galleries -->
-                <div class="bg-gray-800 rounded-xl border border-gray-700/60 p-5 card-lift group" role="region" aria-label="Gallery count">
+                <div class="bg-gray-800 rounded-xl border border-gray-700/60 p-5 card-lift group h-full" role="region" aria-label="Gallery count">
                     <div class="flex items-start justify-between mb-3">
                         <div class="bg-purple-600/15 w-10 h-10 rounded-lg flex items-center justify-center group-hover:bg-purple-600/25 transition-colors" aria-hidden="true">
                             <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,18 +138,18 @@
                         </div>
                         <a href="{{ route('admin.galleries.index') }}" class="text-xs text-gray-500 hover:text-purple-400 transition-colors opacity-0 group-hover:opacity-100" aria-label="View all galleries">View all →</a>
                     </div>
-                    <div class="text-3xl font-bold text-gray-100 tabular-nums" aria-label="{{ $galleriesCount }} galleries">{{ $galleriesCount }}</div>
+                    <div class="text-2xl sm:text-3xl font-semibold text-gray-50 text-numeric" aria-label="{{ $galleriesCount }} galleries">{{ $galleriesCount }}</div>
                     <div class="text-sm text-gray-400 mt-0.5">Galleries</div>
                     @if(Auth::user()->max_galleries > 0)
                     <div class="mt-3 w-full bg-gray-700/60 h-1 rounded-full overflow-hidden" role="progressbar" aria-valuenow="{{ round($galleryPercent) }}" aria-valuemin="0" aria-valuemax="100" aria-label="Gallery quota used">
-                        <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-1 rounded-full progress-fill" style="width: {{ $galleryPercent }}%"></div>
+                        <div class="bg-brand-500 h-1 rounded-full progress-fill" style="width: {{ $galleryPercent }}%"></div>
                     </div>
-                    <p class="text-[11px] text-gray-500 mt-1">{{ $galleriesCount }} of {{ Auth::user()->max_galleries }} used</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ $galleriesCount }} of {{ Auth::user()->max_galleries }} used</p>
                     @endif
                 </div>
 
                 <!-- Total Views -->
-                <div class="bg-gray-800 rounded-xl border border-gray-700/60 p-5 card-lift group" role="region" aria-label="Total views">
+                <div class="bg-gray-800 rounded-xl border border-gray-700/60 p-5 card-lift group h-full" role="region" aria-label="Total views">
                     <div class="flex items-start justify-between mb-3">
                         <div class="bg-indigo-600/15 w-10 h-10 rounded-lg flex items-center justify-center group-hover:bg-indigo-600/25 transition-colors" aria-hidden="true">
                             <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,15 +158,15 @@
                             </svg>
                         </div>
                     </div>
-                    <div class="text-3xl font-bold text-gray-100 tabular-nums" aria-label="{{ number_format($totalViews) }} total views">{{ number_format($totalViews) }}</div>
+                    <div class="text-2xl sm:text-3xl font-semibold text-gray-50 text-numeric" aria-label="{{ number_format($totalViews) }} total views">{{ number_format($totalViews) }}</div>
                     <div class="text-sm text-gray-400 mt-0.5">Total Views</div>
                     @if($totalViews > 0)
-                    <p class="text-[11px] text-green-400 mt-2 flex items-center gap-1">
+                    <p class="text-xs text-emerald-400 mt-2 flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                         People are viewing your work
                     </p>
                     @else
-                    <p class="text-[11px] text-gray-500 mt-2">Share your gallery to get views</p>
+                    <p class="text-xs text-gray-500 mt-2">Share your gallery to get views</p>
                     @endif
                 </div>
 
@@ -184,7 +177,7 @@
                     $galleryPct = $galleryPercent;
                     $nearLimit = $galleryPercent >= 80;
                 @endphp
-                <div class="bg-gray-800 rounded-xl border {{ $nearLimit ? 'border-orange-600/40' : 'border-gray-700/60' }} p-5 card-lift group" role="region" aria-label="Plan status">
+                <div class="bg-gray-800 rounded-xl border {{ $nearLimit ? 'border-amber-600/40' : 'border-gray-700/60' }} p-5 card-lift group h-full" role="region" aria-label="Plan status">
                     <div class="flex items-start justify-between mb-3">
                         <div class="bg-blue-600/15 w-10 h-10 rounded-lg flex items-center justify-center group-hover:bg-blue-600/25 transition-colors" aria-hidden="true">
                             <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -208,14 +201,14 @@
                     <div class="space-y-1.5 mb-3">
                         <div class="flex justify-between text-xs">
                             <span class="text-gray-400">Galleries</span>
-                            <span class="{{ $nearLimit ? 'text-orange-400 font-semibold' : 'text-gray-300' }}">
+                            <span class="{{ $nearLimit ? 'text-amber-400 font-semibold' : 'text-gray-300' }}">
                                 {{ $galleriesCount }}&thinsp;/&thinsp;{{ Auth::user()->max_galleries }}
-                                @if($nearLimit && !$isAtLimit) <span class="text-orange-400">— almost full</span> @endif
+                                @if($nearLimit && !$isAtLimit) <span class="text-amber-400">— almost full</span> @endif
                                 @if($isAtLimit) <span class="text-red-400">— limit reached</span> @endif
                             </span>
                         </div>
                         <div class="w-full bg-gray-700/60 h-1.5 rounded-full overflow-hidden">
-                            <div class="h-1.5 rounded-full transition-all duration-500 {{ $isAtLimit ? 'bg-red-500' : ($nearLimit ? 'bg-orange-400' : 'bg-gradient-to-r from-purple-500 to-indigo-500') }}"
+                            <div class="h-1.5 rounded-full transition-all duration-500 {{ $isAtLimit ? 'bg-red-500' : ($nearLimit ? 'bg-amber-400' : 'bg-brand-500') }}"
                                  style="width: {{ $galleryPercent }}%"></div>
                         </div>
                     </div>
@@ -228,11 +221,11 @@
                     @if(Auth::user()->plan === 'free')
                     <div class="mt-4 pt-3 border-t border-gray-700/50">
                         @if($isAtLimit)
-                        <a href="/pricing" class="flex items-center justify-center gap-1.5 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white text-xs font-semibold py-2 rounded-lg transition-all duration-200 active:scale-95">
+                        <a href="/pricing" class="btn btn-sm btn-primary w-full">
                             You've hit the limit — Upgrade
                         </a>
                         @else
-                        <a href="/pricing" class="flex items-center justify-center gap-1.5 w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold py-2 rounded-lg transition-all duration-200 active:scale-95">
+                        <a href="/pricing" class="btn btn-sm btn-primary w-full">
                             <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
                             Upgrade to Pro
                         </a>
@@ -252,7 +245,7 @@
                     @foreach($recentGalleries as $gallery)
                     <li class="flex items-center gap-4 px-5 py-4 hover:bg-gray-700/30 transition-colors group">
                         <!-- Status dot -->
-                        <span class="flex-shrink-0 w-2 h-2 rounded-full {{ $gallery->is_published ? 'bg-green-400' : 'bg-gray-500' }}"
+                        <span class="flex-shrink-0 w-2 h-2 rounded-full {{ $gallery->is_published ? 'bg-emerald-400' : 'bg-gray-500' }}"
                               data-tooltip="{{ $gallery->is_published ? 'Published' : 'Draft' }}"
                               aria-label="{{ $gallery->is_published ? 'Published' : 'Draft' }}"></span>
 
@@ -261,7 +254,7 @@
                             <div class="flex items-center gap-2 flex-wrap">
                                 <h4 class="text-sm font-semibold text-gray-100 truncate">{{ $gallery->title }}</h4>
                                 @if($gallery->pin)
-                                <span class="text-[10px] bg-yellow-900/40 text-yellow-400 border border-yellow-700/40 px-1.5 py-0.5 rounded font-medium" aria-label="PIN protected">PIN</span>
+                                <span class="badge badge-warning" aria-label="PIN protected">PIN</span>
                                 @endif
                             </div>
                             <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
@@ -303,7 +296,7 @@
                 <h3 class="text-lg font-bold text-gray-100 mb-2">No galleries yet</h3>
                 <p class="text-sm text-gray-400 mb-6 max-w-xs mx-auto">Upload your artwork and turn it into an immersive 3D walkthrough in minutes.</p>
                 <a href="{{ route('admin.galleries.create') }}"
-                   class="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-6 py-3 rounded-lg font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-purple-900/40 active:scale-95">
+                   class="btn btn-primary btn-lg">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                     Create Your First Gallery
                 </a>
@@ -319,7 +312,7 @@
         <div id="upgrade-modal"
              class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4"
              role="dialog" aria-modal="true" aria-labelledby="upgrade-heading">
-            <div class="bg-gray-900 border border-gray-700 rounded-2xl max-w-sm w-full shadow-2xl p-6 text-center relative">
+            <div class="bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal max-w-sm w-full p-6 text-center relative">
                 <button data-click="closeUpgradeModal"
                         class="absolute top-3 right-3 text-gray-500 hover:text-gray-300 transition"
                         aria-label="Close">
@@ -353,11 +346,11 @@
                 </div>
 
                 <div class="space-y-2">
-                    <a href="/pricing" class="block w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2.5 rounded-xl transition text-sm active:scale-95">
+                    <a href="/pricing" class="btn btn-primary w-full">
                         See Plans — from $29
                     </a>
                     <button data-click="closeUpgradeModal"
-                            class="block w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 font-medium py-2.5 rounded-xl transition text-sm">
+                            class="btn btn-secondary w-full">
                         Not now
                     </button>
                 </div>
@@ -379,6 +372,5 @@
             if (e.target === e.currentTarget) closeUpgradeModal();
         });
         </script>
-
     </div>
 </x-app-layout>

@@ -18,7 +18,7 @@
 
 <div class="overflow-x-auto rounded-lg border border-slate-800">
     <table class="w-full text-sm">
-        <thead class="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider">
+        <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
             <tr>
                 <th class="text-left px-4 py-3">Application</th>
                 <th class="text-left px-4 py-3">Kind</th>
@@ -48,17 +48,17 @@
                             <div>
                                 <div class="font-medium text-slate-100 flex items-center gap-2">
                                     {{ $app->name }}
-                                    @if($app->is_self)<span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-900/50 text-cyan-300 border border-cyan-700/40 font-semibold">SELF</span>@endif
+                                    @if($app->is_self)<span class="text-xs px-2 py-0.5 rounded bg-cyan-900/50 text-cyan-300 border border-cyan-700/40 font-semibold">SELF</span>@endif
                                 </div>
-                                <div class="text-[11px] text-slate-500 font-mono">{{ $app->slug }}</div>
+                                <div class="text-xs text-slate-500 font-mono">{{ $app->slug }}</div>
                             </div>
                         </div>
                     </td>
-                    <td class="px-4 py-3"><span class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-400 uppercase font-semibold">{{ $app->kind }}</span></td>
+                    <td class="px-4 py-3"><span class="text-xs px-2 py-1 rounded bg-slate-800 text-slate-400 uppercase font-semibold">{{ $app->kind }}</span></td>
                     <td class="px-4 py-3 text-slate-400">{{ $app->environment }}</td>
                     <td class="px-4 py-3 text-slate-300 font-mono text-xs">{{ $app->status }}</td>
                     <td class="px-4 py-3">
-                        <span class="text-[10px] font-bold px-2 py-1 rounded border {{ $healthStyles[$app->health] ?? $healthStyles['unknown'] }}">{{ $app->healthLabel() }}</span>
+                        <x-status-badge :state="$app->health" :label="$app->healthLabel()" />
                     </td>
                     @php
                         $appScore = $scores[$app->id] ?? null;
@@ -79,7 +79,7 @@
                     @endphp
                     <td class="px-4 py-3">
                         @if($appScore)
-                            <span class="text-[11px] font-bold px-2 py-1 rounded border {{ $scoreStyles[$appScore['band']] }}" title="{{ $scoreTooltip ?? '' }}">{{ $appScore['score'] }}</span>
+                            <span class="text-xs font-bold px-2 py-1 rounded border {{ $scoreStyles[$appScore['band']] }}" title="{{ $scoreTooltip ?? '' }}">{{ $appScore['score'] }}</span>
                         @else
                             <span class="text-slate-600 text-xs">—</span>
                         @endif
@@ -107,12 +107,12 @@
                         <div class="flex items-center gap-1.5">
                             {{-- Iteration 6: operators can run the read-only checks; restart/sync stay super-admin-only. --}}
                             @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
-                                <a href="{{ route('ops.diagnostics.index', ['app' => $app->id]) }}" class="text-[11px] px-2 py-1 rounded border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60" title="Run read-only diagnostics for this application">Run checks</a>
+                                <a href="{{ route('ops.diagnostics.index', ['app' => $app->id]) }}" class="text-xs px-2 py-1 rounded border border-emerald-700/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60" title="Run read-only diagnostics for this application">Run checks</a>
                                 @if(auth()->user()?->is_super_admin && config('ops.actions.enabled', true) && ($app->provider === 'coolify' || $app->is_self))
-                                    <a href="{{ route('ops.actions.confirm', ['action' => 'app.restart', 'app' => $app->id]) }}" class="text-[11px] px-2 py-1 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60" title="Restart this application's container (confirmation required)">Restart…</a>
+                                    <a href="{{ route('ops.actions.confirm', ['action' => 'app.restart', 'app' => $app->id]) }}" class="text-xs px-2 py-1 rounded border border-amber-700/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60" title="Restart this application's container (confirmation required)">Restart…</a>
                                 @endif
                             @else
-                                <span class="text-[11px] text-slate-600">view-only</span>
+                                <span class="text-xs text-slate-600">view-only</span>
                             @endif
                         </div>
                     </td>
@@ -130,7 +130,7 @@
     </table>
 </div>
 
-<div class="mt-4 text-[11px] text-slate-600 space-y-1">
+<div class="mt-4 text-xs text-slate-600 space-y-1">
     <p>Rows appear automatically from the Coolify API (provider <span class="font-mono text-slate-500">coolify</span>) and from the ingestion API (provider <span class="font-mono text-slate-500">ingest</span>).</p>
     <p>Status strings are Coolify's raw values; Health is the derived rollup (running / degraded / stopped / unknown).</p>
     <p>The per-row Score is the app-scoped sub-score: health 50% · the app's untriaged errors 30% · the app's active incidents 20%, capped at 65 when the app is stopped and 85 when degraded/untriaged-critical/active-incident — hover a badge for the full breakdown (§16.2).</p>
@@ -154,7 +154,7 @@
         <div class="flex items-baseline justify-between mb-2">
             <h2 class="text-sm font-semibold text-slate-200">Sentry issue headlines (mapped apps, 24 h)</h2>
             @if(! $sentryConfigured)
-                <span class="text-[10px] text-amber-400/90">API token not configured — set SENTRY_API_TOKEN to light these up</span>
+                <span class="text-xs text-amber-400/90">API token not configured — set SENTRY_API_TOKEN to light these up</span>
             @endif
         </div>
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -165,7 +165,7 @@
                 ])
             @endforeach
         </div>
-        <p class="text-[10px] text-slate-600 mt-2">Frequency-sorted, cache-first (10-minute refresh). Click an issue to open it in Sentry — OpsCenter summarizes and links out, it never clones the stack traces.</p>
+        <p class="text-xs text-slate-600 mt-2">Frequency-sorted, cache-first (10-minute refresh). Click an issue to open it in Sentry — OpsCenter summarizes and links out, it never clones the stack traces.</p>
     </div>
 @endif
 
@@ -179,10 +179,10 @@
         <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-semibold text-slate-200">Sentry project mapping</h2>
-                <p class="text-[11px] text-slate-500 mt-0.5">Which Sentry project belongs to which application — the prerequisite for the per-app trend column. Slugs live in Sentry URLs (sentry.io/organizations/<span class="font-mono">{{ config('ops.sentry.org') ?: 'your-org' }}</span>/projects/<span class="font-mono">&lt;slug&gt;</span>). Empty = unmapped.</p>
+                <p class="text-xs text-slate-500 mt-0.5">Which Sentry project belongs to which application — the prerequisite for the per-app trend column. Slugs live in Sentry URLs (sentry.io/organizations/<span class="font-mono">{{ config('ops.sentry.org') ?: 'your-org' }}</span>/projects/<span class="font-mono">&lt;slug&gt;</span>). Empty = unmapped.</p>
             </div>
             @if(! $sentryConfigured)
-                <span class="text-[10px] px-2 py-1 rounded border border-amber-700/50 bg-amber-950/50 text-amber-300 font-semibold shrink-0" title="SENTRY_API_TOKEN / SENTRY_ORG_SLUG are not set — mappings can be saved but no trend will render until they are">API token not configured</span>
+                <span class="text-xs px-2 py-1 rounded border border-amber-700/50 bg-amber-950/50 text-amber-300 font-semibold shrink-0" title="SENTRY_API_TOKEN / SENTRY_ORG_SLUG are not set — mappings can be saved but no trend will render until they are">API token not configured</span>
             @endif
         </div>
         <div class="divide-y divide-slate-800/60">
@@ -191,20 +191,20 @@
                     @csrf
                     <div class="w-56 min-w-0">
                         <div class="text-xs text-slate-200 truncate font-medium">{{ $app->name }}</div>
-                        <div class="text-[10px] text-slate-500 font-mono truncate">{{ $app->slug }}</div>
+                        <div class="text-xs text-slate-500 font-mono truncate">{{ $app->slug }}</div>
                     </div>
                     <input type="text" name="sentry_project_slug" value="{{ $app->sentry_project_slug }}"
                            placeholder="not mapped"
                            maxlength="100"
                            class="flex-1 max-w-xs px-2.5 py-1.5 rounded bg-slate-950/70 border border-slate-700 text-xs font-mono text-slate-200 placeholder:text-slate-600 focus:border-cyan-600 focus:outline-none"
                            title="Lowercase letters, digits, dashes, dots, underscores">
-                    <button type="submit" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-medium text-slate-200 transition shrink-0">Save</button>
+                    <button type="submit" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition shrink-0">Save</button>
                 </form>
             @empty
                 <p class="px-4 py-6 text-center text-slate-500 text-xs">No applications yet — the panel populates once the platform sync runs.</p>
             @endforelse
         </div>
-        <p class="px-4 py-2.5 border-t border-slate-800 text-[10px] text-slate-600">Every save is audited (<span class="font-mono">ops.sentry.mapping</span>) with the old → new slug. The token itself stays in env — a slug is a public label, not a secret.</p>
+        <p class="px-4 py-2.5 border-t border-slate-800 text-xs text-slate-600">Every save is audited (<span class="font-mono">ops.sentry.mapping</span>) with the old → new slug. The token itself stays in env — a slug is a public label, not a secret.</p>
     </div>
 @endif
 @endsection

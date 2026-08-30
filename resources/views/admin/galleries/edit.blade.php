@@ -1,8 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-100 leading-tight">
-            Edit Gallery: {{ $gallery->title }}
-        </h2>
+        <x-page-header :title="'Edit Gallery: '.$gallery->title" :back="route('admin.galleries.index')" backLabel="All galleries"/>
     </x-slot>
 
     <!-- Dropzone CSS -->
@@ -246,8 +244,7 @@
     <!-- Toast container (rendered immediately) -->
     <div id="toast-container" class="toast-container"></div>
 
-    <div class="py-12 bg-gray-900 min-h-screen">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+    <div class="page-shell space-y-6">
 
             {{-- Round 4: gallery sub-nav --}}
             <div class="flex flex-wrap gap-2 text-sm">
@@ -256,7 +253,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     Events
                     @if($gallery->scheduleEvents()->active()->upcoming()->count() > 0)
-                        <span class="ml-1 px-1.5 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-bold">{{ $gallery->scheduleEvents()->active()->upcoming()->count() }}</span>
+                        <span class="ml-1 px-1.5 py-0.5 rounded-full bg-purple-600 text-white text-xs font-bold">{{ $gallery->scheduleEvents()->active()->upcoming()->count() }}</span>
                     @endif
                 </a>
                 <a href="{{ route('admin.galleries.analytics', $gallery) }}"
@@ -894,7 +891,7 @@
                             Cancel
                         </a>
                         <button type="submit" id="update-settings-btn"
-                                class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium shadow-lg shadow-purple-900/30 transition-all inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                                class="btn btn-primary disabled:opacity-60">
                             <svg id="update-spinner" class="hidden animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
                             <span id="update-label">Update Settings</span>
                         </button>
@@ -1044,7 +1041,7 @@
                                         {{ $image->title ?: $image->original_name }}
                                     </p>
                                     @if($image->for_sale && $image->price)
-                                        <p class="text-[11px] text-green-400 text-center mt-0.5" data-role="caption-price">{{ $image->formattedPrice() }}</p>
+                                        <p class="text-xs text-green-400 text-center mt-0.5" data-role="caption-price">{{ $image->formattedPrice() }}</p>
                                     @endif
                                 </div>
                             </div>
@@ -1174,15 +1171,13 @@
                             <button type="button" data-click="closeMetadataModal"
                                     class="bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium px-4 py-2 rounded-lg transition text-sm">Cancel</button>
                             <button type="submit" id="metadata-save-btn"
-                                    class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold px-5 py-2 rounded-lg transition text-sm shadow-lg shadow-purple-900/30">
+                                    class="btn btn-sm btn-primary">
                                 Save details
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
-
-        </div>
     </div>
 
     <!-- Dropzone & Scripts -->
@@ -1448,7 +1443,7 @@
                     if (data.formatted_price) {
                         if (!priceEl) {
                             priceEl = document.createElement('p');
-                            priceEl.className = 'text-[11px] text-green-400 text-center mt-0.5';
+                            priceEl.className = 'text-xs text-green-400 text-center mt-0.5';
                             priceEl.setAttribute('data-role', 'caption-price');
                             captionTitle?.after(priceEl);
                         }

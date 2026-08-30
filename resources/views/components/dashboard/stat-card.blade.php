@@ -30,7 +30,7 @@ $trendFlat = $trend !== null && $trend === 0;
 
 <{{ $tag }}
     @if($href) href="{{ $href }}" @endif
-    class="relative bg-gray-800 overflow-hidden rounded-xl border border-gray-700/80 {{ $c['border'] }} {{ $c['glow'] }} shadow-lg hover:shadow-xl transition-all duration-200 {{ $href ? 'cursor-pointer' : '' }}"
+    class="relative h-full bg-gray-800 overflow-hidden rounded-xl border border-gray-700/80 {{ $c['border'] }} {{ $c['glow'] }} shadow-lg hover:shadow-xl transition-all duration-200 {{ $href ? 'cursor-pointer' : '' }}"
 >
     {{-- Subtle top accent line --}}
     <div class="absolute top-0 inset-x-0 h-px {{ $c['bg'] }} opacity-60"></div>

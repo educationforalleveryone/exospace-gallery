@@ -1,28 +1,28 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-100 leading-tight">Create New Gallery</h2>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+            <div class="min-w-0">
+                <h1 class="page-title">Create New Gallery</h1>
                 @if(isset($team))
-                    <p class="text-xs text-indigo-400 mt-0.5">Creating in <span class="font-semibold">{{ $team->name }}</span></p>
+                    <p class="text-xs text-brand-400 mt-1">Creating in <span class="font-semibold">{{ $team->name }}</span></p>
                 @endif
             </div>
             @if(Auth::user()->galleries()->count() === 0)
             <div class="flex items-center gap-2 text-xs text-gray-500">
-                <span class="flex items-center gap-1.5 text-green-400">
-                    <span class="w-5 h-5 rounded-full bg-green-500/20 border border-green-500 inline-flex items-center justify-center flex-shrink-0">
+                <span class="flex items-center gap-1.5 text-emerald-400">
+                    <span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500 inline-flex items-center justify-center flex-shrink-0">
                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                     </span>
                     Account
                 </span>
                 <span class="text-gray-700">→</span>
                 <span class="flex items-center gap-1.5 text-purple-300 font-semibold">
-                    <span class="w-5 h-5 rounded-full bg-purple-600 inline-flex items-center justify-center flex-shrink-0"><span style="font-size:9px;font-weight:700;color:white">2</span></span>
+                    <span class="w-5 h-5 rounded-full bg-brand-600 inline-flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">2</span>
                     Gallery
                 </span>
                 <span class="text-gray-700">→</span>
                 <span class="flex items-center gap-1.5 text-gray-600">
-                    <span class="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 inline-flex items-center justify-center flex-shrink-0"><span style="font-size:9px;font-weight:700;color:#6b7280">3</span></span>
+                    <span class="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 inline-flex items-center justify-center flex-shrink-0 text-gray-400 text-xs font-bold">3</span>
                     Share
                 </span>
             </div>
@@ -30,10 +30,9 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
+    <div class="page-shell-narrow">
         @php $venueTemplates ??= collect(); @endphp
-        <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg p-6 border border-gray-700">
+            <div class="bg-gray-800 overflow-hidden shadow-card sm:rounded-lg p-6 border border-gray-700/60 card">
                 
                 <form action="{{ route('admin.galleries.store') }}" method="POST" enctype="multipart/form-data">
     @if(isset($team))
@@ -378,7 +377,7 @@ $venueAtmospheres = [
                             Cancel
                         </a>
                         <button type="submit" id="create-gallery-btn"
-                                class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                                class="btn btn-primary disabled:opacity-60">
                             <svg id="create-gallery-spinner" class="hidden animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
                             <span id="create-gallery-label">Create Gallery</span>
                         </button>
@@ -386,7 +385,6 @@ $venueAtmospheres = [
 
                 </form>
             </div>
-        </div>
     </div>
 
 <script nonce="@nonce">
