@@ -336,7 +336,6 @@
                                 label="Upgrade"
                                 description="Unlock more"
                                 color="amber"
-                                :onclick="null"
                             />
                             @endif
 
@@ -544,17 +543,22 @@
     </div>
 
     {{-- ── First-visit welcome modal (only for brand-new users < 48h) ─────── --}}
+    {{-- ITERATION-4 FIX: the root tag used to close before its transition
+         attributes, leaking them as visible stray text above the panel and
+         dropping `flex` (items-center/justify-center had no effect). Also
+         marked data-focus-trap — Tab used to escape into the page behind. --}}
     @if($isNewUser && !$team)
     <div x-data="{ show: !localStorage.getItem('exospace_welcomed') }"
          x-show="show" x-cloak
          x-effect="document.body.classList.toggle('overflow-y-hidden', show)"
+         data-focus-trap
          @keydown.escape.window="localStorage.setItem('exospace_welcomed','1'); show=false"
          @click.self="localStorage.setItem('exospace_welcomed','1'); show=false"
-         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] items-center justify-center p-4"
-    >
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100">
+         x-transition:enter-end="opacity-100"
+         class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+    >
         <div @click.stop
              role="dialog" aria-modal="true" aria-labelledby="welcome-heading"
              class="bg-gray-800 border border-gray-600/50 rounded-xl max-w-md w-full shadow-modal overflow-hidden"
@@ -634,14 +638,12 @@
     // upgrade-modal's "Maybe later" button still references it.
     window.closeModalById = function(id) { closeModal(id); };
 
-    // ── ESC to close any modal ───────────────────────────────────────────────
-    document.addEventListener('keydown', e => {
-        if (e.key !== 'Escape') return;
-        ['dashboard-share-modal', 'upgrade-modal'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) closeModal(el);
-        });
-    });
+    // ── ESC handling ──────────────────────────────────────────────────────────
+    // ITERATION-4: page-local Escape sweep removed — the kernel in app.js
+    // already closes the top of the modal stack on Escape (and correctly
+    // leaves Alpine-owned dialogs to their own @keydown.escape handlers).
+    // The old handler force-closed BOTH page modals in one keystroke,
+    // bypassing stack order.
 
     // ── Auto-refresh stat cards every 60s (near-real-time) ──────────────────
     // Only refresh when the tab is visible and user has galleries.

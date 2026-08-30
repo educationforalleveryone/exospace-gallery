@@ -6,7 +6,7 @@
 @auth
 <div x-data="{ open: false, submitting: false, success: false, category: 'bug', message: '' }"
      x-cloak
-     x-effect="document.body.classList.toggle('overflow-y-hidden', open)"
+     x-effect="document.body.classList.toggle('overflow-y-hidden', open); if (open) $nextTick(() => $refs.panel && $refs.panel.focus())"
      style="position: fixed; bottom: 24px; right: 24px; z-index: 45;">
 
     {{-- Floating button — z-[45] persistent-overlay tier: sits above chrome,
@@ -22,8 +22,12 @@
     </button>
 
     {{-- Modal --}}
+    {{-- data-focus-trap: delegated Tab containment from app.js (this dialog
+         has no Alpine Tab handler of its own). Panel takes focus on open so
+         Escape/Tab work immediately without an extra click. --}}
     <div x-show="open"
          x-transition
+         data-focus-trap
          class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
          style="z-index: 60;"
          role="dialog"
@@ -32,7 +36,7 @@
          @keydown.escape.window="open = false"
          @click="if($event.target === $el) open = false">
 
-        <div class="bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal max-w-md w-full p-6"
+        <div x-ref="panel" tabindex="-1" class="bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal max-w-md w-full p-6 focus:outline-none"
              @click.stop>
 
             {{-- Header --}}
@@ -82,7 +86,7 @@
                               required
                               maxlength="5000"
                               placeholder="Tell us what's on your mind..."
-                              class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none resize-none"></textarea>
+                              class="input-base resize-none"></textarea>
                     <p class="text-xs text-gray-500 mt-1" x-text="message.length + '/5000'"></p>
                 </div>
 

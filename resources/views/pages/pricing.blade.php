@@ -31,14 +31,14 @@
     .pricing-hero h1 {
         font-size: clamp(2.2rem, 5vw, 3.5rem); font-weight: 800; line-height: 1.1;
         margin-bottom: 1rem;
-        color: #f1f5f9;
+        color: #f3f4f6;
     }
     .grad {
-        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        background: linear-gradient(135deg, #a78bfa, #8b5cf6);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
     .pricing-hero p {
-        font-size: 1.05rem; color: #94a3b8; line-height: 1.6;
+        font-size: 1.05rem; color: #9ca3af; line-height: 1.6;
         max-width: 600px; margin: 0 auto;
     }
 
@@ -48,7 +48,7 @@
         max-width: 1200px; margin: 3rem auto; padding: 0 2rem;
     }
     .pricing-card {
-        background: linear-gradient(180deg, #131319 0%, #0d0d14 100%);
+        background: #0f1117; /* ink-900 */
         border: 1px solid rgba(139, 92, 246, 0.12);
         border-radius: 18px; padding: 2rem;
         display: flex; flex-direction: column;
@@ -57,18 +57,17 @@
     .pricing-card:hover { border-color: rgba(139, 92, 246, 0.3); transform: translateY(-4px); }
     .pricing-card.featured {
         border-color: rgba(139, 92, 246, 0.4);
-        box-shadow: 0 0 50px rgba(139, 92, 246, 0.15);
         position: relative;
     }
     .pricing-card.featured::before {
         content: 'MOST POPULAR';
         position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
-        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-        color: white; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+        background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+        color: white; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em;
         padding: 4px 12px; border-radius: 999px;
     }
     .card-tier {
-        font-size: 0.85rem; font-weight: 600; color: #94a3b8;
+        font-size: 0.85rem; font-weight: 600; color: #9ca3af;
         text-transform: uppercase; letter-spacing: 0.1em;
         margin-bottom: 0.5rem;
     }
@@ -76,40 +75,26 @@
         display: flex; align-items: baseline; gap: 0.25rem;
         margin-bottom: 1rem;
     }
-    .dollar { font-size: 1.5rem; color: #94a3b8; font-weight: 600; }
-    .amount { font-size: 3rem; font-weight: 800; color: #f1f5f9; }
-    .period { font-size: 0.85rem; color: #64748b; }
-    .card-desc { font-size: 0.9rem; color: #94a3b8; line-height: 1.6; margin-bottom: 1.5rem; }
+    .dollar { font-size: 1.5rem; color: #9ca3af; font-weight: 600; }
+    .amount { font-size: 3rem; font-weight: 800; color: #f3f4f6; }
+    .period { font-size: 0.85rem; color: #6b7280; }
+    .card-desc { font-size: 0.9rem; color: #9ca3af; line-height: 1.6; margin-bottom: 1.5rem; }
     .features { list-style: none; flex-grow: 1; margin-bottom: 1.5rem; }
     .features li {
         display: flex; align-items: flex-start; gap: 0.65rem;
-        font-size: 0.85rem; color: #cbd5e1; line-height: 1.5;
+        font-size: 0.85rem; color: #d1d5db; line-height: 1.5;
         padding: 0.4rem 0;
     }
-    .features li.dim { color: #475569; }
-    .features li strong { color: #f1f5f9; font-weight: 600; }
+    .features li.dim { color: #4b5563; }
+    .features li strong { color: #f3f4f6; font-weight: 600; }
     .icon { flex-shrink: 0; width: 16px; height: 16px; margin-top: 2px; }
     .feat-group { display: flex; flex-direction: column; gap: 1px; }
-    .feat-label { font-weight: 600; color: #f1f5f9; }
-    .feat-detail { font-size: 0.75rem; color: #64748b; }
+    .feat-label { font-weight: 600; color: #f3f4f6; }
+    .feat-detail { font-size: 0.75rem; color: #6b7280; }
 
-    .btn {
-        display: block; text-align: center; text-decoration: none;
-        padding: 0.85rem 1.5rem; border-radius: 10px;
-        font-weight: 700; font-size: 0.95rem;
-        transition: all 0.2s ease;
-    }
-    .btn-primary {
-        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-        color: white;
-    }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(139, 92, 246, 0.35); }
-    .btn-outline {
-        background: transparent; color: #f1f5f9;
-        border: 1px solid rgba(139, 92, 246, 0.4);
-    }
-    .btn-outline:hover { background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.7); }
-
+    /* ITERATION-4: page-local .btn/.btn-primary/.btn-outline deleted — they
+       shadowed the design-system kit so .btn-primary never actually rendered
+       here. CTAs below use the shared kit (btn-primary / btn-secondary). */
     .trust-footer {
         text-align: center; padding: 2.5rem 2rem;
         border-top: 1px solid rgba(139, 92, 246, 0.08);
@@ -120,7 +105,7 @@
         color: #8b5cf6; margin-bottom: 0.5rem;
     }
     .trust-footer p {
-        font-size: 0.8rem; color: #64748b; line-height: 1.7;
+        font-size: 0.8rem; color: #6b7280; line-height: 1.7;
     }
 
     .faq {
@@ -128,7 +113,7 @@
     }
     .faq h2 {
         font-size: 1.6rem; font-weight: 700; text-align: center; margin-bottom: 2rem;
-        color: #f1f5f9;
+        color: #f3f4f6;
     }
     .faq-item {
         background: rgba(255, 255, 255, 0.02);
@@ -136,15 +121,15 @@
         border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.6rem;
     }
     .faq-item summary {
-        font-size: 0.9rem; font-weight: 600; color: #f1f5f9;
+        font-size: 0.9rem; font-weight: 600; color: #f3f4f6;
         cursor: pointer; list-style: none;
         display: flex; justify-content: space-between; align-items: center;
     }
     .faq-item summary::-webkit-details-marker { display: none; }
-    .faq-item summary .plus { color: #64748b; font-size: 1.2rem; transition: transform 0.2s; }
+    .faq-item summary .plus { color: #6b7280; font-size: 1.2rem; transition: transform 0.2s; }
     .faq-item[open] summary .plus { transform: rotate(45deg); }
     .faq-item p {
-        font-size: 0.82rem; color: #94a3b8; line-height: 1.7; padding-top: 0.6rem;
+        font-size: 0.82rem; color: #9ca3af; line-height: 1.7; padding-top: 0.6rem;
     }
 
     @media (max-width: 720px) {
@@ -171,7 +156,7 @@
                 }
             @endphp
         </div>
-        <span style="font-size:0.8rem;color:#94a3b8;">Loved by artists worldwide</span>
+        <span style="font-size:0.8rem;color:#9ca3af;">Loved by artists worldwide</span>
     </div>
 </section>
 
@@ -208,11 +193,11 @@
                 Shareable public link
             </li>
             <li class="dim">
-                <span class="icon"><svg viewBox="0 0 12 12" fill="none" stroke="#475569" stroke-width="2.5"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></span>
+                <span class="icon"><svg viewBox="0 0 12 12" fill="none" stroke="#4b5563" stroke-width="2.5"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></span>
                 "Created with Exospace" watermark
             </li>
         </ul>
-        <a href="{{ $currentPlan ? route('admin.dashboard') : route('register') }}" class="btn btn-outline">
+        <a href="{{ $currentPlan ? route('admin.dashboard') : route('register') }}" class="btn btn-secondary w-full">
             {{ $currentPlan === 'free' ? 'Your Current Plan ✓' : 'Get Started Free' }}
         </a>
     </div>
@@ -252,11 +237,11 @@
             </li>
         </ul>
         @if($currentPlan === 'pro')
-        <span class="btn btn-primary" style="opacity:0.7;cursor:default;pointer-events:none;">Your Current Plan ✓</span>
+        <span class="btn btn-primary w-full opacity-70 cursor-default pointer-events-none" aria-disabled="true">Your Current Plan ✓</span>
         @elseif($currentPlan === 'studio')
-        <span class="btn btn-primary" style="opacity:0.7;cursor:default;pointer-events:none;">Included in Studio ✓</span>
+        <span class="btn btn-primary w-full opacity-70 cursor-default pointer-events-none" aria-disabled="true">Included in Studio ✓</span>
         @else
-        <a href="#" class="btn btn-primary" data-click="openModalAnchor" data-arg="upgrade-modal-pro">Upgrade to Pro — $29</a>
+        <button type="button" class="btn btn-primary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-pro">Upgrade to Pro — $29</button>
         {{-- ITERATION-2 (trial wiring): surface the 14-day trial backend
              (2CO-8 — rate-limited, one per user, no card) to eligible
              logged-in Free users. Guests get the register deep-link. --}}
@@ -264,13 +249,13 @@
             @if(auth()->user()->plan === 'free' && ! auth()->user()->hasUsedTrial())
             <form action="{{ route('billing.start-trial', 'pro') }}" method="POST" style="margin-top:0.6rem;">
                 @csrf
-                <button type="submit" class="btn btn-outline" style="width:100%;">
+                <button type="submit" class="btn btn-secondary w-full">
                     or try Pro free for 14 days →
                 </button>
             </form>
             @endif
         @else
-            <p style="font-size:0.72rem; color:#64748b; margin-top:0.6rem; text-align:center;">New here? <a href="{{ route('register') }}" style="color:#8b5cf6; text-decoration:underline;">Create a free account</a> to start a 14-day Pro trial.</p>
+            <p style="font-size:0.75rem; color:#6b7280; margin-top:0.6rem; text-align:center;">New here? <a href="{{ route('register') }}" style="color:#8b5cf6; text-decoration:underline;">Create a free account</a> to start a 14-day Pro trial.</p>
         @endauth
         @endif
     </div>
@@ -320,9 +305,9 @@
             </li>
         </ul>
         @if($currentPlan === 'studio')
-        <span class="btn btn-outline opacity-70 cursor-default pointer-events-none" aria-disabled="true">Your Current Plan ✓</span>
+        <span class="btn btn-secondary w-full opacity-70 cursor-default pointer-events-none" aria-disabled="true">Your Current Plan ✓</span>
         @else
-        <a href="#" class="btn btn-outline" data-click="openModalAnchor" data-arg="upgrade-modal-studio">Upgrade to Studio — $99</a>
+        <button type="button" class="btn btn-secondary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-studio">Upgrade to Studio — $99</button>
         @endif
     </div>
 </div>
@@ -331,7 +316,7 @@
 <div class="trust-footer">
     <div class="lock-row">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span style="font-size:0.78rem; color:#475569; font-weight:500;">Secure Payment</span>
+        <span style="font-size:0.78rem; color:#4b5563; font-weight:500;">Secure Payment</span>
     </div>
     <p>
         Transactions processed securely via <strong>2Checkout</strong>.<br>
@@ -343,17 +328,17 @@
      glance without re-reading each card. Mobile-friendly: table scrolls
      horizontally on narrow screens via overflow-x:auto wrapper. --}}
 <section style="max-width: 1100px; margin: 4rem auto; padding: 0 2rem;">
-    <h2 style="font-size:1.6rem; font-weight:700; text-align:center; margin-bottom:2rem; color:#f1f5f9;">
+    <h2 style="font-size:1.6rem; font-weight:700; text-align:center; margin-bottom:2rem; color:#f3f4f6;">
         Compare All Features
     </h2>
     <div style="overflow-x:auto; border-radius:14px; border:1px solid rgba(139,92,246,0.12); background:rgba(255,255,255,0.02);">
         <table style="width:100%; border-collapse:collapse; font-size:0.88rem; min-width:600px;">
             <thead>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.15);">
-                    <th style="text-align:left; padding:1rem 1.25rem; color:#94a3b8; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Feature</th>
-                    <th style="text-align:center; padding:1rem 1.25rem; color:#94a3b8; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Free</th>
+                    <th style="text-align:left; padding:1rem 1.25rem; color:#9ca3af; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Feature</th>
+                    <th style="text-align:center; padding:1rem 1.25rem; color:#9ca3af; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Free</th>
                     <th style="text-align:center; padding:1rem 1.25rem; color:#a78bfa; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Pro</th>
-                    <th style="text-align:center; padding:1rem 1.25rem; color:#94a3b8; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Studio</th>
+                    <th style="text-align:center; padding:1rem 1.25rem; color:#9ca3af; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;">Studio</th>
                 </tr>
             </thead>
             <tbody>
@@ -365,93 +350,93 @@
                             return '<span style="color:#8b5cf6;" aria-label="Yes">&#10003;</span>';
                         }
                         if ($val === false) {
-                            return '<span style="color:#475569;" aria-label="No">&ndash;</span>';
+                            return '<span style="color:#4b5563;" aria-label="No">&ndash;</span>';
                         }
-                        return '<span style="color:#cbd5e1;">' . e($val) . '</span>';
+                        return '<span style="color:#d1d5db;">' . e($val) . '</span>';
                     };
                 @endphp
 
                 {{-- Row: Galleries --}}
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Galleries</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Galleries</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('1') !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('5') !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('Unlimited') !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Total images</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Total images</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('10') !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('100') !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('500') !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">3D venues</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">3D venues</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('2') !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('7') !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('All 11') !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Custom domain</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Custom domain</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">White-label branding</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">White-label branding</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">No Exospace watermark</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">No Exospace watermark</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Background music</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Background music</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Exhibition scheduling</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Exhibition scheduling</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Guided tour</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Guided tour</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Analytics dashboard</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Analytics dashboard</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">PIN protection</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">PIN protection</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Team collaboration</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Team collaboration</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06);">
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Priority support</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Priority support</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
                 </tr>
                 <tr>
-                    <td style="padding:0.85rem 1.25rem; color:#cbd5e1; font-weight:500;">Dedicated account manager</td>
+                    <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Dedicated account manager</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(false) !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell(true) !!}</td>
@@ -459,7 +444,7 @@
             </tbody>
         </table>
     </div>
-    <p style="text-align:center; font-size:0.75rem; color:#64748b; margin-top:1rem;">
+    <p style="text-align:center; font-size:0.75rem; color:#6b7280; margin-top:1rem;">
         All plans include: SSL encryption, GDPR-compliant data export, CAN-SPAM unsubscribe, and EXIF metadata stripping.
     </p>
 </section>
@@ -469,7 +454,7 @@
     <h2>Questions?</h2>
     <details class="faq-item">
         <summary>Is there a free trial for Pro? <span class="plus">+</span></summary>
-        <p>Yes — the Free plan lets you build a real gallery with the full 3D viewer (1 gallery, 10 images, two venues), and registered Free users can start a <strong>14-day Pro trial</strong> with no card required. You can also explore Pro and Studio anytime with the paid one-time or subscription options.</p>
+        <p>Yes — the Free plan lets you build a real gallery with the full 3D viewer (1 gallery, 10 images, two venues), and registered Free users can start a <strong>14-day Pro trial</strong> with no card required. You can also explore Pro and Studio anytime with the paid one-time options.</p>
     </details>
     <details class="faq-item">
         <summary>Can I upgrade later? <span class="plus">+</span></summary>
@@ -491,11 +476,12 @@
 
 <!-- Pro Upgrade Modal -->
 <div id="upgrade-modal-pro" role="dialog" aria-modal="true" aria-labelledby="modal-pro-title" style="display:none;" class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-    <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
+    {{-- ITERATION-4: panel converted from inline styles to kit-aligned utilities. --}}
+    <div class="bg-ink-900 border border-gray-700/60 rounded-2xl p-8 sm:p-10 max-w-[440px] w-[90%] text-center">
 
-        <h3 id="modal-pro-title" style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Pro — $29</h3>
-        <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
-        <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
+        <h3 id="modal-pro-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Pro — $29</h3>
+        <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access. No subscription.</p>
+        <ul class="text-left text-[13px] text-gray-400 my-5 ps-5 leading-8 list-disc">
             <li>5 galleries · 100 images total</li>
             <li>7 venues: White Cube, Infinite Void, Industrial Loft, Dark Museum, Zen Gallery, Crystal Cathedral, Nebula Drift</li>
             <li>Background music & exhibition scheduling</li>
@@ -503,8 +489,7 @@
             <li>Priority email support</li>
         </ul>
         @auth
-        <a href="{{ route('billing.upgrade', 'pro') }}"
-           style="display:block; background:linear-gradient(135deg,#3b82f6,#8b5cf6); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
+        <a href="{{ route('billing.upgrade', 'pro') }}" class="btn btn-primary w-full mb-3">
             Pay Securely with 2Checkout →
         </a>
         @else
@@ -512,24 +497,23 @@
              After registration + email verification, the user lands directly on
              the 2Checkout checkout page — 1 fewer step than the previous flow
              (register → log in → find pricing → click upgrade). --}}
-        <a href="{{ route('register') }}?redirect={{ urlencode('billing/upgrade/pro') }}"
-           style="display:block; background:linear-gradient(135deg,#3b82f6,#8b5cf6); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
+        <a href="{{ route('register') }}?redirect={{ urlencode('billing/upgrade/pro') }}" class="btn btn-primary w-full mb-3">
             Sign up to Upgrade →
         </a>
-        <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}?redirect={{ urlencode('billing/upgrade/pro') }}" style="color:#8b5cf6; text-decoration:underline;">Log in</a></p>
+        <p class="text-xs text-gray-500 mt-2">Already have an account? <a href="{{ route('login') }}?redirect={{ urlencode('billing/upgrade/pro') }}" class="text-brand-400 underline">Log in</a></p>
         @endauth
-        <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
-        <button data-click="closeModal" data-arg="upgrade-modal-pro" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
+        <p class="text-xs text-gray-500 mt-2">Your plan activates automatically after payment — no manual steps required.</p>
+        <button type="button" data-click="closeModal" data-arg="upgrade-modal-pro" class="btn btn-ghost btn-sm mt-4">Cancel</button>
     </div>
 </div>
 
 <!-- Studio Upgrade Modal -->
 <div id="upgrade-modal-studio" role="dialog" aria-modal="true" aria-labelledby="modal-studio-title" style="display:none;" class="fixed inset-0 z-[60] items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-    <div style="background:#131319; border:1px solid #2e2e44; border-radius:16px; padding:2.5rem; max-width:440px; width:90%; text-align:center;">
+    <div class="bg-ink-900 border border-gray-700/60 rounded-2xl p-8 sm:p-10 max-w-[440px] w-[90%] text-center">
 
-        <h3 id="modal-studio-title" style="font-size:1.3rem; font-weight:700; color:#f1f5f9; margin-bottom:0.5rem;">Upgrade to Studio — $99</h3>
-        <p style="font-size:0.85rem; color:#64748b; margin-bottom:0.5rem; line-height:1.6;">One-time payment. Lifetime access. No subscription.</p>
-        <ul style="text-align:left; font-size:0.82rem; color:#94a3b8; margin:1.25rem 0 1.75rem; padding-left:1.25rem; line-height:2;">
+        <h3 id="modal-studio-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Studio — $99</h3>
+        <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access. No subscription.</p>
+        <ul class="text-left text-[13px] text-gray-400 my-5 ps-5 leading-8 list-disc">
             <li>Unlimited galleries · 500 images total</li>
             <li>All 11 venues including Penthouse, Cyber Gallery, Sculpture Garden, Mirror Lake</li>
             <li>Custom domain (yourname.com)</li>
@@ -538,33 +522,23 @@
             <li>Dedicated account manager</li>
         </ul>
         @auth
-        <a href="{{ route('billing.upgrade', 'studio') }}"
-           style="display:block; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
+        <a href="{{ route('billing.upgrade', 'studio') }}" class="btn btn-primary w-full mb-3">
             Pay Securely with 2Checkout →
         </a>
         @else
         {{-- CONV-6: Same deep-link pattern as Pro modal above. --}}
-        <a href="{{ route('register') }}?redirect={{ urlencode('billing/upgrade/studio') }}"
-           style="display:block; background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; text-decoration:none; padding:0.85rem 1.5rem; border-radius:10px; font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">
+        <a href="{{ route('register') }}?redirect={{ urlencode('billing/upgrade/studio') }}" class="btn btn-primary w-full mb-3">
             Sign up to Upgrade →
         </a>
-        <p style="font-size:0.72rem; color:#475569; margin-top:0.5rem;">Already have an account? <a href="{{ route('login') }}?redirect={{ urlencode('billing/upgrade/studio') }}" style="color:#f59e0b; text-decoration:underline;">Log in</a></p>
+        <p class="text-xs text-gray-500 mt-2">Already have an account? <a href="{{ route('login') }}?redirect={{ urlencode('billing/upgrade/studio') }}" class="text-brand-400 underline">Log in</a></p>
         @endauth
-        <p style="font-size:0.72rem; color:#475569;">Your plan activates automatically after payment — no manual steps required.</p>
-        <button data-click="closeModal" data-arg="upgrade-modal-studio" style="margin-top:1rem; background:transparent; border:none; color:#475569; font-size:0.8rem; cursor:pointer;">Cancel</button>
+        <p class="text-xs text-gray-500 mt-2">Your plan activates automatically after payment — no manual steps required.</p>
+        <button type="button" data-click="closeModal" data-arg="upgrade-modal-studio" class="btn btn-ghost btn-sm mt-4">Cancel</button>
     </div>
 </div>
 
-{{-- CSP-safe helper for opening modals from <a href="#"> anchors
-    (replaced inline onclick). Calls preventDefault so the anchor
-    doesn't navigate to "#", then defers to the public layout's
-    openModal(). --}}
-<script nonce="@nonce">
-window.openModalAnchor = function(id, e) {
-    if (e && e.preventDefault) e.preventDefault();
-    if (window.openModal) window.openModal(id);
-};
-</script>
+{{-- openModalAnchor moved into the canonical bundle (resources/js/app.js,
+    ITERATION-4) — it is a generic data-click helper, not pricing-specific. --}}
 
 {{-- I-2 FIX (Iter-013): Product + FAQPage JSON-LD for rich results in Google SERPs.
     Renders price snippets (Free/Pro/Studio) + FAQ accordion directly in

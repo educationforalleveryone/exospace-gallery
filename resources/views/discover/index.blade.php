@@ -7,10 +7,10 @@
 @section('content')
 
 <!-- H-2 FIX (Iter-012): Discover page now extends layouts.public for proper SEO meta, public nav, footer, cookie banner, skip-link. Was previously using layouts.guest (auth sidebar nav). -->
-    <div class="bg-gradient-to-br from-gray-900 via-purple-950/30 to-gray-900 border-b border-gray-800">
+    <div class="bg-gradient-to-br from-gray-900 via-brand-950/30 to-gray-900 border-b border-gray-800">
             <div class="max-w-7xl mx-auto px-4 py-16">
                 <div class="text-center">
-                    <p class="text-purple-400 text-sm font-semibold tracking-widest uppercase mb-3">Discover</p>
+                    <p class="text-brand-400 text-sm font-semibold tracking-widest uppercase mb-3">Discover</p>
                     <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4">Featured 3D Exhibitions</h1>
                     <p class="text-gray-400 text-lg max-w-2xl mx-auto">Walk through virtual galleries curated by artists, photographers, and institutions from around the world.</p>
                 </div>
@@ -27,7 +27,7 @@
          role="status"
          aria-live="polite"
          aria-label="Loading exhibitions"
-         style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.7); backdrop-filter:blur(4px); z-index:50; align-items:center; justify-content:center;">
+         style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.7); backdrop-filter:blur(4px); z-index:45; align-items:center; justify-content:center;">
         <div style="text-align:center;">
             <div style="display:inline-block; width:40px; height:40px; border:3px solid rgba(167,139,250,0.2); border-top-color:#a78bfa; border-radius:50%; animation: discover-spin 0.8s linear infinite;"></div>
             <p style="margin-top:12px; color:#a78bfa; font-size:14px; font-weight:500;">Loading exhibitions&hellip;</p>
@@ -75,7 +75,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div class="flex items-center gap-3">
                 <form method="GET" class="flex items-center gap-2">
-                    <select name="venue" data-change="submitForm" class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500">
+                    <select name="venue" data-change="submitForm" class="input-base">
                         <option value="">All venues</option>
                         @foreach($venues as $id => $name)
                             <option value="{{ $id }}" {{ (string)$venueId === (string)$id ? 'selected' : '' }}>{{ $name }}</option>
@@ -87,14 +87,14 @@
 
             <div class="flex items-center gap-1 text-sm">
                 <span class="text-gray-500 mr-2">Sort:</span>
-                <a href="?sort=featured{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'featured' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Featured</a>
-                <a href="?sort=views{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'views' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Most viewed</a>
-                <a href="?sort=newest{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'newest' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Newest</a>
+                <a href="?sort=featured{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'featured' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Featured</a>
+                <a href="?sort=views{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'views' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Most viewed</a>
+                <a href="?sort=newest{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'newest' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Newest</a>
                 {{-- ITERATION-3: ordering by first-publish time, not creation time —
                      an exhibition drafted for weeks before its opening ranks as
                      new when it actually goes live. --}}
-                <a href="?sort=published{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'published' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Recently published</a>
-                <a href="?sort=updated{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'updated' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Recently updated</a>
+                <a href="?sort=published{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'published' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Recently published</a>
+                <a href="?sort=updated{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'updated' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Recently updated</a>
             </div>
         </div>
 
@@ -102,7 +102,7 @@
         @if($galleries->count() > 0)
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 @foreach($galleries as $gallery)
-                    <a href="{{ $gallery->public_url }}" class="group bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden hover:border-purple-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-900/20 transition-all duration-300">
+                    <a href="{{ $gallery->public_url }}" class="group bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden hover:border-brand-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-900/20 transition-all duration-300">
                         {{-- Cover --}}
                         <div class="aspect-[4/3] bg-gray-900 overflow-hidden relative">
                             @if($gallery->coverImage)
@@ -113,7 +113,7 @@
                                      loading="lazy" decoding="async"
                                      class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
                             @else
-                                <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900/30 to-gray-900">
+                                <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-900/30 to-gray-900">
                                     <svg class="w-16 h-16 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                 </div>
                             @endif
@@ -125,7 +125,7 @@
 
                         {{-- Body --}}
                         <div class="p-4">
-                            <h3 class="text-gray-100 font-semibold leading-tight mb-1 line-clamp-2 group-hover:text-purple-300 transition-colors">{{ $gallery->title }}</h3>
+                            <h3 class="text-gray-100 font-semibold leading-tight mb-1 line-clamp-2 group-hover:text-brand-300 transition-colors">{{ $gallery->title }}</h3>
                             @if($gallery->description)
                                 <p class="text-gray-400 text-xs line-clamp-2 mb-3">{{ Str::limit($gallery->description, 120) }}</p>
                             @endif

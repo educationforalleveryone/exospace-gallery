@@ -60,7 +60,7 @@
                     <div class="mb-4">
                         <label for="title" class="block text-sm font-medium text-gray-200 mb-2">Gallery Title <span class="text-red-400" aria-hidden="true">*</span></label>
                         <input type="text" id="title" name="title" value="{{ old('title') }}" required aria-required="true"
-                            class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 shadow-sm focus:border-purple-500 focus:ring-purple-500">
+                            class="input-base mt-1 {{ $errors->has('title') ? 'input-error' : '' }}">
                         @error('title')
                             <p class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
                         @enderror
@@ -70,7 +70,7 @@
                     <div class="mb-4">
                         <label for="description" class="block text-sm font-medium text-gray-200 mb-2">Description</label>
                         <textarea name="description" id="description" rows="3"
-                            class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 shadow-sm focus:border-purple-500 focus:ring-purple-500">{{ old('description') }}</textarea>
+                            class="input-base mt-1 {{ $errors->has('description') ? 'input-error' : '' }}">{{ old('description') }}</textarea>
                         @error('description')
                             <p class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
                         @enderror
@@ -304,13 +304,7 @@ $venueAtmospheres = [
                                 <input type="file" 
                                        name="audio" 
                                        accept=".mp3,.wav,.m4a"
-                                       class="block w-full text-sm text-gray-300
-                                              file:mr-4 file:py-2 file:px-4
-                                              file:rounded-lg file:border-0
-                                              file:text-sm file:font-semibold
-                                              file:bg-purple-600 file:text-white
-                                              hover:file:bg-purple-700
-                                              cursor-pointer">
+                                       class="file-base cursor-pointer">
                                 <p class="text-xs text-gray-400">Upload MP3, WAV, or M4A (Max 10MB). Music will loop in your 3D gallery.</p>
                             </div>
                         @else
@@ -342,13 +336,13 @@ $venueAtmospheres = [
                                 <div>
                                     <label for="opens_at" class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
                                     <input type="datetime-local" name="opens_at" value="{{ old('opens_at') }}" placeholder=" "
-                                        class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm">
+                                        class="input-base mt-1 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Your local time. Leave blank to open immediately.</p>
                                 </div>
                                 <div>
                                     <label for="closes_at" class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
                                     <input type="datetime-local" name="closes_at" value="{{ old('closes_at') }}" placeholder=" "
-                                        class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm">
+                                        class="input-base mt-1 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Optional. Leave blank for no end date.</p>
                                 </div>
                             </div>

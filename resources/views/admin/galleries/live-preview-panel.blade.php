@@ -476,8 +476,16 @@ window.openNewTab = function(url, e) { window.open(url, '_blank'); };
 
     // ── Reset all overrides ─────────────────────────────────────────────
     if (resetAllBtn) {
-        resetAllBtn.addEventListener('click', () => {
-            if (!confirm('Reset all visual overrides to the venue defaults? This affects all controls in this panel.')) return;
+        resetAllBtn.addEventListener('click', (e) => {
+            // ITERATION-4: native confirm() replaced by the styled kernel dialog
+            // (window.exospaceConfirm) — one confirm mechanism product-wide.
+            window.exospaceConfirm(e, 'Reset all visual overrides to the venue defaults? This affects all controls in this panel.').then((ok) => {
+                if (!ok) return;
+                resetOverrides();
+            });
+        });
+
+        function resetOverrides() {
             state = { visual_config: {}, material_config: {}, post_fx: {} };
             syncHidden();
             // Reload the iframe fresh so no stale patches linger
@@ -491,7 +499,7 @@ window.openNewTab = function(url, e) { window.open(url, '_blank'); };
                     valueLabel.textContent = Number.isInteger(num) ? num.toString() : num.toFixed(2);
                 }
             });
-        });
+        }
     }
 
     // ── Initial sync so the override count + hidden input are correct ──

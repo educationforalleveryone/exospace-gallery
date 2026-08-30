@@ -67,10 +67,14 @@
                         <form method="GET" action="{{ route('ops.actions.confirm', $id) }}" class="flex gap-2">
                             <select name="app" required class="flex-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 px-3 py-2 focus:border-emerald-600 outline-none">
                                 <option value="">Pick an application…</option>
-                                @foreach($coolifyApps as $app)
+                                @forelse($coolifyApps as $app)
                                     <option value="{{ $app->id }}">{{ $app->name }}{{ $app->is_self ? ' (control plane host)' : '' }}</option>
+                                @empty
                                 @endforeach
                             </select>
+                            @if($coolifyApps->isEmpty())
+                                <p class="text-xs text-amber-400 mt-2">No applications reported by Coolify. Run a sync from Applications, then retry — the restart action needs a live app.</p>
+                            @endif
                             <button class="px-4 py-2 rounded-lg bg-amber-700/80 hover:bg-amber-600 text-xs font-medium text-slate-50 transition shrink-0">Continue…</button>
                         </form>
                     @else
@@ -203,7 +207,7 @@
                     <tr>
                         <td colspan="5" class="px-4 py-10 text-center text-slate-500 text-sm">No actions have been executed yet.</td>
                     </tr>
-                @endforelse
+                @endforeach
             </tbody>
         </table>
     </div>

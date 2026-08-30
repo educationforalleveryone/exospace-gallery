@@ -39,7 +39,7 @@
             @endif
 
             @if($artwork->external_url)
-                <a href="{{ $artwork->external_url }}" target="_blank" rel="noopener" class="inline-block mt-6 text-purple-400 hover:text-purple-300 transition text-sm">
+                <a href="{{ $artwork->external_url }}" target="_blank" rel="noopener" class="inline-block mt-6 text-brand-400 hover:text-brand-300 transition text-sm">
                     View on the artist's site →
                 </a>
             @endif
@@ -48,19 +48,19 @@
         {{-- Metadata sidebar --}}
         <aside class="lg:col-span-2">
             <header class="mb-6">
-                <p class="text-purple-400 text-xs font-semibold tracking-widest uppercase mb-2">Artwork</p>
+                <p class="text-brand-400 text-xs font-semibold tracking-widest uppercase mb-2">Artwork</p>
                 <h1 class="text-3xl font-extrabold text-white leading-tight">{{ $artwork->title ?: $artwork->original_name ?: 'Untitled' }}</h1>
                 @if($artwork->artist)
                     <p class="text-gray-400 mt-2">
-                        by <a href="{{ route('artist.profile', $artwork->artist->slug) }}" class="text-purple-400 hover:text-purple-300 transition font-medium">{{ $artwork->artist->name }}</a>
+                        by <a href="{{ route('artist.profile', $artwork->artist->slug) }}" class="text-brand-400 hover:text-brand-300 transition font-medium">{{ $artwork->artist->name }}</a>
                     </p>
                 @endif
             </header>
 
             @if($artwork->for_sale && $artwork->price)
-                <div class="mb-6 p-4 rounded-xl bg-green-900/20 border border-green-700/30">
-                    <p class="text-green-300 font-bold text-lg">{{ $artwork->formattedPrice() }}</p>
-                    <p class="text-green-400/70 text-xs mt-0.5">Available for purchase</p>
+                <div class="mb-6 p-4 rounded-xl bg-emerald-900/20 border border-emerald-700/30">
+                    <p class="text-emerald-300 font-bold text-lg">{{ $artwork->formattedPrice() }}</p>
+                    <p class="text-emerald-400/70 text-xs mt-0.5">Available for purchase</p>
                 </div>
             @endif
 
@@ -108,12 +108,12 @@
                         @endif
                     </div>
                     <div>
-                        <p class="text-gray-100 font-semibold group-hover:text-purple-300 transition leading-tight">{{ $gallery->title }}</p>
+                        <p class="text-gray-100 font-semibold group-hover:text-brand-300 transition leading-tight">{{ $gallery->title }}</p>
                         <p class="text-gray-500 text-xs mt-0.5">
                             {{ $gallery->images->count() }} {{ Str::plural('artwork', $gallery->images->count()) }}
                             @if($gallery->venueTemplate) · {{ $gallery->venueTemplate->name }} @endif
                         </p>
-                        <p class="text-purple-400 text-xs mt-1">Walk the 3D exhibition →</p>
+                        <p class="text-brand-400 text-xs mt-1">Walk the 3D exhibition →</p>
                     </div>
                 </a>
             </div>
@@ -127,7 +127,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
             @foreach($siblings as $img)
                 <a href="{{ url('/gallery/' . $gallery->slug . '/artwork/' . $img->id) }}" class="group block">
-                    <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-800 group-hover:border-purple-500 transition">
+                    <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-800 group-hover:border-brand-500 transition">
                         <img src="{{ $img->public_url }}"
                              srcset="{{ $img->srcset }}"
                              sizes="(max-width: 640px) 50vw, 25vw"
@@ -135,7 +135,7 @@
                              loading="lazy" decoding="async"
                              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                     </div>
-                    <p class="text-gray-300 text-sm font-medium mt-2 truncate group-hover:text-purple-300 transition">{{ $img->title ?: $img->original_name ?: 'Untitled' }}</p>
+                    <p class="text-gray-300 text-sm font-medium mt-2 truncate group-hover:text-brand-300 transition">{{ $img->title ?: $img->original_name ?: 'Untitled' }}</p>
                     @if($img->artist)
                         <p class="text-gray-500 text-xs truncate">{{ $img->artist->name }}</p>
                     @endif
@@ -153,7 +153,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
             @foreach($alsoByArtist as $img)
                 <a href="{{ url('/gallery/' . $img->gallery->slug . '/artwork/' . $img->id) }}" class="group block">
-                    <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-800 group-hover:border-purple-500 transition">
+                    <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-800 group-hover:border-brand-500 transition">
                         <img src="{{ $img->public_url }}"
                              srcset="{{ $img->srcset }}"
                              sizes="(max-width: 640px) 50vw, 16vw"
@@ -161,7 +161,7 @@
                              loading="lazy" decoding="async"
                              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                     </div>
-                    <p class="text-gray-300 text-sm font-medium mt-2 truncate group-hover:text-purple-300 transition">{{ $img->title ?: $img->original_name ?: 'Untitled' }}</p>
+                    <p class="text-gray-300 text-sm font-medium mt-2 truncate group-hover:text-brand-300 transition">{{ $img->title ?: $img->original_name ?: 'Untitled' }}</p>
                     <p class="text-gray-500 text-xs truncate">in {{ $img->gallery->title }}</p>
                 </a>
             @endforeach
@@ -171,9 +171,9 @@
 
     <nav class="max-w-6xl mx-auto px-4 py-8 border-t border-gray-800 flex flex-wrap gap-4 text-sm" aria-label="More on Exospace">
         @if($artwork->artist)
-            <a href="{{ route('artist.profile', $artwork->artist->slug) }}" class="text-purple-400 hover:text-purple-300 transition">More by {{ $artwork->artist->name }}</a>
+            <a href="{{ route('artist.profile', $artwork->artist->slug) }}" class="text-brand-400 hover:text-brand-300 transition">More by {{ $artwork->artist->name }}</a>
         @endif
-        <a href="{{ $gallery->public_url }}" class="text-purple-400 hover:text-purple-300 transition">Enter {{ $gallery->title }} in 3D</a>
-        <a href="{{ route('discover') }}" class="text-purple-400 hover:text-purple-300 transition">Browse 3D exhibitions</a>
+        <a href="{{ $gallery->public_url }}" class="text-brand-400 hover:text-brand-300 transition">Enter {{ $gallery->title }} in 3D</a>
+        <a href="{{ route('discover') }}" class="text-brand-400 hover:text-brand-300 transition">Browse 3D exhibitions</a>
     </nav>
 @endsection

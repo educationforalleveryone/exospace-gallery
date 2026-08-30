@@ -89,7 +89,7 @@
                                             @csrf @method('PATCH')
                                             <input type="hidden" name="user_id" value="{{ $member->id }}">
                                             <select name="role" data-change="submitRoleChange"
-                                                    class="text-xs bg-gray-700/80 border border-gray-600 text-gray-300 rounded-lg px-2.5 py-1.5 focus:border-purple-500 outline-none cursor-pointer hover:border-gray-500 transition">
+                                                    class="input-base input-sm cursor-pointer">
                                                 <option value="editor" {{ $role === 'editor' ? 'selected' : '' }}>Editor</option>
                                                 <option value="viewer" {{ $role === 'viewer' ? 'selected' : '' }}>Viewer</option>
                                             </select>

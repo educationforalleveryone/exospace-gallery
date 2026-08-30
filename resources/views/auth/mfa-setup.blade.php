@@ -26,7 +26,7 @@
             <label for="code" class="block text-sm text-gray-300 mb-2">Enter the 6-digit code from your app:</label>
             <input type="text" id="code" name="code" required pattern="\d{6}" maxlength="6"
                    inputmode="numeric" autocomplete="one-time-code"
-                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white text-center text-2xl tracking-widest focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                   class="input-base h-12 text-center text-2xl tracking-widest {{ $errors->has('code') ? 'input-error' : '' }}"
                    placeholder="000000">
             @error('code')
                 <p class="text-red-400 text-sm mt-2">{{ $message }}</p>

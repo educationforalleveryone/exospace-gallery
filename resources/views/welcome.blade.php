@@ -55,14 +55,14 @@ $featuredGalleries = \Illuminate\Support\Facades\Cache::remember('welcome:featur
         'views'    => number_format($g->view_count) . ' views',
         'url'      => $g->public_url,
         'cover'    => $g->coverImage?->public_url,
-        'gradient' => 'from-purple-600/40 to-indigo-900/60',
+        'gradient' => 'from-brand-600/40 to-brand-900/60',
     ])->all();
 });
 
 if (count($featuredGalleries) === 0) {
     // Fresh-install fallback: sample cards (clearly placeholder content).
     $featuredGalleries = [
-        ['title' => 'Echoes of the Void', 'artist' => 'Maya Chen',     'venue' => 'Dark Museum',    'views' => '12.4k', 'url' => '/gallery/demo', 'cover' => null, 'gradient' => 'from-purple-600/40 to-indigo-900/60'],
+        ['title' => 'Echoes of the Void', 'artist' => 'Maya Chen',     'venue' => 'Dark Museum',    'views' => '12.4k', 'url' => '/gallery/demo', 'cover' => null, 'gradient' => 'from-brand-600/40 to-brand-900/60'],
         ['title' => 'Light & Shadow',     'artist' => 'David Okonkwo', 'venue' => 'Industrial Loft', 'views' => '8.7k',  'url' => '/gallery/demo', 'cover' => null, 'gradient' => 'from-amber-600/40 to-red-900/60'],
         ['title' => 'Coastal Memories',   'artist' => 'Sofia Lindqvist','venue' => 'Sculpture Garden','views' => '6.2k', 'url' => '/gallery/demo', 'cover' => null, 'gradient' => 'from-blue-500/40 to-cyan-900/60'],
     ];
@@ -83,14 +83,11 @@ $testimonials = [
     /* Scoped to this page only — gradient text + hero gradient can't be done
        with Tailwind utility classes alone. The card-hover lift is now handled
        by Tailwind's hover:shadow-card-hover token from iteration 2. */
-    .gradient-text {
-        background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 50%, #6d28d9 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
+    /* ITERATION-4: page-local .gradient-text deleted — the design-system
+       copy in app.css is the single definition. .hero-gradient keeps its
+       radial glow but uses token hexes (brand-950 / ink-900 / ink-950). */
     .hero-gradient {
-        background: radial-gradient(ellipse at top, #1e1b4b 0%, #0f1117 50%, #08090d 100%);
+        background: radial-gradient(ellipse at top, #3b0764 0%, #0f1117 50%, #08090d 100%);
     }
 </style>
 
@@ -119,7 +116,7 @@ $testimonials = [
         </p>
 
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <a href="{{ route('register') }}" class="bg-gradient-to-r from-brand-600 to-indigo-600 px-8 py-4 rounded-xl text-lg font-semibold hover:from-brand-500 hover:to-indigo-500 transition-all transform hover:scale-105 shadow-glow">
+            <a href="{{ route('register') }}" class="bg-gradient-to-r from-brand-600 to-brand-600 px-8 py-4 rounded-xl text-lg font-semibold hover:from-brand-500 hover:to-brand-500 transition-all transform hover:scale-105 shadow-glow">
                 Start Free Trial →
             </a>
             <a href="/gallery/demo" class="border border-brand-500/40 bg-ink-800/60 backdrop-blur-sm px-8 py-4 rounded-xl text-lg font-semibold hover:border-brand-400 hover:bg-ink-800 transition-all transform hover:scale-105">
@@ -244,7 +241,7 @@ $testimonials = [
 
             {{-- Feature 2 --}}
             <div class="bg-ink-800 p-8 rounded-2xl border border-gray-700 hover:border-brand-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
-                <div class="bg-indigo-600 w-14 h-14 rounded-xl flex items-center justify-center mb-6 shadow-glow">
+                <div class="bg-brand-600 w-14 h-14 rounded-xl flex items-center justify-center mb-6 shadow-glow">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
                     </svg>
@@ -285,7 +282,7 @@ $testimonials = [
                     </div>
                     <blockquote class="text-gray-300 mb-4 leading-relaxed">"{{ $testimonial['quote'] }}"</blockquote>
                     <figcaption class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white text-sm font-semibold">
                             {{ $testimonial['avatar'] }}
                         </div>
                         <div>
@@ -351,7 +348,7 @@ $testimonials = [
         </div>
 
         <div class="text-center">
-            <a href="{{ route('pricing') }}" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 rounded-xl text-white font-semibold transition shadow-glow">
+            <a href="{{ route('pricing') }}" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-600 to-brand-600 hover:from-brand-500 hover:to-brand-500 rounded-xl text-white font-semibold transition shadow-glow">
                 See full pricing comparison
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             </a>
@@ -391,7 +388,7 @@ $testimonials = [
         <h2 class="text-4xl md:text-5xl font-bold mb-4">Ready to Get Started?</h2>
         <p class="text-xl text-gray-400 mb-8">Join hundreds of artists and galleries already using Exospace</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <a href="{{ route('register') }}" class="bg-gradient-to-r from-brand-600 to-indigo-600 px-8 py-4 rounded-xl text-lg font-semibold hover:from-brand-500 hover:to-indigo-500 transition-all transform hover:scale-105 shadow-glow">
+            <a href="{{ route('register') }}" class="bg-gradient-to-r from-brand-600 to-brand-600 px-8 py-4 rounded-xl text-lg font-semibold hover:from-brand-500 hover:to-brand-500 transition-all transform hover:scale-105 shadow-glow">
                 Start Your Free Trial
             </a>
             <a href="{{ route('pricing') }}" class="border border-gray-600 px-8 py-4 rounded-xl text-lg font-semibold hover:border-brand-500 hover:bg-ink-800 transition">

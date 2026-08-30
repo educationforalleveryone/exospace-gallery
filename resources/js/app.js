@@ -366,6 +366,15 @@ window.closeModal = function(id) {
     m.__exospaceReturnFocus = null;
 };
 
+// Canonical opener for elements whose default behavior must be suppressed
+// first — historically <a href="#"> triggers, now real buttons with
+// data-click="openModalAnchor" data-arg="modal-id" (ITERATION-4: moved out
+// of page-local scripts — pricing was the last copy).
+window.openModalAnchor = function(id, e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (window.openModal) window.openModal(id);
+};
+
 // One-time global modal behavior: backdrop click + Escape + Tab trap.
 // Bound to `document` (which survives Turbo Drive body swaps), guarded so
 // Turbo re-executing bundle code never stacks duplicates.
@@ -409,6 +418,56 @@ if (!window.__exospaceModalSystemInit) {
         if (e.shiftKey && (document.activeElement === first || !m.contains(document.activeElement))) {
             e.preventDefault(); last.focus();
         } else if (!e.shiftKey && (document.activeElement === last || !m.contains(document.activeElement))) {
+            e.preventDefault(); first.focus();
+        }
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Universal focus trap for Alpine-managed dialogs (ITERATION-4).
+//
+// The stack-managed trap above only covers openModal()-driven dialogs. Alpine
+// dialogs (x-data/x-show panels) own their visibility, and writing into their
+// state or style.display from outside permanently breaks their reopen — the
+// kernel deliberately never touches them. What they've been missing is Tab
+// containment: focus could tab out of an open Alpine dialog into the page
+// behind the overlay.
+//
+// Fix without any Alpine coupling: a *delegated* trap. Any element carrying
+// `data-focus-trap` gets Tab cycling whenever the focused element lives
+// inside it. Zero writes to Alpine state — a pure keydown interceptor, so
+// open/close/reopen behavior is untouched. Optional `data-focus-initial` on a
+// descendant marks the preferred first Tab stop (informational for tests and
+// future open-focus plumbing; components that focus themselves keep doing so).
+//
+// Markup contract (documented in docs/DESIGN-SYSTEM.md §9):
+//   <div x-data="…" data-focus-trap> … overlay + panel … </div>
+// ─────────────────────────────────────────────────────────────────────────────
+if (!window.__exospaceTrapInit) {
+    window.__exospaceTrapInit = true;
+
+    const FOCUSABLE_SEL = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Tab') return;
+        // A stack-managed modal on top wins — its own trap handled this.
+        if (window.__exospaceModalStack.length > 0) return;
+        const active = document.activeElement;
+        if (!active || active === document.body) return;
+        const trap = active.closest('[data-focus-trap]');
+        if (!trap) return;
+        // x-show hides by display:none; hidden traps must not capture Tab.
+        // (offsetParent is always null on position:fixed overlays, so a
+        // computed-style check is the only correct visibility test here.)
+        if (getComputedStyle(trap).display === 'none') return;
+        const focusables = Array.from(trap.querySelectorAll(FOCUSABLE_SEL))
+            .filter((el) => el.offsetParent !== null || getComputedStyle(el).position === 'fixed');
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && (active === first || !trap.contains(active))) {
+            e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && (active === last || !trap.contains(active))) {
             e.preventDefault(); first.focus();
         }
     });

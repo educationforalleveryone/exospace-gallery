@@ -7,29 +7,33 @@
 <div class="max-w-3xl mx-auto px-6 py-16">
 
     {{-- Header --}}
-    <div style="text-align: center; margin-bottom: 3rem;">
+    {{-- ITERATION-4: fully inline-styled markup rewritten on the shared kit —
+         .status language for the banner, .card + <x-status-badge> for the
+         subsystem rows, utilities elsewhere. The page-local JS hover hack for
+         the back link is replaced by a hover: utility (and it was
+         DOMContentLoaded-bound, so it silently died after Turbo visits). --}}
+    <div class="text-center mb-12">
         @if($allHealthy)
-            <div style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.25rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 999px; margin-bottom: 1.5rem;">
-                <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
-                <span style="font-size: 0.85rem; color: #6ee7b7; font-weight: 600;">All Systems Operational</span>
+            <div class="status status-healthy mb-6">
+                <span class="status-dot"></span>
+                All Systems Operational
             </div>
         @else
-            <div style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.25rem; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 999px; margin-bottom: 1.5rem;">
-                <span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span>
-                <span style="font-size: 0.85rem; color: #fcd34d; font-weight: 600;">Partial Degradation</span>
+            <div class="status status-warning mb-6">
+                <span class="status-dot"></span>
+                Partial Degradation
             </div>
         @endif
 
-        <h1 style="font-size: 2.5rem; font-weight: 800; color: #f1f5f9; margin-bottom: 0.5rem;">System Status</h1>
-        <p style="font-size: 1rem; color: #94a3b8;">Exospace Gallery — real-time service health</p>
-        <p style="font-size: 0.75rem; color: #64748b; margin-top: 1rem;">
+        <h1 class="text-4xl font-extrabold text-gray-100 mb-2">System Status</h1>
+        <p class="text-base text-gray-400">Exospace Gallery — real-time service health</p>
+        <p class="text-xs text-gray-500 mt-4">
             Last checked: {{ \Carbon\Carbon::parse($checkedAt)->diffForHumans() }} (cached for 60 seconds)
         </p>
     </div>
 
     {{-- Subsystem cards --}}
-    <div style="display: grid; gap: 1rem;">
-
+    <div class="grid gap-4">
         @php
             $labels = [
                 'database' => 'Database',
@@ -43,55 +47,44 @@
                 'queue'    => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
                 'storage'  => 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4',
             ];
-            $statusStyles = [
-                'operational' => ['bg' => 'rgba(16, 185, 129, 0.1)', 'border' => 'rgba(16, 185, 129, 0.3)', 'text' => '#6ee7b7', 'label' => 'Operational', 'dot' => '#10b981'],
-                'degraded'    => ['bg' => 'rgba(245, 158, 11, 0.1)', 'border' => 'rgba(245, 158, 11, 0.3)', 'text' => '#fcd34d', 'label' => 'Degraded', 'dot' => '#f59e0b'],
-                'down'        => ['bg' => 'rgba(239, 68, 68, 0.1)', 'border' => 'rgba(239, 68, 68, 0.3)', 'text' => '#fca5a5', 'label' => 'Down', 'dot' => '#ef4444'],
+            // ITERATION-4: the hex $statusStyles map (and whole-card color
+            // tinting) is replaced by the shared status vocabulary from
+            // iteration 2 — dot + word chips, never color alone.
+            $statusMap = [
+                'operational' => ['state' => 'healthy',  'label' => 'Operational'],
+                'degraded'    => ['state' => 'warning',  'label' => 'Degraded'],
+                'down'        => ['state' => 'critical', 'label' => 'Down'],
             ];
         @endphp
 
         @foreach($checks as $key => $status)
-            @php $style = $statusStyles[$status] ?? $statusStyles['down']; @endphp
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; background: {{ $style['bg'] }}; border: 1px solid {{ $style['border'] }}; border-radius: 12px;">
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <svg style="width: 20px; height: 20px; color: #94a3b8;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $icons[$key] ?? '' }}"/></svg>
-                    <span style="font-size: 0.95rem; font-weight: 600; color: #e2e8f0;">{{ $labels[$key] ?? ucfirst($key) }}</span>
+            @php $st = $statusMap[$status] ?? $statusMap['down']; @endphp
+            <div class="card flex items-center justify-between px-6 py-5">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $icons[$key] ?? '' }}"/></svg>
+                    <span class="text-[15px] font-semibold text-gray-200">{{ $labels[$key] ?? ucfirst($key) }}</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ $style['dot'] }};"></span>
-                    <span style="font-size: 0.85rem; font-weight: 600; color: {{ $style['text'] }};">{{ $style['label'] }}</span>
-                </div>
+                <x-status-badge :state="$st['state']" :label="$st['label']" />
             </div>
         @endforeach
 
     </div>
 
     {{-- Info --}}
-    <div style="margin-top: 3rem; padding: 1.5rem; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px;">
-        <h3 style="font-size: 0.8rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">About This Page</h3>
-        <p style="font-size: 0.82rem; color: #64748b; line-height: 1.7;">
+    <div class="card mt-12 p-6">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">About This Page</h3>
+        <p class="text-[13px] text-gray-500 leading-relaxed">
             This page shows the real-time health of Exospace's core subsystems. The status is cached for 60 seconds — refresh the page to get the latest check.
-            For programmatic monitoring, use the <a href="/health" style="color: #8b5cf6; text-decoration: underline;">JSON health endpoint</a>.
-            If you're experiencing issues not reflected here, please <a href="/contact" style="color: #8b5cf6; text-decoration: underline;">contact support</a>.
+            For programmatic monitoring, use the <a href="/health" class="text-brand-400 underline">JSON health endpoint</a>.
+            If you're experiencing issues not reflected here, please <a href="/contact" class="text-brand-400 underline">contact support</a>.
         </p>
     </div>
 
     {{-- Back link --}}
-    <div style="text-align: center; margin-top: 2rem;">
-        <a href="/" class="status-back-link" style="font-size: 0.85rem; color: #64748b; text-decoration: none; transition: color 0.2s;">
+    <div class="text-center mt-8">
+        <a href="/" class="text-sm text-gray-500 hover:text-brand-400 transition-colors">
             ← Back to Exospace
         </a>
     </div>
-
-    <script nonce="@nonce">
-    // CSP-safe hover for back link (replaces inline onmouseover/onmouseout)
-    document.addEventListener('DOMContentLoaded', () => {
-        const link = document.querySelector('.status-back-link');
-        if (link) {
-            link.addEventListener('mouseenter', () => { link.style.color = '#8b5cf6'; });
-            link.addEventListener('mouseleave', () => { link.style.color = '#64748b'; });
-        }
-    });
-    </script>
 </div>
 @endsection

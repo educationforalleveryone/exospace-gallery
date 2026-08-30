@@ -153,6 +153,24 @@ Disabled = `disabled:opacity-50 disabled:pointer-events-none` (built into `.btn`
 - Blade components: `<x-text-input>`, `<x-input-label>`, `<x-input-error>` wrap the same classes.
 - Autocomplete on dark is handled globally (no white flash).
 
+**Checkboxes, radios, file inputs (iteration 4):**
+
+```blade
+{{-- checkbox: pair with items-center; items-start + mt-1 for multi-line text --}}
+<label class="flex items-center gap-2">
+    <input type="checkbox" name="is_active" value="1" class="checkbox-base">
+    <span class="text-sm text-gray-300">Published</span>
+</label>
+{{-- radio: same shape, .radio-base --}}
+{{-- file: replaces every hand-rolled file: recipe --}}
+<input type="file" class="file-base">
+```
+
+- `.checkbox-base` / `.radio-base` — 16px, form-plugin accent via `text-brand-600`, brand focus ring, `disabled:` variants. Never hand-roll `rounded bg-gray-700 border-gray-600 text-purple-600 …` again.
+- `.file-base` — one file-input recipe (neutral `file:` button); the purple `file:bg-purple-600` variant is retired.
+- **Error wiring is mandatory wherever `@error` feedback exists**: `class="input-base {{ $errors->has('x') ? 'input-error' : '' }}"` — a red message under a field that itself shows no error state is a broken pattern (iteration-4 sweep fixed 35 such fields).
+- OpsCenter/Control Center keep their slate field skins (`focus:border-emerald-600` etc.) — documented sub-brand exception, same geometry.
+
 ---
 
 ## 6. Badges, alerts, tables, menus, modals
@@ -260,6 +278,15 @@ Every floating layer uses one of these tiers. No ad-hoc `z-[9999]` — if a laye
 3. Avoid creating stacking contexts between a floating layer and `<body>`: no `transform` / `filter` / `backdrop-blur` on ancestors of dropdowns/modals. (`.card-lift` hover transforms, `.pageIn` animation — keep them opacity-only or dropdown-free.)
 4. `overflow: hidden/auto` on an ancestor clips `absolute` popovers regardless of z — render such popovers in-flow (see live-preview hints) or fix the container.
 
+## 9.1 Focus containment for dialogs (iteration 4)
+
+There are two dialog systems and both must trap Tab:
+
+1. **Kernel-managed** (`role="dialog"` + opened via `window.openModal`) — trap, focus-in, focus-restore, scroll lock and Escape are automatic. No markup needed beyond the existing contract.
+2. **Alpine-managed** (`x-data` overlays) — add **`data-focus-trap`** to the overlay root. The kernel binds one delegated `keydown` listener: while the focused element lives inside a visible `[data-focus-trap]`, Tab is cycled within it. No Alpine state is touched, so open/reopen behavior is untouched. Never add `data-focus-trap` to a component that already self-traps (`<x-modal>` binds `x-on:keydown.tab.prevent` — double-trapping makes focus jump twice per keypress).
+
+Marked so far: feedback widget, command palette, Master Control delete/admin type-to-confirm modals (also gained the standard body scroll lock), dashboard welcome modal, `<x-confirm-modal>` (canonical, for future adoption).
+
 ### Modal architecture
 
 - **Alpine dialogs:** `<x-modal>` (event-driven, focus trap, scroll lock) and `<x-confirm-modal>` (type-to-confirm). The kit `.btn-spinner` + `disabled` is the loading story.
@@ -281,3 +308,11 @@ Every floating layer uses one of these tiers. No ad-hoc `z-[9999]` — if a laye
 - **New pattern → new class.** If you write the same recipe twice, promote it to `app.css` and document it here.
 - **Safelist is intentional.** All kit classes are safelisted in `tailwind.config.js` so a future adoption can never deploy with the class missing from the compiled CSS.
 - **Deprecation path:** old names (`.badge-warn`, `.badge-pro`, `.section-header`) remain as aliases; use the semantic names in new code.
+
+### Public-surface vocabulary (iteration 4)
+
+- **One accent: `brand-*`.** `purple-*` and `indigo-*` are retired everywhere (193 public-surface tokens remapped in iteration 4). Status hues stay semantic: `emerald-*` (never `green-*`), `amber-*` (never `yellow-*`), `red-*` danger, `blue-*` info.
+- **`.gradient-text` / `.logo-text` have exactly one definition** (app.css). Page-local overrides are deleted; a page that redefines a kit class is a bug, not a theme.
+- **Page `<style>` blocks own page classes only.** `*`, `body`, `nav`, or element-selector rules leak past the page onto the shared layout (this shipped on contact — `*` reset + body override killed the layout's canvas on that page). Fixed and documented; keep it that way.
+- **Marketing pages use `.badge`, `.card`, `.status-*`, `.btn` like the product** — changelog and status are the reference conversions.
+- **Standalone no-`app.css` pages** (gallery/view, closed, coming-soon, pin) keep their own coordinate systems; gallery/view's z-scale (10→200) is a documented exception (isolated WebGL document).

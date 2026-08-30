@@ -9,7 +9,7 @@
     <h1 class="text-4xl font-bold mb-8">Privacy Policy</h1>
     <p class="text-gray-400 mb-8">Last Updated: {{ date('F d, Y') }}</p>
 
-    <div class="prose prose-invert max-w-none">
+    <div class="legal-prose">
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">1. Introduction</h2>
             <p class="text-gray-300 leading-relaxed mb-4">
@@ -73,7 +73,7 @@
                 <li>Withdraw consent at any time</li>
             </ul>
             <p class="text-gray-300 leading-relaxed mb-4 mt-4">
-                To exercise any of these rights, visit your <a href="{{ route('profile.edit') }}" class="text-purple-400 hover:text-purple-300">profile settings</a> to update or delete your account, or <a href="{{ route('profile.export') }}" class="text-purple-400 hover:text-purple-300">download your data</a> for portability.
+                To exercise any of these rights, visit your <a href="{{ route('profile.edit') }}" class="text-brand-400 hover:text-brand-300">profile settings</a> to update or delete your account, or <a href="{{ route('profile.export') }}" class="text-brand-400 hover:text-brand-300">download your data</a> for portability.
             </p>
         </section>
 
@@ -103,8 +103,8 @@
             <p class="text-gray-300 leading-relaxed mb-4">
                 If you have any questions about this Privacy Policy, please contact us at:
             </p>
-            <p class="text-purple-400">
-                Email: <a href="mailto:support@exospace.gallery" class="hover:text-purple-300">support@exospace.gallery</a>
+            <p class="text-brand-400">
+                Email: <a href="mailto:support@exospace.gallery" class="hover:text-brand-300">support@exospace.gallery</a>
             </p>
         </section>
     </div>

@@ -46,9 +46,7 @@
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
     }
-    *:focus-visible {
-        outline: 2px solid rgb(139 92 246);
-        outline-offset: 2px;
-        border-radius: 4px;
-    }
+    /* ITERATION-4: the *:focus-visible rule here duplicated (and slightly
+       diverged from) app.css — the stylesheet is the single owner of the
+       global focus ring. */
 </style>

@@ -7,12 +7,12 @@
 @extends('layouts.public')
 
 @section('content')
-    <div class="bg-gradient-to-br from-gray-900 via-purple-950/30 to-gray-900 border-b border-gray-800">
+    <div class="bg-gradient-to-br from-gray-900 via-brand-950/30 to-gray-900 border-b border-gray-800">
             <div class="max-w-5xl mx-auto px-4 py-12">
-                <p class="text-purple-400 text-xs font-semibold tracking-widest uppercase mb-2">Events</p>
+                <p class="text-brand-400 text-xs font-semibold tracking-widest uppercase mb-2">Events</p>
                 <h1 class="text-3xl md:text-4xl font-extrabold text-white">{{ $gallery->title }} — Events</h1>
                 <p class="text-gray-400 mt-2">Upcoming events, openings, and artist talks</p>
-                <a href="{{ $gallery->public_url }}" class="inline-flex items-center gap-2 mt-4 text-sm text-purple-400 hover:text-purple-300 transition">
+                <a href="{{ $gallery->public_url }}" class="inline-flex items-center gap-2 mt-4 text-sm text-brand-400 hover:text-brand-300 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                     Enter 3D gallery
                 </a>
@@ -36,11 +36,11 @@
                     <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
                         <div class="flex items-start justify-between gap-4 mb-3">
                             <div>
-                                <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-purple-900/40 text-purple-300 border border-purple-700/40 mb-2">{{ $event->typeLabel() }}</span>
+                                <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-brand-900/40 text-brand-300 border border-brand-700/40 mb-2">{{ $event->typeLabel() }}</span>
                                 <h3 class="text-gray-100 text-xl font-bold">{{ $event->title }}</h3>
                             </div>
                             <div class="text-right flex-shrink-0">
-                                <div class="text-2xl font-bold text-purple-400">{{ $event->starts_at->format('j') }}</div>
+                                <div class="text-2xl font-bold text-brand-400">{{ $event->starts_at->format('j') }}</div>
                                 <div class="text-xs text-gray-500 uppercase tracking-wider">{{ $event->starts_at->format('M Y') }}</div>
                             </div>
                         </div>
@@ -61,7 +61,7 @@
                         {{-- RSVP form --}}
                         @if($event->is_active && $event->isUpcoming())
                             @if($event->isAtCapacity())
-                                <div class="mt-4 p-3 rounded-lg bg-yellow-900/20 border border-yellow-700/30 text-yellow-300 text-sm">
+                                <div class="mt-4 p-3 rounded-lg bg-amber-900/20 border border-amber-700/30 text-amber-300 text-sm">
                                     This event has reached capacity. RSVP is closed.
                                 </div>
                             @else
@@ -70,16 +70,16 @@
                                     <p class="text-sm text-gray-300 font-medium mb-3">RSVP to attend:</p>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <input type="text" name="name" placeholder="Your name" required
-                                               class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500">
+                                               class="input-base">
                                         <input type="email" name="email" placeholder="Your email" required
-                                               class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500">
+                                               class="input-base">
                                     </div>
                                     {{-- P3-19: Cloudflare Turnstile captcha (invisible when enabled) --}}
                                     @if(app('App\Services\TurnstileService')->isEnabled())
                                         <div class="cf-turnstile mt-3" data-sitekey="{{ config('services.turnstile.site_key') }}"></div>
                                         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
                                     @endif
-                                    <button type="submit" class="mt-3 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition">
+                                    <button type="submit" class="btn btn-primary mt-3">
                                         RSVP
                                     </button>
                                     @if($event->capacity)

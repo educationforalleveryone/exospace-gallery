@@ -361,7 +361,6 @@
          @if($gallery->user->plan === 'studio' && $gallery->curtain_bg_color)
          style="background: {{ $gallery->curtain_bg_color }};"
          @endif>
-    >
         <div style="max-width: 800px; text-align: center; padding: 0 2rem;">
             @if($gallery->user->plan === 'studio' && $gallery->curtain_logo_path)
                 <img src="{{ asset('storage/' . $gallery->curtain_logo_path) }}"

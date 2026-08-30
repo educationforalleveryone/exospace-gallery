@@ -93,7 +93,7 @@
 
                 <label class="flex items-center gap-2 text-sm text-gray-300">
                     <input type="checkbox" name="is_active" value="1" {{ old('is_active', $event->is_active ?? true) ? 'checked' : '' }}
-                           class="rounded bg-gray-700 border-gray-600 text-purple-600 focus:ring-purple-500">
+                           class="checkbox-base">
                     Published (visible to visitors)
                 </label>
             </div>

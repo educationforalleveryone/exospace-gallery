@@ -9,7 +9,7 @@
     <h1 class="text-4xl font-bold mb-8">Terms of Service</h1>
     <p class="text-gray-400 mb-8">Last Updated: {{ date('F d, Y') }}</p>
 
-    <div class="prose prose-invert max-w-none">
+    <div class="legal-prose">
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">1. Acceptance of Terms</h2>
             <p class="text-gray-300 leading-relaxed mb-4">
@@ -67,7 +67,7 @@
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">6. Subscription and Payment</h2>
             <p class="text-gray-300 leading-relaxed mb-4">
-                Some features of the Service require a one-time paid upgrade. By purchasing a plan, you agree to pay all applicable fees. Pro and Studio plans are lifetime licenses — there are no recurring charges or automatic renewals. All fees are non-refundable except as explicitly stated in our <a href="/refund-policy" class="text-purple-400 hover:text-purple-300">Refund Policy</a>, which includes a 14-day money-back guarantee.
+                Some features of the Service require a one-time paid upgrade. By purchasing a plan, you agree to pay all applicable fees. Pro and Studio plans are lifetime licenses — there are no recurring charges or automatic renewals. All fees are non-refundable except as explicitly stated in our <a href="/refund-policy" class="text-brand-400 hover:text-brand-300">Refund Policy</a>, which includes a 14-day money-back guarantee.
             </p>
         </section>
 
@@ -125,8 +125,8 @@
             <p class="text-gray-300 leading-relaxed mb-4">
                 If you have any questions about these Terms of Service, please contact us at:
             </p>
-            <p class="text-purple-400">
-                Email: <a href="mailto:support@exospace.gallery" class="hover:text-purple-300">support@exospace.gallery</a>
+            <p class="text-brand-400">
+                Email: <a href="mailto:support@exospace.gallery" class="hover:text-brand-300">support@exospace.gallery</a>
             </p>
         </section>
 

@@ -76,7 +76,7 @@
                 <input type="hidden" name="tab" value="galleries">
                 <input type="text" name="q" value="{{ $search }}" placeholder="Search title or slug…"
                        class="input-base max-w-sm flex-1">
-                <select name="filter" class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                <select name="filter" class="input-base">
                     <option value="public" {{ $filter === 'public' ? 'selected' : '' }}>Public &amp; non-empty</option>
                     <option value="issues" {{ $filter === 'issues' ? 'selected' : '' }}>Missing description</option>
                     <option value="all" {{ $filter === 'all' ? 'selected' : '' }}>All</option>
@@ -139,30 +139,30 @@
                                             <label class="block text-xs text-gray-500 mb-1">Title override</label>
                                             <input type="text" name="title_override" value="{{ $gallery->seoProfile?->title_override }}"
                                                    maxlength="200" placeholder="Auto: {{ $gallery->title }} — 3D Virtual Exhibition"
-                                                   class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                                                   class="input-base">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Robots directive</label>
                                             <input type="text" name="robots_directive" value="{{ $gallery->seoProfile?->robots_directive }}"
                                                    maxlength="100" placeholder="auto (index,follow)"
-                                                   class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                                                   class="input-base">
                                         </div>
                                         <div class="sm:col-span-2">
                                             <label class="block text-xs text-gray-500 mb-1">Description override</label>
                                             <textarea name="description_override" rows="2" maxlength="300"
                                                       placeholder="Auto: generated from gallery content"
-                                                      class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">{{ $gallery->seoProfile?->description_override }}</textarea>
+                                                      class="input-base">{{ $gallery->seoProfile?->description_override }}</textarea>
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Canonical override</label>
                                             <input type="text" name="canonical_override" value="{{ $gallery->seoProfile?->canonical_override }}"
                                                    maxlength="500" placeholder="auto (public URL)"
-                                                   class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                                                   class="input-base">
                                         </div>
                                         <div class="flex gap-3">
                                             <div class="flex-1">
                                                 <label class="block text-xs text-gray-500 mb-1">Sitemap</label>
-                                                <select name="sitemap_include" class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                                                <select name="sitemap_include" class="input-base">
                                                     <option value="">auto</option>
                                                     <option value="1" {{ $gallery->seoProfile?->sitemap_include === true ? 'selected' : '' }}>force include</option>
                                                     <option value="0" {{ $gallery->seoProfile?->sitemap_include === false ? 'selected' : '' }}>force exclude</option>
@@ -170,7 +170,7 @@
                                             </div>
                                             <div class="flex-1">
                                                 <label class="block text-xs text-gray-500 mb-1">Structured data</label>
-                                                <select name="structured_data" class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                                                <select name="structured_data" class="input-base">
                                                     <option value="">auto</option>
                                                     <option value="1" {{ $gallery->seoProfile?->structured_data_enabled === true ? 'selected' : '' }}>enabled</option>
                                                     <option value="0" {{ $gallery->seoProfile?->structured_data_enabled === false ? 'selected' : '' }}>disabled</option>
@@ -234,19 +234,19 @@
                                             <label class="block text-xs text-gray-500 mb-1">Title override</label>
                                             <input type="text" name="title_override" value="{{ $artist->seoProfile?->title_override }}" maxlength="200"
                                                    placeholder="Auto: {{ $artist->name }} — Artist Profile & 3D Exhibitions"
-                                                   class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                                                   class="input-base">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Robots directive</label>
                                             <input type="text" name="robots_directive" value="{{ $artist->seoProfile?->robots_directive }}" maxlength="100"
                                                    placeholder="auto (index,follow)"
-                                                   class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                                                   class="input-base">
                                         </div>
                                         <div class="sm:col-span-2">
                                             <label class="block text-xs text-gray-500 mb-1">Description override</label>
                                             <textarea name="description_override" rows="2" maxlength="300"
                                                       placeholder="Auto: generated from bio and works"
-                                                      class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">{{ $artist->seoProfile?->description_override }}</textarea>
+                                                      class="input-base">{{ $artist->seoProfile?->description_override }}</textarea>
                                         </div>
                                         <div class="sm:col-span-2 flex justify-end gap-2">
                                             <button type="button" data-seo-toggle="artist-{{ $artist->id }}" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm transition">Cancel</button>
@@ -271,16 +271,16 @@
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">From path</label>
                     <input type="text" name="source_path" required placeholder="old-exhibition" value="{{ old('source_path') }}"
-                           class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                           class="input-base">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">To</label>
                     <input type="text" name="destination" required placeholder="/discover or https://…" value="{{ old('destination') }}"
-                           class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                           class="input-base">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">Status</label>
-                    <select name="status_code" class="w-full rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                    <select name="status_code" class="input-base">
                         <option value="301">301 permanent</option>
                         <option value="302">302 temporary</option>
                         <option value="308">308 permanent (keep method)</option>
@@ -389,7 +389,7 @@
                 <form method="GET">
                     <input type="hidden" name="tab" value="acquisition">
                     {{-- ITERATION-3: inline onchange → canonical data-change helper --}}
-                    <select name="days" data-change="submitForm" class="rounded-lg bg-gray-800 border-gray-700 text-gray-100 px-3 py-2 text-sm">
+                    <select name="days" data-change="submitForm" class="input-base">
                         {{-- ITERATION-1 FIX (fatal parse error): the loop variable --}}
                         {{-- was written as \$d (backslash-dollar). Blade passes --}}
                         {{-- the raw token through to PHP, producing `echo \$d` --}}

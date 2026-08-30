@@ -28,8 +28,8 @@
         <section class="bg-gray-800 border border-gray-700 rounded-xl p-6">
             <div class="grid sm:grid-cols-3 gap-4 text-center">
                 <div class="flex flex-col items-center gap-2">
-                    <div class="w-12 h-12 rounded-full bg-green-900 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <div class="w-12 h-12 rounded-full bg-emerald-900 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
                     </div>
@@ -44,8 +44,8 @@
                     <span class="text-sm text-gray-300 font-medium">256-bit SSL<br>Encryption</span>
                 </div>
                 <div class="flex flex-col items-center gap-2">
-                    <div class="w-12 h-12 rounded-full bg-purple-900 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <div class="w-12 h-12 rounded-full bg-brand-900 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
                     </div>
@@ -76,7 +76,7 @@
 
         <section>
             <h2 class="text-xl font-semibold text-gray-100 mb-3">Reporting a Security Issue</h2>
-            <p>If you discover a security vulnerability on our platform, please report it responsibly by emailing <a href="mailto:support@exospace.gallery" class="text-purple-400 hover:text-purple-300">support@exospace.gallery</a> with the subject line <em>"Security Report"</em>. We take all reports seriously and will investigate promptly.</p>
+            <p>If you discover a security vulnerability on our platform, please report it responsibly by emailing <a href="mailto:support@exospace.gallery" class="text-brand-400 hover:text-brand-300">support@exospace.gallery</a> with the subject line <em>"Security Report"</em>. We take all reports seriously and will investigate promptly.</p>
         </section>
     </div>
 </main>

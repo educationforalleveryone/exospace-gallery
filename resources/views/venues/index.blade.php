@@ -4,10 +4,10 @@
 @extends('layouts.public')
 
 @section('content')
-    <div class="bg-gradient-to-br from-gray-900 via-purple-950/30 to-gray-900 border-b border-gray-800">
+    <div class="bg-gradient-to-br from-gray-900 via-brand-950/30 to-gray-900 border-b border-gray-800">
         <div class="max-w-7xl mx-auto px-4 py-16">
             <div class="text-center">
-                <p class="text-purple-400 text-sm font-semibold tracking-widest uppercase mb-3">Venues</p>
+                <p class="text-brand-400 text-sm font-semibold tracking-widest uppercase mb-3">Venues</p>
                 <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4">3D Venue Templates</h1>
                 <p class="text-gray-400 text-lg max-w-2xl mx-auto">The spaces that host virtual exhibitions — museums, warehouses, lofts, and galleries. See live exhibitions built with each venue.</p>
             </div>
@@ -22,8 +22,8 @@
         @if($venues->count() > 0)
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 @foreach($venues as $venue)
-                    <a href="{{ route('venues.show', $venue->slug) }}" class="group bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden hover:border-purple-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-900/20 transition-all duration-300">
-                        <div class="aspect-[4/3] bg-gradient-to-br from-purple-900/30 to-gray-900 overflow-hidden relative">
+                    <a href="{{ route('venues.show', $venue->slug) }}" class="group bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden hover:border-brand-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-900/20 transition-all duration-300">
+                        <div class="aspect-[4/3] bg-gradient-to-br from-brand-900/30 to-gray-900 overflow-hidden relative">
                             @if($venue->thumbnail_path)
                                 <img src="{{ asset('storage/' . $venue->thumbnail_path) }}"
                                      alt="{{ $venue->name }} venue template"
@@ -35,7 +35,7 @@
                             @endif
                         </div>
                         <div class="p-4">
-                            <h3 class="text-gray-100 font-semibold leading-tight mb-1 group-hover:text-purple-300 transition-colors">{{ $venue->name }}</h3>
+                            <h3 class="text-gray-100 font-semibold leading-tight mb-1 group-hover:text-brand-300 transition-colors">{{ $venue->name }}</h3>
                             @if($venue->description)
                                 <p class="text-gray-400 text-sm line-clamp-2">{{ Str::limit($venue->description, 120) }}</p>
                             @endif
@@ -55,8 +55,8 @@
         @endif
 
         <nav class="mt-12 pt-8 border-t border-gray-800 flex flex-wrap gap-4 text-sm" aria-label="Discover more">
-            <a href="{{ route('discover') }}" class="text-purple-400 hover:text-purple-300 transition">Browse 3D exhibitions</a>
-            <a href="{{ route('artists.index') }}" class="text-purple-400 hover:text-purple-300 transition">Browse artists</a>
+            <a href="{{ route('discover') }}" class="text-brand-400 hover:text-brand-300 transition">Browse 3D exhibitions</a>
+            <a href="{{ route('artists.index') }}" class="text-brand-400 hover:text-brand-300 transition">Browse artists</a>
         </nav>
     </div>
 @endsection

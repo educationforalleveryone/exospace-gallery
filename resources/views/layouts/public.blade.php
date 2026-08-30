@@ -99,19 +99,19 @@
 
     {{-- Public nav (simplified version of the admin nav) --}}
     <nav x-data="{ mobileMenuOpen: false }" class="border-b border-gray-800/60 bg-ink-900/95 backdrop-blur sticky top-0 z-40" aria-label="Main navigation">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="max-w-page mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-8">
                     <a href="/" class="logo-text text-xl">
                         Exospace
                     </a>
                     <div class="hidden md:flex items-center gap-6">
-                        <a href="/#features" class="text-sm text-gray-300 hover:text-white transition">Features</a>
-                        <a href="{{ route('discover') }}" class="text-sm text-gray-300 hover:text-white transition">Discover</a>
-                        <a href="{{ route('artists.index') }}" class="text-sm text-gray-300 hover:text-white transition">Artists</a>
-                        <a href="{{ route('venues.index') }}" class="text-sm text-gray-300 hover:text-white transition">Venues</a>
-                        <a href="{{ route('pricing') }}" class="text-sm text-gray-300 hover:text-white transition">Pricing</a>
-                        <a href="{{ route('contact') }}" class="text-sm text-gray-300 hover:text-white transition">Contact</a>
+                        <a href="/#features" @if(request()->fullUrlIs(url('/')))aria-current="page"@endif class="text-sm text-gray-300 hover:text-white transition">Features</a>
+                        <a href="{{ route('discover') }}" @if(request()->routeIs('discover.*'))aria-current="page"@endif class="text-sm text-gray-300 hover:text-white transition">Discover</a>
+                        <a href="{{ route('artists.index') }}" @if(request()->routeIs('artists.index.*'))aria-current="page"@endif class="text-sm text-gray-300 hover:text-white transition">Artists</a>
+                        <a href="{{ route('venues.index') }}" @if(request()->routeIs('venues.index.*'))aria-current="page"@endif class="text-sm text-gray-300 hover:text-white transition">Venues</a>
+                        <a href="{{ route('pricing') }}" @if(request()->routeIs('pricing.*'))aria-current="page"@endif class="text-sm text-gray-300 hover:text-white transition">Pricing</a>
+                        <a href="{{ route('contact') }}" @if(request()->routeIs('contact.*'))aria-current="page"@endif class="text-sm text-gray-300 hover:text-white transition">Contact</a>
                     </div>
                 </div>
                 <div class="hidden md:flex items-center gap-4">
@@ -142,7 +142,7 @@
             </div>
         </div>
         {{-- Mobile menu --}}
-        <div x-show="mobileMenuOpen" x-cloak id="mobile-public-nav" class="md:hidden border-t border-gray-800 bg-ink-900">
+        <div x-show="mobileMenuOpen" x-cloak style="display: none;" id="mobile-public-nav" class="md:hidden border-t border-gray-800 bg-ink-900">
             <div class="px-4 py-3 space-y-2">
                 <a href="/#features" class="block py-2 text-sm text-gray-300 hover:text-white">Features</a>
                 <a href="{{ route('discover') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Discover</a>
@@ -160,7 +160,7 @@
                     </form>
                 @else
                     <a href="{{ route('login') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Log in</a>
-                    <a href="{{ route('register') }}" class="block py-2 text-sm text-purple-400 hover:text-purple-300">Get Started</a>
+                    <a href="{{ route('register') }}" class="btn btn-primary btn-sm w-full justify-center">Get Started</a>
                 @endauth
             </div>
         </div>

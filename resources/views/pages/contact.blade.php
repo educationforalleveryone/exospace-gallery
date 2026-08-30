@@ -6,20 +6,12 @@
 
 <!-- H-1 FIX (Iter-012): Contact page now extends layouts.public for shared nav, footer, SEO meta, cookie banner, and skip-link. Custom styles are scoped to this page only. -->
 <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            min-height: 100vh;
-            background: #0a0a0f;
-            color: #e2e8f0;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        }
-
-        /* ── Nav ──
-           (ITERATION-2: removed the vestigial nav rules. Their markup no
-           longer exists on this page, and the bare `nav {}` element selector
-           leaked onto the shared public layout nav — narrowing it to 1200px
-           with different padding only on this page.) */
+        /* ── Page-scoped styles only (ITERATION-4).
+           The previous `* { margin:0; padding:0 }` reset and `body {}` rules
+           applied to the WHOLE DOCUMENT — overriding the public layout's
+           ink canvas, text color and list rhythm on this page. They are gone;
+           the shared layout owns the canvas, this block owns only the
+           page's own classes. ── */
 
         /* ── Page layout ── */
         .page {
@@ -43,20 +35,20 @@
             margin-bottom: 0.75rem;
         }
         .info-col h1 .grad {
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            background: linear-gradient(135deg, #a78bfa, #8b5cf6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         .info-col > p {
             font-size: 0.88rem;
-            color: #64748b;
+            color: #6b7280;
             line-height: 1.7;
             margin-bottom: 2.25rem;
         }
 
         .info-card {
-            background: #131319;
-            border: 1px solid #1e1e2e;
+            background: #0f1117; /* ink-900 */
+            border: 1px solid #1f2937; /* gray-800 */
             border-radius: 12px;
             padding: 1.25rem 1.5rem;
             margin-bottom: 0.75rem;
@@ -76,16 +68,16 @@
         }
         .info-card .icon-wrap svg { color: #8b5cf6; }
         .info-card .label {
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             font-weight: 600;
-            color: #64748b;
+            color: #6b7280;
             text-transform: uppercase;
             letter-spacing: 0.08em;
             margin-bottom: 0.2rem;
         }
         .info-card .value {
             font-size: 0.88rem;
-            color: #cbd5e1;
+            color: #d1d5db;
             line-height: 1.5;
         }
         .info-card .value a {
@@ -96,15 +88,15 @@
 
         /* ── Right: Form ── */
         .form-col {
-            background: #131319;
-            border: 1px solid #1e1e2e;
+            background: #0f1117; /* ink-900 */
+            border: 1px solid #1f2937; /* gray-800 */
             border-radius: 16px;
             padding: 2rem;
         }
         .form-col h2 {
             font-size: 1.1rem;
             font-weight: 700;
-            color: #f1f5f9;
+            color: #f3f4f6;
             margin-bottom: 1.5rem;
         }
         .field { margin-bottom: 1.25rem; }
@@ -112,48 +104,18 @@
             display: block;
             font-size: 0.78rem;
             font-weight: 600;
-            color: #64748b;
+            color: #6b7280;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             margin-bottom: 0.4rem;
         }
-        .field input,
-        .field select,
-        .field textarea {
-            width: 100%;
-            background: #0f0f14;
-            border: 1px solid #2e2e44;
-            border-radius: 8px;
-            padding: 0.7rem 0.85rem;
-            color: #e2e8f0;
-            font-size: 0.88rem;
-            font-family: inherit;
-            transition: border-color 0.2s;
-            outline: none;
-        }
-        .field input:focus,
-        .field select:focus,
-        .field textarea:focus { border-color: #8b5cf6; }
-        .field textarea { resize: vertical; min-height: 110px; }
-        .field select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.85rem center; padding-right: 2.2rem; }
-        .field select option { background: #1e1e2e; color: #e2e8f0; }
+        /* ITERATION-4: field skin deleted — inputs use the shared .input-base
+           recipe (inset well, brand focus ring) from app.css. The old skin
+           set outline:none and replaced the global focus ring with a border
+           color change only — weaker than the system's ring. */
 
-        .btn-submit {
-            width: 100%;
-            padding: 0.75rem;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            font-family: inherit;
-            transition: box-shadow 0.2s, transform 0.15s;
-            box-shadow: 0 4px 20px rgba(139,92,246,0.25);
-        }
-        .btn-submit:hover { box-shadow: 0 4px 28px rgba(139,92,246,0.4); transform: translateY(-1px); }
-        .btn-submit:active { transform: translateY(0); }
+        /* ITERATION-4: .btn-submit deleted — the kit .btn-primary is the
+           canonical submit CTA (blue gradient retired). */
 
         /* ── Success message ── */
         .success-msg {
@@ -168,14 +130,12 @@
             display: flex; align-items: center; justify-content: center;
             margin: 0 auto 1rem;
         }
-        .success-msg h3 { font-size: 1.1rem; color: #f1f5f9; margin-bottom: 0.4rem; }
-        .success-msg p { font-size: 0.82rem; color: #64748b; line-height: 1.6; }
+        .success-msg h3 { font-size: 1.1rem; color: #f3f4f6; margin-bottom: 0.4rem; }
+        .success-msg p { font-size: 0.82rem; color: #6b7280; line-height: 1.6; }
 
         /* ── Validation ── */
         .error-text { font-size: 0.75rem; color: #f87171; margin-top: 0.3rem; display: none; }
-        .field.has-error input,
-        .field.has-error select,
-        .field.has-error textarea { border-color: #f87171; }
+        .field.has-error .input-base { border-color: #f87171; }
         .field.has-error .error-text { display: block; }
     </style>
 
@@ -229,17 +189,17 @@
                 @csrf
                 <div class="field" id="field-name">
                     <label for="name">Name</label>
-                    <input type="text" id="name" name="name" placeholder="Your full name" required>
+                    <input type="text" id="name" name="name" placeholder="Your full name" required class="input-base">
                     <div class="error-text">Name is required.</div>
                 </div>
                 <div class="field" id="field-email">
                     <label for="email">Email</label>
-                    <input type="email" id="email" name="email" placeholder="you@example.com" required>
+                    <input type="email" id="email" name="email" placeholder="you@example.com" required class="input-base">
                     <div class="error-text">Please enter a valid email address.</div>
                 </div>
                 <div class="field" id="field-subject">
                     <label for="subject">Subject</label>
-                    <select id="subject" name="subject" required>
+                    <select id="subject" name="subject" required class="input-base">
                         <option value="" disabled selected>Select a topic</option>
                         <option value="general">General Inquiry</option>
                         <option value="support">Technical Support</option>
@@ -251,7 +211,7 @@
                 </div>
                 <div class="field" id="field-message">
                     <label for="message">Message</label>
-                    <textarea id="message" name="message" placeholder="How can we help you?" required></textarea>
+                    <textarea id="message" name="message" placeholder="How can we help you?" required class="input-base min-h-[110px]"></textarea>
                     <div class="error-text">Please write your message.</div>
                 </div>
                 {{-- P3-19: Cloudflare Turnstile captcha. Renders nothing when
@@ -263,7 +223,7 @@
                     <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.site_key') }}"></div>
                     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
                 @endif
-                <button type="submit" class="btn-submit">Send Message</button>
+                <button type="submit" class="btn btn-primary w-full">Send Message</button>
             </form>
         </div>
 
@@ -307,7 +267,7 @@ document.getElementById('contact-form').addEventListener('submit', function(e) {
 
     // Submit via fetch (you can wire this to a ContactController later)
     const formData = new FormData(this);
-    const btn = this.querySelector('.btn-submit');
+    const btn = this.querySelector('button[type="submit"]');
     btn.textContent = 'Sending...';
     btn.disabled = true;
 

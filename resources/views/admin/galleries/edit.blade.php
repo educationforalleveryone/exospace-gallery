@@ -311,13 +311,13 @@
                         <div class="mb-4 md:col-span-2">
                             <label for="edit-title" class="block text-sm font-medium text-gray-400 mb-2">Title</label>
                             <input type="text" id="edit-title" name="title" value="{{ old('title', $gallery->title) }}" required
-                                class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">
+                                class="input-base mt-1">
                         </div>
 
                         <!-- Description -->
                         <div class="mb-4 md:col-span-2">
                             <label for="edit-description" class="block text-sm font-medium text-gray-400 mb-2">Description</label>
-                            <textarea name="description" id="edit-description" rows="3" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">{{ old('description', $gallery->description) }}</textarea>
+                            <textarea name="description" id="edit-description" rows="3" class="input-base mt-1">{{ old('description', $gallery->description) }}</textarea>
                         </div>
 
                         {{-- SEO OS (Iteration 6): curator-facing SEO overrides.
@@ -329,7 +329,7 @@
                             </label>
                             <input type="text" id="edit-seo-title" name="seo_title" value="{{ old('seo_title', $gallery->seoProfile?->title_override) }}" maxlength="200"
                                    placeholder="{{ $gallery->title }} — 3D Virtual Exhibition"
-                                   class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">
+                                   class="input-base mt-1">
                         </div>
                         <div class="mb-4">
                             <label for="edit-seo-description" class="block text-sm font-medium text-gray-400 mb-2">
@@ -337,7 +337,7 @@
                             </label>
                             <textarea name="seo_description" id="edit-seo-description" rows="2" maxlength="300"
                                       placeholder="Shown in search results and social cards. Auto-generated from your description when empty."
-                                      class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors">{{ old('seo_description', $gallery->seoProfile?->description_override) }}</textarea>
+                                      class="input-base mt-1">{{ old('seo_description', $gallery->seoProfile?->description_override) }}</textarea>
                         </div>
 
                         </div>
@@ -442,10 +442,13 @@
                             Override venue materials
                             <svg class="w-3.5 h-3.5 ml-auto transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </button>
-                        <div x-show="open" x-transition class="grid grid-cols-2 gap-3 mt-3">
+                        {{-- ITERATION-4: x-cloak + display guard added — the panel
+                             content flashed open for a frame before Alpine init
+                             (its sibling in galleries/create already had this). --}}
+                        <div x-show="open" x-transition x-cloak style="display: none;" class="grid grid-cols-2 gap-3 mt-3">
                             <div>
                                 <label for="input_wall_texture" class="block text-xs text-gray-500 mb-1">Wall</label>
-                                <select id="adv_wall" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
+                                <select id="adv_wall" class="input-base">
                                     @foreach(['white'=>'White','concrete'=>'Concrete','brick'=>'Brick','wood'=>'Wood','plaster'=>'Plaster','marble'=>'Marble','velvet'=>'Velvet'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->wall_texture == $v ? 'selected' : '' }}>{{ $l }}</option>
                                     @endforeach
@@ -453,7 +456,7 @@
                             </div>
                             <div>
                                 <label for="input_floor_material" class="block text-xs text-gray-500 mb-1">Floor</label>
-                                <select id="adv_floor" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
+                                <select id="adv_floor" class="input-base">
                                     @foreach(['wood'=>'Wood','marble'=>'Marble','concrete'=>'Concrete','terrazzo'=>'Terrazzo','grass'=>'Grass','sand'=>'Sand'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->floor_material == $v ? 'selected' : '' }}>{{ $l }}</option>
                                     @endforeach
@@ -461,7 +464,7 @@
                             </div>
                             <div>
                                 <label for="input_frame_style" class="block text-xs text-gray-500 mb-1">Frame</label>
-                                <select id="adv_frame" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
+                                <select id="adv_frame" class="input-base">
                                     @foreach(['modern'=>'Modern (Black)','classic'=>'Classic (Gold)','minimal'=>'Minimal','gold'=>'Gold','silver'=>'Silver','bronze'=>'Bronze','black'=>'Black'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->frame_style == $v ? 'selected' : '' }}>{{ $l }}</option>
                                     @endforeach
@@ -469,7 +472,7 @@
                             </div>
                             <div>
                                 <label for="input_lighting_preset" class="block text-xs text-gray-500 mb-1">Lighting</label>
-                                <select id="adv_lighting" class="block w-full rounded bg-gray-700 border-gray-600 text-gray-100 text-sm focus:border-purple-500">
+                                <select id="adv_lighting" class="input-base">
                                     @foreach(['bright'=>'Bright','moody'=>'Moody','dramatic'=>'Dramatic'] as $v=>$l)
                                         <option value="{{ $v }}" {{ $gallery->lighting_preset == $v ? 'selected' : '' }}>{{ $l }}</option>
                                     @endforeach
@@ -523,13 +526,7 @@
                                 <div class="relative">
                                     <input type="file" id="audio-upload-input" accept=".mp3,.wav,.m4a"
                                         data-change="uploadAudioFile"
-                                        class="block w-full text-sm text-gray-300
-                                            file:mr-4 file:py-2 file:px-4
-                                            file:rounded-lg file:border-0
-                                            file:text-sm file:font-semibold
-                                            file:bg-purple-600 file:text-white
-                                            hover:file:bg-purple-700
-                                            cursor-pointer">
+                                        class="file-base cursor-pointer">
 
                                     <!-- Progress Bar (Hidden by default) -->
                                     <div id="audio-upload-progress" style="display:none;" class="mt-2">
@@ -600,13 +597,7 @@
                                 <div class="relative">
                                     <input type="file" id="logo-upload-input" accept=".png,.svg,.jpg,.jpeg"
                                         data-change="uploadLogoFile"
-                                        class="block w-full text-sm text-gray-300
-                                            file:mr-4 file:py-2 file:px-4
-                                            file:rounded-lg file:border-0
-                                            file:text-sm file:font-semibold
-                                            file:bg-purple-600 file:text-white
-                                            hover:file:bg-purple-700
-                                            cursor-pointer">
+                                        class="file-base cursor-pointer">
 
                                     <!-- Progress Bar (Hidden by default) -->
                                     <div id="logo-upload-progress" style="display:none;" class="mt-2">
@@ -689,14 +680,14 @@
                                     <label for="edit-opens-at" class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
                                     <input type="datetime-local" id="edit-opens-at" name="opens_at"
                                         value="{{ $gallery->opens_at ? $gallery->opens_at->format('Y-m-d\TH:i') : old('opens_at') }}"
-                                        class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors text-sm">
+                                        class="input-base mt-1 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Your local time. Leave blank to open immediately.</p>
                                 </div>
                                 <div>
                                     <label for="edit-closes-at" class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
                                     <input type="datetime-local" id="edit-closes-at" name="closes_at"
                                         value="{{ $gallery->closes_at ? $gallery->closes_at->format('Y-m-d\TH:i') : old('closes_at') }}"
-                                        class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm transition-colors text-sm">
+                                        class="input-base mt-1 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Optional. Leave blank for no end date.</p>
                                 </div>
                             </div>
@@ -761,7 +752,7 @@
                                 <input type="text" id="edit-custom-domain" name="custom_domain"
                                     value="{{ old('custom_domain', $gallery->custom_domain) }}"
                                     placeholder="gallery.yourdomain.com"
-                                    class="pl-16 mt-1 block w-full rounded-md bg-gray-700 border-gray-600 text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-sm transition-colors text-sm font-mono"
+                                    class="input-base pl-16 mt-1 text-sm font-mono {{ $errors->has('custom_domain') ? 'input-error' : '' }}"
                                     pattern="^([a-z0-9-]+\.)+[a-z]{2,}$">
                             </div>
                             @error('custom_domain')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
@@ -789,13 +780,13 @@
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Custom curtain logo</label>
                                     <input type="file" name="curtain_logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                                           class="w-full text-sm text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600">
+                                           class="file-base">
                                     <p class="text-xs text-gray-500 mt-1">PNG / JPG / SVG / WEBP, max 2 MB. Recommended: wide aspect, transparent background.</p>
                                     @if($gallery->curtain_logo_path)
                                         <div class="mt-2 flex items-center gap-3">
                                             <img src="{{ asset('storage/' . $gallery->curtain_logo_path) }}" alt="Curtain logo" class="h-10 max-w-[160px] object-contain bg-gray-900 rounded border border-gray-700 px-2">
                                             <label class="text-xs text-gray-400 flex items-center gap-1">
-                                                <input type="checkbox" name="clear_curtain_logo" value="1" class="rounded bg-gray-700 border-gray-600 text-purple-600">
+                                                <input type="checkbox" name="clear_curtain_logo" value="1" class="checkbox-base">
                                                 Remove
                                             </label>
                                         </div>
@@ -810,12 +801,12 @@
                                         <input type="text" name="curtain_bg_color_text"
                                                value="{{ old('curtain_bg_color', $gallery->curtain_bg_color) }}"
                                                placeholder="#0a0a14"
-                                               class="flex-1 rounded-md bg-gray-700 border-gray-600 text-gray-100 px-3 py-2 text-sm font-mono"
+                                               class="input-base flex-1 font-mono"
                                                data-input="syncCurtainColorPreview">
                                     </div>
                                     <p class="text-xs text-gray-500 mt-1">Override the default dark gradient with a solid color.</p>
                                     <label class="text-xs text-gray-400 flex items-center gap-1 mt-2">
-                                        <input type="checkbox" name="clear_curtain_bg" value="1" class="rounded bg-gray-700 border-gray-600 text-purple-600">
+                                        <input type="checkbox" name="clear_curtain_bg" value="1" class="checkbox-base">
                                         Reset to default gradient
                                     </label>
                                 </div>
@@ -924,7 +915,7 @@
                         @if($gallery->images->count() > 0)
                             <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer hover:text-purple-400 transition-colors select-none">
                                 <input type="checkbox" id="select-all-checkbox" data-change="toggleSelectAll"
-                                       class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-2 focus:ring-purple-500 focus:ring-offset-0 focus:ring-offset-gray-800">
+                                       class="checkbox-base">
                                 <span>Select All</span>
                             </label>
                         @endif
@@ -962,7 +953,7 @@
                                 <div class="absolute top-3 left-3 z-20 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
                                     <input type="checkbox" value="{{ $image->id }}"
                                            data-change="updateSelection"
-                                           class="image-checkbox w-5 h-5 rounded border-gray-600 bg-gray-700 text-purple-600 shadow-lg focus:ring-2 focus:ring-purple-500 cursor-pointer transition-all">
+                                           class="image-checkbox checkbox-base h-5 w-5 cursor-pointer">
                                 </div>
 
                                 <!-- Image: Enforced Aspect Ratio (Square) -->
@@ -1038,19 +1029,19 @@
                             <div class="sm:col-span-2">
                                 <label for="metadata-title" class="block text-sm font-medium text-gray-300 mb-1">Title</label>
                                 <input type="text" id="metadata-title" name="title" maxlength="255" placeholder="e.g. Untitled (Blue Room)"
-                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                       class="input-base">
                             </div>
 
                             <div class="sm:col-span-2">
                                 <label for="metadata-description" class="block text-sm font-medium text-gray-300 mb-1">Description</label>
                                 <textarea id="metadata-description" name="description" rows="3" maxlength="1000" placeholder="Shown next to the artwork in the 3D viewer"
-                                          class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
+                                          class="input-base"></textarea>
                             </div>
 
                             <div class="sm:col-span-2">
                                 <label for="metadata-artist" class="block text-sm font-medium text-gray-300 mb-1">Artist</label>
                                 <select id="metadata-artist" name="artist_id"
-                                        class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                        class="input-base">
                                     <option value="">— No artist attribution —</option>
                                     @foreach($artistOptions ?? [] as $artistId => $artistName)
                                         <option value="{{ $artistId }}">{{ $artistName }}</option>
@@ -1062,31 +1053,31 @@
                             <div>
                                 <label for="metadata-medium" class="block text-sm font-medium text-gray-300 mb-1">Medium</label>
                                 <input type="text" id="metadata-medium" name="medium" maxlength="255" placeholder="e.g. Oil on canvas"
-                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                       class="input-base">
                             </div>
 
                             <div>
                                 <label for="metadata-year" class="block text-sm font-medium text-gray-300 mb-1">Year</label>
                                 <input type="number" id="metadata-year" name="year" min="1000" max="{{ date('Y') + 1 }}" placeholder="{{ date('Y') }}"
-                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                       class="input-base">
                             </div>
 
                             <div>
                                 <label for="metadata-dimensions" class="block text-sm font-medium text-gray-300 mb-1">Dimensions</label>
                                 <input type="text" id="metadata-dimensions" name="dimensions" maxlength="100" placeholder="e.g. 120 × 90 cm"
-                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                       class="input-base">
                             </div>
 
                             <div>
                                 <label for="metadata-external-url" class="block text-sm font-medium text-gray-300 mb-1">External link</label>
                                 <input type="url" id="metadata-external-url" name="external_url" maxlength="500" placeholder="https://…"
-                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                       class="input-base">
                             </div>
 
                             <div class="sm:col-span-2 border-t border-gray-700 pt-4">
                                 <label class="flex items-center gap-2.5 text-sm text-gray-200 cursor-pointer select-none">
                                     <input type="checkbox" id="metadata-for-sale" name="for_sale" value="1"
-                                           class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-2 focus:ring-purple-500">
+                                           class="checkbox-base">
                                     For sale — show price in the viewer
                                 </label>
                             </div>
@@ -1094,13 +1085,13 @@
                             <div>
                                 <label for="metadata-price" class="block text-sm font-medium text-gray-300 mb-1">Price</label>
                                 <input type="number" id="metadata-price" name="price" min="0" step="0.01" max="99999999.99" placeholder="0.00"
-                                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                       class="input-base">
                             </div>
 
                             <div>
                                 <label for="metadata-currency" class="block text-sm font-medium text-gray-300 mb-1">Currency</label>
                                 <select id="metadata-currency" name="currency"
-                                        class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                        class="input-base">
                                     <option value="USD">USD — $</option>
                                     <option value="EUR">EUR — €</option>
                                     <option value="GBP">GBP — £</option>
@@ -1112,12 +1103,12 @@
                                 <div>
                                     <label for="metadata-edition-size" class="block text-sm font-medium text-gray-300 mb-1">Edition size</label>
                                     <input type="number" id="metadata-edition-size" name="edition_size" min="1" placeholder="e.g. 12 for a limited edition"
-                                           class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                           class="input-base">
                                 </div>
                                 <div>
                                     <label for="metadata-edition-number" class="block text-sm font-medium text-gray-300 mb-1">Edition number</label>
                                     <input type="text" id="metadata-edition-number" name="edition_number" maxlength="50" placeholder="e.g. 3/12"
-                                           class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                           class="input-base">
                                 </div>
                             </div>
                         </div>

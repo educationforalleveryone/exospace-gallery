@@ -152,6 +152,7 @@ export default {
         'card', 'card-pad', 'card-interactive', 'card-selected', 'card-lift',
         // Forms
         'input-base', 'input-sm', 'input-error', 'label-text', 'hint-text',
+        'checkbox-base', 'radio-base', 'file-base', 'legal-prose',
         // Badges
         'badge', 'badge-success', 'badge-warning', 'badge-warn', 'badge-danger',
         'badge-info', 'badge-neutral', 'badge-brand', 'badge-pro',

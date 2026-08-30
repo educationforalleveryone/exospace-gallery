@@ -18,8 +18,8 @@
             padding: 20px;
         }
         .card {
-            background: #1a1d28;
-            border: 1px solid #2a2d3a;
+            background: #0f1117;
+            border: 1px solid #1f2937;
             border-radius: 12px;
             padding: 40px;
             max-width: 480px;
@@ -29,7 +29,7 @@
         .logo {
             font-size: 24px;
             font-weight: bold;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -57,7 +57,7 @@
             text-decoration: none;
             font-size: 13px;
         }
-        .info { margin-top: 24px; padding-top: 20px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #6b7280; }
+        .info { margin-top: 24px; padding-top: 20px; border-top: 1px solid #1f2937; font-size: 12px; color: #6b7280; }
     </style>
 </head>
 <body>

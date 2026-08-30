@@ -6,14 +6,11 @@
 @section('content')
 
 <style>
-    .gradient-text {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
+    /* ITERATION-4: the old-brand (#667eea→#764ba2) .gradient-text override
+       is deleted — the kit definition applies. .hero-gradient moves from the
+       retired navy ramp to the brand/ink token ramp. */
     .hero-gradient {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        background: radial-gradient(ellipse at top, #3b0764 0%, #0f1117 50%, #08090d 100%);
     }
 </style>
 
@@ -50,20 +47,20 @@
         <div class="grid sm:grid-cols-3 gap-6">
             {{-- Team Member 1 --}}
             <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 text-center">
-                <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center mb-4">
+                <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-brand-600 to-brand-600 flex items-center justify-center mb-4">
                     <span class="text-2xl font-bold text-white">AK</span>
                 </div>
                 <h3 class="font-semibold text-gray-100">Ahmad Khan</h3>
-                <p class="text-purple-400 text-sm mb-2">Founder & CEO</p>
+                <p class="text-brand-400 text-sm mb-2">Founder & CEO</p>
                 <p class="text-gray-400 text-sm">Vision, strategy, and making sure we never run out of coffee.</p>
             </div>
             {{-- Team Member 2 --}}
             <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 text-center">
-                <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center mb-4">
+                <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-brand-600 to-blue-600 flex items-center justify-center mb-4">
                     <span class="text-2xl font-bold text-white">SR</span>
                 </div>
                 <h3 class="font-semibold text-gray-100">Sara Rahman</h3>
-                <p class="text-indigo-400 text-sm mb-2">Lead Engineer</p>
+                <p class="text-brand-400 text-sm mb-2">Lead Engineer</p>
                 <p class="text-gray-400 text-sm">Builds the 3D rendering engine and keeps the platform blazing fast.</p>
             </div>
             {{-- Team Member 3 --}}

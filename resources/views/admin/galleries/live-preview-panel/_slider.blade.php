@@ -45,7 +45,7 @@
            data-lp-requires-reload="{{ $requiresReload ? 'true' : 'false' }}"
            min="{{ $min }}" max="{{ $max }}" step="{{ $step }}"
            value="{{ $value }}"
-           class="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-purple-500" />
+           class="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-brand-500" />
 
     {{-- Hover hint popover — shows on hover/focus of the label.
          ITERATION-3: was absolute z-50 — the hint opened INSIDE the sidebar's

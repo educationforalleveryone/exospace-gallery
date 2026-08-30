@@ -5,25 +5,25 @@
     {{-- Name + slug --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-300 mb-1">Name <span class="text-red-400">*</span></label>
+            <label class="label-text mb-1.5">Name <span class="text-red-400">*</span></label>
             <input type="text" name="name" value="{{ old('name', $artist->name) }}"
-                   class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500" required maxlength="100">
+                   class="input-base {{ $errors->has('name') ? 'input-error' : '' }}" required maxlength="100">
             @error('name')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Slug</label>
+            <label class="label-text mb-1.5">Slug</label>
             <input type="text" name="slug" value="{{ old('slug', $artist->slug) }}"
                    placeholder="auto from name"
-                   class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500 font-mono text-sm">
+                   class="input-base font-mono {{ $errors->has('slug') ? 'input-error' : '' }}">
             @error('slug')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
     </div>
 
     {{-- Portrait --}}
     <div>
-        <label class="block text-sm font-medium text-gray-300 mb-1">Portrait photo</label>
+        <label class="label-text mb-1.5">Portrait photo</label>
         <input type="file" name="portrait" accept="image/png,image/jpeg,image/webp"
-               class="w-full text-sm text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600">
+               class="file-base {{ $errors->has('portrait') ? 'input-error' : '' }}">
         <p class="text-xs text-gray-500 mt-1">PNG / JPG / WEBP, max 2 MB. Square aspect recommended.</p>
         @error('portrait')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         @if($isEdit && $artist->portrait_url)
@@ -36,9 +36,9 @@
 
     {{-- Bio --}}
     <div>
-        <label class="block text-sm font-medium text-gray-300 mb-1">Bio</label>
+        <label class="label-text mb-1.5">Bio</label>
         <textarea name="bio" rows="4" maxlength="2000"
-                  class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500"
+                  class="input-base {{ $errors->has('bio') ? 'input-error' : '' }}"
                   placeholder="Artist biography, statement, or notes…">{{ old('bio', $artist->bio) }}</textarea>
         @error('bio')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
     </div>
@@ -46,61 +46,61 @@
     {{-- SEO OS (Iteration 6): curator-facing SEO overrides. Leave blank to
          use the automatic title/description generated from real data. --}}
     <div>
-        <label class="block text-sm font-medium text-gray-300 mb-1">
+        <label class="label-text mb-1.5">
             SEO title <span class="text-gray-600 font-normal text-xs">(optional — auto-generated when empty)</span>
         </label>
         <input type="text" name="seo_title" value="{{ old('seo_title', $artist->seoProfile?->title_override) }}" maxlength="200"
                placeholder="{{ $artist->name }} — Artist Profile & 3D Exhibitions"
-               class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500">
+               class="input-base {{ $errors->has('seo_title') ? 'input-error' : '' }}">
         @error('seo_title')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
     </div>
     <div>
-        <label class="block text-sm font-medium text-gray-300 mb-1">
+        <label class="label-text mb-1.5">
             SEO description <span class="text-gray-600 font-normal text-xs">(optional — max 300 chars)</span>
         </label>
         <textarea name="seo_description" rows="2" maxlength="300"
                   placeholder="Shown in search results. Auto-generated from the bio when empty."
-                  class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500">{{ old('seo_description', $artist->seoProfile?->description_override) }}</textarea>
+                  class="input-base {{ $errors->has('seo_description') ? 'input-error' : '' }}">{{ old('seo_description', $artist->seoProfile?->description_override) }}</textarea>
         @error('seo_description')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
     </div>
 
     {{-- Location --}}
     <div>
-        <label class="block text-sm font-medium text-gray-300 mb-1">Location</label>
+        <label class="label-text mb-1.5">Location</label>
         <input type="text" name="location" value="{{ old('location', $artist->location) }}"
                placeholder="Berlin, Germany"
-               class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500">
+               class="input-base {{ $errors->has('location') ? 'input-error' : '' }}">
         @error('location')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
     </div>
 
     {{-- Contact + socials --}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Public email</label>
+            <label class="label-text mb-1.5">Public email</label>
             <input type="email" name="email" value="{{ old('email', $artist->email) }}"
                    placeholder="artist@example.com"
-                   class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500">
+                   class="input-base {{ $errors->has('email') ? 'input-error' : '' }}">
             @error('email')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Website</label>
+            <label class="label-text mb-1.5">Website</label>
             <input type="url" name="website" value="{{ old('website', $artist->website) }}"
                    placeholder="https://artist-website.com"
-                   class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500">
+                   class="input-base {{ $errors->has('website') ? 'input-error' : '' }}">
             @error('website')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Instagram</label>
+            <label class="label-text mb-1.5">Instagram</label>
             <input type="text" name="instagram" value="{{ old('instagram', $artist->instagram) }}"
                    placeholder="@handle (or just handle)"
-                   class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500">
+                   class="input-base {{ $errors->has('instagram') ? 'input-error' : '' }}">
             @error('instagram')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1">Twitter / X</label>
+            <label class="label-text mb-1.5">Twitter / X</label>
             <input type="text" name="twitter" value="{{ old('twitter', $artist->twitter) }}"
                    placeholder="@handle (or just handle)"
-                   class="w-full rounded-lg bg-gray-700 border-gray-600 text-gray-100 focus:border-purple-500 focus:ring-purple-500">
+                   class="input-base {{ $errors->has('twitter') ? 'input-error' : '' }}">
             @error('twitter')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
         </div>
     </div>

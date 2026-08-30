@@ -248,6 +248,36 @@
     textarea.input-base { @apply h-auto min-h-[80px] py-2.5; }
     select.input-base   { @apply pr-8; }
 
+    /* Checkboxes & radios — pair with `flex items-center gap-2` on the label
+       (items-start + mt-1 for multi-line text). Accent color = Tailwind forms
+       plugin; check/dot color follows text-brand-600. 16px so the hit area
+       meets the 12px text floor even before label padding. */
+    .checkbox-base {
+        @apply shrink-0 h-4 w-4 rounded border-gray-600 bg-gray-700 text-brand-600
+               focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:ring-offset-0
+               focus:border-brand-500 disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+    .radio-base {
+        @apply shrink-0 h-4 w-4 rounded-full border-gray-600 bg-gray-700 text-brand-600
+               focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:ring-offset-0
+               focus:border-brand-500 disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+    /* File inputs — neutralize the browser button, keep the field readable. */
+    .file-base {
+        @apply block w-full h-auto py-2 text-sm text-gray-300
+               bg-gray-900/60 border border-gray-600/80 rounded-lg shadow-sm
+               file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0
+               file:bg-gray-700 file:text-gray-200 file:text-xs file:font-medium
+               hover:file:bg-gray-600 focus:outline-none focus:border-brand-500
+               focus:ring-2 focus:ring-brand-500/20
+               disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+
+    /* Legal pages (terms, privacy) — replaces the dead `.prose .prose-invert`
+       classes (no typography plugin is installed). Headings/lists inside are
+       styled with utilities by the pages themselves. */
+    .legal-prose { @apply max-w-none text-gray-300; }
+
     /* ═══ BADGES ══════════════════════════════════════════════════════════
        Tinted pills — one recipe, five semantic hues. Status mapping:
        success=emerald warning=amber danger=red info=blue neutral=gray

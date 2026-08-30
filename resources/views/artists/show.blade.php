@@ -18,10 +18,10 @@
     </div>
 
     {{-- Artist header --}}
-    <header class="bg-gradient-to-br from-gray-900 via-purple-950/30 to-gray-900 border-b border-gray-800">
+    <header class="bg-gradient-to-br from-gray-900 via-brand-950/30 to-gray-900 border-b border-gray-800">
         <div class="max-w-5xl mx-auto px-4 py-12">
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                <div class="w-28 h-28 rounded-full overflow-hidden bg-gradient-to-br from-purple-900/40 to-gray-900 flex items-center justify-center flex-shrink-0 border-2 border-purple-700/30">
+                <div class="w-28 h-28 rounded-full overflow-hidden bg-gradient-to-br from-brand-900/40 to-gray-900 flex items-center justify-center flex-shrink-0 border-2 border-brand-700/30">
                     @if($artist->portrait_url)
                         <img src="{{ $artist->portrait_url }}" alt="Portrait of {{ $artist->name }}" class="w-full h-full object-cover" width="112" height="112">
                     @else
@@ -29,7 +29,7 @@
                     @endif
                 </div>
                 <div class="flex-1">
-                    <p class="text-purple-400 text-xs font-semibold tracking-widest uppercase mb-1">Artist Profile</p>
+                    <p class="text-brand-400 text-xs font-semibold tracking-widest uppercase mb-1">Artist Profile</p>
                     <h1 class="text-3xl md:text-4xl font-extrabold text-white">{{ $artist->name }}</h1>
                     @if($artist->location)
                         <p class="text-gray-400 mt-1 flex items-center gap-1.5">
@@ -42,23 +42,23 @@
                     @endif
                     <div class="flex flex-wrap gap-2 mt-4">
                         @if($artist->website)
-                            <a href="{{ $artist->website }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-purple-500 text-gray-200 text-sm transition">
+                            <a href="{{ $artist->website }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-brand-500 text-gray-200 text-sm transition">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
                                 Website
                             </a>
                         @endif
                         @if($artist->instagram)
-                            <a href="{{ $artist->instagram_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-purple-500 text-gray-200 text-sm transition">
+                            <a href="{{ $artist->instagram_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-brand-500 text-gray-200 text-sm transition">
                                 @{{ $artist->instagram }}
                             </a>
                         @endif
                         @if($artist->twitter)
-                            <a href="{{ $artist->twitter_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-purple-500 text-gray-200 text-sm transition">
+                            <a href="{{ $artist->twitter_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-brand-500 text-gray-200 text-sm transition">
                                 @{{ $artist->twitter }}
                             </a>
                         @endif
                         @if($artist->email)
-                            <a href="mailto:{{ $artist->email }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-purple-500 text-gray-200 text-sm transition">
+                            <a href="mailto:{{ $artist->email }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-brand-500 text-gray-200 text-sm transition">
                                 Contact
                             </a>
                         @endif
@@ -84,12 +84,12 @@
             <section class="mb-10" aria-label="Exhibition: {{ $entry['gallery']->title }}">
                 <div class="flex items-baseline justify-between mb-4">
                     <div>
-                        <a href="{{ $entry['gallery']->public_url }}" class="text-xl font-bold text-gray-100 hover:text-purple-300 transition">{{ $entry['gallery']->title }}</a>
+                        <a href="{{ $entry['gallery']->public_url }}" class="text-xl font-bold text-gray-100 hover:text-brand-300 transition">{{ $entry['gallery']->title }}</a>
                         @if($entry['gallery']->venueTemplate)
                             <span class="ml-3 text-xs px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700 text-gray-400">{{ $entry['gallery']->venueTemplate->name }}</span>
                         @endif
                     </div>
-                    <a href="{{ $entry['gallery']->public_url }}" class="text-sm text-purple-400 hover:text-purple-300 transition whitespace-nowrap">Enter gallery →</a>
+                    <a href="{{ $entry['gallery']->public_url }}" class="text-sm text-brand-400 hover:text-brand-300 transition whitespace-nowrap">Enter gallery →</a>
                 </div>
                 @if($entry['gallery']->description)
                     <p class="text-gray-400 text-sm mb-4 max-w-2xl">{{ Str::limit($entry['gallery']->description, 200) }}</p>
@@ -97,7 +97,7 @@
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     @foreach($entry['images'] as $img)
                         <a href="{{ url('/gallery/' . $entry['gallery']->slug . '/artwork/' . $img->id) }}" class="group block">
-                            <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-800 group-hover:border-purple-500 transition">
+                            <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-800 group-hover:border-brand-500 transition">
                                 <img src="{{ $img->public_url }}"
                                      srcset="{{ $img->srcset }}"
                                      sizes="(max-width: 640px) 50vw, 20vw"
@@ -106,12 +106,12 @@
                                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                             </div>
                             <div class="mt-2">
-                                <p class="text-gray-200 text-sm font-medium truncate group-hover:text-purple-300 transition">{{ $img->title ?: $img->original_name }}</p>
+                                <p class="text-gray-200 text-sm font-medium truncate group-hover:text-brand-300 transition">{{ $img->title ?: $img->original_name }}</p>
                                 @if($img->year)
                                     <p class="text-gray-500 text-xs">{{ $img->year }}@if($img->medium) · {{ $img->medium }}@endif</p>
                                 @endif
                                 @if($img->for_sale && $img->price)
-                                    <p class="text-green-400 text-xs font-semibold mt-0.5">{{ $img->formattedPrice() }}</p>
+                                    <p class="text-emerald-400 text-xs font-semibold mt-0.5">{{ $img->formattedPrice() }}</p>
                                 @endif
                             </div>
                         </a>
@@ -134,14 +134,14 @@
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
                     @foreach($relatedArtists as $relatedArtist)
                         <a href="{{ route('artist.profile', $relatedArtist->slug) }}" class="group text-center">
-                            <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-900/40 to-gray-900 border border-gray-700 group-hover:border-purple-500 transition flex items-center justify-center overflow-hidden">
+                            <div class="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-brand-900/40 to-gray-900 border border-gray-700 group-hover:border-brand-500 transition flex items-center justify-center overflow-hidden">
                                 @if($relatedArtist->portrait_url)
                                     <img src="{{ $relatedArtist->portrait_url }}" alt="{{ $relatedArtist->name }}" loading="lazy" class="w-full h-full object-cover">
                                 @else
                                     <span class="text-gray-500 font-bold">{{ $relatedArtist->initials }}</span>
                                 @endif
                             </div>
-                            <p class="text-gray-300 text-sm font-medium mt-2 truncate group-hover:text-purple-300 transition">{{ $relatedArtist->name }}</p>
+                            <p class="text-gray-300 text-sm font-medium mt-2 truncate group-hover:text-brand-300 transition">{{ $relatedArtist->name }}</p>
                             @if($relatedArtist->public_works_count)
                                 <p class="text-gray-600 text-xs">{{ $relatedArtist->public_works_count }} shared</p>
                             @endif
@@ -153,9 +153,9 @@
 
         {{-- Cross-links to discovery hubs --}}
         <nav class="mt-12 pt-8 border-t border-gray-800 flex flex-wrap gap-4 text-sm" aria-label="More on Exospace">
-            <a href="{{ route('discover') }}" class="text-purple-400 hover:text-purple-300 transition">Browse 3D exhibitions</a>
-            <a href="{{ route('artists.index') }}" class="text-purple-400 hover:text-purple-300 transition">Browse all artists</a>
-            <a href="{{ route('venues.index') }}" class="text-purple-400 hover:text-purple-300 transition">Browse venues</a>
+            <a href="{{ route('discover') }}" class="text-brand-400 hover:text-brand-300 transition">Browse 3D exhibitions</a>
+            <a href="{{ route('artists.index') }}" class="text-brand-400 hover:text-brand-300 transition">Browse all artists</a>
+            <a href="{{ route('venues.index') }}" class="text-brand-400 hover:text-brand-300 transition">Browse venues</a>
         </nav>
     </div>
 @endsection

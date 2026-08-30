@@ -332,6 +332,15 @@
                                     </td>
                                 @endforeach
                             </tr>
+                        @empty
+                            {{-- ITERATION-4: empty branch — a fresh instance with no
+                                cohorts rendered a blank tbody under full headers. --}}
+                            <tr class="border-t border-gray-800/60">
+                                <td colspan="{{ 2 + $retention['weeks'] }}" class="py-6 text-center text-gray-500">
+                                    <p class="text-xs font-medium text-gray-400">No cohort data yet</p>
+                                    <p class="text-xs mt-1">Cohorts appear once the first users register. Check back after your first week of signups.</p>
+                                </td>
+                            </tr>
                         @endforeach
                     </tbody>
                 </table>
@@ -699,8 +708,12 @@
 
 
     {{-- (Task H32) Type-to-confirm modals for destructive super-admin actions --}}
+    {{-- data-focus-trap: delegated Tab containment from app.js; x-effect adds
+         the same body scroll lock every other dialog uses. --}}
     <div id="deleteConfirmModal" x-data="{ open: false, typed: '', userId: 0, userName: '' }"
          x-cloak
+         x-effect="document.body.classList.toggle('overflow-y-hidden', open)"
+         data-focus-trap
          class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden items-center justify-center p-4"
          role="dialog" aria-modal="true" aria-labelledby="delete-modal-heading"
          :class="open ? 'flex' : 'hidden'"
@@ -727,7 +740,7 @@
                     Type <code class="text-gray-300 font-mono">DELETE</code> to confirm
                 </label>
                 <input id="delete-confirm-input" type="text" x-model="typed" :placeholder="userName"
-                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                    class="input-base"
                     autocomplete="off">
             </div>
             <form :action="'/master-control/users/' + userId" method="POST" id="deleteForm">
@@ -745,6 +758,8 @@
 
     <div id="adminConfirmModal" x-data="{ open: false, typed: '', userId: 0, userName: '', action: 'grant' }"
          x-cloak
+         x-effect="document.body.classList.toggle('overflow-y-hidden', open)"
+         data-focus-trap
          class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden items-center justify-center p-4"
          role="dialog" aria-modal="true" aria-labelledby="admin-modal-heading"
          :class="open ? 'flex' : 'hidden'"
@@ -771,7 +786,7 @@
                     Type <code class="text-gray-300 font-mono" x-text="action === 'grant' ? 'GRANT' : 'REVOKE'"></code> to confirm
                 </label>
                 <input id="admin-confirm-input" type="text" x-model="typed"
-                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                    class="input-base"
                     autocomplete="off">
             </div>
             <form :action="'/master-control/users/' + userId + '/toggle-super-admin'" method="POST" id="adminForm">

@@ -70,7 +70,7 @@
                     <label for="event_type" class="block text-xs text-gray-400 mb-1">Event type</label>
                     <select id="event_type" name="event_type" required
                             @change="custom = $event.target.value === '__custom__'"
-                            class="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                            class="input-base {{ $errors->has('event_type') ? 'input-error' : '' }}">
                         <option value="" disabled selected>— Select an event —</option>
                         @foreach($knownEvents as $ev)
                             <option value="{{ $ev }}">{{ $ev }}</option>
@@ -83,7 +83,7 @@
                     <label for="target_url" class="block text-xs text-gray-400 mb-1">Target URL (https://...)</label>
                     <input id="target_url" name="target_url" type="url" required placeholder="https://hooks.example.com/exospace"
                            value="{{ old('target_url') }}"
-                           class="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                           class="input-base font-mono {{ $errors->has('target_url') ? 'input-error' : '' }}">
                     @error('target_url') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                 </div>
                 <div>
@@ -93,7 +93,7 @@
                     </label>
                     <input id="secret" name="secret" type="text" autocomplete="off" placeholder="leave empty to use global secret"
                            value="{{ old('secret') }}"
-                           class="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-100 font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                           class="input-base font-mono {{ $errors->has('secret') ? 'input-error' : '' }}">
                     @error('secret') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                 </div>
             </div>

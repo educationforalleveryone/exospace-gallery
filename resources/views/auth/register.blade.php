@@ -67,7 +67,7 @@
                        name="marketing_consent"
                        value="1"
                        @checked(old('marketing_consent'))
-                       class="mt-1 rounded border-gray-600 bg-gray-800 text-purple-600 focus:ring-purple-500 focus:ring-offset-0" />
+                       class="checkbox-base mt-1" />
                 <span class="text-xs text-gray-400 leading-relaxed">
                     Send me occasional product tips and reminders (e.g. if I start an upgrade but don't finish).
                     I can unsubscribe at any time via the link in every email.
@@ -76,7 +76,7 @@
         </div>
 
         <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-400 hover:text-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" href="{{ route('login') }}">
+            <a class="underline text-sm text-gray-400 hover:text-gray-300 rounded-md" href="{{ route('login') }}">
                 {{ __('Already registered?') }}
             </a>
 

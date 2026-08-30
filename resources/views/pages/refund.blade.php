@@ -20,10 +20,10 @@
 
         <section>
             <h2 class="text-xl font-semibold text-gray-100 mb-3">How to Request a Refund</h2>
-            <p>To initiate a refund, please contact our support team at <a href="mailto:support@exospace.gallery" class="text-purple-400 hover:text-purple-300">support@exospace.gallery</a> with the subject line <em>"Refund Request"</em>. Include the following in your email:</p>
+            <p>To initiate a refund, please contact our support team at <a href="mailto:support@exospace.gallery" class="text-brand-400 hover:text-brand-300">support@exospace.gallery</a> with the subject line <em>"Refund Request"</em>. Include the following in your email:</p>
             <ul class="list-disc list-inside mt-3 space-y-1 text-gray-400 ml-4">
                 <li>Your registered email address or account name.</li>
-                <li>The order number or transaction ID (found in your confirmation email, or in your <a href="{{ route('billing.index') }}" class="text-purple-400 hover:text-purple-300">billing portal</a>).</li>
+                <li>The order number or transaction ID (found in your confirmation email, or in your <a href="{{ route('billing.index') }}" class="text-brand-400 hover:text-brand-300">billing portal</a>).</li>
                 <li>A brief reason for the refund (optional, but helps us improve).</li>
             </ul>
             <p class="mt-3">We will process your refund request within <strong class="text-gray-100">5–7 business days</strong> of receiving it. Refunds are issued to the original payment method.</p>
@@ -39,7 +39,7 @@
             <p>Refunds will not be issued in the following cases:</p>
             <ul class="list-disc list-inside mt-3 space-y-1 text-gray-400 ml-4">
                 <li>The refund request is made after the 14-day window has passed.</li>
-                <li>The account has been used in violation of our <a href="/terms" class="text-purple-400 hover:text-purple-300">Terms of Service</a>.</li>
+                <li>The account has been used in violation of our <a href="/terms" class="text-brand-400 hover:text-brand-300">Terms of Service</a>.</li>
                 <li>The refund request is submitted more than 14 days after the original purchase date.</li>
             </ul>
         </section>
@@ -53,7 +53,7 @@
             <h2 class="text-xl font-semibold text-gray-100 mb-3">Contact Us</h2>
             <p>If you have any questions about this refund policy, please reach out:</p>
             <ul class="list-disc list-inside mt-3 space-y-1 text-gray-400 ml-4">
-                <li>Email: <a href="mailto:support@exospace.gallery" class="text-purple-400 hover:text-purple-300">support@exospace.gallery</a></li>
+                <li>Email: <a href="mailto:support@exospace.gallery" class="text-brand-400 hover:text-brand-300">support@exospace.gallery</a></li>
                 <li>Phone: +92 311 234 5678</li>
                 <li>Address: 27 Innovation Drive, Suite 4B, Islamabad, Islamabad Capital Territory 44000, Pakistan</li>
             </ul>

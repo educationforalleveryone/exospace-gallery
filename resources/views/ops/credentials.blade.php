@@ -112,6 +112,17 @@
                         </form>
                     </td>
                 </tr>
+            @empty
+                {{-- ITERATION-4: defensive empty branch. The inventory is
+                    config-driven (OpsCredentialInventoryService) so this is
+                    not expected to fire, but a blank tbody under a full
+                    header row would read as a broken page if the catalog
+                    ever returns empty. --}}
+                <tr>
+                    <td colspan="5" class="px-4 py-6 text-center text-xs text-slate-400">
+                        No credentials are being tracked. Check the credential inventory catalog configuration.
+                    </td>
+                </tr>
             @endforeach
         </tbody>
     </table>

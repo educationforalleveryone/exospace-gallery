@@ -18,8 +18,8 @@
             padding: 20px;
         }
         .card {
-            background: #1a1d28;
-            border: 1px solid #2a2d3a;
+            background: #0f1117;
+            border: 1px solid #1f2937;
             border-radius: 12px;
             padding: 40px;
             max-width: 480px;
@@ -29,7 +29,7 @@
         .logo {
             font-size: 24px;
             font-weight: bold;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -39,7 +39,7 @@
             width: 56px;
             height: 56px;
             border-radius: 50%;
-            background: #45865b;
+            background: #10b981;
             margin: 0 auto 20px;
             display: flex;
             align-items: center;
@@ -60,7 +60,7 @@
             font-size: 14px;
         }
         .btn:hover { opacity: 0.9; }
-        .info { margin-top: 24px; padding-top: 20px; border-top: 1px solid #2a2d3a; font-size: 12px; color: #6b7280; }
+        .info { margin-top: 24px; padding-top: 20px; border-top: 1px solid #1f2937; font-size: 12px; color: #6b7280; }
     </style>
 </head>
 <body>
