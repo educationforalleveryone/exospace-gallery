@@ -323,8 +323,11 @@ document.getElementById('contact-form').addEventListener('submit', function(e) {
  * dropped customer leads.
  */
 // ITERATION-3: the page-local showErrorToast (light-theme, top-right,
-// z-index 9999) was removed — window.toast() from <x-toast> is the single
-// toast system on this layout.
+// z-index 9999) was removed — window.toast() from the x-toast component is
+// the single toast system on this layout.
+// (FIX 2026-08-31: do not write the literal component tag here — Blade
+// compiles x-tags inside JS comments too, and a non-self-closing tag with
+// no closing tag broke compilation of this whole page.)
 </script>
 
 @endsection

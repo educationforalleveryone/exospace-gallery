@@ -44,8 +44,8 @@
 
         /* Toast notifications — ITERATION-3: the page-local `.toast-item`
            system (green/red/indigo pills, top-right, z-index 9999) was removed.
-           The kit `window.toast()` from <x-toast> is used instead — same call
-           signature, one visual language, correct stacking tier. */
+           The kit `window.toast()` from the x-toast component is used instead —
+           same call signature, one visual language, correct stacking tier. */
 
         /* Venue card styles */
         .venue-card-inner {
@@ -1105,7 +1105,14 @@
         // ITERATION-3: the page-local toast() shadowed window.toast and drew a
         // second, visually-different toast system (plus its own CSS block and
         // z-index 9999 container). Removed — toast() calls in this script now
-        // resolve to the kit window.toast() from <x-toast>.
+        // resolve to the kit window.toast() from the x-toast component.
+        // (FIX 2026-08-31: never write a literal x-component tag inside a JS
+        // comment — Blade compiles component tags even there, and a non-
+        // self-closing tag with no closing tag swallowed the rest of this
+        // file as slot content, producing an unclosed shouldRender() if()
+        // and the "syntax error, unexpected end of file, expecting elseif or
+        // else or endif" 500 when opening this page. Mention components in
+        // prose without angle brackets.)
 
         // ─── Dropzone Config ────────────────────────────────────
         // FIX (Iter-002): this used to be assigned directly to

@@ -123,7 +123,7 @@
                         No credentials are being tracked. Check the credential inventory catalog configuration.
                     </td>
                 </tr>
-            @endforeach
+            @endforelse
         </tbody>
     </table>
 </div>

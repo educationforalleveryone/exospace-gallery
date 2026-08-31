@@ -10,6 +10,12 @@ nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer", "mariadb"]
 cmds = [
     "npm install",
     "npm run build",
+    # GUARD (2026-08-31): fails the build if any Blade template references a
+    # Vite entry the manifest does not contain (e.g. the production 500
+    # "Unable to locate file in Vite manifest: admin-vendor.js" that shipped
+    # because a JS comment in analytics.blade.php contained an unescaped
+    # @vite('admin-vendor.js') — Blade compiles directives inside JS comments).
+    "node scripts/verify-vite-manifest.js",
     "composer install --no-dev --optimize-autoloader",
     # TD-4: Route/view caches are safe to build here — they don't depend on
     # runtime secrets. Config cache must NOT be built here: DB_HOST/DB_PASSWORD/
@@ -18,7 +24,13 @@ cmds = [
     # that no runtime env var can ever override. config:cache now runs in
     # docker-start.sh instead, after real runtime env vars are attached.
     "php artisan route:cache",
-    "php artisan view:cache"
+    "php artisan view:cache",
+    # GUARD (2026-08-31): view:cache compiles Blade to PHP WITHOUT checking
+    # that the generated PHP is valid — broken templates used to bake silently
+    # and 500 at runtime ("syntax error, unexpected end of file, expecting
+    # elseif or else or endif"). php -l every compiled view and fail the
+    # build instead.
+    "bash scripts/lint-compiled-views.sh"
 ]
 
 [start]

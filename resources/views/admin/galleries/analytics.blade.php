@@ -167,7 +167,7 @@
     @vite(['resources/js/admin-vendor.js'])
     <script nonce="@nonce">
         // Show skeleton briefly then reveal real content.
-        // FIX (Iter-002): Chart.js is loaded async via @vite('admin-vendor.js'),
+        // FIX (Iter-002): Chart.js is loaded async via @@vite('resources/js/admin-vendor.js'),
         // a <script type="module">. Under Turbo Drive, that module script can
         // still be fetching/evaluating when this classic script runs after a
         // page swap, so `new Chart(...)` was sometimes called before

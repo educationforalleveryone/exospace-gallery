@@ -70,7 +70,7 @@
                                 @forelse($coolifyApps as $app)
                                     <option value="{{ $app->id }}">{{ $app->name }}{{ $app->is_self ? ' (control plane host)' : '' }}</option>
                                 @empty
-                                @endforeach
+                                @endforelse
                             </select>
                             @if($coolifyApps->isEmpty())
                                 <p class="text-xs text-amber-400 mt-2">No applications reported by Coolify. Run a sync from Applications, then retry — the restart action needs a live app.</p>
@@ -207,7 +207,7 @@
                     <tr>
                         <td colspan="5" class="px-4 py-10 text-center text-slate-500 text-sm">No actions have been executed yet.</td>
                     </tr>
-                @endforeach
+                @endforelse
             </tbody>
         </table>
     </div>

@@ -77,9 +77,14 @@
         @if(($backupHealth['show'] ?? false) && !empty($backupHealth['types']))
             @php
                 $backupColors = [
-                    'fresh'   => ['border' => 'border-emerald-500/40', 'bg' => 'bg-emerald-900/30', 'text' => 'text-emerald-300', 'icon' => '✅', 'label' => 'all fresh'],
-                    'stale'   => ['border' => 'border-amber-500/40',   'bg' => 'bg-amber-900/30',   'text' => 'text-amber-300',   'icon' => '⚠️', 'label' => 'one stale'],
-                    'missing' => ['border' => 'border-red-500/40',      'bg' => 'bg-red-900/30',      'text' => 'text-red-300',      'icon' => '🚨', 'label' => 'one missing'],
+                    // FIX (2026-08-31): added the missing 'state' key. The status
+                    // badge below reads $tc['state'] — x-status-badge expects the
+                    // shared four-state vocabulary (healthy/warning/critical/...),
+                    // which $backupColors never had, so Master Control 500'd with
+                    // "Undefined array key state" as soon as backupHealth was shown.
+                    'fresh'   => ['border' => 'border-emerald-500/40', 'bg' => 'bg-emerald-900/30', 'text' => 'text-emerald-300', 'icon' => '✅', 'label' => 'all fresh', 'state' => 'healthy'],
+                    'stale'   => ['border' => 'border-amber-500/40',   'bg' => 'bg-amber-900/30',   'text' => 'text-amber-300',   'icon' => '⚠️', 'label' => 'one stale', 'state' => 'warning'],
+                    'missing' => ['border' => 'border-red-500/40',      'bg' => 'bg-red-900/30',      'text' => 'text-red-300',      'icon' => '🚨', 'label' => 'one missing', 'state' => 'critical'],
                 ];
                 $bh = $backupHealth['worst'];
                 $bc = $backupColors[$bh];
@@ -103,7 +108,7 @@
                         <div class="border border-gray-700/50 rounded-lg px-3 py-2 text-xs bg-black/30">
                             <div class="flex items-center justify-between mb-1">
                                 <span class="font-semibold text-gray-300">{{ $type['label'] }}</span>
-                                <x-status-badge :state="$tc['state']" :label="$type['status']" />
+                                <x-status-badge :state="$tc['state'] ?? 'unknown'" :label="$type['status']" />
                             </div>
                             <div class="text-gray-500">last run: <span class="text-gray-400">{{ $lastLabel }}</span></div>
                         </div>

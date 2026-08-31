@@ -83,6 +83,25 @@ fi
 #    had to be run manually after each deploy).
 php /app/artisan storage:link --force
 
+# 3b. ANTI-STALE VIEW GUARD (2026-08-31): recompile every Blade view from the
+#     source files actually present in THIS image, on every container start.
+#     `view:cache` clears the compiled-view directory first, then recompiles
+#     from source — so any compiled view left over from a PREVIOUS deploy
+#     (e.g. persisted by a storage volume mount that shadows
+#     storage/framework/views, or baked by an older build) is discarded.
+#     WHY: Laravel only recompiles a view when the SOURCE file's mtime is
+#     newer than the COMPILED file's mtime. Re-deployed source files can
+#     carry OLDER mtimes than persisted compiled views, in which case Laravel
+#     happily serves the stale compiled view forever. That is exactly the
+#     production incident of 2026-08-31: admin/galleries/edit.blade.php
+#     500'd with "syntax error, unexpected end of file, expecting elseif or
+#     else or endif" from a compiled view that no longer matched its (fixed)
+#     source. Non-fatal: if this fails we warn and continue — Laravel then
+#     recompiles lazily at render time.
+if ! php /app/artisan view:cache; then
+    echo "WARNING: php artisan view:cache failed at container start — compiled views may be stale. Investigate before serving traffic." >&2
+fi
+
 # NOTE: Do NOT run `php artisan config:cache` anywhere in this pipeline.
 # Once config is cached, Laravel's LoadEnvironmentVariables bootstrapper
 # skips loading .env entirely (by design). In this Coolify setup, secrets

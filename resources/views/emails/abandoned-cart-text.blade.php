@@ -9,9 +9,26 @@ You started upgrading to {{ ucfirst($pendingUpgrade->plan) }} but didn't finish 
     // actually started — recurring vs one-time (see abandoned-cart.blade.php).
     $recurringProductId = config('services.2checkout.recurring_product_id_' . $pendingUpgrade->plan);
     $isRecurringCheckout = $recurringProductId && (string) $pendingUpgrade->product_id === (string) $recurringProductId;
+
+    // FIX (2026-08-31): the price line used inline @if/@else/@endif directives
+    // GLUED to word characters (e.g. "/month@else{{ ... }}@endif" and
+    // "anytime@else ... purchase@endif"). Blade's \B@ regex does not parse a
+    // directive that is attached directly to a word character, so the @else /
+    // @endif on these two lines were rendered as literal text. The @if still
+    // compiled, the closing @endif did not — the template compiled to PHP with
+    // an unclosed if(): and crashed with "syntax error, unexpected end of file,
+    // expecting elseif or else or endif" whenever the abandoned-cart email was
+    // rendered. Computing the strings here keeps the output identical while
+    // removing the fragile inline directives entirely.
+    $priceLine = $isRecurringCheckout
+        ? '$' . config('services.2checkout.recurring_price_' . $pendingUpgrade->plan . '_monthly', $pendingUpgrade->plan === 'studio' ? '14.99' : '4.99') . '/month'
+        : ($pendingUpgrade->plan === 'studio' ? '$99 one-time' : '$29 one-time');
+    $billingNote = $isRecurringCheckout
+        ? 'Monthly subscription — cancel anytime'
+        : 'Lifetime access — one-time purchase';
 @endphp
-{{ ucfirst($pendingUpgrade->plan) }} Plan — @if($isRecurringCheckout)${{ config('services.2checkout.recurring_price_' . $pendingUpgrade->plan . '_monthly', $pendingUpgrade->plan === 'studio' ? '14.99' : '4.99') }}/month@else{{ $pendingUpgrade->plan === 'studio' ? '$99 one-time' : '$29 one-time' }}@endif
-@if($isRecurringCheckout)Monthly subscription — cancel anytime@else Lifetime access — one-time purchase@endif
+{{ ucfirst($pendingUpgrade->plan) }} Plan — {{ $priceLine }}
+{{ $billingNote }}
 
 @if($pendingUpgrade->plan === 'pro')
 What you'll unlock:

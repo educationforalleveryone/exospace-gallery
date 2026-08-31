@@ -1,6 +1,16 @@
+@php
+    // FIX (2026-08-31): this was `:title="@yield('form-title', 'New event')"`.
+    // Blade compiles component tags BEFORE directives, so the raw @yield text
+    // was embedded verbatim into the component's argument array and, being
+    // inside an emitted <?php block, was never compiled further — PHP then
+    // parsed it as error-suppression + yield('form-title', 'New event') and
+    // died with "syntax error, unexpected token ','" (yield takes one arg).
+    // Pulling the section into a plain variable is the safe equivalent.
+    $formTitle = $__env->yieldContent('form-title') ?: 'New event';
+@endphp
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header :title="@yield('form-title', 'New event')" :back="route('admin.galleries.events.index', $gallery)" backLabel="Events"/>
+        <x-page-header :title="$formTitle" :back="route('admin.galleries.events.index', $gallery)" backLabel="Events"/>
     </x-slot>
 
     <div class="page-shell-narrow">
