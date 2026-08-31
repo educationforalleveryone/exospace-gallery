@@ -282,4 +282,13 @@ return [
         'redirect'      => env('GITHUB_REDIRECT_URI', '/auth/github/callback'),
     ],
 
+    // ── Contact form notification address ──────────────────────────────
+    // ContactController used to mail config('mail.from.address')
+    // (noreply@exospace.gallery) — a send-only address with no inbox,
+    // so every submission bounced silently. Set CONTACT_FORM_EMAIL in
+    // .env to a real, monitored inbox.
+    'contact_form' => [
+        'email' => env('CONTACT_FORM_EMAIL', 'admin@exospace.gallery'),
+    ],
+
 ];

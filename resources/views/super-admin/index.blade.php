@@ -302,7 +302,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($retention['cohorts'] as $cohort)
+                        @forelse($retention['cohorts'] as $cohort)
                             <tr class="border-t border-gray-800/60">
                                 <td class="py-1.5 pr-3 text-gray-300 whitespace-nowrap">{{ $cohort['label'] }}</td>
                                 <td class="py-1.5 px-2 text-right text-gray-400">{{ number_format($cohort['size']) }}</td>
@@ -341,7 +341,7 @@
                                     <p class="text-xs mt-1">Cohorts appear once the first users register. Check back after your first week of signups.</p>
                                 </td>
                             </tr>
-                        @endforeach
+                        @endforelse
                     </tbody>
                 </table>
             </div>
