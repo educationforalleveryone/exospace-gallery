@@ -57,6 +57,27 @@ class VenueTemplate extends Model
     /** Room layouts supported by the 3D viewer. */
     public const LAYOUTS = ['square', 'corridor', 'l-shape', 'rotunda'];
 
+    /**
+     * Iteration 5 "Authoring" (§9.3): the stable, flat visual_config keys
+     * the super-admin structured form manages directly. EVERYTHING ELSE in
+     * visual_config — structure descriptors (IT3), structure_pass /
+     * glazing_wall / sun_shadows gates, placement, tier_fallbacks, future
+     * pipeline pastes — flows through the advanced raw-JSON field and is
+     * preserved verbatim on structured saves.
+     */
+    public const STRUCTURED_VISUAL_KEYS = [
+        'wall_height', 'wall_depth', 'ceiling_type', 'ceiling_height',
+        'background_color', 'fog_color', 'fog_near', 'fog_far',
+        'ambient_color', 'ambient_intensity', 'spot_intensity',
+        'fill_intensity', 'tone_mapping_exposure', 'frame_override',
+    ];
+
+    /** The stable material_config keys the structured form manages. */
+    public const STRUCTURED_MATERIAL_KEYS = [
+        'wall_color', 'wall_roughness', 'wall_metalness', 'wall_normal_strength',
+        'floor_color', 'floor_roughness', 'floor_metalness', 'floor_normal_strength',
+    ];
+
     protected $fillable = [
         // Identity
         'name', 'slug', 'description',
@@ -82,7 +103,7 @@ class VenueTemplate extends Model
 
         // Status & discovery
         'is_active', 'is_featured', 'is_draft', 'sort_order',
-        'view_count',
+        'view_count', 'archived_at',
 
         // Ownership & versioning
         'author_id', 'version', 'published_at',
@@ -106,6 +127,7 @@ class VenueTemplate extends Model
         'view_count'   => 'integer',
 
         'published_at' => 'datetime',
+        'archived_at'  => 'datetime',
     ];
 
     protected $attributes = [
@@ -170,9 +192,21 @@ class VenueTemplate extends Model
     //  Scopes
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Iteration 5 "Authoring" (roadmap P2.1): `active()` is THE choke point
+     * for every venue-selection surface — customer picker (forUser), public
+     * venue pages, walkable previews, discover filters and SEO renderers all
+     * route through here. An ARCHIVED venue (archived_at set) is retired
+     * from selection everywhere, in one line.
+     *
+     * Deliberately NOT applied to: the Gallery#venueTemplate relation and
+     * the view-count job — an archived venue keeps SERVING every gallery
+     * that already uses it (archive must never break a live show), it only
+     * stops being choosable.
+     */
     public function scopeActive(Builder $q): Builder
     {
-        return $q->where('is_active', true);
+        return $q->where('is_active', true)->whereNull('archived_at');
     }
 
     public function scopePublished(Builder $q): Builder
@@ -204,6 +238,40 @@ class VenueTemplate extends Model
     // ─────────────────────────────────────────────────────────────────────
     //  Accessors & helpers
     // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Iteration 5 "Authoring": visual_config keys BEYOND the structured
+     * form — prefills the advanced raw-JSON textarea on the edit screen so
+     * structure/gate/placement keys round-trip through a structured save.
+     */
+    public function advancedVisualConfig(): array
+    {
+        return array_diff_key($this->visual_config ?? [], array_flip(self::STRUCTURED_VISUAL_KEYS));
+    }
+
+    /**
+     * Iteration 5 "Authoring": archived = retired from selection, still
+     * serving existing galleries, restorable in one click. Distinct from
+     * is_active (pause toggle) — see scopeActive().
+     */
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    /**
+     * Per-venue conversion rollup (§9.2 #6): galleries created per 1,000
+     * venue views. Null when the venue has no views yet — a ratio against
+     * zero is a lie, not a zero.
+     */
+    public function conversionRate(): ?float
+    {
+        if (($this->view_count ?? 0) <= 0) {
+            return null;
+        }
+
+        return round((($this->galleries_count ?? $this->galleries()->count()) / $this->view_count) * 1000, 1);
+    }
 
     public function isAccessibleBy(User $user): bool
     {

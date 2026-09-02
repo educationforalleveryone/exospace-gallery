@@ -425,6 +425,29 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     Route::put   ('venues/{venue}',                    [VenueTemplateController::class, 'update'])->name('venues.update');
     Route::patch ('venues/{venue}/toggle',             [VenueTemplateController::class, 'toggle'])->name('venues.toggle');
     Route::patch ('venues/{venue}/toggle-featured',    [VenueTemplateController::class, 'toggleFeatured'])->name('venues.toggle-featured');
+
+    // ── Iteration 5 "Authoring" (roadmap P2.1) ─────────────────────────────
+    // The in-product authoring loop: clone → tweak → preview → publish →
+    // rollback → retire. Every route is additive and gated behind the
+    // venue_authoring flag; rollback = FEATURE_FLAG_VENUE_AUTHORING=false
+    // (routes 404, UI affordances hide, snapshot capture pauses) — the
+    // core CRUD above keeps working untouched. NOTE: `clone` is a PHP
+    // reserved word, hence cloneVenue().
+    Route::post  ('venues/{venue}/clone',              [VenueTemplateController::class, 'cloneVenue'])->name('venues.clone')
+          ->middleware('feature_flag:venue_authoring');
+    Route::patch ('venues/{venue}/publish',            [VenueTemplateController::class, 'publish'])->name('venues.publish')
+          ->middleware('feature_flag:venue_authoring');
+    Route::patch ('venues/{venue}/unpublish',          [VenueTemplateController::class, 'unpublish'])->name('venues.unpublish')
+          ->middleware('feature_flag:venue_authoring');
+    Route::patch ('venues/{venue}/unarchive',          [VenueTemplateController::class, 'unarchive'])->name('venues.unarchive')
+          ->middleware('feature_flag:venue_authoring');
+    Route::post  ('venues/{venue}/snapshots/{snapshot}/restore', [VenueTemplateController::class, 'restoreSnapshot'])->name('venues.snapshots.restore')
+          ->middleware('feature_flag:venue_authoring');
+
+    // DELETE is now ARCHIVE (§9.2 #4 — hard delete is gone; galleries using
+    // the venue are guarded by the confirm_usage flag and keep rendering).
+    // Deliberately NOT flag-gated: archive is strictly safer than the hard
+    // delete it replaces, so there is no rollback-to-hard-delete path.
     Route::delete('venues/{venue}',                    [VenueTemplateController::class, 'destroy'])->name('venues.destroy');
 
     // ── Featured Exhibitions (Round 4) ──────────────────────────────────────

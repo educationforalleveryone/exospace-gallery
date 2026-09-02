@@ -44,6 +44,7 @@
                         <th class="px-4 py-3 text-left">Capacity</th>
                         <th class="px-4 py-3 text-left">Galleries</th>
                         <th class="px-4 py-3 text-left">Views</th>
+                        <th class="px-4 py-3 text-left" title="Galleries created per 1,000 venue views">Conv.</th>
                         <th class="px-4 py-3 text-left">Assets</th>
                         <th class="px-4 py-3 text-left">Status</th>
                         <th class="px-4 py-3 text-left">Actions</th>
@@ -51,7 +52,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-700/50">
                     @forelse($venues as $venue)
-                        <tr class="{{ $venue->is_active ? '' : 'opacity-50' }} {{ $venue->is_draft ? 'bg-amber-900/5' : '' }}">
+                        <tr class="{{ $venue->isArchived() ? 'opacity-40 bg-gray-900/40' : ($venue->is_active ? '' : 'opacity-50') }} {{ $venue->is_draft && !$venue->isArchived() ? 'bg-amber-900/5' : '' }}">
                             {{-- Thumbnail / preview --}}
                             <td class="px-4 py-3">
                                 <div class="w-16 h-12 rounded overflow-hidden bg-gray-900 border border-gray-700 flex items-center justify-center">
@@ -70,7 +71,9 @@
                                     @if($venue->is_featured)
                                         <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.539 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
                                     @endif
-                                    @if($venue->is_draft)
+                                    @if($venue->isArchived())
+                                        <span class="text-xs px-1.5 py-0.5 rounded bg-red-900/40 text-red-400">ARCHIVED</span>
+                                    @elseif($venue->is_draft)
                                         <span class="text-xs px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400">DRAFT</span>
                                     @endif
                                 </div>
@@ -105,6 +108,11 @@
                             {{-- Views --}}
                             <td class="px-4 py-3 text-gray-400">{{ number_format($venue->view_count) }}</td>
 
+                            {{-- Conversion rollup (§9.2 #6): galleries per 1,000 views --}}
+                            <td class="px-4 py-3 text-gray-400" title="Galleries created per 1,000 venue views">
+                                {{ $venue->conversionRate() !== null ? number_format($venue->conversionRate(), 1) : '—' }}
+                            </td>
+
                             {{-- Asset badges --}}
                             <td class="px-4 py-3">
                                 <div class="flex gap-1 flex-wrap">
@@ -138,26 +146,58 @@
 
                             {{-- Actions --}}
                             <td class="px-4 py-3">
-                                <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-3 flex-wrap">
+                                    @if($previewsEnabled && !$venue->isArchived())
+                                        <a href="{{ route('venues.preview', $venue->slug) }}" target="_blank" rel="noopener" class="p-1.5 -m-1 rounded text-xs text-emerald-400 hover:text-emerald-300 hover:bg-white/[0.06] transition" title="Walk the venue (public preview)">Preview</a>
+                                    @endif
                                     <a href="{{ route('super.venues.edit', $venue) }}" class="p-1.5 -m-1 rounded text-xs text-brand-400 hover:text-brand-300 hover:bg-white/[0.06] transition">Edit</a>
+                                    @if($authoringEnabled)
+                                        <form method="POST" action="{{ route('super.venues.clone', $venue) }}" class="inline">
+                                            @csrf
+                                            <button class="p-1.5 -m-1 rounded text-xs text-gray-400 hover:text-gray-200 hover:bg-white/[0.06] transition" title="Clone as draft">Clone</button>
+                                        </form>
+                                        @if(!$venue->isArchived())
+                                            @if($venue->is_draft)
+                                                <form method="POST" action="{{ route('super.venues.publish', $venue) }}" class="inline">
+                                                    @csrf @method('PATCH')
+                                                    <button class="p-1.5 -m-1 rounded text-xs text-emerald-400 hover:text-emerald-300 hover:bg-white/[0.06] transition" title="Make selectable in the picker">Publish</button>
+                                                </form>
+                                            @else
+                                                <form method="POST" action="{{ route('super.venues.unpublish', $venue) }}" class="inline">
+                                                    @csrf @method('PATCH')
+                                                    <button class="p-1.5 -m-1 rounded text-xs text-gray-500 hover:text-amber-400 hover:bg-white/[0.06] transition" title="Back to draft (hidden from customers)">Unpublish</button>
+                                                </form>
+                                            @endif
+                                        @endif
+                                    @endif
                                     <form method="POST" action="{{ route('super.venues.toggle-featured', $venue) }}" class="inline">
                                         @csrf @method('PATCH')
                                         <button class="p-1.5 -m-1 rounded text-xs {{ $venue->is_featured ? 'text-amber-400 hover:text-gray-500' : 'text-gray-500 hover:text-amber-400' }} hover:bg-white/[0.06] transition" title="Toggle featured">
-                                            {{ $venue->is_featured ? '★ Featured' : '☆ Feature' }}
+                                            {{ $venue->is_featured ? '★' : '☆' }}
                                         </button>
                                     </form>
-                                    <form method="POST" action="{{ route('super.venues.destroy', $venue) }}"
-                                          data-confirm="Delete venue &quot;{{ $venue->name }}&quot;? Galleries using it will fall back to the default venue." data-confirm-button="Delete"
-                                          class="inline">
-                                        @csrf @method('DELETE')
-                                        <button class="p-1.5 -m-1 rounded text-xs text-red-500 hover:text-red-400 hover:bg-white/[0.06] transition">Delete</button>
-                                    </form>
+                                    @if($venue->isArchived())
+                                        @if($authoringEnabled)
+                                            <form method="POST" action="{{ route('super.venues.unarchive', $venue) }}" class="inline">
+                                                @csrf @method('PATCH')
+                                                <button class="p-1.5 -m-1 rounded text-xs text-emerald-400 hover:text-emerald-300 hover:bg-white/[0.06] transition" title="Return to selection">Restore</button>
+                                            </form>
+                                        @endif
+                                    @else
+                                        <form method="POST" action="{{ route('super.venues.destroy', $venue) }}"
+                                              data-confirm="Archive venue &quot;{{ $venue->name }}&quot;? {{ $venue->galleries_count }} gallery(ies) use it — they keep rendering it; it just leaves every picker." data-confirm-button="Archive"
+                                              class="inline">
+                                            @csrf @method('DELETE')
+                                            <input type="hidden" name="confirm_usage" value="1">
+                                            <button class="p-1.5 -m-1 rounded text-xs text-red-500 hover:text-red-400 hover:bg-white/[0.06] transition">Archive</button>
+                                        </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="px-4 py-12 text-center text-gray-500">
+                            <td colspan="11" class="px-4 py-12 text-center text-gray-500">
                                 No venue templates found. <a href="{{ route('super.venues.create') }}" class="text-brand-400 hover:text-brand-300">Create your first one</a>.
                             </td>
                         </tr>
@@ -173,12 +213,13 @@
 
         {{-- Helper card --}}
         <div class="mt-6 bg-gray-800/50 border border-gray-700/50 rounded-xl p-5 text-sm text-gray-400">
-            <h3 class="text-gray-200 font-semibold mb-2">How venue templates work</h3>
+            <h3 class="text-gray-200 font-semibold mb-2">The authoring loop (clone → tweak → preview → publish → rollback → retire)</h3>
             <ul class="space-y-1 list-disc list-inside">
-                <li>The <code class="text-brand-400">visual_config</code>, <code class="text-brand-400">material_config</code>, <code class="text-brand-400">decorations</code>, and <code class="text-brand-400">lighting_fixtures</code> JSON fields are the single source of truth for how the 3D viewer renders a venue.</li>
-                <li>3D preview models (GLB), HDRI environment maps, and default ambient audio can be uploaded per-venue.</li>
-                <li>The 3D viewer reads the JSON config via the <code class="text-brand-400">VenueConfigExporter</code> service. The legacy JS switch in <code class="text-brand-400">view.blade.php</code> is kept as a fallback for backward compatibility.</li>
-                <li>Galleries using a deleted venue fall back to the default "white-cube" venue automatically.</li>
+                <li><strong class="text-gray-300">Clone</strong> copies a venue (config + assets) as a draft — venue #12 starts as a copy of its family sibling, never a blank form.</li>
+                <li>Every save snapshots the overwritten state (last 5 kept). <strong class="text-gray-300">Restore</strong> on the edit page rolls back in one click — and the exporter cache busts on venue save, so rollback is visible immediately.</li>
+                <li>The edit page embeds the <strong class="text-gray-300">live walkable preview</strong>; saving reloads it. Publish only when the walkthrough is true.</li>
+                <li><strong class="text-gray-300">Archive</strong> replaces delete: archived venues leave every picker but keep serving galleries already using them. Restore is one click.</li>
+                <li><strong class="text-gray-300">Conv.</strong> is galleries created per 1,000 venue views — the catalog signal for retirement and family-investment decisions.</li>
             </ul>
         </div>
     </div>

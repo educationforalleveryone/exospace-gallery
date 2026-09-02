@@ -27,8 +27,21 @@ class VenueTemplateRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        // Iteration 5 "Authoring" (§9.3): the structured visual/material
+        // form posts per-key inputs where an EMPTY field means "inherit the
+        // viewer default". Strip empty values BEFORE validation runs so
+        // nullable / Rule::in / regex rules never see blank strings.
+        foreach (['visual_config', 'material_config'] as $field) {
+            if ($this->has($field) && is_array($this->input($field))) {
+                $this->merge([$field => array_filter(
+                    $this->input($field),
+                    fn ($v) => $v !== '' && $v !== null
+                )]);
+            }
+        }
+
         // Decode JSON-as-string fields submitted by the textarea editors.
-        foreach (['tags', 'visual_config', 'material_config', 'decorations', 'lighting_fixtures', 'supported_layouts'] as $field) {
+        foreach (['tags', 'visual_config', 'material_config', 'decorations', 'lighting_fixtures', 'supported_layouts', 'visual_config_advanced'] as $field) {
             if ($this->has($field) && is_string($this->input($field))) {
                 $raw = trim($this->input($field));
                 if ($raw === '') {
@@ -90,17 +103,20 @@ class VenueTemplateRequest extends FormRequest
             'material_config.floor_metalness'     => ['nullable', 'numeric', 'min:0', 'max:1'],
             'material_config.floor_normal_strength' => ['nullable', 'numeric', 'min:0', 'max:5'],
 
-            'decorations'         => ['nullable', 'array'],
+            'decorations'         => ['nullable', 'array', 'max:100'],
             'decorations.*.type'          => ['required_with:decorations', 'string'],
             'decorations.*.model_path'    => ['required_with:decorations', 'string'],
             'decorations.*.position'      => ['required_with:decorations', 'array', 'size:3'],
+            'decorations.*.position.*'    => ['numeric'],
             'decorations.*.rotation'      => ['nullable', 'array', 'size:3'],
+            'decorations.*.rotation.*'    => ['numeric'],
             'decorations.*.scale'         => ['nullable'],
             'decorations.*.plan_required' => ['nullable', 'string', Rule::in(VenueTemplate::PLANS)],
 
-            'lighting_fixtures'   => ['nullable', 'array'],
+            'lighting_fixtures'   => ['nullable', 'array', 'max:60'],
             'lighting_fixtures.*.type'        => ['required_with:lighting_fixtures', 'string', Rule::in(['point', 'spot', 'directional', 'strip'])],
             'lighting_fixtures.*.position'    => ['required_with:lighting_fixtures', 'array', 'size:3'],
+            'lighting_fixtures.*.position.*'  => ['numeric'],
             'lighting_fixtures.*.color'       => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
             'lighting_fixtures.*.intensity'   => ['nullable', 'numeric', 'min:0', 'max:20'],
             'lighting_fixtures.*.cast_shadow' => ['nullable', 'boolean'],
@@ -109,6 +125,15 @@ class VenueTemplateRequest extends FormRequest
 
             'supported_layouts'   => ['nullable', 'array'],
             'supported_layouts.*' => ['string', Rule::in(VenueTemplate::LAYOUTS)],
+
+            // Iteration 5 "Authoring" (§9.3): the structured visual/material
+            // inputs only manage the stable flat keys. This field carries the
+            // REST of visual_config — structure descriptors (IT3),
+            // structure_pass / glazing_wall / sun_shadows gates, placement,
+            // tier_fallbacks, anything a 3D pipeline pastes in. Schema hint,
+            // not schema prison: decoded to an array (or null), merged over
+            // the structured keys by the controller.
+            'visual_config_advanced' => ['nullable', 'array'],
 
             'is_active'    => ['boolean'],
             'is_featured'  => ['boolean'],
@@ -135,6 +160,49 @@ class VenueTemplateRequest extends FormRequest
             'preview_model.mimes'                  => 'Preview model must be a .glb or .gltf file.',
             'hdri_file.mimes'                      => 'HDRI must be a .hdr or .exr file.',
             'slug.regex'                           => 'Slug may only contain lowercase letters, numbers, and hyphens.',
+            'visual_config_advanced.array'         => 'The advanced visual_config must be a valid JSON object (e.g. {"structure": []}).',
+            'decorations.max'                      => 'A venue can hold at most 100 decoration props (draw-call budget, §11.4).',
+            'lighting_fixtures.max'                => 'A venue can declare at most 60 custom light fixtures.',
         ];
+    }
+
+    /**
+     * Iteration 5 "Authoring" (§9.3): semantic-slip validation — the cheap
+     * cross-field checks that prevent silently broken venues. These are
+     * mistakes a JSON editor makes easily and a walkthrough catches late:
+     * fog that ends before it starts, a ceiling below the walls, props
+     * parked at non-numeric coordinates.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $visual = $this->input('visual_config');
+
+            if (!is_array($visual)) {
+                return;
+            }
+
+            // Fog must extend forward, not fold inside itself.
+            if (isset($visual['fog_near'], $visual['fog_far'])
+                && is_numeric($visual['fog_near'])
+                && is_numeric($visual['fog_far'])
+                && (float) $visual['fog_far'] <= (float) $visual['fog_near']) {
+                $validator->errors()->add(
+                    'visual_config.fog_far',
+                    'Fog far distance must be greater than fog near (far '.((string) $visual['fog_far']).' ≤ near '.((string) $visual['fog_near']).').'
+                );
+            }
+
+            // A ceiling can never sit below the walls that hold it.
+            if (isset($visual['ceiling_height'], $visual['wall_height'])
+                && is_numeric($visual['ceiling_height'])
+                && is_numeric($visual['wall_height'])
+                && (float) $visual['ceiling_height'] < (float) $visual['wall_height']) {
+                $validator->errors()->add(
+                    'visual_config.ceiling_height',
+                    'Ceiling height ('.((string) $visual['ceiling_height']).') cannot be lower than wall height ('.((string) $visual['wall_height']).').'
+                );
+            }
+        });
     }
 }

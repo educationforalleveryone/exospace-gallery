@@ -33,6 +33,7 @@
  *   - 'command_palette' — ITERATION-3 ⌘K command palette in admin (default: true)
  *   - 'venue_previews' — Iteration 1 walkable venue previews (default: true)
  *   - 'arrival_choreography' — Iteration 4 composed first frame (default: true)
+ *   - 'venue_authoring' — Iteration 5 admin authoring suite (default: true)
  */
 
 return [
@@ -82,6 +83,19 @@ return [
         // restored 1:1 (the dolly ends at the exact spawn point RoomBuilder
         // always set, so off-state behaviour is byte-identical to pre-IT4).
         'arrival_choreography' => filter_var(env('FEATURE_FLAG_ARRIVAL', true), \FILTER_VALIDATE_BOOLEAN),
+
+        // Iteration 5 "Authoring" (roadmap P2.1): the in-product authoring
+        // loop for venue templates — clone, snapshot history + restore,
+        // archive-with-usage-guard (replaces hard delete), explicit
+        // publish/unpublish, and the admin live-preview iframe + snapshot
+        // list on the edit page. Structured config forms + semantic
+        // validation + the §10.7 cache-bust fix (landed in IT2) are NOT
+        // gated — they improve the existing form in place. Rollback:
+        // FEATURE_FLAG_VENUE_AUTHORING=false → clone/publish/unpublish/
+        // unarchive/snapshot-restore routes 404, index + edit affordances
+        // hide, update() stops capturing snapshots. DELETE-as-archive
+        // stays (strictly safer than the hard delete it replaced).
+        'venue_authoring' => filter_var(env('FEATURE_FLAG_VENUE_AUTHORING', true), \FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];

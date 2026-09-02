@@ -176,31 +176,203 @@
 </div>
 
 {{-- ─────────────── Section: Visual config ─────────────── --}}
+@php
+    // Iteration 5 "Authoring" (§9.3): structured inputs for the stable flat
+    // keys, raw-JSON textarea for everything else. Per-key old() keeps the
+    // admin's typed values across validation failures.
+    $vc = $venue->visual_config ?? [];
+    $mc = $venue->material_config ?? [];
+    $vcv = fn (string $key) => old('visual_config.'.$key, $vc[$key] ?? '');
+    $mcv = fn (string $key) => old('material_config.'.$key, $mc[$key] ?? '');
+
+    // Advanced prefill: existing keys the structured form does not model
+    // (structure descriptors, gates, placement, tier_fallbacks…). After a
+    // validation failure the posted JSON string (or decoded array) wins so
+    // nothing the admin typed is lost.
+    $advancedOld = old('visual_config_advanced');
+    $advancedJson = is_string($advancedOld)
+        ? $advancedOld
+        : json_encode($advancedOld !== null && $advancedOld !== [] ? $advancedOld : $venue->advancedVisualConfig(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+@endphp
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-1 flex items-center gap-2">
         <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">4</span>
         Visual configuration
     </h3>
-    <p class="text-xs text-gray-500 mb-4">This JSON drives the 3D viewer. Edit values directly or paste a config from your 3D-model pipeline. All fields are optional — the viewer falls back to defaults.</p>
+    <p class="text-xs text-gray-500 mb-4">The common keys get real inputs — leave a field blank to inherit the viewer default. Structure descriptors, tier gates and pipeline pastes live in the advanced JSON box below and are preserved verbatim on save.</p>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {{-- visual_config JSON --}}
-        <div class="md:col-span-2">
-            <label class="label-text mb-1.5">visual_config <span class="text-gray-500 text-xs">(JSON)</span></label>
-            <textarea name="visual_config" rows="14"
-                      class="input-base font-mono text-xs {{ $errors->has('visual_config') ? 'input-error' : '' }}" @error('visual_config') aria-invalid="true" aria-describedby="visual_config-error" @enderror
-                      placeholder='{"wall_height": 4, "fog_color": "0x0f0f0f", ...}'>{{ old('visual_config', $venue->visual_config ? json_encode($venue->visual_config, JSON_PRETTY_PRINT) : '') }}</textarea>
-            @error('visual_config')<p id="visual_config-error" class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
-            <p class="text-xs text-gray-500 mt-1">Fields: wall_height, wall_depth, ceiling_type (flat|beamed|glass|none), ceiling_height, background_color (0xRRGGBB), fog_color, fog_near, fog_far, ambient_color, ambient_intensity, spot_intensity, fill_intensity, tone_mapping_exposure, frame_override (gold|silver|bronze|black|white|null)</p>
+    {{-- Geometry --}}
+    <p class="text-xs uppercase tracking-wider text-gray-500 mb-2">Geometry</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+        <div>
+            <label class="label-text mb-1.5">Wall height (m)</label>
+            <input type="number" step="0.01" min="1" max="50" name="visual_config[wall_height]" value="{{ $vcv('wall_height') }}" placeholder="4"
+                   class="input-base {{ $errors->has('visual_config.wall_height') ? 'input-error' : '' }}">
+            @error('visual_config.wall_height')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
         </div>
+        <div>
+            <label class="label-text mb-1.5">Wall depth (m)</label>
+            <input type="number" step="0.01" min="0.05" max="5" name="visual_config[wall_depth]" value="{{ $vcv('wall_depth') }}" placeholder="0.2"
+                   class="input-base {{ $errors->has('visual_config.wall_depth') ? 'input-error' : '' }}">
+            @error('visual_config.wall_depth')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Ceiling height (m)</label>
+            <input type="number" step="0.01" min="1" max="50" name="visual_config[ceiling_height]" value="{{ $vcv('ceiling_height') }}" placeholder="4.6"
+                   class="input-base {{ $errors->has('visual_config.ceiling_height') ? 'input-error' : '' }}">
+            @error('visual_config.ceiling_height')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label for="vc-ceiling-type" class="label-text mb-1.5">Ceiling type</label>
+            <select id="vc-ceiling-type" name="visual_config[ceiling_type]" class="input-base">
+                <option value="">— inherit —</option>
+                @foreach(['flat', 'beamed', 'glass', 'none'] as $ct)
+                    <option value="{{ $ct }}" {{ (string) $vcv('ceiling_type') === $ct ? 'selected' : '' }}>{{ $ct }}</option>
+                @endforeach
+            </select>
+        </div>
+    </div>
 
-        {{-- material_config JSON --}}
-        <div class="md:col-span-2">
-            <label class="label-text mb-1.5">material_config <span class="text-gray-500 text-xs">(JSON)</span></label>
-            <textarea name="material_config" rows="10"
-                      class="input-base font-mono text-xs {{ $errors->has('material_config') ? 'input-error' : '' }}" @error('material_config') aria-invalid="true" aria-describedby="material_config-error" @enderror
-                      placeholder='{"wall_roughness": 0.9, "floor_metalness": 0.2, ...}'>{{ old('material_config', $venue->material_config ? json_encode($venue->material_config, JSON_PRETTY_PRINT) : '') }}</textarea>
-            @error('material_config')<p id="material_config-error" class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+    {{-- Colors --}}
+    <p class="text-xs uppercase tracking-wider text-gray-500 mb-2">Colors <span class="normal-case tracking-normal text-gray-600">(0xRRGGBB)</span></p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div>
+            <label class="label-text mb-1.5">Background</label>
+            <input type="text" name="visual_config[background_color]" value="{{ $vcv('background_color') }}" placeholder="0x0f0f0f"
+                   class="input-base font-mono {{ $errors->has('visual_config.background_color') ? 'input-error' : '' }}">
+            @error('visual_config.background_color')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Fog</label>
+            <input type="text" name="visual_config[fog_color]" value="{{ $vcv('fog_color') }}" placeholder="0x0f0f0f"
+                   class="input-base font-mono {{ $errors->has('visual_config.fog_color') ? 'input-error' : '' }}">
+            @error('visual_config.fog_color')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Ambient</label>
+            <input type="text" name="visual_config[ambient_color]" value="{{ $vcv('ambient_color') }}" placeholder="0xffffff"
+                   class="input-base font-mono {{ $errors->has('visual_config.ambient_color') ? 'input-error' : '' }}">
+            @error('visual_config.ambient_color')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+    </div>
+
+    {{-- Fog + light --}}
+    <p class="text-xs uppercase tracking-wider text-gray-500 mb-2">Fog &amp; light</p>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-5">
+        <div>
+            <label class="label-text mb-1.5">Fog near</label>
+            <input type="number" step="0.1" min="0" name="visual_config[fog_near]" value="{{ $vcv('fog_near') }}" placeholder="1"
+                   class="input-base {{ $errors->has('visual_config.fog_near') ? 'input-error' : '' }}">
+            @error('visual_config.fog_near')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Fog far <span class="text-gray-500 text-xs">(&gt; near)</span></label>
+            <input type="number" step="0.1" min="0" name="visual_config[fog_far]" value="{{ $vcv('fog_far') }}" placeholder="18"
+                   class="input-base {{ $errors->has('visual_config.fog_far') ? 'input-error' : '' }}">
+            @error('visual_config.fog_far')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Ambient int.</label>
+            <input type="number" step="0.01" min="0" max="5" name="visual_config[ambient_intensity]" value="{{ $vcv('ambient_intensity') }}" placeholder="0.35"
+                   class="input-base">
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Spot int.</label>
+            <input type="number" step="0.01" min="0" max="10" name="visual_config[spot_intensity]" value="{{ $vcv('spot_intensity') }}" placeholder="2.2"
+                   class="input-base">
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Fill int.</label>
+            <input type="number" step="0.01" min="0" max="5" name="visual_config[fill_intensity]" value="{{ $vcv('fill_intensity') }}" placeholder="0.6"
+                   class="input-base">
+        </div>
+    </div>
+
+    {{-- Exposure + frame --}}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label class="label-text mb-1.5">Tone-mapping exposure</label>
+            <input type="number" step="0.01" min="0" max="3" name="visual_config[tone_mapping_exposure]" value="{{ $vcv('tone_mapping_exposure') }}" placeholder="1.0"
+                   class="input-base">
+        </div>
+        <div>
+            <label for="vc-frame-override" class="label-text mb-1.5">Frame override</label>
+            <select id="vc-frame-override" name="visual_config[frame_override]" class="input-base">
+                <option value="">— inherit —</option>
+                @foreach(['gold', 'silver', 'bronze', 'black', 'white'] as $frame)
+                    <option value="{{ $frame }}" {{ (string) $vcv('frame_override') === $frame ? 'selected' : '' }}>{{ ucfirst($frame) }}</option>
+                @endforeach
+            </select>
+        </div>
+    </div>
+
+    {{-- Advanced: everything the structured form does not model --}}
+    <div class="mt-5 pt-5 border-t border-gray-700/60">
+        <label class="label-text mb-1.5">visual_config — advanced <span class="text-gray-500 text-xs">(raw JSON; structure, gates, placement…)</span></label>
+        <textarea name="visual_config_advanced" rows="7"
+                  class="input-base font-mono text-xs {{ $errors->has('visual_config_advanced') ? 'input-error' : '' }}" @error('visual_config_advanced') aria-invalid="true" aria-describedby="visual_config_advanced-error" @enderror
+                  placeholder='{"structure": [], "structure_pass": "rooms", "tier_fallbacks": {}}'>{{ $advancedJson }}</textarea>
+        @error('visual_config_advanced')<p id="visual_config_advanced-error" class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        <p class="text-xs text-gray-500 mt-1">Merged OVER the structured fields on save (advanced wins on conflict). Saved blank on a new venue = no extra keys. Existing venue keys not modeled above are prefilled here — clearing this box on save removes them.</p>
+        @error('visual_config')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+    </div>
+</div>
+
+{{-- ─────────────── Section: Material config ─────────────── --}}
+<div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
+    <h3 class="text-gray-200 font-semibold mb-1 flex items-center gap-2">
+        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">5</span>
+        Material configuration
+    </h3>
+    <p class="text-xs text-gray-500 mb-4">PBR wall and floor parameters. Blank = viewer default. Roughness/metalness are 0–1.</p>
+
+    <p class="text-xs uppercase tracking-wider text-gray-500 mb-2">Wall</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+        <div>
+            <label class="label-text mb-1.5">Color</label>
+            <input type="text" name="material_config[wall_color]" value="{{ $mcv('wall_color') }}" placeholder="0xf5f5f5"
+                   class="input-base font-mono {{ $errors->has('material_config.wall_color') ? 'input-error' : '' }}">
+            @error('material_config.wall_color')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Roughness</label>
+            <input type="number" step="0.01" min="0" max="1" name="material_config[wall_roughness]" value="{{ $mcv('wall_roughness') }}" placeholder="0.9"
+                   class="input-base">
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Metalness</label>
+            <input type="number" step="0.01" min="0" max="1" name="material_config[wall_metalness]" value="{{ $mcv('wall_metalness') }}" placeholder="0"
+                   class="input-base">
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Normal strength</label>
+            <input type="number" step="0.01" min="0" max="5" name="material_config[wall_normal_strength]" value="{{ $mcv('wall_normal_strength') }}" placeholder="0.5"
+                   class="input-base">
+        </div>
+    </div>
+
+    <p class="text-xs uppercase tracking-wider text-gray-500 mb-2">Floor</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+            <label class="label-text mb-1.5">Color</label>
+            <input type="text" name="material_config[floor_color]" value="{{ $mcv('floor_color') }}" placeholder="0x2a2a2a"
+                   class="input-base font-mono {{ $errors->has('material_config.floor_color') ? 'input-error' : '' }}">
+            @error('material_config.floor_color')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Roughness</label>
+            <input type="number" step="0.01" min="0" max="1" name="material_config[floor_roughness]" value="{{ $mcv('floor_roughness') }}" placeholder="0.6"
+                   class="input-base">
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Metalness</label>
+            <input type="number" step="0.01" min="0" max="1" name="material_config[floor_metalness]" value="{{ $mcv('floor_metalness') }}" placeholder="0.1"
+                   class="input-base">
+        </div>
+        <div>
+            <label class="label-text mb-1.5">Normal strength</label>
+            <input type="number" step="0.01" min="0" max="5" name="material_config[floor_normal_strength]" value="{{ $mcv('floor_normal_strength') }}" placeholder="0.8"
+                   class="input-base">
         </div>
     </div>
 </div>
@@ -208,7 +380,7 @@
 {{-- ─────────────── Section: Decorations & lighting ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-1 flex items-center gap-2">
-        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">5</span>
+        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">6</span>
         Decorations & custom lighting
     </h3>
     <p class="text-xs text-gray-500 mb-4">Decorations are 3D props (GLB files) placed in the room. Custom lighting fixtures are added on top of the preset lighting.</p>
@@ -234,7 +406,7 @@
 {{-- ─────────────── Section: Layouts & defaults ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-4 flex items-center gap-2">
-        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">6</span>
+        <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">7</span>
         Layouts & default settings
     </h3>
 
