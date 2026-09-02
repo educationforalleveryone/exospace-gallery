@@ -86,7 +86,17 @@ class VenueConfigExporter
         // the gallery's updated_at timestamp so any save (title, visual
         // overrides, venue template change) automatically busts the cache.
         // TTL is 1 hour with a 2-hour stale window (flexible = stampede-safe).
-        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}";
+        //
+        // Iteration 2 "Phenomena" (§10.7, landed early per §16.6 — this
+        // iteration edits venue templates, so without this the new identity
+        // would stay invisible up to 1 h + stale window, and a per-venue
+        // config ROLLBACK would stay cached just as long): the key also
+        // includes the VENUE TEMPLATE's updated_at. Previously only gallery
+        // saves busted the cache — saving the venue template (the exact
+        // action an admin takes to fix a venue) did nothing, the documented
+        // "my fix isn't live" trap.
+        $venueTs = $gallery->venueTemplate?->updated_at?->timestamp ?? '0';
+        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}";
 
         return Cache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery) {
             return $this->buildConfig($gallery);

@@ -1,11 +1,21 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ArtworkPlacer — places artworks on walls (square/corridor/l-shape/rotunda)
-// or on easels (circular — sculpture garden + void venues)
+// ArtworkPlacer — places artworks on walls (square/corridor/l-shape/rotunda),
+// on easels (circular — sculpture garden), or FLOATING in space (void venues).
+//
+// Iteration 2 "Phenomena" (roadmap P1.2 / §10.5): the hang style is a
+// PLACEMENT MODE read from the venue's config (visual_config.placement_mode),
+// not slug membership. "Floating artworks in an endless environment" becomes
+// literally true for the void family; the sculpture garden keeps its easels
+// BY IDENTITY (§4.10) because it declares no mode. No new slug knowledge is
+// introduced here (DoD rule #7 — CIRCULAR_VENUES remains legacy-only and is
+// removed in the Iteration 6 consolidation).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
 import { CONFIG, CIRCULAR_VENUES } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
+import { computeFloatLayout } from './PlacementMath.js';
+import { createVenueRng, venueSeedSource } from './Rng.js';
 
 // ── Shared placeholder texture (PERF-C9) ─────────────────────────────────────
 // A 1×1 dark-tinted texture used when neither the real artwork nor a
@@ -30,9 +40,16 @@ export function placeArtworks(data) {
     const slug = this._venueSlug;
     const layout = (this._layoutMeta || {}).type || 'square';
 
-    // Circular venues (sculpture garden + void venues) — easels
+    // Circular venues (sculpture garden + void venues).
+    // §10.5 placement modes: config-declared 'float' hovers the canvases in
+    // space; the legacy default keeps the easel ring (garden keeps its easels
+    // by identity — no mode declared ⇒ no behaviour change anywhere).
     if (CIRCULAR_VENUES.has(slug) || layout === 'circular') {
-        _placeArtworksCircular.call(this, data);
+        if (this._venuePlacementMode === 'float') {
+            _placeArtworksFloating.call(this, data);
+        } else {
+            _placeArtworksCircular.call(this, data);
+        }
         return;
     }
 
@@ -175,6 +192,33 @@ export function _placeArtworksCircular(data) {
 
         // Add an easel under the artwork (procedural — tripod legs + crossbar)
         _addEasel.call(this, x, z, angle);
+    });
+}
+
+// ── FLOAT placement (Iteration 2 — void family) ─────────────────────────
+// Artworks hover in space on the same uniform ring the easels used — no
+// easel, no stand, no wires. Each piece gets a seeded radial wander, a
+// seeded hover height inside the legibility band (1.6 m ± 0.45) and a
+// seeded roll around its view axis, all from the venue's seeded rng — the
+// composition is identical on every load (Iteration 0's determinism
+// contract extends to placement).
+export function _placeArtworksFloating(data) {
+    const radius = this._layoutMeta.radius;
+
+    // addVenueStructure created this._venueRng BEFORE placement runs
+    // (RoomBuilder calls it for every circular venue first). The fallback
+    // only exists so a pathological call order can never crash — it draws
+    // from the same seed and is therefore still deterministic.
+    const rng = this._venueRng || createVenueRng(venueSeedSource(this._venueSlug));
+    const layout = computeFloatLayout(this.artworkImages.length, radius, rng);
+
+    this.artworkImages.forEach((img, i) => {
+        const p = layout[i];
+        const { group } = this.makeArtworkGroup(img, data);
+        group.position.set(p.x, p.y, p.z);
+        group.lookAt(0, p.y, 0);   // face the centre at its own hover height
+        group.rotateZ(p.roll);     // seeded roll in the canvas plane
+        this.placeAndRegister(group, data);
     });
 }
 

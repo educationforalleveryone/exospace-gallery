@@ -21,8 +21,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
-import { CONFIG, OPEN_AIR_VENUES, CIRCULAR_VENUES } from './config.js';
+import { CONFIG, OPEN_AIR_VENUES, CIRCULAR_VENUES, parseColor } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
+import { addFloorEdgeFade } from './TierEffects.js';
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function buildGallery() {
@@ -314,6 +315,10 @@ export function createRoomLShape(data) {
         minZ: -lenA / 2, maxZ: lenA / 2
     };
     this._layoutMeta = { type: 'l-shape', wingW, lenA, lenB, jZ, zStart, zLimit, aCX, aCZ, bCX, bCZ };
+
+    // Iteration 2: structure parity for l-shape layouts (same rationale as
+    // the rotunda fix — layout choice must not silently drop structure).
+    this.addVenueStructure(data);
 }
 
 // ── ROTUNDA (cylinder) ────────────────────────────────────────────────────────
@@ -373,6 +378,12 @@ export function createRoomRotunda(data) {
     this._rotundaRadius = radius;
     this.roomBounds = { minX: -(radius - 1), maxX: radius - 1, minZ: -(radius - 1), maxZ: radius - 1 };
     this._layoutMeta = { type: 'rotunda', radius };
+
+    // Iteration 2: structure now runs for rotunda layouts too (parity with
+    // square/corridor/circular). Today no slug branch consumes it here, but
+    // admin-created venues with a structure descriptor must not silently
+    // lose their structure based on layout choice.
+    this.addVenueStructure(data);
 }
 
 // ── CIRCULAR (NEW — sculpture garden + void venues) ───────────────────────────
@@ -395,6 +406,10 @@ export function createRoomCircular(data) {
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = !this.isLowEnd;
     this.scene.add(floor);
+    // Iteration 2: handle for tier-aware floor treatments — Mirror Lake's
+    // planar reflector hides this mesh on high tier, the gloss fallback
+    // retunes its material on mobile (VenueDecorator.addMirrorLakeStructure).
+    this._circularFloor = floor;
 
     // No walls, no ceiling — venue's addVenueStructure() adds hedges / particles / etc.
 
@@ -409,6 +424,24 @@ export function createRoomCircular(data) {
     // Layout meta — ArtworkPlacer uses this to arrange artworks in a circle
     this._layoutMeta = { type: 'circular', radius };
     this._circularBoundsRadius = radius - 0.5;
+
+    // ── FIX (Iteration 2, root-cause): addVenueStructure was NEVER called
+    // for circular layouts. Every structure branch for the garden + all four
+    // void venues (hedges, trees, sky, sun, dust, starfield, colonnade,
+    // mist, moon) was DEAD CODE at runtime — those venues shipped as a bare
+    // floor disc + easels. Square and corridor rooms call this inside their
+    // builders (createRoom L125, createRoomCorridor); circular now does too,
+    // AFTER _layoutMeta exists so structure code reads the real radius.
+    this.addVenueStructure(data);
+
+    // ── Declared floor-edge fade (§4.2 Infinite Void "the endless must read"):
+    // the ground disc dissolves into the venue's own background colour
+    // instead of ending at a visible geometric seam. Generic, config-declared
+    // (visual_config.floor_edge_fade) — any venue may opt in.
+    const vc = this._venueVisualConfig || {};
+    if (vc.floor_edge_fade === true) {
+        addFloorEdgeFade(this, radius, parseColor(vc.background_color) || new THREE.Color(0x000000));
+    }
 }
 
 // ── Venue-aware ceiling (skipped for open-air venues) ─────────────────────────

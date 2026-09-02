@@ -26,6 +26,16 @@ import { CONFIG, OPEN_AIR_VENUES, parseColor } from './config.js';
 import { loadGlb } from './AssetLoader.js';
 import { mergeParts } from './GeometryUtils.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
+// Iteration 2 "Phenomena": declared tier-fallback effects + their pure
+// decision core. TierEffects/TierResolve contain zero slug knowledge —
+// venues opt in per config key (§11.3: degradation is DESIGNED, not emergent).
+import {
+    makeGlassMaterial,
+    addPlanarReflection,
+    addMoonLightStreak,
+    addFloorEdgeFade,
+} from './TierEffects.js';
+import { resolveReflectionMode } from './TierResolve.js';
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function applyVenueOverrides(slug) {
@@ -63,6 +73,21 @@ export function applyVenueConfig(cfg) {
     if (v.tone_mapping_exposure != null) this.renderer.toneMappingExposure = v.tone_mapping_exposure;
     if (v.frame_override)             this._venueFrameOverride    = v.frame_override;
     if (v.ceiling_type)               this._venueCeilingType      = v.ceiling_type;
+
+    // ── Iteration 2 "Phenomena" declared-identity keys (§10.2: the DB is the
+    // sole source of venue identity; JS interprets, never knows) ──────────
+    // placement_mode    : 'float' → artworks hover (ArtworkPlacer dispatch)
+    // env_intensity     : venue-level scene.environment strength — lets a
+    //                     venue silence the accidental horizon glow of its
+    //                     lighting preset's HDRI (Nebula/night.hdr defect)
+    // structure_pass    : which generation of structure code renders — the
+    //                     per-venue ROLLBACK SWITCH (remove the key → the
+    //                     venue reverts to its pre-pass render)
+    // glass_material / floor_reflection / floor_edge_fade : read where used
+    //                     (Cathedral colonnade / Mirror Lake / RoomBuilder)
+    this._venueVisualConfig = v;
+    if (v.placement_mode)          this._venuePlacementMode = v.placement_mode;
+    if (v.env_intensity != null)   this._venueEnvIntensity  = v.env_intensity;
 
     this._venueMaterialConfig = m;
     this._venueSlug = cfg.slug || 'white-cube';
@@ -494,6 +519,12 @@ function addSculptureGardenStructure(data) {
 // ── VOID VENUES — Infinite Void + 3 new variants ────────────────────────────
 // All four share the "no walls, no ceiling, abstract atmosphere" feel.
 // Individual character comes from the bespoke decorations below.
+//
+// Iteration 2 "Phenomena": each venue's NEW identity body is gated on its
+// config declaring structure_pass = 'phenomena' — removing that one key from
+// the venue's JSON reverts the venue to its pre-pass render (the per-venue
+// rollback the roadmap's Iteration 2 contract requires). Artwork placement
+// (float vs easel) is resolved independently from placement_mode.
 function addVoidVenueStructure(data) {
     const slug = this._venueSlug;
     const meta = this._layoutMeta || {};
@@ -503,7 +534,9 @@ function addVoidVenueStructure(data) {
     this._circularBoundsRadius = radius - 0.5;
 
     if (slug === 'infinite-void') {
-        // Original infinite void — pure black + soft ambient blue
+        // Original infinite void — pure black + soft ambient blue.
+        // (Its Iteration 2 identity — float placement + floor-edge fade — is
+        // applied via config keys in ArtworkPlacer/RoomBuilder, not here.)
         addInfiniteVoidParticles.call(this, radius);
     } else if (slug === 'crystal-cathedral') {
         addCrystalCathedralStructure.call(this, radius);
@@ -543,8 +576,97 @@ function addInfiniteVoidParticles(radius) {
     this._particleSystems.push({ obj: points, type: 'drift', phase: rng.next() * Math.PI * 2 });
 }
 
-// CRYSTAL CATHEDRAL — floating glass shards catching refracted light
+// CRYSTAL CATHEDRAL — composed vertical light architecture (Iteration 2)
+// ────────────────────────────────────────────────────────────────────────────
+// NEW BODY (structure_pass = 'phenomena'): a seeded COLONNADE of 12 tall
+// glass pillars ringing the exhibition — "cathedral" as verticality and
+// light, not religion (§4.6: one idea — light through glass, at scale).
+// The 12 random octahedra ("shader test scene", verified audit verdict) are
+// REPLACED, not augmented: §5.6 — one signature per venue.
+//
+// Placement: the colonnade stands just OUTSIDE the walkable bounds
+// (r ≈ radius + 0.35, bounds clamp at radius − 0.5), exactly like the
+// garden's hedge boundary — it is the venue's wall of light, so no pillar
+// can ever collide with a visitor or clip an artwork ring (artworks hover
+// at r ≤ radius − 1 in float mode). The old shard ring placed geometry at
+// radius × 0.5–0.8 — inside the artwork field — which is one reason it
+// read as clutter.
+//
+// Tier gate (§11.3 row 2): glass material resolved by TierResolve — true
+// transmission on high tier (HDRI guaranteed), designed cheap glass on
+// mobile, flat transparent on low-end. NULL GLASS IS UNREACHABLE.
 function addCrystalCathedralStructure(radius) {
+    const vc = this._venueVisualConfig || {};
+    if (vc.structure_pass === 'phenomena') {
+        addCrystalCathedralColonnade.call(this, radius);
+    } else {
+        addCrystalCathedralLegacyShards.call(this, radius);
+    }
+}
+
+function addCrystalCathedralColonnade(radius) {
+    const rng = this._venueRng;
+    const vc  = this._venueVisualConfig || {};
+
+    // One shared material for the whole colonnade (tier-resolved); one
+    // shared geometry — 12 pillars, 12 draw calls.
+    const tint = parseColor(vc.colonnade_tint) || new THREE.Color(0xdfeaff);
+    const glassMat = makeGlassMaterial(this, { tint, opacity: 0.4 });
+
+    const COUNT      = 12;
+    const HEIGHT_MIN = 9;
+    const HEIGHT_MAX = 15;
+
+    for (let i = 0; i < COUNT; i++) {
+        const angle = (i / COUNT) * Math.PI * 2;
+        // Seeded depth wander within the outer band — organic, never aligned
+        // like a fence, never inside the artwork field.
+        const r = radius + 0.35 + (rng.next() - 0.5) * 0.5;
+        // Seeded height: the skyline rhythm that makes it read as
+        // architecture instead of a ring of posts.
+        const h = HEIGHT_MIN + rng.next() * (HEIGHT_MAX - HEIGHT_MIN);
+        const pillarRadius = 0.3 + rng.next() * 0.18;
+
+        const pillar = new THREE.Mesh(
+            new THREE.CylinderGeometry(pillarRadius * 0.8, pillarRadius, h, 8, 1, true),
+            glassMat
+        );
+        pillar.position.set(Math.sin(angle) * r, h / 2, Math.cos(angle) * r);
+        this.scene.add(pillar);
+
+        // Coloured point light inside every 3rd pillar — the SAME 4-light
+        // budget the shard ring used (PERF-B18 preserved exactly).
+        if (i % 3 === 0) {
+            const colors = [0xffaaaa, 0xaaffaa, 0xaaaaff, 0xffffaa, 0xffaaff, 0xaaffff];
+            const c = colors[i % colors.length];
+            const light = new THREE.PointLight(c, 0.5, 8);
+            light.position.copy(pillar.position);
+            this.scene.add(light);
+
+            // ONE controlled light shaft per lit pillar: a tall additive
+            // plane rising the full pillar height. 4 shafts total — part of
+            // the venue's ONE signature (light through glass), not extra
+            // polish (DO-NOT-DO #5 respected).
+            const shaftGeo = new THREE.PlaneGeometry(1.1, h * 0.92);
+            const shaftMat = new THREE.MeshBasicMaterial({
+                color: c,
+                transparent: true,
+                opacity: 0.07,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+            });
+            const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+            shaft.position.set(pillar.position.x, (h * 0.92) / 2, pillar.position.z);
+            shaft.rotation.y = angle;
+            this.scene.add(shaft);
+        }
+    }
+}
+
+// LEGACY BODY (pre-pass) — kept verbatim as the per-venue rollback target.
+// Runs only when the venue's config does NOT declare structure_pass.
+function addCrystalCathedralLegacyShards(radius) {
     const shardMat = new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         roughness: 0.05,
@@ -598,8 +720,25 @@ function addCrystalCathedralStructure(radius) {
     // override in the venue's material_config.)
 }
 
-// NEBULA DRIFT — particle cloud + starfield + slow camera drift feel
+// NEBULA DRIFT — cosmic depth, made coherent (Iteration 2 refinement)
+// ────────────────────────────────────────────────────────────────────────────
+// Verified defects fixed here (§4.7):
+//   1. fog/starfield depth conflict — stars were generated at radius × 4–6
+//      (40–90 m) while venue fog ended at fog_far (40 m). Fogged to 100%,
+//      the entire starfield fought the same fog that gives the floor and
+//      artworks their depth. With structure_pass declared, the STARFIELD is
+//      fog-exempt (PointsMaterial.fog = false) — it is the sky, not scene
+//      depth; the nebula cloud and floor keep the fog that reads as depth.
+//   2. accidental night-HDRI horizon glow — the 'dramatic' preset's
+//      night.hdr put a rural horizon in the reflections of a cosmic void.
+//      The venue now declares env_intensity in config (AssetLoader honours
+//      it), silencing the glow at its source — a config key, not a slug
+//      branch.
+//   3. easels under "drift" fiction — resolved by the venue's placement_mode
+//      = 'float' (ArtworkPlacer), not in this file.
 function addNebulaDriftStructure(radius) {
+    const coherent = (this._venueVisualConfig || {}).structure_pass === 'phenomena';
+
     // 1. Starfield — distant points in all directions
     // Iteration 0: starfield distribution + palette are seeded (was
     // Math.random)
@@ -634,6 +773,10 @@ function addNebulaDriftStructure(radius) {
         transparent: true,
         opacity: 0.9,
         sizeAttenuation: true,
+        // Iteration 2: the sky is exempt from scene fog when the venue
+        // declares the coherence pass (legacy path keeps fogged stars —
+        // per-venue rollback intact).
+        fog: !coherent,
     });
     this.scene.add(new THREE.Points(starGeo, starMat));
 
@@ -667,18 +810,45 @@ function addNebulaDriftStructure(radius) {
     this.scene.add(backLight);
 }
 
-// MIRROR LAKE — perfectly reflective floor + floating artworks + soft fog
+// MIRROR LAKE — the reflecting flagship (Iteration 2)
+// ────────────────────────────────────────────────────────────────────────────
+// The audit's single largest promise/delivery gap: named "Mirror Lake", the
+// floor was `roughness: 0` — PBR materials do not reflect scene objects, so
+// the lake reflected NOTHING (the old code comment even admitted it).
+//
+// Declared resolution (visual_config.floor_reflection = 'planar'), tiered by
+// TierResolve (§11.3 row 1 — degradation designed, never emergent):
+//
+//   high tier  → 'planar' : a real THREE.Reflector replaces the floor disc.
+//                Artworks hover in float mode, so the lake reflects the ART
+//                and the moon. This is the Studio flagship's kept promise.
+//   mobile     → 'gloss'  : designed dark-gloss mood — the venue's own
+//                near-zero-roughness floor catches the moonlight's specular
+//                streak (metalness softened so a PBR floor without an HDRI
+//                environment doesn't go dead black), a light-streak plane
+//                runs toward the moon, and the mist rises/densifies. An
+//                intentional composition, not a missing feature.
+//   low-end    → 'gloss'  : same mood on Lambert (the additive streak plane
+//                reads without PBR).
+//   undeclared → 'none'   : pre-pass behaviour (moon + mist, plain glossy
+//                floor) — the per-venue rollback target.
+//
+// NAME DECISION GATE (§4.11): resolved — the reflector ships and survives
+// review, so the venue KEEPS the name "Mirror Lake". Revisit only if the
+// high-tier reflection is ever removed.
 function addMirrorLakeStructure(radius) {
-    // The mirror effect comes from floor_material="marble" + very low roughness
-    // in the venue's material_config. Here we add: floating particles + soft
-    // moonlight + faint mist.
+    const vc = this._venueVisualConfig || {};
+    const mode = resolveReflectionMode({
+        isLowEnd: !!this.isLowEnd,
+        isMobileTier: !!this._isMobileTier,
+        declared: vc.floor_reflection === 'planar',
+    });
 
-    // Moonlight
+    // Moonlight + moon visual — the composition anchor, shared by every mode.
     const moon = new THREE.DirectionalLight(0xb0c8ff, 0.6);
     moon.position.set(radius * 0.8, radius * 1.5, -radius * 0.5);
     this.scene.add(moon);
 
-    // Moon visual
     const moonMesh = new THREE.Mesh(
         new THREE.SphereGeometry(1.5, 16, 16),
         new THREE.MeshBasicMaterial({ color: 0xe0e8ff })
@@ -686,13 +856,37 @@ function addMirrorLakeStructure(radius) {
     moonMesh.position.copy(moon.position);
     this.scene.add(moonMesh);
 
-    // Drifting mist particles (seeded — Iteration 0)
+    // Reflection — declared + tiered (see table above).
+    if (mode === 'planar') {
+        // Real planar reflection. The built floor disc is hidden (kept for
+        // session-level restore), the Reflector renders the scene's mirror.
+        addPlanarReflection(this, radius, { color: 0xaab4c8, resolution: 1024 });
+    } else if (mode === 'gloss') {
+        // Dark-gloss mood, step 1: keep the venue floor but make it READ as
+        // night water on the mobile tier — metalness softened from the
+        // template's 1.0 (a mirror-metal with no environment renders dead
+        // black) so the moonlight's specular streak lives on the surface.
+        const floor = this._circularFloor;
+        if (floor && floor.material && !this.isLowEnd) {
+            floor.material.metalness = 0.65;
+            floor.material.roughness = 0.1;
+            floor.material.needsUpdate = true;
+        }
+        // Step 2: the moon's light-streak on the water.
+        addMoonLightStreak(this, radius, moon.position.clone());
+    }
+
+    // Drifting mist particles (seeded — Iteration 0). In the gloss mood the
+    // mist rises and densifies: the fallback's intentional signature.
+    const gloss   = mode === 'gloss';
+    const mistCount = gloss ? 220 : 150;
+    const mistYBase = gloss ? 0.4 : 0.1;
+    const mistYSpan = gloss ? 2.6 : 2.0;
     const rng = this._venueRng;
-    const mistCount = 150;
     const positions = new Float32Array(mistCount * 3);
     for (let i = 0; i < mistCount; i++) {
         positions[i * 3]     = (rng.next() - 0.5) * radius * 2;
-        positions[i * 3 + 1] = 0.1 + rng.next() * 2;
+        positions[i * 3 + 1] = mistYBase + rng.next() * mistYSpan;
         positions[i * 3 + 2] = (rng.next() - 0.5) * radius * 2;
     }
     const geo = new THREE.BufferGeometry();

@@ -43,9 +43,14 @@ class VenueHonestyIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $forbidden = [
-            'Floating artworks',            // void venues use easels until Iteration 2
-            'mirror floor reflects',        // no planar reflection until Iteration 2
-            'reflects artworks floating',
+            // Iteration 0 list. Iteration 2 "Phenomena" DELIVERED float
+            // placement (all four voids) and the Mirror Lake planar
+            // reflector, so 'Floating artworks' / 'mirror floor reflects'
+            // were removed from this global list DELIBERATELY — the
+            // per-venue promise matrix now lives in
+            // VenuePhenomenaIterationTest (copy may only promise a
+            // phenomenon the venue's config actually declares).
+            'mirror floor reflects',        // the PBR lie must never return in ANY wording
             'partial dividers',             // no divider geometry until Iteration 3
             'prism of colour',              // refraction is not rendered
             'city views',                   // penthouse has no skyline yet

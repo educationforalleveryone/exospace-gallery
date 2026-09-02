@@ -106,6 +106,13 @@ export class GalleryScene {
         this._venueMaterialConfig = null;
         this._customHdriUrl       = null;
 
+        // Iteration 2 "Phenomena" — declared venue identity (config-read,
+        // never slug-keyed; populated by VenueDecorator.applyVenueConfig):
+        this._venueVisualConfig  = null; // raw visual_config (structure_pass etc.)
+        this._venuePlacementMode = null; // 'float' | null (null = legacy easel/wall)
+        this._venueEnvIntensity  = null; // venue-level scene.environment strength
+        this._circularFloor      = null; // floor handle for tier-aware treatments
+
         // SFX state
         this.sfx           = {};
         this.footstepTimer = 0;

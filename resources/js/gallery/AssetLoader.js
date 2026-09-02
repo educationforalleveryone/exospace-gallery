@@ -427,8 +427,14 @@ export function loadEnvironmentMap() {
         (texture) => {
             texture.mapping = THREE.EquirectangularReflectionMapping;
             this.scene.environment = texture;
-            if (lightingConfig.envIntensity !== undefined) {
-                this.scene.environmentIntensity = lightingConfig.envIntensity;
+            // Iteration 2 (§4.7 Nebula coherence): a venue may declare
+            // env_intensity in visual_config to silence the accidental
+            // horizon glow of its lighting preset's HDRI (e.g. night.hdr's
+            // rural horizon inside a cosmic void) — or to zero it out
+            // entirely. The venue's declaration always wins over the preset.
+            const envIntensity = this._venueEnvIntensity ?? lightingConfig.envIntensity;
+            if (envIntensity !== undefined) {
+                this.scene.environmentIntensity = envIntensity;
             }
             if (lightingConfig.toneMappingExposure !== undefined) {
                 this.renderer.toneMappingExposure = lightingConfig.toneMappingExposure;

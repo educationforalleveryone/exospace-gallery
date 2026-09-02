@@ -80,7 +80,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'concrete',
-                    'lighting_preset' => 'bright',
+                    'lighting_preset'  => 'bright',
                     'frame_style'     => 'minimal',
                     'room_layout'     => 'square',
                 ],
@@ -121,7 +121,9 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Infinite Void',
                 'slug'          => 'infinite-void',
-                'description'   => 'A vast dark space with slowly drifting dust. Artworks presented in the round on easels — no walls, no ceiling.',
+                // Iteration 2 "Phenomena": copy re-tightened — float placement
+                // now makes the original promise literally true (§4.2).
+                'description'   => 'Weightless artworks float in an endless dark, dust drifting slowly around them. No walls, no ceiling, no horizon.',
                 'category'      => 'abstract',
                 'tags'          => ['abstract', 'infinite', 'floating'],
                 'plan_required' => 'free',
@@ -133,7 +135,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
-                    'lighting_preset' => 'dramatic',
+                    'lighting_preset'  => 'dramatic',
                     'frame_style'     => 'minimal',
                     'room_layout'     => 'rotunda',
                 ],
@@ -152,6 +154,11 @@ class VenueTemplateSeeder extends Seeder
                     'fill_intensity'         => 0.12,
                     'tone_mapping_exposure'  => 0.55,
                     'frame_override'         => null,
+                    // ── Iteration 2 "Phenomena" declared identity ──────
+                    'placement_mode'  => 'float',  // §10.5 — the original promise, now real
+                    'floor_edge_fade'  => true,  // §4.2 — the "endless" must read
+                    'env_intensity'  => 0,  // a pure void — no preset HDRI horizon glow
+                    'structure_pass'  => 'phenomena',  // per-venue rollback switch
                 ],
                 'material_config' => [
                     'wall_color'             => '0x050505',
@@ -186,7 +193,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'concrete',
                     'floor_material'  => 'concrete',
-                    'lighting_preset' => 'dramatic',
+                    'lighting_preset'  => 'dramatic',
                     'frame_style'     => 'modern',
                     'room_layout'     => 'corridor',
                 ],
@@ -239,7 +246,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'brick',
                     'floor_material'  => 'marble',
-                    'lighting_preset' => 'moody',
+                    'lighting_preset'  => 'moody',
                     'frame_style'     => 'classic',
                     'room_layout'     => 'square',
                 ],
@@ -292,7 +299,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'wood',
                     'floor_material'  => 'wood',
-                    'lighting_preset' => 'bright',
+                    'lighting_preset'  => 'bright',
                     'frame_style'     => 'minimal',
                     'room_layout'     => 'rotunda',
                 ],
@@ -333,7 +340,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Crystal Cathedral',
                 'slug'          => 'crystal-cathedral',
-                'description'   => 'Crystalline forms drift through a deep blue void, lit by shifting colour. An ethereal, open exhibition space.',
+                'description'   => 'A colonnade of tall glass rises through a deep blue void, coloured light glowing between the pillars. Artworks float in that light.',
                 'category'      => 'abstract',
                 'tags'          => ['glass', 'crystal', 'ethereal', 'refraction'],
                 'plan_required' => 'pro',
@@ -345,7 +352,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
-                    'lighting_preset' => 'bright',
+                    'lighting_preset'  => 'bright',
                     'frame_style'     => 'minimal',
                     'room_layout'     => 'rotunda',
                 ],
@@ -364,6 +371,11 @@ class VenueTemplateSeeder extends Seeder
                     'fill_intensity'         => 0.15,
                     'tone_mapping_exposure'  => 0.6,
                     'frame_override'         => 'silver',
+                    // ── Iteration 2 "Phenomena" declared identity ──────
+                    'placement_mode'  => 'float',  // §10.5
+                    'glass_material'  => 'transmission',  // §11.3 row 2 — tier-resolved (never null glass)
+                    'colonnade_tint'  => '0xdfeaff',  // glass hue, interpreter-generic
+                    'structure_pass'  => 'phenomena',  // per-venue rollback switch
                 ],
                 'material_config' => [
                     'wall_color'             => '0x202030',
@@ -386,7 +398,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Nebula Drift',
                 'slug'          => 'nebula-drift',
-                'description'   => 'Drift through a cosmic cloud of stars and purple nebula. For digital art and otherworldly exhibitions.',
+                'description'   => 'Artworks drift through a cosmic cloud — distant stars and a purple nebula with quiet depth between them. For digital art and otherworldly exhibitions.',
                 'category'      => 'abstract',
                 'tags'          => ['cosmic', 'stars', 'nebula', 'ethereal'],
                 'plan_required' => 'pro',
@@ -398,7 +410,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
-                    'lighting_preset' => 'dramatic',
+                    'lighting_preset'  => 'dramatic',
                     'frame_style'     => 'minimal',
                     'room_layout'     => 'rotunda',
                 ],
@@ -417,6 +429,10 @@ class VenueTemplateSeeder extends Seeder
                     'fill_intensity'         => 0.15,
                     'tone_mapping_exposure'  => 0.6,
                     'frame_override'         => null,
+                    // ── Iteration 2 "Phenomena" declared identity ──────
+                    'placement_mode'  => 'float',  // §4.7 — "drift", not "stand"
+                    'env_intensity'  => 0.05,  // night.hdr horizon glow silenced
+                    'structure_pass'  => 'phenomena',  // starfield fog exemption
                 ],
                 'material_config' => [
                     'wall_color'             => '0x080015',
@@ -436,7 +452,7 @@ class VenueTemplateSeeder extends Seeder
                         'position'    => [0, 5, 0],
                         'color'       => '0x8844ff',
                         'intensity'   => 0.5,
-                        'cast_shadow' => false,
+                        'cast_shadow'  => false,
                         'distance'    => 30,
                         'decay'       => 1.5,
                     ],
@@ -462,7 +478,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
-                    'lighting_preset' => 'moody',
+                    'lighting_preset'  => 'moody',
                     'frame_style'     => 'classic',
                     'room_layout'     => 'l-shape',
                 ],
@@ -515,7 +531,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'concrete',
                     'floor_material'  => 'concrete',
-                    'lighting_preset' => 'dramatic',
+                    'lighting_preset'  => 'dramatic',
                     'frame_style'     => 'modern',
                     'room_layout'     => 'corridor',
                 ],
@@ -568,7 +584,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'grass',
-                    'lighting_preset' => 'bright',
+                    'lighting_preset'  => 'bright',
                     'frame_style'     => 'minimal',
                     'room_layout'     => 'rotunda',
                 ],
@@ -609,7 +625,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Mirror Lake',
                 'slug'          => 'mirror-lake',
-                'description'   => 'A still, dark lake floor beneath soft mist and moonlight. Quiet, spacious, meditative.',
+                'description'   => 'A still, dark lake reflects the floating artworks and the moon. Mist drifts low. Quiet, spacious, meditative.',
                 'category'      => 'abstract',
                 'tags'          => ['mirror', 'reflection', 'moonlit', 'meditative'],
                 'plan_required' => 'studio',
@@ -621,7 +637,7 @@ class VenueTemplateSeeder extends Seeder
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
-                    'lighting_preset' => 'moody',
+                    'lighting_preset'  => 'moody',
                     'frame_style'     => 'minimal',
                     'room_layout'     => 'rotunda',
                 ],
@@ -640,6 +656,11 @@ class VenueTemplateSeeder extends Seeder
                     'fill_intensity'         => 0.12,
                     'tone_mapping_exposure'  => 0.55,
                     'frame_override'         => 'silver',
+                    // ── Iteration 2 "Phenomena" declared identity ──────
+                    'placement_mode'  => 'float',  // artworks above the lake
+                    'floor_reflection'  => 'planar',  // §11.3 row 1 — reflector high / gloss mood mobile
+                    'env_intensity'  => 0.15,  // calm the moody preset's evening glow
+                    'structure_pass'  => 'phenomena',  // per-venue rollback switch (name gate kept: Mirror Lake)
                 ],
                 'material_config' => [
                     'wall_color'             => null,
@@ -659,7 +680,7 @@ class VenueTemplateSeeder extends Seeder
                         'position'    => [12, 22, -8],
                         'color'       => '0xb0c8ff',
                         'intensity'   => 0.6,
-                        'cast_shadow' => false,
+                        'cast_shadow'  => false,
                     ],
                 ],
                 'supported_layouts' => ['rotunda'],
