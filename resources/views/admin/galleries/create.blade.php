@@ -183,6 +183,25 @@
 .venue-plan-badge-free    { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
 .venue-plan-badge-pro     { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.4); }
 .venue-plan-badge-studio  { background: rgba(245,158,11,0.12); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
+/* Iteration 1 "The Rehearsal" (P1.1) — walkable preview affordance.
+   Opens the venue's sample exhibition in a new tab WITHOUT selecting
+   the venue (the anchor stops click propagation in JS — CSP-safe). */
+.venue-walkthrough {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem; /* 12px text floor (ITERATION-7) */
+    font-weight: 600;
+    color: #a78bfa;
+    text-decoration: none;
+    padding: 3px 9px;
+    margin-top: 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(139,92,246,0.35);
+    background: rgba(139,92,246,0.08);
+    transition: all 0.2s ease;
+}
+.venue-walkthrough:hover { background: rgba(139,92,246,0.18); color: #c4b5fd; }
 </style>
 
 @php
@@ -269,6 +288,18 @@ $venueAtmospheres = [
                     <div style="font-size:12px;font-weight:600;color:#e5e7eb;line-height:1.3;">{{ $venue->name }}</div>
                     <div style="font-size:12px;color:#6b7280;margin-top:2px;">{{ $venue->capacityLabel() }}</div>
                     <span class="venue-plan-badge {{ $badgeClass }}">{{ ucfirst($venue->plan_required) }}</span>
+
+                    {{-- Iteration 1 "The Rehearsal" (roadmap P1.1): walk the
+                         venue BEFORE committing — the chooser test. Opens in
+                         a new tab; click never selects the venue. --}}
+                    @featureFlag('venue_previews')
+                    <a href="{{ route('venues.preview', $venue->slug) }}" target="_blank" rel="noopener"
+                       class="venue-walkthrough" data-walkthrough-link
+                       aria-label="Walk through the {{ $venue->name }} venue in a sample exhibition (opens in a new tab)">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        Walk through
+                    </a>
+                    @endfeatureFlag
                 </div>
 
             </div>
@@ -444,6 +475,13 @@ function selectVenue(card) {
 
 document.querySelectorAll('.venue-card').forEach(card => {
     card.addEventListener('click', () => selectVenue(card));
+});
+
+// Iteration 1 "The Rehearsal": "Walk through" opens the venue preview in a
+// new tab WITHOUT selecting the venue — stop the click from bubbling to the
+// card's selectVenue handler (CSP-safe: addEventListener, no inline onclick).
+document.querySelectorAll('[data-walkthrough-link]').forEach(a => {
+    a.addEventListener('click', (e) => e.stopPropagation());
 });
 
 // Auto-select free venue on load (or restored old value)

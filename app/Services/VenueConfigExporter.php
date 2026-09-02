@@ -172,6 +172,54 @@ class VenueConfigExporter
     }
 
     /**
+     * Export a venue for the PUBLIC walkable preview (Iteration 1 "The
+     * Rehearsal", roadmap P1.1) — the first production consumer of
+     * forVenue()'s machinery.
+     *
+     * PREVIEW HONESTY RULE
+     * --------------------
+     * A pre-signup visitor previewing a venue must see the venue rendered
+     * AT THE TIER THAT UNLOCKS IT (the venue's own plan_required), not the
+     * maximal studio-prop rendering. forVenue() returns ALL decorations
+     * regardless of plan — fine for a super-admin tool, but a promise gap
+     * on a public surface (a free-tier venue preview would show studio-only
+     * props the customer would never get). This method filters decorations
+     * with the same planSees() ladder as forGallery(), using the venue's
+     * plan_required as the visitor plan:
+     *
+     *   free venue   → free decorations only
+     *   pro venue    → free + pro decorations
+     *   studio venue → all decorations
+     *
+     * There is deliberately NO gallery layer here: no wall_texture/floor
+     * overrides, no visual_overrides, no cache keyed by gallery id — a
+     * preview renders the venue's own defaults, exactly what a buyer of
+     * that venue gets before they start customizing.
+     */
+    public function forVenuePreview(VenueTemplate $venue): array
+    {
+        $config = $venue->toViewerConfig();
+
+        $config['effective_settings'] = $venue->default_settings ?? [];
+
+        $visitorPlan = $venue->plan_required ?: 'free';
+
+        $config['decorations'] = array_values(array_filter(
+            $config['decorations'] ?? [],
+            fn ($dec) => $this->planSees($visitorPlan, $dec['plan_required'] ?? 'free')
+        ));
+
+        foreach ($config['decorations'] as &$dec) {
+            if (!empty($dec['model_path'])) {
+                $dec['model_url'] = asset('storage/' . ltrim($dec['model_path'], '/'));
+            }
+        }
+        unset($dec);
+
+        return $config;
+    }
+
+    /**
      * Build a preview config for the admin Live Preview iframe.
      *
      * Same as forGallery() but also accepts a runtime override patch (from

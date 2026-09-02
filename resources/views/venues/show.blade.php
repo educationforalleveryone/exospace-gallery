@@ -26,6 +26,23 @@
                         <div><span class="text-xl font-bold text-white">{{ $venue->capacity_max }}</span> artwork capacity</div>
                     @endif
                 </div>
+
+                {{-- Iteration 1 "The Rehearsal" (roadmap P1.1): the venue page
+                     answers "what is this?" in words AND now in space — a live
+                     3D sample exhibition of this venue, no signup required
+                     (roadmap DO NOT DO #10: previews are the funnel). --}}
+                @featureFlag('venue_previews')
+                <div class="mt-8">
+                    <a href="{{ route('venues.preview', $venue->slug) }}"
+                       class="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-sm shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 transition-all">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        Walk through this venue
+                    </a>
+                    <p class="text-gray-500 text-xs mt-2.5">
+                        A live 3D sample exhibition with demonstration artworks — no signup required.
+                    </p>
+                </div>
+                @endfeatureFlag
             </div>
         </div>
     </div>

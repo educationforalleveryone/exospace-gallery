@@ -31,6 +31,7 @@
  *   - 'turnstile_captcha' — P3-19 Cloudflare Turnstile on public forms (default: true)
  *   - 'turbo_drive' — PERF-26 Hotwire Turbo on admin pages (default: true)
  *   - 'command_palette' — ITERATION-3 ⌘K command palette in admin (default: true)
+ *   - 'venue_previews' — Iteration 1 walkable venue previews (default: true)
  */
 
 return [
@@ -61,6 +62,14 @@ return [
         // navigation + actions from any admin page. Progressive enhancement
         // (no impact when disabled or when JS fails). Default true.
         'command_palette' => filter_var(env('FEATURE_FLAG_COMMAND_PALETTE', true), \FILTER_VALIDATE_BOOLEAN),
+
+        // Iteration 1 "The Rehearsal" (roadmap P1.1): public walkable venue
+        // previews (GET /venues/{slug}/preview + "Walk through" affordances
+        // on picker cards and venue pages). Default true — the chooser test
+        // is the point. Rollback: set FEATURE_FLAG_VENUE_PREVIEWS=false →
+        // the route 404s (indistinguishable from nonexistent) and every
+        // "Walk through" button disappears; nothing else changes.
+        'venue_previews' => filter_var(env('FEATURE_FLAG_VENUE_PREVIEWS', true), \FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];

@@ -109,6 +109,25 @@ Route::get('/discover',    [DiscoverController::class, 'index'])->name('discover
 // ── SEO OS (Iteration 2): public entity hubs + artwork pages ─────────────
 Route::get('/artists',     [ArtistDirectoryController::class, 'index'])->name('artists.index');
 Route::get('/venues',      [\App\Http\Controllers\PublicVenueController::class, 'index'])->name('venues.index');
+
+// Iteration 1 "The Rehearsal" (roadmap P1.1) — walkable venue preview.
+// Registered BEFORE the single-segment /venues/{slug} for clarity; both
+// can coexist because the paths differ in segment count.
+//
+// Safety envelope (each property pinned by VenuePreviewIterationTest):
+//   - PUBLIC, no auth  — previews ARE the funnel; never gate behind signup
+//     (roadmap DO NOT DO #10). Rate-limiting is the abuse control instead.
+//   - throttle:20,1    — per-IP; generous for humans walking venues, hard
+//     enough to stop scripted hammering of the 3D asset surface.
+//   - feature_flag:venue_previews — aborts 404 when the flag is off, so
+//     the whole surface can be disabled with one env var (rollback path:
+//     "route stays harmless").
+//   - Sample-data-only + noindex are enforced inside
+//     VenuePreviewController + venues/preview.blade.php.
+Route::get('/venues/{slug}/preview', [\App\Http\Controllers\VenuePreviewController::class, 'show'])
+    ->name('venues.preview')
+    ->middleware('throttle:20,1', 'feature_flag:venue_previews');
+
 Route::get('/venues/{slug}', [\App\Http\Controllers\PublicVenueController::class, 'show'])->name('venues.show');
 
 // ── Public pages ─────────────────────────────────────────────────────────
