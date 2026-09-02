@@ -54,6 +54,11 @@ class AppServiceProvider extends ServiceProvider
         // ITERATION 5: event writes (announced openings, schedule changes)
         // refresh the sitemap events group.
         \App\Models\GalleryScheduleEvent::observe($sitemapObserver);
+        // ITERATION 7 "Frontier": venue template writes (publish, unpublish,
+        // archive, slug/content edits) refresh the sitemap venues group.
+        // view_count increments bypass model events entirely, so traffic
+        // noise never bumps the version.
+        \App\Models\VenueTemplate::observe($sitemapObserver);
 
         // ── CR-5 FIX (Iter-001): TRUSTED_PROXIES hard-fail in production ──────
         //

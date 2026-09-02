@@ -114,6 +114,14 @@ class VenuePreviewController extends Controller
             // SAME composed first frame a paying visitor will get — seeing
             // the arrival IS part of choosing a venue.
             'arrival_enabled' => \App\Services\FeatureFlag::isEnabled('arrival_choreography'),
+
+            // Iteration 7 "Frontier" (roadmap P3.1 spike): personal try-on —
+            // upload one LOCAL image and see it on this venue's wall, in the
+            // browser only. Client-side by construction (TryOn.js performs
+            // zero network I/O; nothing is persisted), preview-payload-only
+            // by policy (customer galleries never receive this key), and
+            // default-OFF (spike = opt-in rollout). Rollback: the flag alone.
+            'tryOnEnabled' => \App\Services\FeatureFlag::isEnabled('venue_try_on'),
         ];
 
         return response()

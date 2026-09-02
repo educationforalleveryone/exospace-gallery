@@ -8,41 +8,88 @@
 @section('content')
     <div class="bg-gradient-to-br from-gray-900 via-brand-950/30 to-gray-900 border-b border-gray-800">
         <div class="max-w-page mx-auto px-4 py-14">
-            <div class="max-w-3xl">
-                <p class="text-brand-400 text-sm font-semibold tracking-widest uppercase mb-2">
-                    @if($venue->category && isset(\App\Models\VenueTemplate::CATEGORIES[$venue->category]))
-                        {{ \App\Models\VenueTemplate::CATEGORIES[$venue->category] }} Venue
-                    @else
-                        3D Venue
+            {{-- Iteration 7 "Frontier" (roadmap P2.4): the venue page earns
+                 its keep as a storefront — the hero still (the SAME image
+                 the picker card shows, so still and page never disagree)
+                 sits beside the pitch instead of a bare gradient. --}}
+            <div class="grid lg:grid-cols-5 gap-10 lg:gap-14 items-center">
+                <div class="lg:col-span-3">
+                    <p class="text-brand-400 text-sm font-semibold tracking-widest uppercase mb-2">
+                        @if($venue->category && isset(\App\Models\VenueTemplate::CATEGORIES[$venue->category]))
+                            {{ \App\Models\VenueTemplate::CATEGORIES[$venue->category] }} Venue
+                        @else
+                            3D Venue
+                        @endif
+                    </p>
+                    <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4">{{ $venue->name }}</h1>
+                    @if($venue->description)
+                        <p class="text-gray-400 text-lg leading-relaxed">{{ $venue->description }}</p>
                     @endif
-                </p>
-                <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4">{{ $venue->name }}</h1>
-                @if($venue->description)
-                    <p class="text-gray-400 text-lg leading-relaxed">{{ $venue->description }}</p>
-                @endif
-                <div class="flex flex-wrap gap-6 mt-6 text-sm text-gray-400">
-                    <div><span class="text-xl font-bold text-white">{{ number_format($galleries->total()) }}</span> live {{ Str::plural('exhibition', $galleries->total()) }}</div>
-                    @if($venue->capacity_max)
-                        <div><span class="text-xl font-bold text-white">{{ $venue->capacity_max }}</span> artwork capacity</div>
-                    @endif
+                    <div class="flex flex-wrap gap-6 mt-6 text-sm text-gray-400">
+                        <div><span class="text-xl font-bold text-white">{{ number_format($galleries->total()) }}</span> live {{ Str::plural('exhibition', $galleries->total()) }}</div>
+                        @if($venue->capacity_max)
+                            <div><span class="text-xl font-bold text-white">{{ $venue->capacity_max }}</span> artwork capacity</div>
+                        @endif
+                    </div>
+
+                    {{-- Iteration 1 "The Rehearsal" (roadmap P1.1) → Iteration 7
+                         "Frontier" (roadmap P2.4): the walkthrough is now EMBEDDED
+                         — a click-to-load poster that swaps to the live sample
+                         exhibition in place. Same no-signup contract (roadmap
+                         DO NOT DO #10: previews are the funnel); the 3D runtime
+                         boots only on click so the page itself stays fast for
+                         crawlers and phones alike. No-JS visitors keep the
+                         direct link via <noscript>. --}}
+                    @featureFlag('venue_previews')
+                    <div class="mt-8" data-venue-walkthrough>
+                        <div data-walkthrough-poster
+                             data-preview-url="{{ route('venues.preview', $venue->slug) }}"
+                             role="button" tabindex="0"
+                             aria-label="Load the live 3D walkthrough of the {{ $venue->name }} venue"
+                             class="relative overflow-hidden rounded-2xl border border-white/10 cursor-pointer group shadow-xl shadow-black/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">
+                            @if($venue->thumbnail_url)
+                                <img src="{{ $venue->thumbnail_url }}"
+                                     alt="{{ $venue->name }} venue — hero still"
+                                     loading="lazy" decoding="async"
+                                     class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+                            @else
+                                <div class="absolute inset-0 bg-gradient-to-br from-brand-900/50 via-gray-900 to-black"></div>
+                            @endif
+                            <div class="relative aspect-video flex flex-col items-center justify-center gap-4 p-6 text-center">
+                                <span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/10 border border-white/25 backdrop-blur-md group-hover:bg-brand-500/30 group-hover:border-brand-400/50 group-hover:scale-105 transition-all">
+                                    <svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                </span>
+                                <span class="text-white font-semibold">Walk through this venue — live 3D</span>
+                                <span class="text-gray-400 text-xs">Sample exhibition · demonstration artworks · no signup required</span>
+                            </div>
+                        </div>
+                        <noscript>
+                            <a href="{{ route('venues.preview', $venue->slug) }}"
+                               class="inline-flex items-center gap-2.5 px-7 py-3.5 mt-3 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-sm shadow-lg shadow-purple-500/25">
+                                Walk through this venue
+                            </a>
+                        </noscript>
+                        <p class="text-gray-500 text-xs mt-2.5">
+                            A live 3D sample exhibition with demonstration artworks — no signup required.
+                        </p>
+                    </div>
+                    @endfeatureFlag
                 </div>
 
-                {{-- Iteration 1 "The Rehearsal" (roadmap P1.1): the venue page
-                     answers "what is this?" in words AND now in space — a live
-                     3D sample exhibition of this venue, no signup required
-                     (roadmap DO NOT DO #10: previews are the funnel). --}}
-                @featureFlag('venue_previews')
-                <div class="mt-8">
-                    <a href="{{ route('venues.preview', $venue->slug) }}"
-                       class="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-sm shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 transition-all">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                        Walk through this venue
-                    </a>
-                    <p class="text-gray-500 text-xs mt-2.5">
-                        A live 3D sample exhibition with demonstration artworks — no signup required.
-                    </p>
+                <div class="lg:col-span-2">
+                    @if($venue->thumbnail_url)
+                        <figure class="relative overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/40">
+                            <img src="{{ $venue->thumbnail_url }}"
+                                 alt="{{ $venue->name }} — venue hero still"
+                                 loading="eager" decoding="async"
+                                 class="w-full aspect-[4/3] object-cover">
+                            <figcaption class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-4 py-3 text-xs text-gray-300">
+                                The {{ $venue->name }} venue — rendered by the same 3D engine your exhibition uses.
+                            </figcaption>
+                        </figure>
+                    @endif
                 </div>
-                @endfeatureFlag
             </div>
         </div>
     </div>
@@ -98,4 +145,40 @@
             <a href="{{ route('register') }}" class="text-brand-400 hover:text-brand-300 transition">Create your own exhibition</a>
         </nav>
     </div>
+
+    {{-- Iteration 7 "Frontier" (P2.4): click-to-load embed wiring. The poster
+         swaps to the preview iframe (same-origin, no-signup, rate-limited at
+         the route). Keyboard parity: Enter/Space activate the poster. The
+         iframe only ever exists AFTER an explicit user action, so the page
+         itself stays light for crawlers and mobile. --}}
+    @featureFlag('venue_previews')
+    <script>
+        (function () {
+            var wrap = document.querySelector('[data-venue-walkthrough]');
+            if (!wrap) return;
+            var poster = wrap.querySelector('[data-walkthrough-poster]');
+            if (!poster) return;
+
+            function load() {
+                if (wrap.querySelector('iframe')) return;
+                var iframe = document.createElement('iframe');
+                iframe.src = poster.getAttribute('data-preview-url');
+                iframe.title = 'Live 3D walkthrough of the {{ $venue->name }} venue';
+                iframe.setAttribute('allow', 'fullscreen; xr-spatial-tracking');
+                iframe.loading = 'lazy';
+                iframe.style.cssText = 'width:100%;aspect-ratio:16/9;border:0;border-radius:1rem;display:block;background:#000;';
+                poster.replaceWith(iframe);
+                iframe.focus();
+            }
+
+            poster.addEventListener('click', load);
+            poster.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault();
+                    load();
+                }
+            });
+        })();
+    </script>
+    @endfeatureFlag
 @endsection

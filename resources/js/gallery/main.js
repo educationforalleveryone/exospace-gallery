@@ -16,6 +16,7 @@ import { GalleryScene } from './GalleryScene.js';
 import { GuidedTour }   from './Tour.js';
 import { Analytics }    from './Analytics.js';
 import { playArrival }  from './Arrival.js';
+import { initTryOn }    from './TryOn.js';
 
 // Global singleton — GuidedTour needs a reference, and the Enter button
 // handler needs to reach into the scene to resume the AudioContext.
@@ -150,6 +151,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fire analytics view event (once)
         Analytics.trackView();
+
+        // Iteration 7 "Frontier" (roadmap P3.1 spike): personal try-on,
+        // behind the venue_try_on flag (default OFF). The flag arrives via
+        // GALLERY_DATA.tryOnEnabled — only the sample-only preview payload
+        // ever sets it. Client-side only: nothing uploads (see TryOn.js).
+        // Applies lazily on file selection; scene.artworks is re-read at
+        // apply-time, so initializing here is safe even if textures are
+        // still streaming.
+        if (window.GALLERY_DATA?.tryOnEnabled) {
+            initTryOn(galleryScene);
+        }
 
         // Iteration 4 "Arrival" (roadmap P1.4): the composed first frame.
         // Opens on the hero artwork, 1.5 s ease-out dolly into the classic

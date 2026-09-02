@@ -9,6 +9,7 @@ use App\Models\Gallery;
 use App\Models\GalleryImage;
 use App\Models\GalleryScheduleEvent;
 use App\Models\SeoProfile;
+use App\Models\VenueTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
@@ -53,7 +54,7 @@ use Illuminate\Support\Collection;
 class SitemapController extends Controller
 {
     /** Groups served by this controller. */
-    private const GROUPS = ['static', 'galleries', 'artists', 'artworks', 'events', 'content'];
+    private const GROUPS = ['static', 'galleries', 'artists', 'artworks', 'events', 'content', 'venues'];
 
     public function index(Request $request): Response
     {
@@ -201,6 +202,7 @@ class SitemapController extends Controller
                 'artworks' => $this->artworkSitemapQuery()->count(),
                 'events' => $this->eventGallerySitemapQuery()->count(),
                 'content' => $this->contentSitemapQuery()->count(),
+                'venues' => $this->venueSitemapQuery()->count(),
                 default => 0,
             },
             ['seconds' => 30],
@@ -225,6 +227,7 @@ class SitemapController extends Controller
                         ->whereHas('gallery', fn ($q) => $this->applyEventGalleryAccessRules($q))
                         ->max('updated_at'),
                     'content' => $this->contentSitemapQuery()->max('updated_at'),
+                    'venues' => $this->venueSitemapQuery()->max('updated_at'),
                     default => null,
                 };
 
@@ -246,6 +249,7 @@ class SitemapController extends Controller
             'artworks' => $this->artworkEntries($page, $perPage),
             'events' => $this->eventEntries($page, $perPage),
             'content' => $this->contentEntries($page, $perPage),
+            'venues' => $this->venueEntries($page, $perPage),
             default => [],
         };
     }
@@ -280,6 +284,50 @@ class SitemapController extends Controller
             'changefreq' => $p['changefreq'],
             'lastmod' => null,
         ], $pages);
+    }
+
+    /**
+     * ITERATION 7 "Frontier" (roadmap P2.4): venue detail pages join the
+     * sitemap. Inclusion mirrors PublicVenueController::show()'s indexability
+     * rule EXACTLY — a venue page renders robots noindex,follow when it has
+     * zero live exhibitions, so only venues with at least one publiclyViewable
+     * gallery holding at least one image are listed here. Listing a noindex
+     * page would mix signals; listing a private one would leak.
+     *
+     * SeoProfile EXCLUSIONS are honored. Profile FORCED INCLUSIONS are
+     * deliberately NOT offered for venues: an exhibition-less venue page is
+     * a quality problem to fix by publishing a show, not an admin override —
+     * unlike a public-but-empty gallery, which may be legitimately indexable
+     * (e.g. a reviewed exhibition that closed).
+     */
+    private function venueSitemapQuery()
+    {
+        $excluded = $this->profileExclusions(VenueTemplate::class);
+
+        return VenueTemplate::query()
+            ->active()
+            ->published()
+            ->whereHas('galleries', fn ($q) => $q->publiclyViewable()->has('images', '>=', 1))
+            ->when($excluded !== [], fn ($q) => $q->whereNotIn('id', $excluded));
+    }
+
+    /**
+     * @return array<int, array<string, string|null>>
+     */
+    private function venueEntries(int $page, int $perPage): array
+    {
+        $venues = $this->venueSitemapQuery()
+            ->orderBy('id')
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get(['id', 'slug', 'updated_at']);
+
+        return $venues->map(fn ($venue) => [
+            'loc' => url('/venues/' . $venue->slug),
+            'lastmod' => $venue->updated_at?->toIso8601String(),
+            'changefreq' => 'weekly',
+            'priority' => '0.7',
+        ])->all();
     }
 
     private function gallerySitemapQuery()

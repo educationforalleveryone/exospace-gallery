@@ -87,6 +87,15 @@ class SitemapCacheObserver
             'gallery_id', 'title', 'description', 'type',
             'starts_at', 'ends_at', 'is_active',
         ],
+        // ITERATION 7 "Frontier": the sitemap's venues group. slug changes
+        // the URL; name/description are the page content the crawler last
+        // saw; is_active/is_draft/published_at/archived_at flip inclusion
+        // (the active+published gate). view_count is deliberately NOT
+        // watched — it moves on every gallery view and is not page content.
+        \App\Models\VenueTemplate::class => [
+            'slug', 'name', 'description', 'is_active', 'is_draft',
+            'published_at', 'archived_at',
+        ],
     ];
 
     public function created(Model $model): void

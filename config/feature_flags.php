@@ -34,6 +34,7 @@
  *   - 'venue_previews' — Iteration 1 walkable venue previews (default: true)
  *   - 'arrival_choreography' — Iteration 4 composed first frame (default: true)
  *   - 'venue_authoring' — Iteration 5 admin authoring suite (default: true)
+ *   - 'venue_try_on' — Iteration 7 personal try-on SPIKE (default: false)
  */
 
 return [
@@ -96,6 +97,18 @@ return [
         // hide, update() stops capturing snapshots. DELETE-as-archive
         // stays (strictly safer than the hard delete it replaced).
         'venue_authoring' => filter_var(env('FEATURE_FLAG_VENUE_AUTHORING', true), \FILTER_VALIDATE_BOOLEAN),
+
+        // Iteration 7 "Frontier" (roadmap P3.1 spike): personal try-on —
+        // "upload one image, see it here". A SPIKE, not a feature: default
+        // OFF, opt-in rollout. When enabled it appears ONLY on the sample-
+        // only venue preview payload (GALLERY_DATA.tryOnEnabled); customer
+        // galleries never receive the key. Safety contract (§14 P3.1):
+        // client-side ONLY — TryOn.js performs zero network I/O, nothing is
+        // persisted, nothing enters analytics; the abuse-review answer is
+        // structural. Rollback: set FEATURE_FLAG_VENUE_TRY_ON=false → the
+        // payload key turns false, the runtime never initializes, and the
+        // affordance disappears; nothing else changes.
+        'venue_try_on' => filter_var(env('FEATURE_FLAG_VENUE_TRY_ON', false), \FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];

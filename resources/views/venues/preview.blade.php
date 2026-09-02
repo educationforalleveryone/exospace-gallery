@@ -325,6 +325,34 @@
             </a>
         </div>
         <div class="preview-hud-side">
+            @featureFlag('venue_try_on')
+            {{-- Iteration 7 "Frontier" (P3.1 spike): upload one LOCAL image,
+                 see it on this venue's wall. The file NEVER leaves the
+                 browser — TryOn.js does no network I/O and nothing is
+                 persisted; the input lives in the page, the texture lives
+                 in GPU memory, and a reload removes every trace. --}}
+            <label for="tryon-input" class="preview-chip" style="cursor: pointer;"
+                   title="Pick a local image — it is rendered in your browser only, never uploaded">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Try your art
+            </label>
+            <input type="file" id="tryon-input" accept="image/*" style="display: none;"
+                   aria-label="Upload a local artwork image to preview on this venue's wall (stays in your browser)">
+            <script>
+                (function () {
+                    var input = document.getElementById('tryon-input');
+                    if (!input) return;
+                    input.addEventListener('change', function () {
+                        var file = input.files && input.files[0];
+                        if (file && window.exospaceTryOn) {
+                            window.exospaceTryOn.apply(file);
+                        }
+                        // Allow re-selecting the same file later.
+                        input.value = '';
+                    });
+                })();
+            </script>
+            @endfeatureFlag
             <span class="preview-chip">Sample exhibition</span>
             <a class="preview-cta" href="{{ auth()->check() ? route('galleries.index') : route('register') }}">
                 Use this venue
