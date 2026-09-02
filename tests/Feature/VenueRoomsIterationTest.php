@@ -10,9 +10,11 @@ declare(strict_types=1);
  *
  *   - Declared structure: zen/penthouse/cyber carry `structure` descriptors
  *     + `structure_pass = 'rooms'`; penthouse adds `glazing_wall`; white-cube
- *     gates its bespoke respect pass; the garden declares `sun_shadows`.
- *     The other seven venues declare NO structure keys — identity is opt-in
- *     per venue, the config is the only on-switch (§11.3 rule 2).
+ *     selects its bespoke respect pass with `structure_pass = 'cube'`
+ *     (Iteration 6 made structure_pass the single interpreter selector);
+ *     the garden declares `sun_shadows` + its own 'garden' pass.
+ *     Interpreter selection is opt-in per venue — the config is the only
+ *     on-switch (§11.3 rule 2); venues without a pass render no structure.
  *   - Vocabulary ceiling: the descriptor arrays use ONLY the ≤10 primitives
  *     of §10.3 (checked by name against the frozen JS list).
  *   - Copy matrix extension: a venue that declares structure promises its
@@ -92,7 +94,9 @@ class VenueRoomsIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $config = $this->visualConfig('white-cube');
-        $this->assertSame('rooms', $config['structure_pass'] ?? null, '[white-cube] structure_pass gates the respect pass.');
+        // Iteration 6: 'cube' is the explicit interpreter selector for the
+        // respect pass (was 'rooms' + a JS slug gate pre-consolidation).
+        $this->assertSame('cube', $config['structure_pass'] ?? null, '[white-cube] structure_pass selects the respect-pass interpreter.');
         $this->assertArrayNotHasKey('structure', $config, '[white-cube] "clean is the point" — it must NOT carry descriptors (§4.1).');
         $this->assertSame(2.0, $this->materialConfig('white-cube')['floor_tile_meters'] ?? null, '[white-cube] declares its floor tile density (§4.1 floor-scale fix).');
     }
@@ -103,7 +107,10 @@ class VenueRoomsIterationTest extends TestCase
 
         $garden = $this->visualConfig('sculpture-garden');
         $this->assertTrue($garden['sun_shadows'] ?? false, '[sculpture-garden] is the only venue allowed sun shadows (§4.10, tier-gated in JS).');
-        $this->assertArrayNotHasKey('structure_pass', $garden, '[sculpture-garden] keeps its bespoke structure (no rooms gate needed).');
+        // Iteration 6: the garden's bespoke body is config-selected like
+        // every other interpreter — 'garden' is its selector (the JS slug
+        // branch is gone).
+        $this->assertSame('garden', $garden['structure_pass'] ?? null, '[sculpture-garden] selects its bespoke interpreter via structure_pass.');
         $this->assertSame(2.0, $this->materialConfig('sculpture-garden')['floor_tile_meters'] ?? null);
 
         $museum = $this->defaultSettings('dark-museum');
@@ -271,7 +278,8 @@ class VenueRoomsIterationTest extends TestCase
 
         $whiteCube = \App\Models\VenueTemplate::where('slug', 'white-cube')->firstOrFail();
         $wcConfig  = $exporter->forVenuePreview($whiteCube);
-        $this->assertSame('rooms', $wcConfig['visual_config']['structure_pass'] ?? null);
+        // Iteration 6: 'cube' is the respect-pass interpreter selector.
+        $this->assertSame('cube', $wcConfig['visual_config']['structure_pass'] ?? null);
         $this->assertArrayNotHasKey('structure', $wcConfig['visual_config']);
     }
 

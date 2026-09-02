@@ -70,6 +70,13 @@ class VenueTemplate extends Model
         'background_color', 'fog_color', 'fog_near', 'fog_far',
         'ambient_color', 'ambient_intensity', 'spot_intensity',
         'fill_intensity', 'tone_mapping_exposure', 'frame_override',
+        // Iteration 6 "Consolidation": the declared shell + interpreter keys
+        // are stable vocabulary now — the structured form manages them (the
+        // advanced JSON box stays the escape hatch: advanced still wins).
+        'ceiling_color', 'ceiling_beams', 'ceiling_neon',
+        'open_air', 'layout_shape', 'structure_pass',
+        'void_dust', 'void_starfield', 'void_colonnade', 'void_shards', 'void_lake',
+        'placement',
     ];
 
     /** The stable material_config keys the structured form manages. */

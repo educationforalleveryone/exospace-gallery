@@ -39,6 +39,8 @@ import {
     segmentBlockedByBoxes,
     composeArrivalPose,
 } from './ArrivalMath.js';
+// Iteration 6 (P2.3): focal-wall read for the hero bias — pure, no slugs.
+import { focalWallOf } from './PlacementCuration.js';
 
 // Fast preconditions. Cheap enough to call before any computation.
 export function isArrivalEnabled(scene) {
@@ -61,7 +63,12 @@ export function computeHero(scene) {
     const camPos = scene.camera.position;
     const eye = { x: camPos.x, y: CONFIG.camera.height, z: camPos.z };
     const centre = new THREE.Vector3();
-    const candidates = rankHeroCandidates(scene.artworks).slice(0, ARRIVAL.maxHeroCandidates * 4);
+    // Iteration 6 (P2.3 §6.5): a venue-declared focal wall biases the hero
+    // pick. Absent (or invalid) placement keys pass null — ranking is then
+    // bit-identical to the pre-IT6 behaviour.
+    const focalWall = focalWallOf(scene._venuePlacement);
+    const candidates = rankHeroCandidates(scene.artworks, { focalWall })
+        .slice(0, ARRIVAL.maxHeroCandidates * 4);
 
     let distanceOnly = null;
     for (let i = 0; i < candidates.length; i++) {

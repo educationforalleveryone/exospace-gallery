@@ -161,23 +161,12 @@ export const FRAME_STYLES = {
     black:   { color: 0x0a0a0a, roughness: 0.50, metalness: 0.20 },
 };
 
-// Special venues that should NEVER have walls/ceiling — outdoor or void types
-export const OPEN_AIR_VENUES = new Set([
-    'sculpture-garden',
-    'infinite-void',
-    'crystal-cathedral',
-    'nebula-drift',
-    'mirror-lake',
-]);
-
-// Special venues that use a circular ground plane (no L-shape, no square)
-export const CIRCULAR_VENUES = new Set([
-    'infinite-void',
-    'crystal-cathedral',
-    'nebula-drift',
-    'mirror-lake',
-    'sculpture-garden',
-]);
+// ── Iteration 6 "Consolidation" (P2.2): the slug-keyed venue sets are GONE.
+// OPEN_AIR_VENUES / CIRCULAR_VENUES were the last slug-keyed strata in this
+// file. A venue now declares `visual_config.open_air` and
+// `visual_config.layout_shape` (DB JSON) — the interpreter reads config,
+// never venue names (§10.2: the DB is the sole source of venue identity;
+// §17 IT6 outcome: "zero venue knowledge in JS maps").
 
 // ── Color parsing helper ────────────────────────────────────────────────────
 // Venue configs from the database store colors as strings like '0x87ceeb'.

@@ -154,12 +154,12 @@ export function createFrame(width, height, style) {
     const frameDepth = 0.08;
     const frameWidth = 0.10;
 
-    // Venue override (e.g. luxury-penthouse + dark-museum → gold)
-    const venueFrameOverride = {
-        'luxury-penthouse': 'gold',
-        'dark-museum':      'gold',
-    };
-    const effectiveStyle = this._venueFrameOverride || venueFrameOverride[this._venueSlug] || style;
+    // Venue override (e.g. dark museum → gold frames).
+    // ── Iteration 6 (P2.2): the slug-keyed venueFrameOverride map is DELETED.
+    // Frame style flows through visual_config.frame_override (the seeder has
+    // carried it for every override venue since Iteration 0 — the map was
+    // config-shadowed dead code). Admin-created venues declare their own.
+    const effectiveStyle = this._venueFrameOverride || style;
     const styleProps     = FRAME_STYLES[effectiveStyle] || FRAME_STYLES.modern;
 
     const lightingConfig = this.lightingConfig || { envIntensity: 1.0 };

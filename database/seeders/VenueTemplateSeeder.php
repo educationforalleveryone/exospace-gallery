@@ -105,9 +105,10 @@ class VenueTemplateSeeder extends Seeder
                     'fill_intensity'         => 0.12,
                     'tone_mapping_exposure'  => 0.5,
                     'frame_override'         => null,
-                    // Iteration 3 "Rooms": gates the bespoke respect pass (base reveal, crown
-                    // line, visible ceiling fixtures) — no structure descriptors here.
-                    'structure_pass'        => 'rooms',
+                    // Iteration 6 "Consolidation": interpreter selector for the respect
+                    // pass (base reveal, crown line, visible ceiling fixtures) — was
+                    // 'rooms' + a slug gate pre-IT6, now an explicit selector.
+                    'structure_pass'        => 'cube',
                 ],
                 'material_config' => [
                     'wall_color'             => null,
@@ -169,6 +170,11 @@ class VenueTemplateSeeder extends Seeder
                     'floor_edge_fade'  => true,  // §4.2 — the "endless" must read
                     'env_intensity'  => 0,  // a pure void — no preset HDRI horizon glow
                     'structure_pass'  => 'phenomena',  // per-venue rollback switch
+                    // Iteration 6 consolidation keys (declare the shell + composable
+                    // phenomena — replaces the CIRCULAR/OPEN_AIR slug sets):
+                    'open_air'        => true,
+                    'layout_shape'    => 'circular',
+                    'void_dust'       => true,  // slow-floating dust field
                 ],
                 'material_config' => [
                     'wall_color'             => '0x050505',
@@ -211,12 +217,16 @@ class VenueTemplateSeeder extends Seeder
                     'wall_height'            => 7,
                     'wall_depth'             => 0.5,
                     'ceiling_type'           => 'beamed',
+                    'ceiling_color'          => '0x1a1a18',  // was the per-slug ceiling chain
+                    'ceiling_beams'          => true,        // was the per-slug beam branch
                     'ceiling_height'         => 7,
                     'background_color'       => '0x111008',
                     'fog_color'              => '0x111008',
                     'fog_near'               => 8,
                     'fog_far'                => 35,
                     'ambient_color'          => '0xffd9a8',
+                    'structure_pass'         => 'loft',  // IT6: interpreter selector (beams,
+                                                            // placement-aware columns, coves)
                     'ambient_intensity'      => 0.18,
                     'spot_intensity'         => 0.5,
                     'fill_intensity'         => 0.15,
@@ -266,12 +276,15 @@ class VenueTemplateSeeder extends Seeder
                     'wall_height'            => 5,
                     'wall_depth'             => 0.3,
                     'ceiling_type'           => 'flat',
+                    'ceiling_color'          => '0x080808',  // was the per-slug ceiling chain
                     'ceiling_height'         => 5,
                     'background_color'       => '0x020202',
                     'fog_color'              => '0x020202',
                     'fog_near'               => 5,
                     'fog_far'                => 18,
                     'ambient_color'          => '0xfff4e6',
+                    'structure_pass'         => 'museum',  // IT6: interpreter selector (dividers,
+                                                            // cap + hangable faces, skirting)
                     'ambient_intensity'      => 0.15,
                     'spot_intensity'         => 0.55,
                     'fill_intensity'         => 0.08,
@@ -321,6 +334,7 @@ class VenueTemplateSeeder extends Seeder
                     'wall_height'            => 3.2,
                     'wall_depth'             => 0.15,
                     'ceiling_type'           => 'flat',
+                    'ceiling_color'          => '0x1e1c14',  // was the per-slug ceiling chain
                     'ceiling_height'         => 3.2,
                     'background_color'       => '0x1a1710',
                     'fog_color'              => '0x1a1710',
@@ -424,6 +438,10 @@ class VenueTemplateSeeder extends Seeder
                     'glass_material'  => 'transmission',  // §11.3 row 2 — tier-resolved (never null glass)
                     'colonnade_tint'  => '0xdfeaff',  // glass hue, interpreter-generic
                     'structure_pass'  => 'phenomena',  // per-venue rollback switch
+                    'open_air'        => true,
+                    'layout_shape'    => 'circular',
+                    'void_colonnade'  => true,   // seeded glass colonnade (new body);
+                                                 // swap to void_shards for the rollback body
                 ],
                 'material_config' => [
                     'wall_color'             => '0x202030',
@@ -481,6 +499,9 @@ class VenueTemplateSeeder extends Seeder
                     'placement_mode'  => 'float',  // §4.7 — "drift", not "stand"
                     'env_intensity'  => 0.05,  // night.hdr horizon glow silenced
                     'structure_pass'  => 'phenomena',  // starfield fog exemption
+                    'open_air'        => true,
+                    'layout_shape'    => 'circular',
+                    'void_starfield'  => true,   // starfield + nebula cloud, fog-exempt
                 ],
                 'material_config' => [
                     'wall_color'             => '0x080015',
@@ -536,6 +557,7 @@ class VenueTemplateSeeder extends Seeder
                     'wall_height'            => 4.5,
                     'wall_depth'             => 0.3,
                     'ceiling_type'           => 'flat',
+                    'ceiling_color'          => '0x080808',  // was the per-slug ceiling chain
                     'ceiling_height'         => 4.5,
                     'background_color'       => '0x08090d',
                     'fog_color'              => '0x08090d',
@@ -621,6 +643,9 @@ class VenueTemplateSeeder extends Seeder
                     'wall_height'            => 6,
                     'wall_depth'             => 0.4,
                     'ceiling_type'           => 'flat',
+                    'ceiling_color'          => '0x04081a',  // was the per-slug ceiling chain
+                    'ceiling_neon'           => true,        // two-strip rollback body (renders
+                                                             // only when structure_pass ≠ 'rooms')
                     'ceiling_height'         => 6,
                     'background_color'       => '0x020412',
                     'fog_color'              => '0x020412',
@@ -700,6 +725,11 @@ class VenueTemplateSeeder extends Seeder
                     'fog_near'               => 0,
                     'fog_far'                => 0,
                     'ambient_color'          => '0xe0f0ff',
+                    // IT6 consolidation keys — replace the OPEN_AIR / CIRCULAR
+                    // slug sets and select the bespoke garden interpreter:
+                    'open_air'               => true,
+                    'layout_shape'           => 'circular',
+                    'structure_pass'         => 'garden',
                     'ambient_intensity'      => 0.4,          // brighter — outdoor daylight
                     'spot_intensity'         => 0.3,
                     'fill_intensity'         => 0.2,
@@ -767,6 +797,9 @@ class VenueTemplateSeeder extends Seeder
                     'floor_reflection'  => 'planar',  // §11.3 row 1 — reflector high / gloss mood mobile
                     'env_intensity'  => 0.15,  // calm the moody preset's evening glow
                     'structure_pass'  => 'phenomena',  // per-venue rollback switch (name gate kept: Mirror Lake)
+                    'open_air'        => true,
+                    'layout_shape'    => 'circular',
+                    'void_lake'       => true,   // moon + reflection + mist composition
                 ],
                 'material_config' => [
                     'wall_color'             => null,

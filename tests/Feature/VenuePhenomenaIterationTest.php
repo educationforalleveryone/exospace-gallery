@@ -90,15 +90,14 @@ class VenuePhenomenaIterationTest extends TestCase
             $this->assertArrayNotHasKey('placement_mode', $config, "[{$slug}] must not declare a void placement mode.");
         }
 
-        // Iteration 3 "Rooms" DELIBERATELY NARROWED this list (the same way
-        // Iteration 2 narrowed Iteration 0's over-claim list): zen-gallery,
-        // luxury-penthouse, cyber-gallery and white-cube now legitimately
-        // declare structure_pass = 'rooms' (their own identity pass — see
-        // VenueRoomsIterationTest). The remaining venues must still not
-        // declare any structure pass.
-        foreach (['industrial-loft', 'dark-museum', 'sculpture-garden'] as $slug) {
+        // Iteration 3 "Rooms" narrowed this list (the same way Iteration 2
+        // narrowed Iteration 0's over-claim list); Iteration 6 "Consolidation"
+        // completes the arc: loft / museum / garden now legitimately declare
+        // their OWN interpreter selectors ('loft' / 'museum' / 'garden' — the
+        // JS slug branches are gone). No venue declares a foreign pass.
+        foreach (['industrial-loft' => 'loft', 'dark-museum' => 'museum', 'sculpture-garden' => 'garden'] as $slug => $pass) {
             $config = $this->visualConfig($slug);
-            $this->assertArrayNotHasKey('structure_pass', $config, "[{$slug}] must not declare a structure pass.");
+            $this->assertSame($pass, $config['structure_pass'] ?? null, "[{$slug}] declares its own interpreter selector (Iteration 6).");
         }
     }
 

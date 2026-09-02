@@ -101,7 +101,7 @@ export class GalleryScene {
         this._glazing          = null;
 
         // Venue state (set by VenueDecorator)
-        this._venueSlug           = 'white-cube';
+        this._venueSlug           = 'venue';
         this._venueAmbientColor   = null;
         this._venueAmbientIntensity = null;
         this._venueSpotIntensity  = null;

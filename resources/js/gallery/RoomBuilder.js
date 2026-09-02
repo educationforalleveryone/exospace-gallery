@@ -21,27 +21,41 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
-import { CONFIG, OPEN_AIR_VENUES, CIRCULAR_VENUES, parseColor } from './config.js';
+import { CONFIG, parseColor } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
 import { addFloorEdgeFade } from './TierEffects.js';
+
+// ── Ceiling colour from config (Iteration 6 consolidation) ──────────────────
+// The per-slug ceiling chains (dark-museum/luxury-penthouse → 0x080808,
+// cyber → 0x04081a, loft → 0x1a1a18, zen → 0x1e1c14, else 0xffffff) existed
+// THREE times in this file. Consolidated here: the venue declares
+// visual_config.ceiling_color ('0xRRGGBB'); absence ⇒ white. Values in the
+// seeder/migration are byte-equivalent to the old chain outputs.
+function ceilColorFromConfig(vc) {
+    const c = parseColor(vc && vc.ceiling_color);
+    return c ? c.getHex() : 0xffffff;
+}
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function buildGallery() {
     const data = window.GALLERY_DATA;
 
     // Apply venue overrides BEFORE building
-    this.applyVenueOverrides(data.venue_slug || 'white-cube');
+    this.applyVenueOverrides(data.venue_slug || 'venue');
 
     this.lightingPreset = data.lighting_preset;
     this.setupLighting(data.lighting_preset);
 
-    // Pick the right builder
-    const slug = this._venueSlug;
+    // Pick the right builder.
+    // ── Iteration 6 (P2.2): CIRCULAR_VENUES set deleted — the venue's
+    // visual_config.layout_shape = 'circular' forces the circular shell now
+    // (the venue's character dictates the shape, declared by the venue
+    // itself, not hardcoded per slug). A gallery-level room_layout of
+    // 'circular' keeps working for any venue.
+    const vcBoot = this._venueVisualConfig || {};
     const layout = data.room_layout || 'square';
 
-    if (CIRCULAR_VENUES.has(slug)) {
-        // Sculpture garden + all void venues use circular layout regardless
-        // of the layout field — the venue's character dictates the shape.
+    if (vcBoot.layout_shape === 'circular' || layout === 'circular') {
         this.createRoomCircular(data);
     } else if (layout === 'corridor')   this.createRoomCorridor(data);
     else if (layout === 'l-shape')      this.createRoomLShape(data);
@@ -259,15 +273,8 @@ export function createRoomLShape(data) {
         floorMat.map.needsUpdate = true;
     }
 
-    // Ceiling colour (venue-aware)
-    const _ceilColor = (() => {
-        const s = this._venueSlug || 'white-cube';
-        if (s === 'dark-museum' || s === 'luxury-penthouse') return 0x080808;
-        if (s === 'cyber-gallery')  return 0x04081a;
-        if (s === 'industrial-loft') return 0x1a1a18;
-        if (s === 'zen-gallery')    return 0x1e1c14;
-        return 0xffffff;
-    })();
+    // Ceiling colour (venue-aware — config-declared since Iteration 6)
+    const _ceilColor = ceilColorFromConfig(this._venueVisualConfig);
     const ceilMatA = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: _ceilColor })
         : new THREE.MeshStandardMaterial({ color: _ceilColor, roughness: 0.95, metalness: 0 });
@@ -398,16 +405,11 @@ export function createRoomRotunda(data) {
     floor.receiveShadow = !this.isLowEnd;
     this.scene.add(floor);
 
-    // Ceiling — venue-aware (void venues have no ceiling)
-    if (!OPEN_AIR_VENUES.has(this._venueSlug)) {
-        const _ceilColor = (() => {
-            const s = this._venueSlug || 'white-cube';
-            if (s === 'dark-museum' || s === 'luxury-penthouse') return 0x080808;
-            if (s === 'cyber-gallery')  return 0x04081a;
-            if (s === 'industrial-loft') return 0x1a1a18;
-            if (s === 'zen-gallery')    return 0x1e1c14;
-            return 0xffffff;
-        })();
+    // Ceiling — venue-aware (open-air venues have no ceiling; declared via
+    // visual_config.open_air since Iteration 6 — the OPEN_AIR_VENUES set is
+    // gone)
+    if (!(this._venueVisualConfig || {}).open_air) {
+        const _ceilColor = ceilColorFromConfig(this._venueVisualConfig);
         const ceilMat = this.isLowEnd
             ? new THREE.MeshLambertMaterial({ color: _ceilColor, side: THREE.BackSide })
             : new THREE.MeshStandardMaterial({ color: _ceilColor, roughness: 0.95, metalness: 0, side: THREE.BackSide });
@@ -496,27 +498,28 @@ export function createRoomCircular(data) {
 
 // ── Venue-aware ceiling (skipped for open-air venues) ─────────────────────────
 export function addVenueCeiling(roomWidth, roomDepth, wallHeight) {
-    if (OPEN_AIR_VENUES.has(this._venueSlug)) return; // no ceiling for outdoor / void
+    const vc = this._venueVisualConfig || {};
+    // ── Iteration 6: open-air is DECLARED (visual_config.open_air), not a
+    // slug set. Seeders/migration carry it for the garden + void family.
+    if (vc.open_air === true) return; // no ceiling for outdoor / void
 
-    let ceilColor = 0xffffff;
-    if (this._venueSlug === 'dark-museum' || this._venueSlug === 'luxury-penthouse') ceilColor = 0x080808;
-    if (this._venueSlug === 'cyber-gallery')  ceilColor = 0x04081a;
-    if (this._venueSlug === 'industrial-loft') ceilColor = 0x1a1a18;
-    if (this._venueSlug === 'zen-gallery')    ceilColor = 0x1e1c14;
+    const ceilColor = ceilColorFromConfig(vc);
 
     const ceilGeo = new THREE.PlaneGeometry(roomWidth, roomDepth);
     const ceilMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: ceilColor })
         : new THREE.MeshStandardMaterial({ color: ceilColor, roughness: 0.95, metalness: 0 });
+
     const ceiling = new THREE.Mesh(ceilGeo, ceilMat);
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.set(0, wallHeight, 0);
     ceiling.receiveShadow = false;
     this.scene.add(ceiling);
 
-    // Industrial Loft — steel beams across ceiling (PERF-D21: merged into a
-    // single mesh — one draw call instead of one per beam)
-    if (this._venueSlug === 'industrial-loft') {
+    // Steel beams across the ceiling — DECLARED since Iteration 6
+    // (visual_config.ceiling_beams; the industrial-loft slug branch is gone,
+    // any venue may declare the same detail — merged into ONE mesh).
+    if (vc.ceiling_beams === true) {
         const beamMat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.8, metalness: 0.6 });
         const beamCount = Math.max(2, Math.floor(roomDepth / 4));
         const beamGeo = new THREE.BoxGeometry(roomWidth, 0.18, 0.22);
@@ -531,12 +534,13 @@ export function addVenueCeiling(roomWidth, roomDepth, wallHeight) {
         beamGeo.dispose();
     }
 
-    // Cyber Gallery — neon strip lights along ceiling edges.
-    // Iteration 3: when the venue declares the Rooms structure pass, the full
-    // perimeter neon + floor light grid render from its structure descriptors
-    // (§4.9 — all four edges, bloom-off identity). This legacy two-strip
-    // ceiling is the PRE-PASS rollback body only.
-    if (this._venueSlug === 'cyber-gallery' &&
+    // Perimeter neon strip lights along ceiling edges — DECLARED since
+    // Iteration 6 (visual_config.ceiling_neon). Iteration 3: when the venue
+    // declares the Rooms structure pass, the full perimeter neon + floor
+    // light grid render from its structure descriptors (§4.9); this two-strip
+    // ceiling remains the PRE-PASS rollback body, now reachable on any
+    // venue by declaring the key (and on cyber by removing structure_pass).
+    if (vc.ceiling_neon === true &&
         (this._venueVisualConfig || {}).structure_pass !== 'rooms') {
         const neonColors = [0x00ffff, 0x8800ff];
         [[-roomWidth / 2, 0], [roomWidth / 2, 0]].forEach(([x], idx) => {

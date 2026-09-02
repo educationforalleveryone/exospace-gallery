@@ -184,6 +184,9 @@
     $mc = $venue->material_config ?? [];
     $vcv = fn (string $key) => old('visual_config.'.$key, $vc[$key] ?? '');
     $mcv = fn (string $key) => old('material_config.'.$key, $mc[$key] ?? '');
+    // Iteration 6 curation (P2.3): nested placement block accessor.
+    $pl = $vc['placement'] ?? [];
+    $plv = fn (string $key) => old('visual_config.placement.'.$key, $pl[$key] ?? '');
 
     // Advanced prefill: existing keys the structured form does not model
     // (structure descriptors, gates, placement, tier_fallbacks…). After a
@@ -303,6 +306,42 @@
                     <option value="{{ $frame }}" {{ (string) $vcv('frame_override') === $frame ? 'selected' : '' }}>{{ ucfirst($frame) }}</option>
                 @endforeach
             </select>
+        </div>
+    </div>
+
+    {{-- ── Curation (Iteration 6, P2.3 §6.3–§6.5) — opt-in placement power ── --}}
+    <p class="text-xs uppercase tracking-wider text-gray-500 mb-2 mt-5">Curation <span class="normal-case tracking-normal text-gray-600">— optional; blank = the calm uniform default</span></p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <label for="vc-placement-density" class="block text-xs text-gray-400 mb-1">Density rhythm (§6.3)</label>
+            <select id="vc-placement-density" name="visual_config[placement][density]" class="input-base">
+                <option value="">Standard · 3.5 m (default)</option>
+                @foreach (['intimate' => 'Intimate · 2.8 m', 'standard' => 'Standard · 3.5 m', 'generous' => 'Generous · 4.5 m'] as $dk => $dlabel)
+                    <option value="{{ $dk }}" {{ (string) $plv('density') === $dk ? 'selected' : '' }}>{{ $dlabel }}</option>
+                @endforeach
+            </select>
+            @error('visual_config.placement.density')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label for="vc-placement-focal" class="block text-xs text-gray-400 mb-1">Focal wall (§6.5, square rooms)</label>
+            <select id="vc-placement-focal" name="visual_config[placement][focal_wall]" class="input-base">
+                <option value="">None — every piece equal (default)</option>
+                @foreach (['front' => 'Front wall', 'back' => 'Back wall', 'left' => 'Left wall', 'right' => 'Right wall'] as $fw => $flabel)
+                    <option value="{{ $fw }}" {{ (string) $plv('focal_wall') === $fw ? 'selected' : '' }}>{{ $flabel }}</option>
+                @endforeach
+            </select>
+            <p class="text-xs text-gray-500 mt-1">The first piece on that wall gets the hero treatment (slightly larger, stronger light). One hero per hang.</p>
+            @error('visual_config.placement.focal_wall')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label for="vc-placement-pair" class="block text-xs text-gray-400 mb-1">Orientation pairing (§6.4)</label>
+            <label class="flex items-center gap-3 bg-gray-900/60 border border-gray-700 rounded-lg px-3 min-h-11 cursor-pointer">
+                <input id="vc-placement-pair" type="checkbox" name="visual_config[placement][pair_orientation]" value="1"
+                       {{ ($plv('pair_orientation') == 1 || $plv('pair_orientation') === true) ? 'checked' : '' }}
+                       class="h-4 w-4 rounded border-gray-600 bg-gray-900 text-brand-600 focus:ring-brand-500">
+                <span class="text-sm text-gray-300">Interleave portrait/landscape so mixed walls read composed</span>
+            </label>
+            <p class="text-xs text-gray-500 mt-1">Unchecked = the historical hang order, untouched.</p>
         </div>
     </div>
 

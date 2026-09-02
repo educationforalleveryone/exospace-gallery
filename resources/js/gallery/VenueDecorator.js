@@ -1,11 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // VenueDecorator — applies venue-specific overrides
 //
-// Two paths:
-//   1. Data-driven: if window.GALLERY_DATA.venueConfig.visual_config is set
-//      (which it always is, because VenueConfigExporter populates it), apply
-//      the JSON config from the database.
-//   2. Legacy fallback: hardcoded switch — only runs if the JSON is missing.
+// ONE path (since Iteration 6 "Consolidation", P2.2):
+//   window.GALLERY_DATA.venueConfig.visual_config IS the venue. The DB is
+//   the sole source of venue identity (§10.2) — the interpreter reads
+//   config keys and never venue names. The old hardcoded fallback switch
+//   (legacyVenueSwitch) is DELETED: a venue without visual_config renders
+//   as a plain default room with a console warning, never as some other
+//   venue's identity.
 //
 // SCULPTURE GARDEN REDESIGN:
 //   Old version: tall walls + dark green background + 2 missing GLBs.
@@ -22,7 +24,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
-import { CONFIG, OPEN_AIR_VENUES, parseColor } from './config.js';
+import { CONFIG, parseColor } from './config.js';
 import { loadGlb } from './AssetLoader.js';
 import { mergeParts } from './GeometryUtils.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
@@ -41,6 +43,9 @@ import { resolveReflectionMode } from './TierResolve.js';
 // structure). Zen / Penthouse / Cyber are the vocabulary's first consumers.
 import { buildStructure } from './StructureBuilder.js';
 
+// Iteration 6 "Consolidation" (P2.2 + P2.3): the opt-in curator layer.
+import { resolveSpacing } from './PlacementCuration.js';
+
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function applyVenueOverrides(slug) {
     const cfg = window.GALLERY_DATA.venueConfig;
@@ -48,9 +53,13 @@ export function applyVenueOverrides(slug) {
         this.applyVenueConfig(cfg);
         return;
     }
-    // Legacy fallback (kept for backward compat with galleries that have no
-    // venueConfig — e.g. older seeded venues without visual_config)
-    legacyVenueSwitch.call(this, slug);
+    // ── Iteration 6: the hardcoded per-venue fallback is GONE. A venue
+    // without visual_config renders as a plain default room (CONFIG.room
+    // values) — it must never silently inherit SOME OTHER venue's
+    // identity. The slug remains available as seed data only.
+    console.warn('[exospace] venue has no visual_config — rendering default room. ' +
+                 'Declare the venue identity in its template JSON (§10.2).');
+    this._venueSlug = slug || 'venue';
 }
 
 // ── Data-driven config application ───────────────────────────────────────────
@@ -94,7 +103,27 @@ export function applyVenueConfig(cfg) {
     if (v.env_intensity != null)   this._venueEnvIntensity  = v.env_intensity;
 
     this._venueMaterialConfig = m;
-    this._venueSlug = cfg.slug || 'white-cube';
+    this._venueSlug = cfg.slug || 'venue';
+
+    // ── Iteration 6 "Consolidation" keys (P2.2 + P2.3) ──────────────
+    // layout_shape  : 'circular' forces the circular shell (replaces the
+    //                 CIRCULAR_VENUES slug set; read in RoomBuilder + here)
+    // open_air      : true ⇒ no ceiling (replaces the OPEN_AIR_VENUES set)
+    // ceiling_color : '0x…' ceiling tint (replaces the per-slug chains)
+    // ceiling_beams / ceiling_neon : declared shell details (replaces the
+    //                 industrial-loft / cyber-gallery slug branches)
+    // placement     : opt-in curation (§6.3–§6.5) — density / pairing / focal
+    if (v.layout_shape) this._venueLayoutShape = v.layout_shape;
+    if (v.placement && typeof v.placement === 'object') {
+        this._venuePlacement = v.placement;
+        // §6.3 density: the resolved spacing feeds room sizing AND hang
+        // offsets (both read CONFIG.room.artworkSpacing — they can never
+        // disagree). Absent/unknown preset ⇒ unchanged spacing.
+        const spacing = resolveSpacing(v.placement, CONFIG.room.artworkSpacing);
+        if (spacing !== CONFIG.room.artworkSpacing) {
+            CONFIG.room.artworkSpacing = spacing;
+        }
+    }
 
     if (Array.isArray(cfg.decorations) && cfg.decorations.length) {
         this.loadDecorations(cfg.decorations);
@@ -153,62 +182,9 @@ export function applyVisualPatch(patch) {
     }
 }
 
-// ── Legacy hardcoded switch (fallback only) ─────────────────────────────────
-function legacyVenueSwitch(slug) {
-    switch (slug) {
-        case 'white-cube':
-        default:
-            CONFIG.room.wallHeight = 4;
-            this.scene.background  = new THREE.Color(0x0f0f0f);
-            this.scene.fog         = new THREE.Fog(0x0f0f0f, 10, 30);
-            this._venueSlug        = 'white-cube';
-            break;
-        case 'industrial-loft':
-            CONFIG.room.wallHeight = 7;
-            CONFIG.room.wallDepth  = 0.5;
-            this.scene.background  = new THREE.Color(0x111008);
-            this.scene.fog         = new THREE.Fog(0x111008, 8, 35);
-            this._venueSlug        = 'industrial-loft';
-            break;
-        case 'dark-museum':
-            CONFIG.room.wallHeight = 5;
-            this.scene.background  = new THREE.Color(0x020202);
-            this.scene.fog         = new THREE.Fog(0x020202, 5, 18);
-            this._venueSlug        = 'dark-museum';
-            break;
-        case 'zen-gallery':
-            CONFIG.room.wallHeight = 3.2;
-            this.scene.background  = new THREE.Color(0x1a1710);
-            this.scene.fog         = new THREE.Fog(0x1a1710, 12, 40);
-            this._venueSlug        = 'zen-gallery';
-            break;
-        case 'luxury-penthouse':
-            CONFIG.room.wallHeight = 4.5;
-            this.scene.background  = new THREE.Color(0x08090d);
-            this.scene.fog         = new THREE.Fog(0x08090d, 8, 25);
-            this._venueSlug        = 'luxury-penthouse';
-            break;
-        case 'cyber-gallery':
-            CONFIG.room.wallHeight = 6;
-            this.scene.background  = new THREE.Color(0x020412);
-            this.scene.fog         = new THREE.Fog(0x020412, 6, 22);
-            this._venueSlug        = 'cyber-gallery';
-            break;
-        case 'sculpture-garden':
-            CONFIG.room.wallHeight = 8;
-            this.scene.background  = new THREE.Color(0x0d1a0d);
-            this.scene.fog         = new THREE.Fog(0x0d1a0d, 10, 45);
-            this._venueSlug        = 'sculpture-garden';
-            break;
-        case 'infinite-void':
-            CONFIG.room.wallHeight = 20;
-            this.scene.background  = new THREE.Color(0x000000);
-            this.scene.fog         = null;
-            this._venueSlug        = 'infinite-void';
-            break;
-    }
-}
-
+// ── Iteration 6 "Consolidation" (P2.2): legacyVenueSwitch is DELETED.
+// The hardcoded per-venue fallback no longer exists anywhere — the DB's
+// visual_config is the ONLY source of venue identity (§10.2).
 // ── Load 3D decoration props (GLB) asynchronously ─────────────────────────────
 // PERF-A13 (3D audit F13): decorations now load in PARALLEL via
 // Promise.allSettled. The old `for…of await` sequence downloaded each GLB
@@ -253,8 +229,9 @@ export async function loadDecorations(decorations) {
 // This is the venue-specific decoration that's NOT a GLB — it's procedural
 // geometry we build in code. Each venue can have bespoke code here.
 export function addVenueStructure(data) {
-    const slug = this._venueSlug || 'white-cube';
-    const wh   = CONFIG.room.wallHeight;
+    const vc = this._venueVisualConfig || {};
+    const pass = vc.structure_pass;
+    const slug = this._venueSlug || 'venue';
 
     // Iteration 0 (roadmap P0.3): all procedural distribution below draws
     // from a seeded generator — hash(venue_slug + ':' + gallery_id) — so the
@@ -267,31 +244,35 @@ export function addVenueStructure(data) {
     // Live-Preview rebuild must never accumulate stale surfaces.
     this._hangableSurfaces = [];
 
-    // ── Iteration 3 "Rooms": the generic structure-descriptor interpreter
-    // (roadmap §10.3). Renders ONLY when the venue declares BOTH
-    // structure_pass = 'rooms' AND a non-empty structure array — removing
-    // either key from one venue's JSON reverts that venue, live, no deploy
-    // (per-venue rollback switch). Zen / Penthouse / Cyber are the
-    // vocabulary's first three consumers (§16.4); any admin-created venue
-    // may declare the same keys.
-    const vc = this._venueVisualConfig || {};
-    if (vc.structure_pass === 'rooms' && Array.isArray(vc.structure) && vc.structure.length > 0) {
-        buildStructure(this, vc.structure);
-    }
-
-    if (slug === 'industrial-loft') {
+    // ── Iteration 6 "Consolidation" (P2.2): the slug if/else chain is GONE.
+    // structure_pass is the SINGLE interpreter selector and stays the
+    // per-venue rollback switch (remove/rename the key → that venue's
+    // interpreter stops → per-venue config revert restores the pre-pass
+    // body; §17 IT6 rollback = per-venue migration order):
+    //   'rooms'     descriptor vocabulary (StructureBuilder §10.3) —
+    //               Zen / Penthouse / Cyber + any admin-created venue
+    //   'cube'      White Cube respect pass (base reveal / crown / fixtures;
+    //               internally square+corridor only, as designed in IT3)
+    //   'loft'      industrial beams, placement-aware columns, coves, props
+    //   'museum'    dividers (cap + hangable faces) and skirting
+    //   'garden'    sky dome, sun, hedge ring, trees, path, pedestal
+    //   'phenomena' void family — composable flags (void_dust / void_starfield /
+    //               void_colonnade / void_shards / void_lake)
+    // No pass declared ⇒ no structure. Admin-created venues get FULL identity
+    // by declaring the same keys (§17 IT6 outcome).
+    if (pass === 'rooms') {
+        if (Array.isArray(vc.structure) && vc.structure.length > 0) {
+            buildStructure(this, vc.structure);
+        }
+    } else if (pass === 'cube') {
+        addWhiteCubeRespectPass.call(this, data);
+    } else if (pass === 'loft') {
         addIndustrialLoftStructure.call(this, data);
-    } else if (slug === 'dark-museum') {
+    } else if (pass === 'museum') {
         addDarkMuseumStructure.call(this, data); // collision + hangable surfaces
-    } else if (slug === 'sculpture-garden') {
+    } else if (pass === 'garden') {
         addSculptureGardenStructure.call(this, data); // grass, hedges, trees, sky
-    } else if (slug === 'white-cube') {
-        // Iteration 3 respect pass (§4.1): base reveal + crown line + visible
-        // ceiling fixtures. Gated on structure_pass — remove the key and the
-        // venue returns to its pure pre-pass state ("clean is the point").
-        if (vc.structure_pass === 'rooms') addWhiteCubeRespectPass.call(this, data);
-    } else if (slug === 'infinite-void' || slug === 'crystal-cathedral' ||
-               slug === 'nebula-drift' || slug === 'mirror-lake') {
+    } else if (pass === 'phenomena') {
         addVoidVenueStructure.call(this, data);
     }
 }
@@ -835,29 +816,40 @@ function addSculptureGardenStructure(data) {
 // All four share the "no walls, no ceiling, abstract atmosphere" feel.
 // Individual character comes from the bespoke decorations below.
 //
-// Iteration 2 "Phenomena": each venue's NEW identity body is gated on its
-// config declaring structure_pass = 'phenomena' — removing that one key from
-// the venue's JSON reverts the venue to its pre-pass render (the per-venue
-// rollback the roadmap's Iteration 2 contract requires). Artwork placement
-// (float vs easel) is resolved independently from placement_mode.
+// Iteration 2 "Phenomena" → Iteration 6 "Consolidation": the four void
+// venues' bespoke bodies are now COMPOSABLE INGREDIENTS selected by config
+// flags (the slug ladder is gone — DoD rule #7). The 'phenomena'
+// structure_pass remains the pass gate + rollback switch; each ingredient is
+// declared per venue:
+//   void_dust       floating dust points        (infinite-void)
+//   void_starfield  starfield + nebula cloud    (nebula-drift)
+//   void_colonnade  seeded glass colonnade      (crystal-cathedral, new body)
+//   void_shards     legacy shard ring           (cathedral rollback body)
+//   void_lake       moon + reflection + mist    (mirror-lake)
+// Undeclared ⇒ nothing renders. Admin-created venues compose their own void
+// from the same vocabulary — full identity without code (§17 IT6 outcome).
 function addVoidVenueStructure(data) {
-    const slug = this._venueSlug;
+    const vc = this._venueVisualConfig || {};
     const meta = this._layoutMeta || {};
     const radius = meta.radius || 15;
 
-    // Common: circular bounds + subtle ambient
+    // Common: circular bounds
     this._circularBoundsRadius = radius - 0.5;
 
-    if (slug === 'infinite-void') {
-        // Original infinite void — pure black + soft ambient blue.
-        // (Its Iteration 2 identity — float placement + floor-edge fade — is
-        // applied via config keys in ArtworkPlacer/RoomBuilder, not here.)
+    if (vc.void_dust === true) {
         addInfiniteVoidParticles.call(this, radius);
-    } else if (slug === 'crystal-cathedral') {
-        addCrystalCathedralStructure.call(this, radius);
-    } else if (slug === 'nebula-drift') {
+    }
+    if (vc.void_starfield === true) {
         addNebulaDriftStructure.call(this, radius);
-    } else if (slug === 'mirror-lake') {
+    }
+    if (vc.void_colonnade === true) {
+        addCrystalCathedralColonnade.call(this, radius);
+    } else if (vc.void_shards === true) {
+        // Designed rollback body — the Iteration 2 legacy shard ring,
+        // reachable by config only (swap void_colonnade/void_shards).
+        addCrystalCathedralLegacyShards.call(this, radius);
+    }
+    if (vc.void_lake === true) {
         addMirrorLakeStructure.call(this, radius);
     }
 }
@@ -910,15 +902,6 @@ function addInfiniteVoidParticles(radius) {
 // Tier gate (§11.3 row 2): glass material resolved by TierResolve — true
 // transmission on high tier (HDRI guaranteed), designed cheap glass on
 // mobile, flat transparent on low-end. NULL GLASS IS UNREACHABLE.
-function addCrystalCathedralStructure(radius) {
-    const vc = this._venueVisualConfig || {};
-    if (vc.structure_pass === 'phenomena') {
-        addCrystalCathedralColonnade.call(this, radius);
-    } else {
-        addCrystalCathedralLegacyShards.call(this, radius);
-    }
-}
-
 function addCrystalCathedralColonnade(radius) {
     const rng = this._venueRng;
     const vc  = this._venueVisualConfig || {};
@@ -1052,7 +1035,11 @@ function addCrystalCathedralLegacyShards(radius) {
 //   3. easels under "drift" fiction — resolved by the venue's placement_mode
 //      = 'float' (ArtworkPlacer), not in this file.
 function addNebulaDriftStructure(radius) {
-    const coherent = (this._venueVisualConfig || {}).structure_pass === 'phenomena';
+    // Fog exemption (Iteration 2 §4.7): the starfield is the sky, not scene
+    // depth. Inside the 'phenomena' interpreter this is ALWAYS coherent —
+    // the interpreter only runs when the venue declares the pass; the
+    // legacy fogged-star body stays reachable via per-venue config revert.
+    const coherent = true;
 
     // 1. Starfield — distant points in all directions
     // Iteration 0: starfield distribution + palette are seeded (was

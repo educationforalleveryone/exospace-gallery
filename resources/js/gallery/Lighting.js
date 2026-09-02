@@ -24,20 +24,12 @@ export function setupLighting(preset) {
     this.scene.add(ambientLight);
 
     // Venue-tinted ambient (warm sodium for industrial, candlelight for zen, etc.)
-    const venueTints = {
-        'white-cube':       0xffffff,
-        'industrial-loft':  0xffe8c0,  // warm sodium
-        'dark-museum':      0xffffff,
-        'zen-gallery':      0xfff5e0,  // candlelight
-        'luxury-penthouse': 0xb8c8e8,
-        'cyber-gallery':    0x3060ff,
-        'sculpture-garden': 0xe8fce8,
-        'infinite-void':    0xaaaaff,
-        'crystal-cathedral':0xddeeff,
-        'nebula-drift':     0x8844ff,
-        'mirror-lake':      0xa0c0ff,
-    };
-    const tint = (this._venueAmbientColor ?? venueTints[this._venueSlug]) ?? 0xffffff;
+    // ── Iteration 6 (P2.2): the slug-keyed venueTints map is DELETED. Every
+    // venue's tint already flows through visual_config.ambient_color (all 11
+    // seeded venues declare it — the map was config-shadowed dead code for
+    // the entire catalog). A venue that wants a tinted ambient now declares
+    // its own ambient_color — the DB is the sole source of identity (§10.2).
+    const tint = this._venueAmbientColor ?? 0xffffff;
     const tintIntensity = this._venueAmbientIntensity ?? ambientIntensity;
     if (tint !== 0xffffff || this._venueAmbientColor) {
         const tinted = new THREE.AmbientLight(tint, tintIntensity * 0.5);

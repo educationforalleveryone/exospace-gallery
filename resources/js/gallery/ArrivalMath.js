@@ -27,11 +27,24 @@ export const ARRIVAL = {
 // order. World-space canvas area (m²) is the honest measure — it is what
 // the visitor actually sees. Pixel dimensions are a fallback ordering
 // signal for degenerate groups without a canvas mesh.
-export function heroScore(artwork, index) {
+//
+// Iteration 6 (P2.3 §6.5): when the venue declares a focal wall, artworks
+// hung on it receive a score bonus so the arrival composes on the venue's
+// intended hero moment. STRICTLY OPT-IN — `opts` defaults to no focal wall
+// and the score is bit-identical to the pre-IT6 formula (regression-safe;
+// default galleries unchanged is IT6's own contract).
+export const FOCAL_HERO_BONUS = 1.25;
+
+export function heroScore(artwork, index, opts) {
+    const focalWall = opts && opts.focalWall ? opts.focalWall : null;
+    const bonus = focalWall && artwork?.userData?.wallId === focalWall
+        ? FOCAL_HERO_BONUS
+        : 1;
+
     const canvas = artwork?.userData?._canvasMesh;
     const params = canvas?.geometry?.parameters;
     if (params && params.width && params.height) {
-        return { area: params.width * params.height, index };
+        return { area: params.width * params.height * bonus, index };
     }
     const w = artwork?.userData?.width;
     const h = artwork?.userData?.height;
@@ -43,7 +56,7 @@ export function heroScore(artwork, index) {
         let height = 2.0;
         let width  = height * aspect;
         if (width > 3.0) { width = 3.0; height = width / aspect; }
-        return { area: width * height, index };
+        return { area: width * height * bonus, index };
     }
     return { area: 0, index };
 }
@@ -52,10 +65,10 @@ export function heroScore(artwork, index) {
 // Deterministic by construction — no RNG. The venue composition already
 // carries the seeded randomness (P0.3); hero selection must not add a
 // second roll or the composed first frame would flicker between reloads.
-export function rankHeroCandidates(artworks) {
+export function rankHeroCandidates(artworks, opts) {
     if (!Array.isArray(artworks) || artworks.length === 0) return [];
     return artworks
-        .map((art, index) => ({ art, ...heroScore(art, index) }))
+        .map((art, index) => ({ art, ...heroScore(art, index, opts) }))
         .sort((a, b) => (b.area - a.area) || (a.index - b.index))
         .map(entry => entry.art);
 }

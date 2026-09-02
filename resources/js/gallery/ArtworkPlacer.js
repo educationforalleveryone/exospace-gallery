@@ -7,15 +7,16 @@
 // not slug membership. "Floating artworks in an endless environment" becomes
 // literally true for the void family; the sculpture garden keeps its easels
 // BY IDENTITY (§4.10) because it declares no mode. No new slug knowledge is
-// introduced here (DoD rule #7 — CIRCULAR_VENUES remains legacy-only and is
-// removed in the Iteration 6 consolidation).
+// introduced here (DoD rule #7 — the CIRCULAR_VENUES slug set is DELETED in
+// the Iteration 6 consolidation; layout is config-declared).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
-import { CONFIG, CIRCULAR_VENUES } from './config.js';
+import { CONFIG } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
 import { computeFloatLayout } from './PlacementMath.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
+import { pairByOrientation, focalWallOf, isFocalHero, FOCAL } from './PlacementCuration.js';
 
 // ── Shared placeholder texture (PERF-C9) ─────────────────────────────────────
 // A 1×1 dark-tinted texture used when neither the real artwork nor a
@@ -37,14 +38,13 @@ function getPlaceholderTexture() {
 export function placeArtworks(data) {
     if (this.artworkImages.length === 0) return;
 
-    const slug = this._venueSlug;
     const layout = (this._layoutMeta || {}).type || 'square';
 
-    // Circular venues (sculpture garden + void venues).
-    // §10.5 placement modes: config-declared 'float' hovers the canvases in
-    // space; the legacy default keeps the easel ring (garden keeps its easels
-    // by identity — no mode declared ⇒ no behaviour change anywhere).
-    if (CIRCULAR_VENUES.has(slug) || layout === 'circular') {
+    // Circular venues (sculpture garden + void venues) — DECLARED via
+    // visual_config.layout_shape since Iteration 6 (the CIRCULAR_VENUES
+    // slug set is deleted; §10.5 placement modes unchanged: config-declared
+    // 'float' hovers the canvases, the legacy default keeps the easel ring).
+    if (this._venueLayoutShape === 'circular' || layout === 'circular') {
         if (this._venuePlacementMode === 'float') {
             _placeArtworksFloating.call(this, data);
         } else {
@@ -70,6 +70,12 @@ export function placeArtworks(data) {
 //      `hangable` (Museum divider faces — StructureBuilder/VenueDecorator)
 //      receive the LAST portion of the hang, so the bays gain works instead
 //      of holding none while the outer walls hold thirty.
+// Iteration 6 curation (P2.3 §6.3–§6.5, all opt-in — no keys ⇒ identity):
+//   3. Orientation pairing (placement.pair_orientation) interleaves
+//      portrait/landscape inside wall runs so mixed walls read composed.
+//   4. Focal wall (placement.focal_wall) gives the FIRST outer-wall piece on
+//      that wall the hero treatment (scale + stronger pool, FOCAL consts);
+//      every other piece stays equal. Bay pieces never qualify.
 export function _placeArtworksSquare(data) {
     const imageCount = this.artworkImages.length;
     const spacing    = CONFIG.room.artworkSpacing;
@@ -87,14 +93,24 @@ export function _placeArtworksSquare(data) {
     ];
     const hangWalls = glazingWallId ? walls.filter(w => w.id !== glazingWallId) : walls;
 
+    const curation  = this._venuePlacement || {};
+    const focalWall = focalWallOf(curation);
+    // Orientation pairing (§6.4): a stable index permutation. With the key
+    // absent this is the identity — hang order untouched (default unchanged).
+    const order = curation.pair_orientation === true
+        ? pairByOrientation(this.artworkImages)
+        : this.artworkImages.map((_, i) => i);
+
     const bayPlan = _planBayHangs(imageCount, this._hangableSurfaces, spacing);
     const outerCount = imageCount - (bayPlan ? bayPlan.length : 0);
     let bayIdx = 0;
     let wi = 0, pos = 0;
+    let focalHeroTaken = false;
 
-    this.artworkImages.forEach((img, i) => {
+    for (const imgIdx of order) {
+        const img = this.artworkImages[imgIdx];
         const { group } = this.makeArtworkGroup(img, data);
-        if (bayPlan && i >= outerCount) {
+        if (imgIdx >= outerCount) {
             const b = bayPlan[bayIdx++];
             group.position.set(b.x, eyeLevel, b.z);
             group.lookAt(b.x + b.nx, eyeLevel, b.z + b.nz);
@@ -103,11 +119,26 @@ export function _placeArtworksSquare(data) {
             const off = pos * spacing;
             group.position.set(wall.start[0]+wall.dir[0]*off, wall.start[1], wall.start[2]+wall.dir[2]*off);
             group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
+            // Wall metadata (Iteration 6): consumed by ArrivalMath's focal
+            // hero bias and useful to studio tooling. Pure metadata — zero
+            // rendering impact without a declared focal wall.
+            group.userData.wallId = wall.id;
             pos++;
             if (pos >= imagesPerWall) { pos = 0; wi = Math.min(wi+1, hangWalls.length-1); }
         }
         this.placeAndRegister(group, data);
-    });
+
+        // Focal hero treatment (§6.5) — exactly ONE piece per hang: the
+        // first outer-wall piece on the declared focal wall.
+        if (!focalHeroTaken && imgIdx < outerCount &&
+            isFocalHero(focalWall, group.userData.wallId, false)) {
+            group.scale.multiplyScalar(FOCAL.scaleBoost);
+            const ud = group.userData;
+            if (ud.lightMax != null)  ud.lightMax  *= FOCAL.lightBoost;
+            if (ud.lightBase != null) ud.lightBase *= FOCAL.lightBoost;
+            focalHeroTaken = true;
+        }
+    }
 }
 
 // ── Bay-hang planner (Iteration 3, pure) ─────────────────────────────────────

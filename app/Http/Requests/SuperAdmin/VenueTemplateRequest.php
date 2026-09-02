@@ -93,6 +93,30 @@ class VenueTemplateRequest extends FormRequest
             'visual_config.tone_mapping_exposure' => ['nullable', 'numeric', 'min:0', 'max:3'],
             'visual_config.frame_override'      => ['nullable', 'string', Rule::in(['gold', 'silver', 'bronze', 'black', 'white'])],
 
+            // ── Iteration 6 "Consolidation" (P2.2): the declared shell +
+            // structure keys. These used to live ONLY in the advanced JSON —
+            // they are stable vocabulary now, so flat validation catches
+            // typos at the form (a malformed ceiling_color or an unknown
+            // structure_pass would otherwise fail silently at runtime).
+            'visual_config.ceiling_color'   => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
+            'visual_config.ceiling_beams'   => ['nullable', 'boolean'],
+            'visual_config.ceiling_neon'    => ['nullable', 'boolean'],
+            'visual_config.open_air'        => ['nullable', 'boolean'],
+            'visual_config.layout_shape'    => ['nullable', 'string', Rule::in(['circular'])],
+            'visual_config.structure_pass'  => ['nullable', 'string', Rule::in(['rooms', 'cube', 'loft', 'museum', 'garden', 'phenomena'])],
+            'visual_config.void_dust'       => ['nullable', 'boolean'],
+            'visual_config.void_starfield'  => ['nullable', 'boolean'],
+            'visual_config.void_colonnade'  => ['nullable', 'boolean'],
+            'visual_config.void_shards'     => ['nullable', 'boolean'],
+            'visual_config.void_lake'       => ['nullable', 'boolean'],
+
+            // ── Iteration 6 curation (P2.3, §6.3–§6.5): opt-in placement.
+            // Absent block ⇒ uniform default hang; the config IS the switch.
+            'visual_config.placement'                   => ['nullable', 'array'],
+            'visual_config.placement.density'           => ['nullable', 'string', Rule::in(['intimate', 'standard', 'generous'])],
+            'visual_config.placement.pair_orientation'  => ['nullable', 'boolean'],
+            'visual_config.placement.focal_wall'        => ['nullable', 'string', Rule::in(['front', 'back', 'left', 'right'])],
+
             'material_config'     => ['nullable', 'array'],
             'material_config.wall_color'          => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
             'material_config.wall_roughness'      => ['nullable', 'numeric', 'min:0', 'max:1'],
@@ -163,6 +187,12 @@ class VenueTemplateRequest extends FormRequest
             'visual_config_advanced.array'         => 'The advanced visual_config must be a valid JSON object (e.g. {"structure": []}).',
             'decorations.max'                      => 'A venue can hold at most 100 decoration props (draw-call budget, §11.4).',
             'lighting_fixtures.max'                => 'A venue can declare at most 60 custom light fixtures.',
+            // Iteration 6 consolidation + curation keys
+            'visual_config.ceiling_color.regex'    => 'Ceiling color must be a hex string like 0x080808.',
+            'visual_config.layout_shape.in'        => 'Layout shape may be "circular" (or left empty for the room_layout default).',
+            'visual_config.structure_pass.in'      => 'Structure pass must be one of: rooms, cube, loft, museum, garden, phenomena.',
+            'visual_config.placement.density.in'   => 'Placement density must be one of: intimate, standard, generous.',
+            'visual_config.placement.focal_wall.in'=> 'Focal wall must be one of: front, back, left, right.',
         ];
     }
 
