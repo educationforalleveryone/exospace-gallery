@@ -31,6 +31,7 @@ const _to  = new THREE.Vector3();
 // in mobile mode.
 export function checkArtworkFocus() {
     if (!this.controls.isLocked && !this.isMobile) return;
+    if (this.arrivalActive) return; // Arrival dolly owns the camera — no crosshair noise during the reveal
     if (!this.artworks || this.artworks.length === 0) return;
 
     this.camera.getWorldDirection(_fwd);

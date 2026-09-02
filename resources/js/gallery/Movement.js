@@ -10,6 +10,10 @@ import { CONFIG } from './config.js';
 // Desktop movement (pointer-lock controls + WASD)
 export function updateMovement() {
     if (!this.controls.isLocked || this.isInspecting) return;
+    // Iteration 4 "Arrival": the intro dolly owns the camera. Movement is
+    // restored the moment it finishes (or the visitor skips it — any input
+    // event ends the dolly, so this guard holds for well under 2 s).
+    if (this.arrivalActive) return;
 
     const delta = Math.min(this.clock.getDelta(), 0.1); // cap at 100ms
 
@@ -101,6 +105,9 @@ export function updateMovement() {
 // Mobile movement — virtual joystick drives the same velocity model.
 // Defined in Mobile.js but kept here for parity with the desktop version.
 export function updateMovementMobile() {
+    // Iteration 4 "Arrival": same ownership rule as the desktop path — the
+    // intro dolly owns the camera until handoff (or skip).
+    if (this.arrivalActive) return;
     // Implementation lives in Mobile.js (this method is bound from there)
     if (typeof this._mobileUpdateMovement === 'function') {
         this._mobileUpdateMovement();

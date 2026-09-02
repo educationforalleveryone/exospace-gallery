@@ -15,6 +15,7 @@
 import { GalleryScene } from './GalleryScene.js';
 import { GuidedTour }   from './Tour.js';
 import { Analytics }    from './Analytics.js';
+import { playArrival }  from './Arrival.js';
 
 // Global singleton — GuidedTour needs a reference, and the Enter button
 // handler needs to reach into the scene to resume the AudioContext.
@@ -149,6 +150,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fire analytics view event (once)
         Analytics.trackView();
+
+        // Iteration 4 "Arrival" (roadmap P1.4): the composed first frame.
+        // Opens on the hero artwork, 1.5 s ease-out dolly into the classic
+        // spawn pose, then control handoff. Skips itself when: the flag is
+        // off, the page is an embed, the gallery is empty, reduced motion is
+        // on (instant composed cut instead), or a deep-link (?artwork=) is
+        // present — deep-link precedence is the roadmap contract, and the
+        // deep-link block below owns the camera in that case.
+        playArrival(galleryScene);
 
         // (Task H41, H44 / audit MX8) — deep-link to a specific artwork.
         // If the URL has ?artwork=<id>, auto-focus that artwork after

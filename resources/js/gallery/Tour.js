@@ -41,6 +41,18 @@ export class GuidedTour {
             if (window.toast) window.toast('No artworks to tour in this gallery.', 'info');
             return;
         }
+
+        // Iteration 4 "Arrival" — tour start-position alignment (roadmap
+        // §17): the hero artwork is the orientation anchor, so a tour
+        // launched from the default entry point begins on the SAME frame
+        // the arrival composed. Explicit indices (resume points) win.
+        if (atIndex === 0 && this.scene.arrivalHeroId != null) {
+            const heroIdx = this.artworks.findIndex(
+                a => a.userData?.id === this.scene.arrivalHeroId
+            );
+            if (heroIdx >= 0) atIndex = heroIdx;
+        }
+
         this.active = true;
         this.paused = false;
         this.index  = atIndex;

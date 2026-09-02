@@ -1102,6 +1102,11 @@ class GalleryController extends Controller
             'newsletterUrl'  => $isPreview ? null : route('gallery.newsletter', $gallery->slug),
             'eventsUrl'      => $isPreview ? null : route('gallery.events.index', $gallery->slug),
             'hasUpcomingEvents' => $isPreview ? false : $gallery->scheduleEvents()->active()->upcoming()->exists(),
+
+            // Iteration 4 "Arrival": the admin live preview exercises the
+            // SAME first frame a visitor gets — authors tune the opening
+            // shot, not just the room. Same flag as the public viewer.
+            'arrival_enabled' => \App\Services\FeatureFlag::isEnabled('arrival_choreography'),
         ];
     }
 

@@ -109,6 +109,11 @@ class VenuePreviewController extends Controller
             'eventsUrl'         => null,
             'hasUpcomingEvents' => false,
             'deepLinkArtworkId' => null,
+
+            // Iteration 4 "Arrival": previews walk the SAME runtime with the
+            // SAME composed first frame a paying visitor will get — seeing
+            // the arrival IS part of choosing a venue.
+            'arrival_enabled' => \App\Services\FeatureFlag::isEnabled('arrival_choreography'),
         ];
 
         return response()

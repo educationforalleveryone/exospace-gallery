@@ -32,6 +32,7 @@
  *   - 'turbo_drive' — PERF-26 Hotwire Turbo on admin pages (default: true)
  *   - 'command_palette' — ITERATION-3 ⌘K command palette in admin (default: true)
  *   - 'venue_previews' — Iteration 1 walkable venue previews (default: true)
+ *   - 'arrival_choreography' — Iteration 4 composed first frame (default: true)
  */
 
 return [
@@ -70,6 +71,17 @@ return [
         // the route 404s (indistinguishable from nonexistent) and every
         // "Walk through" button disappears; nothing else changes.
         'venue_previews' => filter_var(env('FEATURE_FLAG_VENUE_PREVIEWS', true), \FILTER_VALIDATE_BOOLEAN),
+
+        // Iteration 4 "Arrival" (roadmap P1.4): the composed first frame —
+        // spawn facing the exhibition's hero artwork, 1.5 s ease-out dolly
+        // into the classic spawn pose, then control handoff. Reduced-motion
+        // users get an instant composed cut (no dolly). The flag is exposed
+        // to the 3D runtime as GALLERY_DATA.arrival_enabled by the gallery
+        // viewer, venue preview, and admin live-preview payloads. Rollback:
+        // set FEATURE_FLAG_ARRIVAL=false → the classic inert spawn is
+        // restored 1:1 (the dolly ends at the exact spawn point RoomBuilder
+        // always set, so off-state behaviour is byte-identical to pre-IT4).
+        'arrival_choreography' => filter_var(env('FEATURE_FLAG_ARRIVAL', true), \FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];

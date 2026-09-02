@@ -186,6 +186,13 @@ class GalleryViewController extends Controller
             // auto-focus that artwork after the scene loads. This lets
             // artists share links to specific works from social media.
             'deepLinkArtworkId' => $request->integer('artwork'),
+
+            // Iteration 4 "Arrival" (roadmap P1.4): exposes the composed
+            // first frame to the 3D runtime. The viewer's Arrival module
+            // spawns the camera on the exhibition's hero artwork and dollies
+            // into the classic spawn pose; false restores the classic inert
+            // spawn 1:1 (deep-links ?artwork= always take precedence).
+            'arrival_enabled' => \App\Services\FeatureFlag::isEnabled('arrival_choreography'),
         ];
 
         // ── SEO OS (Iteration 2) ─────────────────────────────────────────
