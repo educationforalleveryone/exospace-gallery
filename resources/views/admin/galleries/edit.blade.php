@@ -350,7 +350,16 @@
                                 @php
                                     $accessible = $venue->isAccessibleBy(auth()->user());
                                     $isSelected = $gallery->venue_template_id == $venue->id;
-                                    $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '??', 'accent' => '#555'];
+                                    // Iteration 0 (roadmap P0.2 — picker truth):
+                                    // one thumbnail pipeline (DB upload → static
+                                    // convention → styled initials fallback; the
+                                    // literal "??" fallback is unreachable).
+                                    $thumbUrl = $venue->thumbnail_url ?: ('/assets/thumbnails/' . $venue->slug . '.jpg');
+                                    $atm = $venueAtmospheres[$venue->slug] ?? [
+                                        'bg'     => 'linear-gradient(135deg,#1a1a2e 0%,#101020 100%)',
+                                        'emoji'  => mb_strtoupper(mb_substr(preg_replace('/[^\\p{L}]/u', '', $venue->name) ?: $venue->name, 0, 2)),
+                                        'accent' => '#8b5cf6',
+                                    ];
                                     $badgeClass = match($venue->plan_required) { 'pro' => 'venue-plan-badge-pro', 'studio' => 'venue-plan-badge-studio', default => 'venue-plan-badge-free' };
                                 @endphp
                                 <div class="edit-venue-card"
@@ -361,7 +370,9 @@
                                      data-lighting="{{ $venue->default_settings['lighting_preset'] }}"
                                      data-layout="{{ $venue->default_settings['room_layout'] }}"
                                      data-accessible="{{ $accessible ? 'true' : 'false' }}"
-                                     data-slug="{{ $venue->slug }}">
+                                     data-slug="{{ $venue->slug }}"
+                                     data-description="{{ $venue->description }}"
+                                     data-accent="{{ $atm['accent'] }}">
 
                                     <div class="venue-card-inner {{ $isSelected ? 'selected' : '' }}">
 
@@ -379,10 +390,13 @@
                                         @endif
 
                                         <div class="venue-preview" style="background: {{ $atm['bg'] }};">
-                                            <img src="/assets/thumbnails/{{ $venue->slug }}.jpg"
+                                            {{-- onerror reveals the styled fallback beneath if
+                                                 no thumbnail file exists --}}
+                                            <img src="{{ $thumbUrl }}"
                                                  alt="{{ $venue->name }}"
                                                  class="venue-thumb-img"
-                                                 loading="lazy">
+                                                 loading="lazy"
+                                                 onerror="this.style.display='none'">
                                             <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
                                                 <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.7);">{{ $atm['emoji'] }}</span>
                                                 <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:32px;height:3px;border-radius:2px;background:{{ $atm['accent'] }};opacity:0.6;box-shadow:0 0 8px {{ $atm['accent'] }};"></div>
@@ -1941,23 +1955,10 @@
     </script>
 
 <script nonce="@nonce">
-const editVenueDescriptions = {
-    'white-cube':       'Minimal contemporary exhibition space.',
-    'industrial-loft':  'Concrete, steel and large open spaces.',
-    'dark-museum':      'Dramatic lighting with black walls.',
-    'zen-gallery':      'Minimal architecture with natural materials.',
-    'luxury-penthouse': 'High-end collector experience.',
-    'cyber-gallery':    'Futuristic neon exhibition space.',
-    'sculpture-garden': 'Open-air exhibition environment.',
-    'infinite-void':    'Floating artworks in an endless environment.',
-};
-const editSlugMap = @json($venueTemplates->pluck('slug', 'id'));
-const editVenueAccentColors = {
-    'white-cube': '#e0e0e0', 'industrial-loft': '#8a7a50',
-    'dark-museum': '#8b1a1a', 'zen-gallery': '#8b7355',
-    'luxury-penthouse': '#c9a84c', 'cyber-gallery': '#00ffff',
-    'sculpture-garden': '#4ade80', 'infinite-void': '#8b5cf6',
-};
+// Iteration 0 (roadmap P0.1 — single source of truth): venue descriptions and
+// accent colors are rendered SERVER-SIDE onto each card as data-description /
+// data-accent from the venue_templates DB row. The old JS maps (which covered
+// only 8 of 11 venues and drifted from the DB) are deleted.
 
 function selectEditVenue(card) {
     if (card.dataset.accessible !== 'true') {
@@ -1995,8 +1996,7 @@ function selectEditVenue(card) {
     dirty = true;
     setTimeout(() => { _pauseDirty = false; }, 50);
 
-    const slug = editSlugMap[card.dataset.venueId];
-    const accent = editVenueAccentColors[slug] || '#8b5cf6';
+    const accent = card.dataset.accent || '#8b5cf6';
     const bar = document.getElementById('edit-venue-info-bar');
     if (bar) {
         bar.style.display = 'flex';
@@ -2005,11 +2005,11 @@ function selectEditVenue(card) {
         document.getElementById('edit-venue-info-accent').style.background = accent;
         document.getElementById('edit-venue-info-accent').style.boxShadow = `0 0 8px ${accent}`;
         document.getElementById('edit-venue-info-name').textContent = card.querySelector('.venue-meta div:first-child')?.textContent?.trim() || '';
-        document.getElementById('edit-venue-info-desc').textContent = editVenueDescriptions[slug] || '';
+        document.getElementById('edit-venue-info-desc').textContent = card.dataset.description || '';
     }
 
     const descEl = document.getElementById('edit-venue-description');
-    if (descEl) descEl.textContent = editVenueDescriptions[slug] || '';
+    if (descEl) descEl.textContent = card.dataset.description || '';
 }
 
 // Venue card clicks
@@ -2031,11 +2031,10 @@ document.querySelectorAll('.edit-venue-card').forEach(card => {
 const preselectedCard = document.querySelector('.venue-card-inner.selected');
 if (preselectedCard) {
     const card = preselectedCard.closest('.edit-venue-card');
-    const slug = editSlugMap[card?.dataset?.venueId];
-    if (slug) {
+    if (card) {
         const descEl2 = document.getElementById('edit-venue-description');
-        if (descEl2) descEl2.textContent = editVenueDescriptions[slug] || '';
-        const accent = editVenueAccentColors[slug] || '#8b5cf6';
+        if (descEl2) descEl2.textContent = card.dataset.description || '';
+        const accent = card.dataset.accent || '#8b5cf6';
         const bar = document.getElementById('edit-venue-info-bar');
         if (bar) {
             bar.style.display = 'flex';
@@ -2044,7 +2043,7 @@ if (preselectedCard) {
             document.getElementById('edit-venue-info-accent').style.background = accent;
             document.getElementById('edit-venue-info-accent').style.boxShadow = `0 0 8px ${accent}`;
             document.getElementById('edit-venue-info-name').textContent = card?.querySelector('.venue-meta div:first-child')?.textContent?.trim() || '';
-            document.getElementById('edit-venue-info-desc').textContent = editVenueDescriptions[slug] || '';
+            document.getElementById('edit-venue-info-desc').textContent = card.dataset.description || '';
         }
     }
 }

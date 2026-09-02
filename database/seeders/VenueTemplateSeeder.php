@@ -16,25 +16,36 @@ use Illuminate\Database\Seeder;
  *
  * Safe to re-run — uses updateOrCreate on the slug.
  *
+ * ⚠ PRODUCTION POLICY (Iteration 0, roadmap §15.13): updateOrCreate
+ * OVERWRITES any super-admin edits to these 11 venue rows on every re-seed.
+ * Once admins begin hand-tuning venues, run this seeder on FRESH INSTALLS
+ * ONLY; apply ongoing copy/config changes via guarded migrations (which
+ * update a row only when it still matches the previous seeded value) or
+ * via the super-admin UI.
+ *
  * ─────────────────────────────────────────────────────────────────────────────
  * VENUE LIST (11 venues total)
+ * Descriptions below are the Iteration 0 "Honesty" pass (roadmap P0.1):
+ * every description is verifiable against the current render. When a venue's
+ * render gains the promised capability (Iterations 2–3), re-tighten the copy
+ * HERE and in a new guarded migration — never in JS maps (they were deleted).
  * ─────────────────────────────────────────────────────────────────────────────
  * FREE PLAN:
  *   1. white-cube          — Modern White Cube (default)
- *   2. infinite-void       — Floating artworks in endless space (user favourite)
+ *   2. infinite-void       — Vast dark space, dust, artworks in the round
  *
  * PRO PLAN:
  *   3. industrial-loft     — Concrete + steel + beams
  *   4. dark-museum         — Dramatic dark walls, gold frames
- *   5. zen-gallery         — Japanese minimalism, low walls, natural materials
- *   6. crystal-cathedral   — NEW: floating glass shards, refracted light
- *   7. nebula-drift        — NEW: starfield + nebula cloud + cosmic feel
+ *   5. zen-gallery         — Minimal, natural materials, warm calm
+ *   6. crystal-cathedral   — Glass forms drifting in blue void
+ *   7. nebula-drift        — Starfield + nebula cloud + cosmic feel
  *
  * STUDIO PLAN:
- *   8. luxury-penthouse    — Marble + gold, private collector feel
- *   9. cyber-gallery       — Neon strips, futuristic
- *  10. sculpture-garden    — REDESIGNED: outdoor garden with hedges, trees, sky
- *  11. mirror-lake         — NEW: reflective floor + moonlight + mist
+ *   8. luxury-penthouse    — Moody collector space, marble + gold
+ *   9. cyber-gallery       — Dark futuristic space with neon accents
+ *  10. sculpture-garden    — Outdoor garden with hedges, trees, sky
+ *  11. mirror-lake         — Dark lake floor, moonlight, mist
  */
 class VenueTemplateSeeder extends Seeder
 {
@@ -110,7 +121,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Infinite Void',
                 'slug'          => 'infinite-void',
-                'description'   => 'Floating artworks in an endless environment. No limits, no walls, no ceiling.',
+                'description'   => 'A vast dark space with slowly drifting dust. Artworks presented in the round on easels — no walls, no ceiling.',
                 'category'      => 'abstract',
                 'tags'          => ['abstract', 'infinite', 'floating'],
                 'plan_required' => 'free',
@@ -269,7 +280,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Japanese Zen Gallery',
                 'slug'          => 'zen-gallery',
-                'description'   => 'Minimal architecture with natural materials. Calm and focused atmosphere with partial dividers.',
+                'description'   => 'Minimal architecture with natural wood finishes and calm, warm light. A quiet, focused atmosphere.',
                 'category'      => 'minimal',
                 'tags'          => ['zen', 'natural', 'calm'],
                 'plan_required' => 'pro',
@@ -322,7 +333,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Crystal Cathedral',
                 'slug'          => 'crystal-cathedral',
-                'description'   => 'Floating glass shards catch refracted light. An ethereal space where art hangs in a prism of colour.',
+                'description'   => 'Crystalline forms drift through a deep blue void, lit by shifting colour. An ethereal, open exhibition space.',
                 'category'      => 'abstract',
                 'tags'          => ['glass', 'crystal', 'ethereal', 'refraction'],
                 'plan_required' => 'pro',
@@ -439,7 +450,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Luxury Penthouse',
                 'slug'          => 'luxury-penthouse',
-                'description'   => 'High-end collector experience. Private gallery atmosphere with marble floors and gold accents.',
+                'description'   => 'A moody, intimate collector space. Dark walls, marble floors, gold accents.',
                 'category'      => 'luxury',
                 'tags'          => ['luxury', 'collector', 'private'],
                 'plan_required' => 'studio',
@@ -492,7 +503,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Cyber Gallery',
                 'slug'          => 'cyber-gallery',
-                'description'   => 'Futuristic neon exhibition space. For digital and web3 creators.',
+                'description'   => 'A dark futuristic exhibition space with neon light accents. For digital and web3 creators.',
                 'category'      => 'futuristic',
                 'tags'          => ['cyberpunk', 'neon', 'digital', 'web3'],
                 'plan_required' => 'studio',
@@ -598,7 +609,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Mirror Lake',
                 'slug'          => 'mirror-lake',
-                'description'   => 'A perfectly still mirror floor reflects artworks floating above. Moonlit, misty, meditative.',
+                'description'   => 'A still, dark lake floor beneath soft mist and moonlight. Quiet, spacious, meditative.',
                 'category'      => 'abstract',
                 'tags'          => ['mirror', 'reflection', 'moonlit', 'meditative'],
                 'plan_required' => 'studio',

@@ -206,7 +206,16 @@ $venueAtmospheres = [
         @php
             $accessible = $venue->isAccessibleBy(auth()->user());
             $isSelected = old('venue_template_id', $venueTemplates->firstWhere('plan_required', 'free')?->id) == $venue->id;
-            $atm = $venueAtmospheres[$venue->slug] ?? ['bg' => 'linear-gradient(135deg,#111,#222)', 'emoji' => '??', 'accent' => '#555'];
+            // Iteration 0 (roadmap P0.2 — picker truth): one thumbnail
+            // pipeline. DB-uploaded thumbnail (works for admin-created
+            // venues) → static convention file → styled fallback with REAL
+            // venue initials (the literal "??" fallback is unreachable).
+            $thumbUrl = $venue->thumbnail_url ?: ('/assets/thumbnails/' . $venue->slug . '.jpg');
+            $atm = $venueAtmospheres[$venue->slug] ?? [
+                'bg'     => 'linear-gradient(135deg,#1a1a2e 0%,#101020 100%)',
+                'emoji'  => mb_strtoupper(mb_substr(preg_replace('/[^\\p{L}]/u', '', $venue->name) ?: $venue->name, 0, 2)),
+                'accent' => '#8b5cf6',
+            ];
             $badgeClass = match($venue->plan_required) { 'pro' => 'venue-plan-badge-pro', 'studio' => 'venue-plan-badge-studio', default => 'venue-plan-badge-free' };
         @endphp
         <div class="venue-card"
@@ -217,7 +226,9 @@ $venueAtmospheres = [
              data-lighting="{{ $venue->default_settings['lighting_preset'] }}"
              data-layout="{{ $venue->default_settings['room_layout'] }}"
              data-accessible="{{ $accessible ? 'true' : 'false' }}"
-             data-slug="{{ $venue->slug }}">
+             data-slug="{{ $venue->slug }}"
+             data-description="{{ $venue->description }}"
+             data-accent="{{ $atm['accent'] }}">
 
             <div class="venue-card-inner {{ $isSelected ? 'selected' : '' }}">
 
@@ -238,10 +249,14 @@ $venueAtmospheres = [
 
                 {{-- Venue Preview --}}
                 <div class="venue-preview" style="background: {{ $atm['bg'] }};">
-                    <img src="/assets/thumbnails/{{ $venue->slug }}.jpg"
+                    {{-- onerror reveals the styled fallback beneath if the
+                         static convention file is absent (admin-created
+                         venues before their first upload) --}}
+                    <img src="{{ $thumbUrl }}"
                          alt="{{ $venue->name }}"
                          class="venue-thumb-img"
-                         loading="lazy">
+                         loading="lazy"
+                         onerror="this.style.display='none'">
                     <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
                         <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.7);">{{ $atm['emoji'] }}</span>
                         {{-- Accent glow dot --}}
@@ -382,29 +397,11 @@ $venueAtmospheres = [
     </div>
 
 <script nonce="@nonce">
-// Venue descriptions (matches slug)
-const venueDescriptions = {
-    'white-cube':       'Minimal contemporary exhibition space. The professional standard.',
-    'infinite-void':    'Floating artworks in an endless environment. No limits.',
-    'industrial-loft':  'Concrete, steel and large open spaces. Urban contemporary feel.',
-    'dark-museum':      'Dramatic lighting with black walls. Premium artwork presentation.',
-    'zen-gallery':      'Minimal architecture with natural materials. Calm and focused.',
-    'crystal-cathedral':'Floating glass shards catch refracted light. Ethereal prism space.',
-    'nebula-drift':     'Drift through cosmic cloud of stars and purple nebula. Otherworldly.',
-    'luxury-penthouse': 'High-end collector experience with city views.',
-    'cyber-gallery':    'Futuristic neon exhibition space for digital creators.',
-    'sculpture-garden': 'Open-air garden with hedges, trees, and stone paths.',
-    'mirror-lake':      'Reflective floor + moonlight + drifting mist. Meditative.',
-};
-
-const venueAccentColors = {
-    'white-cube': '#e0e0e0', 'infinite-void': '#8b5cf6',
-    'industrial-loft': '#8a7a50', 'dark-museum': '#8b1a1a',
-    'zen-gallery': '#8b7355', 'crystal-cathedral': '#ddeeff',
-    'nebula-drift': '#8844ff', 'luxury-penthouse': '#c9a84c',
-    'cyber-gallery': '#00ffff', 'sculpture-garden': '#4ade80',
-    'mirror-lake': '#b0c8ff',
-};
+// Iteration 0 (roadmap P0.1 — single source of truth): venue descriptions
+// and accent colors are rendered SERVER-SIDE onto each card as
+// data-description / data-accent from the venue_templates DB row. The old
+// JS description map drifted from the DB (and promised things venues don't
+// render, e.g. penthouse "city views") — it is deleted.
 
 function selectVenue(card) {
     const accessible = card.dataset.accessible === 'true';
@@ -432,9 +429,7 @@ function selectVenue(card) {
     document.getElementById('input_venue_template_id').value = card.dataset.venueId;
 
     // Update info bar
-    const slugMap = @json($venueTemplates->pluck('slug', 'id'));
-    const venueSlug = slugMap[card.dataset.venueId];
-    const accent = venueAccentColors[venueSlug] || '#8b5cf6';
+    const accent = card.dataset.accent || '#8b5cf6';
     const bar = document.getElementById('venue-info-bar');
     if (bar) {
         bar.style.display = 'flex';
@@ -443,7 +438,7 @@ function selectVenue(card) {
         document.getElementById('venue-info-accent').style.background = accent;
         document.getElementById('venue-info-accent').style.boxShadow = `0 0 8px ${accent}`;
         document.getElementById('venue-info-name').textContent = card.querySelector('[style*="font-weight:600"]')?.textContent?.trim() || '';
-        document.getElementById('venue-info-desc').textContent = venueDescriptions[venueSlug] || '';
+        document.getElementById('venue-info-desc').textContent = card.dataset.description || '';
     }
 }
 

@@ -25,6 +25,7 @@ import * as THREE from 'three';
 import { CONFIG, OPEN_AIR_VENUES, parseColor } from './config.js';
 import { loadGlb } from './AssetLoader.js';
 import { mergeParts } from './GeometryUtils.js';
+import { createVenueRng, venueSeedSource } from './Rng.js';
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function applyVenueOverrides(slug) {
@@ -225,6 +226,13 @@ export async function loadDecorations(decorations) {
 export function addVenueStructure(data) {
     const slug = this._venueSlug || 'white-cube';
     const wh   = CONFIG.room.wallHeight;
+
+    // Iteration 0 (roadmap P0.3): all procedural distribution below draws
+    // from a seeded generator — hash(venue_slug + ':' + gallery_id) — so the
+    // same venue + gallery renders an IDENTICAL composition on every load.
+    // Rebuilt scenes (Live Preview override reloads) recreate the rng from
+    // the same seed, so rebuilds are stable too.
+    this._venueRng = createVenueRng(venueSeedSource(slug));
 
     if (slug === 'industrial-loft') {
         addIndustrialLoftStructure.call(this, data);
@@ -451,6 +459,9 @@ function addSculptureGardenStructure(data) {
     const pathGeo = new THREE.RingGeometry(0, 1.5, 16);
     const pathSteps = 6;
     // PERF-D21: one merged path mesh instead of six
+    // Iteration 0: stone rotation/scale are seeded (was Math.random) — the
+    // garden path is now identical on every load for the same gallery.
+    const rng = this._venueRng;
     const pathParts = [];
     for (let i = 0; i < pathSteps; i++) {
         const t = i / (pathSteps - 1);
@@ -459,8 +470,8 @@ function addSculptureGardenStructure(data) {
         pathParts.push({
             geo: pathGeo,
             pos: [Math.cos(angle) * r, 0.02, Math.sin(angle) * r],
-            rot: [-Math.PI / 2, 0, Math.random() * Math.PI],
-            scale: 0.8 + Math.random() * 0.4,
+            rot: [-Math.PI / 2, 0, rng.next() * Math.PI],
+            scale: 0.8 + rng.next() * 0.4,
         });
     }
     this.scene.add(new THREE.Mesh(mergeParts(pathParts), pathMat));
@@ -505,12 +516,13 @@ function addVoidVenueStructure(data) {
 
 // INFINITE VOID — slow-floating dust particles, very subtle
 function addInfiniteVoidParticles(radius) {
+    const rng = this._venueRng;
     const particleCount = 200;
     const positions = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount; i++) {
-        positions[i * 3]     = (Math.random() - 0.5) * radius * 2;
-        positions[i * 3 + 1] = Math.random() * 5;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * radius * 2;
+        positions[i * 3]     = (rng.next() - 0.5) * radius * 2;
+        positions[i * 3 + 1] = rng.next() * 5;
+        positions[i * 3 + 2] = (rng.next() - 0.5) * radius * 2;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -527,7 +539,8 @@ function addInfiniteVoidParticles(radius) {
     this.scene.add(points);
     this._particleSystems = this._particleSystems || [];
     // PERF-C16: phase gives each system a distinct point in the bob cycle
-    this._particleSystems.push({ obj: points, type: 'drift', phase: Math.random() * Math.PI * 2 });
+    // (seeded — Iteration 0)
+    this._particleSystems.push({ obj: points, type: 'drift', phase: rng.next() * Math.PI * 2 });
 }
 
 // CRYSTAL CATHEDRAL — floating glass shards catching refracted light
@@ -545,14 +558,18 @@ function addCrystalCathedralStructure(radius) {
     });
 
     // 12 floating glass shards at varying heights
+    // Iteration 0: shard ring/height/rotation/scale are seeded (was
+    // Math.random) — the venue a customer chose from a still is the venue
+    // every visitor sees.
+    const rng = this._venueRng;
     const shardGeo = new THREE.OctahedronGeometry(1.0, 0);
     for (let i = 0; i < 12; i++) {
         const shard = new THREE.Mesh(shardGeo, shardMat);
         const angle = (i / 12) * Math.PI * 2;
-        const r = radius * 0.5 + Math.random() * radius * 0.3;
-        shard.position.set(Math.cos(angle) * r, 2 + Math.random() * 4, Math.sin(angle) * r);
-        shard.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-        shard.scale.setScalar(0.8 + Math.random() * 1.5);
+        const r = radius * 0.5 + rng.next() * radius * 0.3;
+        shard.position.set(Math.cos(angle) * r, 2 + rng.next() * 4, Math.sin(angle) * r);
+        shard.rotation.set(rng.next() * Math.PI, rng.next() * Math.PI, rng.next() * Math.PI);
+        shard.scale.setScalar(0.8 + rng.next() * 1.5);
         this.scene.add(shard);
 
         // Coloured point light inside every 3rd shard.
@@ -573,7 +590,7 @@ function addCrystalCathedralStructure(radius) {
 
         // Register for slow rotation animation in animate()
         this._particleSystems = this._particleSystems || [];
-        this._particleSystems.push({ obj: shard, type: 'rotate-slow', phase: Math.random() * Math.PI * 2 });
+        this._particleSystems.push({ obj: shard, type: 'rotate-slow', phase: rng.next() * Math.PI * 2 });
     }
 
     // Floor: crystal — high metalness, mirror-like
@@ -584,22 +601,25 @@ function addCrystalCathedralStructure(radius) {
 // NEBULA DRIFT — particle cloud + starfield + slow camera drift feel
 function addNebulaDriftStructure(radius) {
     // 1. Starfield — distant points in all directions
+    // Iteration 0: starfield distribution + palette are seeded (was
+    // Math.random)
+    const rng = this._venueRng;
     const starCount = 800;
     const starPositions = new Float32Array(starCount * 3);
     const starColors    = new Float32Array(starCount * 3);
     for (let i = 0; i < starCount; i++) {
         // Spherical distribution far away
-        const theta = Math.random() * Math.PI * 2;
-        const phi   = Math.acos(Math.random() * 2 - 1);
-        const r     = radius * 4 + Math.random() * radius * 2;
+        const theta = rng.next() * Math.PI * 2;
+        const phi   = Math.acos(rng.next() * 2 - 1);
+        const r     = radius * 4 + rng.next() * radius * 2;
         starPositions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
         starPositions[i * 3 + 1] = r * Math.cos(phi);
         starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
 
         // Purple/blue/pink star colours
-        const hue = 0.7 + Math.random() * 0.15; // 0.7-0.85
-        const sat = 0.4 + Math.random() * 0.4;
-        const lit = 0.5 + Math.random() * 0.4;
+        const hue = 0.7 + rng.next() * 0.15; // 0.7-0.85
+        const sat = 0.4 + rng.next() * 0.4;
+        const lit = 0.5 + rng.next() * 0.4;
         const c = new THREE.Color().setHSL(hue, sat, lit);
         starColors[i * 3]     = c.r;
         starColors[i * 3 + 1] = c.g;
@@ -621,9 +641,9 @@ function addNebulaDriftStructure(radius) {
     const nebCount = 400;
     const nebPositions = new Float32Array(nebCount * 3);
     for (let i = 0; i < nebCount; i++) {
-        nebPositions[i * 3]     = (Math.random() - 0.5) * radius * 2;
-        nebPositions[i * 3 + 1] = Math.random() * 6 - 1;
-        nebPositions[i * 3 + 2] = (Math.random() - 0.5) * radius * 2;
+        nebPositions[i * 3]     = (rng.next() - 0.5) * radius * 2;
+        nebPositions[i * 3 + 1] = rng.next() * 6 - 1;
+        nebPositions[i * 3 + 2] = (rng.next() - 0.5) * radius * 2;
     }
     const nebGeo = new THREE.BufferGeometry();
     nebGeo.setAttribute('position', new THREE.BufferAttribute(nebPositions, 3));
@@ -639,7 +659,7 @@ function addNebulaDriftStructure(radius) {
     this.scene.add(nebPoints);
 
     this._particleSystems = this._particleSystems || [];
-    this._particleSystems.push({ obj: nebPoints, type: 'drift', phase: Math.random() * Math.PI * 2 });
+    this._particleSystems.push({ obj: nebPoints, type: 'drift', phase: rng.next() * Math.PI * 2 });
 
     // 3. Soft purple backlight
     const backLight = new THREE.PointLight(0x8844ff, 0.5, radius * 2);
@@ -666,13 +686,14 @@ function addMirrorLakeStructure(radius) {
     moonMesh.position.copy(moon.position);
     this.scene.add(moonMesh);
 
-    // Drifting mist particles
+    // Drifting mist particles (seeded — Iteration 0)
+    const rng = this._venueRng;
     const mistCount = 150;
     const positions = new Float32Array(mistCount * 3);
     for (let i = 0; i < mistCount; i++) {
-        positions[i * 3]     = (Math.random() - 0.5) * radius * 2;
-        positions[i * 3 + 1] = 0.1 + Math.random() * 2;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * radius * 2;
+        positions[i * 3]     = (rng.next() - 0.5) * radius * 2;
+        positions[i * 3 + 1] = 0.1 + rng.next() * 2;
+        positions[i * 3 + 2] = (rng.next() - 0.5) * radius * 2;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -687,5 +708,5 @@ function addMirrorLakeStructure(radius) {
     const mist = new THREE.Points(geo, mat);
     this.scene.add(mist);
     this._particleSystems = this._particleSystems || [];
-    this._particleSystems.push({ obj: mist, type: 'drift', phase: Math.random() * Math.PI * 2 });
+    this._particleSystems.push({ obj: mist, type: 'drift', phase: rng.next() * Math.PI * 2 });
 }

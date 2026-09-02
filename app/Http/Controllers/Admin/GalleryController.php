@@ -52,7 +52,18 @@ class GalleryController extends Controller
             return $redirect;
         }
 
-        $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
+        // Iteration 0 (roadmap P0.2 — draft-leak fix): pickers previously
+        // fetched by is_active only, so a DRAFT venue (is_active=true,
+        // is_draft=true) appeared in customer pickers and then failed
+        // server-side validation on submit — experienced as "this venue
+        // saves with an error". published() excludes drafts. Plan filtering
+        // intentionally NOT applied here: locked venues must stay visible
+        // (lock overlay = upsell surface); entitlement is enforced
+        // server-side in store()/update() via assertVenueAccessibleForPlan().
+        $venueTemplates = \App\Models\VenueTemplate::active()
+            ->published()
+            ->orderBy('sort_order')
+            ->get();
         return view('admin.galleries.create', compact('team', 'venueTemplates'));
     }
 
@@ -388,7 +399,14 @@ class GalleryController extends Controller
         // 'team.owner' is eager-loaded for the plan-holder-aware quota
         // display in the upload section (ITERATION-2).
         $gallery->load('images', 'venueTemplate', 'team.owner');
-        $venueTemplates = \App\Models\VenueTemplate::where('is_active', true)->orderBy('sort_order')->get();
+        // Iteration 0 (roadmap P0.2): exclude draft venues from the picker
+        // (see create() for the full rationale). The gallery's CURRENT venue
+        // always stays visible here even if it were hidden by a future
+        // filter — grandfathered venues must remain editable.
+        $venueTemplates = \App\Models\VenueTemplate::active()
+            ->published()
+            ->orderBy('sort_order')
+            ->get();
 
         // ITERATION-2 (artwork metadata UI): artist options for the
         // per-artwork metadata modal. Scoped to artists the curator

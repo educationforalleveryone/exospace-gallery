@@ -215,12 +215,21 @@ class VenueTemplate extends Model
         };
     }
 
+    /**
+     * Iteration 0 (roadmap P0.4 — honest capacity): the picker previously
+     * showed "min–max artworks" (e.g. White Cube "20–60"), but capacity_min
+     * is not enforced anywhere and actively misleads — a Free customer
+     * (max 10 images) reading "20–60 artworks" on the default venue is
+     * being told the venue does not fit their show. The honest, useful
+     * datum is the upper bound. capacity_min remains in the DB and the
+     * super-admin form as administrative guidance.
+     */
     public function capacityLabel(): string
     {
         if (is_null($this->capacity_max)) {
-            return 'Unlimited';
+            return 'Any exhibition size';
         }
-        return "{$this->capacity_min}–{$this->capacity_max} artworks";
+        return "Up to {$this->capacity_max} artworks";
     }
 
     public function categoryLabel(): string
