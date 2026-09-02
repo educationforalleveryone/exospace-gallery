@@ -16,7 +16,7 @@
 //   geo:  THREE.BufferGeometry  (shared source — cloned internally, not mutated)
 //   pos?: [x, y, z]             default [0,0,0]
 //   rot?: [rx, ry, rz]          radians, XYZ order, default [0,0,0]
-//   scale?: number              uniform scale, default 1
+//   scale?: number | [x, y, z]  uniform or per-axis scale, default 1
 // }>
 // Returns a new merged geometry. Callers own (and should dispose) the source
 // geometries after merging.
@@ -28,12 +28,20 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 export function mergeParts(parts) {
     const geos = parts.map(p => {
         const g = p.geo.clone();
+        // Iteration 3: per-axis scale support (number = uniform, array = XYZ)
+        // — perimeter coves / crates stretch a unit box per part. Backwards
+        // compatible: numbers behave exactly as before.
+        const s = Array.isArray(p.scale) ? p.scale : (p.scale ?? 1);
         const m = new THREE.Matrix4().compose(
             new THREE.Vector3(p.pos?.[0] || 0, p.pos?.[1] || 0, p.pos?.[2] || 0),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
                 p.rot?.[0] || 0, p.rot?.[1] || 0, p.rot?.[2] || 0
             )),
-            new THREE.Vector3(p.scale ?? 1, p.scale ?? 1, p.scale ?? 1)
+            new THREE.Vector3(
+                Array.isArray(s) ? (s[0] ?? 1) : s,
+                Array.isArray(s) ? (s[1] ?? 1) : s,
+                Array.isArray(s) ? (s[2] ?? 1) : s
+            )
         );
         g.applyMatrix4(m);
         return g;

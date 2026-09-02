@@ -88,7 +88,17 @@ class VenuePhenomenaIterationTest extends TestCase
         foreach (['white-cube', 'industrial-loft', 'dark-museum', 'zen-gallery', 'luxury-penthouse', 'cyber-gallery', 'sculpture-garden'] as $slug) {
             $config = $this->visualConfig($slug);
             $this->assertArrayNotHasKey('placement_mode', $config, "[{$slug}] must not declare a void placement mode.");
-            $this->assertArrayNotHasKey('structure_pass', $config, "[{$slug}] must not declare the void structure pass.");
+        }
+
+        // Iteration 3 "Rooms" DELIBERATELY NARROWED this list (the same way
+        // Iteration 2 narrowed Iteration 0's over-claim list): zen-gallery,
+        // luxury-penthouse, cyber-gallery and white-cube now legitimately
+        // declare structure_pass = 'rooms' (their own identity pass — see
+        // VenueRoomsIterationTest). The remaining venues must still not
+        // declare any structure pass.
+        foreach (['industrial-loft', 'dark-museum', 'sculpture-garden'] as $slug) {
+            $config = $this->visualConfig($slug);
+            $this->assertArrayNotHasKey('structure_pass', $config, "[{$slug}] must not declare a structure pass.");
         }
     }
 

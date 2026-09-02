@@ -62,30 +62,89 @@ export function placeArtworks(data) {
 }
 
 // ── SQUARE placement ─────────────────────────────────────────────────────────
+// Iteration 3 additions (both config-driven, zero slug knowledge):
+//   1. A glazing wall (visual_config.glazing_wall — RoomBuilder removed the
+//      wall and sized the room for three) holds NO artworks; the same 3-wall
+//      math is mirrored here so placement and room can never disagree.
+//   2. Bay redistribution (§4.4): surfaces registered by structure as
+//      `hangable` (Museum divider faces — StructureBuilder/VenueDecorator)
+//      receive the LAST portion of the hang, so the bays gain works instead
+//      of holding none while the outer walls hold thirty.
 export function _placeArtworksSquare(data) {
     const imageCount = this.artworkImages.length;
     const spacing    = CONFIG.room.artworkSpacing;
-    const wallLength = Math.max(CONFIG.room.minWallLength, (Math.ceil(imageCount / 4) * spacing) + spacing);
-    const imagesPerWall = Math.ceil(imageCount / 4);
+    const glazingWallId = this._glazing ? this._glazing.wallId : null;
+    const wallCount  = glazingWallId ? 3 : 4;
+    const wallLength = Math.max(CONFIG.room.minWallLength, (Math.ceil(imageCount / wallCount) * spacing) + spacing);
+    const imagesPerWall = Math.ceil(imageCount / wallCount);
     const eyeLevel = CONFIG.camera.height;
 
     const walls = [
-        { start: [-wallLength/2+spacing, eyeLevel, -wallLength/2+0.2], dir:[1,0,0],  normal:[0,0,1]  },
-        { start: [ wallLength/2-spacing, eyeLevel,  wallLength/2-0.2], dir:[-1,0,0], normal:[0,0,-1] },
-        { start: [-wallLength/2+0.2,     eyeLevel,  wallLength/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
-        { start: [ wallLength/2-0.2,     eyeLevel, -wallLength/2+spacing], dir:[0,0,1],  normal:[-1,0,0] },
+        { id: 'front', start: [-wallLength/2+spacing, eyeLevel, -wallLength/2+0.2], dir:[1,0,0],  normal:[0,0,1]  },
+        { id: 'back',  start: [ wallLength/2-spacing, eyeLevel,  wallLength/2-0.2], dir:[-1,0,0], normal:[0,0,-1] },
+        { id: 'left',  start: [-wallLength/2+0.2,     eyeLevel,  wallLength/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
+        { id: 'right', start: [ wallLength/2-0.2,     eyeLevel, -wallLength/2+spacing], dir:[0,0,1],  normal:[-1,0,0] },
     ];
+    const hangWalls = glazingWallId ? walls.filter(w => w.id !== glazingWallId) : walls;
+
+    const bayPlan = _planBayHangs(imageCount, this._hangableSurfaces, spacing);
+    const outerCount = imageCount - (bayPlan ? bayPlan.length : 0);
+    let bayIdx = 0;
     let wi = 0, pos = 0;
-    this.artworkImages.forEach(img => {
-        const wall = walls[wi];
+
+    this.artworkImages.forEach((img, i) => {
         const { group } = this.makeArtworkGroup(img, data);
-        const off = pos * spacing;
-        group.position.set(wall.start[0]+wall.dir[0]*off, wall.start[1], wall.start[2]+wall.dir[2]*off);
-        group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
+        if (bayPlan && i >= outerCount) {
+            const b = bayPlan[bayIdx++];
+            group.position.set(b.x, eyeLevel, b.z);
+            group.lookAt(b.x + b.nx, eyeLevel, b.z + b.nz);
+        } else {
+            const wall = hangWalls[wi];
+            const off = pos * spacing;
+            group.position.set(wall.start[0]+wall.dir[0]*off, wall.start[1], wall.start[2]+wall.dir[2]*off);
+            group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
+            pos++;
+            if (pos >= imagesPerWall) { pos = 0; wi = Math.min(wi+1, hangWalls.length-1); }
+        }
         this.placeAndRegister(group, data);
-        pos++;
-        if (pos >= imagesPerWall) { pos = 0; wi = Math.min(wi+1, walls.length-1); }
     });
+}
+
+// ── Bay-hang planner (Iteration 3, pure) ─────────────────────────────────────
+// Round-robin over registered hangable surfaces (capacity per surface =
+// floor(width / spacing)); offsets spread slots evenly across each face.
+// Deterministic: surface registration order + fixed assignment pattern.
+// Keeps the MAJORITY of the hang on the outer walls (≤30% into the bays).
+export function _planBayHangs(n, surfaces, spacing) {
+    if (!n || !Array.isArray(surfaces) || surfaces.length === 0 || n < 6) return null;
+    const caps = surfaces.map(s => Math.max(1, Math.floor((s.width || 0) / spacing)));
+    const total = caps.reduce((a, b) => a + b, 0);
+    const take = Math.min(total, Math.floor(n * 0.3));
+    if (take <= 0) return null;
+
+    const plan = [];
+    let assigned = 0, pass = 0;
+    while (assigned < take) {
+        let placedThisPass = false;
+        for (let s = 0; s < surfaces.length && assigned < take; s++) {
+            if (pass < caps[s]) {
+                const surf = surfaces[s];
+                const per  = caps[s];
+                const off  = (pass - (per - 1) / 2) * Math.min(spacing, surf.width / per);
+                const tx = -surf.nz, tz = surf.nx;   // tangent (normal × up)
+                plan.push({
+                    x: surf.x + tx * off + surf.nx * 0.02,
+                    z: surf.z + tz * off + surf.nz * 0.02,
+                    nx: surf.nx, nz: surf.nz,
+                });
+                assigned++;
+                placedThisPass = true;
+            }
+        }
+        if (!placedThisPass) break;
+        pass++;
+    }
+    return plan.length ? plan : null;
 }
 
 // ── CORRIDOR placement ───────────────────────────────────────────────────────

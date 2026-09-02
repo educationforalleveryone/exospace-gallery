@@ -94,6 +94,11 @@ export class GalleryScene {
         this.roomBounds     = null;
         this._layoutMeta    = null;
         this._obstacles     = []; // registered collision boxes (walls, dividers, props)
+        // Iteration 3 "Rooms": artwork-hang surfaces registered by structure
+        // (Museum divider faces / StructureBuilder `hangable` entries) and
+        // the glazing frame (RoomBuilder, visual_config.glazing_wall).
+        this._hangableSurfaces = [];
+        this._glazing          = null;
 
         // Venue state (set by VenueDecorator)
         this._venueSlug           = 'white-cube';

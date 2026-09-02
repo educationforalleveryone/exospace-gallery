@@ -36,6 +36,10 @@ import {
     addFloorEdgeFade,
 } from './TierEffects.js';
 import { resolveReflectionMode } from './TierResolve.js';
+// Iteration 3 "Rooms": the generic structure-descriptor interpreter (§10.3).
+// Zero slug knowledge — venues opt in per config key (structure_pass +
+// structure). Zen / Penthouse / Cyber are the vocabulary's first consumers.
+import { buildStructure } from './StructureBuilder.js';
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function applyVenueOverrides(slug) {
@@ -259,58 +263,315 @@ export function addVenueStructure(data) {
     // the same seed, so rebuilds are stable too.
     this._venueRng = createVenueRng(venueSeedSource(slug));
 
+    // Iteration 3: hangable surfaces are (re)built WITH the structure — a
+    // Live-Preview rebuild must never accumulate stale surfaces.
+    this._hangableSurfaces = [];
+
+    // ── Iteration 3 "Rooms": the generic structure-descriptor interpreter
+    // (roadmap §10.3). Renders ONLY when the venue declares BOTH
+    // structure_pass = 'rooms' AND a non-empty structure array — removing
+    // either key from one venue's JSON reverts that venue, live, no deploy
+    // (per-venue rollback switch). Zen / Penthouse / Cyber are the
+    // vocabulary's first three consumers (§16.4); any admin-created venue
+    // may declare the same keys.
+    const vc = this._venueVisualConfig || {};
+    if (vc.structure_pass === 'rooms' && Array.isArray(vc.structure) && vc.structure.length > 0) {
+        buildStructure(this, vc.structure);
+    }
+
     if (slug === 'industrial-loft') {
         addIndustrialLoftStructure.call(this, data);
     } else if (slug === 'dark-museum') {
-        addDarkMuseumStructure.call(this, data); // includes collision registration
+        addDarkMuseumStructure.call(this, data); // collision + hangable surfaces
     } else if (slug === 'sculpture-garden') {
         addSculptureGardenStructure.call(this, data); // grass, hedges, trees, sky
+    } else if (slug === 'white-cube') {
+        // Iteration 3 respect pass (§4.1): base reveal + crown line + visible
+        // ceiling fixtures. Gated on structure_pass — remove the key and the
+        // venue returns to its pure pre-pass state ("clean is the point").
+        if (vc.structure_pass === 'rooms') addWhiteCubeRespectPass.call(this, data);
     } else if (slug === 'infinite-void' || slug === 'crystal-cathedral' ||
                slug === 'nebula-drift' || slug === 'mirror-lake') {
         addVoidVenueStructure.call(this, data);
     }
-    // white-cube + others: no structure — clean is the point
 }
 
-// ── INDUSTRIAL LOFT — steel beams + columns + floor grates ───────────────────
+// ── WHITE CUBE — the respect pass (Iteration 3, roadmap §4.1) ───────────────
+// Small, deliberate craft details so large rooms stop reading as untextured
+// boxes: a base reveal (skirting), a crown line, and VISIBLE ceiling fixtures
+// at the exact positions of the fill-light grid RoomBuilder builds (the
+// lights were real but invisible — the ceiling had no light source to see).
+// Square + corridor only (the two layouts the grid math is designed for);
+// rotunda/l-shape White Cubes keep their pre-pass purity (documented).
+function addWhiteCubeRespectPass(data) {
+    const meta = this._layoutMeta || {};
+    const wh   = CONFIG.room.wallHeight;
+
+    const revealMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0xe9e7e2 })
+        : new THREE.MeshStandardMaterial({ color: 0xe9e7e2, roughness: 0.9, metalness: 0.0 });
+    const fixtureMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0xfff2dd, emissive: 0xffedd0, emissiveIntensity: 1.3 })
+        : new THREE.MeshStandardMaterial({ color: 0xfff2dd, emissive: 0xffedd0, emissiveIntensity: 1.3, roughness: 0.6 });
+
+    if (meta.type === 'square') {
+        const L = meta.wallLength;
+        const baseGeo  = new THREE.BoxGeometry(L, 0.09, 0.045);
+        const baseParts = [
+            { geo: baseGeo, pos: [0, 0.045, -L / 2 + 0.022] },
+            { geo: baseGeo, pos: [0, 0.045,  L / 2 - 0.022], rot: [0, Math.PI, 0] },
+            { geo: baseGeo, pos: [-L / 2 + 0.022, 0.045, 0], rot: [0, Math.PI / 2, 0] },
+            { geo: baseGeo, pos: [ L / 2 - 0.022, 0.045, 0], rot: [0, -Math.PI / 2, 0] },
+        ];
+        this.scene.add(new THREE.Mesh(mergeParts(baseParts), revealMat));
+        baseGeo.dispose();
+
+        const crownGeo  = new THREE.BoxGeometry(L, 0.05, 0.035);
+        const crownParts = [
+            { geo: crownGeo, pos: [0, wh - 0.025, -L / 2 + 0.018] },
+            { geo: crownGeo, pos: [0, wh - 0.025,  L / 2 - 0.018], rot: [0, Math.PI, 0] },
+            { geo: crownGeo, pos: [-L / 2 + 0.018, wh - 0.025, 0], rot: [0, Math.PI / 2, 0] },
+            { geo: crownGeo, pos: [ L / 2 - 0.018, wh - 0.025, 0], rot: [0, -Math.PI / 2, 0] },
+        ];
+        this.scene.add(new THREE.Mesh(mergeParts(crownParts), revealMat));
+        crownGeo.dispose();
+
+        // Fixtures at the 2×2 fill-light grid (same math as RoomBuilder).
+        const gridStart = -L / 2 + L / 3, step = L / 3;
+        const fixGeo = new THREE.CylinderGeometry(0.3, 0.32, 0.05, 20);
+        const fixParts = [];
+        for (let i = 0; i < 2; i++) {
+            for (let j = 0; j < 2; j++) {
+                fixParts.push({ geo: fixGeo, pos: [gridStart + i * step, wh - 0.026, gridStart + j * step] });
+            }
+        }
+        this.scene.add(new THREE.Mesh(mergeParts(fixParts), fixtureMat));
+        fixGeo.dispose();
+    } else if (meta.type === 'corridor') {
+        const { length, width } = meta;
+        const baseGeo  = new THREE.BoxGeometry(length, 0.09, 0.045);
+        this.scene.add(new THREE.Mesh(mergeParts([
+            { geo: baseGeo, pos: [0, 0.045, -width / 2 + 0.022] },
+            { geo: baseGeo, pos: [0, 0.045,  width / 2 - 0.022], rot: [0, Math.PI, 0] },
+        ]), revealMat));
+        baseGeo.dispose();
+
+        const crownGeo = new THREE.BoxGeometry(length, 0.05, 0.035);
+        this.scene.add(new THREE.Mesh(mergeParts([
+            { geo: crownGeo, pos: [0, wh - 0.025, -width / 2 + 0.018] },
+            { geo: crownGeo, pos: [0, wh - 0.025,  width / 2 - 0.018], rot: [0, Math.PI, 0] },
+        ]), revealMat));
+        crownGeo.dispose();
+
+        const fixGeo = new THREE.CylinderGeometry(0.3, 0.32, 0.05, 20);
+        this.scene.add(new THREE.Mesh(mergeParts([
+            { geo: fixGeo, pos: [-length / 4, wh - 0.026, 0] },
+            { geo: fixGeo, pos: [ length / 4, wh - 0.026, 0] },
+        ]), fixtureMat));
+        fixGeo.dispose();
+    }
+}
+
+// ── INDUSTRIAL LOFT — beams, placement-aware columns, perimeter coves ────────
+// Iteration 3 rework (§4.3), three verified defects fixed:
+//   1. LAYOUT-AWARE: the old code read _layoutMeta.length/width — fields only
+//      the CORRIDOR builder sets (square/l-shape silently built a 20×6 room's
+//      worth of beams mid-air). Reads the real layout now.
+//   2. PLACEMENT-AWARE COLUMNS: columns never stand in front of an artwork.
+//      Candidates that fall on an artwork lane (deterministic — the SAME lane
+//      math ArtworkPlacer uses) shift into the gap between lanes.
+//   3. Center-floor grates REPLACED by perimeter cove details — the floor no
+//      longer reads as a grate field under the visitor's feet (§4.3).
+//   4. Eye-level credibility: crates + rack + track-light heads so the story
+//      survives at walking height, not only overhead (corridor + square).
 function addIndustrialLoftStructure(data) {
     const beamMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x2a2a2a })
         : new THREE.MeshStandardMaterial({ color: 0x1e1e1e, roughness: 0.6, metalness: 0.9 });
-
-    const meta = this._layoutMeta || {};
-    const length = meta.length || 20;
-    const width  = meta.width  || 6;
-
-    // PERF-D21 (3D audit F21): beams, columns and grates each merge into ONE
-    // mesh — the old per-piece Meshes cost (beamCount + columns + beamCount)
-    // draw calls for identical materials with static transforms.
-    const beamCount = Math.max(3, Math.floor(length / 5));
-    const beamStep  = length / (beamCount + 1);
-    const beamGeo   = new THREE.BoxGeometry(width + 0.4, 0.25, 0.3);
-    const colGeo    = new THREE.BoxGeometry(0.18, CONFIG.room.wallHeight, 0.18);
-    const grateMat  = this.isLowEnd
+    const coveMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x111111 })
         : new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 1.0, metalness: 0.3 });
-    const grateGeo  = new THREE.BoxGeometry(width + 0.3, 0.02, 0.15);
 
-    const beamParts = [], colParts = [], grateParts = [];
-    for (let i = 1; i <= beamCount; i++) {
-        const x = -length / 2 + i * beamStep;
-        beamParts.push({ geo: beamGeo, pos: [x, CONFIG.room.wallHeight - 0.12, 0] });
-        grateParts.push({ geo: grateGeo, pos: [x, 0.01, 0] });
-        // Vertical column supports at every other beam
-        if (i % 2 === 1) {
-            [-width / 2 + 0.09, width / 2 - 0.09].forEach(z => {
-                colParts.push({ geo: colGeo, pos: [x, CONFIG.room.wallHeight / 2, z] });
-            });
+    const meta    = this._layoutMeta || {};
+    const wh      = CONFIG.room.wallHeight;
+    const spacing = CONFIG.room.artworkSpacing;
+    const colGeo  = new THREE.BoxGeometry(0.18, wh, 0.18);
+
+    // Placement-aware helper: shift a wall-line coordinate off the artwork
+    // lanes (lanes use the SAME formula ArtworkPlacer applies for this
+    // layout — structure and placement can never disagree).
+    const avoidLanes = (cand, lanes) => {
+        let x = cand;
+        for (const k of lanes) {
+            if (Math.abs(x - k) < 0.8) { x = k + spacing / 2; break; }
         }
-    }
+        return x;
+    };
 
-    this.scene.add(new THREE.Mesh(mergeParts(beamParts), beamMat));
-    this.scene.add(new THREE.Mesh(mergeParts(colParts),  beamMat));
-    this.scene.add(new THREE.Mesh(mergeParts(grateParts), grateMat));
-    beamGeo.dispose(); colGeo.dispose(); grateGeo.dispose();
+    if (meta.type === 'corridor') {
+        const length = meta.length, width = meta.width;
+        const half   = Math.ceil((data.imageCount || 0) / 2);
+        const lanes  = Array.from({ length: half }, (_, k) => -length / 2 + spacing * (1 + k));
+
+        const beamCount = Math.max(3, Math.floor(length / 5));
+        const beamStep  = length / (beamCount + 1);
+        const beamGeo   = new THREE.BoxGeometry(width + 0.4, 0.25, 0.3);
+        const beamParts = [], colParts = [];
+        for (let i = 1; i <= beamCount; i++) {
+            const x = -length / 2 + i * beamStep;
+            beamParts.push({ geo: beamGeo, pos: [x, wh - 0.12, 0] });
+            if (i % 2 === 1) {
+                const cx = avoidLanes(x, lanes);
+                [-width / 2 + 0.09, width / 2 - 0.09].forEach(z => {
+                    colParts.push({ geo: colGeo, pos: [cx, wh / 2, z] });
+                });
+            }
+        }
+        this.scene.add(new THREE.Mesh(mergeParts(beamParts), beamMat));
+        this.scene.add(new THREE.Mesh(mergeParts(colParts), beamMat));
+        beamGeo.dispose();
+
+        // Perimeter coves (replace the old center grates) + eye-level props.
+        addLoftPerimeterCoves.call(this, [
+            { cx: 0, cz: -width / 2 + 0.1, w: length - 0.8, d: 0.09 },
+            { cx: 0, cz:  width / 2 - 0.1, w: length - 0.8, d: 0.09 },
+            { cx: -length / 2 + 0.1, cz: 0, w: 0.09, d: width - 0.8 },
+            { cx:  length / 2 - 0.1, cz: 0, w: 0.09, d: width - 0.8 },
+        ], coveMat);
+        addLoftEyeLevelProps.call(this, { length, width, beamY: wh - 0.12, alongX: true });
+    } else if (meta.type === 'square') {
+        const L = meta.wallLength;
+        const perWall = Math.ceil((data.imageCount || 0) / 4);
+        const lanes   = Array.from({ length: perWall }, (_, k) => -L / 2 + spacing * (1 + k));
+
+        const beamCount = Math.max(3, Math.floor(L / 5));
+        const beamStep  = L / (beamCount + 1);
+        const beamGeo   = new THREE.BoxGeometry(0.3, 0.25, L + 0.4);
+        const beamParts = [], colParts = [];
+        for (let i = 1; i <= beamCount; i++) {
+            const z = -L / 2 + i * beamStep;
+            beamParts.push({ geo: beamGeo, pos: [0, wh - 0.12, z] });
+            if (i % 2 === 1) {
+                const cz = avoidLanes(z, lanes);
+                [-L / 2 + 0.09, L / 2 - 0.09].forEach(x => {
+                    colParts.push({ geo: colGeo, pos: [x, wh / 2, cz] });
+                });
+            }
+        }
+        this.scene.add(new THREE.Mesh(mergeParts(beamParts), beamMat));
+        this.scene.add(new THREE.Mesh(mergeParts(colParts), beamMat));
+        beamGeo.dispose();
+
+        addLoftPerimeterCoves.call(this, [
+            { cx: 0, cz: -L / 2 + 0.1, w: L - 0.8, d: 0.09 },
+            { cx: 0, cz:  L / 2 - 0.1, w: L - 0.8, d: 0.09 },
+            { cx: -L / 2 + 0.1, cz: 0, w: 0.09, d: L - 0.8 },
+            { cx:  L / 2 - 0.1, cz: 0, w: 0.09, d: L - 0.8 },
+        ], coveMat);
+        addLoftEyeLevelProps.call(this, { length: L, width: L, beamY: wh - 0.12, alongX: true });
+    } else if (meta.type === 'l-shape') {
+        // Wing A only — the structure follows the highest artwork density;
+        // documented in the iteration report (l-shape structural scope).
+        const { wingW, lenA } = meta;
+        const zStart = -lenA / 2 + spacing;
+        const zLimit = lenA / 2 - wingW - spacing / 2;
+        const lanes  = [];
+        for (let z = zStart; z < zLimit; z += spacing * 2) lanes.push(z); // sideA alternation → every 2nd spacing
+
+        const beamCount = Math.max(2, Math.floor(lenA / 5));
+        const beamStep  = lenA / (beamCount + 1);
+        const beamGeo   = new THREE.BoxGeometry(wingW + 0.4, 0.25, 0.3);
+        const beamParts = [], colParts = [];
+        for (let i = 1; i <= beamCount; i++) {
+            const z = -lenA / 2 + i * beamStep;
+            beamParts.push({ geo: beamGeo, pos: [wingW / 2, wh - 0.12, z] });
+            if (i % 2 === 1) {
+                const cz = avoidLanes(z, lanes);
+                [0 + 0.09, wingW - 0.09].forEach(x => {
+                    colParts.push({ geo: colGeo, pos: [x, wh / 2, cz] });
+                });
+            }
+        }
+        this.scene.add(new THREE.Mesh(mergeParts(beamParts), beamMat));
+        this.scene.add(new THREE.Mesh(mergeParts(colParts), beamMat));
+        beamGeo.dispose();
+
+        addLoftPerimeterCoves.call(this, [
+            { cx: wingW / 2, cz: -lenA / 2 + 0.1, w: wingW - 0.8, d: 0.09 },
+            { cx: wingW / 2, cz:  lenA / 2 - 0.1, w: wingW - 0.8, d: 0.09 },
+            { cx: 0.1,           cz: 0, w: 0.09, d: lenA - 0.8 },
+            { cx: wingW - 0.1,   cz: 0, w: 0.09, d: lenA - 0.8 },
+        ], coveMat);
+    }
+    colGeo.dispose();
+}
+
+// Perimeter cove strips — merged into ONE mesh (replaces the old center
+// floor grates; §4.3 "replace center-floor grates with perimeter details").
+function addLoftPerimeterCoves(strips, coveMat) {
+    const geo   = new THREE.BoxGeometry(1, 0.07, 1);
+    const parts = strips.map(s => ({
+        geo,
+        pos: [s.cx, 0.035, s.cz],
+        scale: undefined,
+    }));
+    // Scale per strip: BoxGeometry(1,0.07,1) scaled to (w, 1, d).
+    parts.forEach((p, i) => { p.scale = [strips[i].w, 1, strips[i].d]; });
+    this.scene.add(new THREE.Mesh(mergeParts(parts), coveMat));
+    geo.dispose();
+}
+
+// Eye-level industrial props — crates, rack, track-light heads.
+// Positioned in the END zones past the last artwork lane (corridor places
+// artworks on the long walls only, so the end zones are prop-safe).
+function addLoftEyeLevelProps({ length, width, beamY, alongX }) {
+    const crateMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x6a5230 })
+        : new THREE.MeshStandardMaterial({ color: 0x6a5230, roughness: 0.9, metalness: 0.0 });
+    const steelMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x2a2c30 })
+        : new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.45, metalness: 0.85 });
+    const lampMat  = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0xfff2dd, emissive: 0xffe9c8, emissiveIntensity: 1.6 })
+        : new THREE.MeshStandardMaterial({ color: 0xfff2dd, emissive: 0xffe9c8, emissiveIntensity: 1.6, roughness: 0.5 });
+
+    const endX = length / 2 - 1.4;
+
+    // Crates (cluster, +end) — merged, registered as one obstacle.
+    const crateGeo = new THREE.BoxGeometry(1, 1, 1);
+    const crateParts = [
+        { geo: crateGeo, pos: [ endX, 0.3, -width / 4 ], rot: [0, 0.12, 0], scale: [0.78, 0.6, 0.78] },
+        { geo: crateGeo, pos: [ endX - 0.05, 0.85, -width / 4 ], rot: [0, 0.3, 0], scale: [0.62, 0.5, 0.62] },
+        { geo: crateGeo, pos: [ endX - 0.9, 0.24, -width / 4 + 0.4 ], rot: [0, -0.2, 0], scale: [0.66, 0.48, 0.66] },
+    ];
+    const crates = new THREE.Mesh(mergeParts(crateParts), crateMat);
+    crateGeo.dispose();
+    this.scene.add(crates);
+    this.registerObstacle(crates, 0.2);
+
+    // Rack (steel shelving, −end) — merged, registered as one obstacle.
+    const upGeo   = new THREE.BoxGeometry(0.06, 1.8, 0.06);
+    const shelfGeo = new THREE.BoxGeometry(0.5, 0.04, 1.7);
+    const rackParts = [
+        { geo: upGeo, pos: [ -endX, 0.9, -0.85 ] },
+        { geo: upGeo, pos: [ -endX, 0.9,  0.85 ] },
+        { geo: shelfGeo, pos: [ -endX, 0.55, 0 ] },
+        { geo: shelfGeo, pos: [ -endX, 1.15, 0 ] },
+    ];
+    const rack = new THREE.Mesh(mergeParts(rackParts), steelMat);
+    upGeo.dispose(); shelfGeo.dispose();
+    this.scene.add(rack);
+    this.registerObstacle(rack, 0.2);
+
+    // Track-light heads on the two outermost beams — visual fixtures under
+    // the existing fill lights (no new dynamic lights — PERF-B18 discipline).
+    const headGeo = new THREE.CylinderGeometry(0.07, 0.05, 0.2, 10);
+    const headParts = [ -endX, -endX / 2, endX / 2, endX ].map(x => ({
+        geo: headGeo,
+        pos: [x * (alongX ? 1 : 0), beamY - 0.16, x * (alongX ? 0 : 1)],
+    }));
+    this.scene.add(new THREE.Mesh(mergeParts(headParts), lampMat));
+    headGeo.dispose();
 }
 
 // ── DARK MUSEUM — dividers + skirting board (with collision) ────────────────
@@ -343,6 +604,28 @@ function addDarkMuseumStructure(data) {
 
         // 🔑 FIX: register the divider as a collision obstacle
         this.registerObstacle(mesh, 0.4);
+
+        // ── Iteration 3 (§4.4): top cap + hangable faces.
+        // Cap: a slightly larger slab crowns each divider (painted-museum
+        // detail; the dividers previously ended as raw box tops).
+        const capGeo = new THREE.BoxGeometry(dividerLength + 0.12, 0.07, dividerDepth + 0.12);
+        const capMat = this.isLowEnd
+            ? new THREE.MeshLambertMaterial({ color: 0x141414 })
+            : new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.9, metalness: 0.1 });
+        const cap = new THREE.Mesh(capGeo, capMat);
+        cap.position.set(cfg.x, dividerH + 0.035, cfg.z);
+        this.scene.add(cap);
+
+        // Bay redistribution (generic mechanism, ArtworkPlacer consumes):
+        // both long faces of every divider register as artwork-hang surfaces,
+        // so the bays gain works instead of holding none while the outer
+        // walls hold thirty.
+        const eye = CONFIG.camera.height;
+        this._hangableSurfaces = this._hangableSurfaces || [];
+        this._hangableSurfaces.push(
+            { x: cfg.x, z: cfg.z + dividerDepth / 2 + 0.02, nx: 0, nz:  1, width: dividerLength - 0.9, height: dividerH - 0.6 },
+            { x: cfg.x, z: cfg.z - dividerDepth / 2 - 0.02, nx: 0, nz: -1, width: dividerLength - 0.9, height: dividerH - 0.6 },
+        );
     });
 
     // Skirting / baseboard along all four walls
@@ -404,8 +687,24 @@ function addSculptureGardenStructure(data) {
     this.scene.add(sky);
 
     // ── 2. Sun — directional light from above + visual sphere ──────────────
+    // Iteration 3 (§4.10): the garden is the ONLY venue where the sky
+    // establishes a sun, so it is the only venue that may enable sun shadows
+    // — tier-gated (high tier only) and config-gated (visual_config.
+    // sun_shadows — the per-venue rollback switch). Everywhere else shadows
+    // stay off (CONFIG.performance.shadowsEnabled = false, DO-NOT-DO #4).
+    const vcShadow = this._venueVisualConfig || {};
     const sunLight = new THREE.DirectionalLight(0xfff4e0, 0.8);
     sunLight.position.set(radius * 0.6, radius * 1.5, -radius * 0.4);
+    if (vcShadow.sun_shadows === true && !this.isLowEnd && !this._isMobileTier) {
+        if (!this.renderer.shadowMap.enabled) this.renderer.shadowMap.enabled = true;
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(1024, 1024);
+        const sc = sunLight.shadow.camera;
+        sc.left = -radius * 1.1; sc.right = radius * 1.1;
+        sc.top  =  radius * 1.1; sc.bottom = -radius * 1.1;
+        sc.near = 1; sc.far = radius * 4;
+        sunLight.shadow.bias = -0.0005;
+    }
     this.scene.add(sunLight);
 
     const sunGeo = new THREE.SphereGeometry(2, 16, 16);
@@ -442,7 +741,9 @@ function addSculptureGardenStructure(data) {
     this.scene.add(new THREE.Mesh(mergeParts(hedgeParts), hedgeMat));
     hedgeGeo.dispose();
 
-    // ── 4. Procedural trees (cylinder trunk + 2 cone foliage) ──────────────
+    // ── 4. Procedural trees — MERGED low-poly canopies (Iteration 3, §4.10).
+    // Identical silhouettes and positions; the 12 previously separate meshes
+    // (trunk + 2 cones × 4 trees) merge per part into THREE draw calls total.
     const treePositions = [
         { x: -radius * 0.7, z:  radius * 0.5, scale: 1.0 },
         { x:  radius * 0.6, z:  radius * 0.7, scale: 1.2 },
@@ -458,24 +759,24 @@ function addSculptureGardenStructure(data) {
     const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 2.5, 8);
     const leafGeo  = new THREE.ConeGeometry(1.5, 3.0, 8);
 
+    const trunkParts = [], leaf1Parts = [], leaf2Parts = [];
     treePositions.forEach(pos => {
-        const tree = new THREE.Group();
-        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-        trunk.position.y = 1.25;
-        tree.add(trunk);
-        const leaves1 = new THREE.Mesh(leafGeo, leafMat);
-        leaves1.position.y = 3.5;
-        tree.add(leaves1);
-        const leaves2 = new THREE.Mesh(leafGeo, leafMat);
-        leaves2.position.y = 4.5;
-        leaves2.scale.setScalar(0.7);
-        tree.add(leaves2);
-        tree.position.set(pos.x, 0, pos.z);
-        tree.scale.setScalar(pos.scale);
-        this.scene.add(tree);
-        // Trunk collides (so player can't walk through tree)
-        this.registerObstacle(trunk, 0.1);
+        trunkParts.push({ geo: trunkGeo, pos: [pos.x, 1.25 * pos.scale, pos.z], scale: pos.scale });
+        leaf1Parts.push({ geo: leafGeo,  pos: [pos.x, 3.5 * pos.scale,  pos.z], scale: pos.scale });
+        leaf2Parts.push({ geo: leafGeo,  pos: [pos.x, 4.5 * pos.scale,  pos.z], scale: pos.scale * 0.7 });
+        // Trunk collision (player can't walk through the tree) — an invisible
+        // proxy per tree (the merged-canopy AABB would span the whole grove).
+        const trunkProxy = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.5, 0.5), trunkMat);
+        trunkProxy.position.set(pos.x, 1.25 * pos.scale, pos.z);
+        trunkProxy.visible = false;
+        this.scene.add(trunkProxy);
+        this.registerObstacle(trunkProxy, 0.1);
+        trunkProxy.geometry.dispose();
     });
+    this.scene.add(new THREE.Mesh(mergeParts(trunkParts), trunkMat));
+    this.scene.add(new THREE.Mesh(mergeParts(leaf1Parts), leafMat));
+    this.scene.add(new THREE.Mesh(mergeParts(leaf2Parts), leafMat));
+    trunkGeo.dispose(); leafGeo.dispose();
 
     // ── 5. Stone path — circular segments of lighter-coloured ground ──────
     const pathMat = this.isLowEnd
@@ -502,15 +803,29 @@ function addSculptureGardenStructure(data) {
     this.scene.add(new THREE.Mesh(mergeParts(pathParts), pathMat));
     pathGeo.dispose();
 
-    // ── 6. Central pedestal — stone column for a hero sculpture ────────────
+    // ── 6. Central pedestal + the signature sculpture (Iteration 3, §4.10).
+    // The pedestal stood EMPTY — the venue was missing its hero moment. One
+    // abstract bronze knot (a single mesh, elegant-miniature register) gives
+    // the garden its centre of gravity. No new animation (§10.3 rule).
     const pedestalMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x808080 })
         : new THREE.MeshStandardMaterial({ color: 0xa0a0a0, roughness: 0.7, metalness: 0.1 });
     const pedestalGeo = new THREE.CylinderGeometry(0.6, 0.7, 1.2, 16);
     const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
     pedestal.position.set(0, 0.6, 0);
+    pedestal.castShadow = !this.isLowEnd && !this._isMobileTier &&
+        (this._venueVisualConfig || {}).sun_shadows === true;
     this.scene.add(pedestal);
     this.registerObstacle(pedestal, 0.2);
+
+    const sculptureMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x8c6a3f })
+        : new THREE.MeshStandardMaterial({ color: 0x8c6a3f, roughness: 0.35, metalness: 0.9 });
+    const sculpture = new THREE.Mesh(new THREE.TorusKnotGeometry(0.32, 0.11, 96, 10), sculptureMat);
+    sculpture.position.set(0, 1.2 + 0.46, 0);
+    sculpture.rotation.set(0.55, 0.35, 0);
+    sculpture.castShadow = pedestal.castShadow;
+    this.scene.add(sculpture);
 
     // ── 7. Set circular bounds (player can't walk past the hedge) ─────────
     this._circularBoundsRadius = radius - 0.5;

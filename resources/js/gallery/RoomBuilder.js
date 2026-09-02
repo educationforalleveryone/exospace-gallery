@@ -58,16 +58,26 @@ export function createRoom(data) {
     const imageCount = data.imageCount;
     const spacing    = CONFIG.room.artworkSpacing;
     const minWallLen = CONFIG.room.minWallLength;
-    const imagesPerWall  = Math.ceil(imageCount / 4);
+    // Iteration 3: when the venue replaces a wall with glazing
+    // (visual_config.glazing_wall — the Penthouse mechanism), the room is
+    // sized for the THREE remaining artwork walls and that wall is not
+    // built. ArtworkPlacer mirrors this exact math (no drift, ever).
+    const glazing      = (this._venueVisualConfig || {}).glazing_wall === true;
+    const wallCount    = glazing ? 3 : 4;
+    const imagesPerWall  = Math.ceil(imageCount / wallCount);
     const calculatedLen  = (imagesPerWall * spacing) + spacing;
     const wallLength = Math.max(minWallLen, calculatedLen);
     const wallHeight = CONFIG.room.wallHeight;
 
-    // Floor
+    // Floor — tile density is venue-declared (material_config.
+    // floor_tile_meters, default 2 m) so texture scale no longer depends on
+    // which layout built the floor (§4.1 floor-scale fix; circular floors
+    // previously tiled at 4 m while square tiled at 2 m).
+    const floorTile = this._venueMaterialConfig?.floor_tile_meters ?? 2;
     const floorMaterial = this.getFloorMaterial(data.floor_material);
     if (floorMaterial.map) {
-        const repeatX = (wallLength * 2) / 2;
-        const repeatY = (wallLength * 2) / 2;
+        const repeatX = (wallLength * 2) / floorTile;
+        const repeatY = (wallLength * 2) / floorTile;
         floorMaterial.map.repeat.set(repeatX, repeatY);
         floorMaterial.map.needsUpdate = true;
     }
@@ -87,12 +97,12 @@ export function createRoom(data) {
     }
     const sharedWallGeo = new THREE.BoxGeometry(wallLength, wallHeight, CONFIG.room.wallDepth);
     const wallConfigs = [
-        { name: 'front', pos: [0, wallHeight/2, -wallLength/2], rot: [0, 0, 0] },
-        { name: 'back',  pos: [0, wallHeight/2,  wallLength/2], rot: [0, Math.PI, 0] },
-        { name: 'left',  pos: [-wallLength/2, wallHeight/2, 0], rot: [0, Math.PI/2, 0] },
-        { name: 'right', pos: [ wallLength/2, wallHeight/2, 0], rot: [0, -Math.PI/2, 0] },
+        { id: 'front', name: 'front', pos: [0, wallHeight/2, -wallLength/2], rot: [0, 0, 0] },
+        { id: 'back',  name: 'back',  pos: [0, wallHeight/2,  wallLength/2], rot: [0, Math.PI, 0] },
+        { id: 'left',  name: 'left',  pos: [-wallLength/2, wallHeight/2, 0], rot: [0, Math.PI/2, 0] },
+        { id: 'right', name: 'right', pos: [ wallLength/2, wallHeight/2, 0], rot: [0, -Math.PI/2, 0] },
     ];
-    wallConfigs.forEach(cfg => {
+    wallConfigs.filter(cfg => !(glazing && cfg.id === 'front')).forEach(cfg => {
         const wall = new THREE.Mesh(sharedWallGeo, wallMaterial);
         wall.position.set(...cfg.pos);
         wall.rotation.set(...cfg.rot);
@@ -123,7 +133,18 @@ export function createRoom(data) {
     }
 
     // Venue-specific structure (beams, dividers, etc.)
-    this.addVenueStructure(data);
+    // ── Iteration 3 glazing anchor: the descriptor interpreter resolves
+    // 'glazing' / 'glazing_outside' against this frame (inner face plane).
+    if (glazing) {
+        this._glazing = {
+            cx: 0,
+            cz: -wallLength / 2 + CONFIG.room.wallDepth / 2,
+            inward: [0, 1],                 // [x, z] — points INTO the room
+            width: wallLength,
+            height: wallHeight,
+            wallId: 'front',
+        };
+    }
 
     // Collision bounds
     this.roomBounds = {
@@ -131,6 +152,13 @@ export function createRoom(data) {
         minZ: -wallLength / 2, maxZ: wallLength / 2,
     };
     this._layoutMeta = { type: 'square', wallLength };
+
+    // ── FIX (Iteration 3, root-cause): addVenueStructure used to run BEFORE
+    // roomBounds/_layoutMeta existed, so structure code (Museum dividers,
+    // White Cube respect pass) fell back to hardcoded 14 m defaults on every
+    // square room. Structure now builds AFTER the layout meta — the same
+    // ordering the circular/rotunda/l-shape builders already had.
+    this.addVenueStructure(data);
 }
 
 // ── CORRIDOR ──────────────────────────────────────────────────────────────────
@@ -144,8 +172,9 @@ export function createRoomCorridor(data) {
 
     const wallMat  = this.getWallMaterial(data.wall_texture);
     const floorMat = this.getFloorMaterial(data.floor_material);
+    const floorTile = this._venueMaterialConfig?.floor_tile_meters ?? 2;
     if (wallMat.map)  { wallMat.map.repeat.set(length / 2.5, wallHeight / 2.5); wallMat.map.needsUpdate = true; }
-    if (floorMat.map) { floorMat.map.repeat.set(length / 2, width / 2); floorMat.map.needsUpdate = true; }
+    if (floorMat.map) { floorMat.map.repeat.set(length / floorTile, width / floorTile); floorMat.map.needsUpdate = true; }
 
     const sharedWallGeo = new THREE.BoxGeometry(1, wallHeight, CONFIG.room.wallDepth);
 
@@ -180,11 +209,15 @@ export function createRoomCorridor(data) {
         });
     }
 
-    this.addVenueStructure(data);
-
     this.camera.position.set(-length / 2 + 1.5, CONFIG.camera.height, 0);
     this.roomBounds = { minX: -length/2+0.5, maxX: length/2-0.5, minZ: -width/2+0.5, maxZ: width/2-0.5 };
     this._layoutMeta = { type: 'corridor', length, width };
+
+    // ── FIX (Iteration 3, root-cause): structure ran BEFORE _layoutMeta
+    // existed here, so the Industrial Loft's beams/columns/props were built
+    // against hardcoded 20×6 defaults on every corridor. They now read the
+    // real room (and placement-aware columns see the real artwork lanes).
+    this.addVenueStructure(data);
 }
 
 // ── L-SHAPE ───────────────────────────────────────────────────────────────────
@@ -283,13 +316,29 @@ export function createRoomLShape(data) {
     const upperH    = jZ - (-lenA / 2);
     const upperMidZ = -lenA / 2 + upperH / 2;
 
+    // Iteration 3: glazing support (the Penthouse mechanism). The wing-B end
+    // wall — the far wall of the L — is the one replaced. Descriptor entries
+    // anchored 'glazing' / 'glazing_outside' resolve against this opening.
+    const glazing = (this._venueVisualConfig || {}).glazing_wall === true;
+
     addWall(0,                aCZ,        H,  lenA);
     addWall(aCX,             -lenA / 2,   0,  wingW);
     addWall(wingW,            upperMidZ,  H,  upperH);
     addWall(wingW + lenB / 2, jZ,         0,  lenB);
-    addWall(wingW + lenB,     bCZ,        H,  wingW);
+    if (!glazing) addWall(wingW + lenB,     bCZ,        H,  wingW);
     addWall(wingW + lenB / 2, lenA / 2,   PI, lenB);
     addWall(aCX,              lenA / 2,   PI, wingW);
+
+    if (glazing) {
+        this._glazing = {
+            cx: wingW + lenB - CONFIG.room.wallDepth / 2,
+            cz: bCZ,
+            inward: [-1, 0],                // [x, z] — points INTO wing B
+            width: wingW,
+            height: wallHeight,
+            wallId: 'wing_b_end',
+        };
+    }
 
     if (!this.isLowEnd) {
         const mkLight = (cx, cz) => {
@@ -397,9 +446,10 @@ export function createRoomCircular(data) {
 
     // Ground
     const floorMat = this.getFloorMaterial(data.floor_material);
+    const floorTile = this._venueMaterialConfig?.floor_tile_meters ?? 2;
     if (floorMat.map) {
         floorMat.map.wrapS = floorMat.map.wrapT = THREE.RepeatWrapping;
-        floorMat.map.repeat.set(radius / 2, radius / 2);
+        floorMat.map.repeat.set(radius / floorTile, radius / floorTile);
         floorMat.map.needsUpdate = true;
     }
     const floor = new THREE.Mesh(new THREE.CircleGeometry(radius, 64), floorMat);
@@ -481,8 +531,13 @@ export function addVenueCeiling(roomWidth, roomDepth, wallHeight) {
         beamGeo.dispose();
     }
 
-    // Cyber Gallery — neon strip lights along ceiling edges
-    if (this._venueSlug === 'cyber-gallery') {
+    // Cyber Gallery — neon strip lights along ceiling edges.
+    // Iteration 3: when the venue declares the Rooms structure pass, the full
+    // perimeter neon + floor light grid render from its structure descriptors
+    // (§4.9 — all four edges, bloom-off identity). This legacy two-strip
+    // ceiling is the PRE-PASS rollback body only.
+    if (this._venueSlug === 'cyber-gallery' &&
+        (this._venueVisualConfig || {}).structure_pass !== 'rooms') {
         const neonColors = [0x00ffff, 0x8800ff];
         [[-roomWidth / 2, 0], [roomWidth / 2, 0]].forEach(([x], idx) => {
             const neonGeo = new THREE.BoxGeometry(0.05, 0.05, roomDepth);
