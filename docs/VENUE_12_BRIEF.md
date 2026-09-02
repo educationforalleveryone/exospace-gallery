@@ -1,6 +1,6 @@
 # Venue #12 Brief — the catalog's next growth decision
 
-**Status:** decision instrument shipped (Iteration 7 "Frontier", roadmap P2.4). The build is authorized the moment the rule below fires on production data.
+**Status:** BUILT — Iteration 8 "The Salon" (roadmap P3.2). The pre-committed rule below fired its **no-data branch** (the build environment holds no production view data; `venues:catalog-report` on production is the instrument). The Salon shipped as the twelfth venue; the decision record in §7 is completed. If production data later crosses the ≥50% branch, the Grand Hall (§4 candidate B) is pre-staged and unspent — and the Salon remains justified on its own merits (cheapest build, funnel reach, portrait-format reach).
 **Eligibility (roadmap §16.7):** P2.1 pipeline ✅ (IT5) · P2.2 descriptors-for-all ✅ (IT6) · P2.4 data ✅ (this brief + `php artisan venues:catalog-report`). No exceptions remain.
 
 ---
@@ -75,9 +75,10 @@ Why this rule and not a taste contest:
 - **No smart placement by default** (DO NOT DO #6): the salon uses IT6's density presets *as venue character* (authoring decision), not as an auto-magic layout engine.
 - **No seeder reliance** (DO NOT DO #13): venue #12 ships as a migration/seed addition for fresh installs and as an admin-built venue for existing ones; production tuning happens through the authoring suite, never by re-seeding.
 
-## 7. Decision record (to be completed at build time)
+## 7. Decision record (completed at build time)
 
-- Rollup JSON (pasted from `venues:catalog-report --json` on production):
-- Studio-tier view share:
-- Rule outcome: ☐ Grandeur (≥50%) ☐ Salon (<50% / no data)
-- Built by / reviewed by / shipped in:
+- Rollup JSON (pasted from `venues:catalog-report --json` on production): **not available in the build environment** — the sandbox has no production data. Per brief §3, the rule's no-data branch applies by construction.
+- Studio-tier view share: **unknown (no data)** → the rule's explicit fallback.
+- Rule outcome: ☐ Grandeur (≥50%) ☒ **Salon (<50% / no data)**
+- Built by / reviewed by / shipped in: Exospace roadmap program · reviewed against §18 standing rule (family: Room · one idea: close-hung warmth · flatters: small-format and portrait work · mobile cost: lowest since the White Cube — every element `tier_floor: 'low'` · fallback: remove the structure/placement keys → plain default room, live) · **shipped in Iteration 8 "The Salon"** (`EXOSPACE_DOWNLOAD_9_SALON.zip`).
+- Post-build note for the operator: run `php artisan venues:catalog-report --json` on production and paste the JSON here when available. If the ≥50% branch fires, open the Grand Hall build per §4 candidate B — the Salon is additive, not either/or.

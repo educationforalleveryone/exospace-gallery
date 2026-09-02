@@ -19,8 +19,9 @@ declare(strict_types=1);
  *   P2.4 — the catalog decision has data:
  *     - venues:catalog-report --json rolls up adoption/demand/resonance
  *       with exact numbers (accuracy contract), conversion null-safe at
- *       zero views, and the §3.3 register coverage (intimacy + grandeur
- *       always listed as uncovered).
+ *       zero views, and the §3.3 register coverage (the gap is always
+ *       listed — since Iteration 8, that gap is grandeur alone: The
+ *       Salon covered intimacy).
  *
  *   P3.1 — try-on spike behind a default-OFF flag:
  *     - flag default false; preview payload carries tryOnEnabled ONLY on
@@ -52,6 +53,7 @@ class VenueFrontierIterationTest extends TestCase
         'white-cube', 'infinite-void', 'industrial-loft', 'dark-museum',
         'zen-gallery', 'crystal-cathedral', 'nebula-drift', 'luxury-penthouse',
         'cyber-gallery', 'sculpture-garden', 'mirror-lake',
+        'the-salon', // Iteration 8 (P3.2) — the twelfth venue
     ];
 
     // ─────────────────────────────────────────────────────────────────────
@@ -327,10 +329,17 @@ class VenueFrontierIterationTest extends TestCase
             $this->assertContains($row['venue'], self::SEEDED_SLUGS, "{$row['register']} maps to a seeded venue");
         }
 
-        // …and the §3.3 gap is always visible, never silently filled.
+        // …intimacy is covered since Iteration 8 (The Salon)…
+        $intimacy = $coverage->firstWhere('register', 'intimacy');
+        $this->assertNotNull($intimacy);
+        $this->assertSame('covered', $intimacy['status'], 'The Salon (P3.2) covers the intimacy register.');
+        $this->assertSame('the-salon', $intimacy['venue']);
+
+        // …and the §3.3 gap is always visible, never silently filled —
+        // grandeur is the last open register.
         $uncovered = $coverage->where('status', 'uncovered')->pluck('register')->all();
-        $this->assertContains('intimacy', $uncovered);
         $this->assertContains('grandeur', $uncovered);
+        $this->assertNotContains('intimacy', $uncovered, 'Intimacy was covered by The Salon — it must not reappear as a gap.');
     }
 
     public function test_catalog_report_decision_rule_is_printed(): void

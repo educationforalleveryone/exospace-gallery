@@ -73,7 +73,7 @@
             <strong style="color: #1f2937;">What you'll unlock:</strong>
             <ul>
                 <li>Unlimited galleries · 500 images each</li>
-                <li>All 11 venues including custom domain support</li>
+                <li>All 12 venues including custom domain support</li>
                 <li>White-label branding & custom curtain logo</li>
                 <li>Advanced analytics · team collaboration</li>
             </ul>

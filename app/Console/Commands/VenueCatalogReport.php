@@ -24,7 +24,8 @@ use Illuminate\Console\Command;
  *   - tier demand:     views and galleries grouped by plan_required, so the
  *                      ladder's demand shape is visible, not assumed
  *   - register map:    which emotional registers (§3.3) the catalog covers
- *                      and which it does not — today: intimacy, grandeur
+ *                      and which it does not — today: grandeur (intimacy
+ *                      was covered by The Salon, Iteration 8 / P3.2)
  *
  * The output is the INPUT to the venue #12 brief (docs/VENUE_12_BRIEF.md).
  * The brief pre-commits the decision rule; this command supplies the numbers
@@ -61,10 +62,14 @@ class VenueCatalogReport extends Command
         'cosmic'          => 'nebula-drift',
         'reflective'      => 'mirror-lake',
         'natural'         => 'sculpture-garden',
+        // Iteration 8 "The Salon" (P3.2): the intimacy register is COVERED.
+        // Kept in the map (not deleted) so the coverage table still shows
+        // the register→venue pairing explicitly.
+        'intimacy'        => 'the-salon',
     ];
 
-    /** §3.3: the only two credible uncovered registers — the venue #12 field. */
-    private const UNCOVERED_REGISTERS = ['intimacy', 'grandeur'];
+    /** §3.3: the last uncovered register — the remaining venue #13+ field. */
+    private const UNCOVERED_REGISTERS = ['grandeur'];
 
     protected $signature = 'venues:catalog-report
                             {--json : Emit machine-readable JSON instead of console tables}
@@ -189,8 +194,10 @@ class VenueCatalogReport extends Command
     }
 
     /**
-     * Coverage table for every covered register plus the two uncovered ones
-     * (always listed, always MISSING — the gap IS the message).
+     * Coverage table for every covered register plus the remaining
+     * uncovered ones (always listed, always MISSING — the gap IS the
+     * message). Intimacy joined the covered set in Iteration 8 (The
+     * Salon); grandeur remains the open register.
      *
      * @param  \Illuminate\Support\Collection<int, VenueTemplate>  $venues
      * @return array<int, array<string, mixed>>

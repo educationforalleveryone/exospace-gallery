@@ -279,5 +279,18 @@ return [
                 'vertical-chorus', 'tide-memorandum', 'ascending-figure',
             ],
         ],
+
+        // Iteration 8 "The Salon" (roadmap P3.2): the hang is DELIBERATELY
+        // orientation-mixed — portraits interleaved with landscapes and
+        // squares — because the salon declares placement.pair_orientation
+        // (§6.4): the preview exercises the IT6 pairing machinery exactly
+        // as a customer's mixed upload would read on its walls.
+        'the-salon' => [
+            'note'      => 'A close-hung domestic mix — portraits, studies and small landscapes at salon distance.',
+            'selection' => [
+                'night-window', 'harbour-light', 'ascending-figure', 'quiet-field',
+                'vertical-chorus', 'dawn-lattice', 'cathedral-static', 'stone-arrangement',
+            ],
+        ],
     ],
 ];

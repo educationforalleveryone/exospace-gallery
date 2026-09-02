@@ -39,7 +39,7 @@ What you'll unlock:
 @elseif($pendingUpgrade->plan === 'studio')
 What you'll unlock:
 - Unlimited galleries · 500 images each
-- All 11 venues including custom domain support
+- All 12 venues including custom domain support
 - White-label branding & custom curtain logo
 - Advanced analytics · team collaboration
 @endif

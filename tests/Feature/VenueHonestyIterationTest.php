@@ -58,7 +58,7 @@ class VenueHonestyIterationTest extends TestCase
         ];
 
         $rows = DB::table('venue_templates')->select('slug', 'description')->get();
-        $this->assertCount(11, $rows, 'Seeder must seed exactly the 11-venue catalog.');
+        $this->assertCount(12, $rows, 'Seeder must seed exactly the 12-venue catalog (Iteration 8 added The Salon).');
 
         foreach ($rows as $row) {
             foreach ($forbidden as $claim) {

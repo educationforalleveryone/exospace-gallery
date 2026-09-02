@@ -110,7 +110,7 @@ class VenuePhenomenaIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $rows = DB::table('venue_templates')->select('slug', 'description', 'visual_config')->get();
-        $this->assertCount(11, $rows);
+        $this->assertCount(12, $rows);
 
         foreach ($rows as $row) {
             $config = json_decode((string) $row->visual_config, true) ?: [];

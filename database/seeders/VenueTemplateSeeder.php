@@ -24,7 +24,15 @@ use Illuminate\Database\Seeder;
  * via the super-admin UI.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * VENUE LIST (11 venues total)
+ * VENUE LIST (12 venues total)
+ *
+ * Iteration 8 "The Salon" (roadmap P3.2): venue #12 is the catalog's first
+ * pipeline-born venue (docs/VENUE_12_BRIEF.md decision record — the
+ * pre-committed rule's no-data branch fired, building INTIMACY). Its
+ * placement block (density intimate + orientation pairing) is the first
+ * seeded USE of the IT6 curation machinery — as venue character, declared
+ * here, never auto-magic (DO NOT DO #6). Zero slug-keyed JS exists to
+ * know about it: the descriptor interpreter renders it as-is (§10.2).
  * Descriptions below are the Iteration 0 "Honesty" pass (roadmap P0.1):
  * every description is verifiable against the current render. When a venue's
  * render gains the promised capability (Iterations 2–3), re-tighten the copy
@@ -46,12 +54,13 @@ use Illuminate\Database\Seeder;
  *   5. zen-gallery         — Minimal, natural materials, warm calm
  *   6. crystal-cathedral   — Glass forms drifting in blue void
  *   7. nebula-drift        — Starfield + nebula cloud + cosmic feel
+ *   8. the-salon           — Close-hung warmth, domestic scale (Iteration 8)
  *
  * STUDIO PLAN:
- *   8. luxury-penthouse    — Moody collector space, marble + gold
- *   9. cyber-gallery       — Dark futuristic space with neon accents
- *  10. sculpture-garden    — Outdoor garden with hedges, trees, sky
- *  11. mirror-lake         — Dark lake floor, moonlight, mist
+ *   9. luxury-penthouse    — Moody collector space, marble + gold
+ *  10. cyber-gallery       — Dark futuristic space with neon accents
+ *  11. sculpture-garden    — Outdoor garden with hedges, trees, sky
+ *  12. mirror-lake         — Dark lake floor, moonlight, mist
  */
 class VenueTemplateSeeder extends Seeder
 {
@@ -823,6 +832,95 @@ class VenueTemplateSeeder extends Seeder
                     ],
                 ],
                 'supported_layouts' => ['rotunda'],
+            ],
+
+            // ─────────────────────────────────────────────────────────────
+            // 12. The Salon — Pro (Iteration 8, roadmap P3.2)
+            // ─────────────────────────────────────────────────────────────
+            // The catalog's first pipeline-born venue (§16.7: brief →
+            // descriptors → preview → publish). Family: Room. One idea:
+            // close-hung warmth. Placement block = the first seeded USE of
+            // the IT6 curation machinery, as DECLARED venue character
+            // (density 'intimate' ≈ 2.8 m rhythm + §6.4 orientation
+            // pairing). No focal wall: hierarchy stays "carefully" — every
+            // wall reads equal (the brief assigns focal treatment to the
+            // grand hall, not the salon). Structure is domestic-scale and
+            // anchor-based (wall-fit picture rail, centre bench, rug), so
+            // it adapts to any square room the admin configures.
+            [
+                'name'          => 'The Salon',
+                'slug'          => 'the-salon',
+                'description'   => 'A small, warm room in the domestic tradition: works hung close together at conversational distance, a wooden picture rail and a bench, under soft warm light. Made for studies, prints, photography and portrait formats.',
+                'category'      => 'classic',
+                'tags'          => ['salon', 'warm', 'intimate', 'portrait'],
+                'plan_required' => 'pro',
+                'capacity_min'  => 5,
+                'capacity_max'  => 30,
+                'sort_order'    => 12,
+                'is_featured'   => false,
+                'version'       => '1.0.0',
+                'default_settings' => [
+                    'wall_texture'    => 'white',
+                    'floor_material'  => 'wood',
+                    'lighting_preset'  => 'bright',
+                    'frame_style'     => 'minimal',
+                    'room_layout'     => 'square',
+                ],
+                'visual_config' => [
+                    'wall_height'            => 3.0,
+                    'wall_depth'             => 0.15,
+                    'ceiling_type'           => 'flat',
+                    'ceiling_color'          => '0x2b241a',
+                    'ceiling_height'         => 3.0,
+                    'background_color'       => '0x1d1712',
+                    'fog_color'              => '0x1d1712',
+                    'fog_near'               => 10,
+                    'fog_far'                => 32,
+                    'ambient_color'          => '0xffdcae',
+                    'ambient_intensity'      => 0.26,
+                    'spot_intensity'         => 0.5,
+                    'fill_intensity'         => 0.16,
+                    'tone_mapping_exposure'  => 0.6,
+                    'frame_override'         => null,
+                    // ── Iteration 8 declared identity (rollback = remove
+                    // these keys — the venue reverts to a plain default
+                    // room, live; no deploy, no flag).
+                    'structure_pass'        => 'rooms',
+                    'placement'             => [
+                        'density'          => 'intimate',  // §6.3 — ~2.8 m salon-close rhythm
+                        'pair_orientation' => true,        // §6.4 — portrait/landscape interleave
+                    ],
+                    'structure'              => [
+            // ── Picture rail — one thin timber line fitted to each wall
+            // (fit: 'wall' stretches it to the wall span, minus corner
+            // pads). The salon-wall convention made physical.
+            ['id' => 'rail-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
+            ['id' => 'rail-back',  'primitive' => 'box', 'at' => ['from' => 'wall_back',  'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
+            ['id' => 'rail-left',  'primitive' => 'box', 'at' => ['from' => 'wall_left',  'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
+            ['id' => 'rail-right', 'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
+            // ── Bench — the domestic datum (§4.5 convention, centred),
+            // colliding so walkers respect it.
+            ['id' => 'bench-top',  'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0, 0.42, 1.4]], 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'salon-bench', 'tier_floor' => 'low'],
+            ['id' => 'bench-leg-l', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [-0.65, 0.19, 1.4]], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'salon-bench', 'tier_floor' => 'low'],
+            ['id' => 'bench-leg-r', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0.65, 0.19, 1.4]], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'salon-bench', 'tier_floor' => 'low'],
+            // ── Rug — the one warm floor note. Flat: walkable, not an
+            // obstacle (no collide), cheapest tier renders it.
+            ['id' => 'rug', 'primitive' => 'plane', 'at' => ['from' => 'center', 'offset' => [0, 0.012, 1.4]], 'rot' => [-1.5707963, 0, 0], 'size' => [2.6, 1.8], 'material' => 'fabric_warm', 'tier_floor' => 'low'],
+        ],
+                ],
+                'material_config' => [
+                    'wall_color'             => '0xe6dcc6',
+                    'wall_roughness'         => 0.92,
+                    'wall_metalness'         => 0.0,
+                    'wall_normal_strength'   => 0.35,
+                    'floor_color'            => '0x6b5236',
+                    'floor_roughness'        => 0.65,
+                    'floor_metalness'        => 0.0,
+                    'floor_normal_strength'  => 0.55,
+                ],
+                'decorations'       => [],  // rail + bench + rug are descriptors (StructureBuilder)
+                'lighting_fixtures' => [],
+                'supported_layouts' => ['square'],
             ],
         ];
     }

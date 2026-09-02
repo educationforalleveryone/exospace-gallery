@@ -164,7 +164,7 @@
         Instant digital delivery via browser
     </div>
     <h1>Two venues free.<br><span class="grad">Unlock them all.</span></h1>
-    <p>Each plan unlocks more virtual venues — 11 distinct 3D spaces with their own architecture, scale, and atmosphere.</p>
+    <p>Each plan unlocks more virtual venues — 12 distinct 3D spaces with their own architecture, scale, and atmosphere.</p>
     {{-- CONV-1: Social proof badge --}}
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:1.5rem;">
         <div style="display:flex;">
@@ -241,8 +241,8 @@
             <li>
                 <span class="icon"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
                 <span class="feat-group">
-                    <span class="feat-label">7 venues</span>
-                    <span class="feat-detail">White Cube · Infinite Void · Industrial Loft · Dark Museum · Zen Gallery · Crystal Cathedral · Nebula Drift</span>
+                    <span class="feat-label">8 venues</span>
+                    <span class="feat-detail">White Cube · Infinite Void · Industrial Loft · Dark Museum · Zen Gallery · Crystal Cathedral · Nebula Drift · The Salon</span>
                 </span>
             </li>
             <li>
@@ -302,8 +302,8 @@
             <li>
                 <span class="icon"><svg viewBox="0 0 12 12" fill="none" stroke="#8b5cf6" stroke-width="2.5"><polyline points="2,6 5,9 10,3"/></svg></span>
                 <span class="feat-group">
-                    <span class="feat-label">All 11 venues</span>
-                    <span class="feat-detail">Penthouse · Cyber Gallery · Sculpture Garden · Mirror Lake + every Pro venue</span>
+                    <span class="feat-label">All 12 venues</span>
+                    <span class="feat-detail">The Salon · Penthouse · Cyber Gallery · Sculpture Garden · Mirror Lake + every Pro venue</span>
                 </span>
             </li>
             <li>
@@ -399,7 +399,7 @@
                     <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">3D venues</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('2') !!}</td>
                     <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('7') !!}</td>
-                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('All 11') !!}</td>
+                    <td style="padding:0.85rem 1.25rem; text-align:center;">{!! $cell('All 12') !!}</td>
                 </tr>
                 <tr style="border-bottom:1px solid rgba(139,92,246,0.06); background:rgba(255,255,255,0.01);">
                     <td style="padding:0.85rem 1.25rem; color:#d1d5db; font-weight:500;">Custom domain</td>
@@ -515,7 +515,7 @@
         <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access.</p>
         <ul class="text-left text-[13px] text-gray-400 my-5 ps-5 leading-8 list-disc">
             <li>5 galleries · 100 images total</li>
-            <li>7 venues: White Cube, Infinite Void, Industrial Loft, Dark Museum, Zen Gallery, Crystal Cathedral, Nebula Drift</li>
+            <li>8 venues: White Cube, Infinite Void, Industrial Loft, Dark Museum, Zen Gallery, Crystal Cathedral, Nebula Drift, The Salon</li>
             <li>Background music & exhibition scheduling</li>
             <li>No watermark</li>
             <li>Priority email support</li>
@@ -553,7 +553,7 @@
         <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access.</p>
         <ul class="text-left text-[13px] text-gray-400 my-5 ps-5 leading-8 list-disc">
             <li>Unlimited galleries · 500 images total</li>
-            <li>All 11 venues including Penthouse, Cyber Gallery, Sculpture Garden, Mirror Lake</li>
+            <li>All 12 venues including The Salon, Penthouse, Cyber Gallery, Sculpture Garden, Mirror Lake</li>
             <li>Custom domain (yourname.com)</li>
             <li>White-label branding & logo on every gallery</li>
             <li>Advanced analytics · team collaboration</li>
@@ -588,7 +588,7 @@
     Renders price snippets (Free/Pro/Studio) + FAQ accordion directly in
     search results. Without these schemas, Google won't show the FAQ
     accordion or the price range in SERPs. --}}
-<x-json-ld type="product" :product="['name' => 'Pro', 'price' => 29.00, 'currency' => 'USD', 'description' => 'Exospace Pro plan — 5 galleries with 100 images total, 7 venues, background music, exhibition scheduling, watermark-free galleries.']" />
+<x-json-ld type="product" :product="['name' => 'Pro', 'price' => 29.00, 'currency' => 'USD', 'description' => 'Exospace Pro plan — 5 galleries with 100 images total, 8 venues, background music, exhibition scheduling, watermark-free galleries.']" />
 <x-json-ld type="product" :product="['name' => 'Studio', 'price' => 99.00, 'currency' => 'USD', 'description' => 'Exospace Studio plan — everything in Pro plus priority support and white-label branding.']" />
 {{-- ITERATION-1 FIX: the escaped quotes inside the inline :faqs attribute --}}
 {{-- silently broke the component's expression evaluation — the FAQPage --}}

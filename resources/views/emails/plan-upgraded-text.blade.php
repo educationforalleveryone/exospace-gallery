@@ -28,7 +28,7 @@ WHAT'S UNLOCKED WITH {{ strtoupper($plan) }}
 - No Exospace watermark
 @elseif($plan === 'studio')
 - Unlimited galleries · 500 images each
-- All 11 venues including Penthouse, Cyber Gallery, Sculpture Garden
+- All 12 venues including Penthouse, Cyber Gallery, Sculpture Garden
 - Custom domain (yourname.com) — set up in your gallery settings
 - White-label branding & custom curtain logo
 @endif

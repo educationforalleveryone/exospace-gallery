@@ -55,7 +55,7 @@
                 <li>No Exospace watermark</li>
                 @elseif($plan === 'studio')
                 <li>Unlimited galleries · 500 images each</li>
-                <li>All 11 venues including Penthouse, Cyber Gallery, Sculpture Garden</li>
+                <li>All 12 venues including Penthouse, Cyber Gallery, Sculpture Garden</li>
                 <li>Custom domain (yourname.com) — <a href="{{ config('app.url') }}/admin/galleries" style="color: #667eea;">set up in your gallery settings</a></li>
                 <li>White-label branding & custom curtain logo</li>
                 @endif
