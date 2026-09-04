@@ -93,19 +93,34 @@ window.toast = function(message, type = 'success') {
 // (e.g. 'profile-updated'). The pages that own those keys render their own
 // contextual feedback, so the toast would show the LITERAL key string —
 // translate the known ones to human text instead of leaking internals.
-const __exospaceFlashLabels = {
-    'profile-updated': 'Profile updated',
-    'password-updated': 'Password updated',
-    'verification-link-sent': 'Verification link sent!',
-};
-const __humanize = (v) => __exospaceFlashLabels[v] ?? v;
+//
+// BUGFIX (console SyntaxError on Turbo navigation): `const` / `let`
+// declared directly in this <script> become part of the page's single
+// global lexical scope — they are NOT re-scoped per <script> tag. Turbo
+// Drive re-executes this whole script block on every body-swap (that's
+// how the flash-message auto-toast below fires on navigation), so a
+// second execution tried to redeclare `__exospaceFlashLabels` in a scope
+// where it already existed → "Identifier has already been declared",
+// which aborted the ENTIRE Turbo render (that's also why the page
+// sometimes looked half-updated). `window.toast = function(){}` above is
+// safe to repeat because it's a plain property assignment, not a lexical
+// declaration — everything else in this file is now wrapped in an IIFE so
+// its internals are function-scoped and safe to re-run every navigation.
+(function () {
+    const flashLabels = {
+        'profile-updated': 'Profile updated',
+        'password-updated': 'Password updated',
+        'verification-link-sent': 'Verification link sent!',
+    };
+    const humanize = (v) => flashLabels[v] ?? v;
 
-// Auto-toast Laravel flash messages — read at render time so they fire on
-// both initial page load AND Turbo Drive navigations (Turbo re-executes
-// this <script> when the <body> is swapped).
-@if(session('success')) toast(__humanize(@json(session('success'))), 'success'); @endif
-@if(session('error'))   toast(__humanize(@json(session('error'))), 'error'); @endif
-@if(session('info'))    toast(__humanize(@json(session('info'))), 'info'); @endif
-@if(session('status'))  toast(__humanize(@json(session('status'))), 'success'); @endif
-@if(session('warning')) toast(__humanize(@json(session('warning'))), 'warning'); @endif
+    // Auto-toast Laravel flash messages — read at render time so they fire
+    // on both initial page load AND Turbo Drive navigations (Turbo
+    // re-executes this <script> when the <body> is swapped).
+    @if(session('success')) toast(humanize(@json(session('success'))), 'success'); @endif
+    @if(session('error'))   toast(humanize(@json(session('error'))), 'error'); @endif
+    @if(session('info'))    toast(humanize(@json(session('info'))), 'info'); @endif
+    @if(session('status'))  toast(humanize(@json(session('status'))), 'success'); @endif
+    @if(session('warning')) toast(humanize(@json(session('warning'))), 'warning'); @endif
+})();
 </script>

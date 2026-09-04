@@ -33,19 +33,41 @@ let _ktx2Loader  = null;
 // streaming that meant visible hitches every time a texture swapped in while
 // the visitor was walking. ImageBitmaps arrive fully decoded.
 //
-// Orientation note (from three's own ImageBitmapLoader docs): Texture#flipY
-// is IGNORED for image bitmaps, so the flip is baked at creation time via
-// createImageBitmap's imageOrientation: 'flipY' option — matching the
-// orientation TextureLoader produces. Verified against three r182's
-// offscreen example (examples/jsm/offscreen/scene.js).
+// Orientation note — BUGFIX (artwork rendered upside down):
+// three's WebGLTextures upload path skips the UNPACK_FLIP_Y_WEBGL pixelStorei
+// call entirely for ImageBitmap sources (confirmed against the installed
+// three version — see uploadTexture()'s `isImageBitmap` branch), so
+// Texture#flipY has NO effect on a bitmap-backed texture. The previous
+// approach compensated by baking the flip into the bitmap's PIXELS at
+// decode time via createImageBitmap's `imageOrientation: 'flipY'` option.
+// That decode-time flip is NOT reliably consistent across GPU/driver
+// backends — Chromium's accelerated image-decode path (e.g. the ANGLE
+// Direct3D11 backend on Windows) has known discrepancies here, which is
+// exactly the class of bug that renders artwork upside down on some
+// machines and right-side up on others for the identical file.
+// Fix: never bake a pixel-level flip. Decode with the untouched
+// orientation ('none', the default) and instead flip at the UV-SAMPLING
+// stage via the texture's transform (center + repeat) — pure shader math,
+// so it is 100% consistent across every GPU/driver/OS combination.
 let _bitmapLoader = null;
 function createArtworkLoader() {
     if (typeof createImageBitmap !== 'undefined' && typeof fetch !== 'undefined') {
         _bitmapLoader = new THREE.ImageBitmapLoader();
-        _bitmapLoader.setOptions({ imageOrientation: 'flipY' });
+        // Default imageOrientation is 'none' — no pixel-level flip baked in.
         return _bitmapLoader;
     }
     return new THREE.TextureLoader();
+}
+
+// Flip a texture vertically via its UV transform (center + repeat) instead
+// of via pixel data or the (for-ImageBitmap-ignored) flipY pixelStorei flag.
+// Scaling repeat.y by -1 around center (0.5, 0.5) maps v -> 1 - v for any
+// v already in [0,1], so no wrap mode is needed and nothing samples outside
+// the texture.
+function flipTextureVertically(tex) {
+    tex.center.set(0.5, 0.5);
+    tex.repeat.set(1, -1);
+    tex.needsUpdate = true;
 }
 
 // Normalized artwork-texture fetch: always resolves a THREE.Texture to
@@ -55,10 +77,19 @@ function loadArtworkTexture(loader, url, onLoad, onError) {
     if (loader instanceof THREE.ImageBitmapLoader) {
         loader.load(url, (bitmap) => {
             const tex = new THREE.Texture(bitmap);
-            tex.needsUpdate = true;
+            // BUGFIX: the bitmap is undoctored (imageOrientation:'none'), and
+            // flipY is ignored for ImageBitmap sources by the renderer — so
+            // without this, the artwork uploads exactly as decoded, which
+            // reads upside down against the room's UV convention. Flip it
+            // at the UV-sampling stage instead (see flipTextureVertically).
+            flipTextureVertically(tex);
             onLoad(tex);
         }, undefined, onError);
     } else {
+        // TextureLoader path (createImageBitmap unavailable): the browser's
+        // normal HTMLImageElement upload DOES honour UNPACK_FLIP_Y_WEBGL, and
+        // Texture#flipY defaults to true — this path was already correct and
+        // is left untouched.
         loader.load(url, onLoad, undefined, onError);
     }
 }
@@ -227,6 +258,12 @@ export async function loadAssets() {
                 resized.generateMipmaps = !this.isLowEnd;
                 resized.anisotropy      = safeAnisotropy;
                 if (!resized.generateMipmaps) resized.minFilter = THREE.LinearFilter;
+                // No UV flip needed here: `image` is the untouched (unflipped)
+                // decoded bitmap, and CanvasTexture's source is an
+                // HTMLCanvasElement (not an ImageBitmap), so the renderer DOES
+                // honour flipY for it — CanvasTexture defaults flipY=true,
+                // which correctly orients it the same way a normal
+                // TextureLoader image does.
                 return resized;
             }
             return tex;
@@ -409,7 +446,7 @@ export function showLoadError(error) {
             <p style="color:#94a3b8;font-size:0.9rem;max-width:360px;line-height:1.6;margin-bottom:1.5rem;">
                 We couldn't load this 3D exhibition. This might be a temporary issue — please try again.
             </p>
-            <button onclick="window.location.reload()" style="padding:0.75rem 2rem;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:0.5rem;font-weight:600;font-size:0.9rem;cursor:pointer;transition:all 0.2s;">
+            <button id="gallery-load-error-retry" style="padding:0.75rem 2rem;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:0.5rem;font-weight:600;font-size:0.9rem;cursor:pointer;transition:all 0.2s;">
                 Retry
             </button>
             <a href="/discover" style="margin-top:1rem;color:#64748b;font-size:0.8rem;text-decoration:underline;">Browse other galleries</a>
@@ -418,6 +455,12 @@ export function showLoadError(error) {
 
     curtain.innerHTML = errorHtml;
     curtain.style.display = 'flex';
+    // BUGFIX: an inline onclick="" attribute is blocked by the page's CSP
+    // (script-src has no 'unsafe-inline' and hashes don't cover event-handler
+    // attributes). Wire the retry button up via addEventListener instead —
+    // this runs from the already-trusted bundled script, so CSP allows it.
+    document.getElementById('gallery-load-error-retry')
+        ?.addEventListener('click', () => window.location.reload());
 }
 
 // ── HDRI environment map — non-blocking, fades in after room renders ─────────

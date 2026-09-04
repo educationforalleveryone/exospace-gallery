@@ -409,13 +409,18 @@
                                         @endif
 
                                         <div class="venue-preview" style="background: {{ $atm['bg'] }};">
-                                            {{-- onerror reveals the styled fallback beneath if
-                                                 no thumbnail file exists --}}
+                                            {{-- data-onerror-hide reveals the styled fallback
+                                                 beneath if no thumbnail file exists. An inline
+                                                 onerror="" attribute is blocked by CSP (event-handler
+                                                 attributes aren't covered by the script nonce) — the
+                                                 layout's document-level capturing 'error' listener
+                                                 (layouts/app.blade.php) handles [data-onerror-hide]
+                                                 instead. --}}
                                             <img src="{{ $thumbUrl }}"
                                                  alt="{{ $venue->name }}"
                                                  class="venue-thumb-img"
                                                  loading="lazy"
-                                                 onerror="this.style.display='none'">
+                                                 data-onerror-hide>
                                             <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
                                                 <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.7);">{{ $atm['emoji'] }}</span>
                                                 <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:32px;height:3px;border-radius:2px;background:{{ $atm['accent'] }};opacity:0.6;box-shadow:0 0 8px {{ $atm['accent'] }};"></div>

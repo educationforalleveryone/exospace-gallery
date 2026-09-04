@@ -226,6 +226,19 @@
             delegate('change', 'data-change');
             delegate('input', 'data-input');
             delegate('submit', 'data-submit');
+
+            // ── CSP-safe image error fallback ───────────────────────────
+            // <img data-onerror-hide> hides itself on load failure so a
+            // styled fallback element underneath shows through. Replaces
+            // inline onerror="this.style.display='none'" (blocked by CSP —
+            // event-handler attributes aren't covered by the script nonce).
+            // The 'error' event on <img> does NOT bubble, so this must be a
+            // CAPTURING listener on the document, not the usual bubble-phase
+            // delegate() helper above.
+            document.addEventListener('error', (e) => {
+                const el = e.target;
+                if (el?.matches?.('[data-onerror-hide]')) el.style.display = 'none';
+            }, true);
         }
         </script>
         {{-- M-19: In-app feedback widget (floating button on all admin pages) --}}

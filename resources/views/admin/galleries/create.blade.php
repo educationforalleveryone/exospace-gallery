@@ -268,14 +268,19 @@ $venueAtmospheres = [
 
                 {{-- Venue Preview --}}
                 <div class="venue-preview" style="background: {{ $atm['bg'] }};">
-                    {{-- onerror reveals the styled fallback beneath if the
-                         static convention file is absent (admin-created
-                         venues before their first upload) --}}
+                    {{-- data-onerror-hide reveals the styled fallback beneath if
+                         the static convention file is absent (admin-created
+                         venues before their first upload). An inline
+                         onerror="" attribute is blocked by CSP (event-handler
+                         attributes aren't covered by the script nonce) — the
+                         layout's document-level capturing 'error' listener
+                         (layouts/app.blade.php) handles [data-onerror-hide]
+                         instead. --}}
                     <img src="{{ $thumbUrl }}"
                          alt="{{ $venue->name }}"
                          class="venue-thumb-img"
                          loading="lazy"
-                         onerror="this.style.display='none'">
+                         data-onerror-hide>
                     <div class="venue-preview-fallback" style="background: {{ $atm['bg'] }};">
                         <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.7);">{{ $atm['emoji'] }}</span>
                         {{-- Accent glow dot --}}
