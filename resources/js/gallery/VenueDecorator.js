@@ -87,6 +87,18 @@ export function applyVenueConfig(cfg) {
     if (v.frame_override)             this._venueFrameOverride    = v.frame_override;
     if (v.ceiling_type)               this._venueCeilingType      = v.ceiling_type;
 
+    // ── post_fx : venue-declared post-processing identity ────────────────
+    // { bloom, bloom_strength, bloom_threshold, bloom_radius,
+    //   vignette, vignette_darkness, vignette_offset } — all optional.
+    // A restrained venue (white cube) declares bloom:false; the composer
+    // honours the declaration on construction AND through every later
+    // quality-level switch. Declared here, interpreted in PostProcessing —
+    // zero venue knowledge anywhere (§10.2).
+    if (v.post_fx && typeof v.post_fx === 'object') {
+        this._venuePostFx = v.post_fx;
+        if (this._postFx) this._postFx.applyVenueConfig(this._venuePostFx);
+    }
+
     // ── Iteration 2 "Phenomena" declared-identity keys (§10.2: the DB is the
     // sole source of venue identity; JS interprets, never knows) ──────────
     // placement_mode    : 'float' → artworks hover (ArtworkPlacer dispatch)
@@ -282,11 +294,30 @@ export function addVenueStructure(data) {
 // boxes: a base reveal (skirting), a crown line, and VISIBLE ceiling fixtures
 // at the exact positions of the fill-light grid RoomBuilder builds (the
 // lights were real but invisible — the ceiling had no light source to see).
-// Square + corridor only (the two layouts the grid math is designed for);
-// rotunda/l-shape White Cubes keep their pre-pass purity (documented).
+//
+// WHITE CUBE POLISH iteration — three forensic defects fixed here:
+//   1. BURIED TRIM: the skirting/crown strips were offset from the wall
+//      CENTRE plane by less than half the wall depth, so the strips sat
+//      entirely INSIDE the wall boxes (inner face at wallDepth/2 = 0.15,
+//      strip half-depth 0.0225) — occluded geometry, zero visual effect in
+//      every layout. Offsets are now measured from the INNER FACE and the
+//      strips protrude ~2 cm into the room, as designed.
+//   2. LAYOUT PARITY: the venue advertises square/corridor/l-shape/rotunda,
+//      but the pass only covered square + corridor — an l-shape or rotunda
+//      White Cube silently lost its entire identity detail set. The pass now
+//      covers all four layouts (l-shape mirrors createRoomLShape's wall
+//      segment list; rotunda uses ring bands on the cylinder wall).
+//   3. FIXTURE PARITY: fixture discs sit at the exact positions of the
+//      ceiling fill lights each layout's builder adds (square 2×2 grid,
+//      corridor ±L/4, l-shape wing lights, rotunda centre) — the light
+//      sources in the room finally have a visible origin.
+// Deterministic: pure geometry from _layoutMeta — no RNG consumed.
 function addWhiteCubeRespectPass(data) {
     const meta = this._layoutMeta || {};
     const wh   = CONFIG.room.wallHeight;
+    const wd   = CONFIG.room.wallDepth || 0.3;
+    const face = wd / 2;              // wall centre plane → inner face
+    const baseP = 0.02, crownP = 0.015; // protrusion into the room (metres)
 
     const revealMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0xe9e7e2 })
@@ -295,61 +326,109 @@ function addWhiteCubeRespectPass(data) {
         ? new THREE.MeshLambertMaterial({ color: 0xfff2dd, emissive: 0xffedd0, emissiveIntensity: 1.3 })
         : new THREE.MeshStandardMaterial({ color: 0xfff2dd, emissive: 0xffedd0, emissiveIntensity: 1.3, roughness: 0.6 });
 
+    // Strip emitter — one line of trim along a wall segment. [cx, cz, ry, len,
+    // nx, nz] positions the wall's CENTRE plane and its inward normal; the
+    // strip's back is embedded in the wall and its front stands `p` proud of
+    // the inner face: offset = face + p − depth/2 (never floats, never hides).
+    const stripParts = (segments, y, h, depth, p) => {
+        const geo = new THREE.BoxGeometry(1, h, depth);
+        const off = face + p - depth / 2;
+        return segments.map(([cx, cz, ry, len, nx, nz]) => ({
+            geo,
+            pos: [cx + nx * off, y, cz + nz * off],
+            rot: [0, ry, 0],
+            scale: [len, 1, 1],
+        }));
+    };
+    const addStrips = (segments, y, h, depth, p) => {
+        const parts = stripParts(segments, y, h, depth, p);
+        this.scene.add(new THREE.Mesh(mergeParts(parts), revealMat));
+        parts.forEach(pt => pt.geo.dispose());
+    };
+    const addFixtures = (points) => {
+        const geo = new THREE.CylinderGeometry(0.3, 0.32, 0.05, 20);
+        this.scene.add(new THREE.Mesh(mergeParts(
+            points.map(p => ({ geo, pos: [p[0], wh - 0.026, p[1]] }))
+        ), fixtureMat));
+        geo.dispose();
+    };
+
     if (meta.type === 'square') {
         const L = meta.wallLength;
-        const baseGeo  = new THREE.BoxGeometry(L, 0.09, 0.045);
-        const baseParts = [
-            { geo: baseGeo, pos: [0, 0.045, -L / 2 + 0.022] },
-            { geo: baseGeo, pos: [0, 0.045,  L / 2 - 0.022], rot: [0, Math.PI, 0] },
-            { geo: baseGeo, pos: [-L / 2 + 0.022, 0.045, 0], rot: [0, Math.PI / 2, 0] },
-            { geo: baseGeo, pos: [ L / 2 - 0.022, 0.045, 0], rot: [0, -Math.PI / 2, 0] },
+        const S = Math.PI / 2;
+        // [cx, cz, ry, len, inwardNormalX, inwardNormalZ]
+        const segments = [
+            [0, -L / 2, 0,     L, 0,  1],
+            [0,  L / 2, Math.PI, L, 0, -1],
+            [-L / 2, 0, S,     L, 1,  0],
+            [ L / 2, 0, -S,    L, -1, 0],
         ];
-        this.scene.add(new THREE.Mesh(mergeParts(baseParts), revealMat));
-        baseGeo.dispose();
-
-        const crownGeo  = new THREE.BoxGeometry(L, 0.05, 0.035);
-        const crownParts = [
-            { geo: crownGeo, pos: [0, wh - 0.025, -L / 2 + 0.018] },
-            { geo: crownGeo, pos: [0, wh - 0.025,  L / 2 - 0.018], rot: [0, Math.PI, 0] },
-            { geo: crownGeo, pos: [-L / 2 + 0.018, wh - 0.025, 0], rot: [0, Math.PI / 2, 0] },
-            { geo: crownGeo, pos: [ L / 2 - 0.018, wh - 0.025, 0], rot: [0, -Math.PI / 2, 0] },
-        ];
-        this.scene.add(new THREE.Mesh(mergeParts(crownParts), revealMat));
-        crownGeo.dispose();
-
+        addStrips(segments, 0.045, 0.09, 0.045, baseP);
+        addStrips(segments, wh - 0.025, 0.05, 0.035, crownP);
         // Fixtures at the 2×2 fill-light grid (same math as RoomBuilder).
         const gridStart = -L / 2 + L / 3, step = L / 3;
-        const fixGeo = new THREE.CylinderGeometry(0.3, 0.32, 0.05, 20);
-        const fixParts = [];
-        for (let i = 0; i < 2; i++) {
-            for (let j = 0; j < 2; j++) {
-                fixParts.push({ geo: fixGeo, pos: [gridStart + i * step, wh - 0.026, gridStart + j * step] });
-            }
-        }
-        this.scene.add(new THREE.Mesh(mergeParts(fixParts), fixtureMat));
-        fixGeo.dispose();
+        const pts = [];
+        for (let i = 0; i < 2; i++)
+            for (let j = 0; j < 2; j++)
+                pts.push([gridStart + i * step, gridStart + j * step]);
+        addFixtures(pts);
     } else if (meta.type === 'corridor') {
         const { length, width } = meta;
-        const baseGeo  = new THREE.BoxGeometry(length, 0.09, 0.045);
-        this.scene.add(new THREE.Mesh(mergeParts([
-            { geo: baseGeo, pos: [0, 0.045, -width / 2 + 0.022] },
-            { geo: baseGeo, pos: [0, 0.045,  width / 2 - 0.022], rot: [0, Math.PI, 0] },
-        ]), revealMat));
-        baseGeo.dispose();
-
-        const crownGeo = new THREE.BoxGeometry(length, 0.05, 0.035);
-        this.scene.add(new THREE.Mesh(mergeParts([
-            { geo: crownGeo, pos: [0, wh - 0.025, -width / 2 + 0.018] },
-            { geo: crownGeo, pos: [0, wh - 0.025,  width / 2 - 0.018], rot: [0, Math.PI, 0] },
-        ]), revealMat));
-        crownGeo.dispose();
-
-        const fixGeo = new THREE.CylinderGeometry(0.3, 0.32, 0.05, 20);
-        this.scene.add(new THREE.Mesh(mergeParts([
-            { geo: fixGeo, pos: [-length / 4, wh - 0.026, 0] },
-            { geo: fixGeo, pos: [ length / 4, wh - 0.026, 0] },
-        ]), fixtureMat));
-        fixGeo.dispose();
+        const S = Math.PI / 2;
+        const segments = [
+            [0, -width / 2, 0,     length, 0,  1],
+            [0,  width / 2, Math.PI, length, 0, -1],
+            [-length / 2, 0, S,  width, 1,  0],
+            [ length / 2, 0, -S, width, -1, 0],
+        ];
+        addStrips(segments, 0.045, 0.09, 0.045, baseP);
+        addStrips(segments, wh - 0.025, 0.05, 0.035, crownP);
+        addFixtures([[-length / 4, 0], [length / 4, 0]]);
+    } else if (meta.type === 'l-shape') {
+        // Same segment list createRoomLShape builds, each with its inward
+        // normal — trim and fixtures exist on every wall of both wings.
+        const { wingW, lenA, lenB, jZ } = meta;
+        const S = Math.PI / 2, P = Math.PI;
+        const upperH    = jZ - (-lenA / 2);
+        const upperMidZ = -lenA / 2 + upperH / 2;
+        const bCZ       = lenA / 2 - wingW / 2;
+        const segments = [
+            [0,                0,        S, lenA,   1,  0],
+            [wingW / 2,       -lenA / 2, 0, wingW,  0,  1],
+            [wingW,      upperMidZ,      S, upperH, -1,  0],
+            [wingW + lenB / 2, jZ,       0, lenB,   0, -1],
+            [wingW + lenB,     bCZ,      S, wingW, -1,  0],
+            [wingW + lenB / 2, lenA / 2, P, lenB,   0, -1],
+            [wingW / 2,        lenA / 2, P, wingW,  0, -1],
+        ];
+        addStrips(segments, 0.045, 0.09, 0.045, baseP);
+        addStrips(segments, wh - 0.025, 0.05, 0.035, crownP);
+        // Wing fill lights (same positions as createRoomLShape's mkLight).
+        addFixtures([
+            [wingW / 2,     -lenA / 4],
+            [wingW / 2,      lenA / 4],
+            [wingW + lenB / 2, bCZ],
+        ]);
+    } else if (meta.type === 'rotunda') {
+        // Ring bands just inside the cylinder wall (radius r, BackSide):
+        // a band at r - protrusion reads as trim standing proud of the wall.
+        const r = meta.radius;
+        // Dedicated BackSide material — mutating the shared revealMat's side
+        // would flip the box strips' culling too (shared-material mutation
+        // side effects are an audit red flag).
+        const ringMat = this.isLowEnd
+            ? new THREE.MeshLambertMaterial({ color: 0xe9e7e2, side: THREE.BackSide })
+            : new THREE.MeshStandardMaterial({ color: 0xe9e7e2, roughness: 0.9, metalness: 0.0, side: THREE.BackSide });
+        const mkRing = (y, h, p) => {
+            const geo = new THREE.CylinderGeometry(r - p, r - p, h, 48, 1, true);
+            const mesh = new THREE.Mesh(geo, ringMat);
+            mesh.position.y = y;
+            this.scene.add(mesh);
+        };
+        mkRing(0.045, 0.09, baseP);
+        mkRing(wh - 0.025, 0.05, crownP);
+        // Central fixture — the rotunda's single ceiling fill light.
+        addFixtures([[0, 0]]);
     }
 }
 

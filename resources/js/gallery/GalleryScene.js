@@ -109,6 +109,7 @@ export class GalleryScene {
         this._venueFrameOverride  = null;
         this._venueCeilingType    = null;
         this._venueMaterialConfig = null;
+        this._venuePostFx         = null;
         this._customHdriUrl       = null;
 
         // Iteration 2 "Phenomena" — declared venue identity (config-read,
@@ -344,9 +345,12 @@ export class GalleryScene {
             this.controls.dispose();
         }
 
-        // Dispose PostProcessing composer
-        if (this.composer) {
-            this.composer.renderTargets?.forEach(rt => rt?.dispose?.());
+        // Dispose PostProcessing — the composer lives on this._postFx (the
+        // old `this.composer` read was always undefined, so EffectComposer
+        // render targets were silently never disposed).
+        if (this._postFx) {
+            this._postFx.dispose();
+            this._postFx = null;
         }
 
         // Clear the scene

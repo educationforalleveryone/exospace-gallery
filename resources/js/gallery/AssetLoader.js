@@ -206,6 +206,11 @@ export async function loadAssets() {
             tex.colorSpace      = THREE.SRGBColorSpace;
             tex.generateMipmaps = !this.isLowEnd;
             tex.anisotropy      = safeAnisotropy;
+            // Mipmap-less textures must not keep the mip-mapping min filter:
+            // an incomplete mip chain samples BLACK on strict WebGL2 drivers
+            // (low-end tier showed unreadable/black artworks). LinearFilter
+            // is the correct pair for generateMipmaps=false.
+            if (!tex.generateMipmaps) tex.minFilter = THREE.LinearFilter;
 
             const maxDim = CONFIG.performance.textureMaxSize || 2048;
             const image  = tex.image;
@@ -221,6 +226,7 @@ export async function loadAssets() {
                 resized.colorSpace      = THREE.SRGBColorSpace;
                 resized.generateMipmaps = !this.isLowEnd;
                 resized.anisotropy      = safeAnisotropy;
+                if (!resized.generateMipmaps) resized.minFilter = THREE.LinearFilter;
                 return resized;
             }
             return tex;
@@ -246,6 +252,7 @@ export async function loadAssets() {
             loadArtworkTexture(artworkLoader, thumbUrl, (tex) => {
                 tex.colorSpace      = THREE.SRGBColorSpace;
                 tex.generateMipmaps = false; // 1px-to-400px blur-up needs no mips
+                tex.minFilter       = THREE.LinearFilter; // no mips → no mip filter (black-sample guard)
                 tex.anisotropy      = 1;
                 img.thumbTexture = tex;
                 resolve();
@@ -372,6 +379,7 @@ export function upgradeFocusedArtworkTexture(artworkGroup) {
             // configuration here (mobile tier keeps mipmaps + anisotropy 2).
             tex.colorSpace      = THREE.SRGBColorSpace;
             tex.generateMipmaps = !this.isLowEnd;
+            if (!tex.generateMipmaps) tex.minFilter = THREE.LinearFilter;
             tex.anisotropy      = this._maxAnisotropy ?? 2;
             tex.needsUpdate     = true;
 
@@ -436,7 +444,14 @@ export function loadEnvironmentMap() {
             if (envIntensity !== undefined) {
                 this.scene.environmentIntensity = envIntensity;
             }
-            if (lightingConfig.toneMappingExposure !== undefined) {
+            // The preset's exposure must not CLOBBER the venue's declared
+            // exposure. applyVenueConfig already set the venue value — the
+            // HDRI arriving seconds later silently reverted it (the declared
+            // tone_mapping_exposure looked like it "didn't work"). The venue
+            // declaration is the identity source; the preset only fills in
+            // for venues that declare nothing.
+            if (this._venueVisualConfig?.tone_mapping_exposure == null &&
+                lightingConfig.toneMappingExposure !== undefined) {
                 this.renderer.toneMappingExposure = lightingConfig.toneMappingExposure;
             }
         },

@@ -37,7 +37,8 @@ export class PostProcessing {
             this.composer = new EffectComposer(renderer);
             this.composer.addPass(new RenderPass(scene, camera));
             this.composer.addPass(new OutputPass());
-            window.addEventListener('resize', () => this.resize());
+            this._onResize = () => this.resize();
+            window.addEventListener('resize', this._onResize);
             return;
         }
 
@@ -68,8 +69,34 @@ export class PostProcessing {
         // Output pass — handles color space conversion at the end of the chain
         this.composer.addPass(new OutputPass());
 
-        // Resize handler
-        window.addEventListener('resize', () => this.resize());
+        // Resize handler — kept as a named handler so dispose() can remove it
+        // (a context-restore rebuild constructs a fresh PostProcessing; the
+        // old listener used to leak and double-fire resizes).
+        this._onResize = () => this.resize();
+        window.addEventListener('resize', this._onResize);
+    }
+
+    // ── Venue-declared post-fx (visual_config.post_fx) ─────────────────
+    // The DB is the identity source (§10.2) — a calm venue declares bloom
+    // OFF; a neon venue keeps it. Applied once when the venue config lands
+    // (VenueDecorator.applyVenueConfig) and honoured by every later quality
+    // switch (setBloomEnabled stays venue-aware).
+    // Shape: { bloom, bloom_strength, bloom_threshold, bloom_radius,
+    //          vignette, vignette_darkness, vignette_offset } — all optional.
+    applyVenueConfig(fx) {
+        if (!fx || typeof fx !== 'object') return;
+        this._venueBloom = fx.bloom;
+        if (this.bloomPass) {
+            if (fx.bloom === false) this.bloomPass.enabled = false;
+            if (fx.bloom_strength  != null) this.bloomPass.strength  = fx.bloom_strength;
+            if (fx.bloom_threshold != null) this.bloomPass.threshold = fx.bloom_threshold;
+            if (fx.bloom_radius    != null) this.bloomPass.radius    = fx.bloom_radius;
+        }
+        if (this.vignettePass) {
+            if (fx.vignette === false) this.vignettePass.enabled = false;
+            if (fx.vignette_darkness != null) this.vignettePass.uniforms['darkness'].value = fx.vignette_darkness;
+            if (fx.vignette_offset   != null) this.vignettePass.uniforms['offset'].value  = fx.vignette_offset;
+        }
     }
 
     setBloomStrength(value) {
@@ -78,7 +105,9 @@ export class PostProcessing {
 
     setBloomEnabled(enabled) {
         if (!this.bloomPass) return;
-        this.bloomPass.enabled = enabled;
+        // A venue that declared bloom:false keeps it off through every
+        // quality-level change — the DB declaration wins over the tier map.
+        this.bloomPass.enabled = enabled && this._venueBloom !== false;
     }
 
     resize() {
@@ -101,6 +130,28 @@ export class PostProcessing {
 
     render() {
         this.composer.render();
+    }
+
+    // S-6 companion — frees the composer's internal render targets and pass
+    // resources and detaches the resize listener. GalleryScene.dispose() and
+    // the context-restore rebuild path both call this (previously the
+    // composer targets and the listener leaked on every rebuild).
+    dispose() {
+        if (this._disposed) return;
+        this._disposed = true;
+        if (this._onResize) window.removeEventListener('resize', this._onResize);
+        this._onResize = null;
+        const composer = this.composer;
+        if (!composer) return;
+        for (const pass of (composer.passes || [])) {
+            if (typeof pass.dispose === 'function') {
+                try { pass.dispose(); } catch (e) { /* pass may hold a dead context */ }
+            }
+        }
+        composer.renderTarget1?.dispose?.();
+        composer.renderTarget2?.dispose?.();
+        composer.passes = [];
+        this.composer = null;
     }
 
     /**
@@ -127,6 +178,11 @@ export class PostProcessing {
         if (this.bloomPass) {
             if (patch.bloom_strength  !== undefined && patch.bloom_strength  !== null) {
                 this.bloomPass.strength  = patch.bloom_strength;
+                // Live Preview nuance: a curator dragging a bloom slider is
+                // EXPLICIT intent — the pass re-enables even where the venue
+                // declaration disabled it (transiently; quality switches
+                // re-apply the declaration via setBloomEnabled).
+                if (this._venueBloom === false) this.bloomPass.enabled = true;
             }
             if (patch.bloom_threshold !== undefined && patch.bloom_threshold !== null) {
                 this.bloomPass.threshold = patch.bloom_threshold;

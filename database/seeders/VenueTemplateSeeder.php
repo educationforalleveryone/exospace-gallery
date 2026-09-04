@@ -79,6 +79,23 @@ class VenueTemplateSeeder extends Seeder
         return [
             // ─────────────────────────────────────────────────────────────
             // 1. Modern White Cube — Free
+            //
+            // WHITE CUBE POLISH iteration (forensic audit): re-tuned from
+            // screenshots, not taste. The old row rendered a near-black room
+            // wearing the white cube's name:
+            //   • fog 0x0f0f0f (void-black) from 10→30 m sooted every far wall;
+            //   • exposure 0.5 halved an already-weak rig (point intensities
+            //     predate three's physical light units — r155+ — and read
+            //     ~10× too dim);
+            //   • fill_intensity was dead config (stored, never read — now
+            //     wired through Lighting.venueFillIntensity);
+            //   • bloom halos on a venue whose identity is calm neutrality.
+            // Fog now dissolves toward gallery white, the rig is declared in
+            // physical units, post-fx restraint is explicit, and the floor
+            // reads as sealed polished concrete instead of wet cement.
+            // Production rows are updated by the GUARDED migration
+            // 2026_09_02_000001_white_cube_polish — this seeder stays the
+            // fresh-install baseline.
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Modern White Cube',
@@ -91,12 +108,15 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 60,
                 'sort_order'    => 1,
                 'is_featured'   => true,
-                'version'       => '1.0.0',
+                'version'       => '1.1.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'concrete',
                     'lighting_preset'  => 'bright',
-                    'frame_style'     => 'minimal',
+                    // Thin charcoal frames (museum standard): on a white wall
+                    // a white minimal frame dissolves and the hang loses its
+                    // edge definition. Still visitor-overridable per gallery.
+                    'frame_style'     => 'modern',
                     'room_layout'     => 'square',
                 ],
                 'visual_config' => [
@@ -104,31 +124,45 @@ class VenueTemplateSeeder extends Seeder
                     'wall_depth'             => 0.3,
                     'ceiling_type'           => 'flat',
                     'ceiling_height'         => 4,
-                    'background_color'       => '0x0f0f0f',
-                    'fog_color'              => '0x0f0f0f',
-                    'fog_near'               => 10,
-                    'fog_far'                => 30,
+                    // Gallery-white atmosphere: the room dissolves into
+                    // light at distance — never into soot.
+                    'background_color'       => '0xf2f1ee',
+                    'fog_color'              => '0xf2f1ee',
+                    'fog_near'               => 16,
+                    'fog_far'                => 60,
                     'ambient_color'          => '0xffffff',
-                    'ambient_intensity'      => 0.2,
-                    'spot_intensity'         => 0.45,
-                    'fill_intensity'         => 0.12,
-                    'tone_mapping_exposure'  => 0.5,
+                    'ambient_intensity'      => 0.55,
+                    'spot_intensity'         => 3.2,
+                    'fill_intensity'         => 2.6,
+                    'tone_mapping_exposure'  => 1.05,
                     'frame_override'         => null,
                     // Iteration 6 "Consolidation": interpreter selector for the respect
                     // pass (base reveal, crown line, visible ceiling fixtures) — was
                     // 'rooms' + a slug gate pre-IT6, now an explicit selector.
                     'structure_pass'        => 'cube',
+                    // Post-processing identity: a white cube is calm. Bloom
+                    // halos around every fixture read as spectacle, not
+                    // exhibition; the vignette stays, softened.
+                    'post_fx'                => [
+                        'bloom'             => false,
+                        'vignette'          => true,
+                        'vignette_darkness' => 0.28,
+                        'vignette_offset'   => 1.05,
+                    ],
                 ],
                 'material_config' => [
                     'wall_color'             => null,
                     'wall_roughness'         => 0.9,
                     'wall_metalness'         => 0.0,
                     'wall_normal_strength'   => 0.3,
-                    'floor_color'            => null,
-                    'floor_roughness'        => 0.7,
+                    // Sealed polished concrete — lighter and slightly
+                    // reflective so the floor bounces the rig instead of
+                    // swallowing it.
+                    'floor_color'            => '0x9c9c98',
+                    'floor_roughness'        => 0.55,
                     'floor_metalness'        => 0.0,
                     'floor_normal_strength'  => 0.4,
-                    'floor_tile_meters'     => 2.0,
+                    'floor_tile_meters'      => 2.0,
                 ],
                 'decorations'       => [],
                 'lighting_fixtures' => [],

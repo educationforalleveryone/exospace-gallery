@@ -61,6 +61,17 @@ export function placeArtworks(data) {
     _placeArtworksSquare.call(this, data);
 }
 
+// ── Centered wall-run offset (pure, shared by square + corridor) ─────────
+// A run of `runCount` works on a wall spans `spacing` between neighbours; the
+// RUN CENTRE belongs on the wall centre. The old fixed offset (spacing from
+// the corner) centred only FULL runs — a 1-work wall hung its piece 0.5–1.75 m
+// off centre (a one-artwork show looked accidental). Extracted so the QA
+// suite can pin the invariant (scripts/venue-qa).
+export function wallRunOffset(runCount, posInRun, spacing, wallLength) {
+    if (runCount <= 0) return 0;
+    return (wallLength / 2) - ((runCount - 1) * spacing) / 2 + posInRun * spacing;
+}
+
 // ── SQUARE placement ─────────────────────────────────────────────────────────
 // Iteration 3 additions (both config-driven, zero slug knowledge):
 //   1. A glazing wall (visual_config.glazing_wall — RoomBuilder removed the
@@ -103,6 +114,15 @@ export function _placeArtworksSquare(data) {
 
     const bayPlan = _planBayHangs(imageCount, this._hangableSurfaces, spacing);
     const outerCount = imageCount - (bayPlan ? bayPlan.length : 0);
+
+    // Per-wall run counts — the ceil split gives every wall except the last a
+    // full run; the LAST wall receives the remainder (possibly smaller). The
+    // offset math below centres EACH wall's ACTUAL run, so a remainder run no
+    // longer hangs skewed toward the wall's start corner.
+    const runCounts = hangWalls.map((_, i) =>
+        Math.max(0, Math.min(imagesPerWall, outerCount - i * imagesPerWall))
+    );
+
     let bayIdx = 0;
     let wi = 0, pos = 0;
     let focalHeroTaken = false;
@@ -116,7 +136,12 @@ export function _placeArtworksSquare(data) {
             group.lookAt(b.x + b.nx, eyeLevel, b.z + b.nz);
         } else {
             const wall = hangWalls[wi];
-            const off = pos * spacing;
+            const runLen  = runCounts[wi];
+            // Centered run: the run's midpoint sits on the wall's centreline.
+            // wallRunOffset measures from the wall CORNER; wall.start already
+            // embeds corner + spacing, so the delta is (c − spacing) — which
+            // reduces to the historic `pos * spacing` for full runs.
+            const off = wallRunOffset(runLen, pos, spacing, wallLength) - spacing;
             group.position.set(wall.start[0]+wall.dir[0]*off, wall.start[1], wall.start[2]+wall.dir[2]*off);
             group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
             // Wall metadata (Iteration 6): consumed by ArrivalMath's focal
@@ -124,7 +149,7 @@ export function _placeArtworksSquare(data) {
             // rendering impact without a declared focal wall.
             group.userData.wallId = wall.id;
             pos++;
-            if (pos >= imagesPerWall) { pos = 0; wi = Math.min(wi+1, hangWalls.length-1); }
+            if (pos >= runLen) { pos = 0; wi = Math.min(wi+1, hangWalls.length-1); }
         }
         this.placeAndRegister(group, data);
 
@@ -188,16 +213,20 @@ export function _placeArtworksCorridor(data) {
         { start: [-length/2+spacing, eyeLevel, -width/2+0.2], dir:[1,0,0],  normal:[0,0,1]  },
         { start: [ length/2-spacing, eyeLevel,  width/2-0.2], dir:[-1,0,0], normal:[0,0,-1] },
     ];
+    // Per-wall run counts (wall B receives the odd remainder) — each run is
+    // centred on its wall so an odd-count hang does not skew toward one end.
+    const runCounts = [Math.min(half, this.artworkImages.length),
+                       Math.max(0, this.artworkImages.length - half)];
     let wi = 0, pos = 0;
     this.artworkImages.forEach(img => {
         const wall = longWalls[wi];
         const { group } = this.makeArtworkGroup(img, data);
-        const off = pos * spacing;
+        const off = wallRunOffset(runCounts[wi], pos, spacing, length) - spacing;
         group.position.set(wall.start[0]+wall.dir[0]*off, wall.start[1], wall.start[2]+wall.dir[2]*off);
         group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
         this.placeAndRegister(group, data);
         pos++;
-        if (pos >= half) { pos = 0; wi = Math.min(wi+1, 1); }
+        if (pos >= runCounts[wi]) { pos = 0; wi = Math.min(wi+1, 1); }
     });
 }
 

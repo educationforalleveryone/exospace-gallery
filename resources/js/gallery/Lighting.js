@@ -18,27 +18,41 @@ export function setupLighting(preset) {
     this.lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
     const cfg = this.lightingConfig;
 
-    // Low-end: boost ambient to compensate for missing per-artwork PointLights
-    const ambientIntensity = this.isLowEnd ? cfg.ambient * 3.5 : cfg.ambient;
-    const ambientLight = new THREE.AmbientLight(0xffffff, ambientIntensity);
-    this.scene.add(ambientLight);
-
-    // Venue-tinted ambient (warm sodium for industrial, candlelight for zen, etc.)
-    // ── Iteration 6 (P2.2): the slug-keyed venueTints map is DELETED. Every
-    // venue's tint already flows through visual_config.ambient_color (all 11
-    // seeded venues declare it — the map was config-shadowed dead code for
-    // the entire catalog). A venue that wants a tinted ambient now declares
-    // its own ambient_color — the DB is the sole source of identity (§10.2).
-    const tint = this._venueAmbientColor ?? 0xffffff;
-    const tintIntensity = this._venueAmbientIntensity ?? ambientIntensity;
-    if (tint !== 0xffffff || this._venueAmbientColor) {
-        const tinted = new THREE.AmbientLight(tint, tintIntensity * 0.5);
-        this.scene.add(tinted);
+    // ── Ambient — the venue's declaration REPLACES the preset ───────────
+    // The old path stacked TWO ambient lights: the preset's white ambient
+    // AND a "tinted" venue ambient at half strength. Because the venue
+    // check was object-truthy, a venue declaring PURE WHITE ambient (white
+    // cube) still triggered the duplicate → the room ran at preset+50%
+    // intensity instead of its declared value. One declaration, one light.
+    if (this._venueAmbientColor) {
+        const declared = this._venueAmbientIntensity ?? cfg.ambient;
+        // Low-end loses the per-artwork pool lights — lift the declared
+        // ambient to compensate (capped so bright venues don't blow out).
+        const intensity = this.isLowEnd
+            ? Math.min(1.2, declared * 2.5)
+            : declared;
+        this.scene.add(new THREE.AmbientLight(this._venueAmbientColor, intensity));
+    } else {
+        const ambientIntensity = this.isLowEnd ? cfg.ambient * 3.5 : cfg.ambient;
+        this.scene.add(new THREE.AmbientLight(0xffffff, ambientIntensity));
     }
 
     // Hemisphere light — soft fill from above
     const hemi = new THREE.HemisphereLight(0xffffff, 0x404040, this.isLowEnd ? 0.4 : 0.15);
     this.scene.add(hemi);
+}
+
+// ── Ceiling-grid fill intensity (venue declaration → preset fallback) ──────
+// visual_config.fill_intensity used to be stored and never read — every
+// ceiling light read the lighting PRESET's fillLight instead of the venue's
+// declared value (a config-authority violation: the declaration was dead
+// config). All grid builders resolve through this one function so the venue
+// declaration controls every layout identically. `mult` preserves each
+// builder's historical ratio (square 2.0, corridor 2.5, l-shape 2.5,
+// rotunda 3.0, circular 2.5).
+export function venueFillIntensity(mult) {
+    const declared = this._venueFillIntensity ?? this.lightingConfig?.fillLight ?? 0.12;
+    return declared * (mult ?? 1);
 }
 
 // ── Per-artwork proximity light — POOLED ──────────────────────────────────
@@ -132,14 +146,19 @@ export function updateProximityLighting() {
         const dz = playerPos.z - art.position.z;
         const distSqr = dx * dx + dz * dz;
 
-        // Smoothstep falloff: 1.0 at distance 0, base at proximityDist, 0 beyond
+        // Smoothstep falloff: 1.0 at distance 0, base at proximityDist.
+        // BEYOND proximity the target is the artwork's BASE — never zero.
+        // The old `target = 0` starved every non-nearest piece: far artworks
+        // lerped their light to black and rendered as dark rectangles across
+        // the room (an exhibition rule: no artwork sits in the dark — the
+        // fixture wash is constant, only the visitor-proximity boost fades).
         let target;
         if (distSqr < sqrProximityDist) {
             const t = 1.0 - Math.sqrt(distSqr) / proximityDist;
             const smooth = t * t * (3.0 - 2.0 * t);
             target = ud.lightBase + (ud.lightMax - ud.lightBase) * smooth;
         } else {
-            target = 0;
+            target = ud.lightBase;
         }
 
         // Lerp 0.15 = smooth fade, no flicker (same feel as the old system)

@@ -114,7 +114,12 @@ class GalleryViewController extends Controller
             'frame_style'     => $gallery->frame_style,
             'lighting_preset' => $gallery->lighting_preset,
             'room_layout'     => $gallery->room_layout ?? 'square',
-            'venue_slug'      => $gallery->venueTemplate?->slug ?? 'white-cube',
+            'venue_slug'      => $gallery->venueTemplate?->slug,
+            // WHITE CUBE POLISH audit: the old 'white-cube' fallback here lied —
+            // with venueConfig null the viewer renders a generic default room,
+            // never White Cube's declared identity. The slug is now honest
+            // (null for venue-less/legacy galleries; JS uses it as PRNG seed
+            // only). Archive-not-delete means live galleries keep their row.
             'venueConfig'     => $venueConfig,
             // PERF-E30 (3D audit): array_filter strips null fields — a
             // 100-artwork gallery otherwise ships ~500 dead bytes of nulls

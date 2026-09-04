@@ -24,6 +24,7 @@ import * as THREE from 'three';
 import { CONFIG, parseColor } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
 import { addFloorEdgeFade } from './TierEffects.js';
+import { venueFillIntensity } from './Lighting.js';
 
 // ── Ceiling colour from config (Iteration 6 consolidation) ──────────────────
 // The per-slug ceiling chains (dark-museum/luxury-penthouse → 0x080808,
@@ -61,6 +62,23 @@ export function buildGallery() {
     else if (layout === 'l-shape')      this.createRoomLShape(data);
     else if (layout === 'rotunda')      this.createRoomRotunda(data);
     else                                this.createRoom(data); // square (default)
+
+    // ── Camera far must clear the room's far corner on every layout ─────
+    // The fixed far plane (100, or 20 on low-end) clipped the back wall of
+    // large rooms — a 60-piece square room reaches 56 m walls, and on the
+    // low-end tier everything past 20 m silently vanished into the void.
+    // Scaled from the actual built bounds; never shrinks (the low-end far
+    // stays a floor for small rooms).
+    const bnd = this.roomBounds || { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
+    const roomReach = Math.max(
+        Math.abs(bnd.maxX), Math.abs(bnd.minX),
+        Math.abs(bnd.maxZ), Math.abs(bnd.minZ), 6
+    );
+    const far = Math.ceil(roomReach * 2.5 + 10);
+    if (far > this.camera.far) {
+        this.camera.far = far;
+        this.camera.updateProjectionMatrix();
+    }
 
     this.placeArtworks(data);
     this.animate();
@@ -138,7 +156,7 @@ export function createRoom(data) {
         const stepZ = wallLength / (gridSize + 1);
         for (let i = 0; i < gridSize; i++) {
             for (let j = 0; j < gridSize; j++) {
-                const fill = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 2.0, wallLength * 1.2);
+                const fill = new THREE.PointLight(0xfff8e8, venueFillIntensity.call(this, 2.0), wallLength * 1.2);
                 fill.position.set(startX + i * stepX, wallHeight - 0.5, startZ + j * stepZ);
                 fill.castShadow = false;
                 this.scene.add(fill);
@@ -160,10 +178,16 @@ export function createRoom(data) {
         };
     }
 
-    // Collision bounds
+    // Collision bounds — inset to the wall's INNER FACE plus a body-clearance
+    // skin. The walls are 0.3 m boxes centred on ±L/2, so clamping to ±L/2
+    // let the camera stand 0.15 m inside the wall box; with camera.near = 0.1
+    // the near plane crossed the inner face and the void behind the wall
+    // showed through. Corridor/rotunda/circular all inset — square now does
+    // too (ArrivalMath.clampToWalkDomain mirrors this state automatically).
+    const skin = (CONFIG.room.wallDepth || 0.3) / 2 + 0.3;
     this.roomBounds = {
-        minX: -wallLength / 2, maxX: wallLength / 2,
-        minZ: -wallLength / 2, maxZ: wallLength / 2,
+        minX: -wallLength / 2 + skin, maxX: wallLength / 2 - skin,
+        minZ: -wallLength / 2 + skin, maxZ: wallLength / 2 - skin,
     };
     this._layoutMeta = { type: 'square', wallLength };
 
@@ -216,7 +240,7 @@ export function createRoomCorridor(data) {
 
     if (!this.isLowEnd) {
         [-length / 4, length / 4].forEach(xp => {
-            const l = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 2.5, length * 0.7);
+            const l = new THREE.PointLight(0xfff8e8, venueFillIntensity.call(this, 2.5), length * 0.7);
             l.position.set(xp, wallHeight - 0.3, 0);
             l.castShadow = false;
             this.scene.add(l);
@@ -349,7 +373,7 @@ export function createRoomLShape(data) {
 
     if (!this.isLowEnd) {
         const mkLight = (cx, cz) => {
-            const l = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 2.5, 14);
+            const l = new THREE.PointLight(0xfff8e8, venueFillIntensity.call(this, 2.5), 14);
             l.position.set(cx, wallHeight - 0.3, cz);
             l.castShadow = false;
             this.scene.add(l);
@@ -420,7 +444,7 @@ export function createRoomRotunda(data) {
     }
 
     if (!this.isLowEnd) {
-        const cl = new THREE.PointLight(0xfff8e8, this.lightingConfig.fillLight * 3.0, radius * 2.5);
+        const cl = new THREE.PointLight(0xfff8e8, venueFillIntensity.call(this, 3.0), radius * 2.5);
         cl.position.set(0, wallHeight - 0.4, 0);
         cl.castShadow = false;
         this.scene.add(cl);
@@ -467,7 +491,7 @@ export function createRoomCircular(data) {
 
     // Subtle ceiling light (downward) so the space isn't pitch-black
     if (!this.isLowEnd) {
-        const center = new THREE.PointLight(0xffffff, this.lightingConfig.fillLight * 2.5, radius * 2);
+        const center = new THREE.PointLight(0xffffff, venueFillIntensity.call(this, 2.5), radius * 2);
         center.position.set(0, 8, 0);
         center.castShadow = false;
         this.scene.add(center);

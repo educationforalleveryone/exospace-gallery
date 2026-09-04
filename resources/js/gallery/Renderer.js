@@ -194,7 +194,12 @@ export function detectLowEnd() {
         applyMobileSettings.call(this);
     } else {
         console.log('🚀 High-end mode: full quality enabled');
-        // Initialize post-processing only on high-end
+        // Initialize post-processing only on high-end.
+        // Re-init safety (context restore): the previous composer references
+        // the DEAD context's render targets and the OLD scene/camera objects —
+        // dispose it before creating a fresh one (its window resize listener
+        // used to leak on every rebuild).
+        if (this._postFx) { this._postFx.dispose(); this._postFx = null; }
         this._postFx = new PostProcessing(this.renderer, this.scene, this.camera);
     }
 
@@ -245,8 +250,12 @@ export function applyLowEndSettings() {
     this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.enabled = false;
     if (this.scene.fog) {
-        this.scene.fog.near = 5;
-        this.scene.fog.far  = 14;
+        // SCALE the venue's declared fog range instead of overriding it with
+        // absolute constants — a venue's fog colour/intent (bright-gallery
+        // haze, museum gloom) must survive degradation (config is the identity
+        // source; only the reach shrinks).
+        this.scene.fog.near = Math.max(2, this.scene.fog.near * 0.4);
+        this.scene.fog.far  = Math.max(8, this.scene.fog.far  * 0.5);
     }
     document.body.classList.add('low-end-device');
     this.isLowEnd = true;
@@ -270,5 +279,7 @@ export function applyMobileSettings() {
     document.body.classList.add('mobile-tier');
     // Post-processing stays available (vignette is cheap); PerformanceControls
     // resolves 'auto' → the mobile quality level, which disables bloom.
+    // Re-init safety: dispose the previous composer first (see detectLowEnd).
+    if (this._postFx) { this._postFx.dispose(); this._postFx = null; }
     this._postFx = new PostProcessing(this.renderer, this.scene, this.camera);
 }
