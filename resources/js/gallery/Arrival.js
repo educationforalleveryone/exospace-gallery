@@ -79,7 +79,20 @@ export function computeHero(scene) {
 
         if (!distanceOnly) distanceOnly = art; // largest artwork at valid distance
 
-        if (segmentBlockedByBoxes(eye, { x: centre.x, y: centre.y, z: centre.z }, scene._obstacles)) {
+        // Stop the sight-line ~0.6 m short of the target centre: float-mode
+        // artworks register as collision obstacles, and the hero's OWN AABB
+        // contains its centre — an endpoint-inside test would self-block
+        // every candidate and silently disable the LOS validation. The
+        // pulled-back endpoint still catches any OTHER artwork standing in
+        // the view (the actual thing the check exists for).
+        const losScale = Math.max(0, (dist - 0.6) / dist);
+        const losTarget = {
+            x: eye.x + (centre.x - eye.x) * losScale,
+            y: centre.y,
+            z: eye.z + (centre.z - eye.z) * losScale,
+        };
+
+        if (segmentBlockedByBoxes(eye, losTarget, scene._obstacles)) {
             continue;
         }
 

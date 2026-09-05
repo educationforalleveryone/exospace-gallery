@@ -171,6 +171,13 @@ class VenueTemplateSeeder extends Seeder
 
             // ─────────────────────────────────────────────────────────────
             // 2. Infinite Void — Free (user's favourite, so it's free)
+            //
+            // Iteration "Void Deepening": the rig numbers are the post-polish
+            // physical-units values (the IT0 numbers rendered artworks at
+            // ~10% — a void whose only bright contents were its frames).
+            // Production rows are updated by the GUARDED migration
+            // 2026_09_05_000001_infinite_void_deepening — this seeder stays
+            // the fresh-install baseline.
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Infinite Void',
@@ -185,12 +192,15 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => null,
                 'sort_order'    => 2,
                 'is_featured'   => true,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
                     'lighting_preset'  => 'dramatic',
-                    'frame_style'     => 'minimal',
+                    // Thin charcoal frames: white frames glare in a black
+                    // void (and were the only thing the inherited bloom pass
+                    // had to eat). Still visitor-overridable per gallery.
+                    'frame_style'     => 'modern',
                     'room_layout'     => 'rotunda',
                 ],
                 'visual_config' => [
@@ -203,16 +213,42 @@ class VenueTemplateSeeder extends Seeder
                     'fog_near'               => 0,
                     'fog_far'                => 0,
                     'ambient_color'          => '0xa0b0d0',
-                    'ambient_intensity'      => 0.2,
-                    'spot_intensity'         => 0.55,
-                    'fill_intensity'         => 0.12,
-                    'tone_mapping_exposure'  => 0.55,
+                    'ambient_intensity'      => 0.3,
+                    'spot_intensity'         => 1.3,
+                    'fill_intensity'         => 0.2,
+                    'tone_mapping_exposure'  => 0.9,
                     'frame_override'         => null,
                     // ── Iteration 2 "Phenomena" declared identity ──────
                     'placement_mode'  => 'float',  // §10.5 — the original promise, now real
                     'floor_edge_fade'  => true,  // §4.2 — the "endless" must read
                     'env_intensity'  => 0,  // a pure void — no preset HDRI horizon glow
                     'structure_pass'  => 'phenomena',  // per-venue rollback switch
+                    // ── Void Deepening declared identity ────────────────
+                    // Artworks on a ring sit beyond the proximity radius —
+                    // they carry a standing glow of their own (Lighting.js
+                    // reads the fraction; wall venues keep the 0.15 default).
+                    'artwork_light_base' => 0.45,
+                    // A 12-piece hang lights every piece at once (pool cap;
+                    // Lighting.js — tier floors still apply).
+                    'artwork_light_pool_cap' => 12,
+                    // Frame edges dissolve to BLACK (darkness 1.0 targets
+                    // zero — the only mix target that survives ACES tone
+                    // mapping as true black) — the void reads infinite,
+                    // never enclosed in the default grey ring. Bloom off:
+                    // nothing in a void should halo.
+                    'post_fx'         => [
+                        'bloom'             => false,
+                        'vignette'          => true,
+                        'vignette_darkness' => 1.0,
+                        'vignette_offset'   => 1.35,
+                    ],
+                    // §7 presentation language: collections past 12 works
+                    // compose in TWO depth rings (PlacementMath + RoomBuilder
+                    // interpret the key generically; small shows stay calm).
+                    'placement'       => ['depth_bands' => 2],
+                    // The zenith depth cue — near-black blue above, pure
+                    // black at the horizon; makes the dark read as DISTANCE.
+                    'void_depth_gradient' => true,
                     // Iteration 6 consolidation keys (declare the shell + composable
                     // phenomena — replaces the CIRCULAR/OPEN_AIR slug sets):
                     'open_air'        => true,
@@ -225,9 +261,13 @@ class VenueTemplateSeeder extends Seeder
                     'wall_metalness'         => 0.1,
                     'wall_normal_strength'   => 0.4,
                     'floor_color'            => '0x0a0a0a',
-                    'floor_roughness'        => 0.4,
-                    'floor_metalness'        => 0.6,
+                    'floor_roughness'        => 0.32,
+                    'floor_metalness'        => 0.25,
                     'floor_normal_strength'  => 0.4,
+                    // Declared colours are authoritative over textures
+                    // (Materials.js tint path) — production marble obeys the
+                    // obsidian declaration instead of ignoring it.
+                    'texture_tint'           => true,
                 ],
                 'decorations'       => [],
                 'lighting_fixtures' => [],

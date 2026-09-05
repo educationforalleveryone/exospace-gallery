@@ -57,7 +57,7 @@ await new Promise(r => server.listen(PORT, r));
 const { chromium } = await import('playwright');
 mkdirSync(path.resolve(rootDir, OUT), { recursive: true });
 
-// ── Scenarios (Modern White Cube QA matrix) ──────────────────────────────────
+// ── Scenarios (Modern White Cube QA matrix + venue-specific sweeps) ─────────
 const SCENARIOS = [
     { id: 'square-01',            q: 'count=1' },
     { id: 'square-08-mixed',      q: 'count=8' },
@@ -69,9 +69,21 @@ const SCENARIOS = [
     { id: 'square-08-square',     q: 'count=8&orient=square' },
     { id: 'square-08-extreme',    q: 'count=8&orient=extreme' },
     { id: 'corridor-08',          q: 'count=8&layout=corridor' },
-    { id: 'lshape-08',            q: 'count=8&layout=l-shape' },
+    { id: 'lshape-08',           q: 'count=8&layout=l-shape' },
     { id: 'rotunda-08',           q: 'count=8&layout=rotunda' },
     { id: 'tier-low-08',          q: 'count=8', tier: 'low' },
+    // Infinite Void — count scaling (radius + placement stress)
+    { id: 'void-01',              q: 'venue=infinite-void&count=1' },
+    { id: 'void-06',              q: 'venue=infinite-void&count=6' },
+    { id: 'void-12-mixed',        q: 'venue=infinite-void&count=12' },
+    { id: 'void-30-mixed',        q: 'venue=infinite-void&count=30' },
+    { id: 'void-60-mixed',        q: 'venue=infinite-void&count=60' },
+    // Infinite Void — orientation stress
+    { id: 'void-08-portrait',     q: 'venue=infinite-void&count=8&orient=portrait' },
+    { id: 'void-08-landscape',    q: 'venue=infinite-void&count=8&orient=landscape' },
+    { id: 'void-08-extreme',      q: 'venue=infinite-void&count=8&orient=extreme' },
+    // Infinite Void — tier degradation
+    { id: 'void-tier-low-06',     q: 'venue=infinite-void&count=6', tier: 'low' },
 ];
 
 const tierInit = {

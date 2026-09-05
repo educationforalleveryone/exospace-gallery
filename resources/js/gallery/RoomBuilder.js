@@ -25,6 +25,7 @@ import { CONFIG, parseColor } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
 import { addFloorEdgeFade } from './TierEffects.js';
 import { venueFillIntensity } from './Lighting.js';
+import { computeFloatFieldRadius } from './PlacementMath.js';
 
 // ── Ceiling colour from config (Iteration 6 consolidation) ──────────────────
 // The per-slug ceiling chains (dark-museum/luxury-penthouse → 0x080808,
@@ -40,6 +41,21 @@ function ceilColorFromConfig(vc) {
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function buildGallery() {
     const data = window.GALLERY_DATA;
+
+    // ── Rebuild hygiene: obstacles are scene-scoped state ────────────────
+    // A WebGL context restore re-runs init() → buildGallery() on the SAME
+    // GalleryScene object, and the Live Preview iframe reloads structural
+    // tweaks the same way. The obstacle list was constructor-scoped only,
+    // so every rebuild silently ACCUMULATED the dead scene's AABBs — the
+    // visitor collided with walls that no longer existed. One clear per
+    // build keeps the list exactly as large as the current scene.
+    this.clearObstacles();
+    // Same rebuild-hygiene class: the artwork registry and the particle
+    // registry were constructor-scoped, so a rebuild DOUBLED every entry —
+    // duplicated proximity-light assignments, duplicated drift updates on
+    // disposed objects. Rebuilds start from a clean registry.
+    this.artworks = [];
+    this._particleSystems = [];
 
     // Apply venue overrides BEFORE building
     this.applyVenueOverrides(data.venue_slug || 'venue');
@@ -463,12 +479,24 @@ export function createRoomRotunda(data) {
 
 // ── CIRCULAR (NEW — sculpture garden + void venues) ───────────────────────────
 // Like rotunda but with NO walls and NO ceiling — just a circular ground plane.
-// Boundary is enforced by _circularBoundsRadius (set in VenueDecorator).
+// Boundary is enforced by _circularBoundsRadius (set here — single source).
 export function createRoomCircular(data) {
     const imageCount = data.imageCount;
     const spacing    = CONFIG.room.artworkSpacing;
-    const circumference = Math.max(imageCount * spacing, 30);
-    const radius = Math.max(10, circumference / (2 * Math.PI));
+
+    // ── Float-field radius (shared pure planner) ─────────────────────────
+    // The radius used to grow linearly with count (n·spacing / 2π): a 60-
+    // artwork void reached r ≈ 33, a 200-artwork one r ≈ 111 — beyond the
+    // camera far plane. Venues that declare placement.depth_bands compose
+    // the hang in DEPTH (PlacementMath), so the floor only needs to fit
+    // ceil(n/bands) works per ring — radius grows ~√n instead of n. The
+    // same pure function that sizes the field lays it out; they cannot
+    // disagree. Venues without the declaration take the legacy formula
+    // bit-exactly (sculpture garden + the other voids unchanged).
+    const vcBoot = this._venueVisualConfig || {};
+    const bandsWanted = Math.max(1, Math.floor(vcBoot.placement?.depth_bands || 1));
+    const field = computeFloatFieldRadius(imageCount, spacing, { depthBands: bandsWanted });
+    const radius = field.radius;
 
     // Ground
     const floorMat = this.getFloorMaterial(data.floor_material);
@@ -499,7 +527,21 @@ export function createRoomCircular(data) {
 
     // Layout meta — ArtworkPlacer uses this to arrange artworks in a circle
     this._layoutMeta = { type: 'circular', radius };
+    // Walkway edge: enforced bound = radius − 0.5, set ONCE here. (The void
+    // structures used to re-set the same value, and Collisions subtracted a
+    // FURTHER 0.5 at enforcement time — a double inset that made the real
+    // bound radius − 1.0 while every comment claimed radius − 0.5. The
+    // enforcement paths now consume this value as-is.)
     this._circularBoundsRadius = radius - 0.5;
+    // Axis bounds mirror the circular clamp so buildGallery's camera-far math
+    // sees the real reach: the fixed fallback (0/0/0/0 → reach 6 → far 25)
+    // never cleared the ring on this layout. Low-end (camera.far = 20) used
+    // to CLIP every artwork past ~18 m — 30-piece shows were invisible from
+    // the centre. With real bounds, far = radius·2.5 + 10 on every tier.
+    this.roomBounds = {
+        minX: -(radius - 1), maxX: radius - 1,
+        minZ: -(radius - 1), maxZ: radius - 1,
+    };
 
     // ── FIX (Iteration 2, root-cause): addVenueStructure was NEVER called
     // for circular layouts. Every structure branch for the garden + all four

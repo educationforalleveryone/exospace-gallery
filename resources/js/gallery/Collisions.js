@@ -77,8 +77,12 @@ export function enforceRoomBounds() {
             pos.z = (pos.z / d) * r;
         }
     } else if (this._circularBoundsRadius) {
-        // Sculpture Garden + void venues — circular grass plane
-        const r = this._circularBoundsRadius - 0.5;
+        // Sculpture Garden + void venues — circular grass plane.
+        // _circularBoundsRadius IS the enforced walkway edge (radius − 0.5,
+        // set once in RoomBuilder). The extra − 0.5 here used to double-inset
+        // the bound to radius − 1.0 while every comment and placement invariant
+        // documented radius − 0.5.
+        const r = this._circularBoundsRadius;
         const d = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
         if (d > r) {
             pos.x = (pos.x / d) * r;

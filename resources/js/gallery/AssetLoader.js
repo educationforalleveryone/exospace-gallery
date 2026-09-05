@@ -467,6 +467,13 @@ export function showLoadError(error) {
 export function loadEnvironmentMap() {
     if (this._skipHdri) return; // low-end: skip the 10MB HDRI
 
+    // A venue declaring env_intensity = 0 has silenced the environment at the
+    // source (§10.2 — the declaration is the identity). Downloading a ~10 MB
+    // HDR only to multiply it by zero was pure waste on every desktop visit
+    // of such venues (Infinite Void paid this on every load). Zero means the
+    // venue does not want an environment — skip the transfer entirely.
+    if (this._venueEnvIntensity === 0) return;
+
     const preset = this.lightingPreset || 'bright';
     const lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
     const hdriPath = this._customHdriUrl || lightingConfig.hdri;

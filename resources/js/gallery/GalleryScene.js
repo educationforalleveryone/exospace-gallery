@@ -219,7 +219,7 @@ export class GalleryScene {
     getFloorMaterial(type)                          { return getFloorMaterial.call(this, type); }
     createFrame(width, height, style)               { return createFrame.call(this, width, height, style); }
     enforceRoomBounds()                             { return enforceRoomBounds.call(this); }
-    registerObstacle(mesh)                          { return registerObstacle.call(this, mesh); }
+    registerObstacle(mesh, padding)                 { return registerObstacle.call(this, mesh, padding); }
     clearObstacles()                                { return clearObstacles.call(this); }
     updateMovement()                                { return updateMovement.call(this); }
     updateMovementMobile()                          { return updateMovementMobile.call(this); }
@@ -426,6 +426,12 @@ export class GalleryScene {
                 if (ps.type === 'drift') {
                     // Gentle vertical bob — the whole Points object floats
                     ps.obj.position.y = Math.sin(t * 0.35 + ps.phase) * 0.35;
+                } else if (ps.type === 'void-drift') {
+                    // Infinite Void dust: per-mote drift happens in the
+                    // vertex shader — one uniform write per frame, no
+                    // per-particle CPU work, no allocations.
+                    const u = ps.obj.material.uniforms?.uTime;
+                    if (u) u.value = t;
                 } else if (ps.type === 'rotate-slow') {
                     ps.obj.rotation.y += 0.0025;
                     ps.obj.rotation.x += 0.0012;

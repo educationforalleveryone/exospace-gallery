@@ -113,6 +113,12 @@ export function applyVenueConfig(cfg) {
     this._venueVisualConfig = v;
     if (v.placement_mode)          this._venuePlacementMode = v.placement_mode;
     if (v.env_intensity != null)   this._venueEnvIntensity  = v.env_intensity;
+    // Standing-glow fraction for the pooled artwork lights (Lighting.js).
+    // 0..1; absent/invalid ⇒ the historical 0.15 default (untouched venues).
+    if (v.artwork_light_base != null) this._venueArtworkLightBase = v.artwork_light_base;
+    // Optional pool raise so every artwork of a typical hang carries its
+    // standing glow at once (Lighting._ensureLightPool; tier floors apply).
+    if (v.artwork_light_pool_cap != null) this._venueArtworkLightPoolCap = v.artwork_light_pool_cap;
 
     this._venueMaterialConfig = m;
     this._venueSlug = cfg.slug || 'venue';
@@ -912,11 +918,24 @@ function addVoidVenueStructure(data) {
     const meta = this._layoutMeta || {};
     const radius = meta.radius || 15;
 
-    // Common: circular bounds
-    this._circularBoundsRadius = radius - 0.5;
+    // Common: circular bounds. RoomBuilder.createRoomCircular owns the value
+    // (radius − 0.5, the documented walkway edge); the old re-set here made
+    // this line look like the authority while Collisions subtracted ANOTHER
+    // 0.5 at enforcement time — a double inset nobody documented. Single
+    // source now; the enforced bound is exactly radius − 0.5.
+    if (this._circularBoundsRadius == null) {
+        this._circularBoundsRadius = radius - 0.5;
+    }
 
     if (vc.void_dust === true) {
-        addInfiniteVoidParticles.call(this, radius);
+        addVoidDustField.call(this, radius);
+    }
+    // A barely-perceptible zenith gradient — the one depth cue that makes
+    // pure black read as DISTANCE instead of enclosure. Declared per venue
+    // (void_depth_gradient); skipped on low-end, where the flat black
+    // background already carries the identity.
+    if (vc.void_depth_gradient === true && !this.isLowEnd) {
+        addVoidDepthGradient.call(this, radius);
     }
     if (vc.void_starfield === true) {
         addNebulaDriftStructure.call(this, radius);
@@ -933,33 +952,161 @@ function addVoidVenueStructure(data) {
     }
 }
 
-// INFINITE VOID — slow-floating dust particles, very subtle
-function addInfiniteVoidParticles(radius) {
+// ── VOID DUST — per-particle drift, all heights (Infinity-void identity) ────
+// The old body was a 200-point SQUARE slab pinned to y ∈ [0, 5] whose only
+// motion was a whole-cloud vertical bob (the captured baseY array was never
+// read). On screen it read as a cheap starfield band, not dust.
+//
+// This body:
+//   • distributes motes in a CYLINDER around the exhibition (r ≤ radius·1.15,
+//     y from knee height to ~3× eye level — dust surrounds the visitor in
+//     every direction instead of forming a horizon band);
+//   • drifts PER PARTICLE in the vertex shader (uTime uniform): each mote
+//     breathes on its own seeded phase — vertical wander + a slow lateral
+//     curl. Zero per-frame CPU, zero per-frame allocations, one draw call;
+//   • stays static for reduced-motion visitors and on low-end (the animate
+//     loop never advances uTime there, and low-end gets the plain
+//     PointsMaterial body — same composition, no GLSL).
+// Deterministic: every attribute comes from the venue's seeded rng.
+function addVoidDustField(radius) {
     const rng = this._venueRng;
-    const particleCount = 200;
-    const positions = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-        positions[i * 3]     = (rng.next() - 0.5) * radius * 2;
-        positions[i * 3 + 1] = rng.next() * 5;
-        positions[i * 3 + 2] = (rng.next() - 0.5) * radius * 2;
+    const isLowEnd = !!this.isLowEnd;
+    // 700 motes is still one draw call and ~8 KB of attributes — cheap
+    // everywhere; the low-end body keeps 300 (Lambert-class device budget).
+    const COUNT = isLowEnd ? 300 : 700;
+    const ySpan = Math.min(12, radius * 0.45 + 2);
+
+    const positions = new Float32Array(COUNT * 3);
+    const phases    = new Float32Array(COUNT);
+    const sizes     = new Float32Array(COUNT);
+
+    for (let i = 0; i < COUNT; i++) {
+        // Cylinder distribution (uniform disc × height band)
+        const a = rng.next() * Math.PI * 2;
+        const r = Math.sqrt(rng.next()) * radius * 1.15;
+        positions[i * 3]     = Math.cos(a) * r;
+        positions[i * 3 + 1] = 0.1 + rng.next() * ySpan;
+        positions[i * 3 + 2] = Math.sin(a) * r;
+        phases[i] = rng.next() * Math.PI * 2;
+        sizes[i]  = 0.6 + rng.next() * 0.9; // relative size — attenuated in shader
     }
+
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const mat = new THREE.PointsMaterial({
-        color: 0xaaccff,
-        size: 0.05,
-        transparent: true,
-        opacity: 0.6,
-        sizeAttenuation: true,
-    });
+    geo.setAttribute('aPhase',   new THREE.BufferAttribute(phases, 1));
+    geo.setAttribute('aSize',    new THREE.BufferAttribute(sizes, 1));
+
+    let mat;
+    if (isLowEnd) {
+        // Low-end: plain unlit points, static (no GLSL on this tier).
+        mat = new THREE.PointsMaterial({
+            color: 0xaabbcc,
+            size: 0.045,
+            transparent: true,
+            opacity: 0.5,
+            sizeAttenuation: true,
+            depthWrite: false,
+        });
+    } else {
+        mat = new THREE.ShaderMaterial({
+            transparent: true,
+            depthWrite: false,
+            fog: false, // the dust IS atmosphere — scene fog must not eat it
+            uniforms: {
+                uTime:     { value: 0 },
+                uColor:    { value: new THREE.Color(0x9fb2c8) },
+                uOpacity:  { value: 0.42 },
+                uBaseSize: { value: 0.05 },
+            },
+            vertexShader: /* glsl */`
+                attribute float aPhase;
+                attribute float aSize;
+                uniform float uTime;
+                uniform float uBaseSize;
+                varying float vFade;
+                void main() {
+                    vec3 p = position;
+                    // Per-mote drift: vertical breath + slow lateral curl.
+                    // Amplitudes stay centimetre-scale — presence, not snow.
+                    p.y += sin(uTime * 0.22 + aPhase) * 0.35;
+                    p.x += sin(uTime * 0.11 + aPhase * 1.7) * 0.28;
+                    p.z += cos(uTime * 0.09 + aPhase * 2.3) * 0.28;
+                    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+                    // Distance fade: motes melt into the dark far away, and
+                    // never pop against the camera at close range.
+                    float d = -mv.z;
+                    vFade = smoothstep(0.6, 2.0, d) * (1.0 - smoothstep(14.0, 26.0, d));
+                    gl_PointSize = aSize * uBaseSize * (240.0 / max(d, 0.001));
+                    gl_Position = projectionMatrix * mv;
+                }
+            `,
+            fragmentShader: /* glsl */`
+                uniform vec3 uColor;
+                uniform float uOpacity;
+                varying float vFade;
+                void main() {
+                    // Soft round mote (no square points)
+                    vec2 uv = gl_PointCoord - 0.5;
+                    float a = 1.0 - smoothstep(0.18, 0.5, length(uv));
+                    gl_FragColor = vec4(uColor, uOpacity * a * vFade);
+                }
+            `,
+        });
+    }
+
     const points = new THREE.Points(geo, mat);
-    points.userData.isParticle = true;
-    points.userData.baseY = positions;
+    points.frustumCulled = false; // per-mote drift must never pop at the bbox edge
     this.scene.add(points);
     this._particleSystems = this._particleSystems || [];
-    // PERF-C16: phase gives each system a distinct point in the bob cycle
-    // (seeded — Iteration 0)
-    this._particleSystems.push({ obj: points, type: 'drift', phase: rng.next() * Math.PI * 2 });
+    this._particleSystems.push({
+        obj: points,
+        type: 'void-drift',
+        phase: rng.next() * Math.PI * 2, // reserved: keeps rng call order stable vs the old body
+    });
+}
+
+// ── VOID DEPTH GRADIENT — the whisper of "up" that makes black infinite ─────
+// A huge inverted sphere with a two-stop gradient: a near-black blue at the
+// zenith dissolving to pure black at/below the horizon. On its own it is
+// almost invisible; next to pure-#000 screen edges it gives the eye a sense
+// of VAST SPACE ABOVE instead of a painted ceiling of nothing. One draw
+// call, no lighting interaction (MeshBasic-class shader), fog-exempt.
+function addVoidDepthGradient(radius) {
+    // Radius budget: buildGallery derives camera.far from the circular
+    // bounds as reach·2.5 + 10, and the floor fade ends at radius·2.2 — the
+    // dome sits just outside the fade and just inside the far plane, so it
+    // can never be clipped nor outdone by the background colour.
+    const domeRadius = radius * 2.4 + 6;
+    const geo = new THREE.SphereGeometry(domeRadius, 24, 12);
+    const mat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+            uZenith:  { value: new THREE.Color(0x0a0e18) },
+            uHorizon: { value: new THREE.Color(0x000000) },
+        },
+        vertexShader: /* glsl */`
+            varying vec3 vDir;
+            void main() {
+                vDir = normalize(position);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: /* glsl */`
+            uniform vec3 uZenith;
+            uniform vec3 uHorizon;
+            varying vec3 vDir;
+            void main() {
+                float t = smoothstep(-0.08, 0.75, vDir.y);
+                gl_FragColor = vec4(mix(uHorizon, uZenith, t), 1.0);
+            }
+        `,
+    });
+    const dome = new THREE.Mesh(geo, mat);
+    dome.renderOrder = -10; // behind everything
+    dome.frustumCulled = false;
+    this.scene.add(dome);
 }
 
 // CRYSTAL CATHEDRAL — composed vertical light architecture (Iteration 2)

@@ -69,12 +69,22 @@ export function venueFillIntensity(mult) {
 // A 100-artwork gallery also no longer allocates 100 PointLight objects.
 //
 // On low-end: skipped entirely (ambient + hemisphere carry the scene).
+//
+// visual_config.artwork_light_base (0..1, default 0.15): the BASE glow an
+// artwork carries even when the visitor is far away, as a fraction of the
+// proximity boost target. Wall galleries keep 0.15 — artworks flank the
+// walk path, so the proximity boost does the work. Venues whose artworks
+// sit BEYOND the proximity radius (void family: a ring metres from the
+// spawn, nothing flanking the visitor) declare a higher base — their
+// pieces are lit by their own standing pool, like islands of light, and
+// the walk still brightens the nearest ones. Config-declared, no slugs.
 export function addArtworkLight(artworkGroup, preset) {
     if (this.isLowEnd) return;
 
     const cfg = CONFIG.lighting[preset] || CONFIG.lighting.bright;
     const targetMax = (this._venueSpotIntensity ?? cfg.spot) * 3.5;
-    const baseIntensity = targetMax * 0.15; // base glow even when not closest
+    const baseFraction = Math.min(1, Math.max(0, this._venueArtworkLightBase ?? 0.15));
+    const baseIntensity = targetMax * baseFraction; // standing glow (was hard-coded 0.15)
 
     // Where this artwork's pooled light sits when assigned (in front of the
     // canvas, slightly above centre — same anchor the old per-artwork light
@@ -93,8 +103,20 @@ export function addArtworkLight(artworkGroup, preset) {
 // Create / resize the shared light pool. Idempotent; called from
 // updateProximityLighting so quality changes (which alter _maxActiveLights)
 // are picked up on the next tick.
-function _ensureLightPool() {
-    const desired = this._maxActiveLights || 6;
+//
+// A venue declaring artwork_light_pool_cap raises the pool (desktop tier
+// only; the mobile tier keeps its designed 4-light budget) so EVERY artwork
+// of a typical hang can carry its standing glow at once. The pool is still
+// fixed per size — no mid-walk resizing, no shader-recompile churn.
+// Without the declaration the tier's pool size applies unchanged.
+function _ensureLightPool(artworkCount = 0) {
+    let desired = this._maxActiveLights || 6;
+    const cap = this._venueArtworkLightPoolCap;
+    // The cap raises the DESKTOP tier only — the mobile tier's 4-light pool
+    // is a designed budget (Renderer.applyMobileSettings), not an accident.
+    if (Number.isFinite(cap) && cap > 0 && !this.isLowEnd && !this._isMobileTier) {
+        desired = Math.max(6, Math.min(Math.max(artworkCount, 6), cap));
+    }
     if (this._lightPool && this._lightPool.length === desired) return;
 
     if (this._lightPool) {
@@ -170,7 +192,7 @@ export function updateProximityLighting() {
     // intensity (≈ the closest). Reassignment only ever happens at the rank
     // boundary, where both artworks' intensities are near base — the light
     // teleport is imperceptible, and it costs zero shader recompiles.
-    _ensureLightPool.call(this);
+    _ensureLightPool.call(this, count);
     const pool = this._lightPool;
     const K = Math.min(pool.length, count);
 

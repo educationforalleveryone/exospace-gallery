@@ -314,13 +314,25 @@ export function _placeArtworksCircular(data) {
     });
 }
 
-// ── FLOAT placement (Iteration 2 — void family) ─────────────────────────
-// Artworks hover in space on the same uniform ring the easels used — no
-// easel, no stand, no wires. Each piece gets a seeded radial wander, a
-// seeded hover height inside the legibility band (1.6 m ± 0.45) and a
-// seeded roll around its view axis, all from the venue's seeded rng — the
-// composition is identical on every load (Iteration 0's determinism
-// contract extends to placement).
+// ── FLOAT placement (Iteration 2 — void family; depth bands since the
+//    Infinite Void deepening) ─────────────────────────────────────────────
+// Artworks hover in space — no easel, no stand, no wires. Each piece gets a
+// seeded radial wander, a seeded hover height inside the legibility band
+// (1.6 m ± 0.45) and a seeded roll around its view axis, all from the
+// venue's seeded rng — the composition is identical on every load
+// (Iteration 0's determinism contract extends to placement).
+//
+// Depth bands (visual_config.placement.depth_bands, interpreted by the pure
+// PlacementMath module): larger collections compose in DEPTH — an outer ring
+// plus inner rings stepping toward the centre — so walking reveals parallax
+// and the hang reads as a constellation rather than a fence. The radius was
+// sized for the same band count (RoomBuilder via computeFloatFieldRadius);
+// the two can never disagree.
+//
+// Floating pieces register as collision obstacles: in a wall gallery the
+// wall stops the visitor; in a void the artwork itself is the only physical
+// thing at eye height, and gliding THROUGH a canvas shatters the fiction.
+// Gated on float mode — wall/easel venues keep their historic behaviour.
 export function _placeArtworksFloating(data) {
     const radius = this._layoutMeta.radius;
 
@@ -329,7 +341,8 @@ export function _placeArtworksFloating(data) {
     // only exists so a pathological call order can never crash — it draws
     // from the same seed and is therefore still deterministic.
     const rng = this._venueRng || createVenueRng(venueSeedSource(this._venueSlug));
-    const layout = computeFloatLayout(this.artworkImages.length, radius, rng);
+    const bandsWanted = Math.max(1, Math.floor(this._venuePlacement?.depth_bands || 1));
+    const layout = computeFloatLayout(this.artworkImages.length, radius, rng, { depthBands: bandsWanted });
 
     this.artworkImages.forEach((img, i) => {
         const p = layout[i];
@@ -338,6 +351,10 @@ export function _placeArtworksFloating(data) {
         group.lookAt(0, p.y, 0);   // face the centre at its own hover height
         group.rotateZ(p.roll);     // seeded roll in the canvas plane
         this.placeAndRegister(group, data);
+        // Physical presence: the padded AABB (Collisions) blocks the visitor
+        // ~0.3 m short of the frame — walking up to a floating work still
+        // feels close (focus distance is 1.8 m); walking through is gone.
+        this.registerObstacle(group, 0.3);
     });
 }
 

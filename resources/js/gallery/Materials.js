@@ -70,8 +70,20 @@ export function getWallMaterial(type) {
         });
     }
 
+    // ── Venue color authority over textures (config root-cause fix) ──────
+    // The old path replaced the venue's declared colour with 0xffffff the
+    // moment a texture existed, so a venue declaring wall_color was silently
+    // ignored on every textured build (and matched its own no-texture
+    // fallback only in sandboxes). material_config.texture_tint = true
+    // opts the venue into "my declared colours are authoritative" — the map
+    // is then tinted by the declared colour instead of overriding it.
+    // Venues that do not declare the flag keep the historical 0xffffff
+    // behaviour (Modern White Cube renders unchanged).
+    const tinted = vc?.texture_tint === true;
+    const matColor = tinted ? color : 0xffffff;
+
     const mat = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
+        color: matColor,
         map: cached.map.clone(),
         normalMap: cached.normalMap ? cached.normalMap.clone() : null,
         roughnessMap: cached.roughnessMap ? cached.roughnessMap.clone() : null,
@@ -110,8 +122,14 @@ export function getFloorMaterial(type) {
     const dir = TEXTURE_PATHS.floors[type];
     const cached = dir ? _textureCache.get(dir) : null;
 
+    // Same venue-colour authority rule as the walls above: without the
+    // texture_tint opt-in a declared floor_color never reached textured
+    // builds (Infinite Void shipped a bright marble floor in production
+    // while its config declared 0x0a0a0a — the preview/product split).
+    const tinted = vc?.texture_tint === true;
+
     const matProps = {
-        color: cached?.map ? 0xffffff : color,
+        color: cached?.map ? (tinted ? color : 0xffffff) : color,
         roughness,
         metalness,
         envMapIntensity: 0.6 * envIntensity, // floor reflects HDRI subtly

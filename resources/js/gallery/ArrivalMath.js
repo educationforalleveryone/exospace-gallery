@@ -158,7 +158,9 @@ export function clampToWalkDomain(sceneLike, pos) {
         const d = Math.sqrt(out.x * out.x + out.z * out.z);
         if (d > r) push((out.x / d) * r, (out.z / d) * r);
     } else if (sceneLike?._circularBoundsRadius) {
-        const r = sceneLike._circularBoundsRadius - 0.5;
+        // _circularBoundsRadius IS the walkway edge (radius − 0.5, RoomBuilder
+        // single source) — mirrors Collisions.enforceRoomBounds exactly.
+        const r = sceneLike._circularBoundsRadius;
         const d = Math.sqrt(out.x * out.x + out.z * out.z);
         if (d > r) push((out.x / d) * r, (out.z / d) * r);
     } else if (sceneLike?.roomBounds) {
