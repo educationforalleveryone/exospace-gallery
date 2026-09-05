@@ -127,6 +127,12 @@ export function applyVenueConfig(cfg) {
     // Optional pool raise so every artwork of a typical hang carries its
     // standing glow at once (Lighting._ensureLightPool; tier floors apply).
     if (v.artwork_light_pool_cap != null) this._venueArtworkLightPoolCap = v.artwork_light_pool_cap;
+    // Hemisphere fill strength (0..~0.5). The shared HemisphereLight used to
+    // be a hard-coded 0.15 white wash in EVERY venue — in a controlled-
+    // darkness venue that constant grey top-down light fights the venue's
+    // own hierarchy. Config-declared (visual_config.hemisphere_intensity);
+    // absent ⇒ the historical 0.15 (untouched venues render unchanged).
+    if (v.hemisphere_intensity != null) this._venueHemisphereIntensity = v.hemisphere_intensity;
 
     this._venueMaterialConfig = m;
     this._venueSlug = cfg.slug || 'venue';
@@ -280,7 +286,9 @@ export function addVenueStructure(data) {
     //   'cube'      White Cube respect pass (base reveal / crown / fixtures;
     //               internally square+corridor only, as designed in IT3)
     //   'loft'      industrial beams, placement-aware columns, coves, props
-    //   'museum'    dividers (cap + hangable faces) and skirting
+    //   'museum'    the night wing: shadow-gap reveal, stone baseboard,
+    //               salon cabinets (brass cap + hangable faces) + post-
+    //               placement picture lights (every artwork, every layout)
     //   'garden'    sky dome, sun, hedge ring, trees, path, pedestal
     //   'phenomena' void family — composable flags (void_dust / void_starfield /
     //               void_colonnade / void_shards / void_lake)
@@ -924,75 +932,286 @@ function addLoftEyeLevelProps({ length, width, joistY, joistXs, squareJoistZs, c
     headGeo.dispose();
 }
 
-// ── DARK MUSEUM — dividers + skirting board (with collision) ────────────────
-// FIX: divider walls are now registered as collision obstacles so the player
-// can't walk through them.
+// ── DARK MUSEUM — the venue's structural identity pass ──────────────────────
+// Deepening rework (Dark Museum forensic audit — screenshot-verified). The
+// v1.0.0 pass was "two black slabs + skirting", and the skirting itself was
+// DEAD GEOMETRY:
+//
+//   1. BURIED SKIRTING (the documented White Cube defect class, unfixed
+//      here): the four strips were positioned at the wall CENTRE plane
+//      (±wl/2) with a 0.06 m depth — entirely inside the 0.3 m wall boxes
+//      (inner face at 0.15). Occluded on every square room; zero visual
+//      effect since the venue shipped.
+//   2. ROTUNDA LAYOUT PARITY (the White Cube audit's defect #2, unfixed
+//      here): the venue advertises square + rotunda, but the pass read
+//      meta.wallLength — absent on rotunda — and fell back to a hardcoded
+//      14 m square. Result in a circular room: four straight skirting
+//      strips floating mid-floor (their endpoints reach r ≈ 9.9 while a
+//      15-piece rotunda's wall is at r ≈ 9.6) and two slab dividers pinned
+//      to no wall at all.
+//   3. MONOLITH MERGE: full-height (5 m) 0x050505 dividers under a 0x080808
+//      ceiling read as one continuous blackness — no silhouette, no cap,
+//      no material response. Darkness concealed the fact that the "detail"
+//      pieces were indistinguishable from the shell.
+//
+// THE V2 IDENTITY — "the night wing": architecture RECEDES, artwork glows.
+//   • Wall/ceiling shadow-gap reveal: a near-black strip where wall meets
+//     ceiling (the classic museum detail that makes the ceiling plane read
+//     as floating) — offset from the INNER FACE, always visible.
+//   • Stone baseboard: visible (face-offset) dark skirting with a slight
+//     metallic graze so artwork pools rake across it.
+//   • Salon cabinets (dividers v2): lowered to 3.1 m on the 5 m walls so
+//     the visitor sees OVER them into the dark — depth + orientation, the
+//     museum trick a black full-height slab can never do. Brass cap trim,
+//     stone plinth, both faces still hangable + collision-registered.
+//   • Picture-light fixtures: built POST-PLACEMENT (see
+//     addDarkMuseumPictureLights) — one brass-backed warm tube above EVERY
+//     artwork, anchored to the artwork's real transform in every layout.
+//   • Rotunda: ring baseboard + centre downlight; no square-room geometry.
+//
+// Deterministic: pure geometry from _layoutMeta + config — no RNG draws.
+// Low-end tier: flat Lambert bodies of the same silhouettes — degradation
+// removes shading, never the venue's structural language.
 function addDarkMuseumStructure(data) {
     const meta = this._layoutMeta || {};
-    const wl   = Math.max(8, meta.wallLength || 14);
     const wh   = CONFIG.room.wallHeight;
+    const wd   = CONFIG.room.wallDepth || 0.3;
+    const face = wd / 2;                    // wall centre plane → inner face
+    const trimOffset = (depth, p) => face + p - depth / 2; // White Cube rule
 
-    const divMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0x080808 })
-        : new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.95, metalness: 0.0 });
+    // ── Materials: charcoal plaster recedes, brass + stone carry the light.
+    const brassMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x8a6d3b })
+        : new THREE.MeshStandardMaterial({ color: 0x8a6d3b, roughness: 0.35, metalness: 0.9 });
+    const stoneMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x16130f })
+        : new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.55, metalness: 0.35 });
+    const cabinetMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c })
+        : new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.92, metalness: 0.0 });
+    const gapMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x060606 })
+        : new THREE.MeshStandardMaterial({ color: 0x060606, roughness: 1.0, metalness: 0.0 });
 
-    const dividerDepth  = 0.3;
-    const dividerLength = wl * 0.28; // reach 28% into the room
-    const dividerH      = wh;
-    const zOffset       = wl * 0.18; // asymmetric bays
+    // ── Wall-face vocabulary (same convention as the White Cube pass) ────
+    // [cx, cz, ry, len, nx, nz]: centre plane, yaw, span, inward normal.
+    const squareSegments = (L) => {
+        const S = Math.PI / 2;
+        return [
+            [0, -L / 2, 0,     L, 0,  1],
+            [0,  L / 2, Math.PI, L, 0, -1],
+            [-L / 2, 0, S,     L, 1,  0],
+            [ L / 2, 0, -S,    L, -1, 0],
+        ];
+    };
 
-    [
-        { x: -wl / 2 + dividerLength / 2, z:  zOffset },
-        { x:  wl / 2 - dividerLength / 2, z: -zOffset },
-    ].forEach(cfg => {
-        const geo  = new THREE.BoxGeometry(dividerLength, dividerH, dividerDepth);
-        const mesh = new THREE.Mesh(geo, divMat);
-        mesh.position.set(cfg.x, dividerH / 2, cfg.z);
-        mesh.castShadow    = false;
-        mesh.receiveShadow = !this.isLowEnd;
-        this.scene.add(mesh);
+    // Baseboard — 12 cm dark stone standing 2 cm proud of the inner face.
+    const addBaseboards = (segments) => {
+        const geo = new THREE.BoxGeometry(1, 0.12, 0.045);
+        const off = trimOffset(0.045, 0.02);
+        const parts = segments.map(([cx, cz, ry, len, nx, nz]) => ({
+            geo,
+            pos: [cx + nx * off, 0.07, cz + nz * off],
+            rot: [0, ry, 0],
+            scale: [len, 1, 1],
+        }));
+        this.scene.add(new THREE.Mesh(mergeParts(parts), stoneMat));
+        geo.dispose();
+    };
 
-        // 🔑 FIX: register the divider as a collision obstacle
-        this.registerObstacle(mesh, 0.4);
+    // Shadow-gap reveal — 5 cm near-black strip just under the ceiling.
+    // Reads as a recessed junction the ceiling plane floats above.
+    const addShadowGap = (segments) => {
+        const geo = new THREE.BoxGeometry(1, 0.05, 0.03);
+        const off = trimOffset(0.03, 0.012);
+        const parts = segments.map(([cx, cz, ry, len, nx, nz]) => ({
+            geo,
+            pos: [cx + nx * off, wh - 0.045, cz + nz * off],
+            rot: [0, ry, 0],
+            scale: [len, 1, 1],
+        }));
+        this.scene.add(new THREE.Mesh(mergeParts(parts), gapMat));
+        geo.dispose();
+    };
 
-        // ── Iteration 3 (§4.4): top cap + hangable faces.
-        // Cap: a slightly larger slab crowns each divider (painted-museum
-        // detail; the dividers previously ended as raw box tops).
-        const capGeo = new THREE.BoxGeometry(dividerLength + 0.12, 0.07, dividerDepth + 0.12);
-        const capMat = this.isLowEnd
-            ? new THREE.MeshLambertMaterial({ color: 0x141414 })
-            : new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.9, metalness: 0.1 });
-        const cap = new THREE.Mesh(capGeo, capMat);
-        cap.position.set(cfg.x, dividerH + 0.035, cfg.z);
-        this.scene.add(cap);
+    // Downlight discs at the ceiling fill-grid positions (fixture parity —
+    // the same points RoomBuilder drops its PointLights on).
+    const addDownlights = (points) => {
+        const ringGeo = new THREE.CylinderGeometry(0.15, 0.17, 0.035, 16);
+        const discGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.012, 14);
+        const ringParts = points.map(p => ({ geo: ringGeo, pos: [p[0], wh - 0.02, p[1]] }));
+        const warmMat = this.isLowEnd
+            ? new THREE.MeshLambertMaterial({ color: 0xffe3b0, emissive: 0xffdca0, emissiveIntensity: 0.9 })
+            : new THREE.MeshStandardMaterial({ color: 0xffe3b0, emissive: 0xffdca0, emissiveIntensity: 0.9, roughness: 0.4 });
+        this.scene.add(new THREE.Mesh(mergeParts(ringParts), brassMat));
+        this.scene.add(new THREE.Mesh(mergeParts(
+            points.map(p => ({ geo: discGeo, pos: [p[0], wh - 0.045, p[1]] })),
+            warmMat
+        )));
+        ringGeo.dispose(); discGeo.dispose();
+    };
 
-        // Bay redistribution (generic mechanism, ArtworkPlacer consumes):
-        // both long faces of every divider register as artwork-hang surfaces,
-        // so the bays gain works instead of holding none while the outer
-        // walls hold thirty.
-        const eye = CONFIG.camera.height;
-        this._hangableSurfaces = this._hangableSurfaces || [];
-        this._hangableSurfaces.push(
-            { x: cfg.x, z: cfg.z + dividerDepth / 2 + 0.02, nx: 0, nz:  1, width: dividerLength - 0.9, height: dividerH - 0.6 },
-            { x: cfg.x, z: cfg.z - dividerDepth / 2 - 0.02, nx: 0, nz: -1, width: dividerLength - 0.9, height: dividerH - 0.6 },
+    const squareFillGrid = (L) => {
+        const start = -L / 2 + L / 3, step = L / 3;
+        const pts = [];
+        for (let i = 0; i < 2; i++)
+            for (let j = 0; j < 2; j++)
+                pts.push([start + i * step, start + j * step]);
+        return pts;
+    };
+
+    if (meta.type === 'rotunda') {
+        // ── Rotunda parity: ring baseboard + ring shadow gap + centre
+        // downlight. No straight skirting, no dividers — the v1 pass built
+        // a 14 m square's worth of geometry inside a circle.
+        const r = meta.radius || 10;
+        const baseBand = new THREE.Mesh(
+            new THREE.CylinderGeometry(r - 0.02, r - 0.02, 0.12, 48, 1, true),
+            stoneMat.clone()
         );
-    });
+        baseBand.material.side = THREE.BackSide;   // dedicated material — never
+        // mutate the shared stoneMat's side (shared-material mutation is an
+        // audit red flag; see the White Cube ring-band note).
+        baseBand.position.y = 0.07;
+        this.scene.add(baseBand);
 
-    // Skirting / baseboard along all four walls
-    const skirtMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0x0a0a0a })
-        : new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.8, metalness: 0.4 });
-    const skirtH   = 0.12;
-    const skirtGeo = new THREE.BoxGeometry(wl, skirtH, 0.06);
-    // PERF-D21: one merged skirting mesh instead of four
-    const skirtParts = [
-        { geo: skirtGeo, pos: [0,     skirtH / 2 + 0.01, -wl / 2], rot: [0, 0, 0] },
-        { geo: skirtGeo, pos: [0,     skirtH / 2 + 0.01,  wl / 2], rot: [0, Math.PI, 0] },
-        { geo: skirtGeo, pos: [-wl/2, skirtH / 2 + 0.01, 0     ], rot: [0, Math.PI/2, 0] },
-        { geo: skirtGeo, pos: [ wl/2, skirtH / 2 + 0.01, 0     ], rot: [0, -Math.PI/2, 0] },
-    ];
-    this.scene.add(new THREE.Mesh(mergeParts(skirtParts), skirtMat));
-    skirtGeo.dispose();
+        const gapBand = new THREE.Mesh(
+            new THREE.CylinderGeometry(r - 0.012, r - 0.012, 0.05, 48, 1, true),
+            gapMat.clone()
+        );
+        gapBand.material.side = THREE.BackSide;
+        gapBand.position.y = wh - 0.045;
+        this.scene.add(gapBand);
+
+        addDownlights([[0, 0]]);
+    } else {
+        // ── Square: the full trim set on all four walls.
+        const L  = Math.max(8, meta.wallLength || 14);
+        const segs = squareSegments(L);
+        addBaseboards(segs);
+        addShadowGap(segs);
+        addDownlights(squareFillGrid(L));
+
+        // ── Salon cabinets (dividers v2) — lowered monoliths you see over.
+        const CAB_H        = Math.min(3.1, wh - 0.6);
+        const dividerDepth  = 0.3;
+        const dividerLength = L * 0.28;      // reach 28% into the room
+        const zOffset       = L * 0.18;      // asymmetric bays (kept from v1)
+
+        [
+            { x: -L / 2 + dividerLength / 2, z:  zOffset },
+            { x:  L / 2 - dividerLength / 2, z: -zOffset },
+        ].forEach(cfg => {
+            const geo  = new THREE.BoxGeometry(dividerLength, CAB_H, dividerDepth);
+            const mesh = new THREE.Mesh(geo, cabinetMat);
+            mesh.position.set(cfg.x, CAB_H / 2, cfg.z);
+            mesh.castShadow    = false;
+            mesh.receiveShadow = !this.isLowEnd;
+            this.scene.add(mesh);
+            this.registerObstacle(mesh, 0.4);
+
+            // Brass cap trim — the cabinet's lit silhouette against the dark.
+            const capGeo = new THREE.BoxGeometry(dividerLength + 0.06, 0.045, dividerDepth + 0.06);
+            const cap = new THREE.Mesh(capGeo, brassMat);
+            cap.position.set(cfg.x, CAB_H + 0.0225, cfg.z);
+            this.scene.add(cap);
+
+            // Stone plinth — the baseboard language continues across the bay.
+            const plinthGeo = new THREE.BoxGeometry(dividerLength + 0.05, 0.12, dividerDepth + 0.05);
+            const plinth = new THREE.Mesh(plinthGeo, stoneMat);
+            plinth.position.set(cfg.x, 0.06, cfg.z);
+            this.scene.add(plinth);
+
+            // Bay redistribution (generic mechanism, ArtworkPlacer consumes):
+            // both faces register as hang surfaces. The registration sits
+            // 0.03 off the face so a bay piece's total standoff (0.03 surface
+            // + 0.02 planner gap = 5 cm) matches the outer walls' wallInset
+            // clearance — the v1 faces left the frame back EXACTLY on the
+            // surface, a different shadow line than the outer walls.
+            const eye = CONFIG.camera.height;
+            this._hangableSurfaces = this._hangableSurfaces || [];
+            this._hangableSurfaces.push(
+                { x: cfg.x, z: cfg.z + dividerDepth / 2 + 0.03, nx: 0, nz:  1, width: dividerLength - 0.9, height: CAB_H - 0.7 },
+                { x: cfg.x, z: cfg.z - dividerDepth / 2 - 0.03, nx: 0, nz: -1, width: dividerLength - 0.9, height: CAB_H - 0.7 },
+            );
+        });
+    }
+}
+
+// ── DARK MUSEUM — post-placement picture lights ─────────────────────────────
+// One brass-backed warm tube above EVERY artwork, anchored to the artwork's
+// REAL transform (world position + facing quaternion) rather than a
+// recomputed lane: the fixture can never drift from the piece it lights, in
+// any layout (square outer walls, salon-cabinet bays, rotunda ring). This is
+// the museum's signature ritual — "the artwork is professionally lit" — and
+// the mechanism that lets darkness carve hierarchy without stranding pieces.
+//
+// Runs from buildGallery's post-placement hook (see RoomBuilder): the
+// fixtures must see the final artwork transforms, which do not exist during
+// addVenueStructure. Config-gated on structure_pass 'museum' — zero slug
+// knowledge (§10.2). Merged into ONE brass mesh + ONE tube mesh per scene:
+// +2 draw calls total, independent of artwork count. Deterministic: pure
+// function of the hang (itself deterministic). No RNG draws.
+export function addDarkMuseumPictureLights() {
+    const arts = this.artworks || [];
+    if (!arts.length) return;
+    const wh = CONFIG.room.wallHeight;
+
+    const brassMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x8a6d3b })
+        : new THREE.MeshStandardMaterial({ color: 0x8a6d3b, roughness: 0.35, metalness: 0.9 });
+    const tubeMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0xfff0d8, emissive: 0xffe3b0, emissiveIntensity: 1.5 })
+        : new THREE.MeshStandardMaterial({ color: 0xfff0d8, emissive: 0xffe3b0, emissiveIntensity: 1.5, roughness: 0.4 });
+
+    const plateGeo = new THREE.BoxGeometry(1, 0.1, 0.035);
+    const tubeGeo  = new THREE.BoxGeometry(1, 0.055, 0.055);
+    const plateParts = [], tubeParts = [];
+
+    for (const art of arts) {
+        art.updateMatrixWorld(true);
+        const p = new THREE.Vector3();
+        art.getWorldPosition(p);
+        // Artwork geometry: height 2.0 (clamped by the 3.0 width rule) —
+        // makeArtworkGroup math, read back from the canvas mesh so a focal
+        // hero's scale boost keeps its fixture tracking the real top edge.
+        const canvas = art.userData?._canvasMesh;
+        const h = canvas ? canvas.geometry.parameters.height * (art.scale.y || 1) : 2.0;
+        const w = canvas ? canvas.geometry.parameters.width * (art.scale.x || 1) : 2.0;
+        const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(art.quaternion);
+
+        // Backing plate hugs the wall above the frame; the tube hangs just
+        // proud of it, washing light down the canvas.
+        const platePos = p.clone().add(normal.clone().multiplyScalar(0.045));
+        platePos.y = p.y + (h / 2) + 0.34;
+        if (platePos.y > wh - 0.12) platePos.y = wh - 0.12; // never pierce the ceiling
+        const tubePos = p.clone().add(normal.clone().multiplyScalar(0.15));
+        tubePos.y = platePos.y - 0.16;
+
+        const yaw = Math.atan2(normal.x, normal.z);
+        plateParts.push({ geo: plateGeo, pos: [platePos.x, platePos.y, platePos.z], rot: [0, yaw, 0], scale: [w + 0.24, 1, 1] });
+        tubeParts.push({ geo: tubeGeo, pos: [tubePos.x, tubePos.y, tubePos.z], rot: [0, yaw, 0], scale: [w + 0.06, 1, 1] });
+    }
+
+    // Named handles: the QA gate pins the fixture-per-artwork invariant on
+    // the plate mesh specifically (the pass's other brass pieces — cabinet
+    // caps, downlight rings — share the material but not the contract).
+    const plateMesh = new THREE.Mesh(mergeParts(plateParts), brassMat);
+    plateMesh.name = 'museum-picture-light-plates';
+    const tubeMesh = new THREE.Mesh(mergeParts(tubeParts), tubeMat);
+    tubeMesh.name = 'museum-picture-light-tubes';
+    this.scene.add(plateMesh);
+    this.scene.add(tubeMesh);
+    plateGeo.dispose(); tubeGeo.dispose();
+}
+
+// ── Post-placement structure hook (config-gated dispatcher) ─────────────────
+// Called by RoomBuilder.buildGallery AFTER placeArtworks — the extension
+// point for structure that must anchor to final artwork transforms. Venues
+// opt in by structure_pass; no pass ⇒ no-op.
+export function addVenuePostPlacementStructure() {
+    const pass = (this._venueVisualConfig || {}).structure_pass;
+    if (pass === 'museum') addDarkMuseumPictureLights.call(this);
 }
 
 // ── SCULPTURE GARDEN — full outdoor redesign ────────────────────────────────

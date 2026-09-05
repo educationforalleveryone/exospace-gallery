@@ -399,12 +399,12 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 4. Dark Museum — Pro (FIXED: dividers now register collisions)
+            // 4. Dark Museum — Pro ("the night wing", v2.0.0 deepening)
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Dark Museum',
                 'slug'          => 'dark-museum',
-                'description'   => 'Dramatic lighting with black walls. Premium artwork presentation with gold-leaf frames.',
+                'description'   => 'A night-lit institution: charcoal galleries under a floating black ceiling, brass picture lights over every work, polished dark stone below. The architecture recedes; the artwork glows.',
                 'category'      => 'museum',
                 'tags'          => ['dramatic', 'premium', 'dark'],
                 'plan_required' => 'pro',
@@ -412,10 +412,13 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 50,
                 'sort_order'    => 4,
                 'is_featured'   => false,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
-                    // Iteration 3 (§4.4): brick reads loft — the venue default becomes a
-                    // painted museum wall under the dark tint (guarded migration mirrors).
+                    // "white" is the PBR set (painted plaster relief); the
+                    // venue's texture_tint below makes the declared charcoal
+                    // colour authoritative over it — the v1.0.0 row shipped
+                    // the tint key but never the flag, so the walls rendered
+                    // White-Cube white (the audit's headline material find).
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
                     'lighting_preset'  => 'moody',
@@ -426,32 +429,70 @@ class VenueTemplateSeeder extends Seeder
                     'wall_height'            => 5,
                     'wall_depth'             => 0.3,
                     'ceiling_type'           => 'flat',
-                    'ceiling_color'          => '0x080808',  // was the per-slug ceiling chain
+                    'ceiling_color'          => '0x0a0a0a',
                     'ceiling_height'         => 5,
-                    'background_color'       => '0x020202',
-                    'fog_color'              => '0x020202',
-                    'fog_near'               => 5,
-                    'fog_far'                => 18,
-                    'ambient_color'          => '0xfff4e6',
-                    'structure_pass'         => 'museum',  // IT6: interpreter selector (dividers,
-                                                            // cap + hangable faces, skirting)
-                    'ambient_intensity'      => 0.15,
-                    'spot_intensity'         => 0.55,
-                    'fill_intensity'         => 0.08,
-                    'tone_mapping_exposure'  => 0.5,
+                    'background_color'       => '0x050505',
+                    'fog_color'              => '0x050505',
+                    'fog_near'               => 12,
+                    'fog_far'                => 70,
+                    'ambient_color'          => '0xffe8c8',
+                    'structure_pass'         => 'museum',  // IT-DarkMuseum: night wing
+                                                            // (shadow gap, baseboard, salon
+                                                            // cabinets, picture lights)
+                    'ambient_intensity'      => 3.2,
+                    'spot_intensity'         => 1.9,
+                    'fill_intensity'         => 0.5,
+                    'tone_mapping_exposure'  => 0.8,
                     'frame_override'         => 'gold',
+                    // Dark-venue artwork legibility (audit rule: no artwork
+                    // sits in the dark): standing glow + pool raise.
+                    'artwork_light_base'     => 0.32,
+                    'artwork_light_pool_cap' => 14,
+                    // The moody preset's rural_evening HDRI stays as a warm
+                    // reflection source for brass/gold — silenced to a
+                    // whisper so the stone floor keeps its night read.
+                    'env_intensity'          => 0.14,
+                    // The shared hemisphere wash is now venue-declarable;
+                    // the museum flattens it to keep its hierarchy.
+                    'hemisphere_intensity'   => 0.04,
+                    // Restraint, declared: bloom halos cheapen a dark hang;
+                    // the vignette deepens the night focus instead. The blend
+                    // mode is the audit's ROOT-CAUSE find: the stock Eskil
+                    // shader blends edges toward a LIGHT-GREY constant
+                    // (1 - darkness), which ADDS a grey glow to a dark scene
+                    // — 'black' blends toward true black instead (a real
+                    // optical vignette).
+                    'post_fx'                => [
+                        'bloom'             => false,
+                        'vignette'          => true,
+                        'vignette_blend'    => 'black',
+                        'vignette_darkness' => 0.5,
+                        'vignette_offset'   => 1.15,
+                    ],
+                    // Curation (§6): a museum hangs fewer, spaced works with
+                    // a composed arrival wall and mixed-orientation runs.
+                    'placement'              => [
+                        'density'          => 'generous',
+                        'focal_wall'       => 'front',
+                        'pair_orientation' => true,
+                    ],
                 ],
                 'material_config' => [
-                    'wall_color'             => '0x1a1a1a',
-                    'wall_roughness'         => 0.85,
+                    // The tint flag IS the fix: without it the declared
+                    // colours below never reach textured builds (the
+                    // Infinite Void preview/product split, unfixed here).
+                    'texture_tint'           => true,
+                    'wall_color'             => '0x7a746c',
+                    'wall_roughness'         => 0.92,
                     'wall_metalness'         => 0.0,
-                    'wall_normal_strength'   => 0.6,
-                    'floor_color'            => null,
-                    'floor_roughness'        => 0.3,
-                    'floor_metalness'        => 0.2,
+                    'wall_normal_strength'   => 0.5,
+                    'floor_color'            => '0x3a3835',
+                    'floor_roughness'        => 0.32,
+                    'floor_metalness'        => 0.15,
                     'floor_normal_strength'  => 0.5,
+                    'floor_tile_meters'      => 3.0,
                 ],
-                'decorations'       => [],  // dividers are procedural (VenueDecorator)
+                'decorations'       => [],  // the night wing is procedural (VenueDecorator)
                 'lighting_fixtures' => [],
                 'supported_layouts' => ['square', 'rotunda'],
             ],

@@ -105,6 +105,27 @@ const SCENARIOS = [
     { id: 'loft-corridor-extreme',   q: 'venue=industrial-loft&count=8&orient=extreme' },
     // Industrial Loft — tier degradation
     { id: 'loft-tier-low-08',     q: 'venue=industrial-loft&count=8', tier: 'low' },
+    // Dark Museum — FORENSIC BEFORE (v1.0.0 forensic body; never update it)
+    { id: 'museum-before-square-08',  q: 'venue=dark-museum-v1&count=8' },
+    { id: 'museum-before-rotunda-08', q: 'venue=dark-museum-v1&count=8&layout=rotunda' },
+    // Dark Museum — diagnostic (all dynamic lights off)
+    { id: 'museum-diag-dark',         q: 'venue=dm-dark&count=8' },
+    // Dark Museum — diagnostic (ambient 6 — is ambient wiring alive?)
+    { id: 'museum-diag-bright',       q: 'venue=dm-bright&count=8' },
+    { id: 'museum-diag-tint55',       q: 'venue=dm-tint55&count=8' },
+    { id: 'museum-diag-untint',       q: 'venue=dm-untint&count=8' },
+    // Dark Museum — v2 deepening matrix
+    { id: 'museum-square-01',         q: 'venue=dark-museum&count=1' },
+    { id: 'museum-square-08',         q: 'venue=dark-museum&count=8' },
+    { id: 'museum-square-12-mixed',   q: 'venue=dark-museum&count=12' },
+    { id: 'museum-square-30-mixed',   q: 'venue=dark-museum&count=30' },
+    { id: 'museum-square-60-mixed',   q: 'venue=dark-museum&count=60' },
+    { id: 'museum-square-portrait',   q: 'venue=dark-museum&count=8&orient=portrait' },
+    { id: 'museum-square-landscape',  q: 'venue=dark-museum&count=8&orient=landscape' },
+    { id: 'museum-square-extreme',    q: 'venue=dark-museum&count=8&orient=extreme' },
+    { id: 'museum-rotunda-08',        q: 'venue=dark-museum&count=8&layout=rotunda' },
+    { id: 'museum-rotunda-16',        q: 'venue=dark-museum&count=16&layout=rotunda' },
+    { id: 'museum-tier-low-08',       q: 'venue=dark-museum&count=8', tier: 'low' },
 ];
 
 const tierInit = {

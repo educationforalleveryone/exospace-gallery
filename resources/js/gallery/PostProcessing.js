@@ -20,6 +20,43 @@ import { VignetteShader }   from 'three/addons/shaders/VignetteShader.js';
 import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG } from './config.js';
 
+// ── Exospace vignette variant (dark-museum audit root cause) ────────────────
+// The stock Eskil shader is  mix(texel.rgb, vec3(1 - darkness), dot(uv, uv)):
+// the blend TARGET is a LIGHT-GREY constant. On a bright venue (White Cube)
+// blending toward 0.5–0.7 grey reads as subtle edge dimming. On a DARK venue
+// the same math ADDS grey to the black scene — the edges literally glow
+// (the "fog soup" the Dark Museum audit chased between v1 and v2; the void
+// family only survived because its darkness: 1.0 makes the target BLACK).
+//
+// This variant keeps the stock math bit-for-bit when blendTarget mirrors
+// (1 - darkness) — the historical default — and lets a venue declare
+// post_fx.vignette_blend: 'black' to blend toward TRUE BLACK instead, which
+// darkens edges like an optical vignette should.
+const ExospaceVignetteShader = {
+    name: 'ExospaceVignetteShader',
+    uniforms: {
+        tDiffuse:     { value: null },
+        offset:       { value: 1.0 },
+        darkness:     { value: 1.0 },
+        blendTarget:  { value: new THREE.Vector3(0, 0, 0) },
+    },
+    vertexShader: VignetteShader.vertexShader,
+    fragmentShader: /* glsl */`
+        uniform float offset;
+        uniform float darkness;
+        uniform vec3  blendTarget;
+
+        uniform sampler2D tDiffuse;
+
+        varying vec2 vUv;
+
+        void main() {
+            vec4 texel = texture2D( tDiffuse, vUv );
+            vec2 uv = ( vUv - vec2( 0.5 ) ) * vec2( offset );
+            gl_FragColor = vec4( mix( texel.rgb, blendTarget, dot( uv, uv ) ), texel.a );
+        }`,
+};
+
 export class PostProcessing {
     constructor(renderer, scene, camera) {
         this.renderer = renderer;
@@ -58,11 +95,17 @@ export class PostProcessing {
         );
         if (bloomCfg.bloom) this.composer.addPass(this.bloomPass);
 
-        // Vignette — subtle cinematic darkening at edges
+        // Vignette — subtle cinematic darkening at edges. Uses the Exospace
+        // variant of the Eskil shader (see the block comment above): the
+        // default blendTarget mirrors the stock (1 - darkness) grey target,
+        // so venues without a declaration render bit-identically to the
+        // historical behaviour.
         if (bloomCfg.vignette) {
-            this.vignettePass = new ShaderPass(VignetteShader);
+            this.vignettePass = new ShaderPass(ExospaceVignetteShader);
             this.vignettePass.uniforms['offset'].value   = bloomCfg.vignetteOffset;
             this.vignettePass.uniforms['darkness'].value = bloomCfg.vignetteDarkness;
+            this._vignetteBlend = 'grey';
+            this._syncVignetteBlendTarget();
             this.composer.addPass(this.vignettePass);
         }
 
@@ -96,7 +139,24 @@ export class PostProcessing {
             if (fx.vignette === false) this.vignettePass.enabled = false;
             if (fx.vignette_darkness != null) this.vignettePass.uniforms['darkness'].value = fx.vignette_darkness;
             if (fx.vignette_offset   != null) this.vignettePass.uniforms['offset'].value  = fx.vignette_offset;
+            // 'black' → edges blend toward true black (a real vignette on a
+            // dark scene); 'grey'/absent → the historical (1 - darkness)
+            // target, byte-identical to the stock shader behaviour.
+            if (fx.vignette_blend === 'black' || fx.vignette_blend === 'grey') {
+                this._vignetteBlend = fx.vignette_blend;
+                this._syncVignetteBlendTarget();
+            }
         }
+    }
+
+    // Keep the blend target in sync with the CURRENT darkness value. Grey
+    // mode: target = 1 - darkness (the stock shader's inline constant).
+    // Black mode: target = 0 regardless of darkness.
+    _syncVignetteBlendTarget() {
+        if (!this.vignettePass) return;
+        const t = this.vignettePass.uniforms['blendTarget'].value;
+        if (this._vignetteBlend === 'black') t.set(0, 0, 0);
+        else t.setScalar(1 - this.vignettePass.uniforms['darkness'].value);
     }
 
     setBloomStrength(value) {
@@ -195,6 +255,7 @@ export class PostProcessing {
         if (this.vignettePass) {
             if (patch.vignette_darkness !== undefined && patch.vignette_darkness !== null) {
                 this.vignettePass.uniforms['darkness'].value = patch.vignette_darkness;
+                this._syncVignetteBlendTarget();
             }
             if (patch.vignette_offset   !== undefined && patch.vignette_offset   !== null) {
                 this.vignettePass.uniforms['offset'].value   = patch.vignette_offset;

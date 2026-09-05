@@ -97,6 +97,15 @@ export function buildGallery() {
     }
 
     this.placeArtworks(data);
+
+    // ── Post-placement structure hook (dark-museum audit) ────────────────
+    // Some venue structure must anchor to the FINAL artwork transforms
+    // (picture-light fixtures track the piece they light — recomputing the
+    // hang here would be a second placement implementation that can drift).
+    // Config-gated inside (structure_pass); no declared pass ⇒ no-op.
+    if (typeof this.addVenuePostPlacementStructure === 'function') {
+        this.addVenuePostPlacementStructure();
+    }
     this.animate();
     this.loadEnvironmentMap();
 }

@@ -35,7 +35,7 @@ import { initRenderer, detectLowEnd, applyLowEndSettings, earlyLowEndCheck } fro
 import { setupControls, setSpeedMultiplier } from './Controls.js';
 import { loadAssets, loadEnvironmentMap, showLoadError } from './AssetLoader.js';
 import { initAudio, playAudio, toggleMute, loadAudioAssets } from './Audio.js';
-import { applyVenueOverrides, applyVenueConfig, applyVisualPatch, loadDecorations, addVenueStructure } from './VenueDecorator.js';
+import { applyVenueOverrides, applyVenueConfig, applyVisualPatch, loadDecorations, addVenueStructure, addVenuePostPlacementStructure } from './VenueDecorator.js';
 import { buildGallery, createRoom, createRoomCorridor, createRoomLShape, createRoomRotunda, createRoomCircular, addVenueCeiling } from './RoomBuilder.js';
 import { placeArtworks, makeArtworkGroup, placeAndRegister, applyArtworkTexture } from './ArtworkPlacer.js';
 import { setupLighting, addArtworkLight, updateProximityLighting, addCustomLights } from './Lighting.js';
@@ -117,6 +117,7 @@ export class GalleryScene {
         this._venueVisualConfig  = null; // raw visual_config (structure_pass etc.)
         this._venuePlacementMode = null; // 'float' | null (null = legacy easel/wall)
         this._venueEnvIntensity  = null; // venue-level scene.environment strength
+        this._venueHemisphereIntensity = null; // venue-declared hemisphere fill (dark-museum audit)
         this._circularFloor      = null; // floor handle for tier-aware treatments
 
         // SFX state
@@ -201,6 +202,7 @@ export class GalleryScene {
     loadDecorations(decorations)                    { return loadDecorations.call(this, decorations); }
     addCustomLights(fixtures)                       { return addCustomLights.call(this, fixtures); }
     addVenueStructure(data)                         { return addVenueStructure.call(this, data); }
+    addVenuePostPlacementStructure()                { return addVenuePostPlacementStructure.call(this); }
     buildGallery()                                  { return buildGallery.call(this); }
     createRoom(data)                                { return createRoom.call(this, data); }
     createRoomCorridor(data)                        { return createRoomCorridor.call(this, data); }

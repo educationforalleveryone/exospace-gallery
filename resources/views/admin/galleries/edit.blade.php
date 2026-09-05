@@ -353,7 +353,7 @@
                             'white-cube'        => ['bg' => 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',  'emoji' => 'WC', 'accent' => '#e0e0e0'],
                             'infinite-void'     => ['bg' => 'linear-gradient(135deg, #000000 0%, #0a0010 100%)',  'emoji' => 'IV', 'accent' => '#8b5cf6'],
                             'industrial-loft'   => ['bg' => 'linear-gradient(135deg, #2a2820 0%, #1a1610 100%)',  'emoji' => 'IL', 'accent' => '#8a7a50'],
-                            'dark-museum'       => ['bg' => 'linear-gradient(135deg, #0a0a0a 0%, #1a0808 100%)',  'emoji' => 'DM', 'accent' => '#8b1a1a'],
+                            'dark-museum'       => ['bg' => 'linear-gradient(135deg, #16130e 0%, #060504 100%)',  'emoji' => 'DM', 'accent' => '#b98a44'],
                             'zen-gallery'       => ['bg' => 'linear-gradient(135deg, #2a2218 0%, #1a1810 100%)',  'emoji' => 'ZG', 'accent' => '#8b7355'],
                             'crystal-cathedral' => ['bg' => 'linear-gradient(135deg, #1a1a3a 0%, #0a0a2a 100%)',  'emoji' => 'CC', 'accent' => '#ddeeff'],
                             'nebula-drift'      => ['bg' => 'linear-gradient(135deg, #1a0530 0%, #050015 100%)',  'emoji' => 'ND', 'accent' => '#8844ff'],

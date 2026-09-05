@@ -215,6 +215,173 @@
             },
             version: '2.0.0',
         },
+        // Dark Museum — the night wing (v2.0.0 deepening). Kept in sync with
+        // VenueTemplateSeeder + 2026_09_06_000002_dark_museum_deepening
+        // (scripts/venue-qa/dark-museum-qa.mjs pins the pair).
+        'dark-museum': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_color: '0x0a0a0a', ceiling_height: 5,
+                background_color: '0x050505', fog_color: '0x050505', fog_near: 12, fog_far: 70,
+                ambient_color: '0xffe8c8', structure_pass: 'museum',
+                ambient_intensity: 3.2, spot_intensity: 1.9,
+                fill_intensity: 0.5, tone_mapping_exposure: 0.8, frame_override: 'gold',
+                artwork_light_base: 0.32, artwork_light_pool_cap: 14, env_intensity: 0.14,
+                hemisphere_intensity: 0.04,
+                post_fx: { bloom: false, vignette: true, vignette_blend: 'black', vignette_darkness: 0.5, vignette_offset: 1.15 },
+                placement: { density: 'generous', focal_wall: 'front', pair_orientation: true },
+            },
+            material_config: {
+                texture_tint: true,
+                wall_color: '0x7a746c', wall_roughness: 0.94, wall_metalness: 0.0, wall_normal_strength: 0.5,
+                floor_color: '0x3a3835', floor_roughness: 0.3, floor_metalness: 0.15, floor_normal_strength: 0.5,
+                floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
+
+        // DIAGNOSTIC: mid-grey tint
+        'dm-tint55': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_color: '0x0a0a0a', ceiling_height: 5,
+                background_color: '0x050505', fog_color: '0x050505', fog_near: 12, fog_far: 70,
+                ambient_color: '0xffe8c8', structure_pass: 'museum',
+                ambient_intensity: 3.2, spot_intensity: 1.9,
+                fill_intensity: 0.5, tone_mapping_exposure: 0.8, frame_override: 'gold',
+                hemisphere_intensity: 0.04, env_intensity: 0,
+                post_fx: { bloom: false, vignette: true, vignette_blend: 'black', vignette_darkness: 0.5, vignette_offset: 1.15 },
+            },
+            material_config: {
+                texture_tint: true,
+                wall_color: '0x555555', wall_roughness: 0.94, wall_metalness: 0.0, wall_normal_strength: 0.5,
+                floor_color: '0x3a3835', floor_roughness: 0.3, floor_metalness: 0.15, floor_normal_strength: 0.5,
+                floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
+        // DIAGNOSTIC: no texture_tint (untinted white texture)
+        'dm-untint': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_color: '0x0a0a0a', ceiling_height: 5,
+                background_color: '0x050505', fog_color: '0x050505', fog_near: 12, fog_far: 70,
+                ambient_color: '0xffe8c8', structure_pass: 'museum',
+                ambient_intensity: 3.2, spot_intensity: 1.9,
+                fill_intensity: 0.5, tone_mapping_exposure: 0.8, frame_override: 'gold',
+                hemisphere_intensity: 0.04, env_intensity: 0,
+                post_fx: { bloom: false, vignette: true, vignette_blend: 'black', vignette_darkness: 0.5, vignette_offset: 1.15 },
+            },
+            material_config: {
+                wall_color: '0x7a746c', wall_roughness: 0.94, wall_metalness: 0.0, wall_normal_strength: 0.5,
+                floor_color: '0x3a3835', floor_roughness: 0.3, floor_metalness: 0.15, floor_normal_strength: 0.5,
+                floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
+        // Dark Museum DIAGNOSTIC body — absurd ambient (is ambient working?)
+        'dm-bright': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_color: '0x0a0a0a', ceiling_height: 5,
+                background_color: '0x050505', fog_color: '0x050505', fog_near: 12, fog_far: 70,
+                ambient_color: '0xffe8c8', structure_pass: 'museum',
+                ambient_intensity: 6, spot_intensity: 1.9,
+                fill_intensity: 0.5, tone_mapping_exposure: 0.8, frame_override: 'gold',
+                hemisphere_intensity: 0.04, env_intensity: 0,
+                post_fx: { bloom: false, vignette: true, vignette_blend: 'black', vignette_darkness: 0.5, vignette_offset: 1.15 },
+            },
+            material_config: {
+                texture_tint: true,
+                wall_color: '0x6b6560', wall_roughness: 0.94, wall_metalness: 0.0, wall_normal_strength: 0.5,
+                floor_color: '0x3a3835', floor_roughness: 0.3, floor_metalness: 0.15, floor_normal_strength: 0.5,
+                floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
+        // Dark Museum DIAGNOSTIC body — every dynamic light source off
+        // (ambient 0, hemisphere 0, fill 0, spot→pool 0). Anything still
+        // visible is emissive geometry or a non-light pipeline artifact.
+        'dm-dark': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_color: '0x0a0a0a', ceiling_height: 5,
+                background_color: '0x050505', fog_color: '0x050505', fog_near: 12, fog_far: 70,
+                ambient_color: '0xffe8c8', structure_pass: 'museum',
+                ambient_intensity: 0, spot_intensity: 0,
+                fill_intensity: 0, tone_mapping_exposure: 0.8, frame_override: 'gold',
+                hemisphere_intensity: 0, env_intensity: 0,
+                post_fx: { bloom: false, vignette: true, vignette_darkness: 0.5, vignette_offset: 1.15 },
+            },
+            material_config: {
+                texture_tint: true,
+                wall_color: '0x6b6560', wall_roughness: 0.94, wall_metalness: 0.0, wall_normal_strength: 0.5,
+                floor_color: '0x3a3835', floor_roughness: 0.3, floor_metalness: 0.15, floor_normal_strength: 0.5,
+                floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
+        // Dark Museum v1.0.0 — FORENSIC BEFORE body (pre-deepening bytes).
+        // Kept so scripts/harness/shoot.mjs can capture the "before" state
+        // for the audit evidence set. The live 'dark-museum' body tracks the
+        // seeded v2 row; this one must NOT be updated.
+        'dark-museum-v1': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_color: '0x080808', ceiling_height: 5,
+                background_color: '0x020202', fog_color: '0x020202', fog_near: 5, fog_far: 18,
+                ambient_color: '0xfff4e6', structure_pass: 'museum',
+                ambient_intensity: 0.15, spot_intensity: 0.55,
+                fill_intensity: 0.08, tone_mapping_exposure: 0.5, frame_override: 'gold',
+            },
+            material_config: {
+                wall_color: '0x1a1a1a', wall_roughness: 0.85, wall_metalness: 0.0, wall_normal_strength: 0.6,
+                floor_color: null, floor_roughness: 0.3, floor_metalness: 0.2, floor_normal_strength: 0.5,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '1.0.0',
+        },
         // Nebula Drift — the violet starfield venue (forensic comparison body:
         // does the DEPLOYED screenshot match THIS venue's pipeline instead of
         // infinite-void's?). Mirrors seeder rows + the phenomena migration.

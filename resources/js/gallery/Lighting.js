@@ -37,8 +37,18 @@ export function setupLighting(preset) {
         this.scene.add(new THREE.AmbientLight(0xffffff, ambientIntensity));
     }
 
-    // Hemisphere light — soft fill from above
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x404040, this.isLowEnd ? 0.4 : 0.15);
+    // Hemisphere light — soft fill from above.
+    // Dark-museum audit: this was a hard-coded 0.15 white wash in every
+    // venue — in a controlled-darkness venue a constant neutral top-down
+    // wash flattens the exact hierarchy the venue exists to create. Now
+    // venue-declarable via visual_config.hemisphere_intensity; absent ⇒
+    // the historical 0.15 (every existing venue renders unchanged). The
+    // low-end tier keeps its boosted compensation, scaled from the same
+    // declaration so degradation never recomposes the venue's darkness.
+    const hemiDeclared = this._venueHemisphereIntensity ?? 0.15;
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x404040, this.isLowEnd
+        ? Math.min(0.5, hemiDeclared * 2.5)
+        : hemiDeclared);
     this.scene.add(hemi);
 }
 
