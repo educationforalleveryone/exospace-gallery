@@ -143,11 +143,32 @@ class VenueConfigExporter
         // venue template (which is shared across galleries).
         $overrides = $gallery->visualOverridesArray();
 
-        if (!empty($overrides['visual_config'])) {
+        // ── VENUE-OWNED ATMOSPHERE (post-deploy hotfix, 2026-09-05) ─────
+        // background_color is NOT a curator-tunable. It is structural: the
+        // venue's bodies (floor_edge_fade, fog ramp, void dome) DERIVE from
+        // it, so an override doesn't recolor the venue — it recomposes it
+        // into a different venue (the deployed "purple belt" incident:
+        // gallery override 0x6D0DA0 painted a violet annulus through the
+        // floor edge fade). Retired at every layer: the panel control is
+        // removed, the controller strips it on save, and HERE the exporter
+        // ignores it both for legacy rows (heals already-broken galleries
+        // on deploy — no manual reset needed) and for any future writer.
+        // The venue template's declared background is the only authority.
+        $overrideVisual = array_filter($overrides['visual_config'] ?? [], fn ($v) => !is_null($v));
+        unset($overrideVisual['background_color']);
+
+        if (!empty($overrideVisual)) {
             $config['visual_config'] = array_merge(
                 $config['visual_config'] ?? [],
-                array_filter($overrides['visual_config'], fn ($v) => !is_null($v))
+                $overrideVisual
             );
+        }
+
+        // Belt-and-braces: even if a future merge path reintroduces the key
+        // above, the venue's declared value always wins the final payload.
+        $venueBackground = $venue->visual_config['background_color'] ?? null;
+        if ($venueBackground !== null) {
+            $config['visual_config']['background_color'] = $venueBackground;
         }
 
         if (!empty($overrides['material_config'])) {
@@ -262,9 +283,16 @@ class VenueConfigExporter
         // the iframe receives them as live postMessage patches (the only
         // consumer of patch-shaped post_fx), keeping one post-fx authority
         // in the payload: visual_config.post_fx.
+        //
+        // background_color is likewise excluded (venue-owned atmosphere —
+        // see buildConfig). A stale panel or a hand-crafted ?override= URL
+        // cannot repaint the venue through the preview payload either.
+        $runtimeVisual = array_filter($runtimeOverrides['visual_config'] ?? [], fn ($v) => !is_null($v));
+        unset($runtimeVisual['background_color']);
+
         $config['visual_config']   = array_merge(
             $config['visual_config']   ?? [],
-            array_filter($runtimeOverrides['visual_config']   ?? [], fn ($v) => !is_null($v))
+            $runtimeVisual
         );
         $config['material_config'] = array_merge(
             $config['material_config'] ?? [],

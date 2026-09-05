@@ -206,30 +206,90 @@ export function detectLowEnd() {
     return isLowEnd;
 }
 
-// ── FPS benchmark — runs 2s after load, samples 20 frames, downgrades if slow ─
+// ── FPS benchmark — waits for the scene to settle, then samples real frames ─
+// POST-DEPLOY HOTFIX (2026-09-05): the benchmark used to start from
+// detectLowEnd() — i.e. DURING asset load. Its 2 s warm-up + 20-frame window
+// overlapped texture uploads, shader compilation and HDRI decoding, so a
+// healthy desktop GPU (RX 580 field report) measured 13 fps behind the
+// loading curtain and was falsely downgraded to the low-end tier mid-arrival
+// (PR 1.0, fog collapse, HDRI skip — no way back). The benchmark now:
+//   1. waits until the loader reports the scene settled
+//      (GalleryScene.hideLoader → _assetsSettledAt), then
+//   2. warms up 2 s of RENDERED frames, then
+//   3. samples up to 60 frames over ≥ 1 s (5 s cap), subtracting the time
+//      the tab spent hidden so background throttling can't fake a low score.
+// The decision itself is unchanged: mean < 35 fps ⇒ low-end settings.
 function _scheduleFpsBenchmark() {
     // Already flagged low-end? Skip — no point burning 3s of rAF to confirm.
     if (this.isLowEnd) return;
 
-    let frameCount = 0;
-    let startTime = null;
-    const SAMPLE_FRAMES = 20;
+    const SETTLE_POLL_MS   = 250;
+    const SETTLE_TIMEOUT_MS = 30000; // loader never settled (empty state/error) — abort
+    const WARMUP_MS    = 2000;
+    const SAMPLE_FRAMES = 60;
+    const SAMPLE_MIN_MS = 1000;      // never decide on a shorter window
+    const SAMPLE_CAP_MS = 5000;      // ultra-slow devices still get a verdict
     const FPS_THRESHOLD = 35;
-    const WARMUP_MS = 2000;
 
-    const measureFrame = (timestamp) => {
-        if (!startTime) startTime = timestamp;
+    let waitStart = null;
 
-        const elapsed = timestamp - startTime;
-        if (elapsed < WARMUP_MS) {
+    const waitLoop = () => {
+        if (this._disposed) return;
+        if (this._assetsSettledAt == null) {
+            if (waitStart == null) waitStart = performance.now();
+            if (performance.now() - waitStart > SETTLE_TIMEOUT_MS) {
+                console.warn('⚡ FPS benchmark: loader never settled — skipping');
+                return;
+            }
+            setTimeout(waitLoop, SETTLE_POLL_MS);
+            return;
+        }
+        requestAnimationFrame(measureFrame);
+    };
+
+    let warmupStart = null;
+    let sampleStart = null;
+    let frames      = 0;
+    let hideTs      = null;
+    const hiddenRanges = []; // [start, end] wall-clock spans while tab was hidden
+
+    const onVisibility = () => {
+        if (document.hidden)      hideTs = performance.now();
+        else if (hideTs != null) { hiddenRanges.push([hideTs, performance.now()]); hideTs = null; }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    // Total hidden time within [start, end] — subtracted from the measured
+    // window so background throttling can't fake a low score.
+    const hiddenWithin = (start, end) => {
+        let t = 0;
+        for (const [a, b] of hiddenRanges) {
+            const lo = Math.max(a, start);
+            const hi = Math.min(b, end);
+            if (hi > lo) t += hi - lo;
+        }
+        return t;
+    };
+
+    const measureFrame = (ts) => {
+        if (this._disposed) {
+            document.removeEventListener('visibilitychange', onVisibility);
+            return;
+        }
+
+        if (warmupStart == null) warmupStart = ts;
+        if (ts - warmupStart - hiddenWithin(warmupStart, ts) < WARMUP_MS) {
             requestAnimationFrame(measureFrame);
             return;
         }
 
-        frameCount++;
+        if (sampleStart == null) sampleStart = ts;
+        frames++;
 
-        if (frameCount >= SAMPLE_FRAMES) {
-            const measuredFps = frameCount / ((timestamp - startTime - WARMUP_MS) / 1000);
+        const elapsed = (ts - sampleStart) - hiddenWithin(sampleStart, ts);
+        if (frames >= SAMPLE_FRAMES || elapsed >= SAMPLE_CAP_MS) {
+            document.removeEventListener('visibilitychange', onVisibility);
+            const measuredFps = frames / (Math.max(elapsed, 1) / 1000);
             if (measuredFps < FPS_THRESHOLD && !this.isLowEnd) {
                 console.log(`⚡ FPS benchmark: ${measuredFps.toFixed(1)} fps < ${FPS_THRESHOLD} — downgrading to low-end mode`);
                 applyLowEndSettings.call(this);
@@ -242,7 +302,7 @@ function _scheduleFpsBenchmark() {
         requestAnimationFrame(measureFrame);
     };
 
-    requestAnimationFrame(measureFrame);
+    waitLoop();
 }
 
 // Apply all low-end quality reductions in one place

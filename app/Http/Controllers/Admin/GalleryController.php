@@ -1066,11 +1066,25 @@ class GalleryController extends Controller
      * Real deviations (the purple experiment itself, e.g.) still persist —
      * curator intent is untouched. Keys the venue does not declare are
      * kept as-is: deviating from an undeclared key IS intent.
+     *
+     * VENUE-OWNED ATMOSPHERE (post-deploy hotfix): background_color is
+     * additionally stripped UNCONDITIONALLY. The venue's bodies derive from
+     * it (floor_edge_fade ramps to it), so an override there recomposes the
+     * venue instead of tuning it — the class of breakage that produced the
+     * purple belt. The panel no longer offers the control; anything that
+     * still submits the key (stale panel build, old tab, hand-crafted form)
+     * is dropped here so the column can never carry it again.
      */
     private function normalizeVisualOverrides(?array $overrides, ?VenueTemplate $venue): ?array
     {
         if (!$overrides || !$venue) {
             return $overrides;
+        }
+
+        // Venue-owned keys are never a curator override, regardless of value.
+        unset($overrides['visual_config']['background_color']);
+        if (empty($overrides['visual_config'])) {
+            unset($overrides['visual_config']);
         }
 
         $venueVisual   = is_array($venue->visual_config)   ? $venue->visual_config   : [];

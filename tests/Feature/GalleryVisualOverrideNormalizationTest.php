@@ -29,6 +29,14 @@ declare(strict_types=1);
  *      sibling `post_fx` bucket (read by nothing on the page-load path —
  *      the panel patches over postMessage) must NOT ship again.
  *
+ * VENUE-OWNED ATMOSPHERE (post-deploy hotfix, 2026-09-05): the Live-Preview
+ * BACKGROUND control is retired entirely — venue bodies (floor_edge_fade,
+ * fog ramp, void dome) derive from background_color, so overriding it
+ * recomposes the venue (the purple-belt incident) instead of tuning it.
+ * The controller strips the key UNCONDITIONALLY on save, and the exporter
+ * ignores it both for new writes and for LEGACY rows already carrying it —
+ * which heals already-broken galleries on deploy, no manual reset needed.
+ *
  * Run: php artisan test --filter=GalleryVisualOverrideNormalizationTest
  */
 
@@ -128,7 +136,7 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         );
     }
 
-    // ── 2. Real deviations persist, canonicalized ────────────────────────
+    // ── 2. Real deviations persist, canonicalized — EXCEPT venue-owned keys ─
 
     public function test_real_deviations_persist_in_canonical_form(): void
     {
@@ -140,7 +148,9 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         ]);
 
         // The incident's real layer: a purple experiment + a slider value
-        // the venue never declared. All genuine intent — all kept.
+        // the venue never declared. The purple is VENUE-OWNED (structural
+        // atmosphere) and must be dropped; the rest is genuine intent and
+        // is kept.
         $json = json_encode([
             'visual_config' => [
                 'background_color'  => '#6D0DA0',
@@ -159,16 +169,16 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
         $gallery->refresh();
         $this->assertNotNull($gallery->visual_overrides);
-        $this->assertSame(
-            '0x6d0da0',
-            $gallery->visual_overrides['visual_config']['background_color'],
-            'Picker colours persist in the canonical 0x… lowercase form.'
+        $this->assertArrayNotHasKey(
+            'background_color',
+            $gallery->visual_overrides['visual_config'] ?? [],
+            'background_color is venue-owned atmosphere — a save can never persist it.'
         );
         $this->assertSame(0.11, (float) $gallery->visual_overrides['visual_config']['ambient_intensity']);
         $this->assertSame(0.35, (float) $gallery->visual_overrides['post_fx']['bloom_strength']);
     }
 
-    // ── 3. Mixed save: deviations kept, no-ops stripped ──────────────────
+    // ── 3. Mixed save: deviations kept, no-ops AND venue-owned keys stripped ─
 
     public function test_mixed_save_keeps_only_the_deviations(): void
     {
@@ -181,7 +191,7 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
         $json = json_encode([
             'visual_config' => [
-                'background_color'  => '0x6D0DA0', // deviation → kept
+                'background_color'  => '0x6D0DA0', // venue-owned → stripped
                 'spot_intensity'    => 1.3,        // restates venue → dropped
             ],
         ]);
@@ -193,12 +203,9 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             ->assertRedirect();
 
         $gallery->refresh();
-        $overrides = $gallery->visual_overrides;
-        $this->assertArrayHasKey('background_color', $overrides['visual_config']);
-        $this->assertArrayNotHasKey(
-            'spot_intensity',
-            $overrides['visual_config'],
-            'A key restating the venue value must be stripped from the same save.'
+        $this->assertNull(
+            $gallery->visual_overrides,
+            'A save carrying only venue-owned + no-op keys must clear the column.'
         );
     }
 
@@ -245,7 +252,7 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         $this->assertSame($newVenue->id, $gallery->venue_template_id);
         $this->assertNull(
             $gallery->visual_overrides,
-            'Same-save venue switches must normalize against the NEW venue declaration.'
+            'Same-save venue switches must normalize against the NEW venue declaration (and background_color is venue-owned regardless).'
         );
     }
 
@@ -304,7 +311,60 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         // The venue's declared post_fx is the only authority, merged and intact.
         $this->assertSame(false, $config['visual_config']['post_fx']['bloom']);
         $this->assertSame(1.0, (float) $config['visual_config']['post_fx']['vignette_darkness']);
-        // The gallery's real visual deviation still rides on top.
-        $this->assertSame('0x6d0da0', $config['visual_config']['background_color']);
+    }
+
+    // ── 7. VENUE-OWNED ATMOSPHERE: legacy background overrides are inert ──
+
+    public function test_exporter_ignores_legacy_saved_background_overrides(): void
+    {
+        $user    = User::factory()->create();
+        $venue   = $this->voidVenue();
+        $gallery = Gallery::factory()->create([
+            'user_id'           => $user->id,
+            'venue_template_id' => $venue->id,
+            // The incident row: purple saved by an old panel build.
+            'visual_overrides'  => [
+                'visual_config' => [
+                    'background_color'  => '0x6d0da0',
+                    'ambient_intensity' => 0.11,
+                ],
+            ],
+        ]);
+
+        $config = app(VenueConfigExporter::class)->forGallery($gallery);
+
+        $this->assertSame(
+            '0x000000',
+            $config['visual_config']['background_color'],
+            'The venue-declared background must win over ANY saved override — this is what heals already-broken galleries on deploy.'
+        );
+        // Non-venue-owned deviations still ride on top.
+        $this->assertSame(0.11, (float) $config['visual_config']['ambient_intensity']);
+    }
+
+    // ── 8. VENUE-OWNED ATMOSPHERE: preview runtime overrides cannot repaint it ─
+
+    public function test_preview_runtime_overrides_cannot_set_background(): void
+    {
+        $user    = User::factory()->create();
+        $venue   = $this->voidVenue();
+        $gallery = Gallery::factory()->create([
+            'user_id'           => $user->id,
+            'venue_template_id' => $venue->id,
+        ]);
+
+        $config = app(VenueConfigExporter::class)->forGalleryPreview($gallery, [
+            'visual_config' => [
+                'background_color' => '0x6d0da0',
+                'fog_far'          => 42,
+            ],
+        ]);
+
+        $this->assertSame(
+            '0x000000',
+            $config['visual_config']['background_color'],
+            'A hand-crafted ?override= payload must not repaint the venue background.'
+        );
+        $this->assertSame(42, (int) $config['visual_config']['fog_far']);
     }
 }

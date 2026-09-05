@@ -29,6 +29,13 @@ async function loadPbrSet(loader, dirPath) {
             tex => {
                 tex.colorSpace = (file === 'color.jpg') ? THREE.SRGBColorSpace : THREE.NoColorSpace;
                 tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                // POST-DEPLOY HOTFIX (2026-09-05): pin aoMap to UV channel 0.
+                // ao.jpg files now ship for walls/white + floors/marble (the
+                // production 404s); room geometry only has the `uv` attribute,
+                // and the default aoMap channel is version-dependent across
+                // three releases. channel 0 = sample `uv` — guaranteed correct
+                // tiling with the diffuse map, no uv1 plumbing needed.
+                if (file === 'ao.jpg') tex.channel = 0;
                 if (file === 'normal.jpg')      result.normalMap     = tex;
                 else if (file === 'roughness.jpg') result.roughnessMap = tex;
                 else if (file === 'ao.jpg')      result.aoMap         = tex;

@@ -16,9 +16,14 @@
      *   - A two-column layout: iframe (left) + control sidebar (right)
      *   - The iframe loads /admin/galleries/{gallery}/preview
      *   - The sidebar has 3 control groups:
-     *       Atmosphere  — wall height, fog, ambient/spot intensity, tone mapping, bg color
+     *       Atmosphere  — wall height, fog, ambient/spot intensity, tone mapping
      *       Materials   — wall/floor roughness, metalness, color
      *       Post-FX     — bloom strength, vignette darkness
+     *       (Colors     — fog tint only. The BACKGROUND control was retired:
+     *       venue bodies derive from background_color, so overriding it
+     *       recomposes the venue instead of tuning it — the purple-belt
+     *       incident. The venue template owns the background; see
+     *       VenueConfigExporter for the four-layer rationale.)
      *   - Each control has:
      *       - Label + live numeric readout
      *       - Slider (or color picker)
@@ -41,7 +46,6 @@
         'fog_near'              => $gallery->venueTemplate?->visual_config['fog_near']              ?? 10,
         'fog_far'               => $gallery->venueTemplate?->visual_config['fog_far']               ?? 30,
         'fog_color'             => $gallery->venueTemplate?->visual_config['fog_color']             ?? '0x0a0a0a',
-        'background_color'      => $gallery->venueTemplate?->visual_config['background_color']      ?? '0x0a0a0a',
         'ambient_intensity'     => $gallery->venueTemplate?->visual_config['ambient_intensity']     ?? 0.20,
         'spot_intensity'        => $gallery->venueTemplate?->visual_config['spot_intensity']        ?? 0.45,
         'tone_mapping_exposure' => $gallery->venueTemplate?->visual_config['tone_mapping_exposure'] ?? 0.50,
@@ -59,7 +63,6 @@
         'fog_near'              => $overrides['visual_config']['fog_near']              ?? $venueDefaults['fog_near'],
         'fog_far'               => $overrides['visual_config']['fog_far']               ?? $venueDefaults['fog_far'],
         'fog_color'             => $overrides['visual_config']['fog_color']             ?? $venueDefaults['fog_color'],
-        'background_color'      => $overrides['visual_config']['background_color']      ?? $venueDefaults['background_color'],
         'ambient_intensity'     => $overrides['visual_config']['ambient_intensity']     ?? $venueDefaults['ambient_intensity'],
         'spot_intensity'        => $overrides['visual_config']['spot_intensity']        ?? $venueDefaults['spot_intensity'],
         'tone_mapping_exposure' => $overrides['visual_config']['tone_mapping_exposure'] ?? $venueDefaults['tone_mapping_exposure'],
@@ -195,23 +198,27 @@
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Colors</div>
 
-                @include('admin.galleries.live-preview-panel._color', [
-                    'id' => 'background_color',
-                    'label' => 'Background',
-                    'value' => $current['background_color'],
-                    'default' => $venueDefaults['background_color'],
-                    'group' => 'visual_config',
-                    'hint' => 'The void color outside the room. Visible through windows + beyond the fog. Black feels infinite.',
-                ])
-
+                {{-- BACKGROUND CONTROL RETIRED (venue-owned atmosphere):
+                     the floor-edge fade, fog ramp and void dome all derive
+                     from background_color, so a curator-set background
+                     recomposes the venue (the deployed "purple belt"
+                     incident) instead of re-decorating it. The venue
+                     template is the single authority; legacy saved values
+                     are ignored by the exporter and stripped by the
+                     controller on save. Fog Tint stays — it layers on top
+                     of the composed scene and degrades gracefully. --}}
                 @include('admin.galleries.live-preview-panel._color', [
                     'id' => 'fog_color',
                     'label' => 'Fog Tint',
                     'value' => $current['fog_color'],
                     'default' => $venueDefaults['fog_color'],
                     'group' => 'visual_config',
-                    'hint' => 'Color of the haze. Match the background for a seamless fade, or contrast it for a coloured atmosphere.',
+                    'hint' => 'Color of the haze. Match the venue background for a seamless fade, or contrast it for a coloured atmosphere.',
                 ])
+
+                <p class="mt-3 text-[11px] leading-relaxed text-gray-500">
+                    The venue's background is part of its curated design and is managed with the venue template.
+                </p>
             </div>
 
             {{-- ── Materials group ───────────────────────────────────────── --}}

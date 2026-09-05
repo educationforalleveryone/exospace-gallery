@@ -481,6 +481,13 @@ export class GalleryScene {
 
     hideLoader() {
         // No separate loader — the curtain is the loader
+        // POST-DEPLOY HOTFIX (2026-09-05): marks the moment ALL assets
+        // finished. Renderer._scheduleFpsBenchmark waits for this flag
+        // before measuring, so the benchmark can no longer sample frames
+        // DURING loading (that measured shader-compile + texture-upload
+        // stalls, not the GPU — a healthy RX 580 was falsely downgraded
+        // to low-end at "13.1 fps").
+        this._assetsSettledAt = performance.now();
         console.log('✅ Loading complete — gallery ready');
     }
 
@@ -561,21 +568,21 @@ export class GalleryScene {
         const m = patch.material_config || {};
         const p = patch.post_fx         || {};
 
+        // Background color — VENUE-OWNED ATMOSPHERE: patches that try to
+        // set it are dropped BEFORE any handler sees them. The venue's
+        // bodies (floor_edge_fade, fog ramp, void dome) derive from the
+        // background, so a patched background recomposes the venue (the
+        // purple-belt incident) instead of tuning it. Legacy saved values
+        // are already dropped by the exporter; this closes the last door
+        // (stale panel builds re-sending state.visual_config on
+        // 'exospace-preview-ready').
+        delete v.background_color;
+
         // ── Visual config (atmosphere — all live) ────────────────────────
         if (Object.keys(v).length > 0) {
             // Forward to VenueDecorator so internal state (_venueAmbientIntensity,
             // _venueSpotIntensity, etc.) stays in sync.
             this.applyVisualPatch(v);
-
-            // Background color
-            if ('background_color' in v) {
-                if (v.background_color === null) {
-                    this.scene.background = new THREE.Color(0x000000);
-                } else {
-                    const c = _parseColor(v.background_color);
-                    if (c) this.scene.background = c;
-                }
-            }
 
             // Fog — any of color/near/far can be patched; missing keys fall
             // back to the current fog's values.

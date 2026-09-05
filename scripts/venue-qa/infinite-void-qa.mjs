@@ -23,7 +23,7 @@
 //      (darkness ≤ 1 — negatives bounce back grey), and the void-dust body
 //      drifts per particle (uTime uniform, not a whole-cloud bob).
 // ─────────────────────────────────────────────────────────────────────────────
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -258,6 +258,56 @@ ok('floating artworks register as collision obstacles',
 const collisionsSrc = readFileSync(rel('resources/js/gallery/Collisions.js'), 'utf8');
 ok('circular bound consumes _circularBoundsRadius as-is (no double inset)',
     !/_circularBoundsRadius\s*-\s*0\.5/.test(collisionsSrc));
+
+// ── E. Post-deploy hotfix contracts (2026-09-05) ────────────────────────────
+section('E. Post-deploy hotfix contracts (venue-owned bg / SW / benchmark / AO)');
+const exporterSrc = readFileSync(rel('app/Services/VenueConfigExporter.php'), 'utf8');
+ok('exporter strips background_color from saved overrides (venue-owned atmosphere)',
+    /unset\(\$overrideVisual\['background_color'\]\)/.test(exporterSrc));
+ok('exporter re-asserts the venue background as the final authority',
+    /\$config\['visual_config'\]\['background_color'\]\s*=\s*\$venueBackground/.test(exporterSrc));
+ok('preview runtime overrides cannot set the background either',
+    /unset\(\$runtimeVisual\['background_color'\]\)/.test(exporterSrc));
+
+const controllerSrc = readFileSync(rel('app/Http/Controllers/Admin/GalleryController.php'), 'utf8');
+ok('controller unconditionally strips background_color on save',
+    /unset\(\$overrides\['visual_config'\]\['background_color'\]\)/.test(controllerSrc));
+
+const panelSrc = readFileSync(rel('resources/views/admin/galleries/live-preview-panel.blade.php'), 'utf8');
+ok('panel no longer renders a background color control',
+    !/'id'\s*=>\s*'background_color'/.test(panelSrc));
+
+const sceneSrc = readFileSync(rel('resources/js/gallery/GalleryScene.js'), 'utf8');
+ok('live-patch handler drops background_color before any consumer sees it',
+    /delete v\.background_color/.test(sceneSrc));
+ok('hideLoader marks the assets-settled instant (benchmark anchor)',
+    /_assetsSettledAt\s*=\s*performance\.now\(\)/.test(sceneSrc));
+
+const rendererSrc = readFileSync(rel('resources/js/gallery/Renderer.js'), 'utf8');
+ok('FPS benchmark waits for the loader to settle (no measuring DURING load)',
+    /_assetsSettledAt == null/.test(rendererSrc) && /SETTLE_TIMEOUT_MS/.test(rendererSrc));
+ok('FPS benchmark excludes hidden-tab time (background throttling cannot fake a downgrade)',
+    /hiddenWithin\(/.test(rendererSrc));
+
+const swSrc = readFileSync(rel('public/sw.js'), 'utf8');
+ok('service worker only caches HTTP 200 (206 partial responses are rejectable by Cache.put)',
+    swSrc.includes("EXOSPACE_SW_VERSION = 'v3'") &&
+    !swSrc.includes('if (response.ok) {\n                        const clone'));
+ok('service worker bypasses Range requests (audio seeking no longer hits cache.put)',
+    swSrc.includes("request.headers.has('range')"));
+ok('harness service worker matches production',
+    readFileSync(rel('public/harness/sw.js'), 'utf8') === swSrc);
+
+const materialsSrc = readFileSync(rel('resources/js/gallery/Materials.js'), 'utf8');
+ok('aoMap is pinned to UV channel 0 (samples the uv attribute room geometry has)',
+    /file === 'ao\.jpg'\) tex\.channel = 0/.test(materialsSrc));
+ok('walls/white/ao.jpg ships (the production 404)', existsSync(rel('public/assets/textures/walls/white/ao.jpg')));
+ok('floors/marble/ao.jpg ships (the production 404)', existsSync(rel('public/assets/textures/floors/marble/ao.jpg')));
+
+const overriddenBody = harnessSrc.match(/'infinite-void-overridden':\s*\{[\s\S]*?version:[\s\S]*?\},/);
+ok('harness overridden body pins the healed merge (venue black, purple stripped)',
+    !!overriddenBody && overriddenBody[0].includes("background_color: '0x000000'") &&
+    !overriddenBody[0].includes('0x6D0DA0'));
 
 console.log(failures ? `\n${failures} CHECK(S) FAILED — Infinite Void contract is red.` :
     '\nALL CHECKS PASSED — Infinite Void contract is green.');
