@@ -106,8 +106,18 @@ class VenueConfigExporter
         // saves busted the cache — saving the venue template (the exact
         // action an admin takes to fix a venue) did nothing, the documented
         // "my fix isn't live" trap.
+        //
+        // PARITY FIX (Industrial Loft forensic audit): the key now also
+        // includes the OWNER's plan. decorations[] are filtered by that plan
+        // (buildConfig below), but the key never carried it — a plan upgrade
+        // or downgrade re-keyed NOTHING, so the pre-change decoration set
+        // kept serving for up to 1 h + 2 h stale even though a fresh
+        // computation would have returned a different set. The preview and
+        // the public view could disagree about props for hours after a
+        // billing change with zero code difference between the paths.
         $venueTs = $gallery->venueTemplate?->updated_at?->timestamp ?? '0';
-        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}";
+        $plan = $gallery->user->plan ?? 'free';
+        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:p{$plan}";
 
         return Cache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery) {
             return $this->buildConfig($gallery);
@@ -184,9 +194,28 @@ class VenueConfigExporter
         // visual_config.post_fx; the panel applies curator post-fx edits as
         // live patches over postMessage.
 
-        // Filter decorations by the visitor's plan so a Free visitor
-        // doesn't see Studio-only props.
-        $visitorPlan = $gallery->user->plan ?? 'free';
+        // Filter decorations by the plan tier this gallery is entitled to
+        // render at, so a Free visitor doesn't see Studio-only props.
+        //
+        // PARITY FIX (Industrial Loft forensic audit — "preview promises more
+        // than public delivers"): the filter used the OWNER's plan alone.
+        // But a gallery living in a venue ABOVE its owner's plan is
+        // GRANDFATHERED (assertVenueAccessibleForPlan only gates NEW saves;
+        // PlanDowngradeService deliberately keeps live galleries walkable).
+        // The venue walk-through preview renders that venue at its own
+        // plan_required tier (forVenuePreview), so the customer previewing a
+        // pro/studio venue saw its full prop set — and every real gallery of
+        // a lower-plan owner silently stripped them in the public view. The
+        // two paths now agree: a gallery renders decorations at the tier of
+        // its VENUE ACCESS, which is max(owner plan, venue plan_required).
+        // For same-or-below-plan pairings this is byte-identical to the old
+        // behaviour; only grandfathered above-plan galleries change, and they
+        // change TOWARD what the preview promised.
+        $ownerPlan = $gallery->user->plan ?? 'free';
+        $venuePlan = $venue->plan_required ?: 'free';
+        $visitorPlan = $this->planRank($venuePlan) > $this->planRank($ownerPlan)
+            ? $venuePlan      // grandfathered above-plan venue: render at venue tier
+            : $ownerPlan;
         $config['decorations'] = array_values(array_filter(
             $config['decorations'] ?? [],
             function ($dec) use ($visitorPlan) {
@@ -312,6 +341,19 @@ class VenueConfigExporter
             'pro'     => in_array($visitorPlan, ['pro', 'studio']),
             'studio'  => $visitorPlan === 'studio',
             default   => true,
+        };
+    }
+
+    /**
+     * Numeric plan rank for "which tier is this gallery entitled to render
+     * at" comparisons (free < pro < studio). Unknown values rank 0.
+     */
+    private function planRank(string $plan): int
+    {
+        return match ($plan) {
+            'pro'    => 1,
+            'studio' => 2,
+            default  => 0,
         };
     }
 }

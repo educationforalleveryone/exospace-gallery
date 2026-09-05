@@ -160,17 +160,30 @@ export function detectLowEnd() {
     this._scheduleFpsBenchmark = _scheduleFpsBenchmark;
     this._scheduleFpsBenchmark();
 
-    // (Task H37 / audit C4) — respect prefers-reduced-motion. Users with
-    // vestibular disorders need bloom, vignette, and camera lean disabled.
-    // We treat reduced-motion the same as low-end for rendering purposes,
-    // but ALSO set a flag so other modules (Tour.js, Controls.js) can
-    // disable motion-based effects.
+    // (Task H37 / audit C4) — respect prefers-reduced-motion: disable
+    // MOTION (bloom pulse, vignette shift, camera lean, tour tweens,
+    // arrival dolly, particle drift) for vestibular safety.
+    //
+    // PREVIEW/PUBLIC PARITY FIX (Industrial Loft forensic audit):
+    // reduced-motion used to FORCE THE LOW-END TIER (isLowEnd = true),
+    // which conflated an accessibility preference with device capability.
+    // The admin Edit-Gallery preview iframe never published the flag while
+    // every public page does — so a curator with reduced motion enabled saw
+    // the full-quality venue in the editor and a degraded stand-in publicly:
+    // flat Lambert walls, zero pooled artwork lights, no HDRI, no post-fx.
+    // That is exactly the "preview rich, public bare-minimum" report.
+    //
+    // Now: this.reducedMotion only trims MOTION-class effects (the modules
+    // already read it); the RENDER TIER is decided by the device alone.
+    // A reduced-motion visitor on a strong device still gets lit, textured,
+    // PBR artwork — the venue keeps its identity — while bloom/vignette
+    // (PostProcessing), camera lean (Movement), tweens (Tour/Arrival) and
+    // particle drift (GalleryScene) stay off. Genuine low-end devices are
+    // still detected by the hardware checks below, unchanged.
     const reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
     this.reducedMotion = reducedMotion;
-
     if (reducedMotion) {
-        isLowEnd = true;
-        reasons.push('prefers-reduced-motion: reduce');
+        console.log('♿ Reduced motion: motion effects disabled (render tier unaffected)');
     }
 
     this.isLowEnd = isLowEnd;
@@ -309,11 +322,15 @@ function _scheduleFpsBenchmark() {
 export function applyLowEndSettings() {
     this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.enabled = false;
-    if (this.scene.fog) {
-        // SCALE the venue's declared fog range instead of overriding it with
-        // absolute constants — a venue's fog colour/intent (bright-gallery
-        // haze, museum gloom) must survive degradation (config is the identity
-        // source; only the reach shrinks).
+    // DEGRADATION-PARITY FIX (Industrial Loft forensic audit): scale the fog
+    // reach ONLY while it is still the generic boot fog. A VENUE-DECLARED
+    // fog (visual_config.fog_* — applied later by applyVenueConfig, or
+    // already live when the mid-session FPS benchmark downgrades) is the
+    // venue's identity: compressing it turned a benchmark downgrade into a
+    // mid-walk "different venue" (the venue's murk collapsed onto the
+    // visitor). The venue declaration now survives every tier change; the
+    // boot-fog squash still applies to config-less galleries.
+    if (this.scene.fog && !this._venueFogDeclared) {
         this.scene.fog.near = Math.max(2, this.scene.fog.near * 0.4);
         this.scene.fog.far  = Math.max(8, this.scene.fog.far  * 0.5);
     }
@@ -329,7 +346,9 @@ export function applyLowEndSettings() {
 export function applyMobileSettings() {
     this._isMobileTier = true;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
-    if (this.scene.fog) {
+    // Same venue-fog guard as applyLowEndSettings — the mobile tier must not
+    // recompose a declared fog either (see the parity note there).
+    if (this.scene.fog && !this._venueFogDeclared) {
         this.scene.fog.near = Math.min(this.scene.fog.near, 8);
         this.scene.fog.far  = Math.min(this.scene.fog.far, 24);
     }

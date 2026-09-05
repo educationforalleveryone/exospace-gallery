@@ -186,6 +186,35 @@
             },
             version: '2.0.0',
         },
+        // Industrial Loft — the concrete/steel pro venue. Kept in sync with
+        // VenueTemplateSeeder + 2026_09_06_000001_industrial_loft_deepening
+        // (scripts/venue-qa/industrial-loft-qa.mjs pins the pair).
+        'industrial-loft': {
+            id: 3, slug: 'industrial-loft', name: 'Industrial Loft', category: 'warehouse',
+            visual_config: {
+                wall_height: 7, wall_depth: 0.5, ceiling_type: 'beamed', ceiling_height: 7,
+                ceiling_color: '0x1a1a18', ceiling_beams: true, corridor_width: 9,
+                background_color: '0x111008', fog_color: '0x111008', fog_near: 14, fog_far: 55,
+                ambient_color: '0xffd9a8', ambient_intensity: 0.55, spot_intensity: 2.4,
+                fill_intensity: 1.1, tone_mapping_exposure: 0.9, frame_override: 'black',
+                structure_pass: 'loft',
+                artwork_light_base: 0.22, artwork_light_pool_cap: 12, env_intensity: 0.25,
+                post_fx: { bloom: false, vignette: true, vignette_darkness: 0.35, vignette_offset: 1.0 },
+            },
+            material_config: {
+                wall_color: null, wall_roughness: 1.0, wall_metalness: 0.0, wall_normal_strength: 0.65,
+                floor_color: null, floor_roughness: 0.8, floor_metalness: 0.0, floor_normal_strength: 0.6,
+                floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'corridor', 'l-shape'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'concrete', floor_material: 'concrete', lighting_preset: 'dramatic',
+                frame_style: 'modern', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
         // Nebula Drift — the violet starfield venue (forensic comparison body:
         // does the DEPLOYED screenshot match THIS venue's pipeline instead of
         // infinite-void's?). Mirrors seeder rows + the phenomena migration.

@@ -72,6 +72,25 @@ export function wallRunOffset(runCount, posInRun, spacing, wallLength) {
     return (wallLength / 2) - ((runCount - 1) * spacing) / 2 + posInRun * spacing;
 }
 
+// ── Wall-face standoff (pure, shared by every wall layout) ────────────────
+// ARTWORK-BURIAL FIX (Industrial Loft forensic audit): the hang used to
+// measure its standoff from the wall CENTRE plane with a constant 0.2 m —
+// correct only for the historical wall_depth 0.3 (0.15 half + 0.05 gap).
+// wall_depth is venue-configurable (visual_config.wall_depth), and the one
+// venue that changed it — Industrial Loft, 0.5 m walls — buried every
+// artwork 5 cm INSIDE the wall box: the venue hung glowing rectangles of
+// pool light on visibly empty walls in preview AND public.
+//
+// The standoff is now derived from the wall geometry itself:
+//   wallDepth/2 (centre → inner face) + 0.05 m clearance to the frame back.
+// depth 0.3 → 0.20 (byte-identical to the historic constant, so White Cube
+// and every 0.3-wall venue render unchanged); depth 0.5 → 0.30. The same
+// helper is consumed by VenueDecorator's structure code so columns, coves
+// and props always share ONE definition of "the wall face".
+export function wallInset(depth = CONFIG.room.wallDepth) {
+    return (depth || 0.3) / 2 + 0.05;
+}
+
 // ── SQUARE placement ─────────────────────────────────────────────────────────
 // Iteration 3 additions (both config-driven, zero slug knowledge):
 //   1. A glazing wall (visual_config.glazing_wall — RoomBuilder removed the
@@ -96,11 +115,13 @@ export function _placeArtworksSquare(data) {
     const imagesPerWall = Math.ceil(imageCount / wallCount);
     const eyeLevel = CONFIG.camera.height;
 
+    // Wall-face standoff — venue wall_depth aware (see wallInset above).
+    const inset = wallInset();
     const walls = [
-        { id: 'front', start: [-wallLength/2+spacing, eyeLevel, -wallLength/2+0.2], dir:[1,0,0],  normal:[0,0,1]  },
-        { id: 'back',  start: [ wallLength/2-spacing, eyeLevel,  wallLength/2-0.2], dir:[-1,0,0], normal:[0,0,-1] },
-        { id: 'left',  start: [-wallLength/2+0.2,     eyeLevel,  wallLength/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
-        { id: 'right', start: [ wallLength/2-0.2,     eyeLevel, -wallLength/2+spacing], dir:[0,0,1],  normal:[-1,0,0] },
+        { id: 'front', start: [-wallLength/2+spacing, eyeLevel, -wallLength/2+inset], dir:[1,0,0],  normal:[0,0,1]  },
+        { id: 'back',  start: [ wallLength/2-spacing, eyeLevel,  wallLength/2-inset], dir:[-1,0,0], normal:[0,0,-1] },
+        { id: 'left',  start: [-wallLength/2+inset,   eyeLevel,  wallLength/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
+        { id: 'right', start: [ wallLength/2-inset,   eyeLevel, -wallLength/2+spacing], dir:[0,0,1],  normal:[-1,0,0] },
     ];
     const hangWalls = glazingWallId ? walls.filter(w => w.id !== glazingWallId) : walls;
 
@@ -209,9 +230,10 @@ export function _placeArtworksCorridor(data) {
     const spacing = CONFIG.room.artworkSpacing;
     const eyeLevel = CONFIG.camera.height;
     const half = Math.ceil(this.artworkImages.length / 2);
+    const inset = wallInset(); // venue wall_depth aware — see wallInset()
     const longWalls = [
-        { start: [-length/2+spacing, eyeLevel, -width/2+0.2], dir:[1,0,0],  normal:[0,0,1]  },
-        { start: [ length/2-spacing, eyeLevel,  width/2-0.2], dir:[-1,0,0], normal:[0,0,-1] },
+        { start: [-length/2+spacing, eyeLevel, -width/2+inset], dir:[1,0,0],  normal:[0,0,1]  },
+        { start: [ length/2-spacing, eyeLevel,  width/2-inset], dir:[-1,0,0], normal:[0,0,-1] },
     ];
     // Per-wall run counts (wall B receives the odd remainder) — each run is
     // centred on its wall so an odd-count hang does not skew toward one end.
@@ -237,9 +259,10 @@ export function _placeArtworksLShape(data) {
     const eyeLevel = CONFIG.camera.height;
     const all = this.artworkImages;
 
+    const inset = wallInset(); // venue wall_depth aware — see wallInset()
     const wA = [
-        { x: 0.2,       normal: [1,0,0]  },
-        { x: wingW-0.2, normal: [-1,0,0] },
+        { x: inset,          normal: [1,0,0]  },
+        { x: wingW - inset,  normal: [-1,0,0] },
     ];
 
     let spillFrom = all.length;
@@ -260,8 +283,8 @@ export function _placeArtworksLShape(data) {
     if (remaining.length === 0) return;
 
     const wB = [
-        { z: jZ + 0.2,      normal: [0,0,1]  },
-        { z: lenA/2 - 0.2,  normal: [0,0,-1] },
+        { z: jZ + inset,          normal: [0,0,1]  },
+        { z: lenA/2 - inset,      normal: [0,0,-1] },
     ];
     const xStart = wingW + spacing;
     let sideB = 0, rowB = 0;

@@ -90,6 +90,21 @@ const SCENARIOS = [
     // Deployed-screenshot incident regression: the exact overridden-gallery
     // config (purple background + dim rig) vs the restored venue defaults.
     { id: 'void-overridden-12',   q: 'venue=infinite-void-overridden&count=12' },
+    // Industrial Loft — default corridor layout + declared alternatives
+    { id: 'loft-corridor-08',     q: 'venue=industrial-loft&count=8' },
+    { id: 'loft-corridor-16',     q: 'venue=industrial-loft&count=16' },
+    { id: 'loft-corridor-24',     q: 'venue=industrial-loft&count=24' },
+    { id: 'loft-corridor-01',     q: 'venue=industrial-loft&count=1' },
+    { id: 'loft-corridor-60',     q: 'venue=industrial-loft&count=60' },
+    { id: 'loft-square-12',       q: 'venue=industrial-loft&count=12&layout=square' },
+    { id: 'loft-square-30',       q: 'venue=industrial-loft&count=30&layout=square' },
+    { id: 'loft-lshape-08',       q: 'venue=industrial-loft&count=8&layout=l-shape' },
+    // Industrial Loft — orientation stress on the default corridor
+    { id: 'loft-corridor-portrait',  q: 'venue=industrial-loft&count=8&orient=portrait' },
+    { id: 'loft-corridor-landscape', q: 'venue=industrial-loft&count=8&orient=landscape' },
+    { id: 'loft-corridor-extreme',   q: 'venue=industrial-loft&count=8&orient=extreme' },
+    // Industrial Loft — tier degradation
+    { id: 'loft-tier-low-08',     q: 'venue=industrial-loft&count=8', tier: 'low' },
 ];
 
 const tierInit = {

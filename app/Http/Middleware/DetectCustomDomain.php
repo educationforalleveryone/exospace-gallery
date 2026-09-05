@@ -109,7 +109,28 @@ class DetectCustomDomain
             //
             // The is_active + isCustomDomainVerified() double-check below
             // remains as defense-in-depth against stale cache.
-            $galleryCacheKey = "custom_domain_gallery:{$galleryId}";
+            //
+            // CACHE-KEY FIX (Industrial Loft forensic audit): the original
+            // comment always claimed "we bake updated_at into the cache key"
+            // — but the key was "custom_domain_gallery:{id}" with NO
+            // timestamp, so a gallery save (new venue, new artworks, new
+            // visual overrides) kept serving the STALE eager-loaded model —
+            // and the stale venueTemplate relationship pinned the OLD
+            // venue_config:* key beneath it — for the full 5-minute TTL. The
+            // main-domain path picked the change up instantly; custom-domain
+            // visitors didn't: another preview/public divergence. One cheap
+            // indexed PK read buys the current updated_at (and the venue's),
+            // which keys the heavy cached payload — saves invalidate
+            // immediately, the heavy eager-load still hits cache.
+            // NOTE: the stamp read is deliberately NOT cached — it is one
+            // indexed-PK select of three small columns, and caching it would
+            // reintroduce the exact staleness window this fix removes.
+            $g = Gallery::query()
+                ->whereKey($galleryId)
+                ->with('venueTemplate:id,updated_at')
+                ->first(['id', 'updated_at', 'venue_template_id']);
+            $stamps = $g ? (($g->venueTemplate?->updated_at?->timestamp ?? '0') . ':' . $g->updated_at?->timestamp) : 'none';
+            $galleryCacheKey = "custom_domain_gallery:{$galleryId}:{$stamps}";
             $gallery = Cache::remember($galleryCacheKey, now()->addMinutes(5), function () use ($galleryId) {
                 return Gallery::with(['images', 'user', 'venueTemplate'])->find($galleryId);
             });

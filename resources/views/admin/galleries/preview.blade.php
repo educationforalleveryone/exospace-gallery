@@ -106,6 +106,11 @@
     <script nonce="@nonce">
         window.GALLERY_DATA = @json($galleryData);
         window.EXOSPACE_PREVIEW_MODE = true;
+        // PREVIEW/PUBLIC PARITY: publish the same accessibility global the
+        // public gallery view and the venue walk-through publish. With the
+        // old asymmetry a curator with reduced motion saw the full-quality
+        // venue here while the public view rendered the reduced stand-in.
+        window.EXOSPACE_REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     </script>
 
     {{-- Preview client: listens for postMessage patches from the parent

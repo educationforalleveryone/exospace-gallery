@@ -276,11 +276,50 @@ class VenueTemplateSeeder extends Seeder
 
             // ─────────────────────────────────────────────────────────────
             // 3. Industrial Loft — Pro
+            //
+            // INDUSTRIAL LOFT DEEPENING iteration (forensic audit):
+            // screenshot-verified defects in the v1.0.0 row — every fix
+            // mirrored in the GUARDED migration
+            // 2026_09_06_000001_industrial_loft_deepening:
+            //   • The rig was pre-polish (exposure 0.55, ambient 0.18,
+            //     spot 0.5, fill 0.15 — the exact profile the White Cube
+            //     audit measured at ~10× too dim under r155+ physical
+            //     units). The venue rendered as a near-black tunnel whose
+            //     only bright contents were two track-light dots. The rig
+            //     is now declared in physical units while keeping the warm
+            //     industrial mood (ambient 0.55, spot 2.4, fill 1.1,
+            //     exposure 0.9), and the fog reach grew with it
+            //     (8→35 m squeezed a 16 m+ room into murk; 14→55 m).
+            //   • post_fx was never declared → the runtime default put BLOOM
+            //     ON in a venue of emissive lamps and night glass. Restraint
+            //     is now explicit (bloom off, softened vignette).
+            //   • The venue was dark AND its artworks carried only the
+            //     generic 0.15 standing glow: artwork_light_base 0.22 +
+            //     pool cap 12 so a real hang reads lit, not spotlighted
+            //     islands in the gloom.
+            //   • frame_override 'black': blackened-steel frames — the
+            //     white 'modern' default dissolved against concrete.
+            //   • floor_tile_meters 3.0 (screed pour scale), floor
+            //     roughness 0.9→0.8 (sealed, not wet cement), normal
+            //     strengths eased (0.8/0.7 → 0.65/0.6) so the production
+            //     Concrete033 maps don't buzz at walking distance.
+            //   • default room_layout: corridor → square. The venue's own
+            //     copy promises "large open spaces" at 30–80 works; the
+            //     corridor default produced a 6 m × 108 m linear tunnel
+            //     at capacity whose far half sat beyond the fog. The
+            //     square floor keeps the promise (corridor remains a
+            //     supported layout for smaller shows; corridor_width 9
+            //     gives the aisle real loft proportions).
+            //   • JS-side identity (same iteration, no migration): joists
+            //     under the declared girders, visible stanchions, floor
+            //     coves and clerestory windows measured from the wall
+            //     FACE, spawn-safe props, pendant fixture parity — see
+            //     VenueDecorator.addIndustrialLoftStructure.
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Industrial Loft',
                 'slug'          => 'industrial-loft',
-                'description'   => 'Concrete, steel and large open spaces. Urban contemporary feel with exposed ceiling beams.',
+                'description'   => 'A converted warehouse floor: raw concrete, black steel and a seven-metre ceiling. Exposed girders and joists overhead, steel stanchions, glowing factory windows in the clerestory, pendant lamps and an open concrete run for the hang.',
                 'category'      => 'warehouse',
                 'tags'          => ['urban', 'concrete', 'industrial'],
                 'plan_required' => 'pro',
@@ -288,45 +327,73 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 80,
                 'sort_order'    => 3,
                 'is_featured'   => true,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'concrete',
                     'floor_material'  => 'concrete',
                     'lighting_preset'  => 'dramatic',
                     'frame_style'     => 'modern',
-                    'room_layout'     => 'corridor',
+                    // Deepening: the open floor is the venue's identity (see
+                    // the block comment) — corridor stays a supported layout.
+                    'room_layout'     => 'square',
                 ],
                 'visual_config' => [
                     'wall_height'            => 7,
                     'wall_depth'             => 0.5,
                     'ceiling_type'           => 'beamed',
                     'ceiling_color'          => '0x1a1a18',  // was the per-slug ceiling chain
-                    'ceiling_beams'          => true,        // was the per-slug beam branch
+                    'ceiling_beams'          => true,        // primary girders (RoomBuilder)
                     'ceiling_height'         => 7,
+                    // Loft proportions: the corridor aisle widens from the
+                    // generic 6 m (RoomBuilder default) to a real floor span.
+                    'corridor_width'         => 9,
                     'background_color'       => '0x111008',
                     'fog_color'              => '0x111008',
-                    'fog_near'               => 8,
-                    'fog_far'                => 35,
+                    'fog_near'               => 14,
+                    'fog_far'                => 55,
                     'ambient_color'          => '0xffd9a8',
-                    'structure_pass'         => 'loft',  // IT6: interpreter selector (beams,
-                                                            // placement-aware columns, coves)
-                    'ambient_intensity'      => 0.18,
-                    'spot_intensity'         => 0.5,
-                    'fill_intensity'         => 0.15,
-                    'tone_mapping_exposure'  => 0.55,
-                    'frame_override'         => null,
+                    'structure_pass'         => 'loft',  // interpreter selector (joists,
+                                                            // stanchions, coves, clerestory,
+                                                            // pendants, props)
+                    'ambient_intensity'      => 0.55,
+                    'spot_intensity'         => 2.4,
+                    'fill_intensity'         => 1.1,
+                    'tone_mapping_exposure'  => 0.9,
+                    // Blackened-steel frames — visible against raw concrete.
+                    'frame_override'         => 'black',
+                    // Dark-venue artwork legibility: every piece carries a
+                    // standing glow, and a typical hang lights at once
+                    // (Lighting.js pool cap — tier floors still apply).
+                    'artwork_light_base'     => 0.22,
+                    'artwork_light_pool_cap' => 12,
+                    // Night HDRI at reduced strength: enough for the steel
+                    // girders to catch a highlight, not enough to grey the
+                    // murk (unset = the dramatic preset's 0.30).
+                    'env_intensity'          => 0.25,
+                    // Post-processing identity: a working warehouse, not a
+                    // neon sign — bloom off, gentle vignette keeps the mood.
+                    'post_fx'                => [
+                        'bloom'             => false,
+                        'vignette'          => true,
+                        'vignette_darkness' => 0.35,
+                        'vignette_offset'   => 1.0,
+                    ],
                 ],
                 'material_config' => [
                     'wall_color'             => null,
                     'wall_roughness'         => 1.0,
                     'wall_metalness'         => 0.0,
-                    'wall_normal_strength'   => 0.8,
+                    'wall_normal_strength'   => 0.65,
                     'floor_color'            => null,
-                    'floor_roughness'        => 0.9,
+                    'floor_roughness'        => 0.8,
                     'floor_metalness'        => 0.0,
-                    'floor_normal_strength'  => 0.7,
+                    'floor_normal_strength'  => 0.6,
+                    // Power-trowelled slabs read at pour scale, not tile scale.
+                    'floor_tile_meters'      => 3.0,
                 ],
-                'decorations'       => [],  // beams + columns are procedural (VenueDecorator)
+                'decorations'       => [],  // joists, stanchions, coves, clerestory,
+                                            // pendants and props are procedural
+                                            // (VenueDecorator 'loft' pass)
                 'lighting_fixtures' => [],
                 'supported_layouts' => ['square', 'corridor', 'l-shape'],
             ],

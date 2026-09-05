@@ -222,7 +222,12 @@ export function createRoomCorridor(data) {
     const wallHeight = CONFIG.room.wallHeight;
     const imagesPerLongWall = Math.ceil(imageCount / 2);
     const length = Math.max(16, (imagesPerLongWall * spacing) + spacing);
-    const width  = 6;
+    // Loft-proportion fix (Industrial Loft forensic audit): the aisle width
+    // was hardcoded at 6 m for every venue — under the loft's 7 m ceilings
+    // that reads as a canyon, not an open floor. The width is now
+    // venue-declared (visual_config.corridor_width, default 6 — every
+    // existing venue renders bit-identically).
+    const width  = Math.max(4, (this._venueVisualConfig || {}).corridor_width || 6);
 
     const wallMat  = this.getWallMaterial(data.wall_texture);
     const floorMat = this.getFloorMaterial(data.floor_material);
@@ -239,13 +244,31 @@ export function createRoomCorridor(data) {
 
     this.addVenueCeiling(length, width, wallHeight);
 
+    // Texture-density fix (Industrial Loft forensic audit): one shared wall
+    // material forced ONE repeat over walls of two different lengths — the
+    // long walls tiled at length/2.5 while the END walls (only `width` long)
+    // displayed the same repeat, stretching their texture ~3× (glaring on a
+    // 9 m-wide loft corridor). End walls get a cloned material whose maps
+    // tile at their own dimensions (same GPU images, independent tiling —
+    // the PERF-B17 per-panel pattern). Venues without a map are unaffected.
+    let endWallMat = wallMat;
+    if (wallMat.map) {
+        endWallMat = wallMat.clone();
+        endWallMat.map = wallMat.map.clone();
+        endWallMat.map.repeat.set(width / 2.5, wallHeight / 2.5);
+        endWallMat.map.needsUpdate = true;
+        for (const key of ['normalMap', 'roughnessMap', 'aoMap']) {
+            if (endWallMat[key]) { endWallMat[key] = endWallMat[key].clone(); endWallMat[key].needsUpdate = true; }
+        }
+    }
+
     [
-        { pos: [0, wallHeight/2, -width/2],  ry: 0,          sx: length },
-        { pos: [0, wallHeight/2,  width/2],  ry: Math.PI,    sx: length },
-        { pos: [-length/2, wallHeight/2, 0], ry: Math.PI/2,  sx: width  },
-        { pos: [ length/2, wallHeight/2, 0], ry: -Math.PI/2, sx: width  },
+        { pos: [0, wallHeight/2, -width/2],  ry: 0,          sx: length, mat: wallMat },
+        { pos: [0, wallHeight/2,  width/2],  ry: Math.PI,    sx: length, mat: wallMat },
+        { pos: [-length/2, wallHeight/2, 0], ry: Math.PI/2,  sx: width,  mat: endWallMat },
+        { pos: [ length/2, wallHeight/2, 0], ry: -Math.PI/2, sx: width,  mat: endWallMat },
     ].forEach(cfg => {
-        const m = new THREE.Mesh(sharedWallGeo, wallMat);
+        const m = new THREE.Mesh(sharedWallGeo, cfg.mat);
         m.scale.set(cfg.sx, 1, 1);
         m.position.set(...cfg.pos);
         m.rotation.y = cfg.ry;

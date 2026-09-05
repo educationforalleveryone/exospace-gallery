@@ -45,6 +45,9 @@ import { buildStructure } from './StructureBuilder.js';
 
 // Iteration 6 "Consolidation" (P2.2 + P2.3): the opt-in curator layer.
 import { resolveSpacing } from './PlacementCuration.js';
+// Industrial Loft deepening: placement parity — the structure pass derives
+// its artwork lanes from the SAME centred-run math the placer uses.
+import { wallRunOffset } from './ArtworkPlacer.js';
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function applyVenueOverrides(slug) {
@@ -76,8 +79,13 @@ export function applyVenueConfig(cfg) {
             v.fog_near ?? 10,
             v.fog_far  ?? 30
         );
+        // Renderer.applyLowEndSettings/applyMobileSettings read this: a
+        // VENUE-DECLARED fog is identity, not a quality knob — tier changes
+        // must never recompose it (degradation-parity guard).
+        this._venueFogDeclared = true;
     } else if (v.fog_color === null) {
         this.scene.fog = null;
+        this._venueFogDeclared = true;
     }
     if (v.ambient_color)              this._venueAmbientColor     = parseColor(v.ambient_color);
     if (v.ambient_intensity != null)  this._venueAmbientIntensity = v.ambient_intensity;
@@ -438,172 +446,433 @@ function addWhiteCubeRespectPass(data) {
     }
 }
 
-// ── INDUSTRIAL LOFT — beams, placement-aware columns, perimeter coves ────────
-// Iteration 3 rework (§4.3), three verified defects fixed:
-//   1. LAYOUT-AWARE: the old code read _layoutMeta.length/width — fields only
-//      the CORRIDOR builder sets (square/l-shape silently built a 20×6 room's
-//      worth of beams mid-air). Reads the real layout now.
-//   2. PLACEMENT-AWARE COLUMNS: columns never stand in front of an artwork.
-//      Candidates that fall on an artwork lane (deterministic — the SAME lane
-//      math ArtworkPlacer uses) shift into the gap between lanes.
-//   3. Center-floor grates REPLACED by perimeter cove details — the floor no
-//      longer reads as a grate field under the visitor's feet (§4.3).
-//   4. Eye-level credibility: crates + rack + track-light heads so the story
-//      survives at walking height, not only overhead (corridor + square).
+// ── INDUSTRIAL LOFT — the venue's structural identity pass ───────────────────
+// Deepening rework (Industrial Loft forensic audit — screenshot-verified).
+// The v1.0.0 pass carried five verified defects, all fixed at the root:
+//
+//   1. CORRIDOR BEAM AXIS SWAP: the corridor branch built its "cross" beams
+//      with BoxGeometry(width+0.4, 0.25, 0.3) — X and Z swapped (copied from
+//      the l-shape branch, where that orientation is correct). The corridor's
+//      long axis is X, so every beam ran PARALLEL to the aisle instead of
+//      across it — 6.4 m bars inside a 16–40 m room, overlapping their
+//      neighbours, touching neither wall. Joists now span the SHORT axis and
+//      step evenly down the long axis, ends buried in the walls.
+//   2. BURIED TRIM (same bug class as the White Cube polish audit): coves
+//      and columns measured offsets from the wall CENTRE plane with constant
+//      0.09/0.09 — inside this venue's 0.5 m walls both rendered fully
+//      INVISIBLE. Every offset now measures from the wall's inner face via
+//      one shared protrusion formula (off = face + protrusion − depth/2),
+//      the same one ArtworkPlacer.wallInset uses for the hang.
+//   3. LANE MATH DRIFT: avoidLanes() replicated the OLD corner-offset hang
+//      formula while ArtworkPlacer had moved to centred runs
+//      (wallRunOffset) — columns "avoided" positions no artwork occupied
+//      and could land directly in front of one. Lanes are now produced by
+//      the SAME wallRunOffset the placer uses (l-shape uses the placer's
+//      alternating-row walk); structure and placement cannot disagree.
+//   4. DOUBLE BEAM SYSTEMS: the venue declares ceiling_beams (RoomBuilder
+//      runners) AND structure_pass 'loft' (this pass). Both built beams at
+//      near-identical heights with no designed relationship. Now it is a
+//      deliberate industrial hierarchy: RoomBuilder's runners are the
+//      PRIMARY girders; this pass hangs SECONDARY joists just BELOW them —
+//      a real loft ceiling grid, not two competing systems.
+//   5. FLOATING FIXTURES + SPAWN COLLISION: track-light heads were placed
+//      at ±endX, ±endX/2 — coordinates no beam occupies (mid-air fixtures),
+//      and the steel rack stood at the corridor's exact spawn point
+//      (camera −length/2+1.5, z=0; rack uprights x=−length/2+1.4, z=±0.85).
+//      Heads now mount under actual joists; the rack stands against the
+//      side of the aisle; the spawn lane and arrival apron stay clear.
+//
+// NEW IDENTITY PIECES (all deterministic — zero rng draws):
+//   • Pendant fixtures at the EXACT (x, z) of each layout's ceiling fill
+//     lights (fixture parity — the White Cube respect-pass pattern): every
+//     light source finally has a visible origin.
+//   • Clerestory window band high on the walls — steel-mullioned factory
+//     panes glowing cool night-light above the artwork band. Reads as
+//     "converted warehouse" from the spawn angle; never competes with the
+//     hang (bottom edge ≈ 4.7 m on the 7 m walls; artwork tops ≤ 2.7 m).
+//   • l-shape parity: the wing previously received bare beams only; it now
+//     gets the full joist/column/cove/window/pendant treatment.
+//
+// Low-end tier: every piece has a flat Lambert body of the same silhouette —
+// degradation removes shading, never the venue's structural language.
 function addIndustrialLoftStructure(data) {
-    const beamMat = this.isLowEnd
+    const meta = this._layoutMeta || {};
+    const wh   = CONFIG.room.wallHeight;
+    const wd   = CONFIG.room.wallDepth || 0.3;
+    const face = wd / 2;                    // wall centre plane → inner face
+    const spacing = CONFIG.room.artworkSpacing;
+
+    // Materials — steel primary, lamp + pane emissives, crate wood.
+    const steelMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x2a2a2a })
-        : new THREE.MeshStandardMaterial({ color: 0x1e1e1e, roughness: 0.6, metalness: 0.9 });
-    const coveMat = this.isLowEnd
+        : new THREE.MeshStandardMaterial({ color: 0x1e1e1e, roughness: 0.55, metalness: 0.85 });
+    const darkMat  = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x111111 })
         : new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 1.0, metalness: 0.3 });
+    const lampMat  = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0xfff2dd, emissive: 0xffe9c8, emissiveIntensity: 1.4 })
+        : new THREE.MeshStandardMaterial({ color: 0xfff2dd, emissive: 0xffe9c8, emissiveIntensity: 1.4, roughness: 0.5 });
+    const paneMat  = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x2c3644, emissive: 0x8ea6c4, emissiveIntensity: 0.55 })
+        : new THREE.MeshStandardMaterial({ color: 0x232c38, emissive: 0x8ea6c4, emissiveIntensity: 0.55, roughness: 0.35, metalness: 0.2 });
+    const shadeMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x191919 })
+        : new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.5, metalness: 0.7 });
+    const crateMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x6a5230 })
+        : new THREE.MeshStandardMaterial({ color: 0x6a5230, roughness: 0.9, metalness: 0.0 });
 
-    const meta    = this._layoutMeta || {};
-    const wh      = CONFIG.room.wallHeight;
-    const spacing = CONFIG.room.artworkSpacing;
-    const colGeo  = new THREE.BoxGeometry(0.18, wh, 0.18);
+    // ── Wall-face vocabulary (shared with ArtworkPlacer.wallInset) ───────
+    // A wall segment is declared [cx, cz, ry, len] where ry is the yaw whose
+    // inward normal is (sin ry, cos ry) — the same convention RoomBuilder's
+    // wall boxes use (ry 0 → wall on the −z side, face toward +z).
+    // Trim protrusion: the piece's centre sits at face + p − depth/2 from
+    // the wall centre plane so its room-side surface stands exactly `p`
+    // proud of the inner face (never floats, never hides — White Cube rule).
+    const trimOffset = (depth, p) => face + p - depth / 2;
+    const segNormal  = (ry) => [Math.sin(ry), Math.cos(ry)];
+    const segTangent = (ry) => [Math.cos(ry), -Math.sin(ry)];
 
-    // Placement-aware helper: shift a wall-line coordinate off the artwork
-    // lanes (lanes use the SAME formula ArtworkPlacer applies for this
-    // layout — structure and placement can never disagree).
-    const avoidLanes = (cand, lanes) => {
-        let x = cand;
-        for (const k of lanes) {
-            if (Math.abs(x - k) < 0.8) { x = k + spacing / 2; break; }
+    // ── Artwork lanes (placement parity, artwork-aware) ──────────────────
+    // Lanes carry BOTH the exact position wallRunOffset will hang at AND the
+    // actual half-width of the piece that will occupy them (makeArtworkGroup
+    // math: height 2.0, width 2.0 × aspect, clamped at 3.0). Stanchion
+    // slots clear per-piece — a column may stand beside a portrait but
+    // never beside a 3 m panorama.
+    const artHalfWidths = (data.images || []).map(img => {
+        const aspect = img.aspectRatio || (img.width && img.height ? img.width / img.height : 1) || 1;
+        let w = 2.0 * aspect;
+        if (w > 3.0) w = 3.0;
+        return w / 2;
+    });
+    const laneObjectsFor = (runCount, wallLength, firstImageIdx) => {
+        const lanes = [];
+        for (let p = 0; p < runCount; p++) {
+            // Placer parity: the hang position equals start (corner + spacing)
+            // + wallRunOffset − spacing, which reduces to wallRunOffset − L/2.
+            lanes.push({
+                pos: wallRunOffset(runCount, p, spacing, wallLength) - wallLength / 2,
+                half: artHalfWidths[firstImageIdx + p] ?? 1.0,
+            });
         }
-        return x;
+        return lanes;
+    };
+    // CLEARANCE FIX (screenshot-verified): the v1 clearance (0.8 m) was
+    // smaller than a wide artwork's half-width (3.0 m clamp → 1.5 m), so a
+    // "cleared" column still poked through the edge of a landscape piece.
+    // A stanchion slot must clear every piece it stands beside, plus the
+    // column's half-width and a viewing margin.
+    const COL_HALF = 0.08;
+    const COL_MARGIN = 0.15;
+    const clearOfLanes = (cand, lanes) =>
+        lanes.every(l => Math.abs(cand - l.pos) >= l.half + COL_HALF + COL_MARGIN);
+
+    // Stanchion slots — RHYTHM FIX (probe-verified): the joist/column grid
+    // stepped at ~artwork spacing, so column candidates landed EXACTLY on
+    // artwork lanes and every wall ended up stanchion-less. Industrial
+    // logic reversed, exhibition-correct: the slots are chosen from the
+    // GAPS of the hang (lane mid-points + the end zones), thinned to a
+    // ≥ 2.6 m rhythm, and the joist grid is EXTENDED to meet each slot so
+    // every stanchion visibly supports a real joist. Columns yield to the
+    // hang, the ceiling structure follows the columns — like a real
+    // build-out of an existing shell.
+    const slotCandidatesFor = (lanes, extent) => {
+        const cands = [-extent / 2 + 1.3];
+        for (let i = 0; i < lanes.length - 1; i++) {
+            cands.push((lanes[i].pos + lanes[i + 1].pos) / 2);
+        }
+        cands.push(extent / 2 - 1.3);
+        return cands;
+    };
+    const slotsFor = (lanes, extent, minGap = 2.6) => {
+        const kept = [];
+        for (const c of slotCandidatesFor(lanes, extent)) {
+            if (clearOfLanes(c, lanes) && kept.every(k => Math.abs(k - c) >= minGap)) kept.push(c);
+        }
+        return kept;
+    };
+    // Is a slot already (near) on the even grid that addJoists will build?
+    const slotsAreNear = (t, stepFrom, gridStep) => {
+        const k = Math.round((t - stepFrom) / gridStep);
+        return Math.abs(t - (stepFrom + k * gridStep)) <= 0.35;
     };
 
+    // ── Piece builders ───────────────────────────────────────────────────
+    // Secondary joists UNDER the RoomBuilder runner girders (runner bottom
+    // face at wh − 0.19; 5 mm reveal keeps the contact line from z-fighting).
+    const joistY = wh - 0.19 - 0.005 - 0.13;   // centre of a 0.26-tall joist
+    // runAxis 'z': joists span Z (BoxGeometry(0.12, 0.26, span)) and the set
+    //              steps along X; bayX = the joist line's Z centre.
+    // runAxis 'x': joists span X (BoxGeometry(span, 0.26, 0.12)) and the set
+    //              steps along Z; bayX = the joist line's X centre.
+    // Either an even step grid ({stepFrom, stepTo, count}) or explicit
+    // positions ({at}) — the stanchion build-out extends the grid, so the
+    // caller may merge both forms in one call. Returns ALL joist positions.
+    const addJoists = ({ runAxis, span, bayX, stepFrom, stepTo, count = 0, at = [] }) => {
+        const geo = runAxis === 'z'
+            ? new THREE.BoxGeometry(0.12, 0.26, span)
+            : new THREE.BoxGeometry(span, 0.26, 0.12);
+        const positions = [];
+        if (count > 0) {
+            const step = (stepTo - stepFrom) / (count + 1);
+            for (let i = 1; i <= count; i++) positions.push(stepFrom + i * step);
+        }
+        for (const t of at) positions.push(t);
+        if (positions.length === 0) { geo.dispose(); return []; }
+        // runAxis is the joist's LONG axis: 'z' joists span Z (geometry z =
+        // span) and the SET spreads along X (t → x); 'x' joists span X and
+        // spread along Z (t → z). bayX is the long-axis centre of the line.
+        const parts = positions.map(t => (runAxis === 'z'
+            ? { geo, pos: [t, joistY, bayX || 0] }
+            : { geo, pos: [bayX || 0, joistY, t] }));
+        this.scene.add(new THREE.Mesh(mergeParts(parts), steelMat));
+        geo.dispose();
+        return positions;
+    };
+
+    // Clerestory window band — panes + mullions per wall run. Protrudes 3 cm
+    // into the room, measured from the inner face.
+    const addWindowBand = (segments, yCentre, bandH) => {
+        const paneGeo = new THREE.BoxGeometry(1, bandH, 0.02);
+        const mulGeo  = new THREE.BoxGeometry(0.055, bandH + 0.06, 0.05);
+        const paneOff = trimOffset(0.02, 0.03);
+        const mulOff  = trimOffset(0.05, 0.035);
+        const paneParts = [], mulParts = [];
+        for (const [cx, cz, ry, len] of segments) {
+            const [nx, nz] = segNormal(ry);
+            const [tx, tz] = segTangent(ry);
+            const ox = cx + nx * paneOff, oz = cz + nz * paneOff;
+            const mx = cx + nx * mulOff,  mz = cz + nz * mulOff;
+            const panes = Math.max(2, Math.round(len / 2.4));
+            const paneLen = (len - 0.3) / panes;
+            for (let i = 0; i < panes; i++) {
+                const t = -len / 2 + 0.15 + paneLen * (i + 0.5);
+                paneParts.push({ geo: paneGeo, pos: [ox + tx * t, yCentre, oz + tz * t], rot: [0, ry, 0], scale: [paneLen * 0.92, 1, 1] });
+            }
+            for (let i = 0; i <= panes; i++) {
+                const t = -len / 2 + (len / panes) * i;
+                mulParts.push({ geo: mulGeo, pos: [mx + tx * t, yCentre, mz + tz * t], rot: [0, ry, 0] });
+            }
+        }
+        if (paneParts.length) this.scene.add(new THREE.Mesh(mergeParts(paneParts), paneMat));
+        if (mulParts.length)  this.scene.add(new THREE.Mesh(mergeParts(mulParts), steelMat));
+        paneGeo.dispose(); mulGeo.dispose();
+    };
+
+    // Perimeter floor coves — dark steel expansion channels hugging the wall
+    // faces INSIDE the room (the v1.0.0 strips sat inside the wall boxes).
+    const addCoves = (segments) => {
+        const geo = new THREE.BoxGeometry(1, 0.07, 1);
+        const d = 0.09;
+        const off = trimOffset(d, 0.085);
+        const parts = segments.map(([cx, cz, ry, len]) => {
+            const [nx, nz] = segNormal(ry);
+            const alongX = Math.abs(Math.sin(ry)) < 0.5; // ry 0 / π → wall runs along X
+            return {
+                geo,
+                pos: [cx + nx * off, 0.035, cz + nz * off],
+                rot: [0, ry, 0],
+                scale: alongX ? [len, 1, d] : [d, 1, len],
+            };
+        });
+        this.scene.add(new THREE.Mesh(mergeParts(parts), darkMat));
+        geo.dispose();
+    };
+
+    // Columns — support the joist ends near the walls. Centre measured from
+    // the wall centre plane so the column embeds 2 cm and protrudes 14 cm:
+    // reads as a steel stanchion, never floats, never hides.
+    const colSize = 0.16;
+    const colGeo  = new THREE.BoxGeometry(colSize, wh - 0.45, colSize);
+    const colCentre = (wallHalf) => wallHalf - face - colSize / 2 + 0.02;
+    const addColumns = (positions) => {
+        if (!positions.length) return;
+        const parts = positions.map(([x, z]) => ({ geo: colGeo, pos: [x, (wh - 0.45) / 2, z] }));
+        this.scene.add(new THREE.Mesh(mergeParts(parts), steelMat));
+    };
+
+    // Pendant fixtures at the fill-light positions (fixture parity — every
+    // ceiling light gets a visible origin: rod + shade + emissive disc).
+    const addPendants = (points) => {
+        const rodGeo   = new THREE.CylinderGeometry(0.02, 0.02, 0.55, 6);
+        const shadeGeo = new THREE.CylinderGeometry(0.05, 0.24, 0.22, 14);
+        const discGeo  = new THREE.CylinderGeometry(0.17, 0.17, 0.02, 12);
+        const rodParts = [], shadeParts = [], discParts = [];
+        for (const [x, z] of points) {
+            rodParts.push({ geo: rodGeo,   pos: [x, wh - 0.275, z] });
+            shadeParts.push({ geo: shadeGeo, pos: [x, wh - 0.66, z] });
+            discParts.push({ geo: discGeo,  pos: [x, wh - 0.78, z] });
+        }
+        this.scene.add(new THREE.Mesh(mergeParts(rodParts), steelMat));
+        this.scene.add(new THREE.Mesh(mergeParts(shadeParts), shadeMat));
+        this.scene.add(new THREE.Mesh(mergeParts(discParts), lampMat));
+        rodGeo.dispose(); shadeGeo.dispose(); discGeo.dispose();
+    };
+
+    // ── Layout branches ──────────────────────────────────────────────────
     if (meta.type === 'corridor') {
         const length = meta.length, width = meta.width;
-        const half   = Math.ceil((data.imageCount || 0) / 2);
-        const lanes  = Array.from({ length: half }, (_, k) => -length / 2 + spacing * (1 + k));
+        const half = Math.ceil((data.imageCount || 0) / 2);
+        const runA = Math.min(half, data.imageCount || 0);
+        const runB = Math.max(0, (data.imageCount || 0) - half);
+        const lanesA = laneObjectsFor(runA, length, 0);
+        const lanesB = laneObjectsFor(runB, length, runA);
 
-        const beamCount = Math.max(3, Math.floor(length / 5));
-        const beamStep  = length / (beamCount + 1);
-        const beamGeo   = new THREE.BoxGeometry(width + 0.4, 0.25, 0.3);
-        const beamParts = [], colParts = [];
-        for (let i = 1; i <= beamCount; i++) {
-            const x = -length / 2 + i * beamStep;
-            beamParts.push({ geo: beamGeo, pos: [x, wh - 0.12, 0] });
-            if (i % 2 === 1) {
-                const cx = avoidLanes(x, lanes);
-                [-width / 2 + 0.09, width / 2 - 0.09].forEach(z => {
-                    colParts.push({ geo: colGeo, pos: [cx, wh / 2, z] });
-                });
-            }
-        }
-        this.scene.add(new THREE.Mesh(mergeParts(beamParts), beamMat));
-        this.scene.add(new THREE.Mesh(mergeParts(colParts), beamMat));
-        beamGeo.dispose();
+        // Stanchion slots from the hang's own gaps, per wall (each side's
+        // run centres independently). The joist grid gains a joist at every
+        // chosen slot so each stanchion supports a real member; walls keep
+        // their centre spawn lane and end zones clear.
+        const slotsA = slotsFor(lanesA, length);
+        const slotsB = slotsFor(lanesB, length);
+        const joistCount = Math.max(3, Math.round(length / 4));
+        const gridStep = length / (joistCount + 1);
+        // One merged grid: even bays + every stanchion slot (deduped) — each
+        // column visibly supports a real joist.
+        const joistXs = addJoists({
+            runAxis: 'z', span: width + 0.4, bayX: 0,
+            stepFrom: -length / 2, stepTo: length / 2, count: joistCount,
+            at: [...new Set([...slotsA, ...slotsB])].filter(x =>
+                !slotsAreNear(x, -length / 2, gridStep)),
+        });
+        const cols = [];
+        const zCol = colCentre(width / 2);
+        for (const x of slotsA) cols.push([x, -zCol]); // wall A side
+        for (const x of slotsB) cols.push([x,  zCol]); // wall B side
+        addColumns(cols);
 
-        // Perimeter coves (replace the old center grates) + eye-level props.
-        addLoftPerimeterCoves.call(this, [
-            { cx: 0, cz: -width / 2 + 0.1, w: length - 0.8, d: 0.09 },
-            { cx: 0, cz:  width / 2 - 0.1, w: length - 0.8, d: 0.09 },
-            { cx: -length / 2 + 0.1, cz: 0, w: 0.09, d: width - 0.8 },
-            { cx:  length / 2 - 0.1, cz: 0, w: 0.09, d: width - 0.8 },
-        ], coveMat);
-        addLoftEyeLevelProps.call(this, { length, width, beamY: wh - 0.12, alongX: true });
+        // Perimeter coves + clerestory band on the long walls + pendants at
+        // the corridor fill-light positions (x = ±length/4).
+        addCoves([
+            [0, -width / 2, 0,          length - 0.8],
+            [0,  width / 2, Math.PI,    length - 0.8],
+            [-length / 2, 0, Math.PI / 2, width - 0.8],
+            [ length / 2, 0, -Math.PI / 2, width - 0.8],
+        ]);
+        addWindowBand([
+            [0, -width / 2, 0,       length - 1.6],
+            [0,  width / 2, Math.PI, length - 1.6],
+        ], wh - 1.75, 1.05);
+        addPendants([[-length / 4, 0], [length / 4, 0]]);
+
+        // Eye-level props + joist-mounted track heads (corridor hangs on the
+        // LONG walls, so the end zones past the last lane are prop-safe).
+        addLoftEyeLevelProps.call(this, {
+            length, width, joistY,
+            joistXs: joistXs,
+            crateMat, steelMat, lampMat,
+        });
     } else if (meta.type === 'square') {
         const L = meta.wallLength;
-        const perWall = Math.ceil((data.imageCount || 0) / 4);
-        const lanes   = Array.from({ length: perWall }, (_, k) => -L / 2 + spacing * (1 + k));
+        const perWall  = Math.ceil((data.imageCount || 0) / 4);
+        const outer    = data.imageCount || 0;
+        const runLens  = [0, 1, 2, 3].map(i => Math.max(0, Math.min(perWall, outer - i * perWall)));
+        // Columns on the ±x edges interact with the left/right walls' runs
+        // (walls[2] hangs images [rc0+rc1 .. +rc2), walls[3] the remainder).
+        const lanesZ   = laneObjectsFor(runLens[2], L, runLens[0] + runLens[1])
+            .concat(laneObjectsFor(runLens[3], L, runLens[0] + runLens[1] + runLens[2]));
+        const lanesX   = laneObjectsFor(runLens[0], L, 0)
+            .concat(laneObjectsFor(runLens[1], L, runLens[0]));
 
-        const beamCount = Math.max(3, Math.floor(L / 5));
-        const beamStep  = L / (beamCount + 1);
-        const beamGeo   = new THREE.BoxGeometry(0.3, 0.25, L + 0.4);
-        const beamParts = [], colParts = [];
-        for (let i = 1; i <= beamCount; i++) {
-            const z = -L / 2 + i * beamStep;
-            beamParts.push({ geo: beamGeo, pos: [0, wh - 0.12, z] });
-            if (i % 2 === 1) {
-                const cz = avoidLanes(z, lanes);
-                [-L / 2 + 0.09, L / 2 - 0.09].forEach(x => {
-                    colParts.push({ geo: colGeo, pos: [x, wh / 2, cz] });
-                });
-            }
-        }
-        this.scene.add(new THREE.Mesh(mergeParts(beamParts), beamMat));
-        this.scene.add(new THREE.Mesh(mergeParts(colParts), beamMat));
-        beamGeo.dispose();
+        // Stanchion slots from the left/right walls' hang gaps; joist grid
+        // extended to meet them (same build-out logic as the corridor).
+        const slotsZ = slotsFor(lanesZ, L);
+        const joistCount = Math.max(3, Math.round(L / 4.5));
+        const gridStep = L / (joistCount + 1);
+        const joistZs = addJoists({
+            runAxis: 'z', span: L + 0.4, bayX: 0,
+            stepFrom: -L / 2, stepTo: L / 2, count: joistCount,
+            at: slotsZ.filter(z => !slotsAreNear(z, -L / 2, gridStep)),
+        });
+        const cols = [];
+        const cx = colCentre(L / 2);
+        for (const z of slotsZ) cols.push([cx, z], [-cx, z]);
+        addColumns(cols);
 
-        addLoftPerimeterCoves.call(this, [
-            { cx: 0, cz: -L / 2 + 0.1, w: L - 0.8, d: 0.09 },
-            { cx: 0, cz:  L / 2 - 0.1, w: L - 0.8, d: 0.09 },
-            { cx: -L / 2 + 0.1, cz: 0, w: 0.09, d: L - 0.8 },
-            { cx:  L / 2 - 0.1, cz: 0, w: 0.09, d: L - 0.8 },
-        ], coveMat);
-        addLoftEyeLevelProps.call(this, { length: L, width: L, beamY: wh - 0.12, alongX: true });
+        addCoves([
+            [0, -L / 2, 0,            L - 0.8],
+            [0,  L / 2, Math.PI,      L - 0.8],
+            [-L / 2, 0, Math.PI / 2,  L - 0.8],
+            [ L / 2, 0, -Math.PI / 2, L - 0.8],
+        ]);
+        addWindowBand([
+            [0, -L / 2, 0,      L - 1.6],
+            [0,  L / 2, Math.PI, L - 1.6],
+            [-L / 2, 0, Math.PI / 2,  L - 1.6],
+            [ L / 2, 0, -Math.PI / 2, L - 1.6],
+        ], wh - 1.75, 1.05);
+
+        // Fixture parity: the square builder's 2×2 fill grid sits at
+        // (−L/2 + L/3 + i·L/3, −L/2 + L/3 + j·L/3) = (±L/6, ±L/6).
+        addPendants([
+            [-L / 6, -L / 6], [L / 6, -L / 6],
+            [-L / 6,  L / 6], [L / 6,  L / 6],
+        ]);
+
+        addLoftEyeLevelProps.call(this, {
+            length: L, width: L, joistY,
+            squareJoistZs: joistZs,
+            crateMat, steelMat, lampMat,
+        });
     } else if (meta.type === 'l-shape') {
-        // Wing A only — the structure follows the highest artwork density;
-        // documented in the iteration report (l-shape structural scope).
-        const { wingW, lenA } = meta;
-        const zStart = -lenA / 2 + spacing;
-        const zLimit = lenA / 2 - wingW - spacing / 2;
-        const lanes  = [];
-        for (let z = zStart; z < zLimit; z += spacing * 2) lanes.push(z); // sideA alternation → every 2nd spacing
+        // Wing A gets the full treatment (v1.0.0 was joists only); wing B
+        // stays calm — the hang's density lives in wing A.
+        const { wingW, lenA, zStart, zLimit } = meta;
 
-        const beamCount = Math.max(2, Math.floor(lenA / 5));
-        const beamStep  = lenA / (beamCount + 1);
-        const beamGeo   = new THREE.BoxGeometry(wingW + 0.4, 0.25, 0.3);
-        const beamParts = [], colParts = [];
-        for (let i = 1; i <= beamCount; i++) {
-            const z = -lenA / 2 + i * beamStep;
-            beamParts.push({ geo: beamGeo, pos: [wingW / 2, wh - 0.12, z] });
-            if (i % 2 === 1) {
-                const cz = avoidLanes(z, lanes);
-                [0 + 0.09, wingW - 0.09].forEach(x => {
-                    colParts.push({ geo: colGeo, pos: [x, wh / 2, cz] });
-                });
-            }
+        // Lanes from the placer's ACTUAL alternating-row walk: image i sits
+        // at z = zStart + floor(i/2)·spacing, sides alternating — one lane
+        // object per image, carrying its own half-width.
+        const lanes = [];
+        for (let i = 0; i < (data.imageCount || 0); i++) {
+            const z = zStart + Math.floor(i / 2) * spacing;
+            if (z > zLimit) break;
+            lanes.push({ pos: z, half: artHalfWidths[i] ?? 1.0 });
         }
-        this.scene.add(new THREE.Mesh(mergeParts(beamParts), beamMat));
-        this.scene.add(new THREE.Mesh(mergeParts(colParts), beamMat));
-        beamGeo.dispose();
 
-        addLoftPerimeterCoves.call(this, [
-            { cx: wingW / 2, cz: -lenA / 2 + 0.1, w: wingW - 0.8, d: 0.09 },
-            { cx: wingW / 2, cz:  lenA / 2 - 0.1, w: wingW - 0.8, d: 0.09 },
-            { cx: 0.1,           cz: 0, w: 0.09, d: lenA - 0.8 },
-            { cx: wingW - 0.1,   cz: 0, w: 0.09, d: lenA - 0.8 },
-        ], coveMat);
+        // Stanchion slots from wing A's hang gaps; joist grid extended to
+        // meet them (same build-out logic as the corridor).
+        const slotsA = slotsFor(lanes, lenA);
+        const joistCount = Math.max(2, Math.round(lenA / 4.5));
+        const gridStep = lenA / (joistCount + 1);
+        addJoists({
+            runAxis: 'x', span: wingW + 0.4, bayX: wingW / 2,
+            stepFrom: -lenA / 2, stepTo: lenA / 2, count: joistCount,
+            at: slotsA.filter(z => !slotsAreNear(z, -lenA / 2, gridStep)),
+        });
+        const cols = [];
+        for (const z of slotsA) cols.push([face + colSize / 2 - 0.02, z], [wingW - face - colSize / 2 + 0.02, z]);
+        addColumns(cols);
+
+        addCoves([
+            [wingW / 2, -lenA / 2, 0,          wingW - 0.8],
+            [wingW / 2,  lenA / 2, Math.PI,    wingW - 0.8],
+            [0,      0, Math.PI / 2,  lenA - 0.8],
+            [wingW,  0, -Math.PI / 2, lenA - 0.8],
+        ]);
+        addWindowBand([
+            [0,     0, Math.PI / 2,  lenA - 1.6],
+            [wingW, 0, -Math.PI / 2, lenA - 1.6],
+        ], wh - 1.75, 1.05);
+
+        // Fixture parity: wing A fills at (aCX, ±lenA/4); wing B fill at
+        // (bCX, bCZ) — the same (x, z) createRoomLShape's mkLight used.
+        addPendants([
+            [wingW / 2, -lenA / 4],
+            [wingW / 2,  lenA / 4],
+            [wingW + meta.lenB / 2, meta.jZ],
+        ]);
     }
     colGeo.dispose();
 }
 
-// Perimeter cove strips — merged into ONE mesh (replaces the old center
-// floor grates; §4.3 "replace center-floor grates with perimeter details").
-function addLoftPerimeterCoves(strips, coveMat) {
-    const geo   = new THREE.BoxGeometry(1, 0.07, 1);
-    const parts = strips.map(s => ({
-        geo,
-        pos: [s.cx, 0.035, s.cz],
-        scale: undefined,
-    }));
-    // Scale per strip: BoxGeometry(1,0.07,1) scaled to (w, 1, d).
-    parts.forEach((p, i) => { p.scale = [strips[i].w, 1, strips[i].d]; });
-    this.scene.add(new THREE.Mesh(mergeParts(parts), coveMat));
-    geo.dispose();
-}
-
-// Eye-level industrial props — crates, rack, track-light heads.
-// Positioned in the END zones past the last artwork lane (corridor places
-// artworks on the long walls only, so the end zones are prop-safe).
-function addLoftEyeLevelProps({ length, width, beamY, alongX }) {
-    const crateMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0x6a5230 })
-        : new THREE.MeshStandardMaterial({ color: 0x6a5230, roughness: 0.9, metalness: 0.0 });
-    const steelMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0x2a2c30 })
-        : new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.45, metalness: 0.85 });
-    const lampMat  = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0xfff2dd, emissive: 0xffe9c8, emissiveIntensity: 1.6 })
-        : new THREE.MeshStandardMaterial({ color: 0xfff2dd, emissive: 0xffe9c8, emissiveIntensity: 1.6, roughness: 0.5 });
-
+// Eye-level industrial props — crates + rack + joist-mounted track heads.
+// Spawn-safe by construction: the rack stands against the SIDE of the aisle
+// (the v1.0.0 rack sat on the corridor's exact spawn point), both clusters
+// keep the centre lane clear, and the track heads mount under REAL joist
+// positions instead of floating at arbitrary end-zone coordinates.
+function addLoftEyeLevelProps({ length, width, joistY, joistXs, squareJoistZs, crateMat, steelMat, lampMat }) {
     const endX = length / 2 - 1.4;
 
-    // Crates (cluster, +end) — merged, registered as one obstacle.
+    // Crates (cluster, +end, offset off the centre lane) — merged, one obstacle.
     const crateGeo = new THREE.BoxGeometry(1, 1, 1);
     const crateParts = [
         { geo: crateGeo, pos: [ endX, 0.3, -width / 4 ], rot: [0, 0.12, 0], scale: [0.78, 0.6, 0.78] },
@@ -615,28 +884,43 @@ function addLoftEyeLevelProps({ length, width, beamY, alongX }) {
     this.scene.add(crates);
     this.registerObstacle(crates, 0.2);
 
-    // Rack (steel shelving, −end) — merged, registered as one obstacle.
+    // Rack (steel shelving, −end, SIDE of the aisle) — merged, one obstacle.
+    // The rack body spans z ∈ [width/4 − 0.85, width/4 + 0.85]; padded it
+    // never reaches the spawn lane (z = 0) for any supported corridor width.
     const upGeo   = new THREE.BoxGeometry(0.06, 1.8, 0.06);
     const shelfGeo = new THREE.BoxGeometry(0.5, 0.04, 1.7);
+    const rackZ = width / 4;
     const rackParts = [
-        { geo: upGeo, pos: [ -endX, 0.9, -0.85 ] },
-        { geo: upGeo, pos: [ -endX, 0.9,  0.85 ] },
-        { geo: shelfGeo, pos: [ -endX, 0.55, 0 ] },
-        { geo: shelfGeo, pos: [ -endX, 1.15, 0 ] },
+        { geo: upGeo, pos: [ -endX, 0.9, rackZ - 0.85 ] },
+        { geo: upGeo, pos: [ -endX, 0.9, rackZ + 0.85 ] },
+        { geo: shelfGeo, pos: [ -endX, 0.55, rackZ ] },
+        { geo: shelfGeo, pos: [ -endX, 1.15, rackZ ] },
     ];
     const rack = new THREE.Mesh(mergeParts(rackParts), steelMat);
     upGeo.dispose(); shelfGeo.dispose();
     this.scene.add(rack);
     this.registerObstacle(rack, 0.2);
 
-    // Track-light heads on the two outermost beams — visual fixtures under
-    // the existing fill lights (no new dynamic lights — PERF-B18 discipline).
+    // Track-light heads — mounted under actual joists (corridor: joists step
+    // along X, heads ride the two flanking the aisle centre; square: joists
+    // step along Z, one head rides the centre joist). Heads hang flush under
+    // the joist underside, aimed down the aisle axis.
     const headGeo = new THREE.CylinderGeometry(0.07, 0.05, 0.2, 10);
-    const headParts = [ -endX, -endX / 2, endX / 2, endX ].map(x => ({
-        geo: headGeo,
-        pos: [x * (alongX ? 1 : 0), beamY - 0.16, x * (alongX ? 0 : 1)],
-    }));
-    this.scene.add(new THREE.Mesh(mergeParts(headParts), lampMat));
+    const headParts = [];
+    if (Array.isArray(joistXs) && joistXs.length) {
+        const mid = Math.floor(joistXs.length / 2);
+        [mid - 1, mid + 1].forEach(i => {
+            if (i >= 0 && i < joistXs.length) {
+                headParts.push({ geo: headGeo, pos: [joistXs[i], joistY - 0.13 - 0.1, 0] });
+            }
+        });
+    } else if (Array.isArray(squareJoistZs) && squareJoistZs.length) {
+        const mid = Math.floor(squareJoistZs.length / 2);
+        headParts.push({ geo: headGeo, pos: [0, joistY - 0.13 - 0.1, squareJoistZs[mid]] });
+    }
+    if (headParts.length) {
+        this.scene.add(new THREE.Mesh(mergeParts(headParts), lampMat));
+    }
     headGeo.dispose();
 }
 
