@@ -186,6 +186,75 @@
             },
             version: '2.0.0',
         },
+        // Nebula Drift — the violet starfield venue (forensic comparison body:
+        // does the DEPLOYED screenshot match THIS venue's pipeline instead of
+        // infinite-void's?). Mirrors seeder rows + the phenomena migration.
+        'nebula-drift': {
+            id: 7, slug: 'nebula-drift', name: 'Nebula Drift', category: 'abstract',
+            visual_config: {
+                wall_height: 15, wall_depth: 0.3, ceiling_type: 'none', ceiling_height: 0,
+                background_color: '0x050015', fog_color: '0x050015', fog_near: 10, fog_far: 40,
+                ambient_color: '0x8844ff', ambient_intensity: 0.2, spot_intensity: 0.55,
+                fill_intensity: 0.15, tone_mapping_exposure: 0.6, frame_override: null,
+                placement_mode: 'float', env_intensity: 0.05,
+                structure_pass: 'phenomena', open_air: true, layout_shape: 'circular',
+                void_starfield: true,
+            },
+            material_config: {
+                wall_color: '0x080015', wall_roughness: 0.4, wall_metalness: 0.2, wall_normal_strength: 0.3,
+                floor_color: '0x100525', floor_roughness: 0.3, floor_metalness: 0.5, floor_normal_strength: 0.3,
+            },
+            decorations: [],
+            lighting_fixtures: [
+                { id: 'nebula-center', type: 'point', position: [0, 5, 0], color: '0x8844ff', intensity: 0.5, cast_shadow: false, distance: 30, decay: 1.5 },
+            ],
+            supported_layouts: ['rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'dramatic',
+                frame_style: 'minimal', room_layout: 'rotunda',
+            },
+            version: '1.0.0',
+        },
+        // ── FORENSIC REGRESSION BODY (deployed-screenshot incident) ────────
+        // The EXACT merged visual_config a gallery served on 2026-09-05 whose
+        // curator had saved Live-Preview overrides on top of the healthy
+        // infinite-void row: saturated purple background (the floor_edge_fade
+        // ramps to it → the garish violet band), a pre-polish dim rig
+        // (ambient 0.11 / spot 0.48 / exposure 0.55 → murk), wall/floor PBR
+        // detuned, fog_far 60 with a null colour, and stale no-op post_fx.
+        // Pins the incident mechanism so the override layer's render path
+        // stays screenshot-regressed: purple in ⇒ purple out. The healthy
+        // venue body above is the fix target.
+        'infinite-void-overridden': {
+            id: 2, slug: 'infinite-void', name: 'Infinite Void', category: 'abstract',
+            visual_config: {
+                fog_far: 60, fog_near: 0, fog_color: null,
+                post_fx: { bloom: false, vignette: true, vignette_offset: 1.35, vignette_darkness: 1 },
+                open_air: true, placement: { depth_bands: 2 }, void_dust: true,
+                wall_depth: 0.3, wall_height: 6, ceiling_type: 'none', ceiling_height: 0,
+                layout_shape: 'circular', ambient_color: '0xa0b0d0', env_intensity: 0,
+                fill_intensity: 0.2, frame_override: null, placement_mode: 'float',
+                spot_intensity: 0.48, structure_pass: 'phenomena', floor_edge_fade: true,
+                background_color: '0x6D0DA0', ambient_intensity: 0.11,
+                artwork_light_base: 0.45, void_depth_gradient: true,
+                tone_mapping_exposure: 0.55, artwork_light_pool_cap: 12,
+            },
+            material_config: {
+                wall_color: '0x050505', floor_color: '0x0a0a0a', texture_tint: true,
+                wall_metalness: 0.48, wall_roughness: 0.11,
+                floor_metalness: 0.39, floor_roughness: 0.32,
+                wall_normal_strength: 0.4, floor_normal_strength: 0.4,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                frame_style: 'modern', room_layout: 'rotunda', wall_texture: 'white',
+                floor_material: 'marble', lighting_preset: 'dramatic',
+            },
+            version: '2.0.0',
+        },
     };
     const venueSlug = q.get('venue') || 'white-cube';
     const venueConfig = VENUES[venueSlug] || VENUES['white-cube'];

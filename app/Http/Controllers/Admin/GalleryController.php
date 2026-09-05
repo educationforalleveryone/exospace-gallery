@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
 use App\Models\AdminAuditLog;
 use App\Models\Gallery;
 use App\Models\Team;
+use App\Models\VenueTemplate;
 use App\Services\CoolifyDomainManager;
 use App\Services\VenueConfigExporter;
 use Illuminate\Http\Request;
@@ -143,7 +144,10 @@ class GalleryController extends Controller
                 'audio_path'        => $audioPath,
                 'custom_logo_path'  => $logoPath,
                 'custom_domain'     => $customDomain,
-                'visual_overrides'  => $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null),
+                'visual_overrides'  => $this->normalizeVisualOverrides(
+                    $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null),
+                    $venueTemplateId ? VenueTemplate::find($venueTemplateId) : null
+                ),
             ]);
         } catch (\Throwable $e) {
             \Log::error('Gallery::create failed', [
@@ -511,7 +515,16 @@ class GalleryController extends Controller
         $this->handleFileUploads($request, $gallery, $planHolder, $validated);
         $this->handlePinAndSchedule($request, $validated);
         $this->handleVenueTemplate($validated);
-        $validated['visual_overrides'] = $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null);
+        // Persisted overrides are normalized against the venue's CURRENT
+        // declaration (see normalizeVisualOverrides) so a curator save can
+        // never lay a silent no-op layer over the venue row. The venue is
+        // resolved from the VALIDATED id (not the stale relation) because a
+        // single save may switch venues AND submit overrides together.
+        $normalizedAgainstId = $validated['venue_template_id'] ?? $gallery->venue_template_id;
+        $validated['visual_overrides'] = $this->normalizeVisualOverrides(
+            $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null),
+            $normalizedAgainstId ? VenueTemplate::find($normalizedAgainstId) : null
+        );
 
         // Custom domain handling may return early on uniqueness conflict
         $domainResult = $this->handleCustomDomain($request, $gallery, $planHolder, $validated);
@@ -1027,6 +1040,97 @@ class GalleryController extends Controller
         // hasVisualOverrides() returns false when the curator hits "Reset all".
         $clean = array_filter($clean, fn ($bucket) => !empty($bucket));
         return empty($clean) ? null : $clean;
+    }
+
+    /**
+     * Normalize persisted visual_overrides against the venue template's
+     * CURRENT declaration, then drop what stopped being an override.
+     *
+     * WHY (deployed-screenshot incident, 2026-09-05): a gallery served a
+     * broken-looking Infinite Void for days because its override column
+     * carried a purple background + a pre-polish dim rig + a stale
+     * post_fx {bloom_strength, vignette_darkness} saved from an old panel
+     * session — an invisible layer the admin UI only reveals when you open
+     * the Live Preview panel. Because the override layer ALWAYS wins over
+     * the venue row (by design), every later venue-side remediation
+     * silently no-ops for such galleries. This normalization removes the
+     * classes of override that carry no curator intent:
+     *
+     *   • no-op values — a key whose (canonicalized) value equals the
+     *     venue's current value is NOT a customization; persisting it only
+     *     freezes the venue's today-state over its future fixes.
+     *   • colour-format drift — '#6D0DA0' vs '0x6d0da0' are the same
+     *     colour to the renderer; the column stores the canonical '0x…'
+     *     form so future equality checks and diffs are exact.
+     *
+     * Real deviations (the purple experiment itself, e.g.) still persist —
+     * curator intent is untouched. Keys the venue does not declare are
+     * kept as-is: deviating from an undeclared key IS intent.
+     */
+    private function normalizeVisualOverrides(?array $overrides, ?VenueTemplate $venue): ?array
+    {
+        if (!$overrides || !$venue) {
+            return $overrides;
+        }
+
+        $venueVisual   = is_array($venue->visual_config)   ? $venue->visual_config   : [];
+        $venueMaterial = is_array($venue->material_config) ? $venue->material_config : [];
+        // The venue declares post-processing INSIDE visual_config.post_fx.
+        $venuePostFx   = is_array($venueVisual['post_fx'] ?? null) ? $venueVisual['post_fx'] : [];
+
+        $buckets = [
+            'visual_config'   => $venueVisual,
+            'material_config' => $venueMaterial,
+            'post_fx'         => $venuePostFx,
+        ];
+
+        foreach ($buckets as $bucket => $defaults) {
+            if (empty($overrides[$bucket]) || empty($defaults)) {
+                continue;
+            }
+            foreach ($overrides[$bucket] as $key => $value) {
+                if (!array_key_exists($key, $defaults)) {
+                    // Undeclared in the venue — a real deviation either way.
+                    $overrides[$bucket][$key] = $this->canonicalizeOverrideValue($value);
+                    continue;
+                }
+                if ($this->overrideValueEquals($value, $defaults[$key])) {
+                    unset($overrides[$bucket][$key]);
+                } else {
+                    $overrides[$bucket][$key] = $this->canonicalizeOverrideValue($value);
+                }
+            }
+            if (empty($overrides[$bucket])) {
+                unset($overrides[$bucket]);
+            }
+        }
+
+        return empty($overrides) ? null : $overrides;
+    }
+
+    /** Equality that forgives representation: '0.90' == 0.9 for numbers,
+     * '#FF0000' == '0xff0000' for colours. Everything else is strict. */
+    private function overrideValueEquals($a, $b): bool
+    {
+        if (is_numeric($a) && is_numeric($b)) {
+            return (float) $a === (float) $b;
+        }
+        if (is_string($a) && is_string($b)) {
+            $ca = $this->canonicalizeOverrideValue($a);
+            $cb = $this->canonicalizeOverrideValue($b);
+            return $ca === $cb;
+        }
+        return $a === $b;
+    }
+
+    /** Canonical form for persisted override values: '0xrrggbb' (lowercase)
+     * for six-digit hex colours (both 0x… and #… spellings), else unchanged. */
+    private function canonicalizeOverrideValue($value)
+    {
+        if (is_string($value) && preg_match('/^(?:0x|#)([0-9a-fA-F]{6})$/', $value, $m)) {
+            return '0x' . strtolower($m[1]);
+        }
+        return $value;
     }
 
     /**

@@ -72,7 +72,18 @@ class VenueConfigExporter
      * The merge order is:
      *   venue->visual_config  ←  gallery->visual_overrides['visual_config']
      *   venue->material_config ← gallery->visual_overrides['material_config']
-     *   venue has no post_fx column yet, so post_fx comes ONLY from overrides.
+     *   (post_fx: the venue declares post-processing inside
+     *   visual_config.post_fx — that merged object IS the authority the
+     *   runtime reads. The old legacy-shaped sibling `post_fx` bucket this
+     *   method used to export next to visual_config was read by NOTHING on
+     *   the page-load path (live-preview patches travel over postMessage),
+     *   so shipping it was dead bytes with a trap attached: any future
+     *   consumer would have silently defeated the venue's declared
+     *   post_fx — exactly the class of stale-override bug the
+     *   2026-09-05 deployed-screenshot incident turned on. Removed; the
+     *   curator's saved post_fx overrides still reach the panel via the
+     *   gallery model itself (live-preview-panel.blade.php reads
+     *   $overrides['post_fx'] directly), never through this payload.)
      *
      * Null values inside the override buckets are stripped before merge so
      * that "reset to default" (which writes null) doesn't clobber the venue
@@ -146,9 +157,11 @@ class VenueConfigExporter
             );
         }
 
-        if (!empty($overrides['post_fx'])) {
-            $config['post_fx'] = array_filter($overrides['post_fx'], fn ($v) => !is_null($v));
-        }
+        // NOTE: gallery visual_overrides['post_fx'] is deliberately NOT
+        // exported here. See the class-level merge-order note above — the
+        // runtime's only boot-time post-fx authority is the merged
+        // visual_config.post_fx; the panel applies curator post-fx edits as
+        // live patches over postMessage.
 
         // Filter decorations by the visitor's plan so a Free visitor
         // doesn't see Studio-only props.
@@ -245,24 +258,18 @@ class VenueConfigExporter
         $config = $this->forGallery($gallery);
         if (!$config) return null;
 
-        $merged = [
-            'visual_config'   => array_merge(
-                $config['visual_config']   ?? [],
-                array_filter($runtimeOverrides['visual_config']   ?? [], fn ($v) => !is_null($v))
-            ),
-            'material_config' => array_merge(
-                $config['material_config'] ?? [],
-                array_filter($runtimeOverrides['material_config'] ?? [], fn ($v) => !is_null($v))
-            ),
-            'post_fx'         => array_merge(
-                $config['post_fx']         ?? [],
-                array_filter($runtimeOverrides['post_fx']         ?? [], fn ($v) => !is_null($v))
-            ),
-        ];
-
-        $config['visual_config']   = $merged['visual_config'];
-        $config['material_config'] = $merged['material_config'];
-        $config['post_fx']         = $merged['post_fx'];
+        // Runtime post_fx overrides are NOT merged into the payload here —
+        // the iframe receives them as live postMessage patches (the only
+        // consumer of patch-shaped post_fx), keeping one post-fx authority
+        // in the payload: visual_config.post_fx.
+        $config['visual_config']   = array_merge(
+            $config['visual_config']   ?? [],
+            array_filter($runtimeOverrides['visual_config']   ?? [], fn ($v) => !is_null($v))
+        );
+        $config['material_config'] = array_merge(
+            $config['material_config'] ?? [],
+            array_filter($runtimeOverrides['material_config'] ?? [], fn ($v) => !is_null($v))
+        );
 
         return $config;
     }

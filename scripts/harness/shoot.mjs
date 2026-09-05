@@ -84,6 +84,12 @@ const SCENARIOS = [
     { id: 'void-08-extreme',      q: 'venue=infinite-void&count=8&orient=extreme' },
     // Infinite Void — tier degradation
     { id: 'void-tier-low-06',     q: 'venue=infinite-void&count=6', tier: 'low' },
+    // Nebula Drift — forensic comparison against the deployed screenshot
+    { id: 'nebula-06',            q: 'venue=nebula-drift&count=6' },
+    { id: 'nebula-12-mixed',      q: 'venue=nebula-drift&count=12' },
+    // Deployed-screenshot incident regression: the exact overridden-gallery
+    // config (purple background + dim rig) vs the restored venue defaults.
+    { id: 'void-overridden-12',   q: 'venue=infinite-void-overridden&count=12' },
 ];
 
 const tierInit = {
