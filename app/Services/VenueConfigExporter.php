@@ -76,8 +76,20 @@ class VenueConfigExporter
      * full atmosphere/architecture/rig list below. Cached payloads built
      * under s1 may still carry leaked keys — the version bump re-keys every
      * gallery so the next render recomputes under the new guard.
+     *
+     * s3 (post-hotfix residual incident, 2026-09-06): the user's second
+     * deployed screenshot proved the stale layer also rode through the two
+     * buckets s2 did NOT guard — material_config (only texture_tint was
+     * owned, so a white-cube-era floor layer recomposed the museum's dark
+     * stone into a bright polished plane that ambient 3.2 lifts into the
+     * brightest surface in the room) and visual_config.post_fx (a nested
+     * object key; array_merge replaces the venue's whole post-fx object, so
+     * a stale {bloom:true} re-armed bloom and fell the blend back to the
+     * stock grey glow). post_fx + placement are now venue-owned nested
+     * keys, the material identity set is owned in full, and this bump
+     * re-keys every gallery so the residual layer heals on deploy.
      */
-    public const SCHEMA = 's2';
+    public const SCHEMA = 's3';
 
     /**
      * VENUE-OWNED ATMOSPHERE, ARCHITECTURE AND RIG (visual_config).
@@ -101,6 +113,15 @@ class VenueConfigExporter
      *     artwork legibility floor: the v2 museum's readability contract
      *     ("no artwork sits in the dark") is enforced by these numbers; a
      *     stale pre-polish rig defeats every venue-side remediation.
+     *   • curation    — placement: the density/focal-wall/pairing object IS
+     *     the venue's hang. A stale packed-density layer re-crams the walls
+     *     and undoes the composed arrival (s3).
+     *   • presentation— post_fx: a NESTED object under visual_config, which
+     *     array_merge replaces WHOLESALE — a stale {bloom:true} from the
+     *     pre-restraint era re-arms bloom and drops the venue's black-blend
+     *     vignette back to the stock grey glow (the s3 residual incident's
+     *     haloed lights and lifted blacks). Owned as one object: bloom on/
+     *     off is the venue's restraint declaration, not a per-gallery knob.
      *
      * Stripped unconditionally at every layer (save-side normalizer,
      * buildConfig merge, preview runtime patches) — legacy rows HEAL on
@@ -118,15 +139,38 @@ class VenueConfigExporter
         'fill_intensity', 'hemisphere_intensity', 'env_intensity',
         'tone_mapping_exposure',
         'artwork_light_base', 'artwork_light_pool_cap',
+        // curation + presentation (s3 — nested objects, owned wholesale)
+        'placement', 'post_fx',
     ];
 
     /**
-     * Venue-owned material plumbing. texture_tint is not a look — it is the
-     * flag that lets the venue's declared colours reach textured builds at
-     * all (its absence was the v1.0.0 museum's White-Cube-white headline
-     * bug). A saved false re-breaks every textured venue.
+     * Venue-owned material identity, owned IN FULL as of s3.
+     *
+     * texture_tint is not a look — it is the flag that lets the venue's
+     * declared colours reach textured builds at all (its absence was the
+     * v1.0.0 museum's White-Cube-white headline bug). A saved false
+     * re-breaks every textured venue.
+     *
+     * s3 (post-hotfix residual incident): texture_tint alone was far too
+     * narrow a guard. The user's second deployed screenshot showed the
+     * museum with healed fog/walls/rig but a BRIGHT POLISHED FLOOR — a
+     * white-cube-era floor layer (light colour + low roughness + metal)
+     * riding through the unguarded material bucket, defeating the venue's
+     * declared dark stone (0x3a3835 / 0.3 / 0.15) and, lifted by the rig's
+     * own ambient, becoming the brightest plane in the room — the exact
+     * hierarchy inversion the night wing was built to prevent. The venue
+     * composes its materials the same way it composes its atmosphere: the
+     * full declared set below is venue authority now. The panel's four
+     * roughness/metalness sliders are retired with this change (same
+     * grounds as the fog/exposure retirements — the panel keeps the
+     * legitimate lanes: materials pickers, frames, audio).
      */
-    public const VENUE_OWNED_MATERIAL_KEYS = ['texture_tint'];
+    public const VENUE_OWNED_MATERIAL_KEYS = [
+        'texture_tint',
+        'wall_color', 'wall_roughness', 'wall_metalness', 'wall_normal_strength',
+        'floor_color', 'floor_roughness', 'floor_metalness',
+        'floor_normal_strength', 'floor_tile_meters',
+    ];
 
     /**
      * True when a visual_config key is venue-owned. The void_* effect flags
@@ -190,8 +234,8 @@ class VenueConfigExporter
         $venueTs = $gallery->venueTemplate?->updated_at?->timestamp ?? '0';
         $plan = $gallery->user->plan ?? 'free';
         // :s{SCHEMA} — bumped when merge semantics change, so already-cached
-        // payloads bust on deploy (the s2 authority-set expansion must not
-        // wait out the 1 h + 2 h stale window to take effect).
+        // payloads bust on deploy (an authority-set expansion must not wait
+        // out the 1 h + 2 h stale window to take effect).
         $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:p{$plan}:" . self::SCHEMA;
 
         return Cache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery) {
@@ -412,14 +456,24 @@ class VenueConfigExporter
         // consumer of patch-shaped post_fx), keeping one post-fx authority
         // in the payload: visual_config.post_fx.
         //
-        // The venue-owned set (atmosphere/architecture/rig — see buildConfig)
-        // is likewise excluded: a stale panel or a hand-crafted ?override=
-        // URL cannot repaint the venue through the preview payload either.
+        // The venue-owned set (atmosphere/architecture/rig/curation/
+        // presentation — see buildConfig) is likewise excluded: a stale panel
+        // or a hand-crafted ?override= URL cannot repaint the venue through
+        // the preview payload either.
         $runtimeVisual = array_filter($runtimeOverrides['visual_config'] ?? [], fn ($v) => !is_null($v));
         foreach (array_keys($runtimeVisual) as $key) {
             if (self::isVenueOwnedKey((string) $key)) {
                 unset($runtimeVisual[$key]);
             }
+        }
+
+        // s3: the runtime MATERIAL patch gets the same guard. Before this,
+        // a hand-crafted preview override could still chrome-plate the
+        // venue's floor through material_config even after buildConfig was
+        // fully guarded.
+        $runtimeMaterial = array_filter($runtimeOverrides['material_config'] ?? [], fn ($v) => !is_null($v));
+        foreach (self::VENUE_OWNED_MATERIAL_KEYS as $owned) {
+            unset($runtimeMaterial[$owned]);
         }
 
         $config['visual_config']   = array_merge(
@@ -428,7 +482,7 @@ class VenueConfigExporter
         );
         $config['material_config'] = array_merge(
             $config['material_config'] ?? [],
-            array_filter($runtimeOverrides['material_config'] ?? [], fn ($v) => !is_null($v))
+            $runtimeMaterial
         );
 
         return $config;

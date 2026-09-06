@@ -259,19 +259,25 @@ const collisionsSrc = readFileSync(rel('resources/js/gallery/Collisions.js'), 'u
 ok('circular bound consumes _circularBoundsRadius as-is (no double inset)',
     !/_circularBoundsRadius\s*-\s*0\.5/.test(collisionsSrc));
 
-// ── E. Post-deploy hotfix contracts (2026-09-05) ────────────────────────────
+// ── E. Post-deploy hotfix contracts (2026-09-05; s2/s3 generalization) ──────
+// The s2 hotfix replaced the s1 per-key unsets with the venue-owned
+// authority loop (VENUE_OWNED_VISUAL_KEYS / VENUE_OWNED_MATERIAL_KEYS +
+// void_* prefix rule), and s3 expanded it to the full material identity +
+// post_fx + placement. These checks pin the CURRENT shapes.
 section('E. Post-deploy hotfix contracts (venue-owned bg / SW / benchmark / AO)');
 const exporterSrc = readFileSync(rel('app/Services/VenueConfigExporter.php'), 'utf8');
 ok('exporter strips background_color from saved overrides (venue-owned atmosphere)',
-    /unset\(\$overrideVisual\['background_color'\]\)/.test(exporterSrc));
+    /'background_color',\s*'fog_color'/.test(exporterSrc)
+    && /foreach \(array_keys\(\$overrideVisual\) as \$key\) \{[\s\S]*?isVenueOwnedKey\(\(string\) \$key\)[\s\S]*?unset\(\$overrideVisual\[\$key\]\);/.test(exporterSrc));
 ok('exporter re-asserts the venue background as the final authority',
-    /\$config\['visual_config'\]\['background_color'\]\s*=\s*\$venueBackground/.test(exporterSrc));
+    /foreach \(self::VENUE_OWNED_VISUAL_KEYS as \$owned\) \{[\s\S]*?\$config\['visual_config'\]\[\$owned\]\s*=\s*\$venueVisual\[\$owned\];/.test(exporterSrc));
 ok('preview runtime overrides cannot set the background either',
-    /unset\(\$runtimeVisual\['background_color'\]\)/.test(exporterSrc));
+    /foreach \(array_keys\(\$runtimeVisual\) as \$key\) \{[\s\S]*?isVenueOwnedKey\(\(string\) \$key\)[\s\S]*?unset\(\$runtimeVisual\[\$key\]\);/.test(exporterSrc)
+    && /foreach \(self::VENUE_OWNED_MATERIAL_KEYS as \$owned\) \{[\s\S]*?unset\(\$runtimeMaterial\[\$owned\]\);/.test(exporterSrc));
 
 const controllerSrc = readFileSync(rel('app/Http/Controllers/Admin/GalleryController.php'), 'utf8');
 ok('controller unconditionally strips background_color on save',
-    /unset\(\$overrides\['visual_config'\]\['background_color'\]\)/.test(controllerSrc));
+    /foreach \(array_keys\(\$overrides\['visual_config'\] \?\? \[\]\) as \$key\) \{[\s\S]*?VenueConfigExporter::isVenueOwnedKey\(\(string\) \$key\)[\s\S]*?unset\(\$overrides\['visual_config'\]\[\$key\]\);/.test(controllerSrc));
 
 const panelSrc = readFileSync(rel('resources/views/admin/galleries/live-preview-panel.blade.php'), 'utf8');
 ok('panel no longer renders a background color control',

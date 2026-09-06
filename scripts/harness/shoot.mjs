@@ -131,11 +131,31 @@ const SCENARIOS = [
     //  open_air, planar floor) + isolation variant without open_air.
     { id: 'museum-overridden-08',     q: 'venue=dark-museum-overridden&count=8' },
     { id: 'museum-fogonly-08',        q: 'venue=dark-museum-fogonly&count=8' },
+    // Dark Museum — live-deployed framing parity: elevated corner view across
+    // the room (matches the user's post-hotfix screenshot) so the polished
+    // stone floor can be compared at the same grazing angle as production.
+    { id: 'museum-live-wide-30',
+      q: 'venue=dark-museum&count=30',
+      cam: { p: [-13, 2.1, 13], t: [6, 1.3, -10] } },
+    // Dark Museum — post-hotfix RESIDUAL repro: healed owned keys + surviving
+    // material/post_fx layer, framed like the user's second screenshot.
+    { id: 'museum-residual-wide-30',
+      q: 'venue=dark-museum-residual&count=30',
+      cam: { p: [-13, 2.1, 13], t: [6, 1.3, -10] } },
 ];
 
 const tierInit = {
     high: `Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>8});
-           Object.defineProperty(navigator,'deviceMemory',{get:()=>8});`,
+           Object.defineProperty(navigator,'deviceMemory',{get:()=>8});
+           // Heavy scenarios (30-60 works, ~20 lights) can dip under the
+           // 35fps downgrade threshold under SwiftShader even at boot size,
+           // retro-downgrading the tier mid-capture. Stretch the monotonic
+           // clock 4x so the FPS benchmark measures an inflated-but-consistent
+           // rate and keeps the requested tier (animations run 4x slower —
+           // acceptable for deterministic stills).
+           const __origNow = performance.now.bind(performance);
+           const __t0 = __origNow();
+           performance.now = () => __t0 + (__origNow() - __t0) * 0.25;`,
     low:  `Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>2});
            Object.defineProperty(navigator,'deviceMemory',{get:()=>2});
            Object.defineProperty(navigator,'maxTouchPoints',{get:()=>0});`,
@@ -202,6 +222,20 @@ async function run() {
 
         // Hide HUD chrome for clean venue captures (crosshair, buttons, hint)
         await page.addStyleTag({ content: '#crosshair,#ui-layer,#controls-hint{display:none!important}' }).catch(() => {});
+
+        // Optional scripted camera (forensic framing parity with a live shot).
+        // PointerLockControls only mutates rotation on real mousemove events,
+        // so a direct position.set + lookAt persists for the capture window.
+        if (sc.cam) {
+            await page.evaluate((cam) => {
+                const s = window.__exospace?.scene;
+                if (!s?.camera) return;
+                s.camera.position.set(...cam.p);
+                s.camera.lookAt(...cam.t);
+                s.camera.updateMatrixWorld();
+            }, sc.cam);
+            await page.waitForTimeout(2000);   // let a full render loop pass
+        }
 
         // CDP screenshot — Playwright's own screenshot path waits for
         // compositor stability that never settles while the scene renders

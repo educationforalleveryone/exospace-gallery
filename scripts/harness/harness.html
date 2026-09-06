@@ -320,6 +320,49 @@
             version: '2.0.0',
         },
 
+        // FORENSIC REPRO #2 (post-hotfix residual, 2026-09-06): the state the
+        // user's second screenshot shows. The s2 hotfix healed the owned
+        // visual keys (venue fog/rig/walls ARE back on the live site), but
+        // TWO buckets still merge through unguarded:
+        //   • material_config — VENUE_OWNED_MATERIAL_KEYS covers ONLY
+        //     texture_tint, so a stale floor PBR layer (Mirror-Lake-era
+        //     chrome: rough 0.06 / metal 0.85) defeats the museum's polished
+        //     stone (0.3/0.15) → broad envMap mirror sheen with light
+        //     streaks.
+        //   • visual_config.post_fx — a nested object key, not in the owned
+        //     list; array_merge replaces the venue's whole post-fx object,
+        //     so a stale {bloom:true} re-arms bloom and falls the blend back
+        //     to the stock grey glow.
+        'dark-museum-residual': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_color: '0x0a0a0a', ceiling_height: 5,
+                background_color: '0x050505', fog_color: '0x050505', fog_near: 12, fog_far: 70,
+                ambient_color: '0xffe8c8', structure_pass: 'museum',
+                ambient_intensity: 3.2, spot_intensity: 1.9,
+                fill_intensity: 0.5, tone_mapping_exposure: 0.8, frame_override: 'gold',
+                artwork_light_base: 0.32, artwork_light_pool_cap: 14, env_intensity: 0.14,
+                hemisphere_intensity: 0.04,
+                post_fx: { bloom: true, vignette: true, vignette_blend: 'grey', vignette_darkness: 0.5, vignette_offset: 1.15 },  // ← stale layer replaces venue's black-blend restraint
+                placement: { density: 'generous', focal_wall: 'front', pair_orientation: true },
+            },
+            material_config: {
+                texture_tint: true,
+                wall_color: '0x7a746c', wall_roughness: 0.94, wall_metalness: 0.0, wall_normal_strength: 0.5,
+                floor_color: '0x9c9c98',                                        // ← stale WHITE-CUBE-era floor layer (seeder line 161)
+                floor_roughness: 0.12, floor_metalness: 0.35,                   // ← polished marble: streaks + veining
+                floor_normal_strength: 0.5, floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
+
         // DIAGNOSTIC: mid-grey tint
         'dm-tint55': {
             id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',

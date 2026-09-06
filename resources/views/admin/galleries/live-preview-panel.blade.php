@@ -39,6 +39,32 @@
     $overrides = $gallery->visualOverridesArray();
     $previewUrl = route('admin.galleries.preview', $gallery);
 
+    // S3 PANEL SCRUB (venue-owned material identity + presentation): the
+    // exporter and the save-side normalizer already ignore/strip these keys,
+    // but the panel's ready handler replays EVERY saved override key into
+    // the running preview via postMessage — without this scrub a legacy
+    // floor/post_fx layer kept re-arming itself in the editor even after
+    // the s3 deploy heal. Scrubbing here means the preview renders the
+    // venue's own declaration and the next "Update Settings" persists the
+    // cleaned column shape. (Same grounds as the s2 atmosphere retirement:
+    // these keys COMPOSE the venue — the post-hotfix residual incident
+    // shipped a white-cube-era floor layer + a stale {bloom:true} through
+    // them and recomposed the night wing's dark stone into a bright
+    // polished plane under a grey glow.)
+    if (!empty($overrides['visual_config'])) {
+        foreach (array_keys($overrides['visual_config']) as $lpKey) {
+            if (\App\Services\VenueConfigExporter::isVenueOwnedKey((string) $lpKey)) {
+                unset($overrides['visual_config'][$lpKey]);
+            }
+        }
+    }
+    if (!empty($overrides['material_config'])) {
+        foreach (\App\Services\VenueConfigExporter::VENUE_OWNED_MATERIAL_KEYS as $lpOwned) {
+            unset($overrides['material_config'][$lpOwned]);
+        }
+    }
+    unset($overrides['post_fx']); // legacy sibling bucket — venue-owned presentation
+
     // Pull venue defaults so we can show them as the "reset target" for each slider.
     // These come from the venue template's visual_config + material_config.
     $venueDefaults = [
@@ -49,12 +75,9 @@
         'ambient_intensity'     => $gallery->venueTemplate?->visual_config['ambient_intensity']     ?? 0.20,
         'spot_intensity'        => $gallery->venueTemplate?->visual_config['spot_intensity']        ?? 0.45,
         'tone_mapping_exposure' => $gallery->venueTemplate?->visual_config['tone_mapping_exposure'] ?? 0.50,
-        'wall_roughness'        => $gallery->venueTemplate?->material_config['wall_roughness']      ?? 0.85,
-        'wall_metalness'        => $gallery->venueTemplate?->material_config['wall_metalness']      ?? 0.00,
-        'floor_roughness'       => $gallery->venueTemplate?->material_config['floor_roughness']     ?? 0.70,
-        'floor_metalness'       => $gallery->venueTemplate?->material_config['floor_metalness']     ?? 0.10,
-        'bloom_strength'        => 0.6,
-        'vignette_darkness'     => 0.5,
+        // (s3: wall/floor roughness+metalness + bloom/vignette defaults
+        // removed with their sliders — venue-owned material identity and
+        // presentation, no longer panel-tunable.)
     ];
 
     // Current effective value = override ?? venue default
@@ -66,12 +89,7 @@
         'ambient_intensity'     => $overrides['visual_config']['ambient_intensity']     ?? $venueDefaults['ambient_intensity'],
         'spot_intensity'        => $overrides['visual_config']['spot_intensity']        ?? $venueDefaults['spot_intensity'],
         'tone_mapping_exposure' => $overrides['visual_config']['tone_mapping_exposure'] ?? $venueDefaults['tone_mapping_exposure'],
-        'wall_roughness'        => $overrides['material_config']['wall_roughness']      ?? $venueDefaults['wall_roughness'],
-        'wall_metalness'        => $overrides['material_config']['wall_metalness']      ?? $venueDefaults['wall_metalness'],
-        'floor_roughness'       => $overrides['material_config']['floor_roughness']     ?? $venueDefaults['floor_roughness'],
-        'floor_metalness'       => $overrides['material_config']['floor_metalness']     ?? $venueDefaults['floor_metalness'],
-        'bloom_strength'        => $overrides['post_fx']['bloom_strength']              ?? $venueDefaults['bloom_strength'],
-        'vignette_darkness'     => $overrides['post_fx']['vignette_darkness']           ?? $venueDefaults['vignette_darkness'],
+        // (s3: retired material/post-fx currents removed with their sliders.)
     ];
 @endphp
 
@@ -85,7 +103,7 @@
                 <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                 Live Preview & Template Controls
             </h3>
-            <p class="text-sm text-gray-400 mt-1">Tweak atmosphere, materials, and post-processing in real time. Save to persist.</p>
+            <p class="text-sm text-gray-400 mt-1">The venue template curates the space. Reset strips any leftover override layer; save to persist.</p>
         </div>
         <div class="flex items-center gap-2">
             <button type="button" id="lp-reset-all"
@@ -179,88 +197,44 @@
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Materials</div>
 
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'wall_roughness',
-                    'label' => 'Wall Roughness',
-                    'unit' => '',
-                    'min' => 0, 'max' => 1, 'step' => 0.01,
-                    'value' => $current['wall_roughness'],
-                    'default' => $venueDefaults['wall_roughness'],
-                    'group' => 'material_config',
-                    'requiresReload' => false,
-                    'hint' => 'How matte the walls are. 0 = mirror-polished (reflects HDRI); 1 = chalk-flat (no reflection).',
-                    'hintSvg' => 'roughness',
-                ])
+                {{-- VENUE-OWNED MATERIAL IDENTITY (s3, 2026-09-06): the four
+                     roughness/metalness sliders are retired on the same
+                     grounds as the atmosphere controls. These values COMPOSE
+                     the venue's surfaces — the post-hotfix residual incident
+                     shipped a white-cube-era floor layer (light colour +
+                     low roughness + metal) through the unguarded material
+                     bucket and recomposed the Dark Museum's declared dark
+                     stone into a bright polished plane, lifted by the rig's
+                     own ambient into the brightest surface in the room.
+                     Stripped on save, ignored on export, scrubbed on panel
+                     load; the venue template is the single authority. The
+                     legitimate lanes (wall/floor material pickers, frames,
+                     audio) remain. --}}
 
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'wall_metalness',
-                    'label' => 'Wall Metalness',
-                    'unit' => '',
-                    'min' => 0, 'max' => 1, 'step' => 0.01,
-                    'value' => $current['wall_metalness'],
-                    'default' => $venueDefaults['wall_metalness'],
-                    'group' => 'material_config',
-                    'requiresReload' => false,
-                    'hint' => 'How metallic the wall surface reads. 0 = dielectric (paint, plaster); 1 = bare metal.',
-                    'hintSvg' => 'metalness',
-                ])
-
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'floor_roughness',
-                    'label' => 'Floor Roughness',
-                    'unit' => '',
-                    'min' => 0, 'max' => 1, 'step' => 0.01,
-                    'value' => $current['floor_roughness'],
-                    'default' => $venueDefaults['floor_roughness'],
-                    'group' => 'material_config',
-                    'requiresReload' => false,
-                    'hint' => 'Lower = polished + reflective (mirror marble). Higher = matte (raw concrete, carpet).',
-                    'hintSvg' => 'roughness',
-                ])
-
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'floor_metalness',
-                    'label' => 'Floor Metalness',
-                    'unit' => '',
-                    'min' => 0, 'max' => 1, 'step' => 0.01,
-                    'value' => $current['floor_metalness'],
-                    'default' => $venueDefaults['floor_metalness'],
-                    'group' => 'material_config',
-                    'requiresReload' => false,
-                    'hint' => 'Metallic floor reads as brushed steel at high values. Pair with low roughness for a mirror.',
-                    'hintSvg' => 'metalness',
-                ])
+                <p class="text-[11px] leading-relaxed text-gray-500">
+                    Surface materials and finishes are part of the venue's
+                    curated design and are managed with the venue template.
+                </p>
             </div>
 
             {{-- ── Post-FX group ─────────────────────────────────────────── --}}
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Post-Processing</div>
 
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'bloom_strength',
-                    'label' => 'Bloom Glow',
-                    'unit' => '',
-                    'min' => 0, 'max' => 2, 'step' => 0.05,
-                    'value' => $current['bloom_strength'],
-                    'default' => $venueDefaults['bloom_strength'],
-                    'group' => 'post_fx',
-                    'requiresReload' => false,
-                    'hint' => 'How brightly highlights bleed into neighbours. 0 = none (clinical); 1 = soft photographic glow.',
-                    'hintSvg' => 'bloom',
-                ])
+                {{-- VENUE-OWNED PRESENTATION (s3, 2026-09-06): the bloom and
+                     vignette sliders are retired. visual_config.post_fx is a
+                     NESTED object the merge replaces WHOLESALE — a stale
+                     {bloom:true} from the pre-restraint era re-arms bloom
+                     and drops the venue's black-blend vignette back to the
+                     stock grey glow (the residual incident's haloed lights
+                     and lifted blacks). Bloom on/off is the venue's
+                     restraint declaration, not a per-gallery knob; owned as
+                     one object at every layer. --}}
 
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'vignette_darkness',
-                    'label' => 'Vignette Darkness',
-                    'unit' => '',
-                    'min' => 0, 'max' => 1, 'step' => 0.05,
-                    'value' => $current['vignette_darkness'],
-                    'default' => $venueDefaults['vignette_darkness'],
-                    'group' => 'post_fx',
-                    'requiresReload' => false,
-                    'hint' => 'How dark the screen corners get. Subtle vignette focuses attention on the centre.',
-                    'hintSvg' => 'vignette',
-                ])
+                <p class="text-[11px] leading-relaxed text-gray-500">
+                    Glow and vignette are part of the venue's curated mood and
+                    are managed with the venue template.
+                </p>
             </div>
 
         </div>

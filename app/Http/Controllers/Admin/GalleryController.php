@@ -1115,6 +1115,17 @@ class GalleryController extends Controller
                 unset($overrides['material_config'][$owned]);
             }
         }
+        // LEGACY SIBLING post_fx BUCKET (s3): older rows carry post-processing
+        // as a top-level overrides['post_fx'] object next to visual_config.
+        // The export path stopped reading it (dead bytes with a trap — see
+        // VenueConfigExporter's merge-order note), and the panel's post-fx
+        // controls are retired with s3, so a saved sibling can never express
+        // intent again — it is presentation the venue owns. Strip it here so
+        // the column converges to the venue-owned shape. (The NESTED
+        // visual_config.post_fx object is already killed by the
+        // isVenueOwnedKey loop above — 'post_fx' joined the owned set in s3,
+        // alongside 'placement'.)
+        unset($overrides['post_fx']);
         if (empty($overrides['visual_config'])) {
             unset($overrides['visual_config']);
         }

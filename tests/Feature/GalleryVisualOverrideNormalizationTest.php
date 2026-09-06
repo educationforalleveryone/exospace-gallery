@@ -47,6 +47,18 @@ declare(strict_types=1);
  * materials), enforced at every layer, plus a wholesale override reset on
  * venue switch (overrides saved under one venue are meaningless under
  * another). These tests pin the expanded contract.
+ *
+ * VENUE-OWNED MATERIAL IDENTITY + PRESENTATION (post-hotfix residual
+ * incident, 2026-09-06 — schema s3): the user's second deployed screenshot
+ * proved the stale layer also rode through the two buckets s2 did not
+ * guard. material_config carried only texture_tint as owned, so a
+ * white-cube-era floor layer (light colour + low roughness + metal)
+ * recomposed the museum's dark stone into a bright polished plane; and
+ * visual_config.post_fx — a NESTED object key — merges WHOLESALE, so a
+ * stale {bloom:true} re-armed bloom and fell the blend back to the stock
+ * grey glow. s3 owns the full declared material set + post_fx + placement
+ * (curation), and drops the legacy sibling post_fx bucket on save. These
+ * tests pin the s3 contract.
  * Run: php artisan test --filter=GalleryVisualOverrideNormalizationTest
  */
 
@@ -159,12 +171,14 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
         // The incident's real layer: a purple experiment + a slider value
         // the venue never declared. The purple is VENUE-OWNED (structural
-        // atmosphere), and so is every rig key (s2) — the rest is genuine
-        // intent and is kept.
+        // atmosphere), and so is every rig key (s2). The legacy sibling
+        // post_fx bucket is VENUE-OWNED PRESENTATION (s3) — dropped on save.
+        // A genuine non-owned deviation (frame choice) is kept, canonicalized.
         $json = json_encode([
             'visual_config' => [
                 'background_color'  => '#6D0DA0',
                 'ambient_intensity' => 0.11,
+                'frame_override'    => 'black',
             ],
             'post_fx' => [
                 'bloom_strength' => 0.35,
@@ -189,7 +203,16 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             $gallery->visual_overrides['visual_config'] ?? [],
             'The lighting rig is venue-owned (s2) — a save can never persist it.'
         );
-        $this->assertSame(0.35, (float) $gallery->visual_overrides['post_fx']['bloom_strength']);
+        $this->assertArrayNotHasKey(
+            'post_fx',
+            $gallery->visual_overrides,
+            'The legacy sibling post_fx bucket is venue-owned presentation (s3) — a save can never persist it.'
+        );
+        $this->assertSame(
+            'black',
+            $gallery->visual_overrides['visual_config']['frame_override'],
+            'A genuine non-owned deviation (frame choice) still persists.'
+        );
     }
 
     // ── 3. Mixed save: deviations kept, no-ops AND venue-owned keys stripped ─
@@ -437,8 +460,71 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         $this->assertArrayNotHasKey('floor_reflection', $vc, 'An undeclared void key can never mirror the museum floor.');
         $this->assertArrayNotHasKey('void_starfield', $vc, 'A venue that never declared a void effect can never grow one from an override.');
         $this->assertTrue($config['material_config']['texture_tint'], 'texture_tint is venue plumbing — a saved false cannot re-break tinted walls.');
-        // Genuine curator material intent still rides on top.
-        $this->assertSame(0.18, (float) $config['material_config']['floor_roughness']);
+        // The material identity is venue-owned in full (s3): the legacy
+        // floor polish tweak is inert and the venue's declared stone ships.
+        $this->assertSame(0.3, (float) $config['material_config']['floor_roughness'], 'floor_roughness is venue-owned material identity (s3).');
+    }
+
+    // ── 7d. THE POST-HOTFIX RESIDUAL INCIDENT (s3): the two buckets s2 did
+    //        not guard — a white-cube-era floor layer + a stale post_fx
+    //        object — are inert at once.
+
+    public function test_exporter_ignores_the_residual_floor_and_post_fx_layers(): void
+    {
+        $user  = User::factory()->create();
+        $venue = VenueTemplate::factory()->create([
+            'name'            => 'Dark Museum',
+            'slug'            => 'dark-museum-' . uniqid(),
+            'visual_config'   => [
+                'background_color' => '0x050505',
+                'fog_color'        => '0x050505',
+                'ambient_intensity' => 3.2,
+                'tone_mapping_exposure' => 0.8,
+                'placement' => ['density' => 'generous', 'focal_wall' => 'front', 'pair_orientation' => true],
+                'post_fx'   => ['bloom' => false, 'vignette' => true, 'vignette_blend' => 'black', 'vignette_darkness' => 0.5, 'vignette_offset' => 1.15],
+            ],
+            'material_config' => [
+                'texture_tint'    => true,
+                'wall_color'      => '0x7a746c',
+                'floor_color'     => '0x3a3835',
+                'floor_roughness' => 0.3,
+                'floor_metalness' => 0.15,
+                'floor_tile_meters' => 3.0,
+            ],
+            'is_draft'  => false,
+            'is_active' => true,
+        ]);
+        // The residual layer the second deployed screenshot proved out: the
+        // s2 heal worked (fog/walls/rig) but the stale white-cube-era floor
+        // numbers + the pre-restraint bloom object rode through.
+        $gallery = Gallery::factory()->create([
+            'user_id'           => $user->id,
+            'venue_template_id' => $venue->id,
+            'visual_overrides'  => [
+                'visual_config' => [
+                    'placement' => ['density' => 'packed'],
+                    'post_fx'   => ['bloom' => true, 'vignette_blend' => 'grey'],
+                ],
+                'material_config' => [
+                    'floor_color'     => '0x9c9c98',
+                    'floor_roughness' => 0.12,
+                    'floor_metalness' => 0.35,
+                ],
+            ],
+        ]);
+
+        $config = app(VenueConfigExporter::class)->forGallery($gallery);
+
+        // The venue's dark stone ships — not the bright polished layer.
+        $this->assertSame('0x3a3835', $config['material_config']['floor_color'], 'Floor colour is venue-owned material identity (s3).');
+        $this->assertSame(0.3, (float) $config['material_config']['floor_roughness'], 'The museum polished-stone read is a venue declaration, not a per-gallery knob.');
+        $this->assertSame(0.15, (float) $config['material_config']['floor_metalness'], 'Floor metalness is venue-owned (s3) — a stale layer cannot chrome-plate the stone.');
+        $this->assertSame(3.0, (float) $config['material_config']['floor_tile_meters']);
+        // The venue's restraint ships — bloom stays OFF, blend stays black.
+        $this->assertSame(false, $config['visual_config']['post_fx']['bloom'], 'post_fx is venue-owned presentation (s3) — a stale layer cannot re-arm bloom.');
+        $this->assertSame('black', $config['visual_config']['post_fx']['vignette_blend'], 'The venue black-blend vignette is the declared authority.');
+        // The venue's hang ships — no packed re-cram from a stale layer.
+        $this->assertSame('generous', $config['visual_config']['placement']['density'], 'placement is venue-owned curation (s3).');
     }
 
     // ── 7c. Venue switch discards submitted overrides wholesale ──────────
@@ -495,6 +581,12 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
                 'fog_far'          => 42,
                 'open_air'         => true,
             ],
+            // s3: the runtime MATERIAL patch gets the same guard.
+            'material_config' => [
+                'floor_color'     => '0x9c9c98',
+                'floor_roughness' => 0.12,
+                'floor_metalness' => 0.35,
+            ],
         ]);
 
         $this->assertSame(
@@ -505,5 +597,15 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         $this->assertArrayNotHasKey('fog_color', $config['visual_config'] ?? [], 'The preview payload cannot carry a venue-owned fog repaint.');
         $this->assertArrayNotHasKey('fog_far', $config['visual_config'] ?? [], 'The preview payload cannot carry a venue-owned fog ramp change (the venue never declared one).');
         $this->assertArrayNotHasKey('open_air', $config['visual_config'] ?? [], 'The preview payload cannot carry the void shell-strip flag.');
+        $this->assertSame(
+            '0x0a0a0a',
+            $config['material_config']['floor_color'],
+            'A hand-crafted ?override= payload must not chrome-plate the venue floor (s3 material authority).'
+        );
+        $this->assertSame(
+            0.32,
+            (float) $config['material_config']['floor_roughness'],
+            'Runtime material patches cannot defeat the venue-declared floor PBR (s3).'
+        );
     }
 }
