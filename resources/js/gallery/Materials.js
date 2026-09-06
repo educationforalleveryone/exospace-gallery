@@ -123,8 +123,16 @@ export function getFloorMaterial(type) {
         return new THREE.MeshLambertMaterial({ color });
     }
 
+    // ── ENVIRONMENT STRENGTH AUTHORITY (s4) ──────────────────────────────
+    // The venue's declared env_intensity wins; the resolved preset only
+    // fills in. Reading the PRESET alone is what reflected a bright studio
+    // sky into the Dark Museum's polished dark stone at 2.1× its declared
+    // strength (0.18 effective vs the declared 0.14 × 0.6 = 0.084) — the
+    // "cloudy sheen on the floor" half of the deployed incident. The
+    // nullish coalescing keeps a DECLARED 0 at 0 (silenced environment is
+    // identity, not "use the preset").
     const lightingConfig = this.lightingConfig || { envIntensity: 1.0 };
-    const envIntensity = lightingConfig.envIntensity || 1.0;
+    const envIntensity = this._venueEnvIntensity ?? lightingConfig.envIntensity ?? 1.0;
 
     const dir = TEXTURE_PATHS.floors[type];
     const cached = dir ? _textureCache.get(dir) : null;
@@ -187,7 +195,11 @@ export function createFrame(width, height, style) {
     const effectiveStyle = this._venueFrameOverride || style;
     const styleProps     = FRAME_STYLES[effectiveStyle] || FRAME_STYLES.modern;
 
+    // s4: venue-declared env_intensity wins over the preset (the frame
+    // reflected the gallery's stale preset sky at 3.2× the museum's
+    // declared strength — same root cause as the floor).
     const lightingConfig = this.lightingConfig || { envIntensity: 1.0 };
+    const frameEnvIntensity = this._venueEnvIntensity ?? lightingConfig.envIntensity ?? 1.0;
 
     const frameMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: styleProps.color })
@@ -195,7 +207,7 @@ export function createFrame(width, height, style) {
             color: styleProps.color,
             roughness: styleProps.roughness,
             metalness: styleProps.metalness,
-            envMapIntensity: 1.5 * (lightingConfig.envIntensity || 1.0),
+            envMapIntensity: 1.5 * frameEnvIntensity,
             // PERF-D23: highlight-ready emissive (0 until focused — see
             // FocusMode._setFrameHighlight)
             emissive: new THREE.Color(styleProps.color),

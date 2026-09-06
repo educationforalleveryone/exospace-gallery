@@ -568,7 +568,42 @@ export class GalleryScene {
 
         const v = patch.visual_config   || {};
         const m = patch.material_config || {};
-        const p = patch.post_fx         || {};
+        let  p = patch.post_fx         || {};
+
+        // ── RUNTIME PATCH GUARD (s4) ────────────────────────────────────
+        // The exporter ships the venue-owned key lists INSIDE the payload
+        // (VenueConfigExporter::ownedKeyPayload → venue_owned_visual /
+        // venue_owned_material) so this guard can mirror the PHP authority
+        // sets without a second hardcoded copy that could drift. Keys listed
+        // there are dropped here BEFORE any handler sees them — closing the
+        // last state-leak door: a stale parent postMessage (old panel build,
+        // replayed 'exospace-preview-ready' state) could otherwise re-apply
+        // an identity key live, even though the exporter and the save-side
+        // normalizer already strip it.
+        //
+        // Venue-less (legacy) galleries have no venueConfig → no lists →
+        // historical patch behaviour untouched.
+        const vcMeta = window.GALLERY_DATA?.venueConfig;
+        if (vcMeta) {
+            const ownedVisual = Array.isArray(vcMeta.venue_owned_visual)
+                ? vcMeta.venue_owned_visual : [];
+            const ownedMaterial = Array.isArray(vcMeta.venue_owned_material)
+                ? vcMeta.venue_owned_material : [];
+            for (const k of ownedVisual) delete v[k];
+            for (const k of ownedMaterial) delete m[k];
+            // The void_* prefix rule is part of the venue-owned vocabulary
+            // (PHP enforces it via isVenueOwnedKey; a venue that never
+            // declared a void effect can never grow one from a patch).
+            for (const k of Object.keys(v)) {
+                if (typeof k === 'string' && k.startsWith('void_')) delete v[k];
+            }
+            // post_fx + placement are venue-owned NESTED objects (s3): bloom
+            // on/off is the venue's restraint declaration. Drop the whole
+            // bucket — no panel control and no stale parent may re-arm it.
+            if ('post_fx' in v) delete v.post_fx;
+            if ('placement' in v) delete v.placement;
+            p = {}; // the legacy sibling bucket is venue-owned presentation
+        }
 
         // Background color — VENUE-OWNED ATMOSPHERE: patches that try to
         // set it are dropped BEFORE any handler sees them. The venue's
@@ -577,7 +612,9 @@ export class GalleryScene {
         // purple-belt incident) instead of tuning it. Legacy saved values
         // are already dropped by the exporter; this closes the last door
         // (stale panel builds re-sending state.visual_config on
-        // 'exospace-preview-ready').
+        // 'exospace-preview-ready'). Redundant with the guard above when
+        // the payload ships the owned list — kept as a belt-and-braces
+        // floor for payloads built before the s4 schema bump.
         delete v.background_color;
 
         // ── Visual config (atmosphere — all live) ────────────────────────

@@ -139,6 +139,7 @@
                 ambient_color: '0xffffff', ambient_intensity: 0.55, spot_intensity: 3.2,
                 fill_intensity: 2.6, tone_mapping_exposure: 1.05, frame_override: null,
                 structure_pass: 'cube',
+                environment: 'studio',  // s4: declared sky (mirrors seeder)
                 post_fx: { bloom: false, vignette: true, vignette_darkness: 0.28, vignette_offset: 1.05 },
             },
             material_config: {
@@ -165,6 +166,7 @@
                 ambient_color: '0xa0b0d0', ambient_intensity: 0.3, spot_intensity: 1.3,
                 fill_intensity: 0.2, tone_mapping_exposure: 0.9, frame_override: null,
                 placement_mode: 'float', floor_edge_fade: true, env_intensity: 0,
+                environment: 'none',  // s4: declared — a void has no sky, ever
                 structure_pass: 'phenomena', open_air: true, layout_shape: 'circular',
                 void_dust: true,
                 artwork_light_base: 0.45,
@@ -217,6 +219,43 @@
             },
             version: '1.0.0',
         },
+        // Dark Museum — the night wing (mirrors seeder + 2026_09_06 deepening
+        // + 2026_09_07 environment authority). The forensic body for the
+        // deployed "sky/cloud on the floor" incident: with s4 the venue
+        // DECLARES environment 'night' and env_intensity 0.14, so a stale
+        // gallery lighting_preset can never install a studio/dusk sky here
+        // again. Use to screenshot-verify: dark stone floor WITHOUT a bright
+        // sheen, gold frames readable, artworks lit.
+        'dark-museum': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_height: 5,
+                background_color: '0x050505', fog_color: '0x050505', fog_near: 12, fog_far: 70,
+                ambient_color: '0xffe8c8', ambient_intensity: 3.2, spot_intensity: 1.9,
+                fill_intensity: 0.5, tone_mapping_exposure: 0.8, frame_override: 'gold',
+                artwork_light_base: 0.32, artwork_light_pool_cap: 14,
+                env_intensity: 0.14,
+                environment: 'night',   // s4: the museum's declared sky
+                hemisphere_intensity: 0.04,
+                structure_pass: 'museum',
+                post_fx: { bloom: false, vignette: true, vignette_blend: 'black', vignette_darkness: 0.5, vignette_offset: 1.15 },
+                placement: { density: 'generous', focal_wall: 'front', pair_orientation: true },
+            },
+            material_config: {
+                texture_tint: true,
+                wall_color: '0x7a746c', wall_roughness: 0.92, wall_metalness: 0.0, wall_normal_strength: 0.5,
+                floor_color: '0x3a3835', floor_roughness: 0.32, floor_metalness: 0.15,
+                floor_normal_strength: 0.5, floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
         // ── FORENSIC REGRESSION BODY (deployed-screenshot incident) ────────
         // What the exporter NOW produces for the gallery that broke on
         // 2026-09-05 (curator-saved Live-Preview overrides on top of the
@@ -263,6 +302,27 @@
 
     // ?frame= overrides; absent → the venue's default (what a preview shows).
     const frameStyle = q.get('frame') || venueConfig.default_settings.frame_style;
+
+    // s4: ship the venue-owned key lists the way VenueConfigExporter::
+    // ownedKeyPayload() does (kept in sync — the runtime patch guard in
+    // GalleryScene.applyLiveOverride consumes these; the harness must
+    // exercise the same guard as production).
+    venueConfig.venue_owned_visual = [
+        'background_color', 'fog_color', 'fog_near', 'fog_far', 'environment',
+        'open_air', 'layout_shape', 'wall_height', 'wall_depth',
+        'ceiling_type', 'ceiling_color', 'ceiling_height',
+        'structure_pass', 'placement_mode', 'floor_reflection',
+        'ambient_color', 'ambient_intensity', 'spot_intensity',
+        'fill_intensity', 'hemisphere_intensity', 'env_intensity',
+        'tone_mapping_exposure', 'artwork_light_base', 'artwork_light_pool_cap',
+        'placement', 'post_fx',
+    ];
+    venueConfig.venue_owned_material = [
+        'texture_tint',
+        'wall_color', 'wall_roughness', 'wall_metalness', 'wall_normal_strength',
+        'floor_color', 'floor_roughness', 'floor_metalness',
+        'floor_normal_strength', 'floor_tile_meters',
+    ];
 
     window.GALLERY_DATA = {
         id: 'harness', title: 'Harness Exhibition', description: '',

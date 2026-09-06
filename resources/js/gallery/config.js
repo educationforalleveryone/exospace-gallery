@@ -72,6 +72,28 @@ export const CONFIG = {
         },
     },
 
+    // ── Stock environments (s4 environment authority) ───────────────────────
+    // The runtime-side half of the environment vocabulary. The VENUE DECLARES
+    // which environment it is via visual_config.environment (a stock NAME —
+    // see VenueTemplate::ENVIRONMENTS on the PHP side); this map resolves the
+    // name to an HDRI file. CODE PROVIDES CAPABILITIES (the file map);
+    // VENUE CONFIGURATION DECLARES THE VENUE (which entry it is).
+    //
+    // Keep the keys in lockstep with VenueTemplate::ENVIRONMENTS and the
+    // venue editor's Environment select. 'none' → null: the venue wants no
+    // environment at all (the HDRI download is skipped entirely — same as
+    // env_intensity: 0, but declarative about the sky itself).
+    //
+    // The lighting presets below keep their own `hdri` entries ONLY as the
+    // fallback for venue-LESS (legacy) galleries, which have no venue to
+    // declare an environment. A gallery WITH a venue never reaches them.
+    environments: {
+        studio:        '/assets/textures/env/studio.hdr',
+        rural_evening: '/assets/textures/env/rural_evening.hdr',
+        night:         '/assets/textures/env/night.hdr',
+        none:          null,
+    },
+
     performance: {
         autoDetectQuality: true,
         lowEndThreshold: 30, // FPS

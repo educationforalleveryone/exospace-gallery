@@ -460,18 +460,38 @@
                         </div>
                     </div>
 
-                    {{-- ── Advanced overrides (collapsed) ───────────── --}}
+                    {{-- ── Exhibition overrides (collapsed) ──────────
+                         s4 control taxonomy: this section holds ONLY the
+                         legitimate exhibition lanes — surface family, floor
+                         family, frame finish. Lighting is NOT here: for a
+                         venue-managed gallery the lighting preset resolves
+                         through the VENUE (VenueConfigExporter::
+                         presetForGallery), so a per-gallery "Lighting"
+                         select was a control that silently did nothing to
+                         the room's rig and could never again pick the
+                         venue's sky (the Dark Museum incident channel).
+                         The room's light is part of the venue's curated
+                         design; super-admins tune it in the Venue Editor. --}}
                     <div x-data="{ open: false }" class="mb-4">
                         <button type="button" @click="open = !open" :aria-expanded="open ? 'true' : 'false'" aria-controls="advanced-overrides"
                                 class="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition border-t border-gray-700/60 pt-3 pb-1 w-full text-left">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
-                            Override venue materials
+                            Exhibition finishes (walls, floor, frames)
                             <svg class="w-3.5 h-3.5 ml-auto transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </button>
                         {{-- ITERATION-4: x-cloak + display guard added — the panel
                              content flashed open for a frame before Alpine init
                              (its sibling in galleries/create already had this). --}}
                         <div id="advanced-overrides" x-show="open" x-transition x-cloak style="display: none;" class="grid grid-cols-2 gap-3 mt-3">
+                            {{-- LEGITIMATE EXHIBITION LANES (s4 taxonomy) only.
+                                 The old fourth select here — "Lighting" — was
+                                 retired: it wrote the gallery's lighting_preset
+                                 column, which for venue-managed galleries is
+                                 resolved through the venue's own default and
+                                 no longer picks the environment or the rig.
+                                 Keeping it invited "why doesn't this do
+                                 anything?" confusion at best, stale-preset
+                                 sky injection at worst. --}}
                             <div>
                                 <label for="adv_wall" class="block text-xs text-gray-500 mb-1">Wall</label>
                                 <select id="adv_wall" class="input-base">
@@ -496,13 +516,10 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div>
-                                <label for="adv_lighting" class="block text-xs text-gray-500 mb-1">Lighting</label>
-                                <select id="adv_lighting" class="input-base">
-                                    @foreach(['bright'=>'Bright','moody'=>'Moody','dramatic'=>'Dramatic'] as $v=>$l)
-                                        <option value="{{ $v }}" {{ $gallery->lighting_preset == $v ? 'selected' : '' }}>{{ $l }}</option>
-                                    @endforeach
-                                </select>
+                            <div class="text-[11px] leading-relaxed text-gray-500 self-end pb-1">
+                                Lighting, architecture and atmosphere are part
+                                of the venue's curated design — managed in the
+                                Venue Editor, not per gallery.
                             </div>
                         </div>
                     </div>
@@ -1772,10 +1789,10 @@
             btn.disabled = true;
 
             // Sync advanced dropdown overrides into hidden fields before serialising
-            ['adv_wall','adv_floor','adv_frame','adv_lighting'].forEach(id => {
+            ['adv_wall','adv_floor','adv_frame'].forEach(id => {
                 const el = document.getElementById(id);
                 if (!el) return;
-                const map = { adv_wall: 'edit_wall_texture', adv_floor: 'edit_floor_material', adv_frame: 'edit_frame_style', adv_lighting: 'edit_lighting_preset' };
+                const map = { adv_wall: 'edit_wall_texture', adv_floor: 'edit_floor_material', adv_frame: 'edit_frame_style' };
                 document.getElementById(map[id]).value = el.value;
             });
 
@@ -2020,12 +2037,13 @@ function selectEditVenue(card) {
     document.getElementById('edit_venue_template_id').value = card.dataset.venueId;
 
     // Sync advanced dropdowns to reflect new venue defaults
-    const adv = { wall: 'adv_wall', floor: 'adv_floor', frame: 'adv_frame', lighting: 'adv_lighting' };
+    // (s4: no adv_lighting select any more — the preset resolves through
+    // the venue; the hidden edit_lighting_preset input above carries the
+    // venue's default so the column stays consistent.)
     if (document.getElementById('adv_wall')) {
         document.getElementById('adv_wall').value    = card.dataset.wall;
         document.getElementById('adv_floor').value   = card.dataset.floor;
         document.getElementById('adv_frame').value   = card.dataset.frame;
-        document.getElementById('adv_lighting').value = card.dataset.lighting;
     }
 
     // Mark dirty (user intentionally changed venue) then re-enable tracking
@@ -2061,11 +2079,11 @@ document.querySelectorAll('[data-walkthrough-link]').forEach(a => {
 });
 
 // Advanced dropdowns override hidden inputs live
-['adv_wall','adv_floor','adv_frame','adv_lighting'].forEach(id => {
+['adv_wall','adv_floor','adv_frame'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('change', () => {
-        const map = { adv_wall: 'edit_wall_texture', adv_floor: 'edit_floor_material', adv_frame: 'edit_frame_style', adv_lighting: 'edit_lighting_preset' };
+        const map = { adv_wall: 'edit_wall_texture', adv_floor: 'edit_floor_material', adv_frame: 'edit_frame_style' };
         document.getElementById(map[id]).value = el.value;
     });
 });

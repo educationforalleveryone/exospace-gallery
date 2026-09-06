@@ -464,6 +464,26 @@ export function showLoadError(error) {
 }
 
 // ── HDRI environment map — non-blocking, fades in after room renders ─────────
+//
+// ── ENVIRONMENT AUTHORITY (s4) ───────────────────────────────────────────────
+// The venue's declared environment IS its sky; the gallery's lighting preset
+// NEVER picks it. This is the fix for the Dark Museum "sky/cloud on the
+// floor" incident: the gallery column used to resolve the HDRI, so a stale
+// gallery-era preset ('bright' → studio.hdr, or 'moody' → rural_evening.hdr
+// with its cloud deck) installed a daytime/dusk sky inside the night museum,
+// and its reflections read as a bright cloudy sheen on the polished dark
+// stone. Resolution order:
+//
+//   1. hdri_url            — the venue's bespoke upload (wins over everything)
+//   2. visual_config.environment — the venue's declared stock environment
+//                            (studio | rural_evening | night | none)
+//   3. resolved lighting preset hdri — the fill-in for venues that declare
+//                            no environment (and for venue-less legacy
+//                            galleries). Venue-safe because the preset
+//                            itself is venue-resolved upstream.
+//
+// 'none' (or env_intensity: 0) means the venue does not want an environment —
+// the ~10 MB HDR transfer is skipped entirely.
 export function loadEnvironmentMap() {
     if (this._skipHdri) return; // low-end: skip the 10MB HDRI
 
@@ -474,10 +494,46 @@ export function loadEnvironmentMap() {
     // venue does not want an environment — skip the transfer entirely.
     if (this._venueEnvIntensity === 0) return;
 
+    const venueVisual = this._venueVisualConfig || null;
+
+    // ── Resolve the HDRI path through the venue authority chain ─────────
+    let hdriPath = this._customHdriUrl || null;   // 1. bespoke upload
+    let declaredNone = false;
+
+    if (!hdriPath && venueVisual && 'environment' in venueVisual &&
+        venueVisual.environment != null) {
+        // 2. the venue's declared stock environment (null = undeclared —
+        // the editor select's empty state — handled by the preset fallback
+        // below, same as pre-s4 venues that never declared the key).
+        if (venueVisual.environment === 'none') {
+            declaredNone = true;                  // the venue refuses a sky
+        } else {
+            hdriPath = CONFIG.environments[venueVisual.environment] ?? null;
+            if (!hdriPath) {
+                // An EXPLICIT but unknown stock name (hand-authored advanced
+                // JSON). Never silently substitute a generic sky — the venue
+                // declared something the renderer cannot resolve, so it gets
+                // no environment (standard lights still cover the room) and
+                // the author finds out immediately.
+                console.warn(`[exospace] venue "${this._venueSlug || '?'}" declared unknown environment "${venueVisual.environment}" — rendering without an environment.`);
+            }
+        }
+    }
+
+    if (!declaredNone && !hdriPath) {
+        // 3. fill-in for venues that declare no environment (and venue-less
+        // legacy galleries): the RESOLVED preset's HDRI. For venue-managed
+        // galleries the preset is venue-resolved (VenueConfigExporter::
+        // presetForGallery) — the gallery's own lighting_preset column can
+        // no longer diverge it, so this stays venue-consistent.
+        const preset = this.lightingPreset || 'bright';
+        hdriPath = (CONFIG.lighting[preset] || CONFIG.lighting.bright).hdri;
+    }
+
+    if (!hdriPath || declaredNone) return;
+
     const preset = this.lightingPreset || 'bright';
     const lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
-    const hdriPath = this._customHdriUrl || lightingConfig.hdri;
-    if (!hdriPath) return;
 
     const rgbeLoader = new _HDRLoader();
     rgbeLoader.load(
@@ -485,11 +541,11 @@ export function loadEnvironmentMap() {
         (texture) => {
             texture.mapping = THREE.EquirectangularReflectionMapping;
             this.scene.environment = texture;
-            // Iteration 2 (§4.7 Nebula coherence): a venue may declare
-            // env_intensity in visual_config to silence the accidental
-            // horizon glow of its lighting preset's HDRI (e.g. night.hdr's
-            // rural horizon inside a cosmic void) — or to zero it out
-            // entirely. The venue's declaration always wins over the preset.
+            // The environment STRENGTH is also venue-owned: env_intensity in
+            // visual_config overrides the preset's envIntensity (which now
+            // only fills in for venues that declare nothing — and for
+            // venue-managed galleries the preset itself is venue-resolved,
+            // see VenueConfigExporter::presetForGallery).
             const envIntensity = this._venueEnvIntensity ?? lightingConfig.envIntensity;
             if (envIntensity !== undefined) {
                 this.scene.environmentIntensity = envIntensity;

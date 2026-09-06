@@ -530,6 +530,28 @@ class GalleryController extends Controller
             && (int) $submittedVenueId !== (int) $gallery->venue_template_id) {
             $validated['visual_overrides'] = null;
             unset($validated['visual_overrides_json']);
+
+            // s4 SERVER-SIDE EXHIBITION RESTAMP: the venue picker JS restamps
+            // the five exhibition hidden inputs client-side, but any submit
+            // path that skips that JS (a stale form tab open across a venue
+            // switch, a crafted POST) let the OLD venue's exhibition columns
+            // ride into the NEW venue — state leakage at the column layer.
+            // The write-side reset is the new venue's default_settings: they
+            // ARE "how a gallery starts life in this venue" (the layout half
+            // is additionally caught render-side by layoutForGallery; this
+            // restamp is the authoritative write). Values come from the
+            // super-admin-authored venue row — the same vocabularies the
+            // validation `in:` rules whitelist — and the customer re-tunes
+            // legitimate lanes afterwards in one click.
+            $newVenue = VenueTemplate::find($submittedVenueId);
+            if ($newVenue) {
+                $venueDefaults = $newVenue->default_settings ?? [];
+                foreach (['wall_texture', 'floor_material', 'frame_style', 'lighting_preset', 'room_layout'] as $exhibitionKey) {
+                    if (!empty($venueDefaults[$exhibitionKey])) {
+                        $validated[$exhibitionKey] = $venueDefaults[$exhibitionKey];
+                    }
+                }
+            }
         } else {
             // Persisted overrides are normalized against the venue's CURRENT
             // declaration (see normalizeVisualOverrides) so a curator save can
@@ -1201,6 +1223,16 @@ class GalleryController extends Controller
      */
     private function buildGalleryData(Gallery $gallery, ?array $venueConfig, bool $isPreview = false): array
     {
+        // s4 environment/layout authority (mirrors GalleryViewController):
+        // the admin Live Preview iframe must render the SAME venue-resolved
+        // preset + layout the public view renders — the old gallery-column
+        // passthrough made the editor disagree with the public page (and
+        // let a stale preset repaint the venue's sky inside the editor).
+        [$preset, $layout] = [
+            $this->venueExporter->presetForGallery($gallery),
+            $this->venueExporter->layoutForGallery($gallery),
+        ];
+
         return [
             'id'          => $gallery->id,
             'title'       => $gallery->title,
@@ -1208,8 +1240,8 @@ class GalleryController extends Controller
             'wall_texture'    => $gallery->wall_texture,
             'floor_material'  => $gallery->floor_material,
             'frame_style'     => $gallery->frame_style,
-            'lighting_preset' => $gallery->lighting_preset,
-            'room_layout'     => $gallery->room_layout ?? 'square',
+            'lighting_preset' => $preset,
+            'room_layout'     => $layout,
             'venue_slug'      => $gallery->venueTemplate?->slug,
             // WHITE CUBE POLISH audit: the old 'white-cube' fallback here lied —
             // with venueConfig null the viewer renders a generic default room,
