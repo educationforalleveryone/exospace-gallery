@@ -126,6 +126,11 @@ const SCENARIOS = [
     { id: 'museum-rotunda-08',        q: 'venue=dark-museum&count=8&layout=rotunda' },
     { id: 'museum-rotunda-16',        q: 'venue=dark-museum&count=16&layout=rotunda' },
     { id: 'museum-tier-low-08',       q: 'venue=dark-museum&count=8', tier: 'low' },
+    // Dark Museum — FORENSIC REPRO of the deployed override incident
+    // (v2 venue + stale gallery override layer: violet fog, dim rig,
+    //  open_air, planar floor) + isolation variant without open_air.
+    { id: 'museum-overridden-08',     q: 'venue=dark-museum-overridden&count=8' },
+    { id: 'museum-fogonly-08',        q: 'venue=dark-museum-fogonly&count=8' },
 ];
 
 const tierInit = {

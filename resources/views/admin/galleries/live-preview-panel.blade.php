@@ -128,93 +128,47 @@
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Atmosphere</div>
 
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'wall_height',
-                    'label' => 'Wall Height',
-                    'unit' => 'm',
-                    'min' => 2.5, 'max' => 10, 'step' => 0.5,
-                    'value' => $current['wall_height'],
-                    'default' => $venueDefaults['wall_height'],
-                    'group' => 'visual_config',
-                    'requiresReload' => true,
-                    'hint' => 'Taller walls feel grander (museum-scale). Lower walls feel intimate (private studio).',
-                    'hintSvg' => 'wall_height',
-                ])
+                {{-- VENUE-OWNED ATMOSPHERE / ARCHITECTURE / RIG (2026-09-06):
+                     the wall-height, ambient, spot, exposure and fog-distance
+                     controls are retired on the same grounds as the
+                     background control below. These keys COMPOSE the venue —
+                     the Dark Museum deployed incident shipped a violet fog +
+                     a stale pre-polish dim rig + open_air through them and
+                     recomposed the night wing into a purple void. They are
+                     now stripped on save and ignored on export; the venue
+                     template is the single authority. --}}
+                <p class="text-[11px] leading-relaxed text-gray-500">
+                    Lighting, fog and wall architecture are part of the venue's
+                    curated design and are managed with the venue template —
+                    per-gallery edits here could recompose the venue into
+                    something it isn't.
+                </p>
 
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'ambient_intensity',
-                    'label' => 'Ambient Light',
-                    'unit' => '',
-                    'min' => 0, 'max' => 0.6, 'step' => 0.01,
-                    'value' => $current['ambient_intensity'],
-                    'default' => $venueDefaults['ambient_intensity'],
-                    'group' => 'visual_config',
-                    'requiresReload' => false,
-                    'hint' => 'Flat fill light. Higher = brighter but flatter; lower = moodier with more shadow contrast.',
-                    'hintSvg' => 'ambient',
-                ])
+                {{-- (retired: wall_height slider) --}}
 
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'spot_intensity',
-                    'label' => 'Artwork Spot Light',
-                    'unit' => '',
-                    'min' => 0, 'max' => 1.2, 'step' => 0.01,
-                    'value' => $current['spot_intensity'],
-                    'default' => $venueDefaults['spot_intensity'],
-                    'group' => 'visual_config',
-                    'requiresReload' => false,
-                    'hint' => 'How strongly each artwork is lit. Higher = pieces "pop"; lower = they blend into the room.',
-                    'hintSvg' => 'spot',
-                ])
+                {{-- (retired: ambient_intensity slider — venue-owned rig) --}}
 
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'tone_mapping_exposure',
-                    'label' => 'Tone Mapping Exposure',
-                    'unit' => '',
-                    'min' => 0.1, 'max' => 1.5, 'step' => 0.05,
-                    'value' => $current['tone_mapping_exposure'],
-                    'default' => $venueDefaults['tone_mapping_exposure'],
-                    'group' => 'visual_config',
-                    'requiresReload' => false,
-                    'hint' => 'Global brightness multiplier applied after lighting. Like a camera exposure — affects highlights first.',
-                    'hintSvg' => 'exposure',
-                ])
+                {{-- (retired: spot_intensity slider — venue-owned rig) --}}
 
-                @include('admin.galleries.live-preview-panel._slider', [
-                    'id' => 'fog_far',
-                    'label' => 'Fog Distance',
-                    'unit' => 'm',
-                    'min' => 8, 'max' => 60, 'step' => 1,
-                    'value' => $current['fog_far'],
-                    'default' => $venueDefaults['fog_far'],
-                    'group' => 'visual_config',
-                    'requiresReload' => false,
-                    'hint' => 'How far you can see before fog hides everything. Lower = claustrophobic; higher = open + distant.',
-                    'hintSvg' => 'fog',
-                ])
+                {{-- (retired: tone_mapping_exposure slider — venue-owned rig) --}}
+
+                {{-- (retired: fog_far slider — venue-owned atmosphere) --}}
             </div>
 
             {{-- ── Colors group ──────────────────────────────────────────── --}}
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Colors</div>
 
-                {{-- BACKGROUND CONTROL RETIRED (venue-owned atmosphere):
+                {{-- BACKGROUND + FOG TINT RETIRED (venue-owned atmosphere):
                      the floor-edge fade, fog ramp and void dome all derive
-                     from background_color, so a curator-set background
-                     recomposes the venue (the deployed "purple belt"
-                     incident) instead of re-decorating it. The venue
-                     template is the single authority; legacy saved values
-                     are ignored by the exporter and stripped by the
-                     controller on save. Fog Tint stays — it layers on top
-                     of the composed scene and degrades gracefully. --}}
-                @include('admin.galleries.live-preview-panel._color', [
-                    'id' => 'fog_color',
-                    'label' => 'Fog Tint',
-                    'value' => $current['fog_color'],
-                    'default' => $venueDefaults['fog_color'],
-                    'group' => 'visual_config',
-                    'hint' => 'Color of the haze. Match the venue background for a seamless fade, or contrast it for a coloured atmosphere.',
-                ])
+                     from background_color, and on a fog-composed venue the
+                     fog tint IS the atmosphere (the deployed "purple belt"
+                     incident; the Dark Museum deployed-screenshot incident
+                     rode a violet fog through this very control). Retired at
+                     every layer: the panel controls are removed, the
+                     controller strips the keys on save, and the exporter
+                     ignores them for legacy rows (heals already-broken
+                     galleries on deploy — no manual reset needed). --}}
 
                 <p class="mt-3 text-[11px] leading-relaxed text-gray-500">
                     The venue's background is part of its curated design and is managed with the venue template.

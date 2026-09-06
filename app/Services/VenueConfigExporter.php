@@ -67,6 +67,78 @@ use Illuminate\Support\Facades\Cache;
 class VenueConfigExporter
 {
     /**
+     * Payload schema version — baked into the forGallery() cache key. Bump
+     * whenever the merge semantics change so already-cached merged configs
+     * bust on deploy (deploy-time heal with no user action).
+     *
+     * s2 (Dark Museum deployed-screenshot incident, 2026-09-06): the
+     * venue-owned authority set expanded from background_color alone to the
+     * full atmosphere/architecture/rig list below. Cached payloads built
+     * under s1 may still carry leaked keys — the version bump re-keys every
+     * gallery so the next render recomputes under the new guard.
+     */
+    public const SCHEMA = 's2';
+
+    /**
+     * VENUE-OWNED ATMOSPHERE, ARCHITECTURE AND RIG (visual_config).
+     *
+     * The venue template is the single authority for everything that
+     * COMPOSES the venue rather than decorating it. A gallery-level value
+     * for any of these keys does not tune the venue — it recomposes it into
+     * a different one (the deployed "purple belt" incident via
+     * background_color; the Dark Museum deployed-screenshot incident via
+     * fog_color + the pre-polish dim rig + open_air + floor_reflection).
+     *
+     *   • atmosphere  — background/fog: the void dome, floor-edge fade and
+     *     distance read all derive from them; a curator tint re-skins the
+     *     venue ("Fog Tint stays" proved wrong: on a museum whose fog ramp
+     *     IS the room, a violet fog paints a violet belt across the far
+     *     wall and the room stops reading as a room).
+     *   • architecture— wall/ceiling geometry + open_air + structure_pass
+     *     + void_* flags: these decide whether the venue is a room at all
+     *     (open_air:true silently strips every wall and ceiling).
+     *   • rig         — ambient/spot/fill/exposure/hemisphere/env and the
+     *     artwork legibility floor: the v2 museum's readability contract
+     *     ("no artwork sits in the dark") is enforced by these numbers; a
+     *     stale pre-polish rig defeats every venue-side remediation.
+     *
+     * Stripped unconditionally at every layer (save-side normalizer,
+     * buildConfig merge, preview runtime patches) — legacy rows HEAL on
+     * deploy with no manual reset, exactly like background_color before.
+     */
+    public const VENUE_OWNED_VISUAL_KEYS = [
+        // atmosphere
+        'background_color', 'fog_color', 'fog_near', 'fog_far',
+        // architecture + structure identity
+        'open_air', 'layout_shape', 'wall_height', 'wall_depth',
+        'ceiling_type', 'ceiling_color', 'ceiling_height',
+        'structure_pass', 'placement_mode', 'floor_reflection',
+        // lighting rig + legibility floor
+        'ambient_color', 'ambient_intensity', 'spot_intensity',
+        'fill_intensity', 'hemisphere_intensity', 'env_intensity',
+        'tone_mapping_exposure',
+        'artwork_light_base', 'artwork_light_pool_cap',
+    ];
+
+    /**
+     * Venue-owned material plumbing. texture_tint is not a look — it is the
+     * flag that lets the venue's declared colours reach textured builds at
+     * all (its absence was the v1.0.0 museum's White-Cube-white headline
+     * bug). A saved false re-breaks every textured venue.
+     */
+    public const VENUE_OWNED_MATERIAL_KEYS = ['texture_tint'];
+
+    /**
+     * True when a visual_config key is venue-owned. The void_* effect flags
+     * are declared per-venue and never curator-tunable, so they are matched
+     * by prefix rather than enumerated (new flags inherit the guard).
+     */
+    public static function isVenueOwnedKey(string $key): bool
+    {
+        return in_array($key, self::VENUE_OWNED_VISUAL_KEYS, true)
+            || str_starts_with($key, 'void_');
+    }
+    /**
      * Build the viewer config for a specific gallery + venue combination.
      *
      * The merge order is:
@@ -117,7 +189,10 @@ class VenueConfigExporter
         // billing change with zero code difference between the paths.
         $venueTs = $gallery->venueTemplate?->updated_at?->timestamp ?? '0';
         $plan = $gallery->user->plan ?? 'free';
-        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:p{$plan}";
+        // :s{SCHEMA} — bumped when merge semantics change, so already-cached
+        // payloads bust on deploy (the s2 authority-set expansion must not
+        // wait out the 1 h + 2 h stale window to take effect).
+        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:p{$plan}:" . self::SCHEMA;
 
         return Cache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery) {
             return $this->buildConfig($gallery);
@@ -153,19 +228,24 @@ class VenueConfigExporter
         // venue template (which is shared across galleries).
         $overrides = $gallery->visualOverridesArray();
 
-        // ── VENUE-OWNED ATMOSPHERE (post-deploy hotfix, 2026-09-05) ─────
-        // background_color is NOT a curator-tunable. It is structural: the
-        // venue's bodies (floor_edge_fade, fog ramp, void dome) DERIVE from
-        // it, so an override doesn't recolor the venue — it recomposes it
-        // into a different venue (the deployed "purple belt" incident:
-        // gallery override 0x6D0DA0 painted a violet annulus through the
-        // floor edge fade). Retired at every layer: the panel control is
-        // removed, the controller strips it on save, and HERE the exporter
-        // ignores it both for legacy rows (heals already-broken galleries
-        // on deploy — no manual reset needed) and for any future writer.
-        // The venue template's declared background is the only authority.
+        // ── VENUE-OWNED ATMOSPHERE / ARCHITECTURE / RIG ─────────────────
+        // (extends the 2026-09-05 background_color hotfix to the full
+        // composed-venue set — see the class consts for the incident history
+        // behind each group. Dark Museum deployed-screenshot incident,
+        // 2026-09-06: a legacy override layer carrying violet fog + the
+        // pre-polish dim rig + open_air + floor_reflection recomposed the
+        // night wing into a purple void WITH museum furniture, because only
+        // background_color was guarded.)
+        //
+        // The exporter ignores them for legacy rows (heals already-broken
+        // galleries on deploy — no manual reset needed) and for any future
+        // writer. The venue template's declaration is the only authority.
         $overrideVisual = array_filter($overrides['visual_config'] ?? [], fn ($v) => !is_null($v));
-        unset($overrideVisual['background_color']);
+        foreach (array_keys($overrideVisual) as $key) {
+            if (self::isVenueOwnedKey((string) $key)) {
+                unset($overrideVisual[$key]);
+            }
+        }
 
         if (!empty($overrideVisual)) {
             $config['visual_config'] = array_merge(
@@ -174,18 +254,37 @@ class VenueConfigExporter
             );
         }
 
-        // Belt-and-braces: even if a future merge path reintroduces the key
-        // above, the venue's declared value always wins the final payload.
-        $venueBackground = $venue->visual_config['background_color'] ?? null;
-        if ($venueBackground !== null) {
-            $config['visual_config']['background_color'] = $venueBackground;
+        // Belt-and-braces: even if a future merge path reintroduces an owned
+        // key, the venue's declared value always wins the final payload.
+        $venueVisual = $venue->visual_config ?? [];
+        foreach (self::VENUE_OWNED_VISUAL_KEYS as $owned) {
+            if (array_key_exists($owned, $venueVisual) && $venueVisual[$owned] !== null) {
+                $config['visual_config'][$owned] = $venueVisual[$owned];
+            }
+        }
+        foreach (array_keys($config['visual_config'] ?? []) as $key) {
+            if (str_starts_with((string) $key, 'void_') && !array_key_exists($key, $venueVisual)) {
+                unset($config['visual_config'][$key]); // a venue that never declared a void effect can never grow one from an override
+            }
         }
 
         if (!empty($overrides['material_config'])) {
-            $config['material_config'] = array_merge(
-                $config['material_config'] ?? [],
-                array_filter($overrides['material_config'], fn ($v) => !is_null($v))
-            );
+            $overrideMaterial = array_filter($overrides['material_config'], fn ($v) => !is_null($v));
+            foreach (self::VENUE_OWNED_MATERIAL_KEYS as $owned) {
+                unset($overrideMaterial[$owned]);
+            }
+            if (!empty($overrideMaterial)) {
+                $config['material_config'] = array_merge(
+                    $config['material_config'] ?? [],
+                    $overrideMaterial
+                );
+            }
+        }
+        $venueMaterial = $venue->material_config ?? [];
+        foreach (self::VENUE_OWNED_MATERIAL_KEYS as $owned) {
+            if (array_key_exists($owned, $venueMaterial) && $venueMaterial[$owned] !== null) {
+                $config['material_config'][$owned] = $venueMaterial[$owned];
+            }
         }
 
         // NOTE: gallery visual_overrides['post_fx'] is deliberately NOT
@@ -313,11 +412,15 @@ class VenueConfigExporter
         // consumer of patch-shaped post_fx), keeping one post-fx authority
         // in the payload: visual_config.post_fx.
         //
-        // background_color is likewise excluded (venue-owned atmosphere —
-        // see buildConfig). A stale panel or a hand-crafted ?override= URL
-        // cannot repaint the venue through the preview payload either.
+        // The venue-owned set (atmosphere/architecture/rig — see buildConfig)
+        // is likewise excluded: a stale panel or a hand-crafted ?override=
+        // URL cannot repaint the venue through the preview payload either.
         $runtimeVisual = array_filter($runtimeOverrides['visual_config'] ?? [], fn ($v) => !is_null($v));
-        unset($runtimeVisual['background_color']);
+        foreach (array_keys($runtimeVisual) as $key) {
+            if (self::isVenueOwnedKey((string) $key)) {
+                unset($runtimeVisual[$key]);
+            }
+        }
 
         $config['visual_config']   = array_merge(
             $config['visual_config']   ?? [],

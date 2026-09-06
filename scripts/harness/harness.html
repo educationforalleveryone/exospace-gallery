@@ -247,6 +247,79 @@
             version: '2.0.0',
         },
 
+        // FORENSIC REPRO (deployed-screenshot incident, 2026-09-06): the v2
+        // venue row with a STALE gallery override layer merged on top — the
+        // exact merge the exporter performs (only background_color is
+        // stripped; every other key the gallery column carries wins).
+        // Layer simulates the documented incident class: violet fog from the
+        // purple-belt era, the pre-polish dim rig, plus undeclared void keys
+        // (open_air, floor_reflection) that the normalizer keeps as-is.
+        'dark-museum-overridden': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_color: '0x0a0a0a', ceiling_height: 5,
+                background_color: '0x050505',
+                fog_color: '0x6D0DA0', fog_near: 12, fog_far: 70,           // ← override (incident violet)
+                ambient_color: '0xffe8c8', structure_pass: 'museum',
+                ambient_intensity: 0.18, spot_intensity: 0.5,                // ← override (pre-polish dim rig)
+                fill_intensity: 0.15, tone_mapping_exposure: 0.55,           // ← override
+                frame_override: 'gold',
+                artwork_light_base: 0.32, artwork_light_pool_cap: 14, env_intensity: 0.14,
+                hemisphere_intensity: 0.15,                                  // ← override (old hard-coded wash)
+                open_air: true,                                              // ← override (undeclared → kept as-is)
+                floor_reflection: 'planar',                                  // ← override (undeclared → kept as-is)
+                post_fx: { bloom: false, vignette: true, vignette_blend: 'black', vignette_darkness: 0.5, vignette_offset: 1.15 },
+                placement: { density: 'generous', focal_wall: 'front', pair_orientation: true },
+            },
+            material_config: {
+                texture_tint: true,
+                wall_color: '0x7a746c', wall_roughness: 0.94, wall_metalness: 0.0, wall_normal_strength: 0.5,
+                floor_color: '0x3a3835', floor_roughness: 0.3, floor_metalness: 0.15, floor_normal_strength: 0.5,
+                floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
+        // ISOLATION: same layer WITHOUT open_air — proves whether the open
+        // vista needs the void key or the fog alone explains it.
+        'dark-museum-fogonly': {
+            id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
+            visual_config: {
+                wall_height: 5, wall_depth: 0.3, ceiling_type: 'flat', ceiling_color: '0x0a0a0a', ceiling_height: 5,
+                background_color: '0x050505',
+                fog_color: '0x6D0DA0', fog_near: 12, fog_far: 70,
+                ambient_color: '0xffe8c8', structure_pass: 'museum',
+                ambient_intensity: 0.18, spot_intensity: 0.5,
+                fill_intensity: 0.15, tone_mapping_exposure: 0.55,
+                frame_override: 'gold',
+                artwork_light_base: 0.32, artwork_light_pool_cap: 14, env_intensity: 0.14,
+                hemisphere_intensity: 0.15,
+                floor_reflection: 'planar',
+                post_fx: { bloom: false, vignette: true, vignette_blend: 'black', vignette_darkness: 0.5, vignette_offset: 1.15 },
+                placement: { density: 'generous', focal_wall: 'front', pair_orientation: true },
+            },
+            material_config: {
+                texture_tint: true,
+                wall_color: '0x7a746c', wall_roughness: 0.94, wall_metalness: 0.0, wall_normal_strength: 0.5,
+                floor_color: '0x3a3835', floor_roughness: 0.3, floor_metalness: 0.15, floor_normal_strength: 0.5,
+                floor_tile_meters: 3.0,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['square', 'rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'square',
+            },
+            version: '2.0.0',
+        },
+
         // DIAGNOSTIC: mid-grey tint
         'dm-tint55': {
             id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',

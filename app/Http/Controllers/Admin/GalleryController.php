@@ -515,16 +515,33 @@ class GalleryController extends Controller
         $this->handleFileUploads($request, $gallery, $planHolder, $validated);
         $this->handlePinAndSchedule($request, $validated);
         $this->handleVenueTemplate($validated);
-        // Persisted overrides are normalized against the venue's CURRENT
-        // declaration (see normalizeVisualOverrides) so a curator save can
-        // never lay a silent no-op layer over the venue row. The venue is
-        // resolved from the VALIDATED id (not the stale relation) because a
-        // single save may switch venues AND submit overrides together.
-        $normalizedAgainstId = $validated['venue_template_id'] ?? $gallery->venue_template_id;
-        $validated['visual_overrides'] = $this->normalizeVisualOverrides(
-            $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null),
-            $normalizedAgainstId ? VenueTemplate::find($normalizedAgainstId) : null
-        );
+
+        // VENUE-SWITCH RESET (Dark Museum deployed-screenshot incident,
+        // 2026-09-06): overrides saved under one venue are meaningless under
+        // another — the atmosphere/rig values they carry recompose the NEW
+        // venue into a hybrid of the old one (a gallery that ever lived in a
+        // void venue carried open_air + fog + a dim rig straight into the
+        // Dark Museum). A venue switch therefore starts the gallery FRESH on
+        // the new venue: the submitted override blob is discarded wholesale.
+        // Re-saving curator tweaks afterwards is one click; shipping an
+        // imported atmosphere is a silent identity break.
+        $submittedVenueId = $validated['venue_template_id'] ?? null;
+        if (!empty($submittedVenueId)
+            && (int) $submittedVenueId !== (int) $gallery->venue_template_id) {
+            $validated['visual_overrides'] = null;
+            unset($validated['visual_overrides_json']);
+        } else {
+            // Persisted overrides are normalized against the venue's CURRENT
+            // declaration (see normalizeVisualOverrides) so a curator save can
+            // never lay a silent no-op layer over the venue row. The venue is
+            // resolved from the VALIDATED id (not the stale relation) because a
+            // single save may switch venues AND submit overrides together.
+            $normalizedAgainstId = $validated['venue_template_id'] ?? $gallery->venue_template_id;
+            $validated['visual_overrides'] = $this->normalizeVisualOverrides(
+                $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null),
+                $normalizedAgainstId ? VenueTemplate::find($normalizedAgainstId) : null
+            );
+        }
 
         // Custom domain handling may return early on uniqueness conflict
         $domainResult = $this->handleCustomDomain($request, $gallery, $planHolder, $validated);
@@ -1082,9 +1099,27 @@ class GalleryController extends Controller
         }
 
         // Venue-owned keys are never a curator override, regardless of value.
-        unset($overrides['visual_config']['background_color']);
+        // (2026-09-06: expanded from background_color alone to the full
+        // atmosphere/architecture/rig set — see
+        // VenueConfigExporter::VENUE_OWNED_VISUAL_KEYS for the incident
+        // history. The Dark Museum deployed-screenshot incident rode in
+        // through fog_color + the rig + undeclared void keys, all of which
+        // this loop now kills so the column can never carry them again.)
+        foreach (array_keys($overrides['visual_config'] ?? []) as $key) {
+            if (VenueConfigExporter::isVenueOwnedKey((string) $key)) {
+                unset($overrides['visual_config'][$key]);
+            }
+        }
+        if (!empty($overrides['material_config'])) {
+            foreach (VenueConfigExporter::VENUE_OWNED_MATERIAL_KEYS as $owned) {
+                unset($overrides['material_config'][$owned]);
+            }
+        }
         if (empty($overrides['visual_config'])) {
             unset($overrides['visual_config']);
+        }
+        if (empty($overrides['material_config'])) {
+            unset($overrides['material_config']);
         }
 
         $venueVisual   = is_array($venue->visual_config)   ? $venue->visual_config   : [];

@@ -37,6 +37,16 @@ declare(strict_types=1);
  * ignores it both for new writes and for LEGACY rows already carrying it —
  * which heals already-broken galleries on deploy, no manual reset needed.
  *
+ * VENUE-OWNED ATMOSPHERE/ARCHITECTURE/RIG (Dark Museum deployed-screenshot
+ * incident, 2026-09-06 — schema s2): the single-key guard proved too
+ * narrow. A legacy override layer carrying violet fog + the pre-polish dim
+ * rig + undeclared void keys (open_air, floor_reflection) recomposed the
+ * v2 Dark Museum into a purple void WITH museum furniture. The authority
+ * set is now the full composed-venue list (VenueConfigExporter::
+ * VENUE_OWNED_VISUAL_KEYS + void_* prefix rule + texture_tint in
+ * materials), enforced at every layer, plus a wholesale override reset on
+ * venue switch (overrides saved under one venue are meaningless under
+ * another). These tests pin the expanded contract.
  * Run: php artisan test --filter=GalleryVisualOverrideNormalizationTest
  */
 
@@ -149,8 +159,8 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
         // The incident's real layer: a purple experiment + a slider value
         // the venue never declared. The purple is VENUE-OWNED (structural
-        // atmosphere) and must be dropped; the rest is genuine intent and
-        // is kept.
+        // atmosphere), and so is every rig key (s2) — the rest is genuine
+        // intent and is kept.
         $json = json_encode([
             'visual_config' => [
                 'background_color'  => '#6D0DA0',
@@ -174,7 +184,11 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             $gallery->visual_overrides['visual_config'] ?? [],
             'background_color is venue-owned atmosphere — a save can never persist it.'
         );
-        $this->assertSame(0.11, (float) $gallery->visual_overrides['visual_config']['ambient_intensity']);
+        $this->assertArrayNotHasKey(
+            'ambient_intensity',
+            $gallery->visual_overrides['visual_config'] ?? [],
+            'The lighting rig is venue-owned (s2) — a save can never persist it.'
+        );
         $this->assertSame(0.35, (float) $gallery->visual_overrides['post_fx']['bloom_strength']);
     }
 
@@ -338,8 +352,129 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             $config['visual_config']['background_color'],
             'The venue-declared background must win over ANY saved override — this is what heals already-broken galleries on deploy.'
         );
-        // Non-venue-owned deviations still ride on top.
-        $this->assertSame(0.11, (float) $config['visual_config']['ambient_intensity']);
+        // The rig is venue-owned too (s2): the legacy dim value is inert and
+        // the venue's declaration ships instead.
+        $this->assertSame(
+            0.3,
+            $config['visual_config']['ambient_intensity'],
+            'The venue-declared rig must win over ANY saved override — a stale pre-polish dim rig must not defeat venue remediation.'
+        );
+    }
+
+    // ── 7b. THE DARK MUSEUM DEPLOYED INCIDENT (s2): the whole stale layer
+    //        — violet fog, dim rig, undeclared void keys — is inert at once.
+
+    public function test_exporter_ignores_the_dark_museum_incident_override_row(): void
+    {
+        $user  = User::factory()->create();
+        $venue = VenueTemplate::factory()->create([
+            'name'            => 'Dark Museum',
+            'slug'            => 'dark-museum-' . uniqid(),
+            'visual_config'   => [
+                'background_color'      => '0x050505',
+                'fog_color'             => '0x050505',
+                'fog_near'              => 12,
+                'fog_far'               => 70,
+                'wall_height'           => 5,
+                'ambient_color'         => '0xffe8c8',
+                'ambient_intensity'     => 3.2,
+                'spot_intensity'        => 1.9,
+                'fill_intensity'        => 0.5,
+                'tone_mapping_exposure' => 0.8,
+                'hemisphere_intensity'  => 0.04,
+                'structure_pass'        => 'museum',
+                'artwork_light_base'    => 0.32,
+            ],
+            'material_config' => [
+                'texture_tint'    => true,
+                'wall_color'      => '0x7a746c',
+                'floor_color'     => '0x3a3835',
+                'floor_roughness' => 0.3,
+            ],
+            'is_draft'  => false,
+            'is_active' => true,
+        ]);
+        // The exact incident layer reconstructed from the deployed screenshot
+        // + the documented incident class (void-era keys the old normalizer
+        // kept because the venue did not declare them).
+        $gallery = Gallery::factory()->create([
+            'user_id'           => $user->id,
+            'venue_template_id' => $venue->id,
+            'visual_overrides'  => [
+                'visual_config' => [
+                    'fog_color'             => '0x6d0da0',
+                    'fog_near'              => 12,
+                    'fog_far'               => 70,
+                    'open_air'              => true,
+                    'floor_reflection'      => 'planar',
+                    'placement_mode'        => 'float',
+                    'structure_pass'        => 'phenomena',
+                    'void_starfield'        => true,
+                    'ambient_color'         => '0x8844ff',
+                    'ambient_intensity'     => 0.18,
+                    'spot_intensity'        => 0.5,
+                    'fill_intensity'        => 0.15,
+                    'hemisphere_intensity'  => 0.15,
+                    'tone_mapping_exposure' => 0.55,
+                    'artwork_light_base'    => 0.1,
+                ],
+                'material_config' => [
+                    'texture_tint'    => false,
+                    'floor_roughness' => 0.18,
+                ],
+            ],
+        ]);
+
+        $config = app(VenueConfigExporter::class)->forGallery($gallery);
+        $vc = $config['visual_config'];
+
+        $this->assertSame('0x050505', $vc['fog_color'], 'Venue fog authority — the violet belt vector.');
+        $this->assertSame(3.2, (float) $vc['ambient_intensity'], 'Venue rig authority.');
+        $this->assertSame(0.8, (float) $vc['tone_mapping_exposure'], 'Venue exposure authority.');
+        $this->assertSame('museum', $vc['structure_pass'], 'Venue structure authority.');
+        $this->assertSame(0.32, (float) $vc['artwork_light_base'], 'Venue legibility floor authority.');
+        $this->assertArrayNotHasKey('open_air', $vc, 'An undeclared void key can never strip the room shell.');
+        $this->assertArrayNotHasKey('floor_reflection', $vc, 'An undeclared void key can never mirror the museum floor.');
+        $this->assertArrayNotHasKey('void_starfield', $vc, 'A venue that never declared a void effect can never grow one from an override.');
+        $this->assertTrue($config['material_config']['texture_tint'], 'texture_tint is venue plumbing — a saved false cannot re-break tinted walls.');
+        // Genuine curator material intent still rides on top.
+        $this->assertSame(0.18, (float) $config['material_config']['floor_roughness']);
+    }
+
+    // ── 7c. Venue switch discards submitted overrides wholesale ──────────
+
+    public function test_venue_switch_discards_submitted_overrides_wholesale(): void
+    {
+        $user     = User::factory()->create();
+        $oldVenue = $this->voidVenue(['slug' => 'old-venue-' . uniqid()]);
+        $newVenue = $this->voidVenue(['slug' => 'new-venue-' . uniqid()]);
+        $gallery  = Gallery::factory()->create([
+            'user_id'           => $user->id,
+            'venue_template_id' => $oldVenue->id,
+            'visual_overrides'  => [
+                'visual_config' => ['tone_mapping_exposure' => 0.55],
+            ],
+        ]);
+
+        // The panel blob saved under the OLD venue rides along in the same
+        // save that switches venues — it must not recompose the new venue.
+        $json = json_encode([
+            'visual_config' => ['fog_color' => '0x6d0da0'],
+        ]);
+
+        $this->actingAs($user)
+            ->put(route('admin.galleries.update', $gallery), $this->updatePayload([
+                'venue_template_id'     => $newVenue->id,
+                'visual_overrides_json' => $json,
+            ]))
+            ->assertRedirect();
+
+        $gallery->refresh();
+        $this->assertSame($newVenue->id, $gallery->venue_template_id);
+        $this->assertNull(
+            $gallery->visual_overrides,
+            'A venue switch must start the gallery FRESH on the new venue — neither the stored layer nor the same-save blob may cross over.'
+        );
     }
 
     // ── 8. VENUE-OWNED ATMOSPHERE: preview runtime overrides cannot repaint it ─
@@ -356,7 +491,9 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         $config = app(VenueConfigExporter::class)->forGalleryPreview($gallery, [
             'visual_config' => [
                 'background_color' => '0x6d0da0',
+                'fog_color'        => '0x6d0da0',
                 'fog_far'          => 42,
+                'open_air'         => true,
             ],
         ]);
 
@@ -365,6 +502,8 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             $config['visual_config']['background_color'],
             'A hand-crafted ?override= payload must not repaint the venue background.'
         );
-        $this->assertSame(42, (int) $config['visual_config']['fog_far']);
+        $this->assertArrayNotHasKey('fog_color', $config['visual_config'] ?? [], 'The preview payload cannot carry a venue-owned fog repaint.');
+        $this->assertArrayNotHasKey('fog_far', $config['visual_config'] ?? [], 'The preview payload cannot carry a venue-owned fog ramp change (the venue never declared one).');
+        $this->assertArrayNotHasKey('open_air', $config['visual_config'] ?? [], 'The preview payload cannot carry the void shell-strip flag.');
     }
 }
