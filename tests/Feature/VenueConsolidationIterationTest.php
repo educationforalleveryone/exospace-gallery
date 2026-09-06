@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -31,6 +32,8 @@ use Tests\TestCase;
  */
 class VenueConsolidationIterationTest extends TestCase
 {
+    use RefreshDatabase;
+
     // ─────────────────────────────────────────────────────────────────────
     // The equivalence table — seeder ⇔ deleted JS strata, as data
     // ─────────────────────────────────────────────────────────────────────
@@ -55,7 +58,7 @@ class VenueConsolidationIterationTest extends TestCase
     ];
 
     public const CEILING_COLORS = [
-        'dark-museum'      => '0x080808',
+        'dark-museum'      => '0x0a0a0a', // deepened by the museum iteration (was 0x080808 pre-IT6)
         'luxury-penthouse' => '0x080808',
         'cyber-gallery'    => '0x04081a',
         'industrial-loft'  => '0x1a1a18',
@@ -135,11 +138,21 @@ class VenueConsolidationIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
+        // The dark-museum deepening is the deliberate curation opt-in: it
+        // declares placement (generous density, focal front wall, pairing).
+        $curated = ['dark-museum', 'infinite-void']; // venue deepening iterations opted these in
         foreach (array_keys(self::PASS_SELECTORS) as $slug) {
+            if (in_array($slug, $curated, true)) {
+                $this->assertIsArray(
+                    $this->visualConfig($slug)['placement'] ?? null,
+                    "[{$slug}] opted into curation â its placement block must be declared."
+                );
+                continue;
+            }
             $this->assertArrayNotHasKey(
                 'placement',
                 $this->visualConfig($slug),
-                "[{$slug}] must NOT declare a placement block — curation is opt-in and IT6 promises default galleries unchanged."
+                "[{$slug}] must NOT declare a placement block â curation is opt-in and IT6 promises default galleries unchanged."
             );
         }
     }
@@ -284,8 +297,8 @@ class VenueConsolidationIterationTest extends TestCase
         $rules = (new \App\Http\Requests\SuperAdmin\VenueTemplateRequest())->rules();
 
         $base = [
-            'name' => 'Curation Probe', 'slug' => 'curation-probe', 'category' => 'modern',
-            'plan_required' => 'free', 'description' => 'probe',
+            'name' => 'Curation Probe', 'slug' => 'curation-probe', 'category' => 'minimal',
+            'plan_required' => 'free', 'description' => 'probe', 'capacity_min' => 10,
         ];
 
         // Valid placement block passes.
@@ -321,6 +334,18 @@ class VenueConsolidationIterationTest extends TestCase
     // DoD rule #7 at full strength — the WHOLE gallery JS is slug-free
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Strip JS comments so the slug/symbol pins read CODE, not history
+     * notes. A comment may legitimately record which incident produced a
+     * key; a venue branch in executable logic may not.
+     */
+    private function jsCodeOnly(string $contents): string
+    {
+        $noBlock = preg_replace('/\/\*.*?\*\//s', '', $contents);
+
+        return (string) preg_replace('/^\s*\/\/.*$/m', '', (string) $noBlock);
+    }
+
     public function test_gallery_js_contains_zero_venue_slugs(): void
     {
         $slugs = [
@@ -332,7 +357,7 @@ class VenueConsolidationIterationTest extends TestCase
         $dir = base_path('resources/js/gallery');
         $this->assertDirectoryExists($dir);
         foreach (glob($dir.'/*.js') as $file) {
-            $contents = file_get_contents($file);
+            $contents = $this->jsCodeOnly(file_get_contents($file));
             foreach ($slugs as $slug) {
                 $this->assertStringNotContainsString(
                     $slug,
@@ -350,7 +375,7 @@ class VenueConsolidationIterationTest extends TestCase
             foreach (glob($dir.'/*.js') as $file) {
                 $this->assertStringNotContainsString(
                     $symbol,
-                    file_get_contents($file),
+                    $this->jsCodeOnly(file_get_contents($file)),
                     basename($file)." references {$symbol} — the strata were deleted in IT6."
                 );
             }

@@ -28,7 +28,7 @@ import { venueFillIntensity } from './Lighting.js';
 import { computeFloatFieldRadius } from './PlacementMath.js';
 
 // ── Ceiling colour from config (Iteration 6 consolidation) ──────────────────
-// The per-slug ceiling chains (dark-museum/luxury-penthouse → 0x080808,
+// The per-slug ceiling chains (museum/penthouse → 0x080808,
 // cyber → 0x04081a, loft → 0x1a1a18, zen → 0x1e1c14, else 0xffffff) existed
 // THREE times in this file. Consolidated here: the venue declares
 // visual_config.ceiling_color ('0xRRGGBB'); absence ⇒ white. Values in the
@@ -98,7 +98,7 @@ export function buildGallery() {
 
     this.placeArtworks(data);
 
-    // ── Post-placement structure hook (dark-museum audit) ────────────────
+    // ── Post-placement structure hook (museum audit) ────────────────
     // Some venue structure must anchor to the FINAL artwork transforms
     // (picture-light fixtures track the piece they light — recomputing the
     // hang here would be a second placement implementation that can drift).

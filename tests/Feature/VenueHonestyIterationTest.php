@@ -186,6 +186,7 @@ class VenueHonestyIterationTest extends TestCase
     public function test_honesty_migration_updates_matched_copy_and_respects_admin_edits(): void
     {
         $migration = require database_path('migrations/2026_09_01_000001_honesty_pass_venue_descriptions.php');
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         // (a) A row restored to the ORIGINAL seeded copy IS updated.
         DB::table('venue_templates')

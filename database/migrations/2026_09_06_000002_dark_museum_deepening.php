@@ -76,7 +76,7 @@ return new class extends Migration
     {
         $row = DB::table('venue_templates')
             ->where('slug', 'dark-museum')
-            ->first(['id', 'visual_config', 'material_config', 'description']);
+            ->first(['id', 'visual_config', 'material_config', 'description', 'version']);
         if (!$row) {
             return; // venue removed by the operator — respect that
         }
@@ -173,11 +173,18 @@ return new class extends Migration
 
         // ── description (customer-facing truth) ──────────────────────────
         $v1Description = 'Dramatic lighting with black walls. Premium artwork presentation with gold-leaf frames.';
-        $v2Description = 'A night-lit institution: charcoal galleries under a floating black ceiling, brass picture lights over every work, polished dark stone below. The architecture recedes; the artwork glows.';
+        $v2Description = 'A night-lit institution: charcoal galleries under a shadow-gap black ceiling, brass picture lights over every work, polished dark stone below. The architecture recedes; the artwork glows.';
         if ((string) $row->description === $v1Description) {
             DB::table('venue_templates')
                 ->where('id', $row->id)
                 ->update(['description' => $v2Description]);
+        }
+
+        // ── version ──────────────────────────────────────────────────────
+        // Same guarded stamp the infinite-void deepening uses: a row
+        // deepened by THIS migration must not stay labelled 1.0.0.
+        if ($this->guardedEquals($row->version, '1.0.0')) {
+            DB::table('venue_templates')->where('id', $row->id)->update(['version' => '2.0.0']);
         }
     }
 
@@ -185,7 +192,7 @@ return new class extends Migration
     {
         $row = DB::table('venue_templates')
             ->where('slug', 'dark-museum')
-            ->first(['id', 'visual_config', 'material_config', 'description']);
+            ->first(['id', 'visual_config', 'material_config', 'description', 'version']);
         if (!$row) {
             return;
         }
@@ -273,11 +280,16 @@ return new class extends Migration
             ->update(['material_config' => json_encode($mc)]);
 
         $v1Description = 'Dramatic lighting with black walls. Premium artwork presentation with gold-leaf frames.';
-        $v2Description = 'A night-lit institution: charcoal galleries under a floating black ceiling, brass picture lights over every work, polished dark stone below. The architecture recedes; the artwork glows.';
+        $v2Description = 'A night-lit institution: charcoal galleries under a shadow-gap black ceiling, brass picture lights over every work, polished dark stone below. The architecture recedes; the artwork glows.';
         if ((string) $row->description === $v2Description) {
             DB::table('venue_templates')
                 ->where('id', $row->id)
                 ->update(['description' => $v1Description]);
+        }
+
+        // ── version (reversible under the same guard) ────────────────────
+        if ($this->guardedEquals($row->version, '2.0.0')) {
+            DB::table('venue_templates')->where('id', $row->id)->update(['version' => '1.0.0']);
         }
     }
 };

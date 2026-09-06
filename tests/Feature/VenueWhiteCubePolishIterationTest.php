@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -28,6 +29,8 @@ use Tests\TestCase;
  */
 class VenueWhiteCubePolishIterationTest extends TestCase
 {
+    use RefreshDatabase;
+
     // ─────────────────────────────────────────────────────────────────────
     // The remediated identity (mirrors the seeder + harness payload)
     // ─────────────────────────────────────────────────────────────────────
@@ -85,7 +88,7 @@ class VenueWhiteCubePolishIterationTest extends TestCase
         foreach (self::POLISHED as $key => $value) {
             $this->assertSame(
                 $value,
-                is_int($value) ? $vc[$key] ?? null : (float) ($vc[$key] ?? -1),
+                is_float($value) ? (float) ($vc[$key] ?? -1) : ($vc[$key] ?? null),
                 "[white-cube] visual_config.{$key} must declare the polished value."
             );
         }
@@ -181,8 +184,8 @@ class VenueWhiteCubePolishIterationTest extends TestCase
         $vc = $this->visualConfig('white-cube');
         foreach (self::POLISHED as $key => $value) {
             $this->assertSame(
-                is_int($value) ? $value : (float) $value,
-                is_int($value) ? ($vc[$key] ?? null) : (float) ($vc[$key] ?? -1),
+                is_float($value) ? (float) $value : $value,
+                is_float($value) ? (float) ($vc[$key] ?? -1) : ($vc[$key] ?? null),
                 "up() rewrites the seeded {$key}."
             );
         }

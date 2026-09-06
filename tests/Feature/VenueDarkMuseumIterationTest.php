@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -33,6 +34,8 @@ use Tests\TestCase;
  */
 class VenueDarkMuseumIterationTest extends TestCase
 {
+    use RefreshDatabase;
+
     // ─────────────────────────────────────────────────────────────────────
     // The deepened identity (mirrors the seeder + harness payload)
     // ─────────────────────────────────────────────────────────────────────
@@ -108,7 +111,7 @@ class VenueDarkMuseumIterationTest extends TestCase
         foreach (self::DEEPENED_VISUAL as $key => $value) {
             $this->assertSame(
                 $value,
-                is_int($value) ? $vc[$key] ?? null : (float) ($vc[$key] ?? -1),
+                is_float($value) ? (float) ($vc[$key] ?? -1) : ($vc[$key] ?? null),
                 "[dark-museum] visual_config.{$key} must declare the deepened value."
             );
         }
@@ -200,7 +203,7 @@ class VenueDarkMuseumIterationTest extends TestCase
         foreach (self::DEEPENED_VISUAL as $key => $value) {
             $this->assertSame(
                 $value,
-                is_int($value) ? $vc[$key] ?? null : (float) ($vc[$key] ?? -1),
+                is_float($value) ? (float) ($vc[$key] ?? -1) : ($vc[$key] ?? null),
                 "[migration] visual_config.{$key} rewritten from the v1.0.0 seed."
             );
         }
@@ -237,7 +240,11 @@ class VenueDarkMuseumIterationTest extends TestCase
         $vc = $this->visualConfig('dark-museum');
         $this->assertSame(2.5, (float) $vc['ambient_intensity'], '[migration] admin ambient survives.');
         $this->assertSame(1.1, (float) $vc['tone_mapping_exposure'], '[migration] admin exposure survives.');
-        $this->assertSame(['bloom' => true], $vc['post_fx'], '[migration] admin post_fx survives.');
+// The curated bloom survives; the dark-scene blend fix is the one
+        // documented key-add (a post_fx block never has curated values clobbered).
+        $this->assertTrue($vc['post_fx']['bloom'] ?? false, 'igration] admin post_fx survives (curated bloom intact).');
+        $this->assertSame('black', $vc['post_fx']['vignette_blend'] ?? null, 'igration] curated post_fx gains only the blend fix.');
+        $this->assertCount(2, $vc['post_fx'], 'igration] nothing else is added to curated post_fx.');
         // Untouched keys keep their deepened values (their guards no longer
         // match the stored values — nothing to rewrite).
         $this->assertSame(1.9, (float) $vc['spot_intensity'], '[migration] deepened keys keep their values when no guard matches.');

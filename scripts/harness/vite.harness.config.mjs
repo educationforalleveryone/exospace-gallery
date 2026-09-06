@@ -26,9 +26,12 @@ export default defineConfig({
             { find: /^three$/, replacement: 'three' },
         ],
     },
+    publicDir: false, // the harness ships its own assets/ (textures, sample
+                      // artworks) — copying all of public/ here would both
+                      // pollute the output and bury them in duplicates.
     build: {
         outDir: path.join(root, 'public/harness'),
-        emptyOutDir: true,
+        emptyOutDir: false, // assets/ (textures, sample art) persist across builds
         target: 'es2020',
         rollupOptions: {
             input: path.join(root, 'scripts/harness/harness.html'),

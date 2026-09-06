@@ -19,10 +19,13 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PreflightGateTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_cr1_preflight_command_exists_and_returns_zero_in_testing(): void
     {
         // In the testing env, PreflightCheck should return 0 (all checks pass

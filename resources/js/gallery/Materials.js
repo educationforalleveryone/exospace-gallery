@@ -192,7 +192,7 @@ export function createFrame(width, height, style) {
     // Frame style flows through visual_config.frame_override (the seeder has
     // carried it for every override venue since Iteration 0 — the map was
     // config-shadowed dead code). Admin-created venues declare their own.
-    const effectiveStyle = this._venueFrameOverride || style;
+    const effectiveStyle = this._venueFrameStyleOverride || style;
     const styleProps     = FRAME_STYLES[effectiveStyle] || FRAME_STYLES.modern;
 
     // s4: venue-declared env_intensity wins over the preset (the frame

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -32,6 +33,8 @@ use Tests\TestCase;
  */
 class VenueIndustrialLoftIterationTest extends TestCase
 {
+    use RefreshDatabase;
+
     // ─────────────────────────────────────────────────────────────────────
     // The deepened identity (mirrors the seeder + harness payload)
     // ─────────────────────────────────────────────────────────────────────
@@ -56,6 +59,30 @@ class VenueIndustrialLoftIterationTest extends TestCase
         'vignette_darkness' => 0.35,
         'vignette_offset'   => 1.0,
     ];
+
+
+    /**
+     * JSON numeric normalisation: some PHP builds encode 1.0 as "1" (int)
+     * and others as "1.0" (float). The values are numerically identical —
+     * compare the decoded arrays with float tolerance, exactly like the
+     * migration's own guardedEquals does.
+     */
+    private function assertPostFxMatches(array $expected, ?array $actual, string $message): void
+    {
+        $this->assertIsArray($actual, $message);
+        $this->assertSame(
+            array_keys($expected),
+            array_keys($actual),
+            $message.' (key set)'
+        );
+        foreach ($expected as $k => $v) {
+            if (is_bool($v)) {
+                $this->assertSame($v, $actual[$k], $message." ($k)");
+            } else {
+                $this->assertSame((float) $v, (float) $actual[$k], $message." ($k)");
+            }
+        }
+    }
 
     private function migration(): object
     {
@@ -105,15 +132,12 @@ class VenueIndustrialLoftIterationTest extends TestCase
         foreach (self::DEEPENED_VISUAL as $key => $value) {
             $this->assertSame(
                 $value,
-                is_int($value) ? $vc[$key] ?? null : (float) ($vc[$key] ?? -1),
+                is_float($value) ? (float) ($vc[$key] ?? -1) : ($vc[$key] ?? null),
                 "[industrial-loft] visual_config.{$key} must declare the deepened value."
             );
         }
 
-        $this->assertSame(
-            self::DEEPENED_POST_FX,
-            $vc['post_fx'] ?? null,
-            '[industrial-loft] must declare its post-fx restraint (bloom off — the runtime default put bloom ON in a venue of emissive lamps).'
+        $this->assertPostFxMatches(self::DEEPENED_POST_FX, $vc['post_fx'] ?? null, '[industrial-loft] must declare its post-fx restraint (bloom off — the runtime default put bloom ON in a venue of emissive lamps).'
         );
 
         // Identity keys the consolidation iteration pinned — unchanged.
@@ -194,11 +218,11 @@ class VenueIndustrialLoftIterationTest extends TestCase
         foreach (self::DEEPENED_VISUAL as $key => $value) {
             $this->assertSame(
                 $value,
-                is_int($value) ? $vc[$key] ?? null : (float) ($vc[$key] ?? -1),
+                is_float($value) ? (float) ($vc[$key] ?? -1) : ($vc[$key] ?? null),
                 "[migration] visual_config.{$key} rewritten from the v1.0.0 seed."
             );
         }
-        $this->assertSame(self::DEEPENED_POST_FX, $vc['post_fx'] ?? null, '[migration] post_fx added when absent.');
+        $this->assertPostFxMatches(self::DEEPENED_POST_FX, $vc['post_fx'] ?? null, '[migration] post_fx added when absent.');
         $this->assertSame(3.0, (float) ($this->materialConfig('industrial-loft')['floor_tile_meters'] ?? -1));
         $this->assertSame('square', $this->defaultSettings('industrial-loft')['room_layout'] ?? null);
         $this->assertSame('1.0.0', $this->venueRow('industrial-loft')->version, '[migration] never touches version (the seeder owns it).');

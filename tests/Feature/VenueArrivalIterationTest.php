@@ -275,7 +275,10 @@ class VenueArrivalIterationTest extends TestCase
 
         GalleryImage::factory()->create(['gallery_id' => $gallery->id]);
 
+        // The publish handler returns back() (stay-on-page UX, Iteration 2
+        // TTFE) â the edit page is the referer in the real admin UI.
         $this->actingAs($user)
+            ->withHeaders(['referer' => url("/admin/galleries/{$gallery->id}/edit")])
             ->post("/admin/galleries/{$gallery->id}/publish")
             ->assertRedirect("/admin/galleries/{$gallery->id}/edit");
 

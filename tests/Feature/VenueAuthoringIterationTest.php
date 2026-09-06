@@ -39,6 +39,7 @@ namespace Tests\Feature;
 
 use App\Models\AdminAuditLog;
 use App\Models\Gallery;
+use App\Models\GalleryImage;
 use App\Models\User;
 use App\Models\VenueTemplate;
 use App\Models\VenueTemplateSnapshot;
@@ -56,6 +57,14 @@ class VenueAuthoringIterationTest extends TestCase
             'is_super_admin'     => true,
             'email_verified_at'  => now(),
         ]);
+    }
+
+
+    /** RequireMfa (Task H56/SEC-5) demands a verified MFA session for every
+     *  super-admin action — actingAs alone is not enough. */
+    private function mfaSession(): array
+    {
+        return ['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp];
     }
 
     private function regularUser(): User
@@ -87,7 +96,7 @@ class VenueAuthoringIterationTest extends TestCase
         $admin = $this->superAdmin();
         $venue = $this->venue(['name' => 'Dark Museum']);
 
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->post(route('super.venues.clone', $venue))
             ->assertRedirect();
 
@@ -122,8 +131,8 @@ class VenueAuthoringIterationTest extends TestCase
         $admin = $this->superAdmin();
         $venue = $this->venue(['name' => 'Zen Garden', 'slug' => 'zen-garden']);
 
-        $this->actingAs($admin)->post(route('super.venues.clone', $venue));
-        $this->actingAs($admin)->post(route('super.venues.clone', $venue));
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->post(route('super.venues.clone', $venue));
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->post(route('super.venues.clone', $venue));
 
         $slugs = VenueTemplate::query()->where('slug', 'like', 'zen-garden-copy%')->pluck('slug')->all();
         $this->assertCount(2, $slugs, 'Both clones must exist.');
@@ -141,7 +150,7 @@ class VenueAuthoringIterationTest extends TestCase
 
         // Seven sequential saves → only the last five pre-save states kept.
         for ($i = 1; $i <= 7; $i++) {
-            $this->actingAs($admin)
+            $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
                 ->put(route('super.venues.update', $venue), [
                     'name'        => "Test Venue v{$i}",
                     'description' => $venue->description,
@@ -180,7 +189,7 @@ class VenueAuthoringIterationTest extends TestCase
         $venue = $this->venue(['visual_config' => ['wall_height' => 4, 'fog_color' => '0x0f0f0f']]);
 
         // Save #1: capture original, apply a destructive change.
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->put(route('super.venues.update', $venue), [
                 'name' => $venue->name,
                 'description' => $venue->description,
@@ -196,7 +205,7 @@ class VenueAuthoringIterationTest extends TestCase
 
         // Roll back to the snapshot (the pre-save original).
         $snapshot = VenueTemplateSnapshot::forVenue($venue->id)->firstOrFail();
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->post(route('super.venues.snapshots.restore', [$venue, $snapshot]))
             ->assertRedirect();
 
@@ -223,7 +232,7 @@ class VenueAuthoringIterationTest extends TestCase
         $venueA = $this->venue(['name' => 'Venue A']);
         $venueB = $this->venue(['name' => 'Venue B']);
 
-        $this->actingAs($admin)->put(route('super.venues.update', $venueA), [
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->put(route('super.venues.update', $venueA), [
             'name' => 'Venue A2', 'description' => $venueA->description, 'category' => $venueA->category,
             'plan_required' => 'free', 'capacity_min' => 10,
         ]);
@@ -231,7 +240,7 @@ class VenueAuthoringIterationTest extends TestCase
         $snapshot = VenueTemplateSnapshot::forVenue($venueA->id)->firstOrFail();
 
         // Snapshot of A must not be restorable onto B.
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->post(route('super.venues.snapshots.restore', [$venueB, $snapshot]))
             ->assertNotFound();
     }
@@ -249,7 +258,7 @@ class VenueAuthoringIterationTest extends TestCase
             'venue_template_id' => $venue->id,
         ]);
 
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->delete(route('super.venues.destroy', $venue), ['confirm_usage' => '1'])
             ->assertRedirect();
 
@@ -277,7 +286,7 @@ class VenueAuthoringIterationTest extends TestCase
         Gallery::factory()->create(['user_id' => $admin->id, 'venue_template_id' => $venue->id]);
 
         // Without confirm_usage: refused, nothing changes.
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->delete(route('super.venues.destroy', $venue))
             ->assertRedirect();
 
@@ -285,7 +294,7 @@ class VenueAuthoringIterationTest extends TestCase
         $this->assertFalse($venue->isArchived(), 'Archive must be refused without usage confirmation.');
 
         // With confirm_usage: archived.
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->delete(route('super.venues.destroy', $venue), ['confirm_usage' => '1'])
             ->assertRedirect();
 
@@ -298,11 +307,18 @@ class VenueAuthoringIterationTest extends TestCase
         $admin = $this->superAdmin();
         $venue = $this->venue(['slug' => 'archived-test', 'is_active' => true]);
 
+        // The public /venues catalog lists venues that carry a public
+        // exhibition (publiclyViewable + has images) — give the venue one so
+        // it is catalog-visible before archiving.
+        Gallery::factory()->for($admin, 'user')
+            ->create(['venue_template_id' => $venue->id, 'is_active' => true])
+            ->images()->create(GalleryImage::factory()->make()->toArray());
+
         // Visible on every selection surface before archiving.
         $this->get(route('venues.index'))->assertOk()->assertSee('archived-test');
         $this->get(route('venues.preview', 'archived-test'))->assertOk();
 
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->delete(route('super.venues.destroy', $venue), ['confirm_usage' => '1'])
             ->assertRedirect();
 
@@ -324,10 +340,10 @@ class VenueAuthoringIterationTest extends TestCase
         $admin = $this->superAdmin();
         $venue = $this->venue(['slug' => 'unarchive-me']);
 
-        $this->actingAs($admin)->delete(route('super.venues.destroy', $venue), ['confirm_usage' => '1']);
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->delete(route('super.venues.destroy', $venue), ['confirm_usage' => '1']);
         $this->get(route('venues.preview', 'unarchive-me'))->assertNotFound();
 
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->patch(route('super.venues.unarchive', $venue))
             ->assertRedirect();
 
@@ -351,7 +367,7 @@ class VenueAuthoringIterationTest extends TestCase
         $venue = $this->venue(['is_draft' => true]);
         $this->assertNull($venue->published_at);
 
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->patch(route('super.venues.publish', $venue))
             ->assertRedirect();
 
@@ -372,7 +388,7 @@ class VenueAuthoringIterationTest extends TestCase
 
         $this->get(route('venues.preview', 'unpublish-me'))->assertOk();
 
-        $this->actingAs($admin)->patch(route('super.venues.unpublish', $venue))->assertRedirect();
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->patch(route('super.venues.unpublish', $venue))->assertRedirect();
 
         $venue->refresh();
         $this->assertTrue($venue->is_draft);
@@ -408,7 +424,7 @@ class VenueAuthoringIterationTest extends TestCase
         $this->assertSame(4, $before['visual_config']['wall_height']);
 
         // Save a new wall height through the authoring flow.
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->put(route('super.venues.update', $venue), [
                 'name' => $venue->name, 'description' => $venue->description,
                 'category' => $venue->category, 'plan_required' => 'free', 'capacity_min' => 10,
@@ -422,7 +438,7 @@ class VenueAuthoringIterationTest extends TestCase
 
         // Snapshot restore busts the same way (a restore IS a save).
         $snapshot = VenueTemplateSnapshot::forVenue($venue->id)->firstOrFail();
-        $this->actingAs($admin)->post(route('super.venues.snapshots.restore', [$venue, $snapshot]));
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->post(route('super.venues.snapshots.restore', [$venue, $snapshot]));
 
         $rolled = $exporter->forGallery($gallery);
         $this->assertSame(4, $rolled['visual_config']['wall_height'], 'Snapshot rollback must be visible immediately.');
@@ -445,7 +461,7 @@ class VenueAuthoringIterationTest extends TestCase
             ],
         ]);
 
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->put(route('super.venues.update', $venue), [
                 'name' => $venue->name, 'description' => $venue->description,
                 'category' => $venue->category, 'plan_required' => 'free', 'capacity_min' => 10,
@@ -469,7 +485,7 @@ class VenueAuthoringIterationTest extends TestCase
         $venue = $this->venue();
 
         // Fog folding inside itself.
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->put(route('super.venues.update', $venue), [
                 'name' => $venue->name, 'description' => $venue->description,
                 'category' => $venue->category, 'plan_required' => 'free', 'capacity_min' => 10,
@@ -478,7 +494,7 @@ class VenueAuthoringIterationTest extends TestCase
             ->assertSessionHasErrors('visual_config.fog_far');
 
         // Ceiling below the walls.
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->put(route('super.venues.update', $venue), [
                 'name' => $venue->name, 'description' => $venue->description,
                 'category' => $venue->category, 'plan_required' => 'free', 'capacity_min' => 10,
@@ -519,14 +535,14 @@ class VenueAuthoringIterationTest extends TestCase
         $venue = $this->venue();
 
         // All authoring routes vanish (404, indistinguishable from absent).
-        $this->actingAs($admin)->post(route('super.venues.clone', $venue))->assertNotFound();
-        $this->actingAs($admin)->patch(route('super.venues.publish', $venue))->assertNotFound();
-        $this->actingAs($admin)->patch(route('super.venues.unpublish', $venue))->assertNotFound();
-        $this->actingAs($admin)->patch(route('super.venues.unarchive', $venue))->assertNotFound();
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->post(route('super.venues.clone', $venue))->assertNotFound();
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->patch(route('super.venues.publish', $venue))->assertNotFound();
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->patch(route('super.venues.unpublish', $venue))->assertNotFound();
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->patch(route('super.venues.unarchive', $venue))->assertNotFound();
 
         // Core CRUD keeps working with the flag off (a plain update must
         // still succeed — and simply not capture snapshots).
-        $this->actingAs($admin)
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->put(route('super.venues.update', $venue), [
                 'name' => $venue->name, 'description' => $venue->description,
                 'category' => $venue->category, 'plan_required' => 'free', 'capacity_min' => 10,

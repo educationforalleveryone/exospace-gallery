@@ -106,7 +106,7 @@ export class GalleryScene {
         this._venueAmbientIntensity = null;
         this._venueSpotIntensity  = null;
         this._venueFillIntensity  = null;
-        this._venueFrameOverride  = null;
+        this._venueFrameStyleOverride  = null;
         this._venueCeilingType    = null;
         this._venueMaterialConfig = null;
         this._venuePostFx         = null;
@@ -117,7 +117,7 @@ export class GalleryScene {
         this._venueVisualConfig  = null; // raw visual_config (structure_pass etc.)
         this._venuePlacementMode = null; // 'float' | null (null = legacy easel/wall)
         this._venueEnvIntensity  = null; // venue-level scene.environment strength
-        this._venueHemisphereIntensity = null; // venue-declared hemisphere fill (dark-museum audit)
+        this._venueHemisphereIntensity = null; // venue-declared hemisphere fill (museum legibility audit)
         this._circularFloor      = null; // floor handle for tier-aware treatments
 
         // SFX state

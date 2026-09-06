@@ -183,6 +183,33 @@ return new class extends Migration
         ]);
     }
 
+
+    /** Numeric-tolerant deep equality for JSON-decoded config columns. */
+    private function jsonEquals($a, $b): bool
+    {
+        if (is_array($a) || is_array($b)) {
+            if (!is_array($a) || !is_array($b) || count($a) !== count($b)) {
+                return false;
+            }
+            foreach ($b as $k => $v) {
+                if (!array_key_exists($k, $a) || !$this->jsonEquals($a[$k], $v)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (is_string($a) || is_string($b)) {
+            return (string) $a === (string) $b;
+        }
+        if (is_bool($a) || is_bool($b)) {
+            return $a === $b;
+        }
+        if (is_numeric($a) && is_numeric($b)) {
+            return (float) $a === (float) $b;
+        }
+        return $a === $b;
+    }
+
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', 'the-salon')->first();
@@ -199,9 +226,11 @@ return new class extends Migration
 
         // Never delete a venue the admin has tuned — every config column
         // must still equal what up() wrote (super-admin edits win, always).
+        // Numeric-tolerant: JSON round-trips may re-type 1.0 as 1 depending
+        // on the PHP build's json encoder; that is not an admin edit.
         $t = $this->salonTemplate();
         foreach (['tags', 'default_settings', 'visual_config', 'material_config', 'decorations', 'lighting_fixtures', 'supported_layouts'] as $col) {
-            if (json_decode((string) $row->{$col}, true) !== $t[$col]) {
+            if (!$this->jsonEquals(json_decode((string) $row->{$col}, true), $t[$col])) {
                 return;
             }
         }

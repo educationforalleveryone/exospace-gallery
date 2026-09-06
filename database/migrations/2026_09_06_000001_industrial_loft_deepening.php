@@ -211,5 +211,59 @@ return new class extends Migration
         DB::table('venue_templates')
             ->where('id', $row->id)
             ->update(['default_settings' => json_encode($ds)]);
+
+        // ── key adds — removed only while they still equal what up() wrote
+        // (an admin's edited value is never touched by down()).
+        // NOTE: re-fetch - the in-memory $row predates the rewrites above and
+        // must not be written back (that would undo them).
+        $fresh = DB::table('venue_templates')->where('id', $row->id)->first(['id', 'visual_config']);
+        $vc = json_decode((string) $fresh->visual_config, true) ?: [];
+        $addedPostFx = [
+            'bloom'             => false,
+            'vignette'          => true,
+            'vignette_darkness' => 0.35,
+            'vignette_offset'   => 1.0,
+        ];
+        if (isset($vc['post_fx']) && is_array($vc['post_fx'])
+            && count($vc['post_fx']) === count($addedPostFx)
+            && $this->arrayEqualsNumeric($vc['post_fx'], $addedPostFx)) {
+            unset($vc['post_fx']);
+            DB::table('venue_templates')
+                ->where('id', $row->id)
+                ->update(['visual_config' => json_encode($vc)]);
+        }
+        foreach ([
+            'artwork_light_base'     => 0.22,
+            'artwork_light_pool_cap' => 12,
+        ] as $key => $added) {
+            if (isset($vc[$key]) && $this->guardedEquals($vc[$key], $added)) {
+                unset($vc[$key]);
+                DB::table('venue_templates')
+                    ->where('id', $row->id)
+                    ->update(['visual_config' => json_encode($vc)]);
+            }
+        }
+    }
+
+    /** Numeric-tolerant array equality (JSON int/float normalisation). */
+    private function arrayEqualsNumeric(array $a, array $b): bool
+    {
+        foreach ($b as $k => $v) {
+            if (!array_key_exists($k, $a)) {
+                return false;
+            }
+            if (is_bool($v)) {
+                if ($a[$k] !== $v) {
+                    return false;
+                }
+            } elseif (is_string($v)) {
+                if ($a[$k] !== $v) {
+                    return false;
+                }
+            } elseif (!is_numeric($a[$k]) || (float) $a[$k] !== (float) $v) {
+                return false;
+            }
+        }
+        return true;
     }
 };

@@ -354,7 +354,7 @@
             </script>
             @endfeatureFlag
             <span class="preview-chip">Sample exhibition</span>
-            <a class="preview-cta" href="{{ auth()->check() ? route('galleries.index') : route('register') }}">
+            <a class="preview-cta" href="{{ auth()->check() ? route('admin.galleries.index') : route('register') }}">
                 Use this venue
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
             </a>
@@ -427,7 +427,7 @@
                 Skip intro →
             </a>
 
-            <a href="{{ auth()->check() ? route('galleries.index') : route('register') }}"
+            <a href="{{ auth()->check() ? route('admin.galleries.index') : route('register') }}"
                style="display: block; margin-top: 0.5rem; font-size: 0.85rem; color: rgba(195,180,255,0.8); text-decoration: none; font-weight: 600; transition: color 0.2s;">
                 Use this venue for your exhibition →
             </a>

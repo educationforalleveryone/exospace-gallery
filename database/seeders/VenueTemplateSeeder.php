@@ -136,6 +136,8 @@ class VenueTemplateSeeder extends Seeder
                     'fill_intensity'         => 2.6,
                     'tone_mapping_exposure'  => 1.05,
                     'frame_override'         => null,
+                    // s4 environment authority: the venue declares its sky.
+                    'environment'            => 'studio',
                     // Iteration 6 "Consolidation": interpreter selector for the respect
                     // pass (base reveal, crown line, visible ceiling fixtures) — was
                     // 'rooms' + a slug gate pre-IT6, now an explicit selector.
@@ -222,6 +224,7 @@ class VenueTemplateSeeder extends Seeder
                     'placement_mode'  => 'float',  // §10.5 — the original promise, now real
                     'floor_edge_fade'  => true,  // §4.2 — the "endless" must read
                     'env_intensity'  => 0,  // a pure void — no preset HDRI horizon glow
+                    'environment'    => 'none',  // s4: declared — no environment, ever
                     'structure_pass'  => 'phenomena',  // per-venue rollback switch
                     // ── Void Deepening declared identity ────────────────
                     // Artworks on a ring sit beyond the proximity radius —
@@ -370,6 +373,8 @@ class VenueTemplateSeeder extends Seeder
                     // girders to catch a highlight, not enough to grey the
                     // murk (unset = the dramatic preset's 0.30).
                     'env_intensity'          => 0.25,
+                    // s4: the venue declares its sky (was dramatic→night.hdr).
+                    'environment'            => 'night',
                     // Post-processing identity: a working warehouse, not a
                     // neon sign — bloom off, gentle vignette keeps the mood.
                     'post_fx'                => [
@@ -404,7 +409,7 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Dark Museum',
                 'slug'          => 'dark-museum',
-                'description'   => 'A night-lit institution: charcoal galleries under a floating black ceiling, brass picture lights over every work, polished dark stone below. The architecture recedes; the artwork glows.',
+                'description'   => 'A night-lit institution: charcoal galleries under a shadow-gap black ceiling, brass picture lights over every work, polished dark stone below. The architecture recedes; the artwork glows.',
                 'category'      => 'museum',
                 'tags'          => ['dramatic', 'premium', 'dark'],
                 'plan_required' => 'pro',
@@ -448,10 +453,17 @@ class VenueTemplateSeeder extends Seeder
                     // sits in the dark): standing glow + pool raise.
                     'artwork_light_base'     => 0.32,
                     'artwork_light_pool_cap' => 14,
-                    // The moody preset's rural_evening HDRI stays as a warm
-                    // reflection source for brass/gold — silenced to a
-                    // whisper so the stone floor keeps its night read.
+                    // s4 ENVIRONMENT AUTHORITY (the cloud-sheen root-cause
+                    // fix): the venue now DECLARES its sky as 'night' — the
+                    // museum's environment identity can no longer depend on
+                    // which lighting preset a gallery's stale row happens to
+                    // carry. night.hdr keeps a subtle reflection source for
+                    // the brass picture lights and gold frames WITHOUT the
+                    // daytime cloud deck rural_evening painted across the
+                    // polished dark stone (the deployed sky/cloud-on-floor
+                    // report). Env strength stays at the declared whisper.
                     'env_intensity'          => 0.14,
+                    'environment'            => 'night',
                     // The shared hemisphere wash is now venue-declarable;
                     // the museum flattens it to keep its hierarchy.
                     'hemisphere_intensity'   => 0.04,
@@ -537,6 +549,8 @@ class VenueTemplateSeeder extends Seeder
                     'fill_intensity'         => 0.14,
                     'tone_mapping_exposure'  => 0.55,
                     'frame_override'         => null,
+                    // s4: the venue declares its sky.
+                    'environment'            => 'studio',
                     // ── Iteration 3 "Rooms" declared identity (§10.3 interpreter; rollback =
                     // remove these keys — the venue reverts to its pre-pass render, live).
                     'structure_pass'        => 'rooms',

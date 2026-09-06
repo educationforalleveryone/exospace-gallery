@@ -54,7 +54,7 @@
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-800/80">
-            @foreach($items as $item)
+            @forelse($items as $item)
                 @php
                     $statusStyles = [
                         'rotate_now' => 'bg-red-950/60 text-red-300 border-red-700/60',

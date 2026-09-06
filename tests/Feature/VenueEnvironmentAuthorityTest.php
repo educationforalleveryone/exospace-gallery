@@ -6,6 +6,7 @@ use App\Models\Gallery;
 use App\Models\VenueTemplate;
 use App\Services\VenueConfigExporter;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -39,6 +40,8 @@ use Tests\TestCase;
  */
 class VenueEnvironmentAuthorityTest extends TestCase
 {
+    use RefreshDatabase;
+
     // ─────────────────────────────────────────────────────────────────────
     // 1. The seeded baseline DECLARES its skies
     // ─────────────────────────────────────────────────────────────────────
@@ -308,8 +311,8 @@ class VenueEnvironmentAuthorityTest extends TestCase
         $rules = (new \App\Http\Requests\SuperAdmin\VenueTemplateRequest())->rules();
 
         $base = [
-            'name' => 'Env Probe', 'slug' => 'env-probe', 'category' => 'modern',
-            'plan_required' => 'free', 'description' => 'probe',
+            'name' => 'Env Probe', 'slug' => 'env-probe', 'category' => 'minimal', // a real VenueTemplate::CATEGORIES key
+            'plan_required' => 'free', 'description' => 'probe', 'capacity_min' => 10,
         ];
 
         foreach (['studio', 'rural_evening', 'night', 'none'] as $declared) {

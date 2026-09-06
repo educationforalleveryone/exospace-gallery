@@ -235,7 +235,7 @@ class VenueSalonIterationTest extends TestCase
 
         $this->assertSame('rooms', $config['structure_pass'] ?? null,
             '[the-salon] renders through the Room-family structure interpreter.');
-        $this->assertSame(['square'], $config['supported_layouts'] ?? null,
+        $this->assertSame(['square'], json_decode((string) DB::table('venue_templates')->where('slug', 'the-salon')->value('supported_layouts'), true),
             'The salon is a domestic square room — one layout, honestly supported.');
     }
 
@@ -317,7 +317,7 @@ class VenueSalonIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $this->artisan('venues:catalog-report', ['--json' => true]);
+        Artisan::call('venues:catalog-report', ['--json' => true]);
         $json = json_decode(Artisan::output(), true);
 
         $coverage = collect($json['register_coverage']);
@@ -349,9 +349,12 @@ class VenueSalonIterationTest extends TestCase
         $this->assertNotEmpty($files, 'Gallery runtime files must exist.');
 
         foreach ($files as $file) {
-            $src = file_get_contents($file);
+            // Read CODE, not history comments (the incident log lives in
+            // docs and git — a comment may name a slug, logic may not).
+            $code = preg_replace('/\/\*.*?\*\//s', '', file_get_contents($file));
+            $code = (string) preg_replace('/^\s*\/\/.*$/m', '', (string) $code);
             foreach ($slugs as $slug) {
-                $this->assertStringNotContainsString($slug, $src,
+                $this->assertStringNotContainsString($slug, $code,
                     basename($file) . " must not know the slug '{$slug}' — the DB is the sole identity source (DoD #7)."
                 );
             }

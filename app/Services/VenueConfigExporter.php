@@ -88,8 +88,22 @@ class VenueConfigExporter
      * stock grey glow). post_fx + placement are now venue-owned nested
      * keys, the material identity set is owned in full, and this bump
      * re-keys every gallery so the residual layer heals on deploy.
+     *
+     * s4 (environment-authority audit, 2026-09-07): the LAST unguarded
+     * identity channel was the ENVIRONMENT (HDRI). It was never part of the
+     * override merge — it rode in through a side door: the runtime resolved
+     * the HDRI from the GALLERY's lighting_preset column (bright→studio.hdr,
+     * moody→rural_evening.hdr, dramatic→night.hdr), so a stale gallery-era
+     * preset could install a different sky in any venue, and the floor/frame
+     * materials read the PRESET's envIntensity instead of the venue's
+     * declared env_intensity (the Dark Museum cloud-sheen root cause —
+     * see EXOSPACE_VENUES.md §"Environment"). s4 makes the environment a
+     * venue-owned key (visual_config.environment), ships the owned-key
+     * lists IN the payload so the runtime patch guard can never drift from
+     * this file, and bumps the schema so every cached payload re-keys on
+     * deploy.
      */
-    public const SCHEMA = 's3';
+    public const SCHEMA = 's4';
 
     /**
      * VENUE-OWNED ATMOSPHERE, ARCHITECTURE AND RIG (visual_config).
@@ -128,8 +142,10 @@ class VenueConfigExporter
      * deploy with no manual reset, exactly like background_color before.
      */
     public const VENUE_OWNED_VISUAL_KEYS = [
-        // atmosphere
-        'background_color', 'fog_color', 'fog_near', 'fog_far',
+        // atmosphere (s4: environment = WHICH sky/HDRI the venue IS — the
+        // venue's atmosphere identity, never a curator knob; the gallery's
+        // lighting_preset column no longer reaches the environment at all)
+        'background_color', 'fog_color', 'fog_near', 'fog_far', 'environment',
         // architecture + structure identity
         'open_air', 'layout_shape', 'wall_height', 'wall_depth',
         'ceiling_type', 'ceiling_color', 'ceiling_height',
@@ -182,6 +198,74 @@ class VenueConfigExporter
         return in_array($key, self::VENUE_OWNED_VISUAL_KEYS, true)
             || str_starts_with($key, 'void_');
     }
+
+    /**
+     * The runtime mirror of the ownership sets, shipped INSIDE the payload
+     * (s4): GalleryScene.applyLiveOverride drops patch keys listed here
+     * before any handler sees them. Shipping the list — instead of
+     * hardcoding a second copy in JS — means the two layers can never
+     * drift: this file stays the single definition, and a future owned-key
+     * expansion guards the runtime on the very next payload rebuild.
+     *
+     * The void_* prefix rule is enforced runtime-side (it is a stable
+     * vocabulary convention, not a per-key list).
+     */
+    public static function ownedKeyPayload(): array
+    {
+        return [
+            'venue_owned_visual'   => array_values(self::VENUE_OWNED_VISUAL_KEYS),
+            'venue_owned_material' => array_values(self::VENUE_OWNED_MATERIAL_KEYS),
+        ];
+    }
+
+    /**
+     * VENUE-OWNED LIGHTING PRESET RESOLUTION (s4).
+     *
+     * The lighting preset name drives ONLY the renderer's generic fallbacks
+     * now (proximity radius, undeclared rig fallbacks) — after s4 it NO
+     * LONGER picks the environment for venue-managed galleries. To keep
+     * those fallbacks venue-consistent, a gallery WITH a venue renders the
+     * VENUE's default preset, not whatever preset the gallery row carried
+     * from an earlier era (the preview/public divergence fix: the public
+     * path used to pass the gallery column while venues.preview passed the
+     * venue default — two presets, two skies, one venue).
+     *
+     * Venue-less (legacy) galleries keep their own column value.
+     */
+    public function presetForGallery(Gallery $gallery): string
+    {
+        $venuePreset = $gallery->venueTemplate?->default_settings['lighting_preset'] ?? null;
+
+        return is_string($venuePreset) && $venuePreset !== ''
+            ? $venuePreset
+            : ($gallery->lighting_preset ?: 'bright');
+    }
+
+    /**
+     * VENUE-CONSTRAINED LAYOUT RESOLUTION (s4).
+     *
+     * room_layout is a gallery-owned exhibition choice, but only within the
+     * layouts the venue declares it supports (VenueTemplate::supportsLayout
+     * existed since the column shipped and NOTHING called it on the render
+     * path — a gallery holding a corridor value from a previous venue could
+     * force a corridor shell into a venue that only declares square,
+     * silently breaking its structure passes and sizing). A value the
+     * venue does not support falls back to the venue's default layout;
+     * venue-less galleries keep their column value.
+     */
+    public function layoutForGallery(Gallery $gallery): string
+    {
+        $layout  = $gallery->room_layout ?: 'square';
+        $venue   = $gallery->venueTemplate;
+
+        if (!$venue) {
+            return $layout;
+        }
+
+        return $venue->supportsLayout($layout)
+            ? $layout
+            : ($venue->default_settings['room_layout'] ?? 'square');
+    }
     /**
      * Build the viewer config for a specific gallery + venue combination.
      *
@@ -231,38 +315,89 @@ class VenueConfigExporter
         // computation would have returned a different set. The preview and
         // the public view could disagree about props for hours after a
         // billing change with zero code difference between the paths.
-        $venueTs = $gallery->venueTemplate?->updated_at?->timestamp ?? '0';
-        $plan = $gallery->user->plan ?? 'free';
+        // s5-audit: the venue is resolved through a FRESH relation query on
+        // every call — a caller-held Gallery instance can carry an eager-
+        // loaded venueTemplate from an earlier render in the same process
+        // (queues, long-lived controllers, integration tests), and that
+        // stale instance would silently re-serve the old cache key.
+        $venue = $gallery->venueTemplate()->first();
+        $venueTs = $venue?->updated_at?->timestamp ?? '0';
+        // s5-audit: content signature — updated_at has second precision, so
+        // two saves within the same wall-clock second (save → snapshot
+        // restore-rollback is exactly that pattern) produced the SAME key
+        // and the pre-save payload kept serving for the whole flexible-TTL
+        // window. The signature changes whenever any venue-owned content the
+        // payload depends on changes, and stays stable for content-identical
+        // saves (so gratuitous touches do not stampede the cache).
+        $venueSig = $this->venueSignature($venue);
+        $plan = $gallery->user()->value('plan') ?? 'free';
         // :s{SCHEMA} — bumped when merge semantics change, so already-cached
         // payloads bust on deploy (an authority-set expansion must not wait
         // out the 1 h + 2 h stale window to take effect).
-        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:p{$plan}:" . self::SCHEMA;
+        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:{$venueSig}:p{$plan}:" . self::SCHEMA;
 
         return Cache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery) {
             return $this->buildConfig($gallery);
         });
     }
 
+    /**
+     * s5-audit: content fingerprint of every venue-owned column the merged
+     * payload depends on. Cheap (json_encode of a few KB, sha1) and computed
+     * per forGallery call — the call itself is cached, so this only runs on
+     * the cache-lookup path.
+     */
+    private function venueSignature(?VenueTemplate $venue): string
+    {
+        if (!$venue) {
+            return 'nov';
+        }
+
+        return substr(sha1((string) json_encode([
+            $venue->visual_config,
+            $venue->material_config,
+            $venue->decorations,
+            $venue->lighting_fixtures,
+            $venue->default_settings,
+            $venue->supported_layouts,
+            $venue->hdri_path,
+            $venue->plan_required,
+            $venue->is_draft,
+            $venue->is_active,
+            $venue->archived_at?->timestamp,
+        ])), 0, 16);
+    }
+
     private function buildConfig(Gallery $gallery): ?array
     {
-        $venue = $gallery->venueTemplate;
+        // s5-audit: fresh relation query (see forGallery) — the closure can
+        // run under a caller-held Gallery instance whose eager-loaded
+        // venueTemplate predates the very save this key was minted for.
+        $venue = $gallery->venueTemplate()->first();
         if (!$venue) {
             return null;
         }
 
         $config = $venue->toViewerConfig();
 
-        // Layer 2 — gallery-level explicit fields (kept for back-compat with
-        // the existing edit form's hidden inputs and the legacy JS switch).
-        // The gallery's explicit fields win over the venue's default_settings.
+        // s4: ship the ownership sets so the runtime patch guard mirrors
+        // this file exactly (see ownedKeyPayload()).
+        $config += self::ownedKeyPayload();
+
+        // Layer 2 — gallery-level explicit exhibition fields. These are the
+        // LEGITIMATE lanes (surface family, frames, layout-within-support).
+        // s4: lighting_preset and room_layout resolve through the venue
+        // authority (presetForGallery / layoutForGallery) so the payload's
+        // view of them can never disagree with what the controllers ship at
+        // the GALLERY_DATA top level (single resolution, one place).
         $config['effective_settings'] = array_merge(
             $venue->default_settings ?? [],
             array_filter([
                 'wall_texture'    => $gallery->wall_texture,
                 'floor_material'  => $gallery->floor_material,
                 'frame_style'     => $gallery->frame_style,
-                'lighting_preset' => $gallery->lighting_preset,
-                'room_layout'     => $gallery->room_layout,
+                'lighting_preset' => $this->presetForGallery($gallery),
+                'room_layout'     => $this->layoutForGallery($gallery),
             ], fn ($v) => !is_null($v))
         );
 
@@ -416,6 +551,9 @@ class VenueConfigExporter
     {
         $config = $venue->toViewerConfig();
 
+        // s4: same self-describing ownership contract as forGallery().
+        $config += self::ownedKeyPayload();
+
         $config['effective_settings'] = $venue->default_settings ?? [];
 
         $visitorPlan = $venue->plan_required ?: 'free';
@@ -457,9 +595,10 @@ class VenueConfigExporter
         // in the payload: visual_config.post_fx.
         //
         // The venue-owned set (atmosphere/architecture/rig/curation/
-        // presentation — see buildConfig) is likewise excluded: a stale panel
-        // or a hand-crafted ?override= URL cannot repaint the venue through
-        // the preview payload either.
+        // presentation/environment — see buildConfig) is likewise excluded:
+        // a stale panel or a hand-crafted ?override= URL cannot repaint the
+        // venue through the preview payload either. isVenueOwnedKey already
+        // covers visual_config.environment (joined the owned set in s4).
         $runtimeVisual = array_filter($runtimeOverrides['visual_config'] ?? [], fn ($v) => !is_null($v));
         foreach (array_keys($runtimeVisual) as $key) {
             if (self::isVenueOwnedKey((string) $key)) {

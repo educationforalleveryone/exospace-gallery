@@ -133,11 +133,12 @@ class VenueFrontierIterationTest extends TestCase
         $html = $response->getContent();
 
         // Hero still: the SAME pipeline the picker uses (P0.2 unification),
-        // now on the page — once as the poster, once as the figure.
+        // now on the page. Four legitimate surfaces since the SEO layer:
+        // poster img + figure img + og:image + twitter:image.
         $this->assertSame(
-            2,
+            4,
             substr_count($html, 'venues/white-cube-hero.jpg'),
-            'Hero still appears on the venue page (poster + figure).'
+            'Hero still appears on the venue page (poster + figure + og:image + twitter:image).'
         );
 
         // Embedded walkthrough: click-to-load poster carrying the preview URL.
@@ -308,7 +309,7 @@ class VenueFrontierIterationTest extends TestCase
         $this->assertSame(2, $whiteCubeRow['galleries_total'], 'counts ALL galleries, not just public');
         $this->assertSame(1, $whiteCubeRow['galleries_public'], 'public = publiclyViewable with >= 1 image');
         $this->assertSame(500, $whiteCubeRow['views']);
-        $this->assertSame(4.0, $whiteCubeRow['conversion_per_1k'], 'conversion matches the model accessor exactly');
+        $this->assertSame(4.0, (float) $whiteCubeRow['conversion_per_1k'], 'conversion matches the model accessor exactly');
 
         $zenRow = collect($json['venues'])->firstWhere('slug', 'zen-gallery');
         $this->assertNotNull($zenRow);

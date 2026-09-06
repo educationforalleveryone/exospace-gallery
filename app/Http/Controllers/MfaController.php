@@ -39,7 +39,7 @@ use Illuminate\View\View;
  */
 class MfaController extends Controller
 {
-    private const MFA_SESSION_TTL_MINUTES = 1440;
+    private const MFA_SESSION_TTL_MINUTES = 30;
 
     /**
      * Show the MFA setup page with QR code.

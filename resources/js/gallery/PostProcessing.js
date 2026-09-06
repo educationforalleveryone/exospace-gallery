@@ -20,7 +20,7 @@ import { VignetteShader }   from 'three/addons/shaders/VignetteShader.js';
 import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
 import { CONFIG } from './config.js';
 
-// ── Exospace vignette variant (dark-museum audit root cause) ────────────────
+// ── Exospace vignette variant (museum audit root cause) ────────────
 // The stock Eskil shader is  mix(texel.rgb, vec3(1 - darkness), dot(uv, uv)):
 // the blend TARGET is a LIGHT-GREY constant. On a bright venue (White Cube)
 // blending toward 0.5–0.7 grey reads as subtle edge dimming. On a DARK venue

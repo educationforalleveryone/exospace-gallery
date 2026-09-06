@@ -98,7 +98,7 @@ class VenueRoomsIterationTest extends TestCase
         // respect pass (was 'rooms' + a JS slug gate pre-consolidation).
         $this->assertSame('cube', $config['structure_pass'] ?? null, '[white-cube] structure_pass selects the respect-pass interpreter.');
         $this->assertArrayNotHasKey('structure', $config, '[white-cube] "clean is the point" — it must NOT carry descriptors (§4.1).');
-        $this->assertSame(2.0, $this->materialConfig('white-cube')['floor_tile_meters'] ?? null, '[white-cube] declares its floor tile density (§4.1 floor-scale fix).');
+        $this->assertSame(2.0, (float) ($this->materialConfig('white-cube')['floor_tile_meters'] ?? 0), '[white-cube] declares its floor tile density (§4.1 floor-scale fix).');
     }
 
     public function test_garden_declares_sun_shadows_and_museum_painted_default(): void
@@ -111,7 +111,7 @@ class VenueRoomsIterationTest extends TestCase
         // every other interpreter — 'garden' is its selector (the JS slug
         // branch is gone).
         $this->assertSame('garden', $garden['structure_pass'] ?? null, '[sculpture-garden] selects its bespoke interpreter via structure_pass.');
-        $this->assertSame(2.0, $this->materialConfig('sculpture-garden')['floor_tile_meters'] ?? null);
+        $this->assertSame(2.0, (float) ($this->materialConfig('sculpture-garden')['floor_tile_meters'] ?? 0));
 
         $museum = $this->defaultSettings('dark-museum');
         $this->assertSame('white', $museum['wall_texture'] ?? null, '[dark-museum] default wall is a painted museum wall, not brick (§4.4).');

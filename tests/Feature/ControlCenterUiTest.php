@@ -88,7 +88,7 @@ class ControlCenterUiTest extends TestCase
              ->assertSee('Status Wall')
              ->assertSee('Quick Check')
              ->assertSee('Pre-Release')
-             ->assertSee('Release readiness')
+             ->assertSee('Release Readiness')
              ->assertSee('PASSED')
              ->assertSee('FAILED')
              ->assertSee(substr(str_repeat('a', 40), 0, 7))

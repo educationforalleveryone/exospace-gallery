@@ -92,7 +92,7 @@ export function applyVenueConfig(cfg) {
     if (v.spot_intensity != null)     this._venueSpotIntensity    = v.spot_intensity;
     if (v.fill_intensity != null)     this._venueFillIntensity    = v.fill_intensity;
     if (v.tone_mapping_exposure != null) this.renderer.toneMappingExposure = v.tone_mapping_exposure;
-    if (v.frame_override)             this._venueFrameOverride    = v.frame_override;
+    if (v.frame_override)             this._venueFrameStyleOverride    = v.frame_override;
     if (v.ceiling_type)               this._venueCeilingType      = v.ceiling_type;
 
     // ── post_fx : venue-declared post-processing identity ────────────────
@@ -199,7 +199,7 @@ export function applyVisualPatch(patch) {
             ? (venueCfg.tone_mapping_exposure ?? 0.5)
             : patch.tone_mapping_exposure;
     }
-    if ('frame_override'    in patch) this._venueFrameOverride      = patch.frame_override     === null ? null      : patch.frame_override;
+    if ('frame_override'    in patch) this._venueFrameStyleOverride      = patch.frame_override     === null ? null      : patch.frame_override;
     if ('ceiling_type'      in patch) this._venueCeilingType        = patch.ceiling_type       === null ? null      : patch.ceiling_type;
 
     // Material config patches (wall/floor PBR overrides) — stored on the
