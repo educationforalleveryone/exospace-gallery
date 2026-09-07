@@ -52,7 +52,7 @@ use Illuminate\Database\Seeder;
  *   3. industrial-loft     — Concrete + steel + beams
  *   4. dark-museum         — Dramatic dark walls, gold frames
  *   5. zen-gallery         — Minimal, natural materials, warm calm
- *   6. crystal-cathedral   — Glass forms drifting in blue void
+ *   6. crystal-cathedral   — Faceted crystal arcade: piers, pointed arches, oculus light
  *   7. nebula-drift        — Starfield + nebula cloud + cosmic feel
  *   8. the-salon           — Close-hung warmth, domestic scale (Iteration 8)
  *
@@ -657,20 +657,36 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 6. Crystal Cathedral — Pro (NEW void-style venue)
+            // 6. Crystal Cathedral — Pro ("The Luminous Arcade", 2026-09-07)
+            //
+            // Venue-deepening iteration: the seeded body WAS twelve thin
+            // smooth-shaded glass tubes + four pastel-rainbow point lights
+            // in a blue void — crystal as decoration, no cathedral. The
+            // architecture is now the identity: an adaptive colonnade of
+            // faceted crystal piers carrying POINTED ARCHES around a ring of
+            // framed stone art bays, a clerestory crystal band under a
+            // luminous seam, and a radial rib vault converging on a luminous
+            // oculus above the crossing. Artworks hover before the stone
+            // bay wall; the dark slate floor carries a declared planar
+            // reflection on high tier. Ice-white light family — the blue
+            // lives in the atmosphere, never in the material (colour
+            // restraint). The guarded migration
+            // 2026_09_07_000001_crystal_cathedral_architecture updates
+            // production rows; this seeder is the fresh-install baseline
+            // (byte-equal to the migration's final state, pinned by test).
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Crystal Cathedral',
                 'slug'          => 'crystal-cathedral',
-                'description'   => 'A colonnade of tall glass rises through a deep blue void, coloured light glowing between the pillars. Artworks float in that light.',
+                'description'   => 'A colonnade of faceted crystal piers carries pointed arches around a hall of polished dark stone; light falls from a vaulted oculus and reflects across the floor while artworks float before framed bays of stone.',
                 'category'      => 'abstract',
-                'tags'          => ['glass', 'crystal', 'ethereal', 'refraction'],
+                'tags'          => ['crystal', 'colonnade', 'luminous', 'ethereal'],
                 'plan_required' => 'pro',
                 'capacity_min'  => 5,
                 'capacity_max'  => 40,
                 'sort_order'    => 6,
                 'is_featured'   => true,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
@@ -679,42 +695,76 @@ class VenueTemplateSeeder extends Seeder
                     'room_layout'     => 'rotunda',
                 ],
                 'visual_config' => [
-                    'wall_height'            => 12,
+                    'wall_height'            => 13,      // the arcade's order height
                     'wall_depth'             => 0.3,
                     'ceiling_type'           => 'none',
                     'ceiling_height'         => 0,
-                    'background_color'       => '0x0a0a1a',
-                    'fog_color'              => '0x0a0a1a',
-                    'fog_near'               => 15,
-                    'fog_far'                => 50,
-                    'ambient_color'          => '0xddeeff',
-                    'ambient_intensity'      => 0.25,
-                    'spot_intensity'         => 0.5,
-                    'fill_intensity'         => 0.15,
-                    'tone_mapping_exposure'  => 0.6,
+                    'background_color'       => '0x070b14',
+                    'fog_color'              => '0x070b14',
+                    'fog_near'               => 18,
+                    'fog_far'                => 62,      // the arcade must survive 40-work scale
+                    'ambient_color'          => '0xbfd4ec',
+                    'ambient_intensity'      => 0.34,
+                    'spot_intensity'         => 1.15,    // pool target ≈ 4.0 — artworks read
+                    'fill_intensity'         => 0.22,
+                    'tone_mapping_exposure'  => 0.85,
                     'frame_override'         => 'silver',
-                    // ── Iteration 2 "Phenomena" declared identity ──────
+                    // ── Declared identity (the luminous arcade body) ────
                     'placement_mode'  => 'float',  // §10.5
-                    'glass_material'  => 'transmission',  // §11.3 row 2 — tier-resolved (never null glass)
-                    'colonnade_tint'  => '0xdfeaff',  // glass hue, interpreter-generic
+                    'glass_material'  => 'transmission',  // §11.3 row 2 — tier-resolved
+                    'colonnade_tint'  => '0xe6f0fb',  // ice-white crystal; blue stays in the sky
                     'structure_pass'  => 'phenomena',  // per-venue rollback switch
                     'open_air'        => true,
                     'layout_shape'    => 'circular',
-                    'void_colonnade'  => true,   // seeded glass colonnade (new body);
-                                                 // swap to void_shards for the rollback body
+                    'void_arcade'     => true,   // NEW composed body (piers + arches +
+                                                 // art bays + clerestory + rib vault +
+                                                 // oculus). Rollback chain:
+                                                 // void_colonnade → IT2 glass-tube ring;
+                                                 // void_shards → Iteration 0 shard ring.
+                    // ── Atmosphere: a DECLARED sky (was preset accident) ─
+                    'environment'            => 'studio',  // neutral glass definition
+                    'env_intensity'          => 0.22,
+                    'hemisphere_intensity'   => 0.22,      // sky-above gradient cue
+                    'void_depth_gradient'    => true,      // zenith depth above the vault
+                    // ── Artwork legibility (void family standing glow) ──
+                    'artwork_light_base'     => 0.38,
+                    'artwork_light_pool_cap' => 12,
+                    // ── Curation opt-in: depth-layered hang past 12 works ─
+                    'placement'       => ['depth_bands' => 2],
+                    // ── Restrained luminosity (was undeclared stock bloom) ─
+                    'post_fx'         => [
+                        'bloom'             => true,
+                        'bloom_strength'    => 0.42,
+                        'bloom_threshold'   => 0.82,   // catches oculus + seam only
+                        'bloom_radius'      => 0.35,
+                        'vignette'          => true,
+                        'vignette_darkness' => 0.62,
+                        'vignette_offset'   => 1.15,
+                    ],
+                    // The copy promises the reflection — declare it
+                    // (Reflector high tier / designed gloss mobile+low-end).
+                    'floor_reflection'  => 'planar',
                 ],
                 'material_config' => [
-                    'wall_color'             => '0x202030',
-                    'wall_roughness'         => 0.2,
-                    'wall_metalness'         => 0.0,
-                    'wall_normal_strength'   => 0.3,
-                    'floor_color'            => null,
-                    'floor_roughness'        => 0.1,    // highly polished
-                    'floor_metalness'        => 0.4,
-                    'floor_normal_strength'  => 0.3,
+                    'wall_color'             => '0x131a26',  // art-bay stone (deep slate-blue)
+                    'wall_roughness'         => 0.3,
+                    'wall_metalness'         => 0.06,
+                    'wall_normal_strength'   => 0.25,
+                    'floor_color'            => '0x1a2230',  // polished dark slate
+                    'floor_roughness'        => 0.22,
+                    'floor_metalness'        => 0.2,
+                    'floor_normal_strength'  => 0.25,
+                    'floor_tile_meters'      => 2.5,         // slab scale, not tile scale
+                    // Declared colours are authoritative over the marble
+                    // texture (Materials.js tint path) — the cathedral's
+                    // stone is the declared slate, not stock cream marble.
+                    'texture_tint'           => true,
                 ],
-                'decorations'       => [],  // glass shards are procedural (VenueDecorator)
-                'lighting_fixtures' => [],
+                'decorations'       => [],  // the arcade architecture is procedural
+                                            // (VenueDecorator 'void_arcade' body) —
+                                            // no props, no clichés
+                'lighting_fixtures' => [],  // the oculus key light is part of the
+                                            // arcade body (one SpotLight, budget kept)
                 'supported_layouts' => ['rotunda'],
             ],
 

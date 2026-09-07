@@ -112,8 +112,18 @@ class GalleryViewController extends Controller
             'wall_texture'    => $gallery->wall_texture,
             'floor_material'  => $gallery->floor_material,
             'frame_style'     => $gallery->frame_style,
-            'lighting_preset' => $gallery->lighting_preset,
-            'room_layout'     => $gallery->room_layout ?? 'square',
+            // PARITY FIX (Crystal Cathedral audit, 2026-09-07): the public
+            // path used to ship the RAW gallery columns while the admin live
+            // preview shipped the venue-resolved values
+            // (Admin\GalleryController::buildGalleryData) — a gallery row
+            // carrying a stale preset or an unsupported layout from an
+            // earlier venue choice rendered a DIFFERENT sky/layout publicly
+            // than in the editor. The venue is the authority for these two
+            // keys on every render path (VenueConfigExporter s4: "single
+            // resolution, one place"); venue-less galleries keep their own
+            // column values (presetForGallery/layoutForGallery are no-ops).
+            'lighting_preset' => $this->venueExporter->presetForGallery($gallery),
+            'room_layout'     => $this->venueExporter->layoutForGallery($gallery),
             'venue_slug'      => $gallery->venueTemplate?->slug,
             // WHITE CUBE POLISH audit: the old 'white-cube' fallback here lied —
             // with venueConfig null the viewer renders a generic default room,

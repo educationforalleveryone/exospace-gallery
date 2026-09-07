@@ -58,6 +58,22 @@ class VenueTemplate extends Model
     public const LAYOUTS = ['square', 'corridor', 'l-shape', 'rotunda'];
 
     /**
+     * Stock environment (HDRI) names a venue may declare via
+     * visual_config.environment (s4 environment authority).
+     *
+     * CATHEDRAL AUDIT FIX (2026-09-07): this constant was REFERENCED by
+     * VenueTemplateRequest::rules() (Rule::in(VenueTemplate::ENVIRONMENTS))
+     * since the s4 environment-authority change but was never DEFINED on the
+     * model — every super-admin venue save through the structured form
+     * fataled with "Undefined constant App\Models\VenueTemplate::ENVIRONMENTS"
+     * at validation time. Restored here, in lockstep with the runtime map
+     * resources/js/gallery/config.js `environments` (studio / rural_evening /
+     * night / none) — the two lists must never drift (config.js documents
+     * the lockstep contract).
+     */
+    public const ENVIRONMENTS = ['studio', 'rural_evening', 'night', 'none'];
+
+    /**
      * Iteration 5 "Authoring" (§9.3): the stable, flat visual_config keys
      * the super-admin structured form manages directly. EVERYTHING ELSE in
      * visual_config — structure descriptors (IT3), structure_pass /
@@ -76,6 +92,7 @@ class VenueTemplate extends Model
         'ceiling_color', 'ceiling_beams', 'ceiling_neon',
         'open_air', 'layout_shape', 'structure_pass',
         'void_dust', 'void_starfield', 'void_colonnade', 'void_shards', 'void_lake',
+        'void_arcade',
         'placement',
     ];
 

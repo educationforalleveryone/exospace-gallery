@@ -233,7 +233,7 @@ return [
         ],
 
         'crystal-cathedral' => [
-            'note'      => 'Tall vertical works that answer the shard ring above.',
+            'note'      => 'Tall vertical works that answer the arcade and its oculus light.',
             'selection' => [
                 'cathedral-static', 'vertical-chorus', 'ascending-figure', 'night-window',
                 'slow-nebula', 'harbour-light', 'dawn-lattice', 'tide-memorandum',

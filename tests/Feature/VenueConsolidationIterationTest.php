@@ -127,8 +127,9 @@ class VenueConsolidationIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $this->assertTrue($this->visualConfig('infinite-void')['void_dust'] ?? false, '[infinite-void] declares void_dust.');
-        $this->assertTrue($this->visualConfig('crystal-cathedral')['void_colonnade'] ?? false, '[crystal-cathedral] declares void_colonnade.');
-        $this->assertArrayNotHasKey('void_shards', $this->visualConfig('crystal-cathedral'), '[crystal-cathedral] ships the colonnade body — void_shards is the rollback body only.');
+        $this->assertTrue($this->visualConfig('crystal-cathedral')['void_arcade'] ?? false, '[crystal-cathedral] declares void_arcade (the 2026-09-07 luminous arcade body).');
+        $this->assertArrayNotHasKey('void_colonnade', $this->visualConfig('crystal-cathedral'), '[crystal-cathedral] ships the arcade body — void_colonnade is rollback body #1 only.');
+        $this->assertArrayNotHasKey('void_shards', $this->visualConfig('crystal-cathedral'), '[crystal-cathedral] ships the arcade body — void_shards is rollback body #2 only.');
         $this->assertTrue($this->visualConfig('nebula-drift')['void_starfield'] ?? false, '[nebula-drift] declares void_starfield.');
         $this->assertTrue($this->visualConfig('mirror-lake')['void_lake'] ?? false, '[mirror-lake] declares void_lake.');
 
@@ -142,9 +143,11 @@ class VenueConsolidationIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         // Venue deepening iterations opted these in: the museum's composed
-        // darkness, the void's depth bands, and zen v2's procession rhythm
-        // (generous density, focal front wall, pairing).
-        $curated = ['dark-museum', 'infinite-void', 'zen-gallery'];
+        // darkness, the void's depth bands, zen v2's procession rhythm
+        // (generous density, focal front wall, pairing) and the cathedral's
+        // depth-band hang (2026-09-07 arcade iteration — 40-work shows stay
+        // inside the arcade instead of sprawling past it).
+        $curated = ['dark-museum', 'infinite-void', 'zen-gallery', 'crystal-cathedral'];
         foreach (array_keys(self::PASS_SELECTORS) as $slug) {
             if (in_array($slug, $curated, true)) {
                 $this->assertIsArray(
@@ -274,7 +277,7 @@ class VenueConsolidationIterationTest extends TestCase
 
         $cathedral = \App\Models\VenueTemplate::where('slug', 'crystal-cathedral')->firstOrFail();
         $vcC = $exporter->forVenue($cathedral)['visual_config'];
-        $this->assertTrue($vcC['void_colonnade'] ?? false, 'Composable void flags reach the client.');
+        $this->assertTrue($vcC['void_arcade'] ?? false, 'Composable void flags reach the client.');
     }
 
     public function test_placement_block_passes_through_end_to_end(): void

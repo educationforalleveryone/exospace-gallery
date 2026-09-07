@@ -1673,15 +1673,19 @@ function addSculptureGardenStructure(data) {
 // All four share the "no walls, no ceiling, abstract atmosphere" feel.
 // Individual character comes from the bespoke decorations below.
 //
-// Iteration 2 "Phenomena" → Iteration 6 "Consolidation": the four void
-// venues' bespoke bodies are now COMPOSABLE INGREDIENTS selected by config
-// flags (the slug ladder is gone — DoD rule #7). The 'phenomena'
-// structure_pass remains the pass gate + rollback switch; each ingredient is
-// declared per venue:
+// Iteration 2 "Phenomena" → Iteration 6 "Consolidation" → CATHEDRAL AUDIT
+// (2026-09-07): the four void venues' bespoke bodies are COMPOSABLE
+// INGREDIENTS selected by config flags (the slug ladder is gone — DoD rule
+// #7). The 'phenomena' structure_pass remains the pass gate + rollback
+// switch; each ingredient is declared per venue:
 //   void_dust       floating dust points        (infinite-void)
 //   void_starfield  starfield + nebula cloud    (nebula-drift)
-//   void_colonnade  seeded glass colonnade      (crystal-cathedral, new body)
-//   void_shards     legacy shard ring           (cathedral rollback body)
+//   void_arcade     luminous arcade architecture(crystal-cathedral, audit body:
+//                                               faceted piers + pointed arches +
+//                                               art bays + clerestory + rib vault
+//                                               + oculus)
+//   void_colonnade  IT2 glass-tube ring         (cathedral ROLLBACK body #1)
+//   void_shards     legacy shard ring           (cathedral ROLLBACK body #2)
 //   void_lake       moon + reflection + mist    (mirror-lake)
 // Undeclared ⇒ nothing renders. Admin-created venues compose their own void
 // from the same vocabulary — full identity without code (§17 IT6 outcome).
@@ -1712,7 +1716,11 @@ function addVoidVenueStructure(data) {
     if (vc.void_starfield === true) {
         addNebulaDriftStructure.call(this, radius);
     }
-    if (vc.void_colonnade === true) {
+    if (vc.void_arcade === true) {
+        // The audit body: crystal as ARCHITECTURE (piers, arches, vault,
+        // oculus) — the IT2 colonnade below stays reachable as the rollback.
+        addCrystalCathedralArcade.call(this, radius);
+    } else if (vc.void_colonnade === true) {
         addCrystalCathedralColonnade.call(this, radius);
     } else if (vc.void_shards === true) {
         // Designed rollback body — the Iteration 2 legacy shard ring,
@@ -1842,7 +1850,17 @@ function addVoidDustField(radius) {
 // zenith dissolving to pure black at/below the horizon. On its own it is
 // almost invisible; next to pure-#000 screen edges it gives the eye a sense
 // of VAST SPACE ABOVE instead of a painted ceiling of nothing. One draw
-// call, no lighting interaction (MeshBasic-class shader), fog-exempt.
+// call, no lighting interaction, fog-exempt.
+//
+// CATHEDRAL AUDIT (2026-09-07): the gradient moved from a custom
+// ShaderMaterial to a CanvasTexture on MeshBasicMaterial. Visual parity is
+// EXACT — the canvas bakes the same smoothstep(-0.08, 0.75, dir.y) curve
+// against the sphere's v coordinate (dir.y = 1 − 2v) — but the basic-
+// material path composites safely through the transmission/reflection
+// passes on software rasterizers (SwiftShader died compositing
+// shader-material dome + transmission glass), costs no custom program, and
+// still reads on Lambert-class devices. Infinite Void shares this body and
+// renders the identical gradient.
 function addVoidDepthGradient(radius) {
     // Radius budget: buildGallery derives camera.far from the circular
     // bounds as reach·2.5 + 10, and the floor fade ends at radius·2.2 — the
@@ -1850,35 +1868,357 @@ function addVoidDepthGradient(radius) {
     // can never be clipped nor outdone by the background colour.
     const domeRadius = radius * 2.4 + 6;
     const geo = new THREE.SphereGeometry(domeRadius, 24, 12);
-    const mat = new THREE.ShaderMaterial({
+
+    // Bake the smoothstep gradient (256 px of vertical resolution is far
+    // beyond what a two-stop near-black fade can ever reveal).
+    // COLOUR-SPACE PARITY: the old shader mixed the LINEAR uniform values
+    // and let the OutputPass encode to sRGB. The texture is tagged sRGB
+    // (decoded on sample), so the bytes must be the sRGB ENCODING of the
+    // same linear mix — identical framebuffer values, identical render.
+    const ZENITH  = new THREE.Color(0x0a0e18);   // linear working space
+    const HORIZON = new THREE.Color(0x000000);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1; canvas.height = 256;
+    const ctx2d = canvas.getContext('2d');
+    const img = ctx2d.createImageData(1, 256);
+    const mixed = new THREE.Color();
+    for (let y = 0; y < 256; y++) {
+        const v = y / 255;              // 0 = top row (zenith pole), 1 = bottom
+        const dirY = 1 - 2 * v;         // sphere v → dir.y parity
+        // GLSL smoothstep parity: t = clamp((x−e0)/(e1−e0))² (3−2t̂)
+        const x = Math.min(1, Math.max(0, (dirY - -0.08) / (0.75 - -0.08)));
+        const t = x * x * (3 - 2 * x);
+        mixed.copy(HORIZON).lerp(ZENITH, t).convertLinearToSRGB();
+        img.data[y * 4]     = Math.round(mixed.r * 255);
+        img.data[y * 4 + 1] = Math.round(mixed.g * 255);
+        img.data[y * 4 + 2] = Math.round(mixed.b * 255);
+        img.data[y * 4 + 3] = 255;
+    }
+    ctx2d.putImageData(img, 0, 0);
+    const gradientTex = new THREE.CanvasTexture(canvas);
+    gradientTex.colorSpace = THREE.SRGBColorSpace;
+    gradientTex.magFilter = THREE.LinearFilter;
+    gradientTex.minFilter = THREE.LinearFilter;
+    gradientTex.generateMipmaps = false;
+
+    const mat = new THREE.MeshBasicMaterial({
         side: THREE.BackSide,
         depthWrite: false,
         fog: false,
-        uniforms: {
-            uZenith:  { value: new THREE.Color(0x0a0e18) },
-            uHorizon: { value: new THREE.Color(0x000000) },
-        },
-        vertexShader: /* glsl */`
-            varying vec3 vDir;
-            void main() {
-                vDir = normalize(position);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: /* glsl */`
-            uniform vec3 uZenith;
-            uniform vec3 uHorizon;
-            varying vec3 vDir;
-            void main() {
-                float t = smoothstep(-0.08, 0.75, vDir.y);
-                gl_FragColor = vec4(mix(uHorizon, uZenith, t), 1.0);
-            }
-        `,
+        map: gradientTex,
     });
     const dome = new THREE.Mesh(geo, mat);
     dome.renderOrder = -10; // behind everything
     dome.frustumCulled = false;
     this.scene.add(dome);
+}
+
+// CRYSTAL CATHEDRAL — "The Luminous Arcade" (architecture audit, 2026-09-07)
+// ────────────────────────────────────────────────────────────────────────────
+// The IT2 colonnade below rendered twelve thin smooth-shaded glass TUBES plus
+// four pastel-rainbow point lights: crystal as decoration, a fence of rods —
+// nothing that deserved the word "cathedral". This body replaces decoration
+// with STRUCTURE (§7: crystal as architecture). One idea, executed
+// coherently — a Gothic SECTION without a single religious symbol:
+//
+//   [y 18.8]  OCULUS — luminous disc inside a crystal boss ring, the vault's
+//             crown. The one full-bright surface (bloom threshold 0.82
+//             catches it and the clerestory seam — nothing else).
+//   [y 12.6→18.8] RIB VAULT — one faceted rib springing per pier, curving
+//             inward to the boss ring. Radial, structural, THE look-up shot.
+//   [y 13.0→15.4] CLERESTORY — a crystal panel per bay under a continuous
+//             luminous seam: light ENTERS high, as the section demands.
+//   [y 7.6→12.8] POINTED ARCHES — equilateral two-centred arcs between the
+//             piers (hexagonal torus profile = faceted, cut-stone read).
+//   [y 0→13]  PIERS — tapered OCTAGONAL prisms (8 flat-shaded facets,
+//             0.5→0.72 m, alternating 13.0/12.2 m mass rhythm like real
+//             Gothic pier alternation) on a ring OUTSIDE the walk bound.
+//   [y 0→4.6] ART-BAY WALL — an opaque polished-slate band ring with a
+//             pilaster + lintel per bay: the framed bays artworks hover
+//             before. Architecture outside, controlled presentation inside
+//             (§18's exact resolution for artwork-vs-translucency).
+//
+// SCALE / RHYTHM (§10, §13): the bay count adapts to the exhibition radius —
+// round(2πR / 6 m) clamped to [10, 20] — so bays stay ~6 m wide from 5
+// artworks (R ≈ 10) to 40 (R ≈ 17): deliberate rhythm, never a sparse fence.
+// All ring geometry is INSTANCED (14 draw calls for the whole composition,
+// ~12k triangles); nothing is seeded-random on purpose — architectural
+// rhythm is arithmetic, not noise (the only rng consumer remains the float
+// hang in ArtworkPlacer, deterministic per gallery as before).
+//
+// MATERIALS (§11, §19): a four-tier hierarchy, every tier resolved:
+//   1. primary crystal (piers/arches/clerestory/vault/boss) — tier-resolved
+//      glass, flat-shaded so facets read even on Lambert (low-end);
+//   2. art-bay stone (wall/coping/pilasters/headers) — OPAQUE, reads the
+//      venue's material_config wall_* declaration (DB is the authority);
+//   3. floor — the venue's slate (material_config floor_*), planar Reflector
+//      on high tier via the declared floor_reflection = 'planar';
+//   4. luminous accents (oculus/seam/medallion/shafts) — unlit MeshBasic,
+//      the only emissive-class surfaces in the venue.
+// Colour restraint (§20): ice-white light on a deep blue-black void; the
+// blue lives in the atmosphere, NEVER in the material. The pastel-rainbow
+// point lights of the old body are gone — the rig is ambient + hemisphere +
+// the oculus key SpotLight + the pooled artwork lights.
+//
+// PERF (§26): 14 draws / ~12k tris / +1 SpotLight (PERF-B18 budget intact:
+// 4 rainbow PointLights removed, 1 SpotLight added). Transmission = 1 extra
+// pass on high tier; Reflector = 1 extra 1024² render on high tier (both
+// already-shipped shared effects, Mirror Lake precedent). Low-end: Lambert
+// glass, gloss floor, same geometry — the cathedral reads on every tier.
+function addCrystalCathedralArcade(radius) {
+    const vc   = this._venueVisualConfig || {};
+    const mc   = this._venueMaterialConfig || {};
+    const tint = parseColor(vc.colonnade_tint) || new THREE.Color(0xe6f0fb);
+
+    // ── Adaptive bay plan ─────────────────────────────────────────────────
+    // Pier ring radius sits 0.8 m outside the floor radius; the walk bound
+    // is radius − 0.5 (RoomBuilder) and the art ring radius − 1.5 — nothing
+    // here is reachable, so nothing registers a collision obstacle.
+    const pierR      = radius + 0.8;
+    const bayTarget  = 6.0;                                   // metres of arcade per bay
+    const bayCount   = Math.max(10, Math.min(24, Math.round((Math.PI * 2 * pierR) / bayTarget)));
+    const chord      = 2 * pierR * Math.sin(Math.PI / bayCount); // pier-centre span
+    const PIER_H     = 13.0;
+    const PIER_H_ALT = 12.2;                                  // deliberate ABAB mass rhythm
+    // Adaptive springing: the pointed crown rises 0.866·chord above the
+    // springing line and must stay under the 13.0 pier crown at EVERY
+    // exhibition radius — including the 24-bay clamp, where bay spacing
+    // exceeds the 6 m target (chord → 7.2 m at R = 22). 7.4 m is the
+    // composed default; the clamp term only engages on the largest shows.
+    const SPRING_Y   = Math.min(7.4, 12.9 - chord * 0.866);
+    const STONE      = parseColor(mc.wall_color) || new THREE.Color(0x131a26);
+
+    // Crystal, tier-resolved, FACETED (flatShading — the §13 mandate).
+    const crystalMat = makeGlassMaterial(this, { tint, opacity: 0.55, flatShading: true, roughness: 0.14, thickness: 1.1 });
+    // Art-bay stone: opaque, from the venue's own material declaration.
+    const stoneMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: STONE, side: THREE.BackSide })
+        : new THREE.MeshStandardMaterial({
+            color: STONE,
+            roughness: mc.wall_roughness ?? 0.3,
+            metalness: mc.wall_metalness ?? 0.06,
+            side: THREE.BackSide,
+        });
+    const stoneTrimMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: STONE })
+        : new THREE.MeshStandardMaterial({ color: STONE, roughness: mc.wall_roughness ?? 0.3, metalness: mc.wall_metalness ?? 0.06 });
+
+    const tmpM  = new THREE.Matrix4();
+    const tmpQ  = new THREE.Quaternion();
+    const tmpE  = new THREE.Euler();
+    const tmpP  = new THREE.Vector3();
+    const tmpS  = new THREE.Vector3(1, 1, 1);
+
+    const placeInstance = (mesh, i, azimuth, x, y, z, rotY, rotZ = 0, scaleY = 1) => {
+        tmpE.set(0, rotY, rotZ);
+        tmpQ.setFromEuler(tmpE);
+        tmpP.set(x, y, z);
+        tmpS.set(1, scaleY, 1);
+        tmpM.compose(tmpP, tmpQ, tmpS);
+        mesh.setMatrixAt(i, tmpM);
+        // Instance-aware bounds are unnecessary at this scale — the whole
+        // composition is ~14 draws; never let unit-geometry bounds cull a
+        // ring whose instances live metres away from the origin.
+        mesh.frustumCulled = false;
+    };
+
+    // ── 1. Piers — tapered octagonal prisms, ABAB height rhythm ───────────
+    const pierGeo = new THREE.CylinderGeometry(0.5, 0.72, 1, 8, 1); // unit height; scaled per instance
+    const piers = new THREE.InstancedMesh(pierGeo, crystalMat, bayCount);
+    for (let i = 0; i < bayCount; i++) {
+        const a = (i / bayCount) * Math.PI * 2;
+        const h = (i % 2 === 0) ? PIER_H : PIER_H_ALT;
+        placeInstance(piers, i, a, Math.sin(a) * pierR, h / 2, Math.cos(a) * pierR, a, 0, h);
+    }
+    piers.instanceMatrix.needsUpdate = true;
+    this.scene.add(piers);
+
+    // ── 2. Pointed arches — equilateral two-centred arcs between piers ────
+    // Each arch = two 60° torus arcs of radius = chord. arcsR is centred on
+    // pier i (A): geometry 0° → pier i+1 (B), geometry 60° → the shared
+    // apex. arcsL is centred on pier i+1 (B), pre-rotated by 120°: geometry
+    // 0° → the shared apex, geometry 60° → pier i (A). The crown sits just
+    // under the pier tops at every radius (adaptive SPRING_Y above).
+    // FRAME: the torus lies in its local XY plane, so local +X must point
+    // along the chord A→B and local +Y up: rotY = atan2(−dz, dx) maps
+    // +X→(cos,0,−sin) onto the chord direction (three.js Ry convention).
+    // The instance quaternion is Ry(yaw)·Rz(sweep) — the sweep rotates the
+    // arc WITHIN its own plane before the yaw orients the plane.
+    const arcGeo = new THREE.TorusGeometry(chord, 0.16, 6, 14, Math.PI / 3);
+    const arcsL  = new THREE.InstancedMesh(arcGeo, crystalMat, bayCount); // centred on B: apex→A
+    const arcsR  = new THREE.InstancedMesh(arcGeo, crystalMat, bayCount); // centred on A: B→apex
+    for (let i = 0; i < bayCount; i++) {
+        const a  = (i / bayCount) * Math.PI * 2;
+        const a2 = ((i + 1) / bayCount) * Math.PI * 2;
+        const ax = Math.sin(a) * pierR,  az = Math.cos(a) * pierR;
+        const bx = Math.sin(a2) * pierR, bz = Math.cos(a2) * pierR;
+        const yaw = Math.atan2(-(bz - az), bx - ax); // local +X along the chord A→B
+        placeInstance(arcsL, i, a, bx, SPRING_Y, bz, yaw, 2 * Math.PI / 3);
+        placeInstance(arcsR, i, a, ax, SPRING_Y, az, yaw, 0);
+    }
+    arcsL.instanceMatrix.needsUpdate = true;
+    arcsR.instanceMatrix.needsUpdate = true;
+    this.scene.add(arcsL);
+    this.scene.add(arcsR);
+
+    // ── 3. Art-bay wall — the opaque presentation band ─────────────────────
+    const wallR  = radius + 0.15;
+    const wallH  = 4.6;
+    const wall   = new THREE.Mesh(new THREE.CylinderGeometry(wallR, wallR, wallH, 96, 1, true), stoneMat);
+    wall.position.y = wallH / 2;
+    this.scene.add(wall);
+    const coping = new THREE.Mesh(new THREE.CylinderGeometry(wallR + 0.04, wallR + 0.04, 0.16, 96, 1, true), stoneTrimMat);
+    coping.position.y = wallH + 0.08;
+    this.scene.add(coping);
+
+    // Pilaster + lintel per bay (instanced) — the "framed bay" read the
+    // copy promises; aligned to the SAME azimuths as the piers.
+    const pilGeo = new THREE.BoxGeometry(0.14, wallH, 0.06);
+    const pilasters = new THREE.InstancedMesh(pilGeo, stoneTrimMat, bayCount);
+    const headerW = (Math.PI * 2 * (wallR + 0.02)) / bayCount - 0.5;
+    const hdrGeo  = new THREE.BoxGeometry(1, 0.22, 0.07); // x scaled per bay
+    const headers = new THREE.InstancedMesh(hdrGeo, stoneTrimMat, bayCount);
+    for (let i = 0; i < bayCount; i++) {
+        const a = (i / bayCount) * Math.PI * 2;
+        placeInstance(pilasters, i, a, Math.sin(a) * (wallR - 0.02), wallH / 2, Math.cos(a) * (wallR - 0.02), a);
+        tmpE.set(0, a, 0);
+        tmpQ.setFromEuler(tmpE);
+        tmpP.set(Math.sin(a) * (wallR - 0.02), wallH - 0.25, Math.cos(a) * (wallR - 0.02));
+        tmpS.set(headerW, 1, 1);
+        tmpM.compose(tmpP, tmpQ, tmpS);
+        headers.setMatrixAt(i, tmpM);
+    }
+    pilasters.instanceMatrix.needsUpdate = true;
+    headers.instanceMatrix.needsUpdate = true;
+    this.scene.add(pilasters);
+    this.scene.add(headers);
+
+    // ── 4. Clerestory — a crystal panel per bay + the luminous seam ───────
+    const clR  = radius + 0.95;
+    const clH  = 2.4;
+    const clY  = 14.2; // band 13.0 → 15.4 — above the arch crown, below the vault
+    const clGeo = new THREE.PlaneGeometry(chord * 0.82, clH);
+    const clerestory = new THREE.InstancedMesh(clGeo, crystalMat, bayCount);
+    for (let i = 0; i < bayCount; i++) {
+        const a = (i / bayCount) * Math.PI * 2;
+        placeInstance(clerestory, i, a, Math.sin(a) * clR, clY, Math.cos(a) * clR, a);
+    }
+    clerestory.instanceMatrix.needsUpdate = true;
+    this.scene.add(clerestory);
+
+    const seam = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius + 1.02, radius + 1.02, 0.14, 96, 1, true),
+        new THREE.MeshBasicMaterial({
+            color: 0xeaf2ff,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+        })
+    );
+    seam.position.y = clY + clH / 2 + 0.15;
+    this.scene.add(seam);
+
+    // ── 5. Rib vault — one rib per pier, converging on the boss ring ──────
+    const bossR = 2.3;
+    const bossY = 18.8;
+    const springR = pierR * 0.92;          // ribs spring just inside the pier axes
+    const vaultCurve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(springR, 12.6, 0),
+        new THREE.Vector3((springR + bossR) / 2, 17.2, 0),
+        new THREE.Vector3(bossR, bossY, 0)
+    );
+    const ribGeo = new THREE.TubeGeometry(vaultCurve, 16, 0.11, 6, false);
+    const ribs = new THREE.InstancedMesh(ribGeo, crystalMat, bayCount);
+    for (let i = 0; i < bayCount; i++) {
+        const a = (i / bayCount) * Math.PI * 2;
+        // The rib geometry is drawn in the XY plane (x = radius, y = up);
+        // rotY = a − π/2 maps its radial +X onto the pier azimuth a (whose
+        // position convention is (sin a, ·, cos a)).
+        placeInstance(ribs, i, a, 0, 0, 0, a - Math.PI / 2);
+    }
+    ribs.instanceMatrix.needsUpdate = true;
+    this.scene.add(ribs);
+
+    const boss = new THREE.Mesh(new THREE.TorusGeometry(bossR, 0.16, 6, 48), crystalMat);
+    boss.rotation.x = Math.PI / 2;
+    boss.position.y = bossY;
+    this.scene.add(boss);
+
+    // ── 6. Oculus — the luminous crown + the single key light ─────────────
+    const oculus = new THREE.Mesh(
+        new THREE.CircleGeometry(1.9, 32),
+        new THREE.MeshBasicMaterial({ color: 0xf2f7ff })
+    );
+    oculus.rotation.x = Math.PI / 2; // faces DOWN — the vault's source of light
+    oculus.position.y = bossY;
+    this.scene.add(oculus);
+
+    const keyLight = new THREE.SpotLight(0xeaf2ff, 2.4, 46, 0.55, 0.45, 1.2);
+    keyLight.position.set(0, bossY + 1.4, 0);
+    keyLight.target.position.set(0, 0, 0);
+    keyLight.castShadow = false;
+    this.scene.add(keyLight);
+    this.scene.add(keyLight.target);
+
+    // Six light planes falling from the oculus (the §14 "light shafts" —
+    // anchored to the oculus, above the sightlines, additive at 0.06: the
+    // only effect in the venue, and it is architectural, not decorative).
+    const shaftGeo = new THREE.PlaneGeometry(1.5, 4.5);
+    const shaftMat = new THREE.MeshBasicMaterial({
+        color: 0xdfeaff,
+        transparent: true,
+        opacity: 0.06,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        fog: false,
+    });
+    const SHAFTS = 6;
+    const shafts = new THREE.InstancedMesh(shaftGeo, shaftMat, SHAFTS);
+    for (let i = 0; i < SHAFTS; i++) {
+        const a = (i / SHAFTS) * Math.PI * 2 + Math.PI / SHAFTS; // offset from the pier axes
+        tmpE.set(-0.28, a, 0, 'YXZ'); // lean the top edge toward the axis
+        tmpQ.setFromEuler(tmpE);
+        tmpP.set(Math.sin(a) * 2.55, 16.05, Math.cos(a) * 2.55);
+        tmpS.set(1, 1, 1);
+        tmpM.compose(tmpP, tmpQ, tmpS);
+        shafts.setMatrixAt(i, tmpM);
+    }
+    shafts.instanceMatrix.needsUpdate = true;
+    this.scene.add(shafts);
+
+    // ── 7. Floor medallion — where the light lands (the crossing) ─────────
+    const medallion = new THREE.Mesh(
+        new THREE.RingGeometry(2.35, 2.75, 48),
+        new THREE.MeshBasicMaterial({ color: 0x9fb8d9, transparent: true, opacity: 0.35 })
+    );
+    medallion.rotation.x = -Math.PI / 2;
+    medallion.position.y = 0.02; // above the Reflector plane (0.001) and the floor
+    this.scene.add(medallion);
+
+    // ── 8. Floor reflection — declared 'planar', tiered (TierResolve) ─────
+    // Same machinery Mirror Lake ships; the tint is the cathedral's darker
+    // steel-blue so the arcade reflects into polished stone, not chrome.
+    const reflectionMode = resolveReflectionMode({
+        isLowEnd: !!this.isLowEnd,
+        isMobileTier: !!this._isMobileTier,
+        declared: vc.floor_reflection === 'planar',
+    });
+    if (reflectionMode === 'planar') {
+        addPlanarReflection(this, radius, { color: 0x8fa0b8, resolution: 1024 });
+    } else if (reflectionMode === 'gloss') {
+        // Designed gloss mood (no moon here — the venue's own rig carries
+        // the specular response; soften metalness so a PBR floor without an
+        // HDRI never reads dead black — the Mirror Lake lesson, reused).
+        const floor = this._circularFloor;
+        if (floor && floor.material && !this.isLowEnd) {
+            floor.material.metalness = 0.5;
+            floor.material.roughness = Math.min(floor.material.roughness ?? 0.22, 0.12);
+            floor.material.needsUpdate = true;
+        }
+    }
 }
 
 // CRYSTAL CATHEDRAL — composed vertical light architecture (Iteration 2)

@@ -117,6 +117,7 @@ class VenueTemplateRequest extends FormRequest
             'visual_config.void_colonnade'  => ['nullable', 'boolean'],
             'visual_config.void_shards'     => ['nullable', 'boolean'],
             'visual_config.void_lake'       => ['nullable', 'boolean'],
+            'visual_config.void_arcade'     => ['nullable', 'boolean'],
 
             // ── Iteration 6 curation (P2.3, §6.3–§6.5): opt-in placement.
             // Absent block ⇒ uniform default hang; the config IS the switch.

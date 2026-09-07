@@ -46,7 +46,15 @@ import {
 // Build the glass material for a declared venue, at the resolved tier.
 // `tint` keeps each venue's glass hue without re-introducing slug knowledge —
 // the caller passes its own colour.
-export function makeGlassMaterial(ctx, { tint = 0xffffff, opacity = 0.35 } = {}) {
+//
+// CATHEDRAL AUDIT extension (2026-09-07): optional `flatShading` +
+// `roughness` + `thickness` overrides. Crystal reads through FACETS, not
+// smooth tubes — flat shading turns every polygon into a plane with its own
+// normal so the architecture catches light as cut stone would (§13). All
+// options default to the historical values, so existing callers (Penthouse
+// glazing via StructureBuilder {glass:true}, the legacy cathedral colonnade)
+// render bit-identically to before.
+export function makeGlassMaterial(ctx, { tint = 0xffffff, opacity = 0.35, flatShading = false, roughness, thickness } = {}) {
     const tier = resolveGlassTier({
         isLowEnd: !!ctx.isLowEnd,
         isMobileTier: !!ctx._isMobileTier,
@@ -59,14 +67,15 @@ export function makeGlassMaterial(ctx, { tint = 0xffffff, opacity = 0.35 } = {})
         // only set on mobile/low-end).
         return new THREE.MeshPhysicalMaterial({
             color: tint,
-            roughness: 0.05,
+            roughness: roughness ?? 0.05,
             metalness: 0.0,
             transmission: 0.92,
-            thickness: 0.6,
+            thickness: thickness ?? 0.6,
             ior: 1.5,
             transparent: true,
             opacity: 1.0,
             envMapIntensity: 1.0,
+            flatShading,
             side: THREE.DoubleSide,
         });
     }
@@ -77,11 +86,12 @@ export function makeGlassMaterial(ctx, { tint = 0xffffff, opacity = 0.35 } = {})
         // pass, no environment dependency, never null.
         return new THREE.MeshPhysicalMaterial({
             color: tint,
-            roughness: 0.08,
+            roughness: roughness ?? 0.08,
             metalness: 0.0,
             transparent: true,
             opacity,
             envMapIntensity: 0.5,
+            flatShading,
             side: THREE.DoubleSide,
         });
     }
@@ -91,6 +101,7 @@ export function makeGlassMaterial(ctx, { tint = 0xffffff, opacity = 0.35 } = {})
         color: tint,
         transparent: true,
         opacity: Math.min(opacity, 0.3),
+        flatShading,
         side: THREE.DoubleSide,
     });
 }

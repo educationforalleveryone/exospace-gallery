@@ -130,6 +130,162 @@
     //    + the guarded migrations). `?venue=` selects the venue under test;
     //    default white-cube preserves the historical harness behaviour. ──────
     const VENUES = {
+        // Crystal Cathedral — "The Luminous Arcade" (2026-09-07 audit body).
+        // Mirrors the seeder row + the guarded migration
+        // 2026_09_07_000001_crystal_cathedral_architecture byte-for-byte:
+        // drift here means screenshots stop meaning anything (QA gate B).
+        'crystal-cathedral': {
+            id: 6, slug: 'crystal-cathedral', name: 'Crystal Cathedral', category: 'abstract',
+            visual_config: {
+                wall_height: 13, wall_depth: 0.3, ceiling_type: 'none', ceiling_height: 0,
+                background_color: '0x070b14', fog_color: '0x070b14', fog_near: 18, fog_far: 62,
+                ambient_color: '0xbfd4ec', ambient_intensity: 0.34, spot_intensity: 1.15,
+                fill_intensity: 0.22, tone_mapping_exposure: 0.85, frame_override: 'silver',
+                placement_mode: 'float', glass_material: 'transmission',
+                colonnade_tint: '0xe6f0fb', structure_pass: 'phenomena',
+                open_air: true, layout_shape: 'circular', void_arcade: true,
+                environment: 'studio', env_intensity: 0.22,
+                hemisphere_intensity: 0.22, void_depth_gradient: true,
+                artwork_light_base: 0.38, artwork_light_pool_cap: 12,
+                placement: { depth_bands: 2 },
+                post_fx: { bloom: true, bloom_strength: 0.42, bloom_threshold: 0.82, bloom_radius: 0.35, vignette: true, vignette_darkness: 0.62, vignette_offset: 1.15 },
+                floor_reflection: 'planar',
+            },
+            material_config: {
+                wall_color: '0x131a26', wall_roughness: 0.3, wall_metalness: 0.06, wall_normal_strength: 0.25,
+                floor_color: '0x1a2230', floor_roughness: 0.22, floor_metalness: 0.2,
+                floor_normal_strength: 0.25, floor_tile_meters: 2.5, texture_tint: true,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'bright',
+                frame_style: 'minimal', room_layout: 'rotunda',
+            },
+            version: '2.0.0',
+        },
+        // Crystal Cathedral — forensic variant WITHOUT the planar reflector
+        // (isolates Reflector+transmission interaction under SwiftShader).
+        'crystal-cathedral-noflect': {
+            id: 6, slug: 'crystal-cathedral', name: 'Crystal Cathedral', category: 'abstract',
+            visual_config: {
+                wall_height: 13, wall_depth: 0.3, ceiling_type: 'none', ceiling_height: 0,
+                background_color: '0x070b14', fog_color: '0x070b14', fog_near: 18, fog_far: 62,
+                ambient_color: '0xbfd4ec', ambient_intensity: 0.34, spot_intensity: 1.15,
+                fill_intensity: 0.22, tone_mapping_exposure: 0.85, frame_override: 'silver',
+                placement_mode: 'float', glass_material: 'transmission',
+                colonnade_tint: '0xe6f0fb', structure_pass: 'phenomena',
+                open_air: true, layout_shape: 'circular', void_arcade: true,
+                environment: 'studio', env_intensity: 0.22,
+                hemisphere_intensity: 0.22, void_depth_gradient: true,
+                artwork_light_base: 0.38, artwork_light_pool_cap: 12,
+                placement: { depth_bands: 2 },
+                post_fx: { bloom: true, bloom_strength: 0.42, bloom_threshold: 0.82, bloom_radius: 0.35, vignette: true, vignette_darkness: 0.62, vignette_offset: 1.15 },
+            },
+            material_config: {
+                wall_color: '0x131a26', wall_roughness: 0.3, wall_metalness: 0.06, wall_normal_strength: 0.25,
+                floor_color: '0x1a2230', floor_roughness: 0.22, floor_metalness: 0.2,
+                floor_normal_strength: 0.25, floor_tile_meters: 2.5, texture_tint: true,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'bright',
+                frame_style: 'minimal', room_layout: 'rotunda',
+            },
+            version: '2.0.0',
+        },
+        // (isolates Reflector+transmission interaction under SwiftShader).
+        'crystal-cathedral-nograd': {
+            id: 6, slug: 'crystal-cathedral', name: 'Crystal Cathedral', category: 'abstract',
+            visual_config: {
+                wall_height: 13, wall_depth: 0.3, ceiling_type: 'none', ceiling_height: 0,
+                background_color: '0x070b14', fog_color: '0x070b14', fog_near: 18, fog_far: 62,
+                ambient_color: '0xbfd4ec', ambient_intensity: 0.34, spot_intensity: 1.15,
+                fill_intensity: 0.22, tone_mapping_exposure: 0.85, frame_override: 'silver',
+                placement_mode: 'float', glass_material: 'transmission',
+                colonnade_tint: '0xe6f0fb', structure_pass: 'phenomena',
+                open_air: true, layout_shape: 'circular', void_arcade: true,
+                environment: 'studio', env_intensity: 0.22,
+                hemisphere_intensity: 0.22, void_depth_gradient: false,
+                artwork_light_base: 0.38, artwork_light_pool_cap: 12,
+                placement: { depth_bands: 2 },
+                post_fx: { bloom: true, bloom_strength: 0.42, bloom_threshold: 0.82, bloom_radius: 0.35, vignette: true, vignette_darkness: 0.62, vignette_offset: 1.15 },
+            },
+            material_config: {
+                wall_color: '0x131a26', wall_roughness: 0.3, wall_metalness: 0.06, wall_normal_strength: 0.25,
+                floor_color: '0x1a2230', floor_roughness: 0.22, floor_metalness: 0.2,
+                floor_normal_strength: 0.25, floor_tile_meters: 2.5, texture_tint: true,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'bright',
+                frame_style: 'minimal', room_layout: 'rotunda',
+            },
+            version: '2.0.0',
+        },
+        // Crystal Cathedral — bisect variant: no transmission glass
+        // (glass_material 'none' → tier-resolved flat Lambert).
+        'crystal-cathedral-noglass': {
+            id: 6, slug: 'crystal-cathedral', name: 'Crystal Cathedral', category: 'abstract',
+            visual_config: {
+                wall_height: 13, wall_depth: 0.3, ceiling_type: 'none', ceiling_height: 0,
+                background_color: '0x070b14', fog_color: '0x070b14', fog_near: 18, fog_far: 62,
+                ambient_color: '0xbfd4ec', ambient_intensity: 0.34, spot_intensity: 1.15,
+                fill_intensity: 0.22, tone_mapping_exposure: 0.85, frame_override: 'silver',
+                placement_mode: 'float', glass_material: 'none',
+                colonnade_tint: '0xe6f0fb', structure_pass: 'phenomena',
+                open_air: true, layout_shape: 'circular', void_arcade: true,
+                environment: 'studio', env_intensity: 0.22,
+                hemisphere_intensity: 0.22, void_depth_gradient: true,
+                artwork_light_base: 0.38, artwork_light_pool_cap: 12,
+                placement: { depth_bands: 2 },
+                post_fx: { bloom: true, bloom_strength: 0.42, bloom_threshold: 0.82, bloom_radius: 0.35, vignette: true, vignette_darkness: 0.62, vignette_offset: 1.15 },
+            },
+            material_config: {
+                wall_color: '0x131a26', wall_roughness: 0.3, wall_metalness: 0.06, wall_normal_strength: 0.25,
+                floor_color: '0x1a2230', floor_roughness: 0.22, floor_metalness: 0.2,
+                floor_normal_strength: 0.25, floor_tile_meters: 2.5, texture_tint: true,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'bright',
+                frame_style: 'minimal', room_layout: 'rotunda',
+            },
+            version: '2.0.0',
+        },
+        // Crystal Cathedral — IT2 rollback body (void_colonnade glass tubes).
+        // Forensic variant: proves the rollback chain still renders.
+        'crystal-cathedral-legacy': {
+            id: 6, slug: 'crystal-cathedral', name: 'Crystal Cathedral', category: 'abstract',
+            visual_config: {
+                wall_height: 12, wall_depth: 0.3, ceiling_type: 'none', ceiling_height: 0,
+                background_color: '0x0a0a1a', fog_color: '0x0a0a1a', fog_near: 15, fog_far: 50,
+                ambient_color: '0xddeeff', ambient_intensity: 0.25, spot_intensity: 0.5,
+                fill_intensity: 0.15, tone_mapping_exposure: 0.6, frame_override: 'silver',
+                placement_mode: 'float', glass_material: 'transmission',
+                colonnade_tint: '0xdfeaff', structure_pass: 'phenomena',
+                open_air: true, layout_shape: 'circular', void_colonnade: true,
+            },
+            material_config: {
+                wall_color: '0x202030', wall_roughness: 0.2, wall_metalness: 0.0, wall_normal_strength: 0.3,
+                floor_color: null, floor_roughness: 0.1, floor_metalness: 0.4, floor_normal_strength: 0.3,
+            },
+            decorations: [], lighting_fixtures: [],
+            supported_layouts: ['rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'bright',
+                frame_style: 'minimal', room_layout: 'rotunda',
+            },
+            version: '1.0.0',
+        },
         'white-cube': {
             id: 1, slug: 'white-cube', name: 'Modern White Cube', category: 'gallery',
             visual_config: {

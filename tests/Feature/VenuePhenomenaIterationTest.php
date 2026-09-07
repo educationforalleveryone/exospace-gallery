@@ -221,6 +221,23 @@ class VenuePhenomenaIterationTest extends TestCase
         $this->assertArrayNotHasKey('structure_pass', $cathedral, 'down() removes the untouched keys it added.');
         $this->assertArrayNotHasKey('glass_material', $cathedral);
 
+        // CATHEDRAL AUDIT (2026-09-07): the seeder baseline moved forward —
+        // the fresh-install row now carries the LUMINOUS ARCADE description
+        // and ice tint, neither of which this earlier migration owns. The
+        // guarded copy restore must therefore NOT fire on the baseline row
+        // (the newer copy survives a rollback of an OLDER migration), and
+        // the restore path itself is exercised by planting the exact copy
+        // this migration DID deliver.
+        $this->assertSame(
+            'A colonnade of faceted crystal piers carries pointed arches around a hall of polished dark stone; light falls from a vaulted oculus and reflects across the floor while artworks float before framed bays of stone.',
+            DB::table('venue_templates')->where('slug', 'crystal-cathedral')->value('description'),
+            'down() of an older iteration must not touch a newer iteration\'s guarded copy.'
+        );
+
+        DB::table('venue_templates')->where('slug', 'crystal-cathedral')->update([
+            'description' => 'A colonnade of tall glass rises through a deep blue void, coloured light glowing between the pillars. Artworks float in that light.',
+        ]);
+        $migration->down();
         $this->assertSame(
             'Crystalline forms drift through a deep blue void, lit by shifting colour. An ethereal, open exhibition space.',
             DB::table('venue_templates')->where('slug', 'crystal-cathedral')->value('description'),

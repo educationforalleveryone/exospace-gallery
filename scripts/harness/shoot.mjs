@@ -87,6 +87,30 @@ const SCENARIOS = [
     // Nebula Drift — forensic comparison against the deployed screenshot
     { id: 'nebula-06',            q: 'venue=nebula-drift&count=6' },
     { id: 'nebula-12-mixed',      q: 'venue=nebula-drift&count=12' },
+    // Crystal Cathedral — "The Luminous Arcade" (2026-09-07 audit).
+    // Count scaling: 5 (capacity floor), 12 (depth-band threshold), 30 and
+    // 40 (capacity ceiling — arcade bay plan + two-ring hang at scale).
+    { id: 'cathedral-05',         q: 'venue=crystal-cathedral&count=5' },
+    { id: 'cathedral-12-mixed',   q: 'venue=crystal-cathedral&count=12' },
+    { id: 'cathedral-30-mixed',   q: 'venue=crystal-cathedral&count=30' },
+    { id: 'cathedral-40-mixed',   q: 'venue=crystal-cathedral&count=40' },
+    // Orientation stress on the default hang
+    { id: 'cathedral-08-portrait',  q: 'venue=crystal-cathedral&count=8&orient=portrait' },
+    { id: 'cathedral-08-landscape', q: 'venue=crystal-cathedral&count=8&orient=landscape' },
+    { id: 'cathedral-08-extreme',   q: 'venue=crystal-cathedral&count=8&orient=extreme' },
+    // Tier degradation: the arcade must read on Lambert + gloss floor (low),
+    // and the walkable interior must read at eye level on every tier.
+    { id: 'cathedral-tier-low-06',  q: 'venue=crystal-cathedral&count=6', tier: 'low' },
+    // Forensic poses: (a) the look-up shot — vault, boss ring, oculus;
+    // (b) eye-level down the art-bay wall; (c) the crossing from the rim.
+    { id: 'cathedral-cam-up',     q: 'venue=crystal-cathedral&count=12',
+      cam: { p: [0, 1.6, 0],   t: [0, 18.8, 0] } },
+    { id: 'cathedral-cam-wall',   q: 'venue=crystal-cathedral&count=12',
+      cam: { p: [0, 1.6, 6],   t: [0, 1.8, 14] } },
+    { id: 'cathedral-cam-rim',    q: 'venue=crystal-cathedral&count=12',
+      cam: { p: [0, 1.6, 13],  t: [0, 2.2, 0] } },
+    // Rollback chain: the IT2 colonnade body must still render by config.
+    { id: 'cathedral-legacy-12',  q: 'venue=crystal-cathedral-legacy&count=12' },
     // Deployed-screenshot incident regression: the exact overridden-gallery
     // config (purple background + dim rig) vs the restored venue defaults.
     { id: 'void-overridden-12',   q: 'venue=infinite-void-overridden&count=12' },
@@ -260,10 +284,28 @@ async function run() {
         // continuously under SwiftShader. Page.captureScreenshot must run
         // WHILE the loop renders (halting invalidates the WebGL drawing
         // buffer and captures a blank frame).
-        const cdp = await ctx.newCDPSession(page);
-        const { data: pngB64 } = await cdp.send('Page.captureScreenshot', { format: 'png' });
+        //
+        // CATHEDRAL AUDIT GUARD: a capture (or session) failure on ONE
+        // scenario used to reject out of run() and kill the WHOLE run —
+        // every later scenario lost its shot because scenario N's
+        // SwiftShader compositor died. The heavy multi-pass venues (the
+        // cathedral's transmission + planar reflection are the first
+        // combination in the catalog) make that a routine event under
+        // software rasterization, so the capture is now best-effort per
+        // scenario: a dead capture is logged into the report and the run
+        // continues with the remaining scenarios.
+        let pngB64 = null;
+        try {
+            const cdp = await ctx.newCDPSession(page);
+            const shotData = await cdp.send('Page.captureScreenshot', { format: 'png' });
+            pngB64 = shotData.data;
+        } catch (e) {
+            errors.push(`capture failed: ${String(e).slice(0, 120)}`);
+        }
         const shot = path.resolve(rootDir, OUT, `${sc.id}.png`);
-        await writeFile(shot, Buffer.from(pngB64, 'base64'));
+        if (pngB64) {
+            await writeFile(shot, Buffer.from(pngB64, 'base64'));
+        }
 
         // Pull render stats from the scene (draw calls, triangles, lights).
         // Non-fatal: under SwiftShader the page occasionally dies between
