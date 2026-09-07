@@ -59,7 +59,7 @@ class VenueCathedralIterationTest extends TestCase
         $this->assertSame('studio', $config['environment'], 'The environment is DECLARED (the preset HDRI accident is closed).');
         $this->assertSame(0.22, $config['env_intensity'], 'Glass definition is dim and deliberate.');
         $this->assertTrue($config['void_depth_gradient'] ?? false, 'The zenith depth cue is declared (the look-up mandate).');
-        $this->assertSame(0.22, $config['hemisphere_intensity'], 'A vertical sky-above gradient is declared.');
+        $this->assertSame(0.30, $config['hemisphere_intensity'], 'A vertical sky-above gradient is declared — v2.1.0 lifts it so the art-bay wall band + pier bases read (deploy review).');
 
         // Artwork legibility (the void family standing glow).
         $this->assertSame(0.38, $config['artwork_light_base'], 'Floating artworks carry a standing glow beyond the proximity radius.');
@@ -70,6 +70,7 @@ class VenueCathedralIterationTest extends TestCase
         $this->assertSame('planar', $config['floor_reflection'], 'The copy promises the reflection — the config must declare it.');
         $this->assertTrue($config['post_fx']['bloom'] ?? false, 'Bloom is declared ON but restrained.');
         $this->assertSame(0.82, $config['post_fx']['bloom_threshold'], 'The threshold is high — only the oculus and the clerestory seam halo.');
+        $this->assertSame('black', $config['post_fx']['vignette_blend'] ?? null, 'The vignette blends toward TRUE BLACK — the legacy grey target (1−0.62) lifted the frame edges of a blue-black venue ~+0.2 luminance (the deployed “haze”). Dark Museum audit precedent.');
         $this->assertSame(0.85, $config['tone_mapping_exposure'], 'The rig is luminous (the 0.6 murk is gone).');
         $this->assertSame(1.15, $config['spot_intensity'], 'The artwork pool target ≈ 4.0 — art stays the hero.');
 
@@ -86,7 +87,7 @@ class VenueCathedralIterationTest extends TestCase
             (string) ($row->visual_config ?? '') . ($row->lighting_fixtures ?? ''),
             'The pastel-rainbow point-light palette must not survive in the row.'
         );
-        $this->assertSame('2.0.0', $row->version, 'The architectural identity pass bumps the venue version.');
+        $this->assertSame('2.1.0', $row->version, 'The deploy-review refinement bumps the venue version.');
     }
 
     public function test_the_copy_promise_matches_the_delivered_architecture(): void
@@ -113,6 +114,11 @@ class VenueCathedralIterationTest extends TestCase
     private function cathedralMigration(): object
     {
         return require database_path('migrations/2026_09_07_000001_crystal_cathedral_architecture.php');
+    }
+
+    private function deployReviewMigration(): object
+    {
+        return require database_path('migrations/2026_09_08_000001_crystal_cathedral_deploy_review.php');
     }
 
     /** The Iteration-6-era row exactly as production holds it pre-migration. */
@@ -167,6 +173,7 @@ class VenueCathedralIterationTest extends TestCase
         // production diverge).
         $this->seedIterationSixCathedralRow();
         $this->cathedralMigration()->up();
+        $this->deployReviewMigration()->up();
 
         $migrated = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first();
 
@@ -262,6 +269,44 @@ class VenueCathedralIterationTest extends TestCase
         $this->assertSame($pristine->tags, $restored->tags, 'Untouched rows restore exactly (tags).');
     }
 
+    public function test_the_deploy_review_migration_is_guarded_idempotent_and_reversible(): void
+    {
+        // Start from the v2.0.0 state the deployed production row holds.
+        $this->seedIterationSixCathedralRow();
+        $this->cathedralMigration()->up();
+
+        // An admin retune that must survive the v2.1.0 migration.
+        $admin = $this->visualConfig('crystal-cathedral');
+        $admin['hemisphere_intensity'] = 0.5;                       // differs from the seeded 0.22 — the admin owns it
+        $admin['post_fx']['vignette_blend'] = 'grey';               // an operator who chose grey keeps it
+        DB::table('venue_templates')->where('slug', 'crystal-cathedral')->update([
+            'visual_config' => json_encode($admin),
+        ]);
+
+        $migration = $this->deployReviewMigration();
+        $migration->up();
+
+        $config = $this->visualConfig('crystal-cathedral');
+        $this->assertSame(0.5, $config['hemisphere_intensity'], 'Admin-tuned hemisphere survives (guarded swap).');
+        $this->assertSame('grey', $config['post_fx']['vignette_blend'], 'An operator-chosen blend target is never overwritten (union add).');
+
+        // Idempotence: a second run changes nothing.
+        $before = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first();
+        $migration->up();
+        $after = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first();
+        $this->assertSame($before->visual_config, $after->visual_config, 'Re-running the v2.1.0 migration rewrites nothing.');
+
+        // Reversibility on an untouched row: full restore.
+        $this->seedIterationSixCathedralRow();
+        $this->cathedralMigration()->up();
+        $pristine = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first(['visual_config', 'version']);
+        $migration->up();
+        $migration->down();
+        $restored = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first(['visual_config', 'version']);
+        $this->assertSame($pristine->visual_config, $restored->visual_config, 'Untouched rows restore exactly (visual_config).');
+        $this->assertSame($pristine->version, $restored->version, 'Untouched rows restore exactly (version).');
+    }
+
     public function test_a_missing_row_is_respected(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -269,6 +314,8 @@ class VenueCathedralIterationTest extends TestCase
 
         $this->cathedralMigration()->up();
         $this->cathedralMigration()->down();
+        $this->deployReviewMigration()->up();
+        $this->deployReviewMigration()->down();
 
         $this->assertSame(0, DB::table('venue_templates')->where('slug', 'crystal-cathedral')->count(),
             'A venue the operator removed is never resurrected by the migration.');

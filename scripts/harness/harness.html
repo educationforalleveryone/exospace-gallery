@@ -145,10 +145,10 @@
                 colonnade_tint: '0xe6f0fb', structure_pass: 'phenomena',
                 open_air: true, layout_shape: 'circular', void_arcade: true,
                 environment: 'studio', env_intensity: 0.22,
-                hemisphere_intensity: 0.22, void_depth_gradient: true,
+                hemisphere_intensity: 0.30, void_depth_gradient: true,
                 artwork_light_base: 0.38, artwork_light_pool_cap: 12,
                 placement: { depth_bands: 2 },
-                post_fx: { bloom: true, bloom_strength: 0.42, bloom_threshold: 0.82, bloom_radius: 0.35, vignette: true, vignette_darkness: 0.62, vignette_offset: 1.15 },
+                post_fx: { bloom: true, bloom_strength: 0.42, bloom_threshold: 0.82, bloom_radius: 0.35, vignette: true, vignette_darkness: 0.62, vignette_offset: 1.15, vignette_blend: 'black' },
                 floor_reflection: 'planar',
             },
             material_config: {
@@ -163,7 +163,7 @@
                 wall_texture: 'white', floor_material: 'marble', lighting_preset: 'bright',
                 frame_style: 'minimal', room_layout: 'rotunda',
             },
-            version: '2.0.0',
+            version: '2.1.0',
         },
         // Crystal Cathedral — forensic variant WITHOUT the planar reflector
         // (isolates Reflector+transmission interaction under SwiftShader).

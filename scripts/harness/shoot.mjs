@@ -192,12 +192,18 @@ const tierInit = {
            // Heavy scenarios (30-60 works, ~20 lights) can dip under the
            // 35fps downgrade threshold under SwiftShader even at boot size,
            // retro-downgrading the tier mid-capture. Stretch the monotonic
-           // clock 4x so the FPS benchmark measures an inflated-but-consistent
-           // rate and keeps the requested tier (animations run 4x slower —
-           // acceptable for deterministic stills).
+           // clock 250x so the deferred FPS benchmark's 2 s warmup needs
+           // ~8 REAL minutes before it can even sample — a capture session
+           // (~15 s) can never reach a verdict, so the static high-tier
+           // detection is authoritative for every still. (Measured on the
+           // cathedral: transmission + Reflector + bloom renders at ~1-4 fps
+           // REAL under SwiftShader, so a mere 4-8x stretch still let the
+           // benchmark fire "1.1 fps < 35" mid-capture — the tier race that
+           // made some review stills render as Lambert haze. Real GPUs hold
+           // 60 fps; this only pins the QA harness, never the product.)
            const __origNow = performance.now.bind(performance);
            const __t0 = __origNow();
-           performance.now = () => __t0 + (__origNow() - __t0) * 0.25;`,
+           performance.now = () => __t0 + (__origNow() - __t0) * 0.004;`,
     low:  `Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>2});
            Object.defineProperty(navigator,'deviceMemory',{get:()=>2});
            Object.defineProperty(navigator,'maxTouchPoints',{get:()=>0});`,

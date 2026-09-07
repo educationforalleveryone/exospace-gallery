@@ -686,7 +686,7 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 40,
                 'sort_order'    => 6,
                 'is_featured'   => true,
-                'version'       => '2.0.0',
+                'version'       => '2.1.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
@@ -724,7 +724,10 @@ class VenueTemplateSeeder extends Seeder
                     // ── Atmosphere: a DECLARED sky (was preset accident) ─
                     'environment'            => 'studio',  // neutral glass definition
                     'env_intensity'          => 0.22,
-                    'hemisphere_intensity'   => 0.22,      // sky-above gradient cue
+                    'hemisphere_intensity'   => 0.30,      // sky-above gradient cue — v2.1.0:
+                                                           // lifts the art-bay wall band + pier
+                                                           // bases (deploy review: the "black
+                                                           // mid-band" the veil used to hide)
                     'void_depth_gradient'    => true,      // zenith depth above the vault
                     // ── Artwork legibility (void family standing glow) ──
                     'artwork_light_base'     => 0.38,
@@ -740,6 +743,12 @@ class VenueTemplateSeeder extends Seeder
                         'vignette'          => true,
                         'vignette_darkness' => 0.62,
                         'vignette_offset'   => 1.15,
+                        'vignette_blend'    => 'black', // v2.1.0 deploy review — the
+                                                     // legacy GREY target (1−0.62 = 0.38)
+                                                     // LIFTED the frame edges of a
+                                                     // blue-black venue ~+0.2 luminance
+                                                     // (the production "haze"). Dark
+                                                     // Museum audit precedent.
                     ],
                     // The copy promises the reflection — declare it
                     // (Reflector high tier / designed gloss mobile+low-end).

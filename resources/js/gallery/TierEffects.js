@@ -111,7 +111,68 @@ export function makeGlassMaterial(ctx, { tint = 0xffffff, opacity = 0.35, flatSh
 // must pass the existing floor mesh via ctx._circularFloor (set by
 // RoomBuilder.createRoomCircular) — it is HIDDEN, not disposed, so a
 // session-level quality downgrade can restore it without a rebuild.
-export function addPlanarReflection(ctx, radius, { color = 0xaab4c8, resolution = 1024 } = {}) {
+//
+// CATHEDRAL DEPLOY REVIEW (2026-09-08): opt-in `blend` mode. Reflector's
+// stock fragment uses an OVERLAY blend with `color` — and overlay with a
+// tint brighter than 0.5 BRIGHTENS midtones while leaving near-white pixels
+// at full luminance. On Mirror Lake (dark scene, moonlit water) that is the
+// intended look; on the Cathedral the mirror sat under a LIT arcade with
+// bloom-capable emissives, so reflected artworks came back at ~full
+// brightness, re-entered the main-pass bloom (threshold 0.82) and grew
+// halos brighter than the originals — the deployed screenshot read as a
+// DUPLICATED WORLD, not a polished floor. `blend: 'multiply'` swaps the
+// blend for `base.rgb * color`: every reflected luminance is scaled DOWN by
+// the tint (whites cap at the tint itself, far below the bloom threshold),
+// which is exactly how polished dark stone behaves. Default stays
+// 'overlay' with the stock shader path, so Mirror Lake renders bit-exactly
+// as shipped.
+const MULTIPLY_REFLECTOR_SHADER = {
+    name: 'ReflectorMultiplyShader',
+    uniforms: {
+        color: { value: null },
+        tDiffuse: { value: null },
+        textureMatrix: { value: null },
+    },
+    vertexShader: /* glsl */`
+        uniform mat4 textureMatrix;
+        varying vec4 vUv;
+
+        #include <common>
+        #include <logdepthbuf_pars_vertex>
+
+        void main() {
+
+            vUv = textureMatrix * vec4( position, 1.0 );
+
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+            #include <logdepthbuf_vertex>
+
+        }`,
+    fragmentShader: /* glsl */`
+        uniform vec3 color;
+        uniform sampler2D tDiffuse;
+        varying vec4 vUv;
+
+        #include <logdepthbuf_pars_fragment>
+
+        void main() {
+
+            #include <logdepthbuf_fragment>
+
+            vec4 base = texture2DProj( tDiffuse, vUv );
+
+            // Multiply tint: the mirror darkens BY the color uniformly —
+            // polished-stone physics, no overlay midtone reversal.
+            gl_FragColor = vec4( base.rgb * color, 1.0 );
+
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+
+        }`,
+};
+
+export function addPlanarReflection(ctx, radius, { color = 0xaab4c8, resolution = 1024, blend = 'overlay' } = {}) {
     const floor = ctx._circularFloor;
     if (floor) floor.visible = false;
 
@@ -122,8 +183,11 @@ export function addPlanarReflection(ctx, radius, { color = 0xaab4c8, resolution 
         textureWidth: resolution,
         textureHeight: resolution,
         // Reflector's `color` tints/darkens the mirror — deep lake blue-grey
-        // keeps reflections moody instead of chrome-perfect.
+        // keeps reflections moody instead of chrome-perfect (overlay), or
+        // scales them down uniformly (multiply — the cathedral's polished
+        // dark slate).
         color,
+        shader: blend === 'multiply' ? MULTIPLY_REFLECTOR_SHADER : undefined,
     });
     reflector.rotation.x = -Math.PI / 2;
     reflector.position.y = 0.001;

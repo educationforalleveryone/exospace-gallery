@@ -1999,9 +1999,22 @@ function addCrystalCathedralArcade(radius) {
             metalness: mc.wall_metalness ?? 0.06,
             side: THREE.BackSide,
         });
+    // Dressed-stone trim (pilasters/headers/coping) — DEPLOY REVIEW FIX
+    // (2026-09-08): the framing was the SAME material and colour as the wall
+    // field, and nothing in the rig reaches the wall band, so the "framed
+    // bays of stone" the copy promises rendered as one black void. Real
+    // arcades differentiate DRESSED stone from field stone; the trim tone is
+    // derived deterministically from the DECLARED wall colour (lerp toward
+    // the crystal's ice-white — no second config source, no DB key), quiet
+    // enough to keep the field dark and the artwork contrast intact.
+    const TRIM = STONE.clone().lerp(new THREE.Color(0xdfe9f5), 0.45);
     const stoneTrimMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: STONE })
-        : new THREE.MeshStandardMaterial({ color: STONE, roughness: mc.wall_roughness ?? 0.3, metalness: mc.wall_metalness ?? 0.06 });
+        ? new THREE.MeshLambertMaterial({ color: TRIM })
+        : new THREE.MeshStandardMaterial({
+            color: TRIM,
+            roughness: Math.min((mc.wall_roughness ?? 0.3) + 0.15, 0.6), // dressed stone is matte
+            metalness: mc.wall_metalness ?? 0.06,
+        });
 
     const tmpM  = new THREE.Matrix4();
     const tmpQ  = new THREE.Quaternion();
@@ -2199,15 +2212,22 @@ function addCrystalCathedralArcade(radius) {
     this.scene.add(medallion);
 
     // ── 8. Floor reflection — declared 'planar', tiered (TierResolve) ─────
-    // Same machinery Mirror Lake ships; the tint is the cathedral's darker
-    // steel-blue so the arcade reflects into polished stone, not chrome.
+    // Same machinery Mirror Lake ships, but DEPLOY REVIEW FIX (2026-09-08):
+    // blend = 'multiply'. The stock overlay blend with this bright a tint
+    // brightened reflection midtones and left near-white pixels at full
+    // luminance, so reflected artworks re-entered the bloom pass and the
+    // deployed screenshot read as a DUPLICATED WORLD (user-reported). The
+    // multiply blend scales every reflected luminance DOWN by the tint —
+    // reflected whites cap at the tint (≈0.35, far under the 0.82 bloom
+    // threshold) — which is polished-dark-stone behaviour: the hang ghosts
+    // faintly across the floor instead of playing again underneath it.
     const reflectionMode = resolveReflectionMode({
         isLowEnd: !!this.isLowEnd,
         isMobileTier: !!this._isMobileTier,
         declared: vc.floor_reflection === 'planar',
     });
     if (reflectionMode === 'planar') {
-        addPlanarReflection(this, radius, { color: 0x8fa0b8, resolution: 1024 });
+        addPlanarReflection(this, radius, { color: 0x5a6a85, resolution: 1024, blend: 'multiply' });
     } else if (reflectionMode === 'gloss') {
         // Designed gloss mood (no moon here — the venue's own rig carries
         // the specular response; soften metalness so a PBR floor without an

@@ -84,8 +84,8 @@ ok('environment DECLARED (was a preset accident — studio.hdr by drift)',
     /'environment'\s*=>\s*'studio'/.test(vc));
 ok('env_intensity declared (deliberate glass definition)',
     /'env_intensity'\s*=>\s*0\.22/.test(vc));
-ok('hemisphere declared (vertical gradient cue)',
-    /'hemisphere_intensity'\s*=>\s*0\.22/.test(vc));
+ok('hemisphere declared (vertical gradient cue — v2.1.0 wall lift)',
+    /'hemisphere_intensity'\s*=>\s*0\.30/.test(vc));
 ok('zenith depth gradient declared (the look-up mandate)',
     /'void_depth_gradient'\s*=>\s*true/.test(vc));
 ok('standing glow declared (void family sits beyond the proximity radius)',
@@ -146,6 +146,8 @@ if (hBody) {
         ['bloom_threshold 0.82',                 /bloom_threshold:\s*0\.82/.test(hBody) && /'bloom_threshold'\s*=>\s*0\.82/.test(vc)],
         ['floor_reflection planar',              /floor_reflection:\s*'planar'/.test(hBody) && /'floor_reflection'\s*=>\s*'planar'/.test(vc)],
         ['environment studio',                   /environment:\s*'studio'/.test(hBody) && /'environment'\s*=>\s*'studio'/.test(vc)],
+        ['hemisphere_intensity 0.30 (v2.1.0 wall lift)', /hemisphere_intensity:\s*0\.30/.test(hBody) && /'hemisphere_intensity'\s*=>\s*0\.30/.test(vc)],
+        ['vignette_blend black (v2.1.0 grey-veil fix)',  /vignette_blend:\s*'black'/.test(hBody) && /'vignette_blend'\s*=>\s*'black'/.test(vc)],
         ['wall_color 0x131a26',                  /wall_color:\s*'0x131a26'/.test(hBody) && /'wall_color'\s*=>\s*'0x131a26'/.test(mc)],
         ['floor_color 0x1a2230',                 /floor_color:\s*'0x1a2230'/.test(hBody) && /'floor_color'\s*=>\s*'0x1a2230'/.test(mc)],
     ];
@@ -293,6 +295,35 @@ try {
         ok('exactly one key SpotLight (PERF-B18 budget: rainbows removed)',
             added.filter((o) => o.isSpotLight).length === 1 &&
             added.filter((o) => o.isPointLight).length === 0);
+
+        // DEPLOY REVIEW (2026-09-08): the planar reflector must use the
+        // MULTIPLY blend — the stock overlay blend brightened reflection
+        // midtones and left emissive whites at full luminance, so the
+        // deployed floor read as a duplicated world (user-reported) and the
+        // reflected frames re-entered bloom. Multiply caps reflected whites
+        // at the tint (≈0.35 < 0.82 bloom threshold) — polished stone.
+        const reflector = added.find((o) => o.material?.uniforms?.tDiffuse);
+        ok('planar reflector built on the declared path', !!reflector);
+        if (reflector) {
+            ok('reflector blend is MULTIPLY (no overlay midtone reversal)',
+                /base\.rgb \* color/.test(reflector.material.fragmentShader) &&
+                !/blendOverlay/.test(reflector.material.fragmentShader));
+            ok('reflector tint is the dark steel 0x5a6a85 (whites cap under bloom threshold)',
+                reflector.material.uniforms.color.value.getHex() === 0x5a6a85,
+                reflector.material.uniforms.color.value.getHexString());
+        }
+        // Dressed-stone trim: the bay framing must be lighter than the wall
+        // field (the "framed bays of stone" the copy promises must render).
+        const trims = added.filter((o) => o.geometry?.type === 'BoxGeometry');
+        ok('bay trim instanced meshes present (pilasters + headers)', trims.length === 2);
+        const trimMat = trims[0]?.material;
+        const wallBack = added.find((o) => o.geometry?.type === 'CylinderGeometry' && o.material?.side === THREE.BackSide);
+        if (trimMat && wallBack) {
+            ok('trim tone is lighter than the wall field (bays read against stone)',
+                trimMat.color.getHex() !== wallBack.material.color.getHex() &&
+                trimMat.color.getHex() > wallBack.material.color.getHex(),
+                `${trimMat.color.getHexString()} vs ${wallBack.material.color.getHexString()}`);
+        }
     }
 
     // Adaptive bay plan across the radius range must keep the crown under 13.
