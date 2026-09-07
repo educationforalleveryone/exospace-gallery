@@ -40,8 +40,11 @@ class VenueRoomsIterationTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const DESCRIPTOR_VENUES = ['zen-gallery', 'luxury-penthouse', 'cyber-gallery'];
-    private const ROOM_PASS_VENUES  = ['white-cube', 'zen-gallery', 'luxury-penthouse', 'cyber-gallery'];
+    // Zen v2 note: the venue outgrew the descriptor vocabulary — its
+    // framed-bay architecture is procedural (the 'bays' interpreter) and
+    // carries NO structure array. It moved to VenueZenIterationTest pins.
+    private const DESCRIPTOR_VENUES = ['luxury-penthouse', 'cyber-gallery'];
+    private const ROOM_PASS_VENUES  = ['white-cube', 'luxury-penthouse', 'cyber-gallery'];
 
     // ─────────────────────────────────────────────────────────────────────
     // Declared structure — the config contract the interpreter consumes
@@ -78,11 +81,14 @@ class VenueRoomsIterationTest extends TestCase
         $penthouse = $this->visualConfig('luxury-penthouse');
         $this->assertTrue($penthouse['glazing_wall'] ?? false, '[luxury-penthouse] must declare the glazing wall (§4.8).');
 
+        // Zen v2 ("The Quiet Procession"): the venue left the descriptor
+        // family for the procedural bays interpreter — no props, no
+        // absolute coordinates (the v1 shoji/alcove/bench descriptors are
+        // gone; see VenueZenIterationTest).
         $zen = $this->visualConfig('zen-gallery');
-        $ids = array_column($zen['structure'], 'id');
-        $this->assertNotEmpty(preg_grep('/shoji/', $ids), '[zen-gallery] structure must include the shoji screens (§4.5).');
-        $this->assertNotEmpty(preg_grep('/alcove/', $ids), '[zen-gallery] structure must include the tokonoma alcove (§4.5).');
-        $this->assertNotEmpty(preg_grep('/bench/', $ids), '[zen-gallery] structure must include the low bench (§4.5).');
+        $this->assertSame('bays', $zen['structure_pass'] ?? null, '[zen-gallery] selects the framed-bay interpreter.');
+        $this->assertArrayNotHasKey('structure', $zen, '[zen-gallery] v2 carries no descriptor props — the bay architecture is procedural.');
+        $this->assertIsArray($zen['bays'] ?? null, '[zen-gallery] declares the bays proportion block.');
 
         $cyber = $this->visualConfig('cyber-gallery');
         $this->assertCount(4, array_values(array_filter($cyber['structure'], fn ($e) => str_starts_with((string) ($e['id'] ?? ''), 'neon-top-'))),
@@ -160,8 +166,8 @@ class VenueRoomsIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $zen = (string) DB::table('venue_templates')->where('slug', 'zen-gallery')->value('description');
-        $this->assertMatchesRegularExpression('/shoji/i', $zen, 'Zen copy must name the shoji screens the pass delivers.');
-        $this->assertMatchesRegularExpression('/alcove/i', $zen, 'Zen copy must name the tokonoma alcove.');
+        $this->assertMatchesRegularExpression('/framed bays/i', $zen, 'Zen v2 copy must name the framed-bay architecture the pass delivers.');
+        $this->assertMatchesRegularExpression('/paper band/i', $zen, 'Zen v2 copy must name the clerestory paper band.');
 
         $penthouse = (string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('description');
         $this->assertMatchesRegularExpression('/glazed|glass/i', $penthouse, 'Penthouse copy must promise the glazing wall.');
@@ -256,7 +262,8 @@ class VenueRoomsIterationTest extends TestCase
 
         // Idempotence: up() after down() lands the identity again.
         $migration->up();
-        $this->assertSame('rooms', $this->visualConfig('zen-gallery')['structure_pass'] ?? null);
+        $this->assertSame('bays', $this->visualConfig('zen-gallery')['structure_pass'] ?? null,
+            '[zen-gallery] keeps its v2 bays selector (the rooms migration adds only where absent).');
     }
 
     // ─────────────────────────────────────────────────────────────────────

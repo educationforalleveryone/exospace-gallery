@@ -72,6 +72,50 @@ export function wallRunOffset(runCount, posInRun, spacing, wallLength) {
     return (wallLength / 2) - ((runCount - 1) * spacing) / 2 + posInRun * spacing;
 }
 
+// ── Square run plan (pure, shared by the square placer AND structure passes)
+// ─────────────────────────────────────────────────────────────────────────────
+// The framed-bay architecture (VenueDecorator 'bays' pass) must frame the
+// hang it serves: fins stand exactly at the run boundaries, so STRUCTURE and
+// PLACEMENT consume one split math — they can never disagree (the loft
+// precedent, generalised). `distribute` = works placed on outer walls (the
+// placer passes outerCount — imageCount when no bay surfaces exist; a
+// structure pass passes imageCount). Byte-identical to the historic inline
+// math of _placeArtworksSquare.
+export function squareRunPlan(imageCount, distribute, spacing, wallCount,
+                              minWallLength = CONFIG.room.minWallLength) {
+    const imagesPerWall = Math.ceil(imageCount / wallCount);
+    const wallLength    = Math.max(minWallLength, imagesPerWall * spacing + spacing);
+    const runCounts = Array.from({ length: wallCount }, (_, i) =>
+        Math.max(0, Math.min(imagesPerWall, distribute - i * imagesPerWall)));
+    return { wallLength, imagesPerWall, runCounts };
+}
+
+// ── L-shape row plan (pure, shared by the l-shape placer AND structure passes)
+// ─────────────────────────────────────────────────────────────────────────────
+// Mirrors the alternating-face walk: rows step zStart→zLimit by `spacing`,
+// two faces per row in wing A (outer wall face 0, inner wall face 1), the
+// remainder spills into wing B along the x axis the same way. Face row
+// counts derive from the same alternation (face f holds rows floor to
+// ceil of half the wing's works), so a bay pass can frame both wings
+// without a second placement implementation.
+export function lshapeRowPlan(imageCount, zStart, zLimit, spacing) {
+    let spillFrom = imageCount, sideA = 0, rowA = 0;
+    for (let i = 0; i < imageCount; i++) {
+        if (zStart + rowA * spacing >= zLimit) { spillFrom = i; break; }
+        sideA = 1 - sideA;
+        if (sideA === 0) rowA++;
+    }
+    const remaining = imageCount - spillFrom;
+    return {
+        spillFrom,
+        remaining,
+        rowsA:  Math.ceil(spillFrom / 2),   // wing A face 0 rows
+        rowsA1: Math.floor(spillFrom / 2),  // wing A face 1 rows
+        rowsB:  Math.ceil(remaining / 2),   // wing B face 0 rows
+        rowsB1: Math.floor(remaining / 2),  // wing B face 1 rows
+    };
+}
+
 // ── Wall-face standoff (pure, shared by every wall layout) ────────────────
 // ARTWORK-BURIAL FIX (Industrial Loft forensic audit): the hang used to
 // measure its standoff from the wall CENTRE plane with a constant 0.2 m —
@@ -111,8 +155,10 @@ export function _placeArtworksSquare(data) {
     const spacing    = CONFIG.room.artworkSpacing;
     const glazingWallId = this._glazing ? this._glazing.wallId : null;
     const wallCount  = glazingWallId ? 3 : 4;
-    const wallLength = Math.max(CONFIG.room.minWallLength, (Math.ceil(imageCount / wallCount) * spacing) + spacing);
-    const imagesPerWall = Math.ceil(imageCount / wallCount);
+    // Room sizing comes from the SHARED pure helper — the 'bays' structure
+    // pass consumes the same plan, so the framed architecture always wraps
+    // the real hang (one math, never two).
+    const { wallLength } = squareRunPlan(imageCount, imageCount, spacing, wallCount);
     const eyeLevel = CONFIG.camera.height;
 
     // Wall-face standoff — venue wall_depth aware (see wallInset above).
@@ -136,13 +182,11 @@ export function _placeArtworksSquare(data) {
     const bayPlan = _planBayHangs(imageCount, this._hangableSurfaces, spacing);
     const outerCount = imageCount - (bayPlan ? bayPlan.length : 0);
 
-    // Per-wall run counts — the ceil split gives every wall except the last a
-    // full run; the LAST wall receives the remainder (possibly smaller). The
-    // offset math below centres EACH wall's ACTUAL run, so a remainder run no
-    // longer hangs skewed toward the wall's start corner.
-    const runCounts = hangWalls.map((_, i) =>
-        Math.max(0, Math.min(imagesPerWall, outerCount - i * imagesPerWall))
-    );
+    // Per-wall run counts from the shared helper (the ceil split gives every
+    // wall except the last a full run; the LAST wall receives the remainder,
+    // and the offset math below centres EACH wall's ACTUAL run). Outer
+    // distribution respects any bay take; the bays pass passes imageCount.
+    const { runCounts } = squareRunPlan(imageCount, outerCount, spacing, hangWalls.length);
 
     let bayIdx = 0;
     let wi = 0, pos = 0;
@@ -265,21 +309,21 @@ export function _placeArtworksLShape(data) {
         { x: wingW - inset,  normal: [-1,0,0] },
     ];
 
-    let spillFrom = all.length;
-    let sideA = 0, rowA = 0;
-    for (let i = 0; i < all.length; i++) {
-        const candidateZ = zStart + rowA * spacing;
-        if (candidateZ >= zLimit) { spillFrom = i; break; }
+    // Spill math from the SHARED pure helper (the 'bays' pass frames both
+    // wings from the same plan). Artwork i sits on face i%2, row floor(i/2)
+    // — identical to the historic mutating walk.
+    const plan = lshapeRowPlan(all.length, zStart, zLimit, spacing);
+    for (let i = 0; i < plan.spillFrom; i++) {
+        const sideA = i % 2, rowA = Math.floor(i / 2);
         const w = wA[sideA];
+        const candidateZ = zStart + rowA * spacing;
         const { group } = this.makeArtworkGroup(all[i], data);
         group.position.set(w.x, eyeLevel, candidateZ);
         group.lookAt(w.x + w.normal[0], eyeLevel, candidateZ + w.normal[2]);
         this.placeAndRegister(group, data);
-        sideA = 1 - sideA;
-        if (sideA === 0) rowA++;
     }
 
-    const remaining = all.slice(spillFrom);
+    const remaining = all.slice(plan.spillFrom);
     if (remaining.length === 0) return;
 
     const wB = [
@@ -287,16 +331,14 @@ export function _placeArtworksLShape(data) {
         { z: lenA/2 - inset,      normal: [0,0,-1] },
     ];
     const xStart = wingW + spacing;
-    let sideB = 0, rowB = 0;
-    remaining.forEach(img => {
+    remaining.forEach((img, k) => {
+        const sideB = k % 2, rowB = Math.floor(k / 2);
         const w = wB[sideB];
         const candidateX = xStart + rowB * spacing;
         const { group } = this.makeArtworkGroup(img, data);
         group.position.set(candidateX, eyeLevel, w.z);
         group.lookAt(candidateX + w.normal[0], eyeLevel, w.z + w.normal[2]);
         this.placeAndRegister(group, data);
-        sideB = 1 - sideB;
-        if (sideB === 0) rowB++;
     });
 }
 

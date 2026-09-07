@@ -105,6 +105,24 @@ const SCENARIOS = [
     { id: 'loft-corridor-extreme',   q: 'venue=industrial-loft&count=8&orient=extreme' },
     // Industrial Loft — tier degradation
     { id: 'loft-tier-low-08',     q: 'venue=industrial-loft&count=8', tier: 'low' },
+    // Japanese Zen Gallery — "The Quiet Procession" (v2.0.0) matrix
+    { id: 'zen-square-01',          q: 'venue=zen-gallery&count=1' },
+    { id: 'zen-square-08',          q: 'venue=zen-gallery&count=8' },
+    { id: 'zen-square-12-mixed',    q: 'venue=zen-gallery&count=12' },
+    { id: 'zen-square-30-mixed',    q: 'venue=zen-gallery&count=30' },
+    { id: 'zen-square-60-mixed',    q: 'venue=zen-gallery&count=60' },
+    { id: 'zen-square-portrait',    q: 'venue=zen-gallery&count=8&orient=portrait' },
+    { id: 'zen-square-landscape',   q: 'venue=zen-gallery&count=8&orient=landscape' },
+    { id: 'zen-square-extreme',     q: 'venue=zen-gallery&count=8&orient=extreme' },
+    { id: 'zen-corridor-08',        q: 'venue=zen-gallery&count=8&layout=corridor' },
+    { id: 'zen-corridor-16',        q: 'venue=zen-gallery&count=16&layout=corridor' },
+    { id: 'zen-lshape-08',          q: 'venue=zen-gallery&count=8&layout=l-shape' },
+    { id: 'zen-tier-low-08',        q: 'venue=zen-gallery&count=8', tier: 'low' },
+    // Zen — elevated corner view across the room (procession read: fins,
+    // bays, clerestory and rafter rhythm in one frame).
+    { id: 'zen-live-wide-30',
+      q: 'venue=zen-gallery&count=30',
+      cam: { p: [-13, 2.1, 13], t: [6, 1.3, -10] } },
     // Dark Museum — FORENSIC BEFORE (v1.0.0 forensic body; never update it)
     { id: 'museum-before-square-08',  q: 'venue=dark-museum-v1&count=8' },
     { id: 'museum-before-rotunda-08', q: 'venue=dark-museum-v1&count=8&layout=rotunda' },
@@ -247,26 +265,34 @@ async function run() {
         const shot = path.resolve(rootDir, OUT, `${sc.id}.png`);
         await writeFile(shot, Buffer.from(pngB64, 'base64'));
 
-        // Pull render stats from the scene (draw calls, triangles, lights)
+        // Pull render stats from the scene (draw calls, triangles, lights).
+        // Non-fatal: under SwiftShader the page occasionally dies between
+        // the CDP capture and this evaluate — the SHOT is the deliverable,
+        // a stats crash must not discard it.
         let stats = null;
         if (STATS) {
-            stats = await page.evaluate(() => {
-                const s = window.__exospace?.scene;
-                if (!s?.renderer) return null;
-                const i = s.renderer.info;
-                return {
-                    drawCalls: i.render.calls, triangles: i.render.triangles,
-                    geometries: i.memory.geometries, textures: i.memory.textures,
-                    sceneObjects: s.scene ? s.scene.children.length : null,
-                    lights: s.scene ? s.scene.children.filter(o => o.isLight).length : null,
-                    camera: s.camera ? { x: +s.camera.position.x.toFixed(2), y: +s.camera.position.y.toFixed(2), z: +s.camera.position.z.toFixed(2) } : null,
-                    artworks: s.artworks?.length ?? null,
-                    roomBounds: s.roomBounds, layout: s._layoutMeta?.type,
-                    tier: { lowEnd: !!s.isLowEnd, mobile: !!s.isMobile, mobileTier: !!s._isMobileTier },
-                    exposure: s.renderer.toneMappingExposure,
-                    fog: s.scene.fog ? { near: s.scene.fog.near, far: s.scene.fog.far, color: '#' + s.scene.fog.color.getHexString() } : null,
-                };
-            });
+            try {
+                stats = await Promise.race([
+                    page.evaluate(() => {
+                        const s = window.__exospace?.scene;
+                        if (!s?.renderer) return null;
+                        const i = s.renderer.info;
+                        return {
+                            drawCalls: i.render.calls, triangles: i.render.triangles,
+                            geometries: i.memory.geometries, textures: i.memory.textures,
+                            sceneObjects: s.scene ? s.scene.children.length : null,
+                            lights: s.scene ? s.scene.children.filter(o => o.isLight).length : null,
+                            camera: s.camera ? { x: +s.camera.position.x.toFixed(2), y: +s.camera.position.y.toFixed(2), z: +s.camera.position.z.toFixed(2) } : null,
+                            artworks: s.artworks?.length ?? null,
+                            roomBounds: s.roomBounds, layout: s._layoutMeta?.type,
+                            tier: { lowEnd: !!s.isLowEnd, mobile: !!s.isMobile, mobileTier: !!s._isMobileTier },
+                            exposure: s.renderer.toneMappingExposure,
+                            fog: s.scene.fog ? { near: s.scene.fog.near, far: s.scene.fog.far, color: '#' + s.scene.fog.color.getHexString() } : null,
+                        };
+                    }),
+                    new Promise(resolve => setTimeout(() => resolve(null), 15000)),
+                ]);
+            } catch { stats = null; }   // shot already captured — keep going
         }
         report.push({ id: sc.id, tier, shot: path.basename(shot), errors, stats });
         await ctx.close();

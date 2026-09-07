@@ -510,14 +510,52 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 5. Japanese Zen Gallery — Pro
+            // 5. Japanese Zen Gallery — Pro (v2.0.0 "The Quiet Procession")
+            //
+            // ZEN DEEPENING iteration (single-venue design brief: ONE strong
+            // idea, not many effects). The v1.0.0 row was the failure mode
+            // the brief names — "a normal gallery with Japanese
+            // decorations": a pre-polish rig (exposure 0.55, spot 0.45, the
+            // measured ~10× too dim profile) with shoji/tokonoma props at
+            // ABSOLUTE coordinates that broke on every layout change.
+            // v2 is a complete spatial concept:
+            //
+            //   ONE IDEA — the FRAMED BAY. Dark timber fins divide warm
+            //   plaster walls into bays; each work sits centred in its own
+            //   bay between generous expanses of blank wall (ma). A
+            //   recessed plaster panel backs every bay, a timber header
+            //   closes it, a paper clerestory band glows above the headers,
+            //   and a low timber step (the engawa datum) runs the wall at
+            //   the floor. Slim rafters carry the same rhythm overhead.
+            //   The bay architecture derives from the SAME pure run plan
+            //   the artwork placer consumes (structure_pass 'bays'), so
+            //   every artwork — on every supported layout, at any count —
+            //   lands centred in its own framed bay. No RNG anywhere.
+            //
+            //   MATERIAL HIERARCHY (4 voices, texture_tint authority): warm
+            //   limewash plaster walls, pale cedar floor at tatami scale
+            //   (tile 1.8 m), dark sumi-stained timber structure, glowing
+            //   paper. Sumi-ink frame_override. Architectural warmth
+            //   (ambient 0xfff2dd) is separated from the near-neutral
+            //   artwork pool — artwork colour stays honest.
+            //
+            //   ENVIRONMENT DECISION: 'none' — a sealed interior. No HDRI
+            //   download, no sky can ever leak in (declared absence, the
+            //   Infinite Void authority pattern). env_intensity 0.
+            //
+            //   ROTUNDA DROPPED: the procession is linear; a circular zen
+            //   would be a different venue. Legacy rotunda rows clamp to
+            //   the venue default via layoutForGallery.
+            //
+            // Production rows are updated by the GUARDED migration
+            // 2026_09_07_000002_zen_gallery_deepening — this seeder stays
+            // the fresh-install baseline. (scripts/venue-qa/
+            // zen-gallery-qa.mjs pins the pair.)
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Japanese Zen Gallery',
                 'slug'          => 'zen-gallery',
-                // Iteration 3 "Rooms": copy re-tightened — shoji screens, the tokonoma
-                // alcove and the bench now exist (guarded migration mirrors this).
-                'description'   => 'A quiet, focused space: shoji screens, a tokonoma alcove and warm wood, tuned for close, calm looking.',
+                'description'   => 'A low, calm room of framed bays: dark timber fins divide warm plaster walls, each work centred in its own bay beneath a glowing paper band, over a pale cedar floor. Made for close, quiet looking.',
                 'category'      => 'minimal',
                 'tags'          => ['zen', 'natural', 'calm'],
                 'plan_required' => 'pro',
@@ -525,80 +563,97 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 40,
                 'sort_order'    => 5,
                 'is_featured'   => false,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
-                    'wall_texture'    => 'wood',
+                    'wall_texture'    => 'plaster',
                     'floor_material'  => 'wood',
                     'lighting_preset'  => 'bright',
-                    'frame_style'     => 'minimal',
-                    'room_layout'     => 'rotunda',
+                    // The venue declares sumi-ink frames via frame_override;
+                    // the picker starts coherent with it.
+                    'frame_style'     => 'black',
+                    'room_layout'     => 'square',
                 ],
                 'visual_config' => [
-                    'wall_height'            => 3.2,
-                    'wall_depth'             => 0.15,
+                    // A low, calm room — bays keep the proportion human.
+                    'wall_height'            => 3.6,
+                    'wall_depth'             => 0.3,
                     'ceiling_type'           => 'flat',
-                    'ceiling_color'          => '0x1e1c14',  // was the per-slug ceiling chain
-                    'ceiling_height'         => 3.2,
-                    'background_color'       => '0x1a1710',
-                    'fog_color'              => '0x1a1710',
-                    'fog_near'               => 12,
-                    'fog_far'                => 40,
-                    'ambient_color'          => '0xffe8c2',
-                    'ambient_intensity'      => 0.22,
-                    'spot_intensity'         => 0.45,
-                    'fill_intensity'         => 0.14,
-                    'tone_mapping_exposure'  => 0.55,
-                    'frame_override'         => null,
-                    // s4: the venue declares its sky.
-                    'environment'            => 'studio',
-                    // ── Iteration 3 "Rooms" declared identity (§10.3 interpreter; rollback =
-                    // remove these keys — the venue reverts to its pre-pass render, live).
-                    'structure_pass'        => 'rooms',
-                    'structure'              => [
-            // ── Shoji screen, panel A — wood frame strips around translucent
-            // paper (the paper is the colliding surface; frames are trim).
-            ['id' => 'shoji-a-top',       'primitive' => 'box',   'at' => [1.9, 2.065, -0.55], 'size' => [0.06, 0.09, 1.15], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-a-bottom',    'primitive' => 'box',   'at' => [1.9, 0.055, -0.55], 'size' => [0.06, 0.09, 1.15], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-a-end-near',  'primitive' => 'box',   'at' => [1.9, 1.06, -1.085], 'size' => [0.06, 2.12, 0.08], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-a-end-far',   'primitive' => 'box',   'at' => [1.9, 1.06, -0.015], 'size' => [0.06, 2.12, 0.08], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-a-stile',     'primitive' => 'box',   'at' => [1.9, 1.06, -0.55],  'size' => [0.045, 1.94, 0.05], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-a-paper',     'primitive' => 'plane', 'at' => [1.9, 1.06, -0.55],  'rot' => [0, 1.5707963, 0], 'size' => [1.0, 1.9], 'material' => 'paper_shoji', 'collide' => true],
-            // ── Shoji screen, panel B (the pair reads as one partial divider
-            // with a slit — "partial dividers", verbatim §4.5).
-            ['id' => 'shoji-b-top',       'primitive' => 'box',   'at' => [1.9, 2.065, 0.65],  'size' => [0.06, 0.09, 1.15], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-b-bottom',    'primitive' => 'box',   'at' => [1.9, 0.055, 0.65],  'size' => [0.06, 0.09, 1.15], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-b-end-near',  'primitive' => 'box',   'at' => [1.9, 1.06, 0.115],  'size' => [0.06, 2.12, 0.08], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-b-end-far',   'primitive' => 'box',   'at' => [1.9, 1.06, 1.185],  'size' => [0.06, 2.12, 0.08], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-b-stile',     'primitive' => 'box',   'at' => [1.9, 1.06, 0.65],   'size' => [0.045, 1.94, 0.05], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'shoji-b-paper',     'primitive' => 'plane', 'at' => [1.9, 1.06, 0.65],   'rot' => [0, 1.5707963, 0], 'size' => [1.0, 1.9], 'material' => 'paper_shoji', 'collide' => true],
-            // ── Tokonoma alcove — raised platform, framed back panel, hanging
-            // scroll, stone. Off-centre by design (asymmetry is the form).
-            ['id' => 'alcove-platform',   'primitive' => 'box',    'at' => [1.9, 0.08, -2.15],  'size' => [1.7, 0.16, 0.95], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'zen-wood'],
-            ['id' => 'alcove-back',       'primitive' => 'box',    'at' => [1.9, 1.125, -2.66], 'size' => [1.7, 2.25, 0.06], 'material' => 'wood_dark', 'collide' => true],
-            ['id' => 'alcove-jamb-l',     'primitive' => 'box',    'at' => [1.09, 1.15, -2.63], 'size' => [0.09, 2.3, 0.09], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'alcove-jamb-r',     'primitive' => 'box',    'at' => [2.71, 1.15, -2.63], 'size' => [0.09, 2.3, 0.09], 'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'alcove-lintel',     'primitive' => 'box',    'at' => [1.9, 2.33, -2.63],  'size' => [1.78, 0.1, 0.1],  'material' => 'wood_dark', 'merge' => 'zen-frames'],
-            ['id' => 'alcove-scroll',     'primitive' => 'plane',  'at' => [1.9, 1.55, -2.615], 'size' => [0.52, 1.25], 'material' => 'plaster_warm'],
-            ['id' => 'alcove-stone',      'primitive' => 'sphere', 'at' => [1.62, 0.36, -2.1],  'size' => [0.4, 0.4, 0.4], 'material' => 'stone', 'merge' => 'zen-stone'],
-            // ── Low horizontal datum — the bench (§4.5).
-            ['id' => 'bench-top',         'primitive' => 'box', 'at' => [1.9, 0.42, 1.55], 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'zen-bench'],
-            ['id' => 'bench-leg-l',       'primitive' => 'box', 'at' => [1.25, 0.19, 1.55], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'zen-bench'],
-            ['id' => 'bench-leg-r',       'primitive' => 'box', 'at' => [2.55, 0.19, 1.55], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'zen-bench'],
-        ],
+                    'ceiling_color'          => '0xe9e2d0',  // warm paper plane
+                    'ceiling_height'         => 3.6,
+                    // The room dissolves into warm light at distance (ma) —
+                    // never into soot, never into colour.
+                    'background_color'       => '0xeee7d8',
+                    'fog_color'              => '0xeee7d8',
+                    'fog_near'               => 18,
+                    'fog_far'                => 60,
+                    // Warm architecture, honest artwork: the ambient carries
+                    // the limewash; the artwork pool light (0xfff5e6,
+                    // renderer-owned) stays near-neutral above it.
+                    'ambient_color'          => '0xfff2dd',
+                    'ambient_intensity'      => 0.5,
+                    'spot_intensity'         => 2.2,
+                    'fill_intensity'         => 1.3,
+                    'tone_mapping_exposure'  => 0.95,
+                    'frame_override'         => 'black',
+                    // Calm standing glow; a typical hang lights at once.
+                    'artwork_light_base'     => 0.25,
+                    'artwork_light_pool_cap' => 10,
+                    'hemisphere_intensity'   => 0.1,
+                    // s4 ENVIRONMENT AUTHORITY — declared absence: a sealed
+                    // interior, no sky, no reflections but the lamps'.
+                    'environment'            => 'none',
+                    'env_intensity'          => 0,
+                    // ── v2 declared identity (rollback = remove these keys —
+                    // the venue reverts to a plain default room, live) ────
+                    'structure_pass'        => 'bays',
+                    'bays'                   => [
+                        'fin_width'         => 0.16,
+                        'fin_depth'         => 0.14,
+                        'fin_top'           => 3.12,
+                        'header_height'     => 0.20,
+                        'recess_lift'       => 0.012,
+                        'step_height'       => 0.08,
+                        'step_depth'        => 0.36,
+                        'clerestory_gap'    => 0.05,
+                        'clerestory_height' => 0.24,
+                    ],
+                    // Curation: the procession rhythm — generous bays,
+                    // composed orientations, one quiet arrival hero.
+                    'placement'              => [
+                        'density'          => 'generous',
+                        'focal_wall'       => 'front',
+                        'pair_orientation' => true,
+                    ],
+                    // Post-processing identity: restraint. Calm is the brand.
+                    'post_fx'                => [
+                        'bloom'             => false,
+                        'vignette'          => true,
+                        'vignette_darkness' => 0.3,
+                        'vignette_offset'   => 1.1,
+                    ],
                 ],
                 'material_config' => [
-                    'wall_color'             => null,
-                    'wall_roughness'         => 0.7,
+                    // Declared colours are authoritative over the PBR sets
+                    // (texture_tint IS the fix — see the museum audit).
+                    'texture_tint'           => true,
+                    'wall_color'             => '0xe6dfcf',
+                    'wall_roughness'         => 0.95,
                     'wall_metalness'         => 0.0,
-                    'wall_normal_strength'   => 0.5,
-                    'floor_color'            => null,
-                    'floor_roughness'        => 0.7,
+                    'wall_normal_strength'   => 0.35,
+                    'floor_color'            => '0xa98d64',
+                    'floor_roughness'        => 0.62,
                     'floor_metalness'        => 0.0,
-                    'floor_normal_strength'  => 0.6,
+                    'floor_normal_strength'  => 0.5,
+                    // Tatami rhythm — the floor reads at mat scale.
+                    'floor_tile_meters'      => 1.8,
                 ],
-                'decorations'       => [],
+                'decorations'       => [],  // the bay architecture is procedural
+                                            // (VenueDecorator 'bays' pass) —
+                                            // no props, no clichés
                 'lighting_fixtures' => [],
-                'supported_layouts' => ['square', 'rotunda', 'l-shape'],
+                // The procession is linear; rotunda is gone (legacy rotunda
+                // rows clamp to the square default via layoutForGallery).
+                'supported_layouts' => ['square', 'corridor', 'l-shape'],
             ],
 
             // ─────────────────────────────────────────────────────────────

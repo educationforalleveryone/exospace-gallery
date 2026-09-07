@@ -354,7 +354,7 @@ ok('runtime contains zero venue slugs in CODE (DoD rule #7; comments documenting
 section('E. Parity pipeline (exporter / migration / flag parity)');
 const exporterSrc = readFileSync(rel('app/Services/VenueConfigExporter.php'));
 ok('venue_config cache key carries the owner plan',
-    /venue_config:\{\$gallery->id\}:\{\$gallery->updated_at\?->timestamp\}:v\{\$venueTs\}:p\{\$plan\}/.test(exporterSrc));
+    /venue_config:\{\$gallery->id\}:\{\$gallery->updated_at\?->timestamp\}:v\{\$venueTs\}:\{\$venueSig\}:p\{\$plan\}/.test(exporterSrc));
 ok('grandfathered galleries render decorations at the venue tier',
     /planRank\(\$venuePlan\) > \$this->planRank\(\$ownerPlan\)/.test(exporterSrc));
 const adminPreviewSrc = readFileSync(rel('resources/views/admin/galleries/preview.blade.php'));

@@ -40,7 +40,10 @@ class VenueConsolidationIterationTest extends TestCase
 
     public const PASS_SELECTORS = [
         'white-cube'       => 'cube',
-        'zen-gallery'      => 'rooms',
+        // Zen v2 "Quiet Procession": the venue outgrew the descriptor rooms
+        // pass — the framed-bay architecture selects the dedicated 'bays'
+        // interpreter (still config-selected; still the rollback switch).
+        'zen-gallery'      => 'bays',
         'luxury-penthouse' => 'rooms',
         'cyber-gallery'    => 'rooms',
         'industrial-loft'  => 'loft',
@@ -62,7 +65,7 @@ class VenueConsolidationIterationTest extends TestCase
         'luxury-penthouse' => '0x080808',
         'cyber-gallery'    => '0x04081a',
         'industrial-loft'  => '0x1a1a18',
-        'zen-gallery'      => '0x1e1c14',
+        'zen-gallery'      => '0xe9e2d0', // deepened by the zen iteration (was 0x1e1c14 pre-v2)
     ];
 
     // ─────────────────────────────────────────────────────────────────────
@@ -138,9 +141,10 @@ class VenueConsolidationIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // The dark-museum deepening is the deliberate curation opt-in: it
-        // declares placement (generous density, focal front wall, pairing).
-        $curated = ['dark-museum', 'infinite-void']; // venue deepening iterations opted these in
+        // Venue deepening iterations opted these in: the museum's composed
+        // darkness, the void's depth bands, and zen v2's procession rhythm
+        // (generous density, focal front wall, pairing).
+        $curated = ['dark-museum', 'infinite-void', 'zen-gallery'];
         foreach (array_keys(self::PASS_SELECTORS) as $slug) {
             if (in_array($slug, $curated, true)) {
                 $this->assertIsArray(

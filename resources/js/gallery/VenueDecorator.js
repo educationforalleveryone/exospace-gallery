@@ -47,7 +47,9 @@ import { buildStructure } from './StructureBuilder.js';
 import { resolveSpacing } from './PlacementCuration.js';
 // Industrial Loft deepening: placement parity — the structure pass derives
 // its artwork lanes from the SAME centred-run math the placer uses.
-import { wallRunOffset } from './ArtworkPlacer.js';
+// Zen "Quiet Procession" (framed bays): the bay architecture consumes the
+// same pure run plans — one math for structure and hang, never two.
+import { wallRunOffset, squareRunPlan, lshapeRowPlan } from './ArtworkPlacer.js';
 
 // ── Top-level dispatcher ────────────────────────────────────────────────────
 export function applyVenueOverrides(slug) {
@@ -289,6 +291,9 @@ export function addVenueStructure(data) {
     //   'museum'    the night wing: shadow-gap reveal, stone baseboard,
     //               salon cabinets (brass cap + hangable faces) + post-
     //               placement picture lights (every artwork, every layout)
+    //   'bays'      framed-bay architecture (Zen "Quiet Procession" + any
+    //               venue declaring the idea): fins/headers/recesses/steps/
+    //               clerestory/rafters aligned to the hang's own run plan
     //   'garden'    sky dome, sun, hedge ring, trees, path, pedestal
     //   'phenomena' void family — composable flags (void_dust / void_starfield /
     //               void_colonnade / void_shards / void_lake)
@@ -304,6 +309,11 @@ export function addVenueStructure(data) {
         addIndustrialLoftStructure.call(this, data);
     } else if (pass === 'museum') {
         addDarkMuseumStructure.call(this, data); // collision + hangable surfaces
+    } else if (pass === 'bays') {
+        addBaysStructure.call(this, data); // framed-bay architecture — fins,
+                                           // headers, recesses, clerestory,
+                                           // steps, rafters (collision-registered;
+                                           // hang alignment via the shared run plan)
     } else if (pass === 'garden') {
         addSculptureGardenStructure.call(this, data); // grass, hedges, trees, sky
     } else if (pass === 'phenomena') {
@@ -1203,6 +1213,265 @@ export function addDarkMuseumPictureLights() {
     this.scene.add(plateMesh);
     this.scene.add(tubeMesh);
     plateGeo.dispose(); tubeGeo.dispose();
+}
+
+// ── FRAMED BAYS — the generic bay architecture pass (structure_pass 'bays') ──
+// (Japanese Zen Gallery v2 "The Quiet Procession" — and any venue declaring
+// the same spatial idea. CODE PROVIDES CAPABILITIES; the template declares.)
+//
+// ONE IDEA: artwork presented in a rhythm of FRAMED BAYS. Deep timber fins
+// divide the wall into bays, a recessed plaster panel backs each bay, a
+// timber header closes it at the top, a continuous paper clerestory band
+// glows above the headers, and a low timber step (the engawa datum) runs
+// the wall at the floor. The blank wall between bays is the point — the
+// pause between the works (ma) — so the venue hangs at a generous rhythm.
+//
+// THE SIGNATURE GUARANTEE — architecture serves the hang: fin positions
+// derive from the SAME pure run-plan math the artwork placer consumes
+// (squareRunPlan / lshapeRowPlan in ArtworkPlacer.js — the loft precedent,
+// generalised). Every artwork sits centred in its own bay on every supported
+// layout, at any count. NO RNG: the composition is a pure function of
+// (layout, count, spacing) — deterministic by construction.
+//
+// Config (visual_config.bays, all optional — the venue decides):
+//   fin_width  fin_depth  fin_top  header_height  recess_lift
+//   step_height  step_depth  clerestory_gap  clerestory_height
+//
+// Rollback: structure_pass !== 'bays' → the pass never runs (the venue
+// reverts to a plain room, live — config is the only switch). Wall/floor
+// identity still comes from material_config; this pass contributes only the
+// bay family (timber / recess plaster / paper / step).
+//
+// Low-end tier: Lambert flat-colour bodies of the SAME silhouettes —
+// degradation removes shading, never the structural language (the museum
+// rule). The clerestory keeps its emissive glow on every tier: the paper
+// light IS this family's lighting identity.
+//
+// Layout parity: square (4 walls, glazing-aware — mirrors the placer),
+// corridor (both long walls), l-shape (both faces of both wings). Rotunda /
+// circular: linear bay rhythm does not apply — the pass skips (a venue must
+// not advertise rotunda in supported_layouts alongside 'bays').
+function addBaysStructure(data) {
+    const meta = this._layoutMeta || {};
+    const vc   = this._venueVisualConfig || {};
+    const S    = CONFIG.room.artworkSpacing;
+    const wd   = CONFIG.room.wallDepth || 0.3;
+    const wh   = CONFIG.room.wallHeight;
+    const face = wd / 2;                    // wall centre plane → inner face
+    const count = this.artworkImages.length;
+    if (!count || count < 1) return;
+
+    // ── Bay proportions (venue-decidable, tasteful defaults) ────────────
+    // Defaults clear the focal-hero frame (top ≈ 2.87 m at the 1.15 scale
+    // boost) with room for the header, the paper band and the beam line.
+    const B = Object.assign({
+        fin_width: 0.16, fin_depth: 0.14, fin_top: 3.12, header_height: 0.20,
+        recess_lift: 0.012, step_height: 0.08, step_depth: 0.36,
+        clerestory_gap: 0.05, clerestory_height: 0.24,
+    }, (vc.bays && typeof vc.bays === 'object') ? vc.bays : {});
+    B.fin_depth     = Math.max(0.04, B.fin_depth);
+    B.fin_width     = Math.max(0.06, B.fin_width);
+    B.header_height = Math.max(0.08, B.header_height);
+    B.step_depth    = Math.max(0.12, B.step_depth);
+    B.step_height   = Math.max(0.03, B.step_height);
+    B.clerestory_gap = Math.max(0.02, B.clerestory_gap);
+    B.fin_top       = Math.min(B.fin_top, wh - 0.25);
+    // The paper band must stay under the ceiling (and clear of any beam
+    // line ~wh−0.14): shrink, then drop, rather than pierce.
+    B.clerestory_height = Math.min(
+        B.clerestory_height,
+        wh - B.fin_top - B.clerestory_gap - 0.2
+    );
+
+    // ── Materials — the bay family ──────────────────────────────────────
+    const timberMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x33291d })
+        : new THREE.MeshStandardMaterial({ color: 0x33291d, roughness: 0.78, metalness: 0.02 });
+    const recessMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0xded4c0 })
+        : new THREE.MeshStandardMaterial({ color: 0xded4c0, roughness: 0.95, metalness: 0.0 });
+    const paperMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0xf3ecd8, emissive: 0xffe8c2, emissiveIntensity: 0.45, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+        : new THREE.MeshStandardMaterial({ color: 0xf3ecd8, emissive: 0xffe8c2, emissiveIntensity: 0.45, transparent: true, opacity: 0.85, side: THREE.DoubleSide, roughness: 0.95, metalness: 0.0 });
+    const stepMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x8b6f47 })
+        : new THREE.MeshStandardMaterial({ color: 0x8b6f47, roughness: 0.7, metalness: 0.02 });
+
+    // ── Part accumulators (merged per material → one draw call each) ────
+    const timberParts = [], recessParts = [], paperParts = [], stepParts = [], beamParts = [];
+    const collideBoxes = [];   // { pos, rot, size } → invisible proxies at emit
+
+    const unitGeo = new THREE.BoxGeometry(1, 1, 1);
+
+    // Wall vocabulary: anchor point on the wall CENTRE plane, inward normal
+    // n, run tangent t (chosen so the run's positive direction matches the
+    // placer's walk), yaw from the normal (boxes are tangent-symmetric).
+    // pos(q, t, y) = anchor + t·q + n·t_depth.
+    const emitBays = (wall, qFirst, run) => {
+        if (run <= 0) return;
+        const depth = face + B.fin_depth / 2;
+        const P = (q, t, y) => [
+            wall.ax + wall.tx * q + wall.nx * t,
+            y,
+            wall.az + wall.tz * q + wall.nz * t,
+        ];
+        const ry = Math.atan2(wall.nx, wall.nz);
+
+        // Fins — run+1 blades framing every work (artwork r sits centred
+        // between fins r and r+1 by construction).
+        for (let j = 0; j <= run; j++) {
+            const q = qFirst + j * S;
+            timberParts.push({
+                geo: unitGeo, pos: P(q, depth, B.fin_top / 2), rot: [0, ry, 0],
+                scale: [B.fin_width, B.fin_top, B.fin_depth],
+            });
+            collideBoxes.push({
+                pos: P(q, depth, B.fin_top / 2), rot: [0, ry, 0],
+                size: [B.fin_width, B.fin_top, B.fin_depth],
+            });
+        }
+
+        const bayW        = S - B.fin_width;
+        const headerBottom = B.fin_top - B.header_height;
+        for (let j = 0; j < run; j++) {
+            const qMid = qFirst + S / 2 + j * S;
+            // Header — closes the bay at the top.
+            timberParts.push({
+                geo: unitGeo, pos: P(qMid, depth, B.fin_top - B.header_height / 2),
+                rot: [0, ry, 0], scale: [bayW, B.header_height, B.fin_depth],
+            });
+            // Recess panel — the bay's own plaster tone, a whisper proud of
+            // the wall face (the artwork hangs 30+ mm clear of it).
+            recessParts.push({
+                geo: unitGeo, pos: P(qMid, face + B.recess_lift, headerBottom / 2),
+                rot: [0, ry, 0], scale: [bayW, headerBottom, 0.012],
+            });
+        }
+
+        // Clerestory band — one paper strip across the whole run, above the
+        // headers: the bay rhythm's soft light source (visual only; the
+        // actual wash comes from the venue rig — no new dynamic lights).
+        const span    = run * S + B.fin_width;
+        const qCenter = qFirst + (run * S) / 2;
+        if (B.clerestory_height >= 0.08) {
+            paperParts.push({
+                geo: unitGeo,
+                pos: P(qCenter, face + B.recess_lift, B.fin_top + B.clerestory_gap + B.clerestory_height / 2),
+                rot: [0, ry, 0], scale: [span, B.clerestory_height, 0.012],
+            });
+        }
+
+        // Display step — the engawa datum under the bay line (one colliding
+        // plinth per wall run).
+        stepParts.push({
+            geo: unitGeo, pos: P(qCenter, face + B.step_depth / 2, B.step_height / 2),
+            rot: [0, ry, 0], scale: [span, B.step_height, B.step_depth],
+        });
+        collideBoxes.push({
+            pos: P(qCenter, face + B.step_depth / 2, B.step_height / 2), rot: [0, ry, 0],
+            size: [span, B.step_height, B.step_depth],
+        });
+    };
+
+    // Fin offsets of a centred run (square/corridor beams read these).
+    const finOffsets = (r) => Array.from({ length: r + 1 }, (_, j) => (-r * S) / 2 + j * S);
+    const intersect = (a, b) => {
+        const out = [];
+        for (const x of a) for (const y of b) if (Math.abs(x - y) < 1e-6) { out.push(x); break; }
+        return out;
+    };
+
+    if (meta.type === 'square') {
+        // Mirror the placer's wall list (glazing-aware) and run split —
+        // ONE math (squareRunPlan), so bays always wrap the real hang.
+        const glazingWallId = this._glazing ? this._glazing.wallId : null;
+        const walls = [
+            { id: 'front', ax: 0,           az: -meta.wallLength / 2, nx: 0,  nz: 1,  tx: 1,  tz: 0 },
+            { id: 'back',  ax: 0,           az:  meta.wallLength / 2, nx: 0,  nz: -1, tx: -1, tz: 0 },
+            { id: 'left',  ax: -meta.wallLength / 2, az: 0,           nx: 1,  nz: 0,  tx: 0,  tz: -1 },
+            { id: 'right', ax:  meta.wallLength / 2, az: 0,           nx: -1, nz: 0,  tx: 0,  tz: 1 },
+        ].filter(w => w.id !== glazingWallId);
+        const { runCounts } = squareRunPlan(count, count, S, walls.length);
+        walls.forEach((wall, i) => emitBays(wall, -(runCounts[i] * S) / 2, runCounts[i]));
+
+        // Ceiling rafters — the bay rhythm thins overhead: rafters land only
+        // on ALIGNED fin lines (set intersection — a beam can never sit
+        // beside a fin) and SUBSAMPLE them (≤ 4 lines per axis) so a
+        // capacity hang keeps a calm ceiling grid instead of a dark lattice
+        // (the wide-30 capture: 17 rafters read as a cage — the procession
+        // lives on the walls; overhead it whispers). Corridor/l-shape keep
+        // a flat ceiling.
+        const L  = meta.wallLength;
+        const beamY = wh - 0.06;
+        const sub = (arr, maxLines) => {
+            const stride = Math.max(1, Math.ceil(arr.length / maxLines));
+            return arr.filter((_, i) => i % stride === 0);
+        };
+        const beamZ = sub(intersect(finOffsets(runCounts[0]), finOffsets(runCounts[1])), 4);
+        const beamX = sub(intersect(finOffsets(runCounts[2]), finOffsets(runCounts[3])), 4);
+        for (const q of beamZ) {
+            beamParts.push({ geo: unitGeo, pos: [q, beamY, 0], rot: [0, 0, 0], scale: [0.1, 0.12, L - 0.2] });
+        }
+        for (const q of beamX) {
+            beamParts.push({ geo: unitGeo, pos: [0, beamY, q], rot: [0, 0, 0], scale: [L - 0.2, 0.12, 0.1] });
+        }
+    } else if (meta.type === 'corridor') {
+        const { width: W } = meta;
+        const half = Math.ceil(count / 2);           // placer's split, verbatim
+        const runs = [Math.min(half, count), Math.max(0, count - half)];
+        const walls = [
+            { ax: 0, az: -W / 2, nx: 0, nz: 1,  tx: 1,  tz: 0 },
+            { ax: 0, az:  W / 2, nx: 0, nz: -1, tx: -1, tz: 0 },
+        ];
+        walls.forEach((wall, i) => emitBays(wall, -(runs[i] * S) / 2, runs[i]));
+    } else if (meta.type === 'l-shape') {
+        const { wingW, lenA, jZ, zStart, zLimit } = meta;
+        const plan = lshapeRowPlan(count, zStart, zLimit, S);
+        const xStart = wingW + S;                    // placer's xStart, verbatim
+        // Wing A — outer wall face (x≈0) and inner wall face (x=wingW),
+        // rows stepping +z from zStart; wing B — both faces of the band,
+        // rows stepping +x from xStart. Fins frame each row, plus the run
+        // ends — same emit path as the square walls.
+        emitBays({ ax: 0,      az: 0,        nx: 1,  nz: 0, tx: 0, tz: 1 }, zStart - S / 2, plan.rowsA);
+        emitBays({ ax: wingW,  az: 0,        nx: -1, nz: 0, tx: 0, tz: 1 }, zStart - S / 2, plan.rowsA1);
+        emitBays({ ax: 0,      az: jZ,       nx: 0,  nz: 1, tx: 1, tz: 0 }, xStart - S / 2, plan.rowsB);
+        emitBays({ ax: 0,      az: lenA / 2, nx: 0,  nz: -1, tx: 1, tz: 0 }, xStart - S / 2, plan.rowsB1);
+    } else {
+        console.warn('[VenueDecorator] bays pass: unsupported layout "' + (meta.type || 'unknown') + '" — no bays built.');
+    }
+
+    // ── Emit — one merged mesh per material (5 draw calls, count-agnostic)
+    const addMerged = (parts, mat, name, shadows) => {
+        if (!parts.length) return;
+        const mesh = new THREE.Mesh(mergeParts(parts), mat);
+        mesh.name = name;
+        mesh.castShadow    = !!shadows && !this.isLowEnd;
+        mesh.receiveShadow = !!shadows && !this.isLowEnd;
+        this.scene.add(mesh);
+    };
+    addMerged(timberParts, timberMat, 'bays-timber', true);
+    addMerged(recessParts, recessMat, 'bays-recess', true);
+    addMerged(paperParts, paperMat, 'bays-paper', false);   // glowing band casts nothing
+    addMerged(stepParts, stepMat, 'bays-step', true);
+    addMerged(beamParts, timberMat, 'bays-beams', true);
+    unitGeo.dispose();
+
+    // ── Collision — invisible proxies per fin + per step (per-part AABBs;
+    // a merged mesh's own box would span the whole wall). Fins pad 0.25
+    // (physical blades), steps pad 0.12 (a datum, not a barricade — viewing
+    // distance stays comfortable).
+    const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+    for (const c of collideBoxes) {
+        const proxy = new THREE.Mesh(
+            new THREE.BoxGeometry(c.size[0], c.size[1], c.size[2]), proxyMat
+        );
+        proxy.position.set(c.pos[0], c.pos[1], c.pos[2]);
+        proxy.rotation.set(c.rot[0], c.rot[1], c.rot[2]);
+        const isStep = c.size[1] <= 0.12;
+        this.registerObstacle(proxy, isStep ? 0.12 : 0.25);
+        proxy.geometry.dispose();
+    }
+    proxyMat.dispose();
 }
 
 // ── Post-placement structure hook (config-gated dispatcher) ─────────────────

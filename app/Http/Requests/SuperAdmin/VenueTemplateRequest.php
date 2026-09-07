@@ -103,7 +103,15 @@ class VenueTemplateRequest extends FormRequest
             'visual_config.ceiling_neon'    => ['nullable', 'boolean'],
             'visual_config.open_air'        => ['nullable', 'boolean'],
             'visual_config.layout_shape'    => ['nullable', 'string', Rule::in(['circular'])],
-            'visual_config.structure_pass'  => ['nullable', 'string', Rule::in(['rooms', 'cube', 'loft', 'museum', 'garden', 'phenomena'])],
+            'visual_config.structure_pass'  => ['nullable', 'string', Rule::in(['rooms', 'cube', 'loft', 'museum', 'bays', 'garden', 'phenomena'])],
+
+            // ── s4 environment authority: the venue DECLARES its sky. The
+            // stock names map to the runtime's ENVIRONMENT_HDRIS assets;
+            // 'none' silences the environment entirely; a bespoke upload
+            // (hdri_file) wins over the stock declaration. Absent ⇒ the
+            // venue's default_settings.lighting_preset HDRI (legacy rows
+            // render unchanged).
+            'visual_config.environment'     => ['nullable', 'string', Rule::in(VenueTemplate::ENVIRONMENTS)],
             'visual_config.void_dust'       => ['nullable', 'boolean'],
             'visual_config.void_starfield'  => ['nullable', 'boolean'],
             'visual_config.void_colonnade'  => ['nullable', 'boolean'],
@@ -190,7 +198,8 @@ class VenueTemplateRequest extends FormRequest
             // Iteration 6 consolidation + curation keys
             'visual_config.ceiling_color.regex'    => 'Ceiling color must be a hex string like 0x080808.',
             'visual_config.layout_shape.in'        => 'Layout shape may be "circular" (or left empty for the room_layout default).',
-            'visual_config.structure_pass.in'      => 'Structure pass must be one of: rooms, cube, loft, museum, garden, phenomena.',
+            'visual_config.structure_pass.in'      => 'Structure pass must be one of: rooms, cube, loft, museum, bays, garden, phenomena.',
+            'visual_config.environment.in'         => 'Environment must be one of: studio, rural_evening, night, none.',
             'visual_config.placement.density.in'   => 'Placement density must be one of: intimate, standard, generous.',
             'visual_config.placement.focal_wall.in'=> 'Focal wall must be one of: front, back, left, right.',
         ];

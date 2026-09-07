@@ -102,8 +102,21 @@ class VenueConfigExporter
      * lists IN the payload so the runtime patch guard can never drift from
      * this file, and bumps the schema so every cached payload re-keys on
      * deploy.
+     *
+     * s5 (zen-gallery "Quiet Procession" audit, 2026-09-07): the
+     * ARCHITECTURE PAYLOAD keys from the descriptor era were never
+     * enumerated — `structure` (the IT3 descriptor array that carries the
+     * Salon's rail/bench/rug, the Penthouse's glazing lounge, the Cyber
+     * perimeter neon), `glazing_wall`, `corridor_width`, `sun_shadows`,
+     * `floor_edge_fade`, `void_depth_gradient`, `glass_material`,
+     * `colonnade_tint`, and the new `bays` proportion block all sat OUTSIDE
+     * the owned set: a stale gallery visual_override could reshape a
+     * venue's architecture (add props, re-glaze a wall, retune bay fins)
+     * even though structure_pass itself was owned. All identity-bearing
+     * structure keys are venue-owned now; the schema bump re-keys every
+     * cached payload so the strip applies on deploy.
      */
-    public const SCHEMA = 's4';
+    public const SCHEMA = 's5';
 
     /**
      * VENUE-OWNED ATMOSPHERE, ARCHITECTURE AND RIG (visual_config).
@@ -146,10 +159,15 @@ class VenueConfigExporter
         // venue's atmosphere identity, never a curator knob; the gallery's
         // lighting_preset column no longer reaches the environment at all)
         'background_color', 'fog_color', 'fog_near', 'fog_far', 'environment',
-        // architecture + structure identity
+        // architecture + structure identity (s5: the descriptor payload
+        // + every declarable architecture proportion is venue-owned —
+        // structure_pass alone left the PAYLOAD it selects unguarded)
         'open_air', 'layout_shape', 'wall_height', 'wall_depth',
         'ceiling_type', 'ceiling_color', 'ceiling_height',
         'structure_pass', 'placement_mode', 'floor_reflection',
+        'structure', 'bays', 'glazing_wall', 'corridor_width',
+        'sun_shadows', 'floor_edge_fade', 'void_depth_gradient',
+        'glass_material', 'colonnade_tint',
         // lighting rig + legibility floor
         'ambient_color', 'ambient_intensity', 'spot_intensity',
         'fill_intensity', 'hemisphere_intensity', 'env_intensity',

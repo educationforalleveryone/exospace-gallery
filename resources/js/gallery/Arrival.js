@@ -147,6 +147,14 @@ export function playArrival(scene) {
     scene.camera.position.set(start.x, start.y, start.z);
     scene.camera.lookAt(heroPosVec);
 
+    // Bound when the skip listeners are registered (below). The reduced-
+    // motion path finishes BEFORE any listener exists, so finish() must be
+    // able to call the teardown at any time — declaring it after finish()
+    // put it in the TDZ for that path ("Cannot access 'teardownSkip' before
+    // initialization" thrown out of every reduced-motion enter, killing the
+    // rest of the enter handler). A no-op default keeps both orders valid.
+    let teardownSkip = () => {};
+
     const finish = () => {
         scene.camera.position.set(end.x, end.y, end.z);
         scene.camera.lookAt(heroPosVec);
@@ -171,8 +179,6 @@ export function playArrival(scene) {
     };
     const events = ['keydown', 'pointerdown', 'touchstart'];
     const options = { passive: true };
-    const teardownSkip = () => events.forEach(ev =>
-        document.removeEventListener(ev, skip, options));
 
     let tween = gsap.to(scene.camera.position, {
         x: end.x,
@@ -185,6 +191,8 @@ export function playArrival(scene) {
     });
 
     events.forEach(ev => document.addEventListener(ev, skip, options));
+    teardownSkip = () => events.forEach(ev =>
+        document.removeEventListener(ev, skip, options));
 
     // Hard safety: never hold the camera hostage (a backgrounded tab can
     // starve gsap's clock). The tween itself handles tab-throttle on return;
