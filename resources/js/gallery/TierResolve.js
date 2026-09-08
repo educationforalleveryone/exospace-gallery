@@ -48,6 +48,11 @@
  *   'none'         → venue did not declare glass; caller renders nothing glass.
  */
 export function resolveGlassTier({ isLowEnd = false, isMobileTier = false, declared = null } = {}) {
+    // 'cheap' — a venue DECLARES the broad-sheen transparent class (v2.1.0):
+    // reads as glass via opacity + a tunable roughness, no transmission
+    // scene pass, no environment dependency. Design rule 1 still holds —
+    // the effect degrades by design (flat Lambert on low-end), never to null.
+    if (declared === 'cheap') return isLowEnd ? 'flat' : 'cheap';
     if (declared !== 'transmission') return 'none';
 
     // The null-glass guard: transmission requires a scene environment. Only

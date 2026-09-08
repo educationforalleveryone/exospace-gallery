@@ -54,11 +54,14 @@ import {
 // options default to the historical values, so existing callers (Penthouse
 // glazing via StructureBuilder {glass:true}, the legacy cathedral colonnade)
 // render bit-identically to before.
-export function makeGlassMaterial(ctx, { tint = 0xffffff, opacity = 0.35, flatShading = false, roughness, thickness } = {}) {
+export function makeGlassMaterial(ctx, { tint = 0xffffff, opacity = 0.35, flatShading = false, roughness, thickness, declared } = {}) {
     const tier = resolveGlassTier({
         isLowEnd: !!ctx.isLowEnd,
         isMobileTier: !!ctx._isMobileTier,
-        declared: 'transmission',
+        // v2.1.0: a descriptor may declare the 'cheap' glass class (broad
+        // sheen, no transmission pass). Default 'transmission' — every
+        // existing caller resolves bit-identically.
+        declared: declared ?? 'transmission',
     });
 
     if (tier === 'transmission') {

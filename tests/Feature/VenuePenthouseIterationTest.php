@@ -3,37 +3,34 @@
 declare(strict_types=1);
 
 /**
- * Luxury Penthouse identity tests — v2.0.0 "The Collector's Floor"
- * (2026-09-08 audit pass; predecessor: 2026_09_01_000003 "Rooms").
+ * Luxury Penthouse identity tests — v2.1.0 "Evening Light"
+ * (2026-09-09 deploy-review pass; predecessors: 2026_09_01_000003 "Rooms",
+ * 2026_09_08_000005 "The Collector's Floor").
  *
- * Pins the v2.0.0 contract so the venue can never silently regress:
+ * Pins the v2.1.0 contract so the venue can never silently regress:
  *
- *   - Declared identity: the seeder baseline AND the guarded migration
- *     (2026_09_08_000005) are THE SAME final row (byte-parity of content,
- *     key-order insensitive) — production galleries migrate, fresh installs
- *     seed, and both roads must end at one identity.
- *   - The grand volume: wall height 5.2 (the 4.5 m corridor is gone), a
- *     warm dark ceiling (the grave-black 0x080808 is gone).
- *   - The sky is the CITY: environment declared 'none' (the rural_evening
- *     fallback 404 and the wrong-sky accident are structurally impossible).
- *   - The grey-veil class: post_fx is DECLARED with the black vignette
- *     blend (the stock grey veil that shipped on this venue for its whole
- *     life can never return).
- *   - Material authority: texture_tint + the warm mineral-white wall and
- *     the honed warm-stone floor (the plastic "marble" is gone) at slab
- *     scale (floor_tile_meters 2.4).
- *   - Artwork legibility floor: base 0.22 + pool cap 12 + spot 0.62.
- *   - The structure payload: 40 descriptors — the fireplace volume on the
- *     NEW l-shape wall anchors, the perimeter cove, the bronze base trim,
- *     the three-layer skyline + horizon glow, the curated lounge, the slab
- *     joints.
- *   - The promise matrix: the copy names what renders (walnut, stone,
- *     lounge, glass, city) and promises no dark walls (the walls are warm
- *     mineral white).
- *   - The migration is guarded, idempotent, and reversible; admin edits
+ *   - The FULL MIGRATION CHAIN lands on the seeder row: a production venue
+ *     walks v1.0.0 → 000005 (2.0.0) → 000006 (2.1.0); a fresh install
+ *     seeds the final state directly. Both roads MUST end at one identity.
+ *   - The evening interior: lit warm ceiling 0x5c4c3a (the black-hole
+ *     ceiling is gone), the rig luminous (ambient 0.42 / hemi 0.3 / fill
+ *     0.42 / exposure 0.92), dusk-haze fog 26/160.
+ *   - The honed floor: roughness 0.62 / metalness 0.03 (the specular
+ *     orb-matrix mirror of the v2.0.0 production deploy is gone).
+ *   - The glazing is the 'cheap' open-air class (opacity 0.1, roughness
+ *     0.35) — the transmission sheet that forced opacity 1.0 + threw
+ *     specular orbs can never return.
+ *   - The dusk sky renders: four planes (city-haze / horizon-glow /
+ *     sky-mid / sky-deep) all anchored glazing_outside with turn 'out'
+ *     (the v2.0.0 horizon glow was back-face culled from day one) and the
+ *     skyline is three low-slung silhouette layers.
+ *   - The fireplace TERMINUS: wall_end (the walk lands on it), fixtures
+ *     follow (fire 5 cd + wash + two cove washes + lounge wash = 5).
+ *   - Artwork legibility base 0.5 — every canvas reads along the wing.
+ *   - The promise matrix: the copy names what renders.
+ *   - Guarded, idempotent, reversible at EVERY chain step; admin edits
  *     survive up() and down().
- *   - Every architecture/rig/presentation key the row uses is already
- *     venue-owned (s6) — no schema bump, sibling venues untouched.
+ *   - Every key the row uses is venue-owned (s6) — no schema bump.
  *
  * Run: php artisan test --filter=VenuePenthouseIterationTest
  */
@@ -53,82 +50,100 @@ class VenuePenthouseIterationTest extends TestCase
     // The seeder baseline — the fresh-install identity
     // ─────────────────────────────────────────────────────────────────────
 
-    public function test_the_seeded_row_is_the_collectors_floor(): void
+    public function test_the_seeded_row_is_the_evening_light(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $config = $this->visualConfig('luxury-penthouse');
 
-        // The Rooms interpreter + glazing remain the mechanism (P-scope).
+        // The Rooms interpreter + glazing remain the mechanism.
         $this->assertSame('rooms', $config['structure_pass'], 'The descriptor interpreter remains the identity vehicle.');
         $this->assertTrue($config['glazing_wall'] ?? false, 'The glazing wall is the venue\'s view mechanism.');
 
-        // The grand volume (P2).
-        $this->assertSame(5.2, $config['wall_height'], 'Wall height 5.2 — the 4.5 m corridor is gone.');
-        $this->assertSame(5.2, $config['ceiling_height'], 'The ceiling rises with the volume.');
-        $this->assertSame('0x14110d', $config['ceiling_color'], 'The ceiling is warm dark bronze-brown, not grave-black.');
+        // The evening interior (D1): the ceiling is LIT plaster.
+        $this->assertSame(5.2, $config['wall_height'], 'Wall height 5.2 — the volume stays.');
+        $this->assertSame('0x5c4c3a', $config['ceiling_color'], 'The ceiling is lit warm plaster (the black-hole 0x14110d is gone).');
 
-        // The sky is the city (P4): declared absence.
-        $this->assertSame('none', $config['environment'], 'environment none — no HDRI download, no rural_evening 404, no wrong sky.');
-        $this->assertSame(0, $config['env_intensity'], 'env_intensity 0 — the environment is silenced at the source.');
+        // The sky is the city: declared absence (no HDRI download).
+        $this->assertSame('none', $config['environment'], 'environment none — no HDRI download, no rural_evening 404.');
+        $this->assertSame(0, $config['env_intensity']);
 
-        // The warm evening rig (P7) + depth fog for the skyline (P5).
-        $this->assertSame('0xe6d6bc', $config['ambient_color'], 'The ambient is warm evening, not the cool museum cast.');
-        $this->assertSame(0.26, $config['ambient_intensity']);
-        $this->assertSame(0.14, $config['hemisphere_intensity']);
-        $this->assertSame(0.78, $config['tone_mapping_exposure'], 'The rig is luminous (the 0.55 murk is gone).');
-        $this->assertSame(16, $config['fog_near'], 'Fog carries the skyline depth layers (near).');
-        $this->assertSame(55, $config['fog_far'], 'Fog carries the skyline depth layers (far).');
+        // The evening rig (D1) + dusk-haze fog (D4).
+        $this->assertSame('0xe9dfcd', $config['ambient_color']);
+        $this->assertSame(0.42, $config['ambient_intensity'], 'Ambient 0.42 — the tan-on-black starvation is gone.');
+        $this->assertSame(0.3, $config['hemisphere_intensity']);
+        $this->assertSame(0.42, $config['fill_intensity'], 'The ceiling fills at 0.42.');
+        $this->assertSame(0.92, $config['tone_mapping_exposure'], 'Exposure 0.92 — the evening interior reads.');
+        $this->assertSame(26, $config['fog_near'], 'Dusk-haze fog (near) — distance melts, never blacks out.');
+        $this->assertSame(160, $config['fog_far'], 'Dusk-haze fog (far) — the afterglow survives at depth.');
+        $this->assertSame('0x191c26', $config['fog_color'], 'The fog color is dusk haze, not near-black.');
 
-        // Artwork legibility floor (P9).
-        $this->assertSame(0.22, $config['artwork_light_base'], 'Wall-family standing glow lifted for the 5.2 m room.');
-        $this->assertSame(12, $config['artwork_light_pool_cap'], 'The desktop pool lights a typical hang at once.');
-        $this->assertSame(0.62, $config['spot_intensity'], 'The pool target ≈ 2.2 — art stays the hero without glare.');
+        // Artwork legibility (D1): the base sits above half the boost.
+        $this->assertSame(0.5, $config['artwork_light_base'], 'Every canvas reads along the whole wing.');
+        $this->assertSame(12, $config['artwork_light_pool_cap']);
+        $this->assertSame(0.5, $config['spot_intensity'], 'Flatter picture lights — washes, not hotspots.');
 
-        // The grey veil can never ship again (P3).
-        $this->assertSame(0.32, $config['post_fx']['bloom_strength'] ?? null, 'Bloom is declared ON but restrained (0.32).');
-        $this->assertSame('black', $config['post_fx']['vignette_blend'] ?? null, 'The vignette blends toward TRUE BLACK (the cathedral deploy-review precedent).');
+        // The grey veil can never ship again.
+        $this->assertSame(0.32, $config['post_fx']['bloom_strength'] ?? null, 'Bloom declared ON but restrained.');
+        $this->assertSame('black', $config['post_fx']['vignette_blend'] ?? null, 'The vignette blends toward TRUE BLACK.');
 
-        // Material authority (P6).
+        // Material authority (D2): the floor is HONED, not a mirror.
         $material = $this->materialConfig('luxury-penthouse');
-        $this->assertSame('0xe9e2d4', $material['wall_color'], 'The walls are warm mineral white (the copy/render mismatch is dead).');
-        $this->assertSame('0x9b8d78', $material['floor_color'], 'The floor is honed warm stone, not plastic marble.');
-        $this->assertTrue($material['texture_tint'] ?? false, 'Declared colours are authoritative (the texture-tint authority rule).');
-        $this->assertSame(2.4, $material['floor_tile_meters'], 'The floor reads at large-slab scale.');
+        $this->assertSame('0xe9e2d4', $material['wall_color'], 'The walls are warm mineral white.');
+        $this->assertSame('0x9b8d78', $material['floor_color'], 'The floor is honed warm stone.');
+        $this->assertSame(0.62, $material['floor_roughness'], 'Honed, not polished — the specular orb-matrix is gone.');
+        $this->assertSame(0.03, $material['floor_metalness'], 'Stone, not metal mirror.');
+        $this->assertTrue($material['texture_tint'] ?? false);
+        $this->assertSame(2.4, $material['floor_tile_meters']);
 
-        // The descriptor payload: 40 entries with the identity set present.
+        // The descriptor payload: 47 entries with the v2.1.0 identity set.
         $structure = $config['structure'] ?? [];
-        $this->assertCount(40, $structure, 'The Collector\'s Floor payload ships 40 descriptors.');
+        $this->assertCount(47, $structure, 'The Evening Light payload ships 47 descriptors.');
         $ids = array_column($structure, 'id');
         foreach ([
             'fireplace-stone', 'fireplace-mantel', 'fireplace-band', 'fireplace-hearth',
             'cove-left', 'cove-right', 'cove-inner', 'cove-back',
+            'cove-shelf-left', 'cove-shelf-right', 'cove-shelf-inner', 'cove-shelf-back',
             'base-left', 'base-right', 'base-inner', 'base-back',
-            'skyline-cool', 'skyline-warm', 'skyline-far', 'horizon-glow',
+            'skyline-near', 'skyline-mid', 'skyline-far',
+            'horizon-glow', 'city-haze', 'sky-mid', 'sky-deep',
             'chair-seat', 'lamp-shade', 'plinth', 'sculpture-torus', 'bench-top', 'floor-joints',
         ] as $required) {
             $this->assertContains($required, $ids, "The identity payload must include '{$required}'.");
         }
-        // The v1.0.0 identity is carried by NEW anchors — the wall_* l-shape
-        // anchors must be exercised (the StructureBuilder extension lands).
-        $anchors = array_column(array_column($structure, 'at'), 'from');
-        $this->assertContains('wall_front', $anchors, 'The fireplace rides the NEW wing-A end-wall anchor.');
-        $this->assertContains('wall_left', $anchors, 'The bench/cove/base ride the NEW wing-A west-wall anchor.');
-        $this->assertContains('wall_inner', $anchors, 'The wing-B north wall is addressed by the payload.');
-        $this->assertContains('wall_back', $anchors, 'The colinear south run is addressed by the payload.');
+
+        // The terminus: the fireplace family rides the wall_end anchor (D5).
+        $byId = array_column($structure, null, 'id');
+        foreach (['fireplace-stone', 'fireplace-mantel', 'fireplace-band', 'fireplace-hearth'] as $id) {
+            $this->assertSame('wall_end', $byId[$id]['at']['from'] ?? null, "'{$id}' rides the wall_end terminus anchor.");
+        }
+        // The dusk sky faces the interior (D4): turn 'out' on glazing_outside
+        // (turn 'in' faces AWAY — the v2.0.0 horizon glow never rendered).
+        foreach (['horizon-glow', 'city-haze', 'sky-mid', 'sky-deep'] as $id) {
+            $this->assertSame('out', $byId[$id]['turn'] ?? null, "'{$id}' must face the interior (turn 'out').");
+        }
+        // The glazing is the cheap open-air class (D3).
+        $this->assertSame('cheap', $byId['glazing-glass']['material']['tier'] ?? null, 'The glazing declares the cheap glass class (no transmission sheet).');
+        $this->assertSame(0.1, $byId['glazing-glass']['material']['opacity'] ?? null);
+        $this->assertSame(0.35, $byId['glazing-glass']['material']['roughness'] ?? null);
 
         $row = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
-        $this->assertSame('2.0.0', $row->version, 'The identity pass bumps the venue version to 2.0.0.');
+        $this->assertSame('2.1.0', $row->version, 'The deploy-review pass bumps the venue version to 2.1.0.');
 
-        // The fire becomes real light (P7): ONE warm anchored fixture.
+        // The fixtures (D5/D6): the terminus fire + four soft washes, all
+        // anchored (layout-relative — never drift).
         $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
-        $this->assertCount(2, $fixtures, 'The rig adds exactly TWO fixtures — the fire glow and the hearth wash (both anchored, zero unanchored).');
-        $this->assertSame('fire-glow', $fixtures[0]['id'] ?? null);
-        $this->assertSame('hearth-wash', $fixtures[1]['id'] ?? null);
-        foreach ($fixtures as $f) {
-            $this->assertArrayHasKey('anchor', $f, 'Every penthouse fixture is layout-relative — a fixed coordinate would drift off the moving end wall.');
+        $this->assertCount(5, $fixtures, 'Exactly FIVE fixtures: fire + hearth wash + two cove washes + lounge wash.');
+        $byFid = array_column($fixtures, null, 'id');
+        foreach (['fire-glow', 'hearth-wash', 'cove-wash-a', 'cove-wash-b', 'lounge-wash'] as $id) {
+            $this->assertArrayHasKey($id, $byFid, "fixture '{$id}' ships.");
+            $this->assertArrayHasKey('anchor', $byFid[$id], 'Every fixture is layout-relative.');
         }
-        $this->assertSame('wall_front', $fixtures[0]['anchor']['from'] ?? null, 'The fire light rides the NEW wall_front anchor (layout-relative, never drifts from the stone).');
+        $this->assertSame('wall_end', $byFid['fire-glow']['anchor']['from'], 'The fire rides the wall_end terminus anchor.');
+        $this->assertSame(5, $byFid['fire-glow']['intensity'], 'The fire accent is 5 cd — the 16 cd floodlight is gone.');
+        $this->assertSame('wall_left', $byFid['cove-wash-a']['anchor']['from']);
+        $this->assertSame('wall_inner', $byFid['cove-wash-b']['anchor']['from']);
+        $this->assertSame('glazing', $byFid['lounge-wash']['anchor']['from']);
     }
 
     public function test_the_copy_promise_matches_the_delivered_floor(): void
@@ -141,23 +156,28 @@ class VenuePenthouseIterationTest extends TestCase
         foreach (['walnut', 'stone', 'lounge', 'glass', 'city'] as $noun) {
             $this->assertStringContainsStringIgnoringCase($noun, $desc, "Copy promises the noun '{$noun}' — the payload must render it.");
         }
-        // The v1.0.0 copy promised DARK WALLS; the walls are warm white.
         $this->assertStringNotContainsStringIgnoringCase('dark walls', $desc, 'Copy must not promise dark walls — the declared walls are warm mineral white.');
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // The guarded migration — production roads converge on one identity
+    // The guarded migration CHAIN — production roads converge on one identity
     // ─────────────────────────────────────────────────────────────────────
 
-    private function penthouseMigration(): object
+    private function penthouseMigration5(): object
     {
         return require database_path('migrations/2026_09_08_000005_luxury_penthouse_residence.php');
     }
 
-    /** The v1.0.0 row exactly as production holds it pre-pass. */
+    private function penthouseMigration6(): object
+    {
+        return require database_path('migrations/2026_09_08_000006_luxury_penthouse_evening_light.php');
+    }
+
+    /** The v1.0.0 row exactly as production holds it pre-chain. */
     private function seedLegacyPenthouseRow(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+
         DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
             'description' => 'A private collector\'s evening — a glazed wall over the city lights, a lounge by the glass, dark walls and gold frames.',
             'version'     => '1.0.0',
@@ -179,6 +199,9 @@ class VenuePenthouseIterationTest extends TestCase
                 'frame_override'         => 'gold',
                 'structure_pass'         => 'rooms',
                 'glazing_wall'           => true,
+                // The v1.0.0 "Rooms" payload — VERBATIM (the exact-match
+                // guard in 000005 compares against this 17-descriptor list;
+                // it is also the harness's legacy body).
                 'structure'              => [
                     ['id' => 'terrace-deck', 'primitive' => 'box', 'at' => ['from' => 'glazing_outside', 'offset' => [0, 0.04, 2.6]], 'turn' => 'out', 'fit' => 'glazing', 'fit_pad' => 0.1, 'size' => [1, 0.08, 5.0], 'material' => 'dark_trim'],
                     ['id' => 'glazing-glass', 'primitive' => 'plane', 'at' => ['from' => 'glazing', 'offset' => [0, 2.2, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.06, 'size' => [1, 4.4], 'material' => ['glass' => true, 'tint' => '0xc4d8ea', 'opacity' => 0.18]],
@@ -209,74 +232,71 @@ class VenuePenthouseIterationTest extends TestCase
                 'floor_metalness'       => 0.2,
                 'floor_normal_strength' => 0.5,
             ]),
+            'lighting_fixtures' => json_encode([]),
         ]);
     }
 
-    public function test_the_migration_lands_the_exact_seeder_state(): void
+    public function test_the_full_migration_chain_lands_the_exact_seeder_state(): void
     {
-        // Production path: the v1.0.0 row is transformed by the guarded
-        // pass; a fresh install is seeded straight to the final state. Both
-        // roads MUST end at the same identity.
+        // Production path: v1.0.0 → 000005 (2.0.0) → 000006 (2.1.0).
+        // Fresh-install path: the seeder ships the final state directly.
+        // Both roads MUST end at the same identity.
         $this->seedLegacyPenthouseRow();
-        $this->penthouseMigration()->up();
+        $this->penthouseMigration5()->up();
+
+        $mid = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
+        $this->assertSame('2.0.0', $mid->version, 'The first pass lands on v2.0.0 (the chain intermediate).');
+
+        $this->penthouseMigration6()->up();
 
         $migrated = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
 
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         $seeded = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
 
-        // Canonical comparison: JSON object key ORDER legitimately differs
-        // (the migration appends its added keys; the seeder ships the
-        // composed literal). Identity = same keys, same values, same types.
+        // Canonical comparison: JSON object key ORDER legitimately differs.
         $this->assertSame(
             $this->canonicalJson($seeded->visual_config),
             $this->canonicalJson($migrated->visual_config),
-            'Migration final state must equal the seeder baseline (visual_config, key-order-insensitive).'
+            'The FULL chain final state must equal the seeder baseline (visual_config).'
         );
         $this->assertSame(
             $this->canonicalJson($seeded->material_config),
             $this->canonicalJson($migrated->material_config),
-            'Migration final state must equal the seeder baseline (material_config, key-order-insensitive).'
+            'The FULL chain final state must equal the seeder baseline (material_config).'
         );
         $this->assertSame(
             $this->canonicalJson($seeded->lighting_fixtures),
             $this->canonicalJson($migrated->lighting_fixtures),
-            'Migration final state must equal the seeder baseline (lighting_fixtures).'
+            'The FULL chain final state must equal the seeder baseline (lighting_fixtures).'
         );
         $this->assertSame($seeded->description, $migrated->description, 'Descriptions converge.');
-        $this->assertSame('2.0.0', $migrated->version, 'The pass lands on v2.0.0.');
+        $this->assertSame('2.1.0', $migrated->version, 'The chain lands on v2.1.0.');
         $this->assertSame($seeded->version, $migrated->version, 'Versions converge.');
     }
 
-    public function test_the_pass_is_guarded_idempotent_and_reversible(): void
+    public function test_the_v21_pass_is_guarded_idempotent_and_reversible(): void
     {
+        // Build the v2.0.0 state the way production has it: through pass 5.
         $this->seedLegacyPenthouseRow();
+        $this->penthouseMigration5()->up();
 
         // An admin retune that must survive the pass (guarded swap):
-        // artwork_light_base differs from the migration's declared 0.22 —
-        // the admin owns it now.
+        // ambient differs from the migration's declared 0.26→0.42 pair.
         DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
             'visual_config' => json_encode(array_merge($this->visualConfig('luxury-penthouse'), [
-                'ambient_intensity' => 0.4, // differs from the v1.0.0 0.2 — the admin owns it
+                'ambient_intensity' => 0.5, // the admin owns it now
             ])),
-            'description' => 'Our home.',
+            'version' => '2.0.0',
         ]);
 
-        $migration = $this->penthouseMigration();
+        $migration = $this->penthouseMigration6();
         $migration->up();
 
         $config = $this->visualConfig('luxury-penthouse');
-        $this->assertSame(0.4, $config['ambient_intensity'], 'Admin-tuned values are never overwritten (guarded swap).');
-        $this->assertSame(5.2, $config['wall_height'] ?? null, 'The grand volume still arrives around the admin edit.');
-        $this->assertSame('none', $config['environment'] ?? null, 'The declared sky still arrives (union-add).');
-        $this->assertSame(
-            'Our home.',
-            (string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('description'),
-            'Admin-customized copy is never clobbered.'
-        );
-        // The structure swap is EXACT-match guarded: an admin-edited payload
-        // keeps the admin composition.
-        $this->assertCount(17, $config['structure'], 'An admin-retained legacy payload is respected (exact-match guard).');
+        $this->assertSame(0.5, $config['ambient_intensity'], 'Admin-tuned values are never overwritten (guarded swap).');
+        $this->assertSame('0x5c4c3a', $config['ceiling_color'] ?? null, 'The lit ceiling still arrives around the admin edit.');
+        $this->assertSame('cheap', $config['structure'][1]['material']['tier'] ?? null, 'The cheap glass still arrives (exact-match structure swap).');
 
         // Idempotence: a second run changes nothing.
         $before = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
@@ -287,32 +307,20 @@ class VenuePenthouseIterationTest extends TestCase
         // Reversibility: down() restores migration-owned values only.
         $migration->down();
         $rolled = $this->visualConfig('luxury-penthouse');
-        $this->assertSame(0.4, $rolled['ambient_intensity'] ?? null, 'down() preserves the admin edit — only migration-owned values revert.');
-        $this->assertSame(4.5, $rolled['wall_height'] ?? null, 'down() restores the v1.0.0 wall height.');
-        $this->assertArrayNotHasKey('environment', $rolled, 'down() removes the declared-sky key it added.');
-        $this->assertArrayNotHasKey('post_fx', $rolled, 'down() removes the post_fx object it added (the untouched legacy row declared none).');
-        $this->assertSame('Our home.', (string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('description'), 'down() keeps admin copy.');
+        $this->assertSame(0.5, $rolled['ambient_intensity'] ?? null, 'down() preserves the admin edit.');
+        $this->assertSame('0x14110d', $rolled['ceiling_color'] ?? null, 'down() restores the v2.0.0 ceiling.');
+        $this->assertSame(0.42, $rolled['fog_far'] ?? null, 'down() restores the v2.0.0 fog depth.');
+        $this->assertCount(40, $rolled['structure'] ?? [], 'down() restores the v2.0.0 payload.');
         $fixturesRolled = json_decode((string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('lighting_fixtures'), true) ?: [];
-        $this->assertSame([], $fixturesRolled, 'down() removes the anchored fire-glow fixture it added (admin had none).');
-
-        // Reversibility on an untouched row: full restore.
-        $this->seedLegacyPenthouseRow();
-        $migration->up();
-        $pristine = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first(['visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
-        $migration->down();
-        $restored = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first(['visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
-        $this->assertSame($pristine->visual_config, $restored->visual_config, 'Untouched rows restore exactly (visual_config).');
-        $this->assertSame($pristine->material_config, $restored->material_config, 'Untouched rows restore exactly (material_config).');
-        $this->assertSame($pristine->lighting_fixtures, $restored->lighting_fixtures, 'Untouched rows restore exactly (lighting_fixtures).');
-        $this->assertSame($pristine->description, $restored->description, 'Untouched rows restore exactly (description).');
-        $this->assertSame($pristine->version, $restored->version, 'Untouched rows restore exactly (version).');
+        $this->assertCount(2, $fixturesRolled, 'down() restores the v2.0.0 fixture pair.');
+        $this->assertSame('2.0.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'), 'down() restores the v2.0.0 version.');
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // The client payload — the Collector's Floor must reach preview AND public
+    // The client payload — the Evening Light must reach preview AND public
     // ─────────────────────────────────────────────────────────────────────
 
-    public function test_the_payload_carries_the_collectors_floor_to_the_client(): void
+    public function test_the_payload_carries_the_evening_light_to_the_client(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
@@ -320,12 +328,12 @@ class VenuePenthouseIterationTest extends TestCase
         $config = app(VenueConfigExporter::class)->forVenuePreview($venue);
 
         $visual = $config['visual_config'] ?? [];
-        $this->assertSame(5.2, $visual['wall_height'] ?? null, 'The grand volume reaches the viewer payload.');
-        $this->assertSame('none', $visual['environment'] ?? null, 'The declared environment reaches the payload.');
-        $this->assertSame(0.22, $visual['artwork_light_base'] ?? null, 'The legibility floor reaches the payload.');
+        $this->assertSame('0x5c4c3a', $visual['ceiling_color'] ?? null, 'The lit ceiling reaches the viewer payload.');
+        $this->assertSame(0.42, $visual['ambient_intensity'] ?? null, 'The evening rig reaches the payload.');
+        $this->assertSame(0.5, $visual['artwork_light_base'] ?? null, 'The legibility floor reaches the payload.');
         $this->assertSame('black', $visual['post_fx']['vignette_blend'] ?? null, 'The declared post-fx reaches the payload.');
-        $this->assertCount(40, $visual['structure'] ?? [], 'The descriptor payload reaches the viewer.');
-        $this->assertSame('0xe9e2d4', $config['material_config']['wall_color'] ?? null, 'The wall authority reaches the payload.');
+        $this->assertCount(47, $visual['structure'] ?? [], 'The descriptor payload reaches the viewer.');
+        $this->assertSame(0.62, $config['material_config']['floor_roughness'] ?? null, 'The honed floor reaches the payload.');
         $this->assertTrue($config['material_config']['texture_tint'] ?? false, 'The tint authority reaches the payload.');
     }
 
@@ -336,10 +344,11 @@ class VenuePenthouseIterationTest extends TestCase
         // schema bump was needed (sibling venues untouched).
         foreach (['structure', 'glazing_wall', 'post_fx', 'environment', 'env_intensity',
             'artwork_light_base', 'artwork_light_pool_cap', 'hemisphere_intensity',
-            'wall_height', 'ceiling_color', 'ambient_color', 'fog_near', 'fog_far'] as $key) {
+            'wall_height', 'ceiling_color', 'ambient_color', 'fog_near', 'fog_far',
+            'fog_color', 'spot_intensity', 'fill_intensity', 'tone_mapping_exposure'] as $key) {
             $this->assertContains($key, VenueConfigExporter::VENUE_OWNED_VISUAL_KEYS, "'{$key}' is venue-owned architecture/rig identity.");
         }
-        foreach (['texture_tint', 'wall_color', 'floor_color', 'floor_tile_meters'] as $key) {
+        foreach (['texture_tint', 'wall_color', 'floor_color', 'floor_tile_meters', 'floor_roughness', 'floor_metalness'] as $key) {
             $this->assertContains($key, VenueConfigExporter::VENUE_OWNED_MATERIAL_KEYS, "material '{$key}' is venue-owned.");
         }
 
@@ -364,7 +373,7 @@ class VenuePenthouseIterationTest extends TestCase
         $payload = app(VenueConfigExporter::class)->forGallery($gallery->refresh());
 
         $this->assertSame(5.2, $payload['visual_config']['wall_height'] ?? null, 'A curator-saved height override is stripped — the venue declaration wins.');
-        $this->assertCount(40, $payload['visual_config']['structure'] ?? [], 'A curator-saved empty structure is stripped — the residence cannot be hollowed out.');
+        $this->assertCount(47, $payload['visual_config']['structure'] ?? [], 'A curator-saved empty structure is stripped — the residence cannot be hollowed out.');
         $this->assertSame('none', $payload['visual_config']['environment'] ?? null, 'A curator-saved sky override is stripped — the sky is the city.');
     }
 

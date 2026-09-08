@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ─────────────────────────────────────────────────────────────────────────────
-// luxury-penthouse-qa.mjs — the venue QA gate for Luxury Penthouse v2.0.0
-// ("The Collector's Floor", 2026-09-08 identity pass).
+// luxury-penthouse-qa.mjs — the venue QA gate for Luxury Penthouse v2.1.0
+// ("Evening Light", 2026-09-09 deploy-review pass over v2.0.0).
 //
 //   node scripts/venue-qa/luxury-penthouse-qa.mjs
 //
@@ -11,13 +11,12 @@
 // scripts/harness/shoot.mjs captures the visual evidence.
 //
 // Checks:
-//   A. Seeder contract — the luxury-penthouse row declares the v2 identity:
-//      the 5.2 m warm volume, the declared-absent environment ('none' +
-//      env_intensity 0 — no rural_evening 404, no wrong sky), the warm rig
-//      + exposure 0.78, texture_tint material authority + the honed-stone
-//      floor, artwork legibility floor (base 0.22 + pool cap 12), declared
-//      post-fx with the BLACK vignette blend (the stock grey veil class),
-//      fog depth for the skyline, and the l-shape supported layout.
+//   A. Seeder contract — the row declares the v2.1.0 identity: the 5.2 m
+//      volume under a LIT ceiling (0x5c4c3a), the evening rig (ambient
+//      0.42 / hemi 0.3 / fill 0.42 / exposure 0.92), the declared-absent
+//      environment, artwork legibility base 0.5, black-blend vignette,
+//      dusk-haze fog (26/160), the honed floor (0.62), the cheap-class
+//      glazing, and the wall_end terminus.
 //   B. DB ↔ harness sync — the PHP-less harness renders the same JSON a
 //      fresh install seeds (same pairs, equal values, 40 descriptors).
 //   C. Composition invariants — driven through the REAL StructureBuilder +
@@ -93,20 +92,20 @@ ok('structure_pass is the rooms interpreter selector', /'structure_pass'\s*=>\s*
 ok('glazing wall declared', /'glazing_wall'\s*=>\s*true/.test(vc));
 ok('GRAND VOLUME: wall height 5.2 (was the 4.5 corridor)',
     /'wall_height'\s*=>\s*5\.2/.test(vc) && /'ceiling_height'\s*=>\s*5\.2/.test(vc));
-ok('warm dark ceiling (0x14110d, not grave-black 0x080808)',
-    /'ceiling_color'\s*=>\s*'0x14110d'/.test(vc) && !/'0x080808'/.test(vc));
+ok('LIT warm ceiling (0x5c4c3a plaster — the black-hole ceiling is gone)',
+    /'ceiling_color'\s*=>\s*'0x5c4c3a'/.test(vc) && !/'0x14110d'/.test(vc) && !/'0x080808'/.test(vc));
 ok('environment is DECLARED ABSENCE (none) — no rural_evening 404, no wrong sky',
     /'environment'\s*=>\s*'none'/.test(vc));
 ok('env_intensity declared 0 (a declared 0 stays 0 — nullish authority)',
     /'env_intensity'\s*=>\s*0,/.test(vc));
-ok('warm evening rig (ambient 0xe6d6bc @ 0.26, hemisphere 0.14)',
-    /'ambient_color'\s*=>\s*'0xe6d6bc'/.test(vc) && /'ambient_intensity'\s*=>\s*0\.26/.test(vc) && /'hemisphere_intensity'\s*=>\s*0\.14/.test(vc));
-ok('exposure lifted out of the murk (0.78, was 0.55)',
-    /'tone_mapping_exposure'\s*=>\s*0\.78/.test(vc));
-ok('fog carries the skyline depth (near 16, far 55 — was 8/25)',
-    /'fog_near'\s*=>\s*16/.test(vc) && /'fog_far'\s*=>\s*55/.test(vc));
-ok('artwork standing glow declared (0.22) + pool raised (12)',
-    /'artwork_light_base'\s*=>\s*0\.22/.test(vc) && /'artwork_light_pool_cap'\s*=>\s*12/.test(vc));
+ok('evening rig (ambient 0xe9dfcd @ 0.42, hemisphere 0.3, fill 0.42)',
+    /'ambient_color'\s*=>\s*'0xe9dfcd'/.test(vc) && /'ambient_intensity'\s*=>\s*0\.42/.test(vc) && /'hemisphere_intensity'\s*=>\s*0\.3,/.test(vc) && /'fill_intensity'\s*=>\s*0\.42/.test(vc));
+ok('exposure 0.92 (the evening interior reads)',
+    /'tone_mapping_exposure'\s*=>\s*0\.92/.test(vc));
+ok('dusk-haze fog carries the skyline (near 26, far 160, color 0x191c26)',
+    /'fog_near'\s*=>\s*26/.test(vc) && /'fog_far'\s*=>\s*160/.test(vc) && /'fog_color'\s*=>\s*'0x191c26'/.test(vc));
+ok('artwork standing glow above half the boost (0.5) + pool 12',
+    /'artwork_light_base'\s*=>\s*0\.5,/.test(vc) && /'artwork_light_pool_cap'\s*=>\s*12/.test(vc));
 ok('post_fx declares BLACK vignette (the stock grey veil can never ship)',
     /'vignette_blend'\s*=>\s*'black'/.test(postFx));
 ok('post_fx bloom restrained (0.32 @ 0.85)',
@@ -114,17 +113,20 @@ ok('post_fx bloom restrained (0.32 @ 0.85)',
 ok('texture_tint declared (declared colours are authoritative)',
     /'texture_tint'\s*=>\s*true/.test(mc));
 ok('wall tint declared (warm mineral white 0xe9e2d4)', /'wall_color'\s*=>\s*'0xe9e2d4'/.test(mc));
-ok('floor tint declared (honed warm stone 0x9b8d78, not plastic marble)',
-    /'floor_color'\s*=>\s*'0x9b8d78'/.test(mc) && /'floor_roughness'\s*=>\s*0\.42/.test(mc));
+ok('floor tint declared + HONED (0x9b8d78 @ 0.62 / 0.03 — the orb-matrix mirror is gone)',
+    /'floor_color'\s*=>\s*'0x9b8d78'/.test(mc) && /'floor_roughness'\s*=>\s*0\.62/.test(mc) && /'floor_metalness'\s*=>\s*0\.03/.test(mc));
 ok('floor reads at slab scale (floor_tile_meters 2.4)', /'floor_tile_meters'\s*=>\s*2\.4/.test(mc));
-ok('descriptor payload present (40 entries)', (structure.match(/\['id' =>/g) || []).length === 40,
+ok('descriptor payload present (47 entries)', (structure.match(/\['id' =>/g) || []).length === 47,
     `got ${(structure.match(/\['id' =>/g) || []).length}`);
-ok('fireplace volume on the wing-A end wall (wall_front anchor)',
-    /'id' => 'fireplace-stone'/.test(structure) && /'from' => 'wall_front'/.test(structure));
-ok('perimeter cove declared (4 merged emissive strips)', (structure.match(/'id' => 'cove-/g) || []).length === 4);
+ok('fireplace volume at the corridor TERMINUS (wall_end anchor — the walk lands on it)',
+    /'id' => 'fireplace-stone'/.test(structure) && !/'from' => 'wall_front'/.test(structure) &&
+    (structure.match(/'from' => 'wall_end'/g) || []).length === 4);
+ok('perimeter cove declared (4 strips + 4 valance shelves)', (structure.match(/'id' => 'cove-/g) || []).length === 8 && (structure.match(/'id' => 'cove-shelf-/g) || []).length === 4);
 ok('bronze base trim declared (4 merged strips)', (structure.match(/'id' => 'base-/g) || []).length === 4);
-ok('skyline is three depth layers + horizon glow (far ghosts at 0.10 emissive)',
-    /'id' => 'skyline-cool'/.test(structure) && /'id' => 'skyline-warm'/.test(structure) && /'id' => 'skyline-far'/.test(structure) && /'id' => 'horizon-glow'/.test(structure));
+ok('skyline: three low-slung layers + the four-plane dusk sky, all facing the interior',
+    /'id' => 'skyline-near'/.test(structure) && /'id' => 'skyline-mid'/.test(structure) && /'id' => 'skyline-far'/.test(structure) &&
+    /'id' => 'horizon-glow'/.test(structure) && /'id' => 'city-haze'/.test(structure) &&
+    /'id' => 'sky-mid'/.test(structure) && /'id' => 'sky-deep'/.test(structure));
 ok('legacy uniform-glow tower presets are GONE from the row (explicit dim materials)',
     !/'material' => 'tower_cool'/.test(structure) && !/'material' => 'tower_warm'/.test(structure));
 ok('stone slab joints declared (procedural grout grid, 2.4 m)',
@@ -134,7 +136,7 @@ ok('lounge curated: chair + lamp + plinth + sculpture + bench',
 ok('terrace deck is warm wood (was dark_trim)', /'id' => 'terrace-deck'[^]*?'material' => 'wood_warm'/.test(structure));
 ok('description names what renders (honesty matrix: walnut-and-stone wing, lounge at the glass)',
     /A private collector\\?'s floor at dusk/.test(chunk) && /walnut-and-stone/.test(chunk));
-ok('version 2.0.0', /'version'\s*=>\s*'2\.0\.0'/.test(chunk));
+ok('version 2.1.0', /'version'\s*=>\s*'2\.1\.0'/.test(chunk));
 ok('l-shape remains the supported hang (supported_layouts square + l-shape)',
     /'supported_layouts'\s*=>\s*\['square',\s*'l-shape'\]/.test(chunk));
 
@@ -160,23 +162,29 @@ const hvc = hv?.visual_config ?? {};
 const hmc = hv?.material_config ?? {};
 const pairs = [
     ['wall_height 5.2', hvc.wall_height === 5.2 && /'wall_height'\s*=>\s*5\.2/.test(vc)],
-    ['ceiling 0x14110d', hvc.ceiling_color === '0x14110d'],
-    ['background 0x0a0b11 / fog 0x0a0b10', hvc.background_color === '0x0a0b11' && hvc.fog_color === '0x0a0b10'],
-    ['fog 16/55', hvc.fog_near === 16 && hvc.fog_far === 55],
-    ['ambient 0xe6d6bc @ 0.26', hvc.ambient_color === '0xe6d6bc' && hvc.ambient_intensity === 0.26],
-    ['hemisphere 0.14', hvc.hemisphere_intensity === 0.14],
-    ['spot 0.62 / fill 0.16', hvc.spot_intensity === 0.62 && hvc.fill_intensity === 0.16],
-    ['exposure 0.78', hvc.tone_mapping_exposure === 0.78],
+    ['ceiling 0x5c4c3a (lit plaster)', hvc.ceiling_color === '0x5c4c3a' && /'ceiling_color'\s*=>\s*'0x5c4c3a'/.test(vc)],
+    ['background 0x0b0f1a / fog 0x191c26', hvc.background_color === '0x0b0f1a' && hvc.fog_color === '0x191c26'],
+    ['fog 26/160', hvc.fog_near === 26 && hvc.fog_far === 160],
+    ['ambient 0xe9dfcd @ 0.42', hvc.ambient_color === '0xe9dfcd' && hvc.ambient_intensity === 0.42],
+    ['hemisphere 0.3', hvc.hemisphere_intensity === 0.3],
+    ['spot 0.5 / fill 0.42', hvc.spot_intensity === 0.5 && hvc.fill_intensity === 0.42],
+    ['exposure 0.92', hvc.tone_mapping_exposure === 0.92],
     ['environment none / env 0', hvc.environment === 'none' && hvc.env_intensity === 0],
-    ['artwork light 0.22 / cap 12', hvc.artwork_light_base === 0.22 && hvc.artwork_light_pool_cap === 12],
+    ['artwork light 0.5 / cap 12', hvc.artwork_light_base === 0.5 && hvc.artwork_light_pool_cap === 12],
     ['post_fx black vignette', hvc.post_fx?.vignette_blend === 'black' && hvc.post_fx?.bloom_strength === 0.32],
     ['glazing_wall + rooms pass', hvc.glazing_wall === true && hvc.structure_pass === 'rooms'],
-    ['40 descriptors', Array.isArray(hvc.structure) && hvc.structure.length === 40],
+    ['47 descriptors', Array.isArray(hvc.structure) && hvc.structure.length === 47],
     ['material tint authority', hmc.texture_tint === true && hmc.wall_color === '0xe9e2d4' && hmc.floor_color === '0x9b8d78'],
+    ['honed floor 0.62/0.03', hmc.floor_roughness === 0.62 && hmc.floor_metalness === 0.03],
     ['floor_tile_meters 2.4', hmc.floor_tile_meters === 2.4],
-    ['anchored fireplace fixtures (fire 16 + wash 3.5, both wall_front)', hv.lighting_fixtures?.length === 2 && hv.lighting_fixtures.every(f => f.anchor?.from === 'wall_front') && hv.lighting_fixtures[0].intensity === 16 && /'fire-glow'/.test(chunk) && /'anchor' => \['from' => 'wall_front'/.test(chunk)],
+    ['five fixtures: fire + wash at wall_end, two cove washes, lounge wash', hv.lighting_fixtures?.length === 5 &&
+        hv.lighting_fixtures.filter(f => ['fire-glow', 'hearth-wash'].includes(f.id)).every(f => f.anchor?.from === 'wall_end') &&
+        hv.lighting_fixtures.find(f => f.id === 'cove-wash-a')?.anchor?.from === 'wall_left' &&
+        hv.lighting_fixtures.find(f => f.id === 'cove-wash-b')?.anchor?.from === 'wall_inner' &&
+        hv.lighting_fixtures.find(f => f.id === 'lounge-wash')?.anchor?.from === 'glazing' &&
+        /'anchor' => \['from' => 'wall_end'/.test(chunk)],
     ['l-shape default', hv.default_settings?.room_layout === 'l-shape'],
-    ['version 2.0.0', hv.version === '2.0.0'],
+    ['version 2.1.0', hv.version === '2.1.0'],
 ];
 for (const [name, cond] of pairs) ok(`harness ↔ seeder: ${name}`, cond);
 ok('harness legacy rollback body present (v1.0.0 Rooms forensic variant)',
@@ -284,19 +292,28 @@ const sceneA = new THREE.Scene();
 try {
     const ctx = ctxBase(); ctx.scene = sceneA;
     draws = buildStructure(ctx, hvc.structure);
-    ok(`build emits a sane draw-call count (${draws} ≤ 48)`, draws > 10 && draws <= 48, `got ${draws}`);
+    ok(`build emits a sane draw-call count (${draws} ≤ 56)`, draws > 10 && draws <= 56, `got ${draws}`);
 
     // ── Cove: at the ceiling reveal, declared emissive, merged.
     const cove = [];
-    sceneA.traverse(o => { if (o.isMesh && /merged:ph-cove/.test(o.name || '')) cove.push(o); });
+    sceneA.traverse(o => { if (o.isMesh && /merged:ph-cove:/.test(o.name || '')) cove.push(o); });
     ok('cove merged into ONE draw call', cove.length === 1, `got ${cove.length}`);
     if (cove.length === 1) {
         const box = new THREE.Box3().setFromObject(cove[0]);
-        ok(`cove sits at the ceiling reveal (y ≈ ${WALL_H - 0.18} ± 0.02)`,
-            Math.abs((box.min.y + box.max.y) / 2 - (WALL_H - 0.18)) < 0.02);
-        ok('cove emissive is the declared warm reveal (0xffd9a0 @ 1.35)',
+        ok(`cove sits below its valance shelf (y ≈ ${WALL_H - 0.3} ± 0.03)`,
+            Math.abs((box.min.y + box.max.y) / 2 - (WALL_H - 0.3)) < 0.03);
+        ok('cove emissive is the declared warm reveal (0xffd9a0 @ 1.15)',
             cove[0].material.emissive?.getHexString() === 'ffd9a0' &&
-            cove[0].material.emissiveIntensity === 1.35);
+            cove[0].material.emissiveIntensity === 1.15);
+        // v2.1.0: the shelf that makes the strip read as a RECESS, not a bulb.
+        const shelf = [];
+        sceneA.traverse(o => { if (o.isMesh && /merged:ph-coveshelf:/.test(o.name || '')) shelf.push(o); });
+        ok('cove valance shelves merged into ONE draw call', shelf.length === 1, `got ${shelf.length}`);
+        if (shelf.length === 1) {
+            const sb = new THREE.Box3().setFromObject(shelf[0]);
+            ok('shelf sits above the strip, projecting from the wall',
+                sb.min.y > WALL_H - 0.32 && sb.max.y < WALL_H - 0.1);
+        }
     }
 
     // ── Base trim: PROUD of the wall face (the buried-trim lesson).
@@ -320,8 +337,8 @@ try {
         const box = new THREE.Box3().setFromObject(stone);
         ok('fireplace stone spans the full wall height (0..5.2)',
             box.min.y < 0.01 && Math.abs(box.max.y - WALL_H) < 0.01);
-        ok('fireplace stone hugs the south wall face (inside the room, proud of it)',
-            box.min.z > -meta.lenA / 2 && box.min.z < -meta.lenA / 2 + 0.25);
+        ok('fireplace stone hugs the NORTH terminus wall (inside the room, proud of it)',
+            box.max.z < meta.lenA / 2 && box.max.z > meta.lenA / 2 - 0.25);
         ok('fireplace stone is honed basalt (roughness 0.35)', stone.material.roughness === 0.35);
     }
     ok('warm fire line + walnut mantel exist', !!band && !!mantel);
@@ -329,12 +346,12 @@ try {
         band.material.emissive?.getHexString() === 'ff8a3d' && band.material.emissiveIntensity === 1.5);
     if (mantel) ok('mantel is walnut (0x4a3421)', mantel.material.color?.getHexString() === '4a3421');
 
-    // ── Skyline: three grounded depth layers + horizon glow.
+    // ── Skyline: three grounded depth layers + the dusk sky stack.
     const towers = { near: [], warm: [], far: [] };
     sceneA.traverse(o => {
         if (!o.isMesh || !/structure:skyline-/.test(o.name || '')) return;
-        if (/skyline-cool/.test(o.name)) towers.near.push(o);
-        if (/skyline-warm/.test(o.name)) towers.warm.push(o);
+        if (/skyline-near/.test(o.name)) towers.near.push(o);
+        if (/skyline-mid/.test(o.name)) towers.warm.push(o);
         if (/skyline-far/.test(o.name)) towers.far.push(o);
     });
     const glow = sceneA.children.find(o => /structure:horizon-glow/.test(o.name || ''));
@@ -345,11 +362,23 @@ try {
     ok('skyline is grounded (no floating towers)', [bn, bw, bf].every(b => b && b.min.y > -0.11 && b.min.y < 0.2));
     ok('depth layering: far layer extends beyond the near layer',
         bf && bn && bf.max.x > bn.max.x && bf.min.z <= bn.min.z);
-    ok('near/warm towers DIMMED to silhouette-plus-glow (emissive ≤ 0.28, was 0.55)',
-        towers.near[0]?.material.emissiveIntensity <= 0.28 && towers.warm[0]?.material.emissiveIntensity <= 0.28);
-    ok('far towers are ghosts (emissive 0.10)', towers.far[0]?.material.emissiveIntensity === 0.10);
+    ok('tower layers read as dusk silhouettes (emissive ≤ 0.45, was the v2.0.0 slab glow)',
+        towers.near[0]?.material.emissiveIntensity <= 0.45 && towers.warm[0]?.material.emissiveIntensity <= 0.45);
+    ok('far towers stay ghosts (emissive ≤ 0.4)', towers.far[0]?.material.emissiveIntensity <= 0.4);
+    ok('the dusk sky stack: haze < glow < sky-mid < sky-deep, all facing the interior',
+        (() => {
+            const ids = ['city-haze', 'horizon-glow', 'sky-mid', 'sky-deep'];
+            const meshes = ids.map(id => sceneA.children.find(o => o.name === 'structure:' + id));
+            if (meshes.some(m => !m)) return false;
+            const xs = meshes.map(m => m.position.x);
+            const ordered = xs[0] < xs[1] && xs[1] < xs[2] && xs[2] < xs[3];
+            // turn:'out' on the +x-pointing glazing_outside anchor ⇒ normal −x
+            const facing = meshes.every(m => Math.abs(((m.rotation.y % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) - (3 * Math.PI / 2)) < 0.01);
+            const emissive = meshes.every(m => m.material.emissive && m.material.emissiveIntensity > 0);
+            return ordered && facing && emissive;
+        })());
     ok('horizon glow is a distant warm band beyond the near layer',
-        !!glow && glow.position.x > meta.wingW + meta.lenB + 20 && glow.material.emissive?.getHexString() === '8a6a40');
+        !!glow && glow.position.x > meta.wingW + meta.lenB + 20 && glow.material.emissive?.getHexString() === '9a6238');
 
     // ── THE SCATTER-AREA BUG (found by the walk-through render): towers
     // must NEVER spawn inside the building — every skyline box starts
@@ -361,17 +390,19 @@ try {
             b.min.x >= meta.wingW + meta.lenB - 0.01, `min x ${b.min.x.toFixed(2)}`);
     }
 
-    // ── The anchored fire-glow fixture resolves against the wall_front
+    // ── The anchored fire-glow fixture resolves against the wall_end
     // anchor (the shared anchored-fixtures grammar — same math the
-    // descriptors speak) and lands inside the room near the stone.
+    // descriptors speak) and lands inside the room near the terminus stone.
     {
         const d = 0.3;
-        const anchor = resolveAnchor({ _layoutMeta: meta, _glazing: null }, 'wall_front');
+        const anchor = resolveAnchor({ _layoutMeta: meta, _glazing: null }, 'wall_end');
         const o = [0, 0.95, 1.1];
         const fx = anchor.fwd[0], fz = anchor.fwd[2];
         const pos = [anchor.pos[0] + fz * o[0] + fx * o[2], o[1], anchor.pos[2] - fx * o[0] + fz * o[2]];
-        ok('fire-glow resolves inside the room, near the fireplace face',
-            pos[2] > -meta.lenA / 2 && pos[2] < -meta.lenA / 2 + 3 && pos[0] > 0.5 && pos[0] < meta.wingW - 0.5,
+        ok('wall_end anchor exists and faces the corridor (fwd −z, span wingW)',
+            !!anchor && anchor.fwd[2] === -1 && Math.abs(anchor.width - meta.wingW) < 1e-9);
+        ok('fire-glow resolves inside the room, near the terminus face',
+            pos[2] < meta.lenA / 2 && pos[2] > meta.lenA / 2 - 3 && pos[0] > 0.5 && pos[0] < meta.wingW - 0.5,
             `pos ${pos.map(v => v.toFixed(2))}`);
     }
 
@@ -404,14 +435,16 @@ try {
     ok('sofa faces the glass from the rug (lounge composition intact)',
         sofa && rug && sofa.position.z === rug.position.z);
 
-    // ── Glass: tier-resolved (transmission on desktop, cheap opacity
-    // below) — accept EITHER restrained form.
+    // ── Glass: the declared 'cheap' class on desktop — a broad-sheen
+    // transparent, NOT the transmission sheet (the v2.0.0 production
+    // defect: opacity forced to 1.0 + roughness 0.05 = blue sheet + orbs).
     const glass = sceneA.children.find(o => o.name === 'structure:glazing-glass');
-    const glassRestrained = glass && (
-        (glass.material.transparent && glass.material.opacity <= 0.25) ||
-        (glass.material.transmission !== undefined && glass.material.transmission >= 0.5));
-    ok('glazing glass renders as restrained tier-resolved glass', glassRestrained,
-        glass ? `type ${glass.material.type}` : 'missing');
+    const glassCheap = glass && glass.material.transparent &&
+        glass.material.opacity <= 0.2 &&
+        glass.material.roughness >= 0.3 &&
+        (glass.material.transmission === undefined || glass.material.transmission < 0.1);
+    ok('glazing renders as the cheap open-air class (opacity ≤ 0.2, rough ≥ 0.3, no transmission)', glassCheap,
+        glass ? `type ${glass.material.type} opacity ${glass.material.opacity} rough ${glass.material.roughness}` : 'missing');
 
     // ── Collision: every registered obstacle lies inside the walk domain.
     const ctxObst = ctxBase(); ctxObst.scene = new THREE.Scene();
@@ -493,19 +526,31 @@ for (const key of ['texture_tint', 'floor_color', 'wall_color', 'floor_tile_mete
 }
 
 const migrationPath = rel('database/migrations/2026_09_08_000005_luxury_penthouse_residence.php');
-ok('guarded migration exists', existsSync(migrationPath));
+ok('guarded migration v2.0.0 exists', existsSync(migrationPath));
 if (existsSync(migrationPath)) {
     const mig = readFileSync(migrationPath, 'utf8');
-    ok('migration targets luxury-penthouse v1.0.0 → 2.0.0',
+    ok('migration v2.0.0 targets luxury-penthouse v1.0.0 → 2.0.0',
         /'luxury-penthouse'/.test(mig) && /OLD_VERSION = '1\.0\.0'/.test(mig) && /NEW_VERSION = '2\.0\.0'/.test(mig));
     ok('migration pins the same v2 description (promise matrix)',
         mig.includes('A private collector\\\'s floor at dusk') || /floor at dusk/.test(mig));
     ok('migration carries down() (reversible)', /public function down\(\)/.test(mig));
     ok('migration structure swap is exact-match guarded', /OLD_STRUCTURE = \[/.test(mig) && /=== self::OLD_STRUCTURE/.test(mig));
 }
+const migrationPath6 = rel('database/migrations/2026_09_08_000006_luxury_penthouse_evening_light.php');
+ok('guarded migration v2.1.0 exists', existsSync(migrationPath6));
+if (existsSync(migrationPath6)) {
+    const mig6 = readFileSync(migrationPath6, 'utf8');
+    ok('migration v2.1.0 targets luxury-penthouse v2.0.0 → 2.1.0 (chain order)',
+        /OLD_VERSION = '2\.0\.0'/.test(mig6) && /NEW_VERSION = '2\.1\.0'/.test(mig6));
+    ok('migration v2.1.0 structure swap is exact-match guarded + reversible',
+        /OLD_STRUCTURE = \[/.test(mig6) && /=== self::OLD_STRUCTURE/.test(mig6) && /public function down\(\)/.test(mig6));
+    ok('migration v2.1.0 carries the honed floor + terminus/cove fixtures',
+        /cove-wash-a/.test(mig6) && /0\.62/.test(mig6) && /wall_end/.test(mig6));
+}
 ok('PHP iteration test exists', existsSync(rel('tests/Feature/VenuePenthouseIterationTest.php')));
-ok('shoot.mjs carries the penthouse scenarios (incl. legacy rollback + low tier)',
-    /pent-cam-lounge/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')) &&
+ok('shoot.mjs carries the penthouse scenarios (terminus, corridor-40, city, low tier, legacy)',
+    /pent-cam-corridor-40/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')) &&
+    /pent-cam-city/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')) &&
     /pent-tier-low-06/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')) &&
     /pent-legacy-12/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')));
 

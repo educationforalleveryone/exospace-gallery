@@ -325,6 +325,14 @@ export function resolveAnchor(ctx, from) {
             case 'wall_inner_outside':   return horizontal(W + LB / 2, jz - hi, 0, -1, LB);
             case 'wall_back':            return horizontal((W + LB) / 2, zS - hi, 0, -1, W + LB);
             case 'wall_back_outside':    return horizontal((W + LB) / 2, zS + hi, 0, 1, W + LB);
+            // wing A north end wall — the corridor TERMINUS (v2.1.0). The
+            // fireplace family moves here: the walk now lands on a warm
+            // destination instead of a blank wall (the south wall behind the
+            // spawn carried it before, where visitors never faced it).
+            // No shipped descriptor referenced wall_end before v2.1.0, so
+            // every other venue resolves exactly as before (§11.3 rule 2).
+            case 'wall_end':            return horizontal(W / 2, zS - hi, 0, -1, W);
+            case 'wall_end_outside':    return horizontal(W / 2, zS + hi, 0, 1, W);
         }
     }
 
@@ -372,9 +380,18 @@ function buildMaterial(ctx, mat) {
     if (spec.glass) {
         // Tier-resolved (TierResolve): transmission high / cheap mobile / flat
         // low-end — the same null-glass-proof path the Cathedral colonnade uses.
+        // v2.1.0: a descriptor may opt OUT of the transmission class with
+        // `tier: 'cheap'` (broad-sheen transparent, no scene re-render pass)
+        // and may retune the sheen with `roughness`. Both keys are opt-in —
+        // every glass descriptor that omits them resolves exactly as before
+        // (the Penthouse glazing is the only shipped opt-in: a 6 m wall of
+        // transmission glass re-renders the whole scene per frame AND throws
+        // hard specular orbs from the interior lights onto the "sky").
         return makeGlassMaterial(ctx, {
             tint: parseColor(spec.tint) || new THREE.Color(0xcfdde8),
             opacity: spec.opacity ?? 0.25,
+            roughness: spec.roughness,
+            declared: spec.tier,
         });
     }
     const color    = parseColor(spec.color) || new THREE.Color(0x8b6f47);
