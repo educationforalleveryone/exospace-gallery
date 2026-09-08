@@ -107,6 +107,26 @@ const SCENARIOS = [
     { id: 'nebula-tier-low-06',   q: 'venue=nebula-drift&count=6', tier: 'low' },
     // Rollback chain: the v1.0.0 starfield body must still render by config.
     { id: 'nebula-legacy-12',     q: 'venue=nebula-drift-legacy&count=12' },
+    // Luxury Penthouse — "The Collector's Floor" (2026-09-08 audit pass,
+    // v2.0.0). Count scaling: 6 (capacity floor), 12 (default hang), 40
+    // (capacity ceiling — the full two-wing gallery). Walk-through poses:
+    // arrival down the gallery wing, the fireplace end wall, the lounge at
+    // the glass, and the terrace view through the glazing.
+    { id: 'pent-06',              q: 'venue=luxury-penthouse&count=6' },
+    { id: 'pent-12-mixed',        q: 'venue=luxury-penthouse&count=12' },
+    { id: 'pent-40-mixed',        q: 'venue=luxury-penthouse&count=40' },
+    { id: 'pent-cam-arrival',     q: 'venue=luxury-penthouse&count=12',
+      cam: { p: [3, 1.6, -7.25], t: [3, 1.8, 6] } },
+    { id: 'pent-cam-fireplace',   q: 'venue=luxury-penthouse&count=12',
+      cam: { p: [3, 1.6, -4],    t: [3, 1.7, -8.75] } },
+    { id: 'pent-cam-lounge',      q: 'venue=luxury-penthouse&count=12',
+      cam: { p: [10, 1.6, 5.75],  t: [26.5, 1.7, 5.75] } },
+    { id: 'pent-cam-view',        q: 'venue=luxury-penthouse&count=12',
+      cam: { p: [22, 1.6, 5.75], t: [40, 4.0, 5.75] } },
+    // Tier degradation: the residence must read on Lambert (low).
+    { id: 'pent-tier-low-06',     q: 'venue=luxury-penthouse&count=6', tier: 'low' },
+    // Rollback chain: the v1.0.0 "Rooms" body must still render by config.
+    { id: 'pent-legacy-12',       q: 'venue=luxury-penthouse-legacy&count=12' },
     // Crystal Cathedral — "The Luminous Arcade" (2026-09-07 audit).
     // Count scaling: 5 (capacity floor), 12 (depth-band threshold), 30 and
     // 40 (capacity ceiling — arcade bay plan + two-ring hang at scale).

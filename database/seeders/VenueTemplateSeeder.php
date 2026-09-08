@@ -931,9 +931,10 @@ class VenueTemplateSeeder extends Seeder
             [
                 'name'          => 'Luxury Penthouse',
                 'slug'          => 'luxury-penthouse',
-                // Iteration 3 "Rooms": copy re-tightened — glazing, skyline and lounge now
-                // render (§4.8; guarded migration mirrors this).
-                'description'   => 'A private collector\'s evening — a glazed wall over the city lights, a lounge by the glass, dark walls and gold frames.',
+                // Iteration "The Collector's Floor" (v2.0.0): copy re-tightened —
+                // walnut/stone gallery wing, lounge at the glass, city depth
+                // (guarded migration 2026_09_08_000005 mirrors this).
+                'description'   => 'A private collector\'s floor at dusk — a walnut-and-stone gallery wing warming into a lounge at the glass, the city glowing beyond it, art hung the way a residence lives with it.',
                 'category'      => 'luxury',
                 'tags'          => ['luxury', 'collector', 'private'],
                 'plan_required' => 'studio',
@@ -941,7 +942,7 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 40,
                 'sort_order'    => 8,
                 'is_featured'   => true,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
@@ -950,64 +951,128 @@ class VenueTemplateSeeder extends Seeder
                     'room_layout'     => 'l-shape',
                 ],
                 'visual_config' => [
-                    'wall_height'            => 4.5,
+                    'wall_height'            => 5.2,
                     'wall_depth'             => 0.3,
                     'ceiling_type'           => 'flat',
-                    'ceiling_color'          => '0x080808',  // was the per-slug ceiling chain
-                    'ceiling_height'         => 4.5,
-                    'background_color'       => '0x08090d',
-                    'fog_color'              => '0x08090d',
-                    'fog_near'               => 8,
-                    'fog_far'                => 25,
-                    'ambient_color'          => '0xb8c8e8',
-                    'ambient_intensity'      => 0.2,
-                    'spot_intensity'         => 0.5,
-                    'fill_intensity'         => 0.15,
-                    'tone_mapping_exposure'  => 0.55,
+                    'ceiling_color'          => '0x14110d',  // warm dark — not grave-black
+                    'ceiling_height'         => 5.2,
+                    'background_color'       => '0x0a0b11',
+                    'fog_color'              => '0x0a0b10',
+                    'fog_near'               => 16,
+                    'fog_far'                => 55,
+                    'ambient_color'          => '0xe6d6bc',
+                    'ambient_intensity'      => 0.26,
+                    'spot_intensity'         => 0.62,
+                    'fill_intensity'         => 0.16,
+                    'tone_mapping_exposure'  => 0.78,
                     'frame_override'         => 'gold',
-                    // ── Iteration 3 "Rooms" declared identity: glazing wall + descriptors.
+                    // ── The venue DECLARES its sky: a city dusk seen through
+                    // the glazing — no HDRI download, no preset fallback (P4).
+                    'environment'            => 'none',
+                    'env_intensity'          => 0,
+                    'hemisphere_intensity'   => 0.14,
+                    // ── Artwork legibility floor (P9).
+                    'artwork_light_base'     => 0.22,
+                    'artwork_light_pool_cap' => 12,
+                    // ── Declared post-processing: restrained bloom + the
+                    // BLACK-blend vignette (P3 — the stock grey veil never
+                    // ships again).
+                    'post_fx'                => [
+                        'bloom'             => true,
+                        'bloom_strength'    => 0.32,
+                        'bloom_threshold'   => 0.85,
+                        'bloom_radius'      => 0.35,
+                        'vignette'          => true,
+                        'vignette_darkness' => 0.5,
+                        'vignette_offset'   => 1.12,
+                        'vignette_blend'    => 'black',
+                    ],
+                    // ── Declared identity: glazing wall + "The Collector's
+                    // Floor" descriptors (l-shape wall anchors land here).
                     'structure_pass'        => 'rooms',
                     'glazing_wall'          => true,
                     'structure'              => [
-            // ── Terrace deck just outside the glazing (towers rise from it).
-            ['id' => 'terrace-deck',   'primitive' => 'box',            'at' => ['from' => 'glazing_outside', 'offset' => [0, 0.04, 2.6]], 'turn' => 'out', 'fit' => 'glazing', 'fit_pad' => 0.1, 'size' => [1, 0.08, 5.0], 'material' => 'dark_trim'],
+            // ── Terrace deck just outside the glazing (warm wood).
+            ['id' => 'terrace-deck',   'primitive' => 'box',            'at' => ['from' => 'glazing_outside', 'offset' => [0, 0.04, 2.6]], 'turn' => 'out', 'fit' => 'glazing', 'fit_pad' => 0.1, 'size' => [1, 0.08, 5.0], 'material' => 'wood_warm'],
             // ── The glazing itself: tier-resolved glass + steel mullions.
-            ['id' => 'glazing-glass',  'primitive' => 'plane',          'at' => ['from' => 'glazing', 'offset' => [0, 2.2, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.06, 'size' => [1, 4.4], 'material' => ['glass' => true, 'tint' => '0xc4d8ea', 'opacity' => 0.18]],
-            ['id' => 'glazing-mullions', 'primitive' => 'instance-grid', 'at' => ['from' => 'glazing', 'offset' => [0, 2.2, 0.05]], 'turn' => 'in', 'size' => [0.06, 4.4, 0.085], 'material' => 'steel_dark', 'merge' => 'ph-steel', 'grid' => ['mode' => 'line', 'from' => 'glazing', 'span' => 'fit', 'fit_pad' => 0.16, 'spacing' => 1.4]],
-            ['id' => 'glazing-sill',   'primitive' => 'box',            'at' => ['from' => 'glazing', 'offset' => [0, 0.05, 0]], 'fit' => 'glazing', 'fit_pad' => 0.02, 'size' => [1, 0.1, 0.1], 'material' => 'steel_dark', 'merge' => 'ph-steel', 'collide' => true],
-            ['id' => 'glazing-head',   'primitive' => 'box',            'at' => ['from' => 'glazing', 'offset' => [0, 4.42, 0]], 'fit' => 'glazing', 'fit_pad' => 0.02, 'size' => [1, 0.12, 0.1], 'material' => 'steel_dark', 'merge' => 'ph-steel'],
-            // ── Terrace rail line (inside the glass, §4.8).
-            ['id' => 'rail-bar',       'primitive' => 'box',            'at' => ['from' => 'glazing', 'offset' => [0, 0.95, 0.55]], 'fit' => 'glazing', 'fit_pad' => 0.5, 'size' => [1, 0.05, 0.05], 'material' => 'steel_dark', 'merge' => 'ph-rail', 'collide' => true],
+            ['id' => 'glazing-glass',  'primitive' => 'plane',          'at' => ['from' => 'glazing', 'offset' => [0, 2.45, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.06, 'size' => [1, 4.9], 'material' => ['glass' => true, 'tint' => '0xc4d8ea', 'opacity' => 0.18]],
+            ['id' => 'glazing-mullions', 'primitive' => 'instance-grid', 'at' => ['from' => 'glazing', 'offset' => [0, 2.45, 0.05]], 'turn' => 'in', 'size' => [0.06, 4.9, 0.085], 'material' => 'steel_dark', 'merge' => 'ph-steel', 'grid' => ['mode' => 'line', 'from' => 'glazing', 'span' => 'fit', 'fit_pad' => 0.16, 'spacing' => 1.4]],
+            ['id' => 'glazing-sill',   'primitive' => 'box',            'at' => ['from' => 'glazing', 'offset' => [0, 0.05, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.02, 'size' => [1, 0.1, 0.1], 'material' => 'steel_dark', 'merge' => 'ph-steel', 'collide' => true],
+            ['id' => 'glazing-head',   'primitive' => 'box',            'at' => ['from' => 'glazing', 'offset' => [0, 5.12, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.02, 'size' => [1, 0.12, 0.1], 'material' => 'steel_dark', 'merge' => 'ph-steel'],
+            // ── Terrace rail line (inside the glass).
+            ['id' => 'rail-bar',       'primitive' => 'box',            'at' => ['from' => 'glazing', 'offset' => [0, 0.95, 0.55]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.5, 'size' => [1, 0.05, 0.05], 'material' => 'steel_dark', 'merge' => 'ph-rail', 'collide' => true],
             ['id' => 'rail-posts',     'primitive' => 'instance-grid',  'at' => ['from' => 'glazing', 'offset' => [0, 0.45, 0.55]], 'turn' => 'in', 'size' => [0.035, 0.9, 0.035], 'material' => 'steel_dark', 'merge' => 'ph-rail', 'grid' => ['mode' => 'line', 'from' => 'glazing', 'span' => 'fit', 'fit_pad' => 0.7, 'spacing' => 1.8]],
-            // ── Night city skyline: distant emissive towers, seeded per
-            // gallery (deterministic §13.6), grounded on the terrace line.
-            ['id' => 'skyline-cool',   'primitive' => 'instance-grid',  'size' => [2.2, 10, 2.2], 'material' => 'tower_cool', 'grid' => ['mode' => 'scatter', 'count' => 9, 'seed' => 'skyline-cool', 'area' => ['from' => 'glazing_outside', 'size' => [26, 0, 30], 'forward' => 5], 'scale_jitter' => [0.55, 2.3], 'grounded' => true, 'yaw_jitter' => [0, 3.14159]]],
-            ['id' => 'skyline-warm',   'primitive' => 'instance-grid',  'size' => [1.5, 14, 1.5], 'material' => 'tower_warm', 'grid' => ['mode' => 'scatter', 'count' => 6, 'seed' => 'skyline-warm', 'area' => ['from' => 'glazing_outside', 'size' => [26, 0, 30], 'forward' => 9], 'scale_jitter' => [0.5, 1.7], 'grounded' => true, 'yaw_jitter' => [0, 3.14159]]],
+            // ── Night city: three depth layers + horizon glow band (dusk
+            // silhouettes first, window-glow second — seeded §13.6).
+            ['id' => 'skyline-cool',   'primitive' => 'instance-grid',  'size' => [2.2, 10, 2.2], 'material' => ['color' => '0x0b1220', 'emissive' => '0x8fb4dd', 'emissiveIntensity' => 0.14], 'grid' => ['mode' => 'scatter', 'count' => 9, 'seed' => 'skyline-cool', 'area' => ['from' => 'glazing_outside', 'size' => [30, 0, 36], 'forward' => 24], 'scale_jitter' => [0.6, 1.5], 'grounded' => true, 'yaw_jitter' => [0, 3.14159]]],
+            ['id' => 'skyline-warm',   'primitive' => 'instance-grid',  'size' => [1.5, 14, 1.5], 'material' => ['color' => '0x12100e', 'emissive' => '0xd8b98f', 'emissiveIntensity' => 0.11], 'grid' => ['mode' => 'scatter', 'count' => 6, 'seed' => 'skyline-warm', 'area' => ['from' => 'glazing_outside', 'size' => [30, 0, 36], 'forward' => 26], 'scale_jitter' => [0.5, 1.2], 'grounded' => true, 'yaw_jitter' => [0, 3.14159]]],
+            ['id' => 'skyline-far',    'primitive' => 'instance-grid',  'size' => [3.4, 22, 3.4], 'material' => ['color' => '0x0d0f16', 'emissive' => '0x5a6f96', 'emissiveIntensity' => 0.10], 'grid' => ['mode' => 'scatter', 'count' => 8, 'seed' => 'skyline-far-b', 'area' => ['from' => 'glazing_outside', 'size' => [50, 0, 64], 'forward' => 30], 'scale_jitter' => [0.5, 1.0], 'grounded' => true, 'yaw_jitter' => [0, 3.14159]]],
+            ['id' => 'horizon-glow',   'primitive' => 'plane',          'at' => ['from' => 'glazing_outside', 'offset' => [0, 6.0, 24]], 'turn' => 'in', 'size' => [64, 10], 'material' => ['color' => '0x0e1017', 'emissive' => '0x8a6a40', 'emissiveIntensity' => 1.0]],
+            // ── Fireplace volume: the wing-A end wall anchor (basalt
+            // monolith + walnut mantel + one warm fire line).
+            ['id' => 'fireplace-stone', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 2.6, 0.11]], 'turn' => 'in', 'fit' => 'wall', 'fit_pad' => 1.6, 'size' => [1, 5.2, 0.2], 'material' => 'basalt'],
+            ['id' => 'fireplace-mantel', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 1.3, 0.32]], 'turn' => 'in', 'size' => [2.6, 0.07, 0.3], 'material' => 'walnut'],
+            ['id' => 'fireplace-band', 'primitive' => 'emissive-strip', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.62, 0.365]], 'turn' => 'in', 'size' => [1.9, 0.16, 0.05], 'material' => ['color' => '0x1a0d06', 'emissive' => '0xff8a3d', 'emissiveIntensity' => 1.5]],
+            ['id' => 'fireplace-hearth', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.03, 0.45]], 'turn' => 'in', 'size' => [3.0, 0.06, 0.55], 'material' => 'basalt'],
+            // ── Perimeter ceiling cove: the visible warm source (no new
+            // dynamic lights — pooled-light budget untouched, PERF-B18).
+            ['id' => 'cove-left',   'primitive' => 'emissive-strip', 'at' => ['from' => 'wall_left', 'up' => 'ceiling', 'offset' => [0, -0.18, 0.22]], 'turn' => 'in', 'fit' => 'wall', 'fit_pad' => 1.0, 'size' => [1, 0.05, 0.09], 'material' => ['color' => '0x201810', 'emissive' => '0xffd9a0', 'emissiveIntensity' => 1.35], 'merge' => 'ph-cove'],
+            ['id' => 'cove-right',  'primitive' => 'emissive-strip', 'at' => ['from' => 'wall_right', 'up' => 'ceiling', 'offset' => [0, -0.18, 0.22]], 'turn' => 'in', 'fit' => 'wall', 'fit_pad' => 1.0, 'size' => [1, 0.05, 0.09], 'material' => ['color' => '0x201810', 'emissive' => '0xffd9a0', 'emissiveIntensity' => 1.35], 'merge' => 'ph-cove'],
+            ['id' => 'cove-inner',  'primitive' => 'emissive-strip', 'at' => ['from' => 'wall_inner', 'up' => 'ceiling', 'offset' => [0, -0.18, 0.22]], 'turn' => 'in', 'fit' => 'wall', 'fit_pad' => 1.0, 'size' => [1, 0.05, 0.09], 'material' => ['color' => '0x201810', 'emissive' => '0xffd9a0', 'emissiveIntensity' => 1.35], 'merge' => 'ph-cove'],
+            ['id' => 'cove-back',   'primitive' => 'emissive-strip', 'at' => ['from' => 'wall_back', 'up' => 'ceiling', 'offset' => [0, -0.18, 0.22]], 'turn' => 'in', 'fit' => 'wall', 'fit_pad' => 1.0, 'size' => [1, 0.05, 0.09], 'material' => ['color' => '0x201810', 'emissive' => '0xffd9a0', 'emissiveIntensity' => 1.35], 'merge' => 'ph-cove'],
+            // ── Bronze base trim: the quiet luxury line.
+            ['id' => 'base-left',   'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 0.07, 0.02]], 'turn' => 'in', 'fit' => 'wall', 'fit_pad' => 0.4, 'size' => [1, 0.14, 0.03], 'material' => 'bronze', 'merge' => 'ph-base'],
+            ['id' => 'base-right',  'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 0.07, 0.02]], 'turn' => 'in', 'fit' => 'wall', 'fit_pad' => 0.4, 'size' => [1, 0.14, 0.03], 'material' => 'bronze', 'merge' => 'ph-base'],
+            ['id' => 'base-inner',  'primitive' => 'box', 'at' => ['from' => 'wall_inner', 'offset' => [0, 0.07, 0.02]], 'turn' => 'in', 'fit' => 'wall', 'fit_pad' => 0.4, 'size' => [1, 0.14, 0.03], 'material' => 'bronze', 'merge' => 'ph-base'],
+            ['id' => 'base-back',   'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 0.07, 0.02]], 'turn' => 'in', 'fit' => 'wall', 'fit_pad' => 0.4, 'size' => [1, 0.14, 0.03], 'material' => 'bronze', 'merge' => 'ph-base'],
             // ── Warm pendant over the lounge (visual pool; no new dynamic
             // light — the pooled-light budget is untouched, PERF-B18).
-            ['id' => 'lounge-pendant', 'primitive' => 'emissive-strip', 'at' => ['from' => 'glazing', 'offset' => [0, 3.55, 1.75]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 2.6, 'size' => [1, 0.045, 0.045], 'material' => ['color' => '0xffd9a8', 'emissive' => '0xffc98a', 'emissiveIntensity' => 2.2]],
-            // ── Lounge group: rug, sofa (base + back + arms), low table.
-            ['id' => 'lounge-rug',     'primitive' => 'plane', 'at' => ['from' => 'glazing', 'offset' => [0, 0.012, 2.0]],  'turn' => 'in', 'rot' => [-1.5707963, 0, 0], 'size' => [3.2, 2.3], 'material' => 'fabric_dark'],
+            ['id' => 'lounge-pendant', 'primitive' => 'emissive-strip', 'at' => ['from' => 'glazing', 'offset' => [0, 4.35, 1.75]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 2.6, 'size' => [1, 0.045, 0.045], 'material' => ['color' => '0xffd9a8', 'emissive' => '0xffc98a', 'emissiveIntensity' => 2.2]],
+            // ── Lounge group: rug, sofa (base + back + arms), low table,
+            // chair, floor lamp, plinth sculpture.
+            ['id' => 'lounge-rug',     'primitive' => 'plane', 'at' => ['from' => 'glazing', 'offset' => [0, 0.012, 2.0]],  'turn' => 'in', 'rot' => [-1.5707963, 0, 0], 'size' => [3.6, 2.6], 'material' => 'fabric_dark'],
             ['id' => 'sofa-base',      'primitive' => 'box',   'at' => ['from' => 'glazing', 'offset' => [0, 0.24, 1.75]],  'turn' => 'in', 'size' => [2.3, 0.48, 0.95], 'material' => 'fabric_warm', 'collide' => true],
             ['id' => 'sofa-back',      'primitive' => 'box',   'at' => ['from' => 'glazing', 'offset' => [0, 0.72, 2.15]],  'turn' => 'in', 'size' => [2.3, 0.5, 0.24],  'material' => 'fabric_warm'],
             ['id' => 'sofa-arm-l',     'primitive' => 'box',   'at' => ['from' => 'glazing', 'offset' => [-1.26, 0.42, 1.78]], 'turn' => 'in', 'size' => [0.22, 0.36, 0.9], 'material' => 'fabric_warm'],
-            ['id' => 'sofa-arm-r',     'primitive' => 'box',   'at' => ['from' => 'glazing', 'offset' => [1.26, 0.42, 1.78]],  'turn' => 'in', 'size' => [0.22, 0.36, 0.9], 'material' => 'fabric_warm'],
+            ['id' => 'sofa-arm-r',     'primitive' => 'box',   'at' => ['from' => 'glazing', 'offset' => [1.26, 0.42, 1.78]], 'turn' => 'in', 'size' => [0.22, 0.36, 0.9], 'material' => 'fabric_warm'],
             ['id' => 'table-top',      'primitive' => 'box',   'at' => ['from' => 'glazing', 'offset' => [0, 0.34, 0.9]],   'turn' => 'in', 'size' => [1.15, 0.05, 0.55], 'material' => 'wood_dark'],
             ['id' => 'table-pedestal', 'primitive' => 'box',   'at' => ['from' => 'glazing', 'offset' => [0, 0.15, 0.9]],   'turn' => 'in', 'size' => [0.5, 0.3, 0.35],  'material' => 'dark_trim', 'collide' => true],
+            ['id' => 'chair-seat',     'primitive' => 'box',   'at' => ['from' => 'glazing', 'offset' => [-1.95, 0.3, 2.9]], 'turn' => 'in', 'size' => [0.85, 0.44, 0.85], 'material' => 'fabric_dark', 'collide' => true],
+            ['id' => 'chair-back',     'primitive' => 'box',   'at' => ['from' => 'glazing', 'offset' => [-1.95, 0.63, 3.35]], 'turn' => 'in', 'size' => [0.12, 0.55, 0.85], 'material' => 'fabric_dark'],
+            ['id' => 'lamp-pole',      'primitive' => 'cylinder', 'at' => ['from' => 'glazing', 'offset' => [2.05, 0.8, 2.6]], 'turn' => 'in', 'size' => [0.035, 1.6, 0.035], 'material' => 'steel_dark'],
+            ['id' => 'lamp-shade',     'primitive' => 'emissive-strip', 'at' => ['from' => 'glazing', 'offset' => [2.05, 1.68, 2.6]], 'turn' => 'in', 'size' => [0.36, 0.32, 0.36], 'material' => ['color' => '0x2a2018', 'emissive' => '0xffd9a0', 'emissiveIntensity' => 0.8]],
+            ['id' => 'plinth',         'primitive' => 'cylinder', 'at' => ['from' => 'glazing', 'offset' => [2.35, 0.55, 4.35]], 'turn' => 'in', 'size' => [0.42, 1.1, 0.42], 'material' => 'basalt', 'collide' => true],
+            ['id' => 'sculpture-torus', 'primitive' => 'torus', 'at' => ['from' => 'glazing', 'offset' => [2.35, 1.42, 4.35]], 'turn' => 'in', 'size' => [0.3, 0.09, 0.3], 'params' => ['seg' => 24, 'seg2' => 48], 'material' => 'bronze'],
+            // ── Gallery-wing bench: under the west-face hang, never
+            // blocking the walk (0.47 m top, 0.85 m below the canvases).
+            ['id' => 'bench-top',      'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 0.44, 0.42]], 'turn' => 'in', 'size' => [2.2, 0.06, 0.45], 'material' => 'walnut'],
+            ['id' => 'bench-base',     'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 0.21, 0.42]], 'turn' => 'in', 'size' => [2.0, 0.42, 0.38], 'material' => 'dark_trim', 'collide' => true],
+            // ── Stone slab joints: the large-format floor scale cue
+            // (procedural grout grid — zero new assets, §14).
+            ['id' => 'floor-joints',   'primitive' => 'instance-grid', 'size' => [5.4, 0.012, 0.028], 'material' => ['color' => '0x40372a', 'roughness' => 0.55, 'metalness' => 0.02], 'grid' => ['mode' => 'box', 'area' => ['from' => 'center', 'y' => 0.006, 'size' => ['fit' => 'room', 'pad' => [0.3, 0.9]]], 'spacing' => [0, 0, 2.4]]],
         ],
                 ],
                 'material_config' => [
-                    'wall_color'             => null,
-                    'wall_roughness'         => 0.8,
+                    'wall_color'             => '0xe9e2d4',
+                    'wall_roughness'         => 0.9,
                     'wall_metalness'         => 0.0,
                     'wall_normal_strength'   => 0.3,
-                    'floor_color'            => null,
-                    'floor_roughness'        => 0.3,
-                    'floor_metalness'        => 0.2,
-                    'floor_normal_strength'  => 0.5,
+                    'floor_color'            => '0x9b8d78',
+                    'floor_roughness'        => 0.42,
+                    'floor_metalness'        => 0.06,
+                    'floor_normal_strength'  => 0.35,
+                    // The declared colours ARE the identity (textured builds
+                    // tint by them); slab scale for the honed stone floor.
+                    'texture_tint'           => true,
+                    'floor_tile_meters'      => 2.4,
                 ],
                 'decorations'       => [],
-                'lighting_fixtures' => [],
+                // ── The fire becomes real light: one warm anchored point at
+                // the fireplace band (resolved post-layout via wall_front).
+                'lighting_fixtures' => [
+                    ['id' => 'fire-glow', 'type' => 'point', 'anchor' => ['from' => 'wall_front', 'offset' => [0, 0.95, 1.1]], 'color' => '0xff9a50', 'intensity' => 16, 'distance' => 7, 'decay' => 1.8, 'cast_shadow' => false],
+                    ['id' => 'hearth-wash', 'type' => 'point', 'anchor' => ['from' => 'wall_front', 'offset' => [0, 4.2, 1.3]], 'color' => '0xffd9a0', 'intensity' => 3.5, 'distance' => 5, 'decay' => 1.6, 'cast_shadow' => false],
+                ],
                 'supported_layouts' => ['square', 'l-shape'],
             ],
 
@@ -1287,7 +1352,7 @@ class VenueTemplateSeeder extends Seeder
             ['id' => 'rail-right', 'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
             // ── Bench — the domestic datum (§4.5 convention, centred),
             // colliding so walkers respect it.
-            ['id' => 'bench-top',  'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0, 0.42, 1.4]], 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'salon-bench', 'tier_floor' => 'low'],
+            ['id' => 'bench-top',  'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0, 0.42, 1.4]], 'turn' => 'in', 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'salon-bench', 'tier_floor' => 'low'],
             ['id' => 'bench-leg-l', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [-0.65, 0.19, 1.4]], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'salon-bench', 'tier_floor' => 'low'],
             ['id' => 'bench-leg-r', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0.65, 0.19, 1.4]], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'salon-bench', 'tier_floor' => 'low'],
             // ── Rug — the one warm floor note. Flat: walkable, not an

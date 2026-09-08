@@ -41,7 +41,7 @@ import { resolveReflectionMode } from './TierResolve.js';
 // Iteration 3 "Rooms": the generic structure-descriptor interpreter (§10.3).
 // Zero slug knowledge — venues opt in per config key (structure_pass +
 // structure). Zen / Penthouse / Cyber are the vocabulary's first consumers.
-import { buildStructure } from './StructureBuilder.js';
+import { buildStructure, resolveAnchor } from './StructureBuilder.js';
 
 // Iteration 6 "Consolidation" (P2.2 + P2.3): the opt-in curator layer.
 import { resolveSpacing } from './PlacementCuration.js';
@@ -162,8 +162,20 @@ export function applyVenueConfig(cfg) {
     if (Array.isArray(cfg.decorations) && cfg.decorations.length) {
         this.loadDecorations(cfg.decorations);
     }
-    if (Array.isArray(cfg.lighting_fixtures) && cfg.lighting_fixtures.length) {
-        this.addCustomLights(cfg.lighting_fixtures);
+    // ── ANCHORED FIXTURES (Luxury Penthouse identity pass) ────────────
+    // A fixture may declare `anchor: { from, offset: [side, up, forward],
+    // turn }` instead of an absolute `position` — the same grammar the
+    // structure descriptors speak. Anchored fixtures can only resolve
+    // AFTER the room builds (the anchors are derived from _layoutMeta /
+    // _glazing), so they are stashed here and resolved in
+    // addVenueStructure; absolute fixtures keep the historic boot path
+    // byte-identically (a fixture without `anchor` never takes the new
+    // code path — §11.3 rule 2).
+    const fixtures = Array.isArray(cfg.lighting_fixtures) ? cfg.lighting_fixtures : [];
+    this._venueAnchoredFixtures = fixtures.filter(f => f && f.anchor);
+    const absoluteFixtures = fixtures.filter(f => !f || !f.anchor);
+    if (absoluteFixtures.length) {
+        this.addCustomLights(absoluteFixtures);
     }
     if (cfg.hdri_url) this._customHdriUrl = cfg.hdri_url;
 }
@@ -277,6 +289,32 @@ export function addVenueStructure(data) {
     // Iteration 3: hangable surfaces are (re)built WITH the structure — a
     // Live-Preview rebuild must never accumulate stale surfaces.
     this._hangableSurfaces = [];
+
+    // ── ANCHORED FIXTURES resolution (runs here because the anchors only
+    // exist after the room built; see applyVenueConfig for the split).
+    // Live-Preview rebuilds re-run addVenueStructure, so re-resolving is
+    // idempotent per build — the same guarantee the structure itself has.
+    if (Array.isArray(this._venueAnchoredFixtures) && this._venueAnchoredFixtures.length) {
+        const resolved = [];
+        for (const f of this._venueAnchoredFixtures) {
+            const a = resolveAnchor(this, f.anchor?.from);
+            if (!a) continue;                  // anchor unavailable on this layout — skip, never guess
+            const o = f.anchor.offset || [0, 0, 0];
+            const fx = a.fwd[0], fz = a.fwd[2];
+            const sx = fz, sz = -fx;           // side = up × fwd (horizontal)
+            const baseY = f.anchor.up === 'ceiling' ? (a.height || 4) : 0;
+            resolved.push({
+                ...f,
+                anchor: undefined,
+                position: [
+                    a.pos[0] + sx * o[0] + fx * o[2],
+                    baseY + o[1],
+                    a.pos[2] + sz * o[0] + fz * o[2],
+                ],
+            });
+        }
+        if (resolved.length) this.addCustomLights(resolved);
+    }
 
     // ── Iteration 6 "Consolidation" (P2.2): the slug if/else chain is GONE.
     // structure_pass is the SINGLE interpreter selector and stays the

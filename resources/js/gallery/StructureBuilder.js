@@ -114,6 +114,11 @@ export const SB_MATERIALS = Object.freeze({
     fabric_warm:  { color: '0x6a5a48', roughness: 1.00, metalness: 0.00 },
     fabric_dark:  { color: '0x2e2a26', roughness: 1.00, metalness: 0.00 },
     crate_wood:   { color: '0x6a5230', roughness: 0.90, metalness: 0.00 },
+    // v2.0.0 additive presets (Luxury Penthouse identity pass). New KEYS
+    // only — every existing preset keeps its exact values, so venues that
+    // reference the map render bit-identically (§11.3 rule 2).
+    walnut:       { color: '0x4a3421', roughness: 0.55, metalness: 0.08 },
+    basalt:       { color: '0x4a4e57', roughness: 0.35, metalness: 0.05 },
     neon_cyan:    { color: '0x00e5ff', emissive: '0x00e5ff', emissiveIntensity: 2.4 },
     neon_magenta: { color: '0xd500fa', emissive: '0xd500fa', emissiveIntensity: 2.4 },
     tower_cool:   { color: '0x0b1220', emissive: '0x8fb4dd', emissiveIntensity: 0.55 },
@@ -133,7 +138,21 @@ export function validateStructure(entries) {
             errors.push(`${at}: unknown primitive "${e.primitive}"`);
         }
         if (e.at === undefined || e.at === null) {
-            errors.push(`${at}: missing "at"`);
+            // VALIDATOR FIX (Penthouse audit): grid entries that SELF-ANCHOR
+            // via their grid/cloud area were rejected here — which silently
+            // skipped the ENTIRE v1.0.0 penthouse structure (its scatter
+            // skyline carries no anchor; one invalid entry invalidates the
+            // whole array). A scatter/box instance-grid and a points-cloud
+            // resolve their positions from grid.area / cloud.area; `at` is
+            // only REQUIRED for entries the interpreter actually anchors
+            // (line grids place along the anchor's side axis).
+            const selfAnchored =
+                (e.primitive === 'instance-grid' &&
+                    (e.grid?.mode === 'scatter' || e.grid?.mode === 'box')) ||
+                e.primitive === 'points-cloud';
+            if (!selfAnchored) {
+                errors.push(`${at}: missing "at"`);
+            }
         } else if (Array.isArray(e.at)) {
             if (e.at.length !== 3 || e.at.some(v => typeof v !== 'number')) {
                 errors.push(`${at}: "at" array must be 3 numbers`);
@@ -264,7 +283,52 @@ export function resolveAnchor(ctx, from) {
         }
     }
 
-    return null; // l-shape / rotunda / circular: only center + glazing anchors
+    // ── L-SHAPE WALL ANCHORS (Luxury Penthouse identity pass, v2.0.0) ────
+    // The l-shape used to expose ONLY 'center' + 'glazing' — descriptor
+    // entries could not attach any architecture to a wing wall (trim, cove,
+    // fireplace, or the wall itself were all unreachable from config).
+    // Derived purely from _layoutMeta (the same numbers createRoomLShape
+    // built the walls from — no drift possible):
+    //
+    //   wing A (x ∈ [0, wingW], z ∈ [−lenA/2, lenA/2]) — the gallery corridor
+    //     wall_left   x=0 run     (inner face +d/2, faces +x, span lenA)
+    //     wall_front  z=−lenA/2   (inner face, faces +z, span wingW)
+    //     wall_right  x=wingW run z ∈ [−lenA/2, jZ] (faces −x, span jZ+lenA/2)
+    //   wing B (x ∈ [wingW, wingW+lenB], z ∈ [jZ, lenA/2]) — the lounge wing
+    //     wall_inner  z=jZ        (faces +z into wing B, span lenB)
+    //     wall_back   z=lenA/2    (the colinear south run, span wingW+lenB)
+    //   + the five _outside mirrors (offset AWAY, fwd inverted).
+    //
+    // Rollback: no shipped descriptor referenced wall anchors on l-shape
+    // (v1.0.0 rows anchor only 'glazing'/'glazing_outside'/'center'), so
+    // every existing venue renders BIT-IDENTICALLY whether or not this
+    // block exists — the anchors were simply skipped before (§11.3 rule 2:
+    // the config is the only on-switch).
+    if (type === 'l-shape') {
+        const W  = meta.wingW;
+        const LA = meta.lenA;
+        const LB = meta.lenB;
+        const jz = meta.jZ;
+        const hi = d / 2;            // wall centreline → inner face
+        const zA = -LA / 2;          // wing A south wall centreline
+        const zS =  LA / 2;          // shared south run centreline
+        switch (from) {
+            // wing A — the gallery corridor
+            case 'wall_left':          return horizontal(hi, 0, 1, 0, LA);
+            case 'wall_left_outside':  return horizontal(-hi, 0, -1, 0, LA);
+            case 'wall_front':         return horizontal(W / 2, zA + hi, 0, 1, W);
+            case 'wall_front_outside': return horizontal(W / 2, zA - hi, 0, -1, W);
+            case 'wall_right':         return horizontal(W - hi, (zA + jz) / 2, -1, 0, jz - zA);
+            case 'wall_right_outside': return horizontal(W + hi, (zA + jz) / 2, 1, 0, jz - zA);
+            // wing B — the lounge wing
+            case 'wall_inner':           return horizontal(W + LB / 2, jz + hi, 0, 1, LB);
+            case 'wall_inner_outside':   return horizontal(W + LB / 2, jz - hi, 0, -1, LB);
+            case 'wall_back':            return horizontal((W + LB) / 2, zS - hi, 0, -1, W + LB);
+            case 'wall_back_outside':    return horizontal((W + LB) / 2, zS + hi, 0, 1, W + LB);
+        }
+    }
+
+    return null; // rotunda / circular: only center + glazing anchors
 }
 
 // ── Area resolution (instance-grid box/scatter + points-cloud) ───────────────
@@ -436,9 +500,20 @@ export function buildStructure(ctx, entries) {
         if (!resolveTierFloor(e.tier_floor, { isLowEnd: !!ctx.isLowEnd, isMobileTier: !!ctx._isMobileTier })) continue;
 
         // 2. Anchor + transform.
+        // DISPATCH FIX (Penthouse audit): scatter/box instance-grids and
+        // points-clouds SELF-ANCHOR through grid.area / cloud.area — they
+        // never hit the anchor resolver, which returned null for a missing
+        // `at` and silently skipped the entry (the v1.0.0 skyline died
+        // exactly here, one layer below the validator gate).
+        const selfAnchored =
+            (e.primitive === 'instance-grid' &&
+                (e.grid?.mode === 'scatter' || e.grid?.mode === 'box')) ||
+            e.primitive === 'points-cloud';
         let pos, fwd = null, yaw = 0;
         if (Array.isArray(e.at)) {
             pos = e.at;
+        } else if (selfAnchored && e.at === undefined) {
+            pos = [0, 0, 0];                        // grid/cloud.area does the placing
         } else {
             const a = resolveAnchor(ctx, e.at?.from);
             if (!a) continue;                       // anchor unavailable on this layout
