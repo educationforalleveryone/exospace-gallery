@@ -47,6 +47,14 @@ export const FLOAT_LAYOUT_DEFAULTS = Object.freeze({
     // single-ring layout bit-exactly.
     depthBands: 1,
     bandGap: 3.0,
+    // v2.2.0 (generic, Nebula Drift identity pass): per-band ELEVATION step
+    // (metres). Band 0 keeps the legibility band (1.6 ± wander); each inner
+    // band hovers `elevationStep` higher, so a banded hang reads as a
+    // drifting 3D constellation — suspended in the venue's atmosphere —
+    // instead of flat rings at desk height. Opt-in per config
+    // (visual_config.placement.elevation_step); default 0 = bit-exact
+    // historic behaviour for every venue that doesn't declare it.
+    elevationStep: 0,
     // Bands activate only past this count — a 6-piece show stays a calm
     // single ring; a 30-piece show gains its depth composition.
     depthBandsMinCount: 12,
@@ -145,8 +153,9 @@ export function computeFloatLayout(count, radius, rng, opts = {}) {
         const r = (radius - o.edgeInset - band * o.bandGap)
             + (rng.next() - 0.5) * o.radialWander;
 
-        // Seeded hover height inside the legibility band.
-        const y = o.baseHeight + (rng.next() - 0.5) * o.heightWander;
+        // Seeded hover height inside the legibility band. Inner bands rise
+        // by the venue's declared elevation step (0 = historic flat rings).
+        const y = o.baseHeight + (rng.next() - 0.5) * o.heightWander + band * o.elevationStep;
 
         // Seeded roll around the view axis.
         const roll = (rng.next() - 0.5) * 2 * o.maxRoll;

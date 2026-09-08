@@ -407,7 +407,13 @@ export function _placeArtworksFloating(data) {
     // from the same seed and is therefore still deterministic.
     const rng = this._venueRng || createVenueRng(venueSeedSource(this._venueSlug));
     const bandsWanted = Math.max(1, Math.floor(this._venuePlacement?.depth_bands || 1));
-    const layout = computeFloatLayout(this.artworkImages.length, radius, rng, { depthBands: bandsWanted });
+    const layout = computeFloatLayout(this.artworkImages.length, radius, rng, {
+        depthBands: bandsWanted,
+        // v2.2.0 (generic): visual_config.placement.elevation_step lifts each
+        // inner band (metres) — the hang composes vertically as well as in
+        // depth. Undeclared ⇒ 0 ⇒ every existing venue is bit-identical.
+        elevationStep: Number(this._venuePlacement?.elevation_step) || 0,
+    });
 
     this.artworkImages.forEach((img, i) => {
         const p = layout[i];

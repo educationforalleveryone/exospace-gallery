@@ -97,6 +97,11 @@ const SCENARIOS = [
       cam: { p: [0, 1.6, 9],   t: [0, 2.0, 0] } },
     { id: 'nebula-cam-up',        q: 'venue=nebula-drift&count=12',
       cam: { p: [0, 1.6, 0],   t: [0, 7.2, 11] } },
+    // v2.2.0 identity pose — the arch CROWN. bandYaw is seeded per venue;
+    // for the harness seed the crown sits toward -Z + X, so this forensic
+    // pose frames the luminous core (the composition's hierarchy evidence).
+    { id: 'nebula-cam-crown',     q: 'venue=nebula-drift&count=12',
+      cam: { p: [0, 1.6, 0],   t: [5, 10, -8] } },
     // Tier degradation: the Deep Field must read on Lambert (low) —
     // composition carries the identity, motion does not.
     { id: 'nebula-tier-low-06',   q: 'venue=nebula-drift&count=6', tier: 'low' },

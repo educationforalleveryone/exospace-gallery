@@ -1517,7 +1517,7 @@ function addFloatLightPools() {
     const mat = new THREE.MeshBasicMaterial({
         map: makeRadialPoolTexture(),
         transparent: true,
-        opacity: isLowEnd ? 0.12 : 0.15,
+        opacity: isLowEnd ? 0.16 : 0.22,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         // Scene fog applies — far pools melt into the floor's depth haze
@@ -1529,7 +1529,7 @@ function addFloatLightPools() {
     const p = new THREE.Vector3();
     const s = new THREE.Vector3();
     artworks.forEach((art, i) => {
-        const poolR = 2.3 + rng.next() * 0.7; // seeded size rhythm
+        const poolR = 2.6 + rng.next() * 0.8; // seeded size rhythm
         p.set(art.position.x, 0.02, art.position.z);
         s.set(poolR, poolR, 1);
         m.compose(p, q, s);
@@ -1552,8 +1552,8 @@ function makeRadialPoolTexture() {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
     const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    grad.addColorStop(0, 'rgba(190,200,235,0.55)');
-    grad.addColorStop(0.45, 'rgba(170,185,225,0.22)');
+    grad.addColorStop(0, 'rgba(190,200,235,0.62)');
+    grad.addColorStop(0.45, 'rgba(170,185,225,0.26)');
     grad.addColorStop(1, 'rgba(160,175,220,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, size, size);
@@ -2482,10 +2482,12 @@ function addCrystalCathedralLegacyShards(radius) {
 // every artwork stays immediately readable. Identity comes from COMPOSITION
 // (layers, band, silhouettes, pools) — never from bloom or saturation:
 //
-//   FAR   the galactic band — a tilted plane of seeded nebula-mass sprites
-//         (two shells: huge/faint, closer/denser) precessing around the
-//         band's own axis at two tiny opposite angular velocities; a dense
-//         stratum of band-weighted stars rides the same frame;
+//   FAR   the galactic band — one immense ARCH across the upper sky (a
+//         steeply tilted great circle, sprite azimuths biased around the
+//         arch crown) in two shells: huge/faint, closer/denser; the arch
+//         precesses around the vertical at two tiny rates (same sense →
+//         coherent band, layered shear); a dense stratum of band-weighted
+//         stars rides the same frame;
 //   FAR   colossal dark monolith silhouettes occluding the band glow —
 //         the scale-ambiguity cue (§8): enormous, unmeasurable, still;
 //   MID   an all-sky two-strata NEUTRAL starfield (white → blue-white,
@@ -2510,9 +2512,9 @@ function addCrystalCathedralLegacyShards(radius) {
 // sine, no screensaver. Reduced-motion + low-end: all motion rests, the
 // composition alone carries the identity (§35).
 //
-// PERF (§21): ≈ 16 draws / < 20k tris for the whole body (10 sprite draws,
-// 3 star draws, 1 instanced monolith draw, 1 current draw, 1 ring) — the
-// sky is quads and points, the depth is composition, not geometry. With
+// PERF (§21): ≈ 18 draws / < 20k tris for the whole body (10 sprite draws,
+// 3 star draws, 1 instanced monolith draw, 1 current draw, ring + halo) —
+// the sky is quads and points, the depth is composition, not geometry. With
 // environment 'none' the night.hdr download disappears entirely.
 // Deterministic: every placement and texture blob comes from the venue's
 // seeded rng in a fixed call order; drift is a pure function of time.
@@ -2530,18 +2532,39 @@ function addNebulaDeepfield(radius) {
 
     this._particleSystems = this._particleSystems || [];
 
-    // ── 1. The galactic band — two sprite shells in one tilted frame ──────
-    // The band is a GROUP (tilt, static) → spin group (precesses around the
-    // band's own axis) → sprites. Sprites always face the camera, so the
-    // rotation reads as the masses themselves drifting along the band.
-    const bandTilt = 0.38 + rng.next() * 0.1;   // ≈ 22–27° from horizontal
+    // ── 1. The galactic band — one immense arch across the upper sky ──────
+    // A galactic band is a great circle: it must ARCH overhead and descend
+    // toward the horizon. The v2.0.0 band sat 22–27° from horizontal, so
+    // every mass hugged the horizon plane — the overhead sky stayed empty
+    // (the cam-up evidence frame proved it) and the deployed venue read as
+    // "Infinite Void in blue". Tilt is now ≈ 55–62° and sprite azimuths are
+    // TRIANGULAR-BIASED around the arch crown (see bandSprite), so the
+    // masses compose one immense glowing arch over the exhibition (§10: a
+    // large-scale formation with silhouette and scale, never wallpaper).
+    //
+    // Precession: the drift-rotate handler increments rotation.y, so driving
+    // it on the TILT group yaws the whole arch around the visitor at
+    // constant world heights — the sky wheels like a slow celestial
+    // structure (§9: the atmosphere moves, the exhibition rests). The
+    // v2.0.0 inner spin rotated masses THROUGH the floor plane, where the
+    // opaque floor fade clipped them; the arch never sinks now, and the
+    // two shells run at slightly different rates in the SAME sense so the
+    // band stays one coherent structure whose layers shear by ≈ 8°/3 min.
+    const bandTilt = 0.96 + rng.next() * 0.12;  // ≈ 55–62° from horizontal
     const bandYaw  = rng.next() * Math.PI * 2;  // band azimuth, seeded per venue
+
+    // World azimuth of the arch crown (band-local azimuth π — the tilted
+    // ring's highest point). Monolith silhouettes are seeded against it so
+    // the band glow passes directly behind them (computed through the same
+    // Euler transform the scene graph applies — exact parity).
+    const archCrownAz = (() => {
+        const v = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(bandTilt, bandYaw, 0));
+        return Math.atan2(v.x, v.z);
+    })();
 
     const makeShell = (defs, dist, speed) => {
         const tilt = new THREE.Group();
         tilt.rotation.set(bandTilt, bandYaw, 0);
-        const spin = new THREE.Group();
-        tilt.add(spin);
         for (const d of defs) {
             // Textures are cached per (colour × resolution) and shared — the
             // masses differ through SCALE, SEEDED SCREEN ROTATION and layer
@@ -2556,7 +2579,12 @@ function addNebulaDeepfield(radius) {
                 // texture's own 0.05–0.14 blob alpha → the whole band
                 // rendered at ~2% and read as bare black. The texture now
                 // carries real body — see makeNebulaMassTexture — and the
-                // material opacity is the only dimmer.)
+                // material opacity is the only dimmer. The v2.0.0 opacities
+                // were STILL sub-threshold at production distances — the
+                // deployed frame's band read as a faint haze while only the
+                // saturated rose accent punched through. Lifted 20–35%
+                // across the board: readable at a glance, still far from
+                // screensaver territory.)
                 opacity: d.opacity,
                 blending: THREE.AdditiveBlending,
                 depthWrite: false,
@@ -2566,11 +2594,14 @@ function addNebulaDeepfield(radius) {
             s.position.set(d.x, d.y, d.z);
             s.scale.setScalar(d.size);
             s.renderOrder = -9;
-            spin.add(s);
+            tilt.add(s);
         }
         this.scene.add(tilt);
-        this._particleSystems.push({ obj: spin, type: 'drift-rotate', speed });
-        return spin;
+        // The tilt group itself precesses: the arch wheels around the
+        // visitor; its world heights never change, so nothing ever sinks
+        // into the floor plane.
+        this._particleSystems.push({ obj: tilt, type: 'drift-rotate', speed });
+        return tilt;
     };
 
     // Lazy texture cache — created in fixed call order, so the seeded rng
@@ -2582,25 +2613,51 @@ function addNebulaDeepfield(radius) {
         return massTexCache.get(key);
     };
 
-    // Sprite placement on the band plane: azimuth uniform, band-local height
-    // small (the band is a BAND, not a sphere), a couple of outliers keep it
-    // from reading as a ring. Sizes are fractions of the venue radius so the
+    // Sprite placement on the band plane: azimuth TRIANGULAR-BIASED around
+    // the arch crown (see below), band-local height seeded (the band is a
+    // BAND, not a sphere). Sizes are fractions of the venue radius so the
     // composition scales from 5-work salons to 40-work halls.
-    const bandSprite = (shellR, sizeF, hF) => {
-        const a = rng.next() * Math.PI * 2;
+    // v2.2.0: also returns the band-local azimuth `a` — the luminosity
+    // profile (crownWeight) needs each mass's angular distance from the
+    // crown, and the masses' own opacity must be a pure function of it.
+    const bandSprite = (shellR, sizeF, hF, span) => {
+        // Triangular distribution centred on the crown (band-local azimuth
+        // π): dense at the top of the arch, thinning toward its ends. The
+        // v2.0.0 uniform ring put half of every mass on the far side of the
+        // sky (and below the horizon plane) — the arch concentrates the
+        // composition instead. `span` caps how far from the crown a mass may
+        // sit: features stay ≤ 1.45 (centres never meaningfully sink below
+        // the horizon plane), haze runs wider so the arch grows soft skirts.
+        const a = Math.PI + (rng.next() + rng.next() - 1) * span;
         const h = (rng.next() - 0.5) * 2 * hF * shellR;
         return {
             x: Math.sin(a) * shellR, y: h, z: Math.cos(a) * shellR,
             size: shellR * sizeF * (0.8 + rng.next() * 0.4),
+            a,
         };
     };
 
-    // The band backbone — EVEN azimuth slots (+ jitter) guaranteeing no
-    // viewing direction is bare; alternating palette for tonal variety.
-    const bandHaze = (shellR, count, sizeF, hF, opMin, opMax, colA, colB, rngSrc) => {
+    // v2.2.0 K1 — THE ARCH HAS A LUMINOSITY PROFILE. The v2.1.0 frame's
+    // residual failure: the band read as one soft corner GLOW PATCH while
+    // the rest of the sky stayed black — every mass rendered at the same
+    // mid opacity, so nothing in the sky had hierarchy and the eye found
+    // no “core”. Real galactic structure is brightest at its centre and
+    // thins toward the limbs. The crown region (band-local azimuth ≈ π)
+    // now renders up to ×1.15 the mass base opacity; the arch ends never
+    // fall below ×0.7 (they must still read as THE SAME structure, not
+    // detach into scattered fog). Pure function of the seeded azimuth —
+    // determinism contract intact.
+    const crownWeight = (a, span) => {
+        const t = Math.min(1, Math.abs(Math.PI - a) / Math.max(0.001, span));
+        return 0.7 + 0.45 * (0.5 + 0.5 * Math.cos(t * Math.PI));
+    };
+
+    // The band backbone — the arch's soft body between the feature masses;
+    // alternating palette for tonal variety.
+    const bandHaze = (shellR, count, sizeF, hF, opMin, opMax, colA, colB, rngSrc, span) => {
         const defs = [];
         for (let j = 0; j < count; j++) {
-            const a  = (j / count) * Math.PI * 2 + (rngSrc.next() - 0.5) * 0.4;
+            const a  = Math.PI + (rngSrc.next() + rngSrc.next() - 1) * span;
             const h  = (rngSrc.next() - 0.5) * 2 * hF * shellR;
             defs.push({
                 x: Math.sin(a) * shellR, y: h, z: Math.cos(a) * shellR,
@@ -2612,38 +2669,102 @@ function addNebulaDeepfield(radius) {
         return defs;
     };
 
+    // v2.2.0 K1/K2 — feature opacities lifted ~30% over v2.1.0 (which was
+    // still sub-perceptual at spawn distance) and the backbone haze lifted
+    // +2 puffs and +0.1 opacity so the arch reads as ONE continuous river
+    // of luminosity rather than scattered blobs on black. The crown-weight
+    // profile multiplies each feature's base — hierarchy without hue drift.
+    //
+    // K1b — DEEP MASSES. Additive blending can only ADD light, so tonal
+    // structure cannot come from darkening — it comes from CONTRAST. The
+    // v2.1.0 crown read as one uniform blue glow ball: bright sprites
+    // stacked into a soft field with nothing dimmer between them. These
+    // half-luminance indigo bodies set BETWEEN the bright features read as
+    // the darker nebular material real deep-field photographs show — the
+    // mottled depth that separates "nebula" from "blue fog" (§1 density
+    // variation), at zero extra light in the sky.
     const farR = radius * 3.1;
-    const farSpin = makeShell(
+    const DEEP = DOMINANT.clone().multiplyScalar(0.45);
+    const feature = (shellR, sizeF, hF, span, base, color) => {
+        const d = bandSprite(shellR, sizeF, hF, span);
+        return { ...d, color, opacity: Math.min(0.92, base * crownWeight(d.a, span)) };
+    };
+    const deepMass = (shellR, sizeF, hF, span, base) => {
+        const d = bandSprite(shellR, sizeF, hF, span);
+        return { ...d, color: DEEP, opacity: base }; // no crown weight — deep bodies stay dim everywhere
+    };
+    const farTilt = makeShell(
         [
-            { ...bandSprite(farR, 1.9, 0.16), color: DOMINANT,  opacity: 0.5 },
-            { ...bandSprite(farR, 1.6, 0.16), color: DOMINANT,  opacity: 0.42 },
-            { ...bandSprite(farR, 1.5, 0.2),  color: SECONDARY, opacity: 0.38 },
-            { ...bandSprite(farR, 1.4, 0.2),  color: SECONDARY, opacity: 0.34 },
-            // The band backbone: evenly spaced haze puffs (arithmetic slots +
-            // seeded jitter — the rhythm is arithmetic, the character is
-            // seeded). Without it the discrete feature masses leave azimuthal
-            // gaps and half the sky reads bare black. Low-end skips it — 20
-            // large additive sprites are fill-rate that tier does not have;
-            // the feature masses carry the identity alone.
-            ...(isLowEnd ? [] : bandHaze(farR, 12, 1.15, 0.14, 0.16, 0.22, DOMINANT, SECONDARY, rng)),
+            feature(farR, 1.9, 0.2,  1.3,  0.8,  DOMINANT),
+            deepMass(farR, 1.35, 0.22, 1.5, 0.5),
+            feature(farR, 1.6, 0.2,  1.38, 0.72, DOMINANT),
+            feature(farR, 1.5, 0.22, 1.42, 0.66, SECONDARY),
+            deepMass(farR, 1.2,  0.24, 1.6, 0.45),
+            feature(farR, 1.4, 0.22, 1.45, 0.6,  SECONDARY),
+            // The band backbone: seeded haze (triangular around the crown —
+            // the arch's soft body between the feature masses, with wide
+            // skirts so the arch ends dissolve toward the horizon instead of
+            // stopping). Low-end skips it — large additive sprites are
+            // fill-rate that tier does not have; the feature masses carry
+            // the identity alone.
+            // v2.2.0: skirts widened to 2.8 rad — the arch's haze reaches
+            // further around the horizon so a level view on the far side
+            // from the crown still catches the band's glow (the crown
+            // azimuth is seeded; the STRUCTURE must not be invisible from
+            // any arrival direction).
+            ...(isLowEnd ? [] : bandHaze(farR, 16, 1.15, 0.24, 0.3, 0.42, DOMINANT, SECONDARY, rng, 2.8)),
         ],
-        farR, 0.0032,
+        farR, 0.0034,
     );
 
     const midR = radius * 2.15;
     makeShell(
         [
-            { ...bandSprite(midR, 1.05, 0.18), color: DOMINANT,  opacity: 0.52 },
-            { ...bandSprite(midR, 0.9,  0.18), color: DOMINANT,  opacity: 0.46 },
-            { ...bandSprite(midR, 0.8,  0.22), color: SECONDARY, opacity: 0.42 },
-            { ...bandSprite(midR, 0.7,  0.22), color: SECONDARY, opacity: 0.38 },
-            { ...bandSprite(midR, 0.6,  0.26), color: DOMINANT,  opacity: 0.36 },
-            // THE rare warm accent — the band's core, one sprite in the venue.
-            { ...bandSprite(midR, 0.42, 0.12), color: ACCENT,    opacity: 0.5 },
-            ...(isLowEnd ? [] : bandHaze(midR, 8, 0.62, 0.16, 0.18, 0.26, DOMINANT, SECONDARY, rng)),
+            feature(midR, 1.05, 0.2,  1.3,  0.85, DOMINANT),
+            deepMass(midR, 0.95, 0.22, 1.55, 0.42),
+            feature(midR, 0.9,  0.2,  1.36, 0.76, DOMINANT),
+            feature(midR, 0.8,  0.22, 1.4,  0.68, SECONDARY),
+            deepMass(midR, 0.8,  0.24, 1.6,  0.38),
+            feature(midR, 0.7,  0.22, 1.42, 0.62, SECONDARY),
+            feature(midR, 0.6,  0.24, 1.45, 0.56, DOMINANT),
+            // THE rare warm accent — the band's core, one sprite in the
+            // venue, seeded INTO the arch near its crown (the v2.0.0 accent
+            // drew a uniform azimuth and could orphan itself on the bare
+            // side of the sky, detached from the structure it belongs to).
+            // v2.2.0: opacity 0.58 → 0.7 — the neighbouring features got
+            // brighter around it (K1); the accent must stay the ONE warm
+            // note the eye finds in the core, not a casualty of it.
+            { ...bandSprite(midR, 0.42, 0.12, 0.55), color: ACCENT,    opacity: 0.7  },
+            ...(isLowEnd ? [] : bandHaze(midR, 12, 0.62, 0.2, 0.28, 0.4, DOMINANT, SECONDARY, rng, 2.7)),
         ],
-        midR, -0.005, // opposite sense → layered parallax against the far shell
+        midR, 0.0042, // slightly faster → layered parallax against the far shell
     );
+
+    // v2.2.0 K3 — THE NEAR VEIL. The v2.1.0 sky had depth on PAPER (two
+    // shells) but read flat: both shells sit far outside the exhibition, so
+    // nothing in the atmosphere answered the visitor's own motion. Three or
+    // four huge, very soft masses drift INSIDE the venue's sky (R×1.55, high
+    // above the hang) at the fastest precession rate — the nearest layer
+    // shows the largest apparent travel, so walking now shears the sky in
+    // true parallax: far arch behind, mid band behind that, the veil passing
+    // overhead. Opacity stays whisper-low (0.09–0.14): the veil is felt
+    // before it is seen — atmosphere you stand IN, never wallpaper (§12).
+    // Low-end skips it (fill rate), like the haze backbone.
+    if (!isLowEnd) {
+        const veilR = radius * 1.55;
+        const veilDefs = [];
+        for (let i = 0; i < 4; i++) {
+            const a = Math.PI + (rng.next() + rng.next() - 1) * 1.1;   // crown-biased
+            const h = (0.35 + rng.next() * 0.5) * veilR;               // high band-local → overhead after tilt
+            veilDefs.push({
+                x: Math.sin(a) * veilR, y: h, z: Math.cos(a) * veilR,
+                size: radius * (0.5 + rng.next() * 0.28),
+                color: (i % 2 === 0) ? DOMINANT : SECONDARY,
+                opacity: 0.09 + rng.next() * 0.05,
+            });
+        }
+        makeShell(veilDefs, veilR, 0.0052);
+    }
 
     // ── 2. Stars — two strata, NEUTRAL (the v1.0.0 sky was 100% violet) ───
     // Palette: ~78% white-blue, ~12% faint warm, ~6% cyan, ~4% rose — a sky,
@@ -2695,17 +2816,20 @@ function addNebulaDeepfield(radius) {
     }
 
     // Band stars — a denser stratum flattened along the band plane, nested
-    // in the far shell's spin frame so the Milky Way and the masses precess
-    // as ONE sky (no relative drift between the strata).
+    // in the far shell's frame so the Milky Way and the masses precess as
+    // ONE sky (no relative drift between the strata). Azimuths ride the same
+    // arch bias — the v2.0.0 stratum ringed the full circle while the masses
+    // arched, so the star band and the glow band disagreed about where the
+    // galaxy is.
     {
         const n = Math.max(8, Math.round(260 * starBudget));
         const pos = new Float32Array(n * 3);
         const col = new Float32Array(n * 3);
         const c = new THREE.Color();
         for (let i = 0; i < n; i++) {
-            const a = rng.next() * Math.PI * 2;
+            const a = Math.PI + (rng.next() + rng.next() - 1) * 2.2;
             const r = farR * (0.9 + rng.next() * 0.35);
-            const h = (rng.next() + rng.next() - 1) * farR * 0.22; // soft band thickness
+            const h = (rng.next() + rng.next() - 1) * farR * 0.24; // soft band thickness
             pos[i * 3]     = Math.sin(a) * r;
             pos[i * 3 + 1] = h;
             pos[i * 3 + 2] = Math.cos(a) * r;
@@ -2723,21 +2847,32 @@ function addNebulaDeepfield(radius) {
         const pts = new THREE.Points(geo, mat);
         pts.frustumCulled = false;
         pts.renderOrder = -8;
-        farSpin.add(pts); // rides the band's precession — one sky, one motion
+        farTilt.add(pts); // rides the band's precession — one sky, one motion
     }
 
     // ── 3. Monolith silhouettes — scale ambiguity (§8) ────────────────────
     // 3–4 enormous dark shards standing off beyond the field, catching just
     // enough of the cold key to hold an edge against the band glow. Opaque +
     // fog-exempt: they occlude the additive sky and read as silhouettes at
-    // unmeasurable distances.
+    // unmeasurable distances. The first two are seeded against the ARCH
+    // CROWN so the glow passes directly behind them — the v2.0.0 monoliths
+    // drew uniform azimuths in a sky whose glow sat wherever it pleased,
+    // and on the deployed frame they silhouetted against nothing. They do
+    // NOT precess — the colossal things are still; the sky wheels around
+    // them (§9: the drift belongs to the atmosphere, not to architecture).
     {
         const count = isLowEnd ? 3 : 4;
         const geo   = new THREE.OctahedronGeometry(1, 0);
+        // v2.2.0 K4: 0x0d0a22 → 0x141032. The v2.1.0 monoliths were invisible
+        // in every captured pose — a silhouette needs something to silhouette
+        // AGAINST, and at 0x0d0a22 the cold key could not model even their
+        // facing facets. The lifted base still reads as a dark colossal form
+        // (the band glow passes behind it), but its faceted planes now catch
+        // the key light and the form exists instead of theorising.
         const mat   = isLowEnd
-            ? new THREE.MeshLambertMaterial({ color: 0x0d0a22, fog: false })
+            ? new THREE.MeshLambertMaterial({ color: 0x141032, fog: false })
             : new THREE.MeshStandardMaterial({
-                color: 0x0d0a22, roughness: 0.9, metalness: 0.0,
+                color: 0x141032, roughness: 0.9, metalness: 0.0,
                 flatShading: true, fog: false,
             });
         const inst = new THREE.InstancedMesh(geo, mat, count);
@@ -2747,9 +2882,14 @@ function addNebulaDeepfield(radius) {
         const p = new THREE.Vector3();
         const s = new THREE.Vector3();
         for (let i = 0; i < count; i++) {
-            const a = rng.next() * Math.PI * 2;
+            // i 0/1: arch-tied (seeded offsets around the crown azimuth);
+            // i ≥ 2: wide spread. The seeded rng stream order is fixed, so
+            // every build is identical for the same seed.
+            const a = i < 2
+                ? archCrownAz + (rng.next() - 0.5) * 1.8
+                : rng.next() * Math.PI * 2;
             const d = radius * (2.9 + rng.next() * 1.3);
-            const h = d * (0.38 + rng.next() * 0.22);
+            const h = d * ((i < 2 ? 0.44 : 0.38) + rng.next() * 0.22);
             e.set((rng.next() - 0.5) * 0.16, rng.next() * Math.PI * 2, (rng.next() - 0.5) * 0.16);
             q.setFromEuler(e);
             p.set(Math.sin(a) * d, d * (0.14 + rng.next() * 0.3), Math.cos(a) * d);
@@ -2859,24 +2999,95 @@ function addNebulaDeepfield(radius) {
     }
 
     // ── 5. The meridian ring — the arrival threshold anchor (§33) ────────
-    // One thin luminous ring overhead, tilted off-axis just enough to feel
-    // found rather than installed. It frames the spawn view, hands the eye
-    // an "up" in an otherwise anchorless sky, and reads as the heart of the
-    // drift. Cool white-violet — the rose accent stays reserved for the
+    // One luminous ring overhead, tilted off-axis just enough to feel found
+    // rather than installed. The v2.0.0 ring shipped as a uniform torus at
+    // 0.62 opacity — simultaneously the LOUDEST element of the deployed
+    // frame and the least nebular: a debug wireframe where the atmosphere
+    // should breathe. The geometry stays; the surface becomes LIGHT:
+    //   • per-vertex LUMINOSITY — seeded bright and dim arcs (smooth cosine
+    //     bumps along the ring path): most of the ring sits just under the
+    //     declared bloom threshold, 2–3 bright arcs cross it so the existing
+    //     post-fx draws their halos for free (no new glow assets), and one
+    //     dim reach partially disappears into the dark;
+    //   • ONE additive halo torus behind it — soft base falloff, no neon;
+    //   • an almost-imperceptible yaw drift (bright arcs travel the ring
+    //     over ~17 minutes — the heart of the drift, §9).
+    // Cool white-blue throughout — the rose accent stays reserved for the
     // band core (one accent, once).
     {
         const ringR = radius * 0.62 + 2;
-        const ring  = new THREE.Mesh(
-            new THREE.TorusGeometry(ringR, 0.055, 8, 128),
-            new THREE.MeshBasicMaterial({
-                color: 0xcdd6f2, transparent: true, opacity: 0.62,
-                fog: false, // luminous class (the cathedral seam precedent)
-            }),
-        );
+        const ringGeo = new THREE.TorusGeometry(ringR, 0.055, 8, 160);
+        {
+            // Seeded luminosity arcs — the rng draws happen in fixed order
+            // before the per-vertex loop (which is pure), so every build is
+            // identical for the same seed.
+            const arcs = [];
+            // v2.2.0 K6 — the v2.1.0 ring was the LOUDEST object in the sky
+            // and still read as a bare luminous hoop: base 0.6 kept the whole
+            // circle clearly visible (a wireframe), and the wide bright arcs
+            // stacked on top. The demotion: the circle itself drops to a
+            // whisper (base 0.3 — found, not installed), and the arcs become
+            // NARROW BEADS of light — hot (they still cross the bloom
+            // threshold, so the existing post-fx breathes over them) but
+            // tight, reading as nodes of travelling light on a faint thread.
+            const brightCount = 2 + Math.round(rng.next()); // 2–3 bright arcs
+            for (let i = 0; i < brightCount; i++) {
+                arcs.push({ c: rng.next(), w: 0.035 + rng.next() * 0.035, a: 1.1 + rng.next() * 0.25 });
+            }
+            arcs.push({ c: rng.next(), w: 0.1 + rng.next() * 0.08, a: -0.2 - rng.next() * 0.08 }); // the dim reach
+            const base = 0.3 + rng.next() * 0.05;
+            const pos = ringGeo.attributes.position;
+            const lum = new Float32Array(pos.count * 3);
+            for (let i = 0; i < pos.count; i++) {
+                // TorusGeometry lies in the XY plane: the angle around the
+                // ring comes straight off (x, y). Per-vertex lookup keeps
+                // this independent of the internal vertex ordering.
+                const u = Math.atan2(pos.getY(i), pos.getX(i)) / (Math.PI * 2) + 0.5;
+                let L = base;
+                for (const arc of arcs) {
+                    let d = Math.abs(u - arc.c);
+                    d = Math.min(d, 1 - d); // wrap
+                    L += arc.a * Math.max(0, 1 - (d / arc.w) * (d / arc.w));
+                }
+                L = Math.min(1.8, L);
+                lum[i * 3] = L; lum[i * 3 + 1] = L; lum[i * 3 + 2] = L;
+            }
+            ringGeo.setAttribute('color', new THREE.BufferAttribute(lum, 3));
+        }
+        const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+            color: 0xcdd6f2, vertexColors: true,
+            transparent: true, opacity: 0.55, // v2.2.0 K6: 0.85 → 0.55 — thread, not hoop
+            blending: THREE.AdditiveBlending, depthWrite: false,
+            fog: false, // luminous class (the cathedral seam precedent)
+        }));
+        const rig = new THREE.Group(); // ring + halo yaw together (§9 drift)
         ring.position.set(0, ringR * 1.32 + 1.6, 0);
         ring.rotation.set(0.21 + (rng.next() - 0.5) * 0.06, rng.next() * Math.PI * 2, 0.06);
         ring.frustumCulled = false;
-        this.scene.add(ring);
+        ring.renderOrder = -7;
+        rig.add(ring);
+
+        // The soft base halo — one extra draw, no glow texture (the wide
+        // tube at 0.05 additive reads as falloff; the vertex arcs stay the
+        // only structure).
+        // v2.2.0 K7: the halo gathers ATMOSPHERE around the thread — tinted
+        // toward the nebula family (the ring lives in that sky) and doubled
+        // in presence so the whisper-base ring still reads as an object.
+        const halo = new THREE.Mesh(
+            new THREE.TorusGeometry(ringR, 0.055 * 4.5, 8, 96),
+            new THREE.MeshBasicMaterial({
+                color: 0x4a4a9c, transparent: true, opacity: 0.1,
+                blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+            }),
+        );
+        halo.position.copy(ring.position);
+        halo.rotation.copy(ring.rotation);
+        halo.frustumCulled = false;
+        halo.renderOrder = -7;
+        rig.add(halo);
+
+        this.scene.add(rig);
+        this._particleSystems.push({ obj: rig, type: 'drift-rotate', speed: 0.006 });
     }
 }
 
@@ -2895,29 +3106,49 @@ function makeNebulaMassTexture(rng, color, size = 512) {
     // A broad BASE WASH first — every mass carries a soft body so no sprite
     // ever reads as a cluster of separate blobs. (The v1 first pass drew only
     // 0.05–0.14-alpha blobs; multiplied by the material's layer opacity the
-    // whole band rendered at ~2% and the sky stayed black on every tier.)
+    // whole band rendered at ~2% and the sky stayed black on every tier.
+    // The v2.0.0 wash 0.34/0.20 was still too shy at production distances —
+    // lifted to 0.50/0.28; the material opacity stays the only dimmer.)
     const wash = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size * 0.5);
-    wash.addColorStop(0, css(base.clone().offsetHSL(0, -0.04, 0.04), 0.34));
-    wash.addColorStop(0.55, css(base, 0.2));
+    wash.addColorStop(0, css(base.clone().offsetHSL(0, -0.04, 0.05), 0.5));
+    wash.addColorStop(0.55, css(base, 0.28));
     wash.addColorStop(1, css(base, 0));
     ctx.fillStyle = wash;
     ctx.fillRect(0, 0, size, size);
+    // Outer wisps BEYOND the wash radius — they break the perfect circular
+    // sprite silhouette (the deployed accent read as a lumpy billboard;
+    // organic contours need overshoot, not a clean disc edge).
+    const wisps = 5 + Math.round(rng.next() * 3); // 5–7
+    for (let i = 0; i < wisps; i++) {
+        const a   = rng.next() * Math.PI * 2;
+        const rr  = (0.38 + rng.next() * 0.22) * size * 0.5;
+        const cx  = size / 2 + Math.cos(a) * rr;
+        const cy  = size / 2 + Math.sin(a) * rr;
+        const rad = (0.16 + rng.next() * 0.16) * size;
+        const c   = base.clone().offsetHSL((rng.next() - 0.5) * 0.03, 0, 0.02);
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        grad.addColorStop(0, css(c, 0.05 + rng.next() * 0.05));
+        grad.addColorStop(1, css(c, 0));
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+    }
     // Structure on top: a seeded cluster of brighter lobes and dark dust
     // lanes (the lanes punch holes so the mass reads as FORM, not fog).
-    const blobs = Math.round(size / 15); // 34 @512, 17 @256
+    // Fewer, larger and softer than v2.0.0 — structure without lumps.
+    const blobs = Math.round(size / 18); // 28 @512, 14 @256
     for (let i = 0; i < blobs; i++) {
         const a  = rng.next() * Math.PI * 2;
         const rr = Math.pow(rng.next(), 0.62) * 0.4; // concentrate toward the centre
         const cx = (0.5 + Math.cos(a) * rr) * size;
         const cy = (0.5 + Math.sin(a) * rr) * size;
-        const rad = (0.06 + rng.next() * 0.14) * size;
-        const lane = rng.next() < 0.22; // dark dust lane
+        const rad = (0.08 + rng.next() * 0.18) * size;
+        const lane = rng.next() < 0.2; // dark dust lane
         const c = base.clone().offsetHSL(
             (rng.next() - 0.5) * 0.03,
             lane ? -0.1 : (rng.next() - 0.5) * 0.08,
             lane ? -0.16 : (rng.next() - 0.5) * 0.09,
         );
-        const alpha = lane ? 0.3 : 0.16 + rng.next() * 0.26;
+        const alpha = lane ? 0.26 : 0.1 + rng.next() * 0.16;
         const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
         grad.addColorStop(0, css(c, alpha));
         grad.addColorStop(1, css(c, 0));

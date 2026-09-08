@@ -778,7 +778,9 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 7. Nebula Drift — Pro ("The Deep Field", 2026-09-08 audit pass)
+            // 7. Nebula Drift — Pro ("The Deep Field", 2026-09-08 audit
+            //    pass; v2.1.0 arch pass + v2.2.0 identity pass after the
+            //    deploy reviews)
             //
             // The v1.0.0 row answered the name test with "a dark room with
             // purple fog and stars": a double purple centre light (seeded
@@ -788,26 +790,36 @@ class VenueTemplateSeeder extends Seeder
             // declared colour never reached the marble texture, the legacy
             // grey-blend vignette, and a night.hdr download that was being
             // silenced anyway. Production rows are updated by the GUARDED
-            // migration 2026_09_08_000002_nebula_drift_deepfield — this
+            // migrations 2026_09_08_000002 (Deep Field), _000003 (arch/
+            // deploy-review) and _000004 (identity: crown luminosity
+            // profile, near veil, ring demoted to a thread, monolith
+            // visibility, artwork island glow, elevation-step hang) — this
             // seeder stays the fresh-install baseline and must stay
-            // byte-consistent with that migration's outcome.
+            // byte-consistent with those migrations' outcome.
             //
-            // The declared identity ("The Deep Field"): a layered cosmic
-            // sky — a tilted galactic band of nebula masses (seeded sprite
-            // shells, slowly precessing), a neutral two-strata starfield,
-            // colossal dark silhouettes for scale — a stardrift current
-            // streaming through the exhibition, one meridian ring overhead
+            // The declared identity (v2.2.0 "the nebula owns the sky"): ONE
+            // immense galactic arch with a luminous core wheeling overhead
+            // (steeply tilted band, crown-weighted feature masses, haze
+            // backbone, near veil drifting past overhead), a neutral
+            // two-strata starfield, colossal dark silhouettes standing in
+            // the band glow, a stardrift current streaming through the
+            // exhibition, one meridian thread of travelling light overhead
             // as the arrival anchor, and a pool of cool light under every
-            // floating artwork. Colour hierarchy: deep indigo atmosphere →
-            // violet/blue nebular masses → ONE rare rose accent. The only
-            // warm light in the venue is the artwork pool lighting
-            // (§12 artwork honesty). The legacy starfield body stays
-            // reachable via config revert (void_deepfield → void_starfield).
+            // floating artwork. The hang itself composes vertically
+            // (placement.elevation_step) — a suspended constellation, not a
+            // flat ring. The floor dissolves to black at the disc's rim
+            // (floor_fade_span 1.16 — the void wraps beneath; no stage
+            // edge) and the background is pure black so sky and ground meet
+            // without a seam. Colour hierarchy: black void → violet/blue
+            // nebular masses → ONE rare rose accent. The only warm light in
+            // the venue is the artwork pool lighting (§12 artwork honesty).
+            // The legacy starfield body stays reachable via config revert
+            // (void_deepfield → void_starfield).
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Nebula Drift',
                 'slug'          => 'nebula-drift',
-                'description'   => 'A deep-field nebula surrounds the exhibition — layered cosmic masses drifting along a tilted galactic band, a slow stardrift current, and a lone meridian ring overhead. Artworks float above pools of light on a dark starlit floor.',
+                'description'   => 'A deep-field nebula owns the sky — one immense galactic arch with a luminous core wheeling overhead, colossal silhouettes at its edges, a stardrift current, and a meridian thread of travelling light. Artworks hang as a suspended constellation over pools of light, the floor dissolving into the void.',
                 'category'      => 'abstract',
                 'tags'          => ['cosmic', 'nebula', 'deep-field', 'ethereal'],
                 'plan_required' => 'pro',
@@ -815,7 +827,7 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 50,
                 'sort_order'    => 7,
                 'is_featured'   => true,
-                'version'       => '2.0.0',
+                'version'       => '2.2.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
@@ -828,14 +840,14 @@ class VenueTemplateSeeder extends Seeder
                     'wall_depth'             => 0.3,
                     'ceiling_type'           => 'none',
                     'ceiling_height'         => 0,
-                    'background_color'       => '0x050015',
-                    'fog_color'              => '0x050015',
+                    'background_color'       => '0x000000',  // the dissolve meets the dome's black horizon exactly (no stage line)
+                    'fog_color'              => '0x000000',
                     'fog_near'               => 12,
                     'fog_far'                => 70,
                     'ambient_color'          => '0x7a86b8',  // moon-slate — NEVER purple (artwork honesty)
-                    'ambient_intensity'      => 0.55,  // the base wash: at 40 works only 12 canvases carry a pool light, the rest must still READ
+                    'ambient_intensity'      => 0.62,  // the spawn view is 12–20 m out: the wash must carry unlit canvases at that distance
                     'hemisphere_intensity'   => 0.35,  // vertical fill — unlit far canvases stay legible
-                    'spot_intensity'         => 1.2,   // pool target ≈ 4.2 (void family)
+                    'spot_intensity'         => 1.35,  // pool target ≈ 4.7 (void family)
                     'fill_intensity'         => 0.15,
                     'tone_mapping_exposure'  => 0.85,  // was 0.6 murk
                     'frame_override'         => null,
@@ -850,7 +862,8 @@ class VenueTemplateSeeder extends Seeder
                     'void_deepfield'   => true,  // layered band sky + current + ring (replaces void_starfield)
                     'void_depth_gradient' => true,  // shared zenith depth cue
                     'floor_edge_fade'  => true,  // the ground dissolves into the void
-                    'artwork_light_base'     => 0.5,  // void family: works sit beyond the proximity radius
+                    'floor_fade_span'  => 1.16,  // the phantom plane ENDS at the dissolve — the void wraps beneath (no stage edge)
+                    'artwork_light_base'     => 0.72,  // v2.2.0 K8: the standing glow — works read as lit islands at spawn distance
                     'artwork_light_pool_cap' => 12,  // a 12-piece hang lit at once
                     // Colour hierarchy, venue-owned (s6): dominant atmosphere
                     // → secondary masses → ONE rare warm accent.
@@ -872,9 +885,12 @@ class VenueTemplateSeeder extends Seeder
                     ],
                     // Depth-band curation + light pools under floating works
                     // (the post-placement hook reads placement.light_pools).
+                    // v2.2.0 K9: elevation_step lifts each inner band (m) —
+                    // the hang composes vertically (suspended constellation).
                     'placement' => [
-                        'depth_bands' => 2,
-                        'light_pools' => true,
+                        'depth_bands'    => 2,
+                        'light_pools'    => true,
+                        'elevation_step' => 0.7,
                     ],
                 ],
                 'material_config' => [
