@@ -107,21 +107,25 @@ const SCENARIOS = [
     { id: 'nebula-tier-low-06',   q: 'venue=nebula-drift&count=6', tier: 'low' },
     // Rollback chain: the v1.0.0 starfield body must still render by config.
     { id: 'nebula-legacy-12',     q: 'venue=nebula-drift-legacy&count=12' },
-    // Luxury Penthouse — "The Collector's Floor" (2026-09-08 audit pass,
-    // v2.0.0; v2.1.0 "Evening Light" deploy-review pass 2026-09-09).
-    // Count scaling: 6 (capacity floor), 12 (default hang), 40
-    // (capacity ceiling — the full two-wing gallery). Walk-through poses:
-    // arrival down the gallery wing, the fireplace TERMINUS (v2.1.0: the
-    // north end wall — the walk lands on a warm destination), the corridor
-    // mid-run at 40 works (the production walk's worst case), the lounge at
-    // the glass, and the terrace view through the glazing.
+    // Luxury Penthouse — "The Double Volume" (2026-09-09 full redesign,
+    // v3.0.0). Count scaling: 6 (capacity floor), 12 (default hang), 40
+    // (capacity ceiling — the full two-wing gallery). Walk-through poses
+    // follow the new sequence: arrival down the LOW coved procession (the
+    // sculpture + the lit seam ahead), the fireplace TERMINUS from the
+    // seam, the double-height CORNER (glass wrapping two faces + terrace),
+    // the seam shot (procession → volume lift), the lounge at the glass,
+    // and the city depth through the north face.
     { id: 'pent-06',              q: 'venue=luxury-penthouse&count=6' },
     { id: 'pent-12-mixed',        q: 'venue=luxury-penthouse&count=12' },
     { id: 'pent-40-mixed',        q: 'venue=luxury-penthouse&count=40' },
     { id: 'pent-cam-arrival',     q: 'venue=luxury-penthouse&count=12',
-      cam: { p: [3, 1.6, -7.25], t: [3, 1.8, 6] } },
+      cam: { p: [3, 1.6, -7.25], t: [3, 1.9, 4] } },
+    { id: 'pent-cam-seam',        q: 'venue=luxury-penthouse&count=12',
+      cam: { p: [3, 1.6, -2.5],  t: [3, 2.4, 6] } },
     { id: 'pent-cam-fireplace',   q: 'venue=luxury-penthouse&count=12',
-      cam: { p: [3, 1.6, 3.5],   t: [3, 1.7, 8.75] } },
+      cam: { p: [3, 1.6, 3.5],   t: [3, 2.6, 8.75] } },
+    { id: 'pent-cam-corner',      q: 'venue=luxury-penthouse&count=12',
+      cam: { p: [7.5, 1.6, 1.5], t: [16, 2.6, 7.5] } },
     { id: 'pent-cam-corridor-40', q: 'venue=luxury-penthouse&count=40',
       cam: { p: [3, 1.6, -14],   t: [3, 1.7, 10] } },
     { id: 'pent-cam-lounge',      q: 'venue=luxury-penthouse&count=12',
@@ -130,8 +134,14 @@ const SCENARIOS = [
       cam: { p: [12.5, 1.6, 5.75], t: [20, 2.7, 5.75] } },
     { id: 'pent-cam-city',        q: 'venue=luxury-penthouse&count=12',
       cam: { p: [21, 1.6, 5.75], t: [45, 3.0, 5.75] } },
+    { id: 'pent-cam-above',       q: 'venue=luxury-penthouse&count=12',
+      cam: { p: [3, 3.1, -6.5],  t: [6, 1.4, 7] } },
     // Tier degradation: the residence must read on Lambert (low).
     { id: 'pent-tier-low-06',     q: 'venue=luxury-penthouse&count=6', tier: 'low' },
+    { id: 'pent-tier-low-12',     q: 'venue=luxury-penthouse&count=12', tier: 'low' },
+    // Rollback chain: the v2.1.0 "Evening Light" body must still render by
+    // config (the guarded migration's down() target).
+    { id: 'pent-v21-12',          q: 'venue=luxury-penthouse-v21&count=12' },
     // Rollback chain: the v1.0.0 "Rooms" body must still render by config.
     { id: 'pent-legacy-12',       q: 'venue=luxury-penthouse-legacy&count=12' },
     // Crystal Cathedral — "The Luminous Arcade" (2026-09-07 audit).

@@ -444,7 +444,7 @@ const exporterSrc = readFileSync(rel('app/Services/VenueConfigExporter.php'), 'u
 ok("'bays' is a venue-owned exporter key (architecture cannot be overridden)",
     /'structure',\s*'bays'/.test(exporterSrc));
 ok("exporter SCHEMA bumped to s6 (s5 zen pass + s6 nebula palette; cached payloads re-key on deploy)",
-    /public const SCHEMA = 's6'/.test(exporterSrc));
+    /public const SCHEMA = 's[6-9]'/.test(exporterSrc));
 const requestSrc = readFileSync(rel('app/Http/Requests/SuperAdmin/VenueTemplateRequest.php'), 'utf8');
 ok("venue request vocabulary admits 'bays'",
     /'rooms',\s*'cube',\s*'loft',\s*'museum',\s*'bays',\s*'garden',\s*'phenomena'/.test(requestSrc));

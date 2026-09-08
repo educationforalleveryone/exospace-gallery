@@ -257,6 +257,10 @@ export function _planBayHangs(n, surfaces, spacing) {
                     x: surf.x + tx * off + surf.nx * 0.02,
                     z: surf.z + tz * off + surf.nz * 0.02,
                     nx: surf.nx, nz: surf.nz,
+                    // v3: a surface may declare its own hang centre height
+                    // (the above-the-fire hang on the double-height pier).
+                    // Null ⇒ the placer's eye level (historic behaviour).
+                    y: Number.isFinite(Number(surf.y)) ? Number(surf.y) : null,
                 });
                 assigned++;
                 placedThisPass = true;
@@ -326,18 +330,63 @@ export function _placeArtworksLShape(data) {
     const remaining = all.slice(plan.spillFrom);
     if (remaining.length === 0) return;
 
+    // ── v3 "The Double Volume" (generic, two independent opt-ins) ─────────
+    // 1. A glazed spill face holds NO artworks: the wing B north face is
+    //    skipped when the venue opened it as the second glass face
+    //    (this._glazingNorth) — the spill concentrates on the remaining
+    //    solid face(s) instead of back lighting itself against the city.
+    // 2. Hangable surfaces registered by structure (the double-height
+    //    fireplace wall, an art wall) receive the LAST portion of the spill
+    //    — the same bay mechanics the square placer has run since Iteration
+    //    3, now on l-shape too (parity; ≤30% cap, ≥6-work hang). Venues
+    //    without hangable surfaces and without the second glazing resolve
+    //    EXACTLY as before (§11.3 rule 2).
     const wB = [
-        { z: jZ + inset,          normal: [0,0,1]  },
-        { z: lenA/2 - inset,      normal: [0,0,-1] },
+        { z: jZ + inset,     normal: [0,0,1]  },   // wing B south wall (solid)
+        { z: lenA/2 - inset, normal: [0,0,-1] },   // wing B north face (skipped when glazed)
     ];
+    const faces = this._glazingNorth ? wB.slice(0, 1) : wB;
+
+    const bayPlan = _planBayHangs(all.length, this._hangableSurfaces, spacing);
+    const bayCount = bayPlan ? bayPlan.length : 0;
+    const wallShare = Math.max(0, remaining.length - bayCount);
+
     const xStart = wingW + spacing;
+    const faceCount = faces.length;
     remaining.forEach((img, k) => {
-        const sideB = k % 2, rowB = Math.floor(k / 2);
-        const w = wB[sideB];
-        const candidateX = xStart + rowB * spacing;
         const { group } = this.makeArtworkGroup(img, data);
-        group.position.set(candidateX, eyeLevel, w.z);
-        group.lookAt(candidateX + w.normal[0], eyeLevel, w.z + w.normal[2]);
+        if (k >= wallShare && bayPlan) {
+            // Statement work into a registered hangable surface (its own
+            // hang centre height — the above-the-fire hang on the tall
+            // pier, the art wall in the volume).
+            const b = bayPlan[k - wallShare];
+            const y = b.y ?? eyeLevel;
+            group.position.set(b.x, y, b.z);
+            group.lookAt(b.x + b.nx, y, b.z + b.nz);
+        } else {
+            let candidateX;
+            if (faceCount === 2) {
+                // Historic alternation — lenB is SIZED for two faces, so the
+                // row math always lands inside the wing (bit-identical).
+                const rowB = Math.floor(k / 2);
+                candidateX = xStart + rowB * spacing;
+            } else {
+                // GLAZED-FACE CASE: with a face removed the run would double
+                // its length and overflow the wing (lenB was sized against
+                // two faces). Spread the run evenly and CENTRED across the
+                // wing's usable span instead — the salon-wall read, always
+                // inside the building.
+                const per = Math.ceil(wallShare / faceCount);
+                const start = wingW + 1.5;
+                const end = wingW + lenB - 1.5;
+                const posInFace = Math.floor(k / faceCount);
+                const step = per > 1 ? (end - start) / (per - 1) : 0;
+                candidateX = start + posInFace * step;
+            }
+            const w = faces[k % faceCount];
+            group.position.set(candidateX, eyeLevel, w.z);
+            group.lookAt(candidateX + w.normal[0], eyeLevel, w.z + w.normal[2]);
+        }
         this.placeAndRegister(group, data);
     });
 }

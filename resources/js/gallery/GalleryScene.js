@@ -99,6 +99,11 @@ export class GalleryScene {
         // the glazing frame (RoomBuilder, visual_config.glazing_wall).
         this._hangableSurfaces = [];
         this._glazing          = null;
+        // v3 "The Double Volume": the second (wing B north) glazed face —
+        // set by RoomBuilder when the venue declares glazing_walls with
+        // 'wing_b_north'; read by StructureBuilder anchors
+        // 'glazing_north'/'glazing_north_outside' and by the ArtworkPlacer.
+        this._glazingNorth     = null;
 
         // Venue state (set by VenueDecorator)
         this._venueSlug           = 'venue';

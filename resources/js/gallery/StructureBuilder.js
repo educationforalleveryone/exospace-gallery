@@ -69,8 +69,21 @@
 //                 inner wall-face centre; offset forward = INTO the room
 //   'wall_*_outside'   outer wall-face centre; offset forward = AWAY
 //   'glazing' | 'glazing_outside'
-//                 the wall replaced by glazing (visual_config.glazing_wall);
-//                 available on square + l-shape (the Penthouse layouts)
+//                 the wall replaced by glazing (visual_config.glazing_wall
+//                 / glazing_walls 'wing_b_end'); available on square +
+//                 l-shape (the Penthouse layouts)
+//   v3 "The Double Volume" (l-shape, venue-declared — all resolve null and
+//   SKIP when the declaring keys are absent):
+//   'glazing_north' | 'glazing_north_outside'
+//                 the SECOND glazed face (glazing_walls 'wing_b_north') —
+//                 the wing B segment of the north run, full volume height
+//   'junction' | 'junction_outside'
+//                 the gallery↔volume seam centre in wing A (z = jZ) — the
+//                 line where wing_heights split the ceilings; fwd points
+//                 into the volume / into the gallery respectively
+//   'wall_left_high' | 'wall_left_high_outside'
+//                 the living volume's west face (z ∈ [jZ, lenA/2], tall) —
+//                 the art-wall wall; resolves only under wing_heights
 //
 // HARD RULES (§10.3 — what keeps this from becoming an engine):
 //   no scripting, no conditions, no animation in descriptors (a drifting
@@ -226,20 +239,43 @@ export function resolveAnchor(ctx, from) {
     const d    = CONFIG.room.wallDepth || 0.3;
     const type = meta.type || 'square';
 
-    const horizontal = (x, z, fx, fz, width) =>
-        ({ pos: [x, 0, z], fwd: [fx, 0, fz], width, height: CONFIG.room.wallHeight });
+    // v3 "The Double Volume": l-shape venues may declare per-wing heights
+    // (visual_config.wing_heights) — RoomBuilder writes the SAME numbers it
+    // built from into _layoutMeta (hA/hB), so anchors always match the
+    // built walls. Undeclared ⇒ both fall back to the nominal height and
+    // every anchor resolves exactly as before (siblings bit-identical).
+    const nominalH = CONFIG.room.wallHeight;
+    const zoneH = (zone) => (zone === 'a' ? (meta.hA ?? nominalH) : (meta.hB ?? nominalH));
+
+    const horizontal = (x, z, fx, fz, width, height) =>
+        ({ pos: [x, 0, z], fwd: [fx, 0, fz], width, height: height ?? nominalH });
 
     if (from === 'center') {
         if (type === 'l-shape') return horizontal(meta.wingW / 2, 0, 0, 1, meta.wingW);
         return horizontal(0, 0, 0, 1, 0);
     }
 
-    // The wall replaced by glazing (RoomBuilder sets ctx._glazing when the
-    // venue declares visual_config.glazing_wall).
+    // The wall(s) replaced by glazing (RoomBuilder sets ctx._glazing when
+    // the venue declares glazing_wall / glazing_walls; ctx._glazingNorth is
+    // the v3 second face). Each resolves with its own span + height.
     if (from === 'glazing' || from === 'glazing_outside') {
         const g = ctx._glazing;
         if (!g) return null;
         const out  = from === 'glazing_outside';
+        const fx   = out ? -g.inward[0] : g.inward[0];
+        const fz   = out ? -g.inward[1] : g.inward[1];
+        const push = out ? 0.05 : 0;
+        return {
+            pos:    [g.cx + fx * push, 0, g.cz + fz * push],
+            fwd:    [fx, 0, fz],
+            width:  g.width,
+            height: g.height,
+        };
+    }
+    if (from === 'glazing_north' || from === 'glazing_north_outside') {
+        const g = ctx._glazingNorth;
+        if (!g) return null;                    // face not declared → entries skip, never guess
+        const out  = from === 'glazing_north_outside';
         const fx   = out ? -g.inward[0] : g.inward[0];
         const fz   = out ? -g.inward[1] : g.inward[1];
         const push = out ? 0.05 : 0;
@@ -312,27 +348,56 @@ export function resolveAnchor(ctx, from) {
         const hi = d / 2;            // wall centreline → inner face
         const zA = -LA / 2;          // wing A south wall centreline
         const zS =  LA / 2;          // shared south run centreline
+        // v3: per-zone heights (undeclared ⇒ nominal ⇒ bit-identical).
+        const hA = zoneH('a');       // gallery band (z ∈ [−LA/2, jz])
+        const hB = zoneH('b');       // living volume (north strip + wing B)
+        // v3: under wing_heights the BUILT west wall is two segments (the
+        // gallery run + the volume's west face) — 'wall_left' matches the
+        // BUILT gallery segment, 'wall_left_high' exposes the volume face.
+        // Undeclared heights ⇒ the historic single full run (and
+        // 'wall_left_high' resolves null → descriptors skip, never guess).
+        const dual = (meta.hA ?? nominalH) !== nominalH || (meta.hB ?? nominalH) !== nominalH;
         switch (from) {
             // wing A — the gallery corridor
-            case 'wall_left':          return horizontal(hi, 0, 1, 0, LA);
-            case 'wall_left_outside':  return horizontal(-hi, 0, -1, 0, LA);
-            case 'wall_front':         return horizontal(W / 2, zA + hi, 0, 1, W);
-            case 'wall_front_outside': return horizontal(W / 2, zA - hi, 0, -1, W);
-            case 'wall_right':         return horizontal(W - hi, (zA + jz) / 2, -1, 0, jz - zA);
-            case 'wall_right_outside': return horizontal(W + hi, (zA + jz) / 2, 1, 0, jz - zA);
-            // wing B — the lounge wing
-            case 'wall_inner':           return horizontal(W + LB / 2, jz + hi, 0, 1, LB);
-            case 'wall_inner_outside':   return horizontal(W + LB / 2, jz - hi, 0, -1, LB);
-            case 'wall_back':            return horizontal((W + LB) / 2, zS - hi, 0, -1, W + LB);
-            case 'wall_back_outside':    return horizontal((W + LB) / 2, zS + hi, 0, 1, W + LB);
+            case 'wall_left':          return dual
+                ? horizontal(hi, (zA + jz) / 2, 1, 0, jz - zA, hA)
+                : horizontal(hi, 0, 1, 0, LA);
+            case 'wall_left_outside':  return dual
+                ? horizontal(-hi, (zA + jz) / 2, -1, 0, jz - zA, hA)
+                : horizontal(-hi, 0, -1, 0, LA);
+            // v3: the living volume's west face (z ∈ [jz, LA/2], tall).
+            case 'wall_left_high':     return dual
+                ? horizontal(hi, jz + W / 2, 1, 0, W, hB)
+                : null;
+            case 'wall_left_high_outside': return dual
+                ? horizontal(-hi, jz + W / 2, -1, 0, W, hB)
+                : null;
+            case 'wall_front':         return horizontal(W / 2, zA + hi, 0, 1, W, hA);
+            case 'wall_front_outside': return horizontal(W / 2, zA - hi, 0, -1, W, hA);
+            case 'wall_right':         return horizontal(W - hi, (zA + jz) / 2, -1, 0, jz - zA, hA);
+            case 'wall_right_outside': return horizontal(W + hi, (zA + jz) / 2, 1, 0, jz - zA, hA);
+            // wing B — the living volume
+            case 'wall_inner':           return horizontal(W + LB / 2, jz + hi, 0, 1, LB, hB);
+            case 'wall_inner_outside':   return horizontal(W + LB / 2, jz - hi, 0, -1, LB, hB);
+            case 'wall_back':            return horizontal((W + LB) / 2, zS - hi, 0, -1, W + LB, hB);
+            case 'wall_back_outside':    return horizontal((W + LB) / 2, zS + hi, 0, 1, W + LB, hB);
             // wing A north end wall — the corridor TERMINUS (v2.1.0). The
-            // fireplace family moves here: the walk now lands on a warm
+            // fireplace family moves here: the walk now ends on a warm
             // destination instead of a blank wall (the south wall behind the
             // spawn carried it before, where visitors never faced it).
             // No shipped descriptor referenced wall_end before v2.1.0, so
             // every other venue resolves exactly as before (§11.3 rule 2).
-            case 'wall_end':            return horizontal(W / 2, zS - hi, 0, -1, W);
-            case 'wall_end_outside':    return horizontal(W / 2, zS + hi, 0, 1, W);
+            case 'wall_end':            return horizontal(W / 2, zS - hi, 0, -1, W, hB);
+            case 'wall_end_outside':    return horizontal(W / 2, zS + hi, 0, 1, W, hB);
+            // ── v3 "The Double Volume": the SEAM ─────────────────────────
+            // 'junction' = the gallery↔volume seam centre in wing A: the
+            // line where the low gallery band ends (z = jz) and the
+            // double-height volume begins. The venue dresses the exposed
+            // gallery roofline here (fascia + cove reveal) and places the
+            // axis sculpture just inside the volume. '_outside' resolves
+            // on the gallery side of the seam.
+            case 'junction':            return horizontal(W / 2, jz, 0, 1, W, hB);
+            case 'junction_outside':    return horizontal(W / 2, jz, 0, -1, W, hB);
         }
     }
 
@@ -546,7 +611,13 @@ export function buildStructure(ctx, entries) {
                 baseY + o[1],
                 a.pos[2] + sz * o[0] + fz * o[2],
             ];
-            fwd = [fx, fz];
+            fwd = [fx, 0, fz];
+            // FIX (v3 audit): fwd is the file's 3-element [x, 0, z] shape —
+            // the historic 2-element [fx, fz] made buildInstanceGrid's
+            // `fwd[2]` read UNDEFINED, so every ANCHORED line-grid (the
+            // glazing mullions + terrace rails) scattered NaN positions and
+            // silently collapsed at the anchor point — shipped broken since
+            // v2.0.0. One shape for every consumer, end.
             if (e.turn === 'in')  yaw = Math.atan2(fx, fz);
             if (e.turn === 'out') yaw = Math.atan2(fx, fz) + Math.PI;
         }
@@ -559,7 +630,11 @@ export function buildStructure(ctx, entries) {
             const pad = e.fit_pad ?? 0.1;
             let span = 0;
             if (e.fit === 'glazing') {
-                span = ctx._glazing ? ctx._glazing.width : 0;
+                // v3: resolve through the anchor table so BOTH declared
+                // glazing faces ('glazing' and 'glazing_north') span
+                // correctly — the historic ctx._glazing read is unchanged
+                // for the single-face venues.
+                span = resolveAnchor(ctx, e.at.from)?.width || 0;
             } else if (fwd) {
                 span = resolveAnchor(ctx, e.at.from)?.width || 0;
             }
@@ -587,11 +662,17 @@ export function buildStructure(ctx, entries) {
 
         // Hangable surfaces: wall-facing planes/boxes register an artwork span
         // (Iteration 3 bay redistribution — Museum dividers, generic mechanism).
+        // v3: `hangable` may be `{ y: n }` — the hang centre height for the
+        // surface (the above-the-fire hang on a double-height pier). Plain
+        // `true` keeps the placer's eye level (every existing venue).
         let hang = null;
         if (e.hangable && (e.primitive === 'plane' || e.primitive === 'box')) {
             const s = Array.isArray(e.size) ? e.size : [e.size ?? 1, e.size ?? 1];
-            const n = fwd || [Math.sin(ry), Math.cos(ry)];
-            hang = { x: pos[0], z: pos[2], nx: n[0], nz: n[1], width: e.fit ? fitWidth : s[0], height: s[1] };
+            const n = fwd || [Math.sin(ry), 0, Math.cos(ry)];
+            hang = { x: pos[0], z: pos[2], nx: n[0], nz: n[2], width: e.fit ? fitWidth : s[0], height: s[1] };
+            if (typeof e.hangable === 'object' && Number.isFinite(Number(e.hangable.y))) {
+                hang.y = Number(e.hangable.y);
+            }
         }
 
         // 5. Merge groups — static same-material primitives auto-merge (§10.3).

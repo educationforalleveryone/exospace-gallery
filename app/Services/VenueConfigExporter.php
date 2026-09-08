@@ -121,8 +121,16 @@ class VenueConfigExporter
      * colour IDENTITY, never a curator knob; the void_* prefix rule already
      * guards the deep-field body flags. Bumping the schema re-keys every
      * cached payload so the owned set ships with the pass.
+     *
+     * s7 (luxury-penthouse "The Double Volume", 2026-09-09): the l-shape
+     * ARCHITECTURE declarations `wing_heights` (the gallery↔volume vertical
+     * split) and `glazing_walls` (which faces are glass) are venue-owned —
+     * a stale gallery layer able to re-tune either would recompose the
+     * building itself (lower the volume, re-glaze a solid wall). Bumping
+     * the schema re-keys every cached payload so the owned set ships with
+     * the pass.
      */
-    public const SCHEMA = 's6';
+    public const SCHEMA = 's7';
 
     /**
      * VENUE-OWNED ATMOSPHERE, ARCHITECTURE AND RIG (visual_config).
@@ -174,6 +182,10 @@ class VenueConfigExporter
         'structure', 'bays', 'glazing_wall', 'corridor_width',
         'sun_shadows', 'floor_edge_fade', 'void_depth_gradient',
         'glass_material', 'colonnade_tint',
+        // s7: the l-shape double-volume declarations (The Double Volume) —
+        // the vertical split between the wings + which faces are glass.
+        // Architecture identity, never a curator knob.
+        'wing_heights', 'glazing_walls',
         // s6: the nebula-drift celestial palette (nested dominant/secondary/
         // accent) — colour identity, owned wholesale like post_fx/placement.
         'nebula',

@@ -546,7 +546,7 @@ for (const module of ['resources/js/gallery/TierResolve.js', 'resources/js/galle
 
 // Exporter: the palette is venue-owned, the schema re-keyed.
 ok("exporter owns the 'nebula' palette key (s6)", /'nebula',/.test(exporterSrc));
-ok('exporter SCHEMA bumped to s6', /SCHEMA\s*=\s*'s6'/.test(exporterSrc));
+ok('exporter SCHEMA bumped to s6 (now s7+ — the schema only moves forward)', /SCHEMA\s*=\s*'s[6-9]'/.test(exporterSrc));
 
 // Migrations: the full guarded chain ships (Deep Field → arch → identity).
 const migChain = [

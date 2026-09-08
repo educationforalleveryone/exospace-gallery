@@ -307,6 +307,31 @@ export function createRoomCorridor(data) {
 }
 
 // ── L-SHAPE ───────────────────────────────────────────────────────────────────
+//
+// v3 "The Double Volume" (Luxury Penthouse redesign, 2026-09-09): two
+// venue-declared, GENERIC extensions — both absent ⇒ this builder emits the
+// exact historic geometry (bit-identical for every sibling venue; §11.3
+// rule 2: the config is the only on-switch):
+//
+//   1. visual_config.wing_heights { wing_a, wing_b } — per-wing ceiling
+//      heights. The PLAN is unchanged (bounds, placement, arrival all read
+//      the same footprint); only the vertical split differs: wing A walls +
+//      its ceiling band rise to wing_a, the north strip (z ∈ [jZ, lenA/2])
+//      and wing B rise to wing_b. The west wall splits at jZ into a gallery
+//      segment (wing_a) and a volume segment (wing_b) — the exposed edge of
+//      the gallery roofline IS the ceiling step the venue's descriptors
+//      dress (fascia + cove, StructureBuilder 'junction' anchor). The
+//      gallery ceiling goes DoubleSide so the tall volume never sees the
+//      backface hole over the step.
+//   2. visual_config.glazing_walls ['wing_b_end', 'wing_b_north'] — the
+//      list form of the glazing declaration. 'wing_b_end' is the historic
+//      single glazed wall (glazing_wall: true ⇒ exactly this list), now
+//      spanning the wing's TALL height; 'wing_b_north' additionally opens
+//      the wing B segment of the north run as a second full-height glass
+//      face (this._glazingNorth — StructureBuilder anchors
+//      'glazing_north'/'glazing_north_outside'). The fireplace pier
+//      (wall_end, the wing A segment of the same run) stays solid by
+//      design: one stone moment inside the glass corner.
 export function createRoomLShape(data) {
     const imageCount = data.imageCount;
     const spacing    = CONFIG.room.artworkSpacing;
@@ -333,6 +358,25 @@ export function createRoomLShape(data) {
     const aCX = wingW / 2,        aCZ = 0;
     const bCX = wingW + lenB / 2, bCZ = lenA / 2 - wingW / 2;
 
+    // ── v3 declared vertical split + glazing faces (defaults = historic) ──
+    const vcBoot = this._venueVisualConfig || {};
+    const wh = (vcBoot.wing_heights && typeof vcBoot.wing_heights === 'object') ? vcBoot.wing_heights : {};
+    const hA = Number.isFinite(Number(wh.wing_a)) && Number(wh.wing_a) > 0 ? Number(wh.wing_a) : wallHeight;
+    const hB = Number.isFinite(Number(wh.wing_b)) && Number(wh.wing_b) > 0 ? Number(wh.wing_b) : wallHeight;
+    const dualHeight = (hA !== wallHeight) || (hB !== wallHeight);
+    // Legacy boolean keeps its exact meaning: ['wing_b_end']. The list form
+    // may open the second (north) face. Values outside the vocabulary are
+    // ignored — unknown keys can never invent geometry.
+    let glazingWalls = [];
+    if (vcBoot.glazing_wall === true) glazingWalls.push('wing_b_end');
+    if (Array.isArray(vcBoot.glazing_walls)) {
+        for (const g of vcBoot.glazing_walls) {
+            if ((g === 'wing_b_end' || g === 'wing_b_north') && !glazingWalls.includes(g)) glazingWalls.push(g);
+        }
+    }
+    const glazing   = glazingWalls.includes('wing_b_end');
+    const glazeNorth = glazingWalls.includes('wing_b_north');
+
     const wallMat  = this.getWallMaterial(data.wall_texture);
     const floorMat = this.getFloorMaterial(data.floor_material);
     if (wallMat.map) {
@@ -350,9 +394,14 @@ export function createRoomLShape(data) {
     const ceilMatA = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: _ceilColor })
         : new THREE.MeshStandardMaterial({ color: _ceilColor, roughness: 0.95, metalness: 0 });
+    // Dual heights: the gallery band's ceiling is seen FROM ABOVE (its back
+    // face) across the step — culled backfaces would cut a hole over the
+    // procession when viewed from the tall volume. Single-height venues
+    // keep the historic FrontSide material (bit-identical).
+    if (dualHeight) ceilMatA.side = THREE.DoubleSide;
     const ceilMatB = ceilMatA.clone ? ceilMatA.clone() : ceilMatA;
 
-    const addPanel = (cx, cz, w, d, mat, isFloor) => {
+    const addPanel = (cx, cz, w, d, mat, isFloor, y) => {
         // PERF-B17 (3D audit F17): use the panel's OWN material for repeat —
         // the old code mutated the closure's shared floorMat.map for every
         // panel, so whichever panel was added LAST decided the tiling for
@@ -363,7 +412,7 @@ export function createRoomLShape(data) {
         }
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
         mesh.rotation.x = isFloor ? -Math.PI / 2 : Math.PI / 2;
-        mesh.position.set(cx, isFloor ? 0 : wallHeight, cz);
+        mesh.position.set(cx, isFloor ? 0 : (y ?? wallHeight), cz);
         mesh.receiveShadow = !this.isLowEnd;
         this.scene.add(mesh);
     };
@@ -376,14 +425,26 @@ export function createRoomLShape(data) {
     }
     addPanel(aCX, aCZ, wingW, lenA,  floorMat,  true);
     addPanel(bCX, bCZ, lenB,  wingW, floorMatB, true);
-    addPanel(aCX, aCZ, wingW, lenA,  ceilMatA,  false);
-    addPanel(bCX, bCZ, lenB,  wingW, ceilMatB,  false);
+    if (dualHeight) {
+        // Gallery band (z ∈ [−lenA/2, jZ]) under the LOW plane; the living
+        // volume = wing A north strip + wing B under the TALL plane. The
+        // seam z = jZ is exactly where the last artwork row ends — the
+        // procession finishes as the room lifts.
+        addPanel(aCX, (-lenA / 2 + jZ) / 2, wingW, jZ + lenA / 2, ceilMatA, false, hA);
+        addPanel(aCX, jZ + wingW / 2,       wingW, wingW,          ceilMatB, false, hB);
+        addPanel(bCX, bCZ,                  lenB,  wingW,          ceilMatB, false, hB);
+    } else {
+        addPanel(aCX, aCZ, wingW, lenA,  ceilMatA,  false);
+        addPanel(bCX, bCZ, lenB,  wingW, ceilMatB,  false);
+    }
 
-    const wallGeo = new THREE.BoxGeometry(1, wallHeight, wd);
-    const addWall = (cx, cz, ry, len) => {
-        const m = new THREE.Mesh(wallGeo, wallMat);
+    // Walls — one shared geometry per height class (1 box geo when uniform).
+    const wallGeoA = new THREE.BoxGeometry(1, hA, wd);
+    const wallGeoB = dualHeight ? new THREE.BoxGeometry(1, hB, wd) : wallGeoA;
+    const addWall = (cx, cz, ry, len, geo) => {
+        const m = new THREE.Mesh(geo, wallMat);
         m.scale.set(len, 1, 1);
-        m.position.set(cx, wallHeight / 2, cz);
+        m.position.set(cx, geo.parameters.height / 2, cz);
         m.rotation.y = ry;
         m.receiveShadow = !this.isLowEnd;
         m.castShadow    = !this.isLowEnd;
@@ -395,18 +456,28 @@ export function createRoomLShape(data) {
     const upperH    = jZ - (-lenA / 2);
     const upperMidZ = -lenA / 2 + upperH / 2;
 
-    // Iteration 3: glazing support (the Penthouse mechanism). The wing-B end
-    // wall — the far wall of the L — is the one replaced. Descriptor entries
-    // anchored 'glazing' / 'glazing_outside' resolve against this opening.
-    const glazing = (this._venueVisualConfig || {}).glazing_wall === true;
+    // Iteration 3: glazing support (the Penthouse mechanism). Descriptor
+    // entries anchored 'glazing' / 'glazing_outside' resolve against this
+    // opening; v3 adds the second face ('glazing_north') on the wing B
+    // segment of the north run.
 
-    addWall(0,                aCZ,        H,  lenA);
-    addWall(aCX,             -lenA / 2,   0,  wingW);
-    addWall(wingW,            upperMidZ,  H,  upperH);
-    addWall(wingW + lenB / 2, jZ,         0,  lenB);
-    if (!glazing) addWall(wingW + lenB,     bCZ,        H,  wingW);
-    addWall(wingW + lenB / 2, lenA / 2,   PI, lenB);
-    addWall(aCX,              lenA / 2,   PI, wingW);
+    // West wall (x=0): one run at the nominal height — or, under dual
+    // heights, TWO segments: the gallery run (wing_a) + the volume's west
+    // face (wing_b, where the art wall hangs).
+    if (dualHeight) {
+        addWall(0, (-lenA / 2 + jZ) / 2, H, jZ + lenA / 2, wallGeoA);
+        addWall(0, jZ + wingW / 2,       H, wingW,          wallGeoB);
+    } else {
+        addWall(0,                aCZ,        H,  lenA,  wallGeoA);
+    }
+    addWall(aCX,             -lenA / 2,   0,  wingW, wallGeoA);   // south (gallery band)
+    addWall(wingW,            upperMidZ,  H,  upperH, wallGeoA);   // gallery east (x=wingW)
+    addWall(wingW + lenB / 2, jZ,         0,  lenB,  wallGeoB);   // wing B south (solid — the seam continues here)
+    if (!glazing) addWall(wingW + lenB,     bCZ,        H,  wingW, wallGeoB); // east end
+    // North run, wing B segment: opened as the second glass face under
+    // 'wing_b_north'; the historic solid wall otherwise (bit-identical).
+    if (!glazeNorth) addWall(wingW + lenB / 2, lenA / 2, PI, lenB, wallGeoB);
+    addWall(aCX,              lenA / 2,   PI, wingW, wallGeoB);   // north run, wing A (the fireplace pier — always solid)
 
     if (glazing) {
         this._glazing = {
@@ -414,35 +485,76 @@ export function createRoomLShape(data) {
             cz: bCZ,
             inward: [-1, 0],                // [x, z] — points INTO wing B
             width: wingW,
-            height: wallHeight,
+            height: hB,
             wallId: 'wing_b_end',
         };
     }
+    if (glazeNorth) {
+        this._glazingNorth = {
+            cx: wingW + lenB / 2,
+            cz: lenA / 2 - CONFIG.room.wallDepth / 2,
+            inward: [0, -1],                // [x, z] — points INTO wing B (south)
+            width: lenB,
+            height: hB,
+            wallId: 'wing_b_north',
+        };
+    } else {
+        this._glazingNorth = null;          // rebuild hygiene (Live Preview reloads)
+    }
 
     if (!this.isLowEnd) {
-        const mkLight = (cx, cz) => {
+        const mkLight = (cx, cz, y) => {
             const l = new THREE.PointLight(0xfff8e8, venueFillIntensity.call(this, 2.5), 14);
-            l.position.set(cx, wallHeight - 0.3, cz);
+            l.position.set(cx, y, cz);
             l.castShadow = false;
             this.scene.add(l);
         };
-        mkLight(aCX, -lenA / 4);
-        mkLight(aCX,  lenA / 4);
-        mkLight(bCX,  bCZ);
+        // Fill lights track their zone's ceiling (historic wallHeight−0.3
+        // when no split is declared — bit-identical).
+        mkLight(aCX, -lenA / 4, hA - 0.3);
+        mkLight(aCX,  lenA / 4, hA - 0.3);
+        mkLight(bCX,  bCZ,      hB - 0.3);
     }
 
+    // ── SPAWN ORIENTATION (backported from the v2.2.0 "Residence Plan"
+    // shared-defect fix — Luxury Penthouse forensic audit, applies to every
+    // l-shape gallery): the camera was parked 1.5 m off the south wall with
+    // the PointerLockControls default yaw — which faces −z, i.e. AT that
+    // wall 1.35 m away. On every path that skips the Arrival choreography
+    // (embeds, deep links, flag off, failed hero composition) the first
+    // frame was a blank wall filling the screen. Orient the spawn DOWN the
+    // gallery corridor (+z, the same one-point perspective the Arrival
+    // composes toward — and on this venue, the sightline the v3 seam
+    // sculpture is built to be seen along). Pure orientation fix: no
+    // position change, no placement math change.
     this.camera.position.set(aCX, CONFIG.camera.height, -lenA / 2 + 1.5);
+    this.camera.lookAt(aCX, CONFIG.camera.height, 0);
 
-    const margin = 0.5;
+    // ── WALKABLE-DOMAIN FIX (backported from v2.2.0 — the wall-penetration
+    // audit): the margin-0.5 rects let the visitor walk THROUGH two walls:
+    //   • wing A east run (x = wingW, z ≤ jZ): maxX = wingW + 0.5 stands
+    //     0.35 m beyond the wall's OUTER face — inside the wall box the
+    //     backfaces cull and the room shows through;
+    //   • wing B south wall (z = jZ): minZ = jZ is the wall CENTRELINE —
+    //     the camera could stand 0.15 m inside the box.
+    // Derive a per-face skin from the wall geometry exactly the way the
+    // square builder does (skin = wallDepth/2 + 0.3): every rect edge sits
+    // 0.3 m clear of the wall INNER face. The A→B junction stays open: the
+    // two rects overlap on x ∈ [wingW − skin, wingW] for z ≥ jZ + skin, so
+    // the walk flows through the doorway unchanged.
+    const lSkin = wd / 2 + 0.3;
     this._lShapeBounds = {
-        a: { minX: 0 + margin, maxX: wingW + margin, minZ: -lenA/2 + margin, maxZ: lenA/2 - margin },
-        b: { minX: wingW - margin, maxX: wingW + lenB - margin, minZ: jZ, maxZ: lenA/2 - margin }
+        a: { minX: lSkin, maxX: wingW - lSkin, minZ: -lenA/2 + lSkin, maxZ: lenA/2 - lSkin },
+        b: { minX: wingW - lSkin, maxX: wingW + lenB - lSkin, minZ: jZ + lSkin, maxZ: lenA/2 - lSkin }
     };
     this.roomBounds = {
         minX: 0, maxX: wingW + lenB,
         minZ: -lenA / 2, maxZ: lenA / 2
     };
-    this._layoutMeta = { type: 'l-shape', wingW, lenA, lenB, jZ, zStart, zLimit, aCX, aCZ, bCX, bCZ };
+    // v3: the declared heights ride the layout meta so StructureBuilder
+    // anchors (and anything else) read the SAME numbers this builder built
+    // from — no drift possible. Undeclared ⇒ both equal wallHeight.
+    this._layoutMeta = { type: 'l-shape', wingW, lenA, lenB, jZ, zStart, zLimit, aCX, aCZ, bCX, bCZ, hA, hB };
 
     // Iteration 2: structure parity for l-shape layouts (same rationale as
     // the rotunda fix — layout choice must not silently drop structure).
