@@ -75,7 +75,8 @@ class VenuePhenomenaIterationTest extends TestCase
         $this->assertSame('planar', $mirror['floor_reflection'] ?? null, '[mirror-lake] must declare the planar reflection (§4.11).');
 
         $nebula = $this->visualConfig('nebula-drift');
-        $this->assertSame(0.05, $nebula['env_intensity'] ?? null, '[nebula-drift] must damp the night-HDRI horizon glow.');
+        $this->assertSame('none', $nebula['environment'] ?? null, '[nebula-drift] must declare environment none — the sky is procedural, the HDRI download disappears (Deep Field pass, 2026-09-08).');
+        $this->assertSame(0, $nebula['env_intensity'] ?? null, '[nebula-drift] must silence the preset HDRI glow at its source.');
     }
 
     public function test_non_void_venues_declare_no_phenomena_keys(): void

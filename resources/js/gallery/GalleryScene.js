@@ -429,11 +429,18 @@ export class GalleryScene {
                     // Gentle vertical bob — the whole Points object floats
                     ps.obj.position.y = Math.sin(t * 0.35 + ps.phase) * 0.35;
                 } else if (ps.type === 'void-drift') {
-                    // Infinite Void dust: per-mote drift happens in the
-                    // vertex shader — one uniform write per frame, no
-                    // per-particle CPU work, no allocations.
+                    // Infinite Void dust + the Nebula Drift stardrift current:
+                    // per-mote drift happens in the vertex shader — one
+                    // uniform write per frame, no per-particle CPU work, no
+                    // allocations.
                     const u = ps.obj.material.uniforms?.uTime;
                     if (u) u.value = t;
+                } else if (ps.type === 'drift-rotate') {
+                    // Nebula Drift deep-field shells: slow precession around
+                    // the band's own axis (ps.speed carries the signed rate —
+                    // opposite senses on the two shells give layered
+                    // parallax). One property write per frame.
+                    ps.obj.rotation.y += ps.speed ?? 0.002;
                 } else if (ps.type === 'rotate-slow') {
                     ps.obj.rotation.y += 0.0025;
                     ps.obj.rotation.x += 0.0012;

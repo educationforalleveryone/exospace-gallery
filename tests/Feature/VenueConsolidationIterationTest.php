@@ -130,7 +130,8 @@ class VenueConsolidationIterationTest extends TestCase
         $this->assertTrue($this->visualConfig('crystal-cathedral')['void_arcade'] ?? false, '[crystal-cathedral] declares void_arcade (the 2026-09-07 luminous arcade body).');
         $this->assertArrayNotHasKey('void_colonnade', $this->visualConfig('crystal-cathedral'), '[crystal-cathedral] ships the arcade body — void_colonnade is rollback body #1 only.');
         $this->assertArrayNotHasKey('void_shards', $this->visualConfig('crystal-cathedral'), '[crystal-cathedral] ships the arcade body — void_shards is rollback body #2 only.');
-        $this->assertTrue($this->visualConfig('nebula-drift')['void_starfield'] ?? false, '[nebula-drift] declares void_starfield.');
+        $this->assertTrue($this->visualConfig('nebula-drift')['void_deepfield'] ?? false, '[nebula-drift] declares void_deepfield (the 2026-09-08 Deep Field body).');
+        $this->assertArrayNotHasKey('void_starfield', $this->visualConfig('nebula-drift'), '[nebula-drift] ships the Deep Field body — void_starfield is the v1.0.0 rollback body only.');
         $this->assertTrue($this->visualConfig('mirror-lake')['void_lake'] ?? false, '[mirror-lake] declares void_lake.');
 
         // Declared shell details (was the loft/cyber slug branches).

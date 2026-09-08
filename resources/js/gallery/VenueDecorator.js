@@ -1479,8 +1479,88 @@ function addBaysStructure(data) {
 // point for structure that must anchor to final artwork transforms. Venues
 // opt in by structure_pass; no pass ⇒ no-op.
 export function addVenuePostPlacementStructure() {
-    const pass = (this._venueVisualConfig || {}).structure_pass;
+    const vc = this._venueVisualConfig || {};
+    const pass = vc.structure_pass;
     if (pass === 'museum') addDarkMuseumPictureLights.call(this);
+    // Deep Field presentation (2026-09-08 audit pass, generic): a declared
+    // placement.light_pools drops a pool of cool light on the floor beneath
+    // every floating artwork. Any float venue may declare it — the effect is
+    // presentation vocabulary, not venue identity, so the key is generic and
+    // the venue-owned placement object carries it.
+    if (vc.placement?.light_pools === true) addFloatLightPools.call(this);
+}
+
+// ── FLOAT LIGHT POOLS — grounding for suspended works ───────────────────────
+// A dark cosmic floor gives nothing back to a floating canvas: the works
+// hover over a void and the hang reads as unanchored (the v1.0.0 Nebula
+// Drift's presentation gap). One soft additive pool of cool light beneath
+// each artwork:
+//   • grounds the float — the work is suspended OVER its light, the way a
+//     gallery washes a wall from above;
+//   • composes the floor — from the spawn the pools read as the exhibition's
+//     constellation map (the visitor can see where the show is before
+//     walking it);
+//   • costs ONE InstancedMesh draw for the whole hang.
+// Neutral cool white (0xaebbe0-family), subtle opacity — artwork lighting
+// itself stays warm and pooled (§12); these are atmosphere, not key light.
+// Deterministic: pool size variation continues the venue's seeded rng after
+// placement has consumed its draws.
+function addFloatLightPools() {
+    const artworks = this.artworks || [];
+    if (!artworks.length || this._floatLightPoolsAdded) return;
+    this._floatLightPoolsAdded = true;
+
+    const rng = this._venueRng;
+    const isLowEnd = !!this.isLowEnd;
+
+    const geo = new THREE.PlaneGeometry(1, 1);
+    const mat = new THREE.MeshBasicMaterial({
+        map: makeRadialPoolTexture(),
+        transparent: true,
+        opacity: isLowEnd ? 0.12 : 0.15,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        // Scene fog applies — far pools melt into the floor's depth haze
+        // exactly like the far artworks do (fog is the depth cue here).
+    });
+    const pools = new THREE.InstancedMesh(geo, mat, artworks.length);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+    const p = new THREE.Vector3();
+    const s = new THREE.Vector3();
+    artworks.forEach((art, i) => {
+        const poolR = 2.3 + rng.next() * 0.7; // seeded size rhythm
+        p.set(art.position.x, 0.02, art.position.z);
+        s.set(poolR, poolR, 1);
+        m.compose(p, q, s);
+        pools.setMatrixAt(i, m);
+    });
+    pools.instanceMatrix.needsUpdate = true;
+    pools.frustumCulled = false;
+    pools.renderOrder = 1; // after the floor, with the other transparents
+    this.scene.add(pools);
+}
+
+// Radial pool sprite — a soft-edged disc, generated once and shared by the
+// instanced mesh (module-level cache: one 256² texture per session).
+let _poolTextureCache = null;
+function makeRadialPoolTexture() {
+    if (_poolTextureCache) return _poolTextureCache;
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, 'rgba(190,200,235,0.55)');
+    grad.addColorStop(0.45, 'rgba(170,185,225,0.22)');
+    grad.addColorStop(1, 'rgba(160,175,220,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    _poolTextureCache = tex;
+    return tex;
 }
 
 // ── SCULPTURE GARDEN — full outdoor redesign ────────────────────────────────
@@ -1679,7 +1759,14 @@ function addSculptureGardenStructure(data) {
 // #7). The 'phenomena' structure_pass remains the pass gate + rollback
 // switch; each ingredient is declared per venue:
 //   void_dust       floating dust points        (infinite-void)
-//   void_starfield  starfield + nebula cloud    (nebula-drift)
+//   void_deepfield  layered deep-field nebula   (nebula-drift, 2026-09-08 audit
+//                                               body: tilted galactic band of
+//                                               seeded nebula-mass sprites, two-
+//                                               strata neutral starfield, colossal
+//                                               dark silhouettes, stardrift
+//                                               current, meridian ring)
+//   void_starfield  starfield + nebula cloud    (nebula-drift ROLLBACK body — the
+//                                               v1.0.0 look, config-revert only)
 //   void_arcade     luminous arcade architecture(crystal-cathedral, audit body:
 //                                               faceted piers + pointed arches +
 //                                               art bays + clerestory + rib vault
@@ -1713,7 +1800,12 @@ function addVoidVenueStructure(data) {
     if (vc.void_depth_gradient === true && !this.isLowEnd) {
         addVoidDepthGradient.call(this, radius);
     }
-    if (vc.void_starfield === true) {
+    if (vc.void_deepfield === true) {
+        // NEBULA DRIFT audit body (2026-09-08): the layered deep-field sky.
+        // Takes precedence over the legacy starfield — the rollback chain is
+        // void_deepfield → void_starfield → (nothing).
+        addNebulaDeepfield.call(this, radius);
+    } else if (vc.void_starfield === true) {
         addNebulaDriftStructure.call(this, radius);
     }
     if (vc.void_arcade === true) {
@@ -2375,6 +2467,503 @@ function addCrystalCathedralLegacyShards(radius) {
     // (Floor is set in RoomBuilder via floorMaterial="marble" + high metalness
     // override in the venue's material_config.)
 }
+
+// NEBULA DRIFT — "THE DEEP FIELD" (audit body, 2026-09-08)
+// ────────────────────────────────────────────────────────────────────────────
+// The v1.0.0 body (kept below verbatim as the rollback) rendered the venue
+// as "Infinite Void + purple": 800 all-violet stars on a far shell, ONE flat
+// additive particle box drifting through the artwork zone, and a purple
+// PointLight that DOUBLED the seeded 'nebula-center' fixture at the same
+// position. Nothing anchored the space; the name test answered "purple fog
+// and stars" — the exact failure state the brief forbids.
+//
+// This body's one idea: **a gallery suspended inside a living deep field.**
+// The visitor should feel that something immense is moving around them while
+// every artwork stays immediately readable. Identity comes from COMPOSITION
+// (layers, band, silhouettes, pools) — never from bloom or saturation:
+//
+//   FAR   the galactic band — a tilted plane of seeded nebula-mass sprites
+//         (two shells: huge/faint, closer/denser) precessing around the
+//         band's own axis at two tiny opposite angular velocities; a dense
+//         stratum of band-weighted stars rides the same frame;
+//   FAR   colossal dark monolith silhouettes occluding the band glow —
+//         the scale-ambiguity cue (§8): enormous, unmeasurable, still;
+//   MID   an all-sky two-strata NEUTRAL starfield (white → blue-white,
+//         rare warm/cyan/rose tints — never all-violet again);
+//   NEAR  the stardrift current — per-mote shader drift (the void_dust
+//         GLSL precedent) streaming along ONE seeded direction, each mote
+//         dissolving in and out over its journey (no wrap-pop, no snow);
+//   NEAR  a pool of cool light on the floor beneath every floating artwork
+//         (post-placement hook — the exhibition read as a constellation);
+//   ABOVE one meridian ring — the arrival threshold anchor that frames the
+//         spawn view and hands the eye an "up".
+//
+// COLOUR HIERARCHY (§11): declared deep-indigo atmosphere (background/fog)
+// → dominant indigo-violet + secondary cool-blue nebular masses (visual_config.nebula,
+// venue-owned) → ONE rare rose accent sprite (the band's core). Stars are
+// neutral. The rig is neutral moon-slate; the ONLY warm light remains the
+// pooled artwork lighting (§12 honesty — the v1.0.0 purple ambient tinted
+// every lit canvas).
+//
+// DRIFT (§9): the shells precess (≈ 0.2°/s, opposite senses → parallax),
+// the current streams (≈ 0.15 m/s), the hang floats. No bobbing whole-cloud
+// sine, no screensaver. Reduced-motion + low-end: all motion rests, the
+// composition alone carries the identity (§35).
+//
+// PERF (§21): ≈ 16 draws / < 20k tris for the whole body (10 sprite draws,
+// 3 star draws, 1 instanced monolith draw, 1 current draw, 1 ring) — the
+// sky is quads and points, the depth is composition, not geometry. With
+// environment 'none' the night.hdr download disappears entirely.
+// Deterministic: every placement and texture blob comes from the venue's
+// seeded rng in a fixed call order; drift is a pure function of time.
+function addNebulaDeepfield(radius) {
+    const vc  = this._venueVisualConfig || {};
+    const rng = this._venueRng;
+    const pal = (vc.nebula && typeof vc.nebula === 'object') ? vc.nebula : {};
+    const DOMINANT  = parseColor(pal.dominant)  || new THREE.Color(0x5a4ae0);
+    const SECONDARY = parseColor(pal.secondary) || new THREE.Color(0x2e6ac8);
+    const ACCENT    = parseColor(pal.accent)    || new THREE.Color(0xd85a9e);
+
+    const isLowEnd   = !!this.isLowEnd;
+    const isMobile   = !!this._isMobileTier;
+    const starBudget = isLowEnd ? 0.55 : (isMobile ? 0.75 : 1.0);
+
+    this._particleSystems = this._particleSystems || [];
+
+    // ── 1. The galactic band — two sprite shells in one tilted frame ──────
+    // The band is a GROUP (tilt, static) → spin group (precesses around the
+    // band's own axis) → sprites. Sprites always face the camera, so the
+    // rotation reads as the masses themselves drifting along the band.
+    const bandTilt = 0.38 + rng.next() * 0.1;   // ≈ 22–27° from horizontal
+    const bandYaw  = rng.next() * Math.PI * 2;  // band azimuth, seeded per venue
+
+    const makeShell = (defs, dist, speed) => {
+        const tilt = new THREE.Group();
+        tilt.rotation.set(bandTilt, bandYaw, 0);
+        const spin = new THREE.Group();
+        tilt.add(spin);
+        for (const d of defs) {
+            // Textures are cached per (colour × resolution) and shared — the
+            // masses differ through SCALE, SEEDED SCREEN ROTATION and layer
+            // opacity, so 5 canvases serve the whole band (~1.8 MB instead
+            // of ~10 MB on the GPU).
+            const tex = getMassTexture(d.color, d.size > dist * 0.6 ? 512 : 256);
+            const mat = new THREE.SpriteMaterial({
+                map: tex,
+                rotation: (rng.next() - 0.5) * Math.PI * 2, // no two masses read identical
+                transparent: true,
+                // Layer control. (The v1 first pass multiplied THIS by the
+                // texture's own 0.05–0.14 blob alpha → the whole band
+                // rendered at ~2% and read as bare black. The texture now
+                // carries real body — see makeNebulaMassTexture — and the
+                // material opacity is the only dimmer.)
+                opacity: d.opacity,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                fog: false, // the band IS the sky — scene fog must not eat it
+            });
+            const s = new THREE.Sprite(mat);
+            s.position.set(d.x, d.y, d.z);
+            s.scale.setScalar(d.size);
+            s.renderOrder = -9;
+            spin.add(s);
+        }
+        this.scene.add(tilt);
+        this._particleSystems.push({ obj: spin, type: 'drift-rotate', speed });
+        return spin;
+    };
+
+    // Lazy texture cache — created in fixed call order, so the seeded rng
+    // stream stays deterministic per build.
+    const massTexCache = new Map();
+    const getMassTexture = (color, size) => {
+        const key = `${color.getHexString()}:${size}`;
+        if (!massTexCache.has(key)) massTexCache.set(key, makeNebulaMassTexture(rng, color, size));
+        return massTexCache.get(key);
+    };
+
+    // Sprite placement on the band plane: azimuth uniform, band-local height
+    // small (the band is a BAND, not a sphere), a couple of outliers keep it
+    // from reading as a ring. Sizes are fractions of the venue radius so the
+    // composition scales from 5-work salons to 40-work halls.
+    const bandSprite = (shellR, sizeF, hF) => {
+        const a = rng.next() * Math.PI * 2;
+        const h = (rng.next() - 0.5) * 2 * hF * shellR;
+        return {
+            x: Math.sin(a) * shellR, y: h, z: Math.cos(a) * shellR,
+            size: shellR * sizeF * (0.8 + rng.next() * 0.4),
+        };
+    };
+
+    // The band backbone — EVEN azimuth slots (+ jitter) guaranteeing no
+    // viewing direction is bare; alternating palette for tonal variety.
+    const bandHaze = (shellR, count, sizeF, hF, opMin, opMax, colA, colB, rngSrc) => {
+        const defs = [];
+        for (let j = 0; j < count; j++) {
+            const a  = (j / count) * Math.PI * 2 + (rngSrc.next() - 0.5) * 0.4;
+            const h  = (rngSrc.next() - 0.5) * 2 * hF * shellR;
+            defs.push({
+                x: Math.sin(a) * shellR, y: h, z: Math.cos(a) * shellR,
+                size: shellR * sizeF * (0.85 + rngSrc.next() * 0.3),
+                color: (j % 2 === 0) ? colA : colB,
+                opacity: opMin + rngSrc.next() * (opMax - opMin),
+            });
+        }
+        return defs;
+    };
+
+    const farR = radius * 3.1;
+    const farSpin = makeShell(
+        [
+            { ...bandSprite(farR, 1.9, 0.16), color: DOMINANT,  opacity: 0.5 },
+            { ...bandSprite(farR, 1.6, 0.16), color: DOMINANT,  opacity: 0.42 },
+            { ...bandSprite(farR, 1.5, 0.2),  color: SECONDARY, opacity: 0.38 },
+            { ...bandSprite(farR, 1.4, 0.2),  color: SECONDARY, opacity: 0.34 },
+            // The band backbone: evenly spaced haze puffs (arithmetic slots +
+            // seeded jitter — the rhythm is arithmetic, the character is
+            // seeded). Without it the discrete feature masses leave azimuthal
+            // gaps and half the sky reads bare black. Low-end skips it — 20
+            // large additive sprites are fill-rate that tier does not have;
+            // the feature masses carry the identity alone.
+            ...(isLowEnd ? [] : bandHaze(farR, 12, 1.15, 0.14, 0.16, 0.22, DOMINANT, SECONDARY, rng)),
+        ],
+        farR, 0.0032,
+    );
+
+    const midR = radius * 2.15;
+    makeShell(
+        [
+            { ...bandSprite(midR, 1.05, 0.18), color: DOMINANT,  opacity: 0.52 },
+            { ...bandSprite(midR, 0.9,  0.18), color: DOMINANT,  opacity: 0.46 },
+            { ...bandSprite(midR, 0.8,  0.22), color: SECONDARY, opacity: 0.42 },
+            { ...bandSprite(midR, 0.7,  0.22), color: SECONDARY, opacity: 0.38 },
+            { ...bandSprite(midR, 0.6,  0.26), color: DOMINANT,  opacity: 0.36 },
+            // THE rare warm accent — the band's core, one sprite in the venue.
+            { ...bandSprite(midR, 0.42, 0.12), color: ACCENT,    opacity: 0.5 },
+            ...(isLowEnd ? [] : bandHaze(midR, 8, 0.62, 0.16, 0.18, 0.26, DOMINANT, SECONDARY, rng)),
+        ],
+        midR, -0.005, // opposite sense → layered parallax against the far shell
+    );
+
+    // ── 2. Stars — two strata, NEUTRAL (the v1.0.0 sky was 100% violet) ───
+    // Palette: ~78% white-blue, ~12% faint warm, ~6% cyan, ~4% rose — a sky,
+    // not a screensaver. Distribution seeded; the band stratum (below) rides
+    // the band frame so the Milky Way and the masses belong together.
+    const makeStars = (count, rMin, rMax, size, opacity, yClamp) => {
+        const n = Math.max(8, Math.round(count * starBudget));
+        const pos = new Float32Array(n * 3);
+        const col = new Float32Array(n * 3);
+        const c = new THREE.Color();
+        for (let i = 0; i < n; i++) {
+            const theta = rng.next() * Math.PI * 2;
+            const phi   = Math.acos(rng.next() * 2 - 1);
+            const r     = rMin + rng.next() * (rMax - rMin);
+            let y = r * Math.cos(phi);
+            // Keep the all-sky strata out of the floor plane (the floor, the
+            // pools and the hang own the first metres of the composition).
+            if (yClamp != null && y < yClamp && y > -(yClamp)) {
+                y = Math.sign(y || 1) * yClamp;
+            }
+            pos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+            pos[i * 3 + 1] = y;
+            pos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+            const t = rng.next();
+            if (t < 0.78)      c.setHSL(0.58 + rng.next() * 0.08, 0.04 + rng.next() * 0.18, 0.72 + rng.next() * 0.24); // white-blue
+            else if (t < 0.90) c.setHSL(0.07 + rng.next() * 0.06, 0.28 + rng.next() * 0.22, 0.78 + rng.next() * 0.14); // faint warm
+            else if (t < 0.96) c.setHSL(0.52, 0.35, 0.8);                                                              // cyan tint
+            else               c.setHSL(0.93, 0.30, 0.78);                                                             // rose tint
+            col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+        const mat = new THREE.PointsMaterial({
+            size, vertexColors: true, transparent: true, opacity,
+            sizeAttenuation: true, depthWrite: false,
+            map: makeStarTexture(),   // round soft points — square gl_Points read as debris
+            fog: false, // sky, not scene depth (the §4.7 exemption, kept)
+        });
+        const pts = new THREE.Points(geo, mat);
+        pts.frustumCulled = false;
+        pts.renderOrder = -8;
+        return pts;
+    };
+
+    this.scene.add(makeStars(700, radius * 4.6, radius * 6.4, 0.34, 0.8, radius * 0.12)); // far fine field
+    if (!isLowEnd) {
+        this.scene.add(makeStars(130, radius * 2.6, radius * 3.5, 0.62, 0.95, radius * 0.15)); // near bright anchors
+    }
+
+    // Band stars — a denser stratum flattened along the band plane, nested
+    // in the far shell's spin frame so the Milky Way and the masses precess
+    // as ONE sky (no relative drift between the strata).
+    {
+        const n = Math.max(8, Math.round(260 * starBudget));
+        const pos = new Float32Array(n * 3);
+        const col = new Float32Array(n * 3);
+        const c = new THREE.Color();
+        for (let i = 0; i < n; i++) {
+            const a = rng.next() * Math.PI * 2;
+            const r = farR * (0.9 + rng.next() * 0.35);
+            const h = (rng.next() + rng.next() - 1) * farR * 0.22; // soft band thickness
+            pos[i * 3]     = Math.sin(a) * r;
+            pos[i * 3 + 1] = h;
+            pos[i * 3 + 2] = Math.cos(a) * r;
+            c.setHSL(0.58 + rng.next() * 0.08, 0.05 + rng.next() * 0.15, 0.68 + rng.next() * 0.28);
+            col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+        const mat = new THREE.PointsMaterial({
+            size: 0.3, vertexColors: true, transparent: true, opacity: 0.75,
+            sizeAttenuation: true, depthWrite: false, fog: false,
+            map: makeStarTexture(),   // round soft points
+        });
+        const pts = new THREE.Points(geo, mat);
+        pts.frustumCulled = false;
+        pts.renderOrder = -8;
+        farSpin.add(pts); // rides the band's precession — one sky, one motion
+    }
+
+    // ── 3. Monolith silhouettes — scale ambiguity (§8) ────────────────────
+    // 3–4 enormous dark shards standing off beyond the field, catching just
+    // enough of the cold key to hold an edge against the band glow. Opaque +
+    // fog-exempt: they occlude the additive sky and read as silhouettes at
+    // unmeasurable distances.
+    {
+        const count = isLowEnd ? 3 : 4;
+        const geo   = new THREE.OctahedronGeometry(1, 0);
+        const mat   = isLowEnd
+            ? new THREE.MeshLambertMaterial({ color: 0x0d0a22, fog: false })
+            : new THREE.MeshStandardMaterial({
+                color: 0x0d0a22, roughness: 0.9, metalness: 0.0,
+                flatShading: true, fog: false,
+            });
+        const inst = new THREE.InstancedMesh(geo, mat, count);
+        const m = new THREE.Matrix4();
+        const q = new THREE.Quaternion();
+        const e = new THREE.Euler();
+        const p = new THREE.Vector3();
+        const s = new THREE.Vector3();
+        for (let i = 0; i < count; i++) {
+            const a = rng.next() * Math.PI * 2;
+            const d = radius * (2.9 + rng.next() * 1.3);
+            const h = d * (0.38 + rng.next() * 0.22);
+            e.set((rng.next() - 0.5) * 0.16, rng.next() * Math.PI * 2, (rng.next() - 0.5) * 0.16);
+            q.setFromEuler(e);
+            p.set(Math.sin(a) * d, d * (0.14 + rng.next() * 0.3), Math.cos(a) * d);
+            s.set(h * (0.11 + rng.next() * 0.05), h, h * (0.11 + rng.next() * 0.05));
+            m.compose(p, q, s);
+            inst.setMatrixAt(i, m);
+        }
+        inst.instanceMatrix.needsUpdate = true;
+        inst.frustumCulled = false;
+        this.scene.add(inst);
+    }
+
+    // ── 4. The stardrift current — §9's "drift", made literal ─────────────
+    // Per-mote shader drift along ONE seeded direction. Each mote fades in,
+    // crosses the exhibition volume at walking-pace-slow speed, and fades
+    // out before re-entering — a current, not snow (the void_dust GLSL
+    // precedent: zero per-frame CPU, zero allocations, one draw call).
+    {
+        const COUNT = isLowEnd ? 260 : (isMobile ? 360 : 480);
+        const ySpan = Math.min(9, radius * 0.42 + 2);
+        const dirA  = rng.next() * Math.PI * 2; // the current's heading, seeded per venue
+        const pos = new Float32Array(COUNT * 3);
+        const ph  = new Float32Array(COUNT);
+        const sz  = new Float32Array(COUNT);
+        const sp  = new Float32Array(COUNT);
+        for (let i = 0; i < COUNT; i++) {
+            const a = rng.next() * Math.PI * 2;
+            const r = Math.sqrt(rng.next()) * radius * 1.15;
+            pos[i * 3]     = Math.cos(a) * r;
+            pos[i * 3 + 1] = 0.15 + rng.next() * ySpan;
+            pos[i * 3 + 2] = Math.sin(a) * r;
+            ph[i] = rng.next();
+            sz[i] = 0.5 + rng.next() * 0.9;
+            sp[i] = 0.6 + rng.next() * 0.8;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute('aPhase',   new THREE.BufferAttribute(ph, 1));
+        geo.setAttribute('aSize',    new THREE.BufferAttribute(sz, 1));
+        geo.setAttribute('aSpeed',   new THREE.BufferAttribute(sp, 1));
+
+        let mat;
+        if (isLowEnd) {
+            mat = new THREE.PointsMaterial({
+                color: 0xbac8f0, size: 0.05, transparent: true, opacity: 0.42,
+                sizeAttenuation: true, depthWrite: false,
+            });
+        } else {
+            mat = new THREE.ShaderMaterial({
+                transparent: true,
+                depthWrite: false,
+                fog: false, // the current IS atmosphere
+                uniforms: {
+                    uTime:   { value: 0 },
+                    uDir:    { value: new THREE.Vector2(Math.sin(dirA), Math.cos(dirA)) },
+                    uSpan:   { value: radius * 2.2 },
+                    uColor:  { value: new THREE.Color(0xbac8f0) },
+                    uOpacity:{ value: 0.4 },
+                    uBaseSize: { value: 0.05 },
+                },
+                vertexShader: /* glsl */`
+                    attribute float aPhase;
+                    attribute float aSize;
+                    attribute float aSpeed;
+                    uniform float uTime;
+                    uniform vec2  uDir;
+                    uniform float uSpan;
+                    uniform float uBaseSize;
+                    varying float vFade;
+                    void main() {
+                        vec3 p = position;
+                        // The journey: each mote progresses through [0,1) over
+                        // ~2 minutes, crossing the span once, fading in/out at
+                        // both ends so the wrap never pops.
+                        float prog = fract(uTime * 0.008 * aSpeed + aPhase);
+                        float traveled = (prog - 0.5) * uSpan;
+                        p.x += uDir.x * traveled;
+                        p.z += uDir.y * traveled;
+                        // Centimetre-scale breath so no mote ever looks pinned.
+                        p.y += sin(uTime * 0.2 + aPhase * 40.0) * 0.25;
+                        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+                        float d = -mv.z;
+                        vFade = smoothstep(0.6, 2.0, d) * (1.0 - smoothstep(16.0, 30.0, d));
+                        vFade *= sin(3.14159265 * prog); // dissolve at both ends
+                        gl_PointSize = aSize * uBaseSize * (240.0 / max(d, 0.001));
+                        gl_Position = projectionMatrix * mv;
+                    }
+                `,
+                fragmentShader: /* glsl */`
+                    uniform vec3  uColor;
+                    uniform float uOpacity;
+                    varying float vFade;
+                    void main() {
+                        vec2 uv = gl_PointCoord - 0.5;
+                        float a = 1.0 - smoothstep(0.18, 0.5, length(uv));
+                        gl_FragColor = vec4(uColor, uOpacity * a * vFade);
+                    }
+                `,
+            });
+        }
+        const pts = new THREE.Points(geo, mat);
+        pts.frustumCulled = false;
+        this.scene.add(pts);
+        // GalleryScene advances uTime for the 'void-drift' type — the current
+        // reuses it verbatim (one uniform write per frame, no allocations).
+        this._particleSystems.push({ obj: pts, type: 'void-drift', phase: 0 });
+    }
+
+    // ── 5. The meridian ring — the arrival threshold anchor (§33) ────────
+    // One thin luminous ring overhead, tilted off-axis just enough to feel
+    // found rather than installed. It frames the spawn view, hands the eye
+    // an "up" in an otherwise anchorless sky, and reads as the heart of the
+    // drift. Cool white-violet — the rose accent stays reserved for the
+    // band core (one accent, once).
+    {
+        const ringR = radius * 0.62 + 2;
+        const ring  = new THREE.Mesh(
+            new THREE.TorusGeometry(ringR, 0.055, 8, 128),
+            new THREE.MeshBasicMaterial({
+                color: 0xcdd6f2, transparent: true, opacity: 0.62,
+                fog: false, // luminous class (the cathedral seam precedent)
+            }),
+        );
+        ring.position.set(0, ringR * 1.32 + 1.6, 0);
+        ring.rotation.set(0.21 + (rng.next() - 0.5) * 0.06, rng.next() * Math.PI * 2, 0.06);
+        ring.frustumCulled = false;
+        this.scene.add(ring);
+    }
+}
+
+// ── Nebula mass texture — seeded procedural blob canvas ─────────────────────
+// A soft cluster of radial-gradient blobs in one hue family. 512² for the
+// huge far masses, 256² for the mid shell; no mip generation surprises (the
+// default mip chain handles minification). Deterministic: every blob draws
+// from the venue's seeded rng in call order.
+function makeNebulaMassTexture(rng, color, size = 512) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const base = (color && isColorLike(color)) ? color : new THREE.Color(0x5a4ae0);
+    const css = (c, a) => `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${a.toFixed(3)})`;
+    // A broad BASE WASH first — every mass carries a soft body so no sprite
+    // ever reads as a cluster of separate blobs. (The v1 first pass drew only
+    // 0.05–0.14-alpha blobs; multiplied by the material's layer opacity the
+    // whole band rendered at ~2% and the sky stayed black on every tier.)
+    const wash = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size * 0.5);
+    wash.addColorStop(0, css(base.clone().offsetHSL(0, -0.04, 0.04), 0.34));
+    wash.addColorStop(0.55, css(base, 0.2));
+    wash.addColorStop(1, css(base, 0));
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, 0, size, size);
+    // Structure on top: a seeded cluster of brighter lobes and dark dust
+    // lanes (the lanes punch holes so the mass reads as FORM, not fog).
+    const blobs = Math.round(size / 15); // 34 @512, 17 @256
+    for (let i = 0; i < blobs; i++) {
+        const a  = rng.next() * Math.PI * 2;
+        const rr = Math.pow(rng.next(), 0.62) * 0.4; // concentrate toward the centre
+        const cx = (0.5 + Math.cos(a) * rr) * size;
+        const cy = (0.5 + Math.sin(a) * rr) * size;
+        const rad = (0.06 + rng.next() * 0.14) * size;
+        const lane = rng.next() < 0.22; // dark dust lane
+        const c = base.clone().offsetHSL(
+            (rng.next() - 0.5) * 0.03,
+            lane ? -0.1 : (rng.next() - 0.5) * 0.08,
+            lane ? -0.16 : (rng.next() - 0.5) * 0.09,
+        );
+        const alpha = lane ? 0.3 : 0.16 + rng.next() * 0.26;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        grad.addColorStop(0, css(c, alpha));
+        grad.addColorStop(1, css(c, 0));
+        ctx.fillStyle = lane ? 'destination-out' : grad;
+        if (lane) {
+            // Punch the lane out with its own gradient mask.
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = grad;
+        }
+        ctx.fillRect(0, 0, size, size);
+        ctx.globalCompositeOperation = 'source-over';
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+
+// ── Star + pool sprite textures — one shared canvas per session ────────────
+// THREE.PointsMaterial without a map renders SQUARE gl_Points — at star
+// sizes they read as pixel debris. One 64² radial-gradient canvas gives every
+// stratum a soft round falloff (the mote shader does the same in GLSL).
+let _starTextureCache = null;
+function makeStarTexture() {
+    if (_starTextureCache) return _starTextureCache;
+    const size = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.3, 'rgba(255,255,255,0.85)');
+    grad.addColorStop(0.65, 'rgba(255,255,255,0.18)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    _starTextureCache = tex;
+    return tex;
+}
+
+function isColorLike(v) {
+    return v && typeof v === 'object' && typeof v.r === 'number';
+}
+
 
 // NEBULA DRIFT — cosmic depth, made coherent (Iteration 2 refinement)
 // ────────────────────────────────────────────────────────────────────────────

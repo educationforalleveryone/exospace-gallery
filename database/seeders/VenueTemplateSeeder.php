@@ -53,7 +53,7 @@ use Illuminate\Database\Seeder;
  *   4. dark-museum         — Dramatic dark walls, gold frames
  *   5. zen-gallery         — Minimal, natural materials, warm calm
  *   6. crystal-cathedral   — Faceted crystal arcade: piers, pointed arches, oculus light
- *   7. nebula-drift        — Starfield + nebula cloud + cosmic feel
+ *   7. nebula-drift        — Deep-field nebula band, stardrift current, ring of light
  *   8. the-salon           — Close-hung warmth, domestic scale (Iteration 8)
  *
  * STUDIO PLAN:
@@ -778,20 +778,44 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 7. Nebula Drift — Pro (NEW void-style venue)
+            // 7. Nebula Drift — Pro ("The Deep Field", 2026-09-08 audit pass)
+            //
+            // The v1.0.0 row answered the name test with "a dark room with
+            // purple fog and stars": a double purple centre light (seeded
+            // fixture + the body's own — stacked), all-violet stars, a flat
+            // additive particle box through the artwork zone, an ambient
+            // that tinted every artwork canvas purple, a floor whose
+            // declared colour never reached the marble texture, the legacy
+            // grey-blend vignette, and a night.hdr download that was being
+            // silenced anyway. Production rows are updated by the GUARDED
+            // migration 2026_09_08_000002_nebula_drift_deepfield — this
+            // seeder stays the fresh-install baseline and must stay
+            // byte-consistent with that migration's outcome.
+            //
+            // The declared identity ("The Deep Field"): a layered cosmic
+            // sky — a tilted galactic band of nebula masses (seeded sprite
+            // shells, slowly precessing), a neutral two-strata starfield,
+            // colossal dark silhouettes for scale — a stardrift current
+            // streaming through the exhibition, one meridian ring overhead
+            // as the arrival anchor, and a pool of cool light under every
+            // floating artwork. Colour hierarchy: deep indigo atmosphere →
+            // violet/blue nebular masses → ONE rare rose accent. The only
+            // warm light in the venue is the artwork pool lighting
+            // (§12 artwork honesty). The legacy starfield body stays
+            // reachable via config revert (void_deepfield → void_starfield).
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Nebula Drift',
                 'slug'          => 'nebula-drift',
-                'description'   => 'Artworks drift through a cosmic cloud — distant stars and a purple nebula with quiet depth between them. For digital art and otherworldly exhibitions.',
+                'description'   => 'A deep-field nebula surrounds the exhibition — layered cosmic masses drifting along a tilted galactic band, a slow stardrift current, and a lone meridian ring overhead. Artworks float above pools of light on a dark starlit floor.',
                 'category'      => 'abstract',
-                'tags'          => ['cosmic', 'stars', 'nebula', 'ethereal'],
+                'tags'          => ['cosmic', 'nebula', 'deep-field', 'ethereal'],
                 'plan_required' => 'pro',
                 'capacity_min'  => 5,
                 'capacity_max'  => 50,
                 'sort_order'    => 7,
                 'is_featured'   => true,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'marble',
@@ -806,43 +830,80 @@ class VenueTemplateSeeder extends Seeder
                     'ceiling_height'         => 0,
                     'background_color'       => '0x050015',
                     'fog_color'              => '0x050015',
-                    'fog_near'               => 10,
-                    'fog_far'                => 40,
-                    'ambient_color'          => '0x8844ff',
-                    'ambient_intensity'      => 0.2,
-                    'spot_intensity'         => 0.55,
+                    'fog_near'               => 12,
+                    'fog_far'                => 70,
+                    'ambient_color'          => '0x7a86b8',  // moon-slate — NEVER purple (artwork honesty)
+                    'ambient_intensity'      => 0.55,  // the base wash: at 40 works only 12 canvases carry a pool light, the rest must still READ
+                    'hemisphere_intensity'   => 0.35,  // vertical fill — unlit far canvases stay legible
+                    'spot_intensity'         => 1.2,   // pool target ≈ 4.2 (void family)
                     'fill_intensity'         => 0.15,
-                    'tone_mapping_exposure'  => 0.6,
+                    'tone_mapping_exposure'  => 0.85,  // was 0.6 murk
                     'frame_override'         => null,
                     // ── Iteration 2 "Phenomena" declared identity ──────
                     'placement_mode'  => 'float',  // §4.7 — "drift", not "stand"
-                    'env_intensity'  => 0.05,  // night.hdr horizon glow silenced
-                    'structure_pass'  => 'phenomena',  // starfield fog exemption
+                    'env_intensity'  => 0,  // environment 'none' skips the HDRI download entirely
+                    'environment'    => 'none',  // the sky is procedural — no HDRI, ever
+                    'structure_pass'  => 'phenomena',  // per-venue rollback switch
                     'open_air'        => true,
                     'layout_shape'    => 'circular',
-                    'void_starfield'  => true,   // starfield + nebula cloud, fog-exempt
+                    // ── Deep Field identity (2026-09-08 audit pass) ────
+                    'void_deepfield'   => true,  // layered band sky + current + ring (replaces void_starfield)
+                    'void_depth_gradient' => true,  // shared zenith depth cue
+                    'floor_edge_fade'  => true,  // the ground dissolves into the void
+                    'artwork_light_base'     => 0.5,  // void family: works sit beyond the proximity radius
+                    'artwork_light_pool_cap' => 12,  // a 12-piece hang lit at once
+                    // Colour hierarchy, venue-owned (s6): dominant atmosphere
+                    // → secondary masses → ONE rare warm accent.
+                    'nebula' => [
+                        'dominant'  => '0x5a4ae0',
+                        'secondary' => '0x2e6ac8',
+                        'accent'    => '0xd85a9e',
+                    ],
+                    // Restrained post-fx (the legacy grey veil never ships again).
+                    'post_fx' => [
+                        'bloom'             => true,
+                        'bloom_strength'    => 0.35,
+                        'bloom_threshold'   => 0.8,
+                        'bloom_radius'      => 0.35,
+                        'vignette'          => true,
+                        'vignette_darkness' => 0.55,
+                        'vignette_offset'   => 1.3,
+                        'vignette_blend'    => 'black',
+                    ],
+                    // Depth-band curation + light pools under floating works
+                    // (the post-placement hook reads placement.light_pools).
+                    'placement' => [
+                        'depth_bands' => 2,
+                        'light_pools' => true,
+                    ],
                 ],
                 'material_config' => [
                     'wall_color'             => '0x080015',
                     'wall_roughness'         => 0.4,
                     'wall_metalness'         => 0.2,
                     'wall_normal_strength'   => 0.3,
-                    'floor_color'            => '0x100525',
-                    'floor_roughness'        => 0.3,
-                    'floor_metalness'        => 0.5,
+                    'floor_color'            => '0x0b0724',  // deep indigo stone
+                    'floor_roughness'        => 0.32,
+                    'floor_metalness'        => 0.15,  // metal with no environment renders dead
                     'floor_normal_strength'  => 0.3,
+                    // Declared colours are authoritative over the marble
+                    // texture (Materials.js tint path) — the v1.0.0 floor
+                    // shipped stock cream marble under a purple sky.
+                    'texture_tint'           => true,
                 ],
-                'decorations'       => [],  // starfield + nebula particles are procedural
+                'decorations'       => [],  // the Deep Field is procedural (VenueDecorator 'void_deepfield' body)
                 'lighting_fixtures' => [
+                    // ONE declared cold key light raking from the accent side
+                    // of the band. (The v1.0.0 purple centre point was DOUBLED
+                    // by the old body adding an identical light at the same
+                    // position — the rig is one light, declared here.)
                     [
-                        'id'          => 'nebula-center',
-                        'type'        => 'point',
-                        'position'    => [0, 5, 0],
-                        'color'       => '0x8844ff',
-                        'intensity'   => 0.5,
-                        'cast_shadow'  => false,
-                        'distance'    => 30,
-                        'decay'       => 1.5,
+                        'id'          => 'nebula-key',
+                        'type'        => 'directional',
+                        'position'    => [30, 45, -18],
+                        'color'       => '0x9ab0e0',
+                        'intensity'   => 0.45,
+                        'cast_shadow' => false,
                     ],
                 ],
                 'supported_layouts' => ['rotunda'],

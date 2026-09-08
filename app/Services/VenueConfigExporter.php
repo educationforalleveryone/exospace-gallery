@@ -115,8 +115,14 @@ class VenueConfigExporter
      * even though structure_pass itself was owned. All identity-bearing
      * structure keys are venue-owned now; the schema bump re-keys every
      * cached payload so the strip applies on deploy.
+     *
+     * s6 (nebula-drift "Deep Field" audit, 2026-09-08): `nebula` — the
+     * venue's declared celestial palette (dominant/secondary/accent) — is
+     * colour IDENTITY, never a curator knob; the void_* prefix rule already
+     * guards the deep-field body flags. Bumping the schema re-keys every
+     * cached payload so the owned set ships with the pass.
      */
-    public const SCHEMA = 's5';
+    public const SCHEMA = 's6';
 
     /**
      * VENUE-OWNED ATMOSPHERE, ARCHITECTURE AND RIG (visual_config).
@@ -168,6 +174,9 @@ class VenueConfigExporter
         'structure', 'bays', 'glazing_wall', 'corridor_width',
         'sun_shadows', 'floor_edge_fade', 'void_depth_gradient',
         'glass_material', 'colonnade_tint',
+        // s6: the nebula-drift celestial palette (nested dominant/secondary/
+        // accent) — colour identity, owned wholesale like post_fx/placement.
+        'nebula',
         // lighting rig + legibility floor
         'ambient_color', 'ambient_intensity', 'spot_intensity',
         'fill_intensity', 'hemisphere_intensity', 'env_intensity',

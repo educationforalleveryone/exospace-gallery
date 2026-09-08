@@ -30,6 +30,7 @@ function arg(name, fallback) {
 const OUT      = String(arg('out', 'shots'));
 const ONLY     = [].concat(arg('scenario', []) || []).map(String);
 const STATS    = arg('stats', false) === true;
+const SETTLE   = Number(arg('settle', 1));   // multiply the post-enter waits — heavy scenarios stream textures in the background; SwiftShader decodes them slowly
 const PORT     = Number(arg('port', 4199));
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -84,9 +85,23 @@ const SCENARIOS = [
     { id: 'void-08-extreme',      q: 'venue=infinite-void&count=8&orient=extreme' },
     // Infinite Void — tier degradation
     { id: 'void-tier-low-06',     q: 'venue=infinite-void&count=6', tier: 'low' },
-    // Nebula Drift — forensic comparison against the deployed screenshot
+    // Nebula Drift — "The Deep Field" (2026-09-08 audit pass, v2.0.0).
+    // Count scaling: 6 (capacity floor), 12 (depth-band threshold), 40
+    // (capacity ceiling — the two-band hang at full radius), plus the
+    // walk-through poses: spawn arrival, eye-level at the rim looking
+    // across the pools, and the look-up (band + meridian ring).
     { id: 'nebula-06',            q: 'venue=nebula-drift&count=6' },
     { id: 'nebula-12-mixed',      q: 'venue=nebula-drift&count=12' },
+    { id: 'nebula-40-mixed',      q: 'venue=nebula-drift&count=40' },
+    { id: 'nebula-cam-rim',       q: 'venue=nebula-drift&count=12',
+      cam: { p: [0, 1.6, 9],   t: [0, 2.0, 0] } },
+    { id: 'nebula-cam-up',        q: 'venue=nebula-drift&count=12',
+      cam: { p: [0, 1.6, 0],   t: [0, 7.2, 11] } },
+    // Tier degradation: the Deep Field must read on Lambert (low) —
+    // composition carries the identity, motion does not.
+    { id: 'nebula-tier-low-06',   q: 'venue=nebula-drift&count=6', tier: 'low' },
+    // Rollback chain: the v1.0.0 starfield body must still render by config.
+    { id: 'nebula-legacy-12',     q: 'venue=nebula-drift-legacy&count=12' },
     // Crystal Cathedral — "The Luminous Arcade" (2026-09-07 audit).
     // Count scaling: 5 (capacity floor), 12 (depth-band threshold), 30 and
     // 40 (capacity ceiling — arcade bay plan + two-ring hang at scale).
@@ -264,9 +279,9 @@ async function run() {
 
         // Enter, then let the arrival choreography finish (1.5 s dolly + margin)
         await page.$eval('#enter-btn', el => el.click());
-        await page.waitForTimeout(7000);              // FPS-benchmark window closes
+        await page.waitForTimeout(Math.round(10000 * SETTLE));       // FPS-benchmark window closes
         await page.setViewportSize(SHOT_VIEWPORT);    // capture resolution
-        await page.waitForTimeout(6000);              // frames at capture res
+        await page.waitForTimeout(Math.round(9000 * SETTLE));        // frames at capture res + background texture stream
 
         // Hide HUD chrome for clean venue captures (crosshair, buttons, hint)
         await page.addStyleTag({ content: '#crosshair,#ui-layer,#controls-hint{display:none!important}' }).catch(() => {});

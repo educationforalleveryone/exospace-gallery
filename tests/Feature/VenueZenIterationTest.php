@@ -378,8 +378,8 @@ class VenueZenIterationTest extends TestCase
             $this->assertContains($key, VenueConfigExporter::VENUE_OWNED_VISUAL_KEYS,
                 "[{$key}] is venue-owned architecture — a stale gallery override cannot reshape the venue.");
         }
-        $this->assertSame('s5', VenueConfigExporter::SCHEMA,
-            'The s5 schema bump re-keys every cached payload on deploy.');
+        $this->assertSame('s6', VenueConfigExporter::SCHEMA,
+            'The s5 zen bump + the s6 nebula-palette bump re-key every cached payload on deploy.');
 
         // The shipped lists (runtime patch guard mirror) carry them too.
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
