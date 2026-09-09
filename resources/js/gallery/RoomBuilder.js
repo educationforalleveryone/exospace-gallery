@@ -96,6 +96,12 @@ export function buildGallery() {
         this.camera.updateProjectionMatrix();
     }
 
+    // ── Movement-reactive artwork identity (Cyber Gallery iteration) ────
+    // Initialize BEFORE placeArtworks so every canvas material created this
+    // build can register into the fresh registry. Rebuild-safe (resets the
+    // registry; undeclared venues resolve to null ⇒ zero cost).
+    this.initArtworkReactive();
+
     this.placeArtworks(data);
 
     // ── Post-placement structure hook (museum audit) ────────────────

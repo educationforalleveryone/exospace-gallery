@@ -1141,14 +1141,17 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 9. Cyber Gallery — Studio
+            // 9. Cyber Gallery — Studio (v2.0.0 "Signal Room")
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Cyber Gallery',
                 'slug'          => 'cyber-gallery',
-                // Iteration 3 "Rooms": copy re-tightened — perimeter neon + floor light
-                // grid now render, bloom-off safe (§4.9; guarded migration mirrors).
-                'description'   => 'A dark electric space ringed with neon on every edge, the floor traced in light. For digital and web3 creators.',
+                // v2.0.0 "Signal Room": the venue's signature interaction is
+                // now DECLARED and RENDERED — the artworks are living digital
+                // media that react to visitor movement (stillness = clarity,
+                // movement = controlled digital instability, stop = recovery).
+                // Copy promises only what renders (honesty-pass contract).
+                'description'   => 'A signal room for digital natives: dark anodized walls, a floor traced in light, neon ringing every edge — and artworks that behave like living media. Stand still and they hold still. Move, and they react to you.',
                 'category'      => 'futuristic',
                 'tags'          => ['cyberpunk', 'neon', 'digital', 'web3'],
                 'plan_required' => 'studio',
@@ -1156,7 +1159,7 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 100,
                 'sort_order'    => 9,
                 'is_featured'   => true,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'concrete',
                     'floor_material'  => 'concrete',
@@ -1174,14 +1177,55 @@ class VenueTemplateSeeder extends Seeder
                     'ceiling_height'         => 6,
                     'background_color'       => '0x020412',
                     'fog_color'              => '0x020412',
-                    'fog_near'               => 6,
-                    'fog_far'                => 22,
+                    'fog_near'               => 10,
+                    'fog_far'                => 26,
                     'ambient_color'          => '0x3060ff',
-                    'ambient_intensity'      => 0.18,
-                    'spot_intensity'         => 0.55,
-                    'fill_intensity'         => 0.1,
-                    'tone_mapping_exposure'  => 0.5,
-                    'frame_override'         => null,
+                    'ambient_intensity'      => 0.42,
+                    'spot_intensity'         => 1.6,
+                    'fill_intensity'         => 0.4,
+                    'tone_mapping_exposure'  => 0.7,
+                    'frame_override'         => 'black',     // device-bezel frame — the
+                                                             // luminous boundary supplies the colour
+                    // ── v2.0.0 declared environment absence: a controlled
+                    // signal room refuses a sky. No 10 MB HDRI download, no
+                    // preset night reflections recomposing the darkness.
+                    'environment'            => 'none',
+                    'env_intensity'          => 0,
+                    'hemisphere_intensity'   => 0.05,
+                    // The exhibition rule in a dark venue: no artwork sits in
+                    // the dark (same contract the museum pass enforces).
+                    'artwork_light_base'     => 0.28,
+                    'artwork_light_pool_cap' => 12,
+                    // ── Bloom is Cyber identity (the neon + luminous bezels
+                    // read as light sources), declared explicitly with the
+                    // black-blend vignette for the dark scene.
+                    'post_fx'                => [
+                        'bloom'             => true,
+                        'bloom_strength'    => 0.55,
+                        'bloom_threshold'   => 0.8,
+                        'bloom_radius'      => 0.4,
+                        'vignette'          => true,
+                        'vignette_blend'    => 'black',
+                        'vignette_darkness' => 0.55,
+                        'vignette_offset'   => 1.1,
+                    ],
+                    // ── v2.0.0 SIGNATURE: movement-reactive artwork media ──
+                    // The artworks are living digital media. A visitor standing
+                    // still sees clean, gallery-legible canvases; movement
+                    // drives a controlled digital instability (slice tearing,
+                    // subtle channel separation, scanline interference); stop,
+                    // and the effect decays smoothly back to clarity.
+                    // Tuning only — tier degradation is designed in code
+                    // (ArtworkReactive.resolveReactiveMode).
+                    'artwork_reactive'       => [
+                        'enabled'       => true,
+                        'dead_zone'     => 0.18,  // m/s — numeric noise never triggers
+                        'ref_speed'     => 3.0,   // m/s — walking pace saturates the reaction
+                        'attack'        => 0.18,  // s — responsive rise (a few frames)
+                        'release'       => 1.1,   // s — remains briefly, then settles
+                        'max_intensity' => 1.0,
+                        'bezel_color'   => '0x00e5ff',
+                    ],
                     // ── Iteration 3 "Rooms" declared identity: perimeter neon + light grid,
                     // readable with bloom OFF (the legacy two-strip ceiling is skipped when
                     // structure_pass is declared).
@@ -1204,14 +1248,21 @@ class VenueTemplateSeeder extends Seeder
         ],
                 ],
                 'material_config' => [
+                    // v2.0.0: texture_tint is THE parity fix — the declared
+                    // dark anodized tint now reaches textured builds (before,
+                    // the concrete PBR set silently re-tinted every desktop
+                    // wall 0xffffff while low-end rendered the declared dark:
+                    // the two tiers disagreed about the venue's own walls).
+                    'texture_tint'           => true,
                     'wall_color'             => '0x0a0a14',
                     'wall_roughness'         => 0.6,
                     'wall_metalness'         => 0.3,
                     'wall_normal_strength'   => 0.5,
-                    'floor_color'            => null,
-                    'floor_roughness'        => 0.4,
-                    'floor_metalness'        => 0.5,
+                    'floor_color'            => '0x0b0d14',
+                    'floor_roughness'        => 0.35,
+                    'floor_metalness'        => 0.55,
                     'floor_normal_strength'  => 0.5,
+                    'floor_tile_meters'      => 2.0,
                 ],
                 'decorations'       => [],  // neon strips are procedural (VenueDecorator)
                 'lighting_fixtures' => [],

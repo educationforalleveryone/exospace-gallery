@@ -201,6 +201,13 @@ class VenueConfigExporter
         // but WHERE it stands and how big it is is furniture identity — a
         // curator override can neither move nor remove the media wall.
         'media_wall',
+        // Cyber Gallery iteration (v2.0.0 "Signal Room"): the movement-
+        // reactive artwork declaration — the venue's SIGNATURE interaction
+        // (stillness = clarity, movement = controlled digital instability,
+        // stop = recovery). A curator override that disabled or retuned it
+        // would recompose the venue into a different one, so it is owned
+        // wholesale like post_fx/placement. Interpreted by ArtworkReactive.js.
+        'artwork_reactive',
     ];
 
     /**

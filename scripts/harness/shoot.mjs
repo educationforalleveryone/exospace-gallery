@@ -241,6 +241,34 @@ const SCENARIOS = [
     { id: 'museum-residual-wide-30',
       q: 'venue=dark-museum-residual&count=30',
       cam: { p: [-13, 2.1, 13], t: [6, 1.3, -10] } },
+    // Cyber Gallery — "Signal Room" (2026-09-09 v2.0.0). The movement states
+    // are driven through the ?motion= QA override, which feeds the SAME
+    // normalized signal the live movement system produces (ArtworkReactive),
+    // so each still verifies the real steady-state shader response.
+    { id: 'cyber-corridor-08',      q: 'venue=cyber-gallery&count=8' },
+    { id: 'cyber-corridor-16',      q: 'venue=cyber-gallery&count=16' },
+    { id: 'cyber-square-08',        q: 'venue=cyber-gallery&count=8&layout=square' },
+    { id: 'cyber-square-30',        q: 'venue=cyber-gallery&count=30&layout=square' },
+    { id: 'cyber-square-01',        q: 'venue=cyber-gallery&count=1&layout=square' },
+    // Artwork-type stress: portrait / landscape / extreme aspects under the
+    // reactive material (UV math must hold on every shape).
+    { id: 'cyber-corridor-portrait',  q: 'venue=cyber-gallery&count=8&orient=portrait' },
+    { id: 'cyber-corridor-landscape', q: 'venue=cyber-gallery&count=8&orient=landscape' },
+    { id: 'cyber-corridor-extreme',   q: 'venue=cyber-gallery&count=8&orient=extreme' },
+    // Movement states — stationary / slow walk / walking / fast. The
+    // stationary still doubles as the CLEAN-STATE contract evidence (it must
+    // be pixel-identical in character to a venue without the effect).
+    { id: 'cyber-motion-slow',      q: 'venue=cyber-gallery&count=8&motion=slow' },
+    { id: 'cyber-motion-walk',      q: 'venue=cyber-gallery&count=8&motion=walk' },
+    { id: 'cyber-motion-fast',      q: 'venue=cyber-gallery&count=8&motion=fast' },
+    { id: 'cyber-motion-fast-sq',   q: 'venue=cyber-gallery&count=12&layout=square&motion=fast' },
+    // Eye-level close reading — artwork readability at inspection distance.
+    { id: 'cyber-cam-close',        q: 'venue=cyber-gallery&count=8&motion=walk',
+      // Eye-level inspection distance, square-on to the back-wall landscape
+      // piece (it faces −z from z=2.75 — probe-cyber-ray), 1.8 m out.
+      cam: { p: [1.75, 1.6, 0.95], t: [1.75, 1.6, 2.75] } },
+    // Tier degradation: the identity must read on Lambert (low).
+    { id: 'cyber-tier-low-08',      q: 'venue=cyber-gallery&count=8', tier: 'low' },
 ];
 
 const tierInit = {

@@ -46,7 +46,7 @@
         display: none; align-items: center; justify-content: center; color: #fff; }
     #mobile-overlay { display: none; }
 </style>
-  <script type="module" crossorigin src="/harness/assets/harness-DapKPDMR.js"></script>
+  <script type="module" crossorigin src="/harness/assets/harness-DNo4JnPw.js"></script>
 </head>
 <body>
     <div id="canvas-container"></div>
@@ -76,6 +76,19 @@
     const count      = Math.max(1, Math.min(60, parseInt(q.get('count') || '8', 10)));
     const orient     = q.get('orient') || 'mixed';
     const layout     = q.get('layout') || 'square';
+
+    // ── Cyber Gallery QA: ?motion=still|slow|walk|fast|<m/s> ──────────────
+    // Drives the SAME normalized movement signal the live system computes
+    // (ArtworkReactive reads window.EXOSPACE_QA_MOTION when present), so
+    // screenshots of each movement state are deterministic — the QA script
+    // exercises the real math, not a separate effect preview.
+    const MOTION_PRESETS = { still: 0, stop: 0, slow: 0.9, walk: 3.0, fast: 6.0 };
+    const motionParam = q.get('motion');
+    if (motionParam !== null) {
+        const mv = MOTION_PRESETS[motionParam];
+        window.EXOSPACE_QA_MOTION = (mv !== undefined) ? mv
+            : (Number.isFinite(Number(motionParam)) ? Number(motionParam) : undefined);
+    }
 
     // The 12 sample works ship in the repo (aspect-true dimensions).
     const LIB = [
@@ -146,10 +159,10 @@
                 colonnade_tint: '0xe6f0fb', structure_pass: 'phenomena',
                 open_air: true, layout_shape: 'circular', void_arcade: true,
                 environment: 'studio', env_intensity: 0.22,
-                hemisphere_intensity: 0.22, void_depth_gradient: true,
+                hemisphere_intensity: 0.30, void_depth_gradient: true,
                 artwork_light_base: 0.38, artwork_light_pool_cap: 12,
                 placement: { depth_bands: 2 },
-                post_fx: { bloom: true, bloom_strength: 0.42, bloom_threshold: 0.82, bloom_radius: 0.35, vignette: true, vignette_darkness: 0.62, vignette_offset: 1.15 },
+                post_fx: { bloom: true, bloom_strength: 0.42, bloom_threshold: 0.82, bloom_radius: 0.35, vignette: true, vignette_darkness: 0.62, vignette_offset: 1.15, vignette_blend: 'black' },
                 floor_reflection: 'planar',
             },
             material_config: {
@@ -164,7 +177,7 @@
                 wall_texture: 'white', floor_material: 'marble', lighting_preset: 'bright',
                 frame_style: 'minimal', room_layout: 'rotunda',
             },
-            version: '2.0.0',
+            version: '2.1.0',
         },
         // Crystal Cathedral — forensic variant WITHOUT the planar reflector
         // (isolates Reflector+transmission interaction under SwiftShader).
@@ -693,11 +706,50 @@
             },
             version: '1.0.0',
         },
-        // Nebula Drift — the violet starfield venue (forensic comparison body:
-        // does the DEPLOYED screenshot match THIS venue's pipeline instead of
-        // infinite-void's?). Mirrors seeder rows + the phenomena migration.
+        // Nebula Drift — "The Deep Field" (2026-09-08 audit pass, v2.0.0).
+        // Mirrors the seeder row byte-for-byte (the QA gate asserts the sync).
+        // The v1.0.0 row is preserved below as 'nebula-drift-legacy' for
+        // forensic bisect, exactly like the cathedral rollback chain.
         'nebula-drift': {
             id: 7, slug: 'nebula-drift', name: 'Nebula Drift', category: 'abstract',
+            visual_config: {
+                wall_height: 15, wall_depth: 0.3, ceiling_type: 'none', ceiling_height: 0,
+                background_color: '0x000000', fog_color: '0x000000', fog_near: 12, fog_far: 70,
+                ambient_color: '0x7a86b8', ambient_intensity: 0.62, hemisphere_intensity: 0.35, spot_intensity: 1.35,
+                fill_intensity: 0.15, tone_mapping_exposure: 0.85, frame_override: null,
+                placement_mode: 'float', env_intensity: 0, environment: 'none',
+                structure_pass: 'phenomena', open_air: true, layout_shape: 'circular',
+                void_deepfield: true, void_depth_gradient: true, floor_edge_fade: true, floor_fade_span: 1.16,
+                artwork_light_base: 0.72, artwork_light_pool_cap: 12,
+                nebula: { dominant: '0x5a4ae0', secondary: '0x2e6ac8', accent: '0xd85a9e' },
+                post_fx: {
+                    bloom: true, bloom_strength: 0.35, bloom_threshold: 0.8, bloom_radius: 0.35,
+                    vignette: true, vignette_darkness: 0.55, vignette_offset: 1.3, vignette_blend: 'black',
+                },
+                placement: { depth_bands: 2, light_pools: true, elevation_step: 0.7 },
+            },
+            material_config: {
+                wall_color: '0x080015', wall_roughness: 0.4, wall_metalness: 0.2, wall_normal_strength: 0.3,
+                floor_color: '0x0b0724', floor_roughness: 0.32, floor_metalness: 0.15, floor_normal_strength: 0.3,
+                texture_tint: true,
+            },
+            decorations: [],
+            lighting_fixtures: [
+                { id: 'nebula-key', type: 'directional', position: [30, 45, -18], color: '0x9ab0e0', intensity: 0.45, cast_shadow: false },
+            ],
+            supported_layouts: ['rotunda'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'dramatic',
+                frame_style: 'minimal', room_layout: 'rotunda',
+            },
+            version: '2.2.0',
+        },
+        // Nebula Drift — the v1.0.0 row (forensic rollback body: config-revert
+        // target for the Deep Field; kept here so screenshots of the legacy
+        // look stay reproducible for bisect).
+        'nebula-drift-legacy': {
+            id: 7, slug: 'nebula-drift', name: 'Nebula Drift (v1 legacy)', category: 'abstract',
             visual_config: {
                 wall_height: 15, wall_depth: 0.3, ceiling_type: 'none', ceiling_height: 0,
                 background_color: '0x050015', fog_color: '0x050015', fog_near: 10, fog_far: 40,
@@ -720,6 +772,2988 @@
             default_settings: {
                 wall_texture: 'white', floor_material: 'marble', lighting_preset: 'dramatic',
                 frame_style: 'minimal', room_layout: 'rotunda',
+            },
+            version: '1.0.0',
+        },
+    // ── Cyber Gallery — "Signal Room" (2026-09-09 v2.0.0) ─────────────────
+    // Mirrors the seeder row + guarded migration 2026_09_09_000010
+    // byte-for-byte (QA gate B): the movement-reactive artwork declaration
+    // rides in visual_config.artwork_reactive; drift here means screenshots
+    // stop meaning anything.
+    'cyber-gallery': {
+        id: 9, slug: 'cyber-gallery', name: 'Cyber Gallery', category: 'futuristic',
+        description: 'A signal room for digital natives: dark anodized walls, a floor traced in light, neon ringing every edge — and artworks that behave like living media. Stand still and they hold still. Move, and they react to you.',
+        visual_config: {
+            wall_height: 6, wall_depth: 0.4, ceiling_type: 'flat', ceiling_color: '0x04081a',
+            ceiling_height: 6, ceiling_neon: true,
+            background_color: '0x020412', fog_color: '0x020412', fog_near: 10, fog_far: 26,
+            ambient_color: '0x3060ff', ambient_intensity: 0.42, spot_intensity: 1.6,
+            fill_intensity: 0.4, tone_mapping_exposure: 0.7, frame_override: 'black',
+            environment: 'none', env_intensity: 0, hemisphere_intensity: 0.05,
+            artwork_light_base: 0.28, artwork_light_pool_cap: 12,
+            post_fx: {
+                bloom: true, bloom_strength: 0.55, bloom_threshold: 0.8, bloom_radius: 0.4,
+                vignette: true, vignette_blend: 'black', vignette_darkness: 0.55, vignette_offset: 1.1,
+            },
+            artwork_reactive: {
+                enabled: true, dead_zone: 0.18, ref_speed: 3.0,
+                attack: 0.18, release: 1.1, max_intensity: 1.0, bezel_color: '0x00e5ff',
+            },
+            structure_pass: 'rooms',
+            structure: [
+                { id: 'neon-top-front', primitive: 'emissive-strip', at: { from: 'wall_front', offset: [0, -0.05, 0.08], up: 'ceiling' }, turn: 'in', fit: 'wall', size: [1, 0.055, 0.055], material: 'neon_cyan', merge: 'cy-cyan' },
+                { id: 'neon-top-back',  primitive: 'emissive-strip', at: { from: 'wall_back',  offset: [0, -0.05, 0.08], up: 'ceiling' }, turn: 'in', fit: 'wall', size: [1, 0.055, 0.055], material: 'neon_cyan', merge: 'cy-cyan' },
+                { id: 'neon-top-left',  primitive: 'emissive-strip', at: { from: 'wall_left',  offset: [0, -0.05, 0.08], up: 'ceiling' }, turn: 'in', fit: 'wall', size: [1, 0.055, 0.055], material: 'neon_magenta', merge: 'cy-magenta' },
+                { id: 'neon-top-right', primitive: 'emissive-strip', at: { from: 'wall_right', offset: [0, -0.05, 0.08], up: 'ceiling' }, turn: 'in', fit: 'wall', size: [1, 0.055, 0.055], material: 'neon_magenta', merge: 'cy-magenta' },
+                { id: 'floor-grid', primitive: 'instance-grid', at: [0, 0.012, 0], size: [0.05, 0.02, 1], fit: 'area_z', material: 'neon_cyan', merge: 'cy-floor', grid: { mode: 'box', area: { from: 'center', y: 0.012, size: { fit: 'room', pad: [1.2, 0.9] } }, spacing: [2.4, 0, 0] } },
+                { id: 'floor-rail-front', primitive: 'emissive-strip', at: { from: 'wall_front', offset: [0, 0.012, 0.5] }, turn: 'in', fit: 'wall', fit_pad: 1.4, size: [1, 0.02, 0.05], material: 'neon_magenta', merge: 'cy-floor' },
+                { id: 'floor-rail-back',  primitive: 'emissive-strip', at: { from: 'wall_back',  offset: [0, 0.012, 0.5] }, turn: 'in', fit: 'wall', fit_pad: 1.4, size: [1, 0.02, 0.05], material: 'neon_magenta', merge: 'cy-floor' },
+                { id: 'floor-rail-left',  primitive: 'emissive-strip', at: { from: 'wall_left',  offset: [0, 0.012, 0.5] }, turn: 'in', fit: 'wall', fit_pad: 1.4, size: [1, 0.02, 0.05], material: 'neon_magenta', merge: 'cy-floor' },
+                { id: 'floor-rail-right', primitive: 'emissive-strip', at: { from: 'wall_right', offset: [0, 0.012, 0.5] }, turn: 'in', fit: 'wall', fit_pad: 1.4, size: [1, 0.02, 0.05], material: 'neon_magenta', merge: 'cy-floor' },
+            ],
+        },
+        material_config: {
+            texture_tint: true,
+            wall_color: '0x0a0a14', wall_roughness: 0.6, wall_metalness: 0.3, wall_normal_strength: 0.5,
+            floor_color: '0x0b0d14', floor_roughness: 0.35, floor_metalness: 0.55, floor_normal_strength: 0.5,
+            floor_tile_meters: 2.0,
+        },
+        decorations: [],
+        lighting_fixtures: [],
+        supported_layouts: ['square', 'corridor'],
+        hdri_url: null, default_audio_url: null,
+        default_settings: {
+            wall_texture: 'concrete', floor_material: 'concrete', lighting_preset: 'dramatic',
+            frame_style: 'modern', room_layout: 'corridor',
+        },
+        version: '2.0.0',
+    },
+        // Luxury Penthouse — "The Double Volume" (2026-09-09 full redesign,
+       // v3.0.0). Mirrors the seeder row + guarded migration
+        // 2026_09_09_000007 byte-for-byte: drift here means screenshots stop
+        // meaning anything (QA gate B).
+        'luxury-penthouse': {
+            id: 8, slug: 'luxury-penthouse', name: 'Luxury Penthouse', category: 'luxury',
+            description: "A private collector's floor in two volumes — a low, coved gallery procession that lifts at a lit seam into a double-height living room glazed to the dusk city on two faces, the largest work living above the stone fireplace, the terrace wrapping the glass corner.",
+            visual_config: {
+    "wall_height": 6.3,
+    "wall_depth": 0.3,
+    "ceiling_type": "flat",
+    "ceiling_color": "0x5c4c3a",
+    "ceiling_height": 6.3,
+    "wing_heights": {
+        "wing_a": 3.55,
+        "wing_b": 6.3
+    },
+    "background_color": "0x0b0f1a",
+    "fog_color": "0x191c26",
+    "fog_near": 26,
+    "fog_far": 160,
+    "ambient_color": "0xe9dfcd",
+    "ambient_intensity": 0.42,
+    "spot_intensity": 0.5,
+    "fill_intensity": 0.42,
+    "tone_mapping_exposure": 0.92,
+    "frame_override": "bronze",
+    "environment": "none",
+    "env_intensity": 0,
+    "hemisphere_intensity": 0.3,
+    "artwork_light_base": 0.5,
+    "artwork_light_pool_cap": 12,
+    "post_fx": {
+        "bloom": true,
+        "bloom_strength": 0.32,
+        "bloom_threshold": 0.85,
+        "bloom_radius": 0.35,
+        "vignette": true,
+        "vignette_darkness": 0.5,
+        "vignette_offset": 1.12,
+        "vignette_blend": "black"
+    },
+    "glazing_wall": true,
+    "glazing_walls": [
+        "wing_b_end",
+        "wing_b_north"
+    ],
+    "structure_pass": "rooms",
+    "structure": [
+        {
+            "id": "step-fascia",
+            "primitive": "box",
+            "at": {
+                "from": "junction",
+                "offset": [
+                    0,
+                    3.375,
+                    0.12
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.3,
+            "size": [
+                1,
+                0.35,
+                0.3
+            ],
+            "material": "plaster_warm"
+        },
+        {
+            "id": "step-slot",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "junction_outside",
+                "offset": [
+                    0,
+                    3.47,
+                    0.12
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.06,
+                0.06
+            ],
+            "material": {
+                "color": "0x2a1c10",
+                "emissive": "0xffe6c4",
+                "emissiveIntensity": 1.6
+            },
+            "merge": "ph-slot"
+        },
+        {
+            "id": "seam-slot-inner",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_inner",
+                "offset": [
+                    0,
+                    3.47,
+                    -0.12
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.06,
+                0.06
+            ],
+            "material": {
+                "color": "0x2a1c10",
+                "emissive": "0xffe6c4",
+                "emissiveIntensity": 1.6
+            },
+            "merge": "ph-slot"
+        },
+        {
+            "id": "plinth",
+            "primitive": "cylinder",
+            "at": {
+                "from": "junction",
+                "offset": [
+                    0,
+                    0.55,
+                    1.5
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.42,
+                1.1,
+                0.42
+            ],
+            "material": "basalt",
+            "collide": true
+        },
+        {
+            "id": "sculpture-knot",
+            "primitive": "torus",
+            "at": {
+                "from": "junction",
+                "offset": [
+                    0,
+                    1.42,
+                    1.5
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.34,
+                0.1,
+                0.34
+            ],
+            "params": {
+                "seg": 24,
+                "seg2": 48
+            },
+            "material": "bronze"
+        },
+        {
+            "id": "fireplace-stone",
+            "primitive": "box",
+            "at": {
+                "from": "wall_end",
+                "offset": [
+                    0,
+                    3.15,
+                    0.11
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 1.6,
+            "size": [
+                1,
+                6.3,
+                0.2
+            ],
+            "material": "basalt",
+            "hangable": {
+                "y": 3.25
+            }
+        },
+        {
+            "id": "fireplace-mantel",
+            "primitive": "box",
+            "at": {
+                "from": "wall_end",
+                "offset": [
+                    0,
+                    1.3,
+                    0.32
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.6,
+                0.07,
+                0.3
+            ],
+            "material": "walnut"
+        },
+        {
+            "id": "fireplace-band",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_end",
+                "offset": [
+                    0,
+                    0.62,
+                    0.365
+                ]
+            },
+            "turn": "in",
+            "size": [
+                1.9,
+                0.16,
+                0.05
+            ],
+            "material": {
+                "color": "0x1a0d06",
+                "emissive": "0xff8a3d",
+                "emissiveIntensity": 1.5
+            }
+        },
+        {
+            "id": "fireplace-hearth",
+            "primitive": "box",
+            "at": {
+                "from": "wall_end",
+                "offset": [
+                    0,
+                    0.03,
+                    0.45
+                ]
+            },
+            "turn": "in",
+            "size": [
+                3.0,
+                0.06,
+                0.55
+            ],
+            "material": "basalt"
+        },
+        {
+            "id": "art-wall-panel",
+            "primitive": "box",
+            "at": {
+                "from": "wall_left_high",
+                "offset": [
+                    0,
+                    2.6,
+                    0.03
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.8,
+            "size": [
+                1,
+                5.2,
+                0.06
+            ],
+            "material": "walnut",
+            "hangable": {
+                "y": 2.6
+            }
+        },
+        {
+            "id": "glazing-glass",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    3.15,
+                    0
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.06,
+            "size": [
+                1,
+                6.0
+            ],
+            "material": {
+                "glass": true,
+                "tint": "0xd8e4ef",
+                "opacity": 0.1,
+                "roughness": 0.35,
+                "tier": "cheap"
+            }
+        },
+        {
+            "id": "glazing-mullions",
+            "primitive": "instance-grid",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    3.15,
+                    0.05
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.06,
+                6.0,
+                0.085
+            ],
+            "material": "steel_dark",
+            "merge": "ph-steel",
+            "grid": {
+                "mode": "line",
+                "from": "glazing",
+                "span": "fit",
+                "fit_pad": 0.16,
+                "spacing": 1.4
+            }
+        },
+        {
+            "id": "glazing-sill",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.05,
+                    0
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.02,
+            "size": [
+                1,
+                0.1,
+                0.1
+            ],
+            "material": "steel_dark",
+            "merge": "ph-steel",
+            "collide": true
+        },
+        {
+            "id": "glazing-head",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    6.18,
+                    0
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.02,
+            "size": [
+                1,
+                0.12,
+                0.1
+            ],
+            "material": "steel_dark",
+            "merge": "ph-steel"
+        },
+        {
+            "id": "glazing-glass-north",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_north",
+                "offset": [
+                    0,
+                    3.15,
+                    0
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.06,
+            "size": [
+                1,
+                6.0
+            ],
+            "material": {
+                "glass": true,
+                "tint": "0xd8e4ef",
+                "opacity": 0.1,
+                "roughness": 0.35,
+                "tier": "cheap"
+            }
+        },
+        {
+            "id": "glazing-mullions-north",
+            "primitive": "instance-grid",
+            "at": {
+                "from": "glazing_north",
+                "offset": [
+                    0,
+                    3.15,
+                    0.05
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.06,
+                6.0,
+                0.085
+            ],
+            "material": "steel_dark",
+            "merge": "ph-steel",
+            "grid": {
+                "mode": "line",
+                "from": "glazing_north",
+                "span": "fit",
+                "fit_pad": 0.16,
+                "spacing": 1.4
+            }
+        },
+        {
+            "id": "glazing-sill-north",
+            "primitive": "box",
+            "at": {
+                "from": "glazing_north",
+                "offset": [
+                    0,
+                    0.05,
+                    0
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.02,
+            "size": [
+                1,
+                0.1,
+                0.1
+            ],
+            "material": "steel_dark",
+            "merge": "ph-steel",
+            "collide": true
+        },
+        {
+            "id": "glazing-head-north",
+            "primitive": "box",
+            "at": {
+                "from": "glazing_north",
+                "offset": [
+                    0,
+                    6.18,
+                    0
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.02,
+            "size": [
+                1,
+                0.12,
+                0.1
+            ],
+            "material": "steel_dark",
+            "merge": "ph-steel"
+        },
+        {
+            "id": "terrace-deck-east",
+            "primitive": "box",
+            "at": {
+                "from": "glazing_outside",
+                "offset": [
+                    0,
+                    0.04,
+                    2.6
+                ]
+            },
+            "turn": "out",
+            "fit": "glazing",
+            "fit_pad": 0.1,
+            "size": [
+                1,
+                0.08,
+                5.0
+            ],
+            "material": "wood_warm"
+        },
+        {
+            "id": "terrace-deck-north",
+            "primitive": "box",
+            "at": {
+                "from": "glazing_north_outside",
+                "offset": [
+                    0,
+                    0.04,
+                    2.6
+                ]
+            },
+            "turn": "out",
+            "fit": "glazing",
+            "fit_pad": 0.1,
+            "size": [
+                1,
+                0.08,
+                5.0
+            ],
+            "material": "wood_warm"
+        },
+        {
+            "id": "rail-bar-east",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.95,
+                    0.55
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.5,
+            "size": [
+                1,
+                0.05,
+                0.05
+            ],
+            "material": "steel_dark",
+            "merge": "ph-rail",
+            "collide": true
+        },
+        {
+            "id": "rail-posts-east",
+            "primitive": "instance-grid",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.45,
+                    0.55
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.035,
+                0.9,
+                0.035
+            ],
+            "material": "steel_dark",
+            "merge": "ph-rail",
+            "grid": {
+                "mode": "line",
+                "from": "glazing",
+                "span": "fit",
+                "fit_pad": 0.7,
+                "spacing": 1.8
+            }
+        },
+        {
+            "id": "rail-bar-north",
+            "primitive": "box",
+            "at": {
+                "from": "glazing_north",
+                "offset": [
+                    0,
+                    0.95,
+                    0.55
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.5,
+            "size": [
+                1,
+                0.05,
+                0.05
+            ],
+            "material": "steel_dark",
+            "merge": "ph-rail",
+            "collide": true
+        },
+        {
+            "id": "rail-posts-north",
+            "primitive": "instance-grid",
+            "at": {
+                "from": "glazing_north",
+                "offset": [
+                    0,
+                    0.45,
+                    0.55
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.035,
+                0.9,
+                0.035
+            ],
+            "material": "steel_dark",
+            "merge": "ph-rail",
+            "grid": {
+                "mode": "line",
+                "from": "glazing_north",
+                "span": "fit",
+                "fit_pad": 0.7,
+                "spacing": 1.8
+            }
+        },
+        {
+            "id": "skyline-near-east",
+            "primitive": "instance-grid",
+            "size": [
+                1.7,
+                9,
+                1.7
+            ],
+            "material": {
+                "color": "0x0f0d0a",
+                "emissive": "0x7a5533",
+                "emissiveIntensity": 0.42
+            },
+            "grid": {
+                "mode": "scatter",
+                "count": 6,
+                "seed": "skyline-cool",
+                "area": {
+                    "from": "glazing_outside",
+                    "size": [
+                        34,
+                        0,
+                        20
+                    ],
+                    "forward": 24
+                },
+                "scale_jitter": [
+                    0.4,
+                    0.7
+                ],
+                "grounded": true,
+                "yaw_jitter": [
+                    0,
+                    3.14159
+                ]
+            }
+        },
+        {
+            "id": "skyline-mid-east",
+            "primitive": "instance-grid",
+            "size": [
+                2.4,
+                9,
+                2.4
+            ],
+            "material": {
+                "color": "0x0d1119",
+                "emissive": "0x33415c",
+                "emissiveIntensity": 0.3
+            },
+            "grid": {
+                "mode": "scatter",
+                "count": 8,
+                "seed": "skyline-warm",
+                "area": {
+                    "from": "glazing_outside",
+                    "size": [
+                        36,
+                        0,
+                        24
+                    ],
+                    "forward": 28
+                },
+                "scale_jitter": [
+                    0.6,
+                    1.3
+                ],
+                "grounded": true,
+                "yaw_jitter": [
+                    0,
+                    3.14159
+                ]
+            }
+        },
+        {
+            "id": "skyline-far-east",
+            "primitive": "instance-grid",
+            "size": [
+                3.4,
+                14,
+                3.4
+            ],
+            "material": {
+                "color": "0x0a0d15",
+                "emissive": "0x1c2740",
+                "emissiveIntensity": 0.38
+            },
+            "grid": {
+                "mode": "scatter",
+                "count": 8,
+                "seed": "skyline-far-b",
+                "area": {
+                    "from": "glazing_outside",
+                    "size": [
+                        50,
+                        0,
+                        52
+                    ],
+                    "forward": 36
+                },
+                "scale_jitter": [
+                    0.6,
+                    1.3
+                ],
+                "grounded": true,
+                "yaw_jitter": [
+                    0,
+                    3.14159
+                ]
+            }
+        },
+        {
+            "id": "horizon-glow-east",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_outside",
+                "offset": [
+                    0,
+                    8.0,
+                    44
+                ]
+            },
+            "turn": "out",
+            "size": [
+                130,
+                26
+            ],
+            "material": {
+                "color": "0x140f08",
+                "emissive": "0x9a6238",
+                "emissiveIntensity": 2.2
+            }
+        },
+        {
+            "id": "sky-mid-east",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_outside",
+                "offset": [
+                    0,
+                    15,
+                    64
+                ]
+            },
+            "turn": "out",
+            "size": [
+                130,
+                26
+            ],
+            "material": {
+                "color": "0x0a0e18",
+                "emissive": "0x445c82",
+                "emissiveIntensity": 1.0
+            }
+        },
+        {
+            "id": "sky-deep-east",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_outside",
+                "offset": [
+                    0,
+                    22,
+                    86
+                ]
+            },
+            "turn": "out",
+            "size": [
+                150,
+                50
+            ],
+            "material": {
+                "color": "0x070a12",
+                "emissive": "0x111c33",
+                "emissiveIntensity": 1.0
+            }
+        },
+        {
+            "id": "skyline-near-north",
+            "primitive": "instance-grid",
+            "size": [
+                1.7,
+                9,
+                1.7
+            ],
+            "material": {
+                "color": "0x0f0d0a",
+                "emissive": "0x7a5533",
+                "emissiveIntensity": 0.42
+            },
+            "grid": {
+                "mode": "scatter",
+                "count": 6,
+                "seed": "skyline-n1",
+                "area": {
+                    "from": "glazing_north_outside",
+                    "size": [
+                        44,
+                        0,
+                        20
+                    ],
+                    "forward": 24
+                },
+                "scale_jitter": [
+                    0.4,
+                    0.7
+                ],
+                "grounded": true,
+                "yaw_jitter": [
+                    0,
+                    3.14159
+                ]
+            }
+        },
+        {
+            "id": "skyline-mid-north",
+            "primitive": "instance-grid",
+            "size": [
+                2.4,
+                9,
+                2.4
+            ],
+            "material": {
+                "color": "0x0d1119",
+                "emissive": "0x33415c",
+                "emissiveIntensity": 0.3
+            },
+            "grid": {
+                "mode": "scatter",
+                "count": 8,
+                "seed": "skyline-n2",
+                "area": {
+                    "from": "glazing_north_outside",
+                    "size": [
+                        46,
+                        0,
+                        24
+                    ],
+                    "forward": 28
+                },
+                "scale_jitter": [
+                    0.6,
+                    1.3
+                ],
+                "grounded": true,
+                "yaw_jitter": [
+                    0,
+                    3.14159
+                ]
+            }
+        },
+        {
+            "id": "skyline-far-north",
+            "primitive": "instance-grid",
+            "size": [
+                3.4,
+                14,
+                3.4
+            ],
+            "material": {
+                "color": "0x0a0d15",
+                "emissive": "0x1c2740",
+                "emissiveIntensity": 0.38
+            },
+            "grid": {
+                "mode": "scatter",
+                "count": 8,
+                "seed": "skyline-n3",
+                "area": {
+                    "from": "glazing_north_outside",
+                    "size": [
+                        56,
+                        0,
+                        52
+                    ],
+                    "forward": 36
+                },
+                "scale_jitter": [
+                    0.6,
+                    1.3
+                ],
+                "grounded": true,
+                "yaw_jitter": [
+                    0,
+                    3.14159
+                ]
+            }
+        },
+        {
+            "id": "horizon-glow-north",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_north_outside",
+                "offset": [
+                    0,
+                    8.0,
+                    44
+                ]
+            },
+            "turn": "out",
+            "size": [
+                150,
+                26
+            ],
+            "material": {
+                "color": "0x140f08",
+                "emissive": "0x9a6238",
+                "emissiveIntensity": 2.2
+            }
+        },
+        {
+            "id": "sky-mid-north",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_north_outside",
+                "offset": [
+                    0,
+                    15,
+                    64
+                ]
+            },
+            "turn": "out",
+            "size": [
+                160,
+                26
+            ],
+            "material": {
+                "color": "0x0a0e18",
+                "emissive": "0x445c82",
+                "emissiveIntensity": 1.0
+            }
+        },
+        {
+            "id": "sky-deep-north",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_north_outside",
+                "offset": [
+                    0,
+                    22,
+                    86
+                ]
+            },
+            "turn": "out",
+            "size": [
+                180,
+                50
+            ],
+            "material": {
+                "color": "0x070a12",
+                "emissive": "0x111c33",
+                "emissiveIntensity": 1.0
+            }
+        },
+        {
+            "id": "cove-left",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_left",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.3,
+                    0.24
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.05,
+                0.09
+            ],
+            "material": {
+                "color": "0x201810",
+                "emissive": "0xffd9a0",
+                "emissiveIntensity": 1.15
+            },
+            "merge": "ph-cove"
+        },
+        {
+            "id": "cove-shelf-left",
+            "primitive": "box",
+            "at": {
+                "from": "wall_left",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.22,
+                    0.32
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.03,
+                0.2
+            ],
+            "material": "dark_trim",
+            "merge": "ph-coveshelf"
+        },
+        {
+            "id": "cove-right",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_right",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.3,
+                    0.24
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.05,
+                0.09
+            ],
+            "material": {
+                "color": "0x201810",
+                "emissive": "0xffd9a0",
+                "emissiveIntensity": 1.15
+            },
+            "merge": "ph-cove"
+        },
+        {
+            "id": "cove-shelf-right",
+            "primitive": "box",
+            "at": {
+                "from": "wall_right",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.22,
+                    0.32
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.03,
+                0.2
+            ],
+            "material": "dark_trim",
+            "merge": "ph-coveshelf"
+        },
+        {
+            "id": "cove-front",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_front",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.3,
+                    0.24
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.05,
+                0.09
+            ],
+            "material": {
+                "color": "0x201810",
+                "emissive": "0xffd9a0",
+                "emissiveIntensity": 1.15
+            },
+            "merge": "ph-cove"
+        },
+        {
+            "id": "cove-shelf-front",
+            "primitive": "box",
+            "at": {
+                "from": "wall_front",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.22,
+                    0.32
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.03,
+                0.2
+            ],
+            "material": "dark_trim",
+            "merge": "ph-coveshelf"
+        },
+        {
+            "id": "base-left",
+            "primitive": "box",
+            "at": {
+                "from": "wall_left",
+                "offset": [
+                    0,
+                    0.07,
+                    0.02
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.4,
+            "size": [
+                1,
+                0.14,
+                0.03
+            ],
+            "material": "bronze",
+            "merge": "ph-base"
+        },
+        {
+            "id": "base-right",
+            "primitive": "box",
+            "at": {
+                "from": "wall_right",
+                "offset": [
+                    0,
+                    0.07,
+                    0.02
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.4,
+            "size": [
+                1,
+                0.14,
+                0.03
+            ],
+            "material": "bronze",
+            "merge": "ph-base"
+        },
+        {
+            "id": "base-front",
+            "primitive": "box",
+            "at": {
+                "from": "wall_front",
+                "offset": [
+                    0,
+                    0.07,
+                    0.02
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.4,
+            "size": [
+                1,
+                0.14,
+                0.03
+            ],
+            "material": "bronze",
+            "merge": "ph-base"
+        },
+        {
+            "id": "base-inner",
+            "primitive": "box",
+            "at": {
+                "from": "wall_inner",
+                "offset": [
+                    0,
+                    0.07,
+                    0.02
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.4,
+            "size": [
+                1,
+                0.14,
+                0.03
+            ],
+            "material": "bronze",
+            "merge": "ph-base"
+        },
+        {
+            "id": "bench-top",
+            "primitive": "box",
+            "at": {
+                "from": "wall_left",
+                "offset": [
+                    0,
+                    0.44,
+                    0.42
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.2,
+                0.06,
+                0.45
+            ],
+            "material": "walnut"
+        },
+        {
+            "id": "bench-base",
+            "primitive": "box",
+            "at": {
+                "from": "wall_left",
+                "offset": [
+                    0,
+                    0.21,
+                    0.42
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.0,
+                0.42,
+                0.38
+            ],
+            "material": "dark_trim",
+            "collide": true
+        },
+        {
+            "id": "lounge-rug",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0.5,
+                    0.012,
+                    2.0
+                ]
+            },
+            "turn": "in",
+            "rot": [
+                -1.5707963,
+                0,
+                0
+            ],
+            "size": [
+                3.4,
+                2.5
+            ],
+            "material": "fabric_dark"
+        },
+        {
+            "id": "sofa-base",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0.5,
+                    0.24,
+                    1.75
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.3,
+                0.48,
+                0.95
+            ],
+            "material": "fabric_warm",
+            "collide": true
+        },
+        {
+            "id": "sofa-back",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0.5,
+                    0.72,
+                    2.15
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.3,
+                0.5,
+                0.24
+            ],
+            "material": "fabric_warm"
+        },
+        {
+            "id": "sofa-arm-l",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    -0.76,
+                    0.42,
+                    1.78
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.22,
+                0.36,
+                0.9
+            ],
+            "material": "fabric_warm"
+        },
+        {
+            "id": "sofa-arm-r",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    1.76,
+                    0.42,
+                    1.78
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.22,
+                0.36,
+                0.9
+            ],
+            "material": "fabric_warm"
+        },
+        {
+            "id": "table-top",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0.5,
+                    0.34,
+                    0.9
+                ]
+            },
+            "turn": "in",
+            "size": [
+                1.15,
+                0.05,
+                0.55
+            ],
+            "material": "wood_dark"
+        },
+        {
+            "id": "table-pedestal",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0.5,
+                    0.15,
+                    0.9
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.5,
+                0.3,
+                0.35
+            ],
+            "material": "dark_trim",
+            "collide": true
+        },
+        {
+            "id": "chair-seat",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    -1.45,
+                    0.3,
+                    2.9
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.85,
+                0.44,
+                0.85
+            ],
+            "material": "fabric_dark",
+            "collide": true
+        },
+        {
+            "id": "chair-back",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    -1.45,
+                    0.63,
+                    3.35
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.12,
+                0.55,
+                0.85
+            ],
+            "material": "fabric_dark"
+        },
+        {
+            "id": "lamp-pole",
+            "primitive": "cylinder",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    2.55,
+                    0.8,
+                    2.6
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.035,
+                1.6,
+                0.035
+            ],
+            "material": "steel_dark"
+        },
+        {
+            "id": "lamp-shade",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    2.55,
+                    1.68,
+                    2.6
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.36,
+                0.32,
+                0.36
+            ],
+            "material": {
+                "color": "0x2a2018",
+                "emissive": "0xffd9a0",
+                "emissiveIntensity": 0.8
+            }
+        },
+        {
+            "id": "lounge-pendant",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0.5,
+                    4.6,
+                    1.75
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 2.6,
+            "size": [
+                1,
+                0.045,
+                0.045
+            ],
+            "material": {
+                "color": "0xffd9a8",
+                "emissive": "0xffc98a",
+                "emissiveIntensity": 2.2
+            }
+        },
+        {
+            "id": "floor-joints",
+            "primitive": "instance-grid",
+            "size": [
+                5.4,
+                0.012,
+                0.02
+            ],
+            "material": {
+                "color": "0x6b5f4c",
+                "roughness": 0.55,
+                "metalness": 0.02
+            },
+            "grid": {
+                "mode": "box",
+                "area": {
+                    "from": "center",
+                    "y": 0.006,
+                    "size": {
+                        "fit": "room",
+                        "pad": [
+                            0.3,
+                            0.9
+                        ]
+                    }
+                },
+                "spacing": [
+                    0,
+                    0,
+                    2.4
+                ]
+            }
+        }
+    ]
+},
+            material_config: {
+    "wall_color": "0xe9e2d4",
+    "wall_roughness": 0.9,
+    "wall_metalness": 0.0,
+    "wall_normal_strength": 0.3,
+    "floor_color": "0x9b8d78",
+    "floor_roughness": 0.62,
+    "floor_metalness": 0.03,
+    "floor_normal_strength": 0.35,
+    "texture_tint": true,
+    "floor_tile_meters": 2.4
+},
+            decorations: [],
+            lighting_fixtures: [
+    {
+        "id": "fire-glow",
+        "type": "point",
+        "anchor": {
+            "from": "wall_end",
+            "offset": [
+                0,
+                0.95,
+                1.1
+            ]
+        },
+        "color": "0xff9a50",
+        "intensity": 5,
+        "distance": 6,
+        "decay": 2,
+        "cast_shadow": false
+    },
+    {
+        "id": "hearth-wash",
+        "type": "point",
+        "anchor": {
+            "from": "wall_end",
+            "offset": [
+                0,
+                5.0,
+                1.3
+            ]
+        },
+        "color": "0xffd9a0",
+        "intensity": 2.2,
+        "distance": 5,
+        "decay": 1.8,
+        "cast_shadow": false
+    },
+    {
+        "id": "step-wash",
+        "type": "point",
+        "anchor": {
+            "from": "junction",
+            "offset": [
+                0,
+                4.65,
+                1.6
+            ]
+        },
+        "color": "0xffd9a0",
+        "intensity": 3.2,
+        "distance": 14,
+        "decay": 1.8,
+        "cast_shadow": false
+    },
+    {
+        "id": "gallery-cove-wash",
+        "type": "point",
+        "anchor": {
+            "from": "wall_left",
+            "offset": [
+                0,
+                2.8,
+                2.6
+            ]
+        },
+        "color": "0xffd9a0",
+        "intensity": 3.2,
+        "distance": 12,
+        "decay": 1.8,
+        "cast_shadow": false
+    },
+    {
+        "id": "lounge-wash",
+        "type": "point",
+        "anchor": {
+            "from": "glazing",
+            "offset": [
+                0.5,
+                4.9,
+                3.4
+            ]
+        },
+        "color": "0xffe2b8",
+        "intensity": 1.8,
+        "distance": 8,
+        "decay": 1.8,
+        "cast_shadow": false
+    }
+],
+            supported_layouts: ['square', 'l-shape'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'l-shape',
+            },
+            version: '3.0.0',
+        },
+
+        // Luxury Penthouse — the v2.1.0 row ("Evening Light", forensic rollback
+        // body: the config-revert target for The Double Volume via the guarded
+        // migration's down(); kept here so rollback-chain screenshots stay
+        // reproducible for bisect).
+        'luxury-penthouse-v21': {
+            id: 8, slug: 'luxury-penthouse', name: 'Luxury Penthouse (v2.1 rollback)', category: 'luxury',
+            description: "A private collector's floor at dusk — a walnut-and-stone gallery wing warming into a lounge at the glass, the city glowing beyond it, art hung the way a residence lives with it.",
+            visual_config: {
+    "wall_height": 5.2,
+    "wall_depth": 0.3,
+    "ceiling_type": "flat",
+    "ceiling_color": "0x5c4c3a",
+    "ceiling_height": 5.2,
+    "background_color": "0x0b0f1a",
+    "fog_color": "0x191c26",
+    "fog_near": 26,
+    "fog_far": 160,
+    "ambient_color": "0xe9dfcd",
+    "ambient_intensity": 0.42,
+    "spot_intensity": 0.5,
+    "fill_intensity": 0.42,
+    "tone_mapping_exposure": 0.92,
+    "frame_override": "gold",
+    "environment": "none",
+    "env_intensity": 0,
+    "hemisphere_intensity": 0.3,
+    "artwork_light_base": 0.5,
+    "artwork_light_pool_cap": 12,
+    "post_fx": {
+        "bloom": true,
+        "bloom_strength": 0.32,
+        "bloom_threshold": 0.85,
+        "bloom_radius": 0.35,
+        "vignette": true,
+        "vignette_darkness": 0.5,
+        "vignette_offset": 1.12,
+        "vignette_blend": "black"
+    },
+    "structure_pass": "rooms",
+    "glazing_wall": true,
+    "structure": [
+        {
+            "id": "terrace-deck",
+            "primitive": "box",
+            "at": {
+                "from": "glazing_outside",
+                "offset": [
+                    0,
+                    0.04,
+                    2.6
+                ]
+            },
+            "turn": "out",
+            "fit": "glazing",
+            "fit_pad": 0.1,
+            "size": [
+                1,
+                0.08,
+                5.0
+            ],
+            "material": "wood_warm"
+        },
+        {
+            "id": "glazing-glass",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    2.45,
+                    0
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.06,
+            "size": [
+                1,
+                4.9
+            ],
+            "material": {
+                "glass": true,
+                "tint": "0xd8e4ef",
+                "opacity": 0.1,
+                "roughness": 0.35,
+                "tier": "cheap"
+            }
+        },
+        {
+            "id": "glazing-mullions",
+            "primitive": "instance-grid",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    2.45,
+                    0.05
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.06,
+                4.9,
+                0.085
+            ],
+            "material": "steel_dark",
+            "merge": "ph-steel",
+            "grid": {
+                "mode": "line",
+                "from": "glazing",
+                "span": "fit",
+                "fit_pad": 0.16,
+                "spacing": 1.4
+            }
+        },
+        {
+            "id": "glazing-sill",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.05,
+                    0
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.02,
+            "size": [
+                1,
+                0.1,
+                0.1
+            ],
+            "material": "steel_dark",
+            "merge": "ph-steel",
+            "collide": true
+        },
+        {
+            "id": "glazing-head",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    5.12,
+                    0
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.02,
+            "size": [
+                1,
+                0.12,
+                0.1
+            ],
+            "material": "steel_dark",
+            "merge": "ph-steel"
+        },
+        {
+            "id": "rail-bar",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.95,
+                    0.55
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 0.5,
+            "size": [
+                1,
+                0.05,
+                0.05
+            ],
+            "material": "steel_dark",
+            "merge": "ph-rail",
+            "collide": true
+        },
+        {
+            "id": "rail-posts",
+            "primitive": "instance-grid",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.45,
+                    0.55
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.035,
+                0.9,
+                0.035
+            ],
+            "material": "steel_dark",
+            "merge": "ph-rail",
+            "grid": {
+                "mode": "line",
+                "from": "glazing",
+                "span": "fit",
+                "fit_pad": 0.7,
+                "spacing": 1.8
+            }
+        },
+        {
+            "id": "skyline-near",
+            "primitive": "instance-grid",
+            "size": [
+                1.7,
+                9,
+                1.7
+            ],
+            "material": {
+                "color": "0x0f0d0a",
+                "emissive": "0x7a5533",
+                "emissiveIntensity": 0.42
+            },
+            "grid": {
+                "mode": "scatter",
+                "count": 6,
+                "seed": "skyline-cool",
+                "area": {
+                    "from": "glazing_outside",
+                    "size": [
+                        34,
+                        0,
+                        20
+                    ],
+                    "forward": 24
+                },
+                "scale_jitter": [
+                    0.4,
+                    0.7
+                ],
+                "grounded": true,
+                "yaw_jitter": [
+                    0,
+                    3.14159
+                ]
+            }
+        },
+        {
+            "id": "skyline-mid",
+            "primitive": "instance-grid",
+            "size": [
+                2.4,
+                9,
+                2.4
+            ],
+            "material": {
+                "color": "0x0d1119",
+                "emissive": "0x33415c",
+                "emissiveIntensity": 0.3
+            },
+            "grid": {
+                "mode": "scatter",
+                "count": 8,
+                "seed": "skyline-warm",
+                "area": {
+                    "from": "glazing_outside",
+                    "size": [
+                        36,
+                        0,
+                        24
+                    ],
+                    "forward": 28
+                },
+                "scale_jitter": [
+                    0.6,
+                    1.3
+                ],
+                "grounded": true,
+                "yaw_jitter": [
+                    0,
+                    3.14159
+                ]
+            }
+        },
+        {
+            "id": "skyline-far",
+            "primitive": "instance-grid",
+            "size": [
+                3.4,
+                14,
+                3.4
+            ],
+            "material": {
+                "color": "0x0a0d15",
+                "emissive": "0x1c2740",
+                "emissiveIntensity": 0.38
+            },
+            "grid": {
+                "mode": "scatter",
+                "count": 8,
+                "seed": "skyline-far-b",
+                "area": {
+                    "from": "glazing_outside",
+                    "size": [
+                        50,
+                        0,
+                        52
+                    ],
+                    "forward": 36
+                },
+                "scale_jitter": [
+                    0.6,
+                    1.3
+                ],
+                "grounded": true,
+                "yaw_jitter": [
+                    0,
+                    3.14159
+                ]
+            }
+        },
+        {
+            "id": "horizon-glow",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_outside",
+                "offset": [
+                    0,
+                    8.0,
+                    44
+                ]
+            },
+            "turn": "out",
+            "size": [
+                130,
+                26
+            ],
+            "material": {
+                "color": "0x140f08",
+                "emissive": "0x9a6238",
+                "emissiveIntensity": 2.2
+            }
+        },
+        {
+            "id": "city-haze",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_outside",
+                "offset": [
+                    0,
+                    8.0,
+                    32
+                ]
+            },
+            "turn": "out",
+            "size": [
+                110,
+                22
+            ],
+            "material": {
+                "color": "0x0d0a06",
+                "emissive": "0x5f4126",
+                "emissiveIntensity": 1.8
+            }
+        },
+        {
+            "id": "sky-mid",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_outside",
+                "offset": [
+                    0,
+                    15,
+                    64
+                ]
+            },
+            "turn": "out",
+            "size": [
+                130,
+                26
+            ],
+            "material": {
+                "color": "0x0a0e18",
+                "emissive": "0x445c82",
+                "emissiveIntensity": 1.0
+            }
+        },
+        {
+            "id": "sky-deep",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing_outside",
+                "offset": [
+                    0,
+                    22,
+                    86
+                ]
+            },
+            "turn": "out",
+            "size": [
+                150,
+                50
+            ],
+            "material": {
+                "color": "0x070a12",
+                "emissive": "0x111c33",
+                "emissiveIntensity": 1.0
+            }
+        },
+        {
+            "id": "fireplace-stone",
+            "primitive": "box",
+            "at": {
+                "from": "wall_end",
+                "offset": [
+                    0,
+                    2.6,
+                    0.11
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 1.6,
+            "size": [
+                1,
+                5.2,
+                0.2
+            ],
+            "material": "basalt"
+        },
+        {
+            "id": "fireplace-mantel",
+            "primitive": "box",
+            "at": {
+                "from": "wall_end",
+                "offset": [
+                    0,
+                    1.3,
+                    0.32
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.6,
+                0.07,
+                0.3
+            ],
+            "material": "walnut"
+        },
+        {
+            "id": "fireplace-band",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_end",
+                "offset": [
+                    0,
+                    0.62,
+                    0.365
+                ]
+            },
+            "turn": "in",
+            "size": [
+                1.9,
+                0.16,
+                0.05
+            ],
+            "material": {
+                "color": "0x1a0d06",
+                "emissive": "0xff8a3d",
+                "emissiveIntensity": 1.5
+            }
+        },
+        {
+            "id": "fireplace-hearth",
+            "primitive": "box",
+            "at": {
+                "from": "wall_end",
+                "offset": [
+                    0,
+                    0.03,
+                    0.45
+                ]
+            },
+            "turn": "in",
+            "size": [
+                3.0,
+                0.06,
+                0.55
+            ],
+            "material": "basalt"
+        },
+        {
+            "id": "cove-left",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_left",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.3,
+                    0.24
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.05,
+                0.09
+            ],
+            "material": {
+                "color": "0x201810",
+                "emissive": "0xffd9a0",
+                "emissiveIntensity": 1.15
+            },
+            "merge": "ph-cove"
+        },
+        {
+            "id": "cove-shelf-left",
+            "primitive": "box",
+            "at": {
+                "from": "wall_left",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.22,
+                    0.32
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.03,
+                0.2
+            ],
+            "material": "dark_trim",
+            "merge": "ph-coveshelf"
+        },
+        {
+            "id": "cove-right",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_right",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.3,
+                    0.24
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.05,
+                0.09
+            ],
+            "material": {
+                "color": "0x201810",
+                "emissive": "0xffd9a0",
+                "emissiveIntensity": 1.15
+            },
+            "merge": "ph-cove"
+        },
+        {
+            "id": "cove-shelf-right",
+            "primitive": "box",
+            "at": {
+                "from": "wall_right",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.22,
+                    0.32
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.03,
+                0.2
+            ],
+            "material": "dark_trim",
+            "merge": "ph-coveshelf"
+        },
+        {
+            "id": "cove-inner",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_inner",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.3,
+                    0.24
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.05,
+                0.09
+            ],
+            "material": {
+                "color": "0x201810",
+                "emissive": "0xffd9a0",
+                "emissiveIntensity": 1.15
+            },
+            "merge": "ph-cove"
+        },
+        {
+            "id": "cove-shelf-inner",
+            "primitive": "box",
+            "at": {
+                "from": "wall_inner",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.22,
+                    0.32
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.03,
+                0.2
+            ],
+            "material": "dark_trim",
+            "merge": "ph-coveshelf"
+        },
+        {
+            "id": "cove-back",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "wall_back",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.3,
+                    0.24
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.05,
+                0.09
+            ],
+            "material": {
+                "color": "0x201810",
+                "emissive": "0xffd9a0",
+                "emissiveIntensity": 1.15
+            },
+            "merge": "ph-cove"
+        },
+        {
+            "id": "cove-shelf-back",
+            "primitive": "box",
+            "at": {
+                "from": "wall_back",
+                "up": "ceiling",
+                "offset": [
+                    0,
+                    -0.22,
+                    0.32
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.9,
+            "size": [
+                1,
+                0.03,
+                0.2
+            ],
+            "material": "dark_trim",
+            "merge": "ph-coveshelf"
+        },
+        {
+            "id": "base-left",
+            "primitive": "box",
+            "at": {
+                "from": "wall_left",
+                "offset": [
+                    0,
+                    0.07,
+                    0.02
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.4,
+            "size": [
+                1,
+                0.14,
+                0.03
+            ],
+            "material": "bronze",
+            "merge": "ph-base"
+        },
+        {
+            "id": "base-right",
+            "primitive": "box",
+            "at": {
+                "from": "wall_right",
+                "offset": [
+                    0,
+                    0.07,
+                    0.02
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.4,
+            "size": [
+                1,
+                0.14,
+                0.03
+            ],
+            "material": "bronze",
+            "merge": "ph-base"
+        },
+        {
+            "id": "base-inner",
+            "primitive": "box",
+            "at": {
+                "from": "wall_inner",
+                "offset": [
+                    0,
+                    0.07,
+                    0.02
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.4,
+            "size": [
+                1,
+                0.14,
+                0.03
+            ],
+            "material": "bronze",
+            "merge": "ph-base"
+        },
+        {
+            "id": "base-back",
+            "primitive": "box",
+            "at": {
+                "from": "wall_back",
+                "offset": [
+                    0,
+                    0.07,
+                    0.02
+                ]
+            },
+            "turn": "in",
+            "fit": "wall",
+            "fit_pad": 0.4,
+            "size": [
+                1,
+                0.14,
+                0.03
+            ],
+            "material": "bronze",
+            "merge": "ph-base"
+        },
+        {
+            "id": "lounge-pendant",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    4.35,
+                    1.75
+                ]
+            },
+            "turn": "in",
+            "fit": "glazing",
+            "fit_pad": 2.6,
+            "size": [
+                1,
+                0.045,
+                0.045
+            ],
+            "material": {
+                "color": "0xffd9a8",
+                "emissive": "0xffc98a",
+                "emissiveIntensity": 2.2
+            }
+        },
+        {
+            "id": "lounge-rug",
+            "primitive": "plane",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.012,
+                    2.0
+                ]
+            },
+            "turn": "in",
+            "rot": [
+                -1.5707963,
+                0,
+                0
+            ],
+            "size": [
+                3.6,
+                2.6
+            ],
+            "material": "fabric_dark"
+        },
+        {
+            "id": "sofa-base",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.24,
+                    1.75
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.3,
+                0.48,
+                0.95
+            ],
+            "material": "fabric_warm",
+            "collide": true
+        },
+        {
+            "id": "sofa-back",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.72,
+                    2.15
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.3,
+                0.5,
+                0.24
+            ],
+            "material": "fabric_warm"
+        },
+        {
+            "id": "sofa-arm-l",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    -1.26,
+                    0.42,
+                    1.78
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.22,
+                0.36,
+                0.9
+            ],
+            "material": "fabric_warm"
+        },
+        {
+            "id": "sofa-arm-r",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    1.26,
+                    0.42,
+                    1.78
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.22,
+                0.36,
+                0.9
+            ],
+            "material": "fabric_warm"
+        },
+        {
+            "id": "table-top",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.34,
+                    0.9
+                ]
+            },
+            "turn": "in",
+            "size": [
+                1.15,
+                0.05,
+                0.55
+            ],
+            "material": "wood_dark"
+        },
+        {
+            "id": "table-pedestal",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    0,
+                    0.15,
+                    0.9
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.5,
+                0.3,
+                0.35
+            ],
+            "material": "dark_trim",
+            "collide": true
+        },
+        {
+            "id": "chair-seat",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    -1.95,
+                    0.3,
+                    2.9
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.85,
+                0.44,
+                0.85
+            ],
+            "material": "fabric_dark",
+            "collide": true
+        },
+        {
+            "id": "chair-back",
+            "primitive": "box",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    -1.95,
+                    0.63,
+                    3.35
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.12,
+                0.55,
+                0.85
+            ],
+            "material": "fabric_dark"
+        },
+        {
+            "id": "lamp-pole",
+            "primitive": "cylinder",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    2.05,
+                    0.8,
+                    2.6
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.035,
+                1.6,
+                0.035
+            ],
+            "material": "steel_dark"
+        },
+        {
+            "id": "lamp-shade",
+            "primitive": "emissive-strip",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    2.05,
+                    1.68,
+                    2.6
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.36,
+                0.32,
+                0.36
+            ],
+            "material": {
+                "color": "0x2a2018",
+                "emissive": "0xffd9a0",
+                "emissiveIntensity": 0.8
+            }
+        },
+        {
+            "id": "plinth",
+            "primitive": "cylinder",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    2.35,
+                    0.55,
+                    4.35
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.42,
+                1.1,
+                0.42
+            ],
+            "material": "basalt",
+            "collide": true
+        },
+        {
+            "id": "sculpture-torus",
+            "primitive": "torus",
+            "at": {
+                "from": "glazing",
+                "offset": [
+                    2.35,
+                    1.42,
+                    4.35
+                ]
+            },
+            "turn": "in",
+            "size": [
+                0.3,
+                0.09,
+                0.3
+            ],
+            "params": {
+                "seg": 24,
+                "seg2": 48
+            },
+            "material": "bronze"
+        },
+        {
+            "id": "bench-top",
+            "primitive": "box",
+            "at": {
+                "from": "wall_left",
+                "offset": [
+                    0,
+                    0.44,
+                    0.42
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.2,
+                0.06,
+                0.45
+            ],
+            "material": "walnut"
+        },
+        {
+            "id": "bench-base",
+            "primitive": "box",
+            "at": {
+                "from": "wall_left",
+                "offset": [
+                    0,
+                    0.21,
+                    0.42
+                ]
+            },
+            "turn": "in",
+            "size": [
+                2.0,
+                0.42,
+                0.38
+            ],
+            "material": "dark_trim",
+            "collide": true
+        },
+        {
+            "id": "floor-joints",
+            "primitive": "instance-grid",
+            "size": [
+                5.4,
+                0.012,
+                0.02
+            ],
+            "material": {
+                "color": "0x6b5f4c",
+                "roughness": 0.55,
+                "metalness": 0.02
+            },
+            "grid": {
+                "mode": "box",
+                "area": {
+                    "from": "center",
+                    "y": 0.006,
+                    "size": {
+                        "fit": "room",
+                        "pad": [
+                            0.3,
+                            0.9
+                        ]
+                    }
+                },
+                "spacing": [
+                    0,
+                    0,
+                    2.4
+                ]
+            }
+        }
+    ]
+},
+            material_config: {
+    "wall_color": "0xe9e2d4",
+    "wall_roughness": 0.9,
+    "wall_metalness": 0.0,
+    "wall_normal_strength": 0.3,
+    "floor_color": "0x9b8d78",
+    "floor_roughness": 0.62,
+    "floor_metalness": 0.03,
+    "floor_normal_strength": 0.35,
+    "texture_tint": true,
+    "floor_tile_meters": 2.4
+},
+            decorations: [],
+            lighting_fixtures: [
+    {
+        "id": "fire-glow",
+        "type": "point",
+        "anchor": {
+            "from": "wall_end",
+            "offset": [
+                0,
+                0.95,
+                1.1
+            ]
+        },
+        "color": "0xff9a50",
+        "intensity": 5,
+        "distance": 6,
+        "decay": 2,
+        "cast_shadow": false
+    },
+    {
+        "id": "hearth-wash",
+        "type": "point",
+        "anchor": {
+            "from": "wall_end",
+            "offset": [
+                0,
+                4.2,
+                1.3
+            ]
+        },
+        "color": "0xffd9a0",
+        "intensity": 2.2,
+        "distance": 5,
+        "decay": 1.8,
+        "cast_shadow": false
+    },
+    {
+        "id": "cove-wash-a",
+        "type": "point",
+        "anchor": {
+            "from": "wall_left",
+            "offset": [
+                0,
+                4.1,
+                2.6
+            ]
+        },
+        "color": "0xffd9a0",
+        "intensity": 3.2,
+        "distance": 12,
+        "decay": 1.8,
+        "cast_shadow": false
+    },
+    {
+        "id": "cove-wash-b",
+        "type": "point",
+        "anchor": {
+            "from": "wall_inner",
+            "offset": [
+                0,
+                4.1,
+                2.6
+            ]
+        },
+        "color": "0xffd9a0",
+        "intensity": 3.2,
+        "distance": 12,
+        "decay": 1.8,
+        "cast_shadow": false
+    },
+    {
+        "id": "lounge-wash",
+        "type": "point",
+        "anchor": {
+            "from": "glazing",
+            "offset": [
+                0,
+                3.9,
+                3.4
+            ]
+        },
+        "color": "0xffe2b8",
+        "intensity": 1.8,
+        "distance": 8,
+        "decay": 1.8,
+        "cast_shadow": false
+    }
+],
+            supported_layouts: ['square', 'l-shape'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'l-shape',
+            },
+            version: '2.1.0',
+        },
+
+        // Luxury Penthouse — the v1.0.0 row (forensic rollback body: the
+        // config-revert target for The Collector's Floor; kept here so
+        // screenshots of the legacy look stay reproducible for bisect).
+        'luxury-penthouse-legacy': {
+            id: 8, slug: 'luxury-penthouse', name: 'Luxury Penthouse (v1 legacy)', category: 'luxury',
+            visual_config: {
+                wall_height: 4.5, wall_depth: 0.3, ceiling_type: 'flat',
+                ceiling_color: '0x080808', ceiling_height: 4.5,
+                background_color: '0x08090d', fog_color: '0x08090d', fog_near: 8, fog_far: 25,
+                ambient_color: '0xb8c8e8', ambient_intensity: 0.2,
+                spot_intensity: 0.5, fill_intensity: 0.15,
+                tone_mapping_exposure: 0.55, frame_override: 'gold',
+                structure_pass: 'rooms', glazing_wall: true,
+                structure: [
+                    { id: 'terrace-deck', primitive: 'box', at: { from: 'glazing_outside', offset: [0, 0.04, 2.6] }, turn: 'out', fit: 'glazing', fit_pad: 0.1, size: [1, 0.08, 5.0], material: 'dark_trim' },
+                    { id: 'glazing-glass', primitive: 'plane', at: { from: 'glazing', offset: [0, 2.2, 0] }, turn: 'in', fit: 'glazing', fit_pad: 0.06, size: [1, 4.4], material: { glass: true, tint: '0xc4d8ea', opacity: 0.18 } },
+                    { id: 'glazing-mullions', primitive: 'instance-grid', at: { from: 'glazing', offset: [0, 2.2, 0.05] }, turn: 'in', size: [0.06, 4.4, 0.085], material: 'steel_dark', merge: 'ph-steel', grid: { mode: 'line', from: 'glazing', span: 'fit', fit_pad: 0.16, spacing: 1.4 } },
+                    { id: 'glazing-sill', primitive: 'box', at: { from: 'glazing', offset: [0, 0.05, 0] }, fit: 'glazing', fit_pad: 0.02, size: [1, 0.1, 0.1], material: 'steel_dark', merge: 'ph-steel', collide: true },
+                    { id: 'glazing-head', primitive: 'box', at: { from: 'glazing', offset: [0, 4.42, 0] }, fit: 'glazing', fit_pad: 0.02, size: [1, 0.12, 0.1], material: 'steel_dark', merge: 'ph-steel' },
+                    { id: 'rail-bar', primitive: 'box', at: { from: 'glazing', offset: [0, 0.95, 0.55] }, fit: 'glazing', fit_pad: 0.5, size: [1, 0.05, 0.05], material: 'steel_dark', merge: 'ph-rail', collide: true },
+                    { id: 'rail-posts', primitive: 'instance-grid', at: { from: 'glazing', offset: [0, 0.45, 0.55] }, turn: 'in', size: [0.035, 0.9, 0.035], material: 'steel_dark', merge: 'ph-rail', grid: { mode: 'line', from: 'glazing', span: 'fit', fit_pad: 0.7, spacing: 1.8 } },
+                    { id: 'skyline-cool', primitive: 'instance-grid', size: [2.2, 10, 2.2], material: 'tower_cool', grid: { mode: 'scatter', count: 9, seed: 'skyline-cool', area: { from: 'glazing_outside', size: [26, 0, 30], forward: 5 }, scale_jitter: [0.55, 2.3], grounded: true, yaw_jitter: [0, 3.14159] } },
+                    { id: 'skyline-warm', primitive: 'instance-grid', size: [1.5, 14, 1.5], material: 'tower_warm', grid: { mode: 'scatter', count: 6, seed: 'skyline-warm', area: { from: 'glazing_outside', size: [26, 0, 30], forward: 9 }, scale_jitter: [0.5, 1.7], grounded: true, yaw_jitter: [0, 3.14159] } },
+                    { id: 'lounge-pendant', primitive: 'emissive-strip', at: { from: 'glazing', offset: [0, 3.55, 1.75] }, turn: 'in', fit: 'glazing', fit_pad: 2.6, size: [1, 0.045, 0.045], material: { color: '0xffd9a8', emissive: '0xffc98a', emissiveIntensity: 2.2 } },
+                    { id: 'lounge-rug', primitive: 'plane', at: { from: 'glazing', offset: [0, 0.012, 2.0] }, turn: 'in', rot: [-1.5707963, 0, 0], size: [3.2, 2.3], material: 'fabric_dark' },
+                    { id: 'sofa-base', primitive: 'box', at: { from: 'glazing', offset: [0, 0.24, 1.75] }, turn: 'in', size: [2.3, 0.48, 0.95], material: 'fabric_warm', collide: true },
+                    { id: 'sofa-back', primitive: 'box', at: { from: 'glazing', offset: [0, 0.72, 2.15] }, turn: 'in', size: [2.3, 0.5, 0.24], material: 'fabric_warm' },
+                    { id: 'sofa-arm-l', primitive: 'box', at: { from: 'glazing', offset: [-1.26, 0.42, 1.78] }, turn: 'in', size: [0.22, 0.36, 0.9], material: 'fabric_warm' },
+                    { id: 'sofa-arm-r', primitive: 'box', at: { from: 'glazing', offset: [1.26, 0.42, 1.78] }, turn: 'in', size: [0.22, 0.36, 0.9], material: 'fabric_warm' },
+                    { id: 'table-top', primitive: 'box', at: { from: 'glazing', offset: [0, 0.34, 0.9] }, turn: 'in', size: [1.15, 0.05, 0.55], material: 'wood_dark' },
+                    { id: 'table-pedestal', primitive: 'box', at: { from: 'glazing', offset: [0, 0.15, 0.9] }, turn: 'in', size: [0.5, 0.3, 0.35], material: 'dark_trim', collide: true },
+                ],
+            },
+            material_config: {
+                wall_color: null, wall_roughness: 0.8, wall_metalness: 0.0, wall_normal_strength: 0.3,
+                floor_color: null, floor_roughness: 0.3, floor_metalness: 0.2, floor_normal_strength: 0.5,
+            },
+            decorations: [],
+            lighting_fixtures: [],
+            supported_layouts: ['square', 'l-shape'],
+            hdri_url: null, default_audio_url: null,
+            default_settings: {
+                wall_texture: 'white', floor_material: 'marble', lighting_preset: 'moody',
+                frame_style: 'classic', room_layout: 'l-shape',
             },
             version: '1.0.0',
         },
@@ -764,6 +3798,39 @@
             version: '2.0.0',
         },
     };
+    // ── 'luxury-penthouse-v31' — DERIVED, not hand-authored ─────────────
+    // Clones the pinned v3.0.0 penthouse body and applies exactly the
+    // 2026_09_09_000009_luxury_penthouse_media_wall deltas (lamp move,
+    // bench walnut, knot rest, media console/bezel, picture bar, fixtures,
+    // media_wall key). Mirror-of-the-migration: drift here means the
+    // after-screenshots stop meaning anything (QA gate D3).
+    const derivePenthouseMediaWall = () => {
+        const base = VENUES['luxury-penthouse'];
+        const v = JSON.parse(JSON.stringify(base));
+        v.slug = 'luxury-penthouse-v31';
+        v.version = '3.1.0';
+        const st = v.visual_config.structure;
+        const byId = {};
+        st.forEach((d, i) => { if (d?.id) byId[d.id] = i; });
+        const put = (id, patch) => { if (byId[id] !== undefined) Object.assign(st[byId[id]], patch); };
+        put('lamp-pole',   { at: { from: 'glazing', offset: [1.85, 0.8, 0.65] }, size: [0.055, 1.6, 0.055] });
+        put('lamp-shade',  { at: { from: 'glazing', offset: [1.85, 1.68, 0.65] }, material: { color: '0x2a2018', emissive: '0xffd9a0', emissiveIntensity: 1.35 } });
+        put('bench-base',  { material: 'walnut' });
+        put('sculpture-knot', { at: { from: 'junction', offset: [0, 1.32, 1.5] } });
+        st.push(
+            { id: 'media-console', primitive: 'box', at: { from: 'glazing', offset: [-2.3, 0.225, 0.85] }, turn: 'in', rot: [0, 0.7854, 0], size: [1.8, 0.45, 0.5], material: 'basalt', collide: true },
+            { id: 'media-bezel', primitive: 'box', at: { from: 'glazing', offset: [-2.3, 0.94, 0.85] }, turn: 'in', rot: [0, 0.7854, 0], size: [1.66, 0.98, 0.08], material: { color: '0x18130e', roughness: 0.4, metalness: 0.6 }, collide: true },
+            { id: 'art-wall-light-bar', primitive: 'emissive-strip', at: { from: 'wall_left_high', offset: [0, 3.72, 0.12] }, turn: 'in', size: [1.6, 0.04, 0.1], material: { color: '0x2a1c10', emissive: '0xffd9a0', emissiveIntensity: 1.4 } },
+        );
+        v.lighting_fixtures = [
+            ...(v.lighting_fixtures || []),
+            { id: 'art-wall-picture-light', type: 'point', anchor: { from: 'wall_left_high', offset: [0, 3.4, 0.8] }, color: '0xffd9a0', intensity: 2.4, distance: 5.5, decay: 2.0, cast_shadow: false },
+            { id: 'media-glow', type: 'point', anchor: { from: 'glazing', offset: [-1.85, 1.15, 1.65] }, color: '0xffe8c8', intensity: 1.3, distance: 4.5, decay: 2.0, cast_shadow: false },
+        ];
+        v.visual_config.media_wall = { bezel: 'media-bezel', screen: { w: 1.5, h: 0.84 }, accent: '0xd8a35a' };
+        return v;
+    };
+    VENUES['luxury-penthouse-v31'] = derivePenthouseMediaWall();
     const venueSlug = q.get('venue') || 'white-cube';
     const venueConfig = VENUES[venueSlug] || VENUES['white-cube'];
 

@@ -534,6 +534,15 @@ export function makeArtworkGroup(img, data) {
     const tex = img.texture || img.thumbTexture || getPlaceholderTexture();
 
     const canvasGeo = new THREE.PlaneGeometry(width, height);
+
+    // ── Cyber Gallery iteration: movement-reactive canvas material ──────
+    // When the venue declares visual_config.artwork_reactive, the canvas is
+    // built as LIVING DIGITAL MEDIA: the SAME material class (Standard /
+    // Basic per tier) with the glitch language injected via onBeforeCompile.
+    // Keeping the class preserves PBR lighting, the focus highlight and the
+    // progressive texture swap (applyArtworkTexture); undeclared venues take
+    // the historic path byte-identically.
+    const reactive = !!this._reactive;
     const canvasMat = this.isLowEnd
         ? new THREE.MeshBasicMaterial({ map: tex })
         : new THREE.MeshStandardMaterial({
@@ -543,16 +552,44 @@ export function makeArtworkGroup(img, data) {
             // Add canvas normal map for tactile art texture
             ...(this.textures.canvasNormal ? { normalMap: this.textures.canvasNormal, normalScale: new THREE.Vector2(0.3, 0.3) } : {}),
         });
+    if (reactive) {
+        this.patchReactiveMaterial(canvasMat, img.id ?? `${this.artworks.length}`);
+    }
+
     const canvas = new THREE.Mesh(canvasGeo, canvasMat);
     canvas.name = 'artwork-canvas';
     canvas.castShadow    = !this.isLowEnd;
     canvas.receiveShadow = !this.isLowEnd;
+
+    // Luminous bezel — the display-methodology boundary: a thin emissive
+    // plate slightly larger than the canvas, sitting just behind it, so the
+    // artwork reads as an integrated digital display surface. One shared
+    // material for the whole build (its quiet breathing is one color write
+    // per frame — see ArtworkReactive.updateArtworkReactive).
+    let bezel = null;
+    if (reactive) {
+        const bezelMat = this.makeReactiveBezelMaterial();
+        if (bezelMat) {
+            // Thin luminous rim — 0.045 m reads as a hairline of light around
+            // the canvas at every viewing distance (0.075 read as a glowing
+            // slab up close and its bloom halo washed the artwork out).
+            const margin = 0.045;
+            bezel = new THREE.Mesh(
+                new THREE.PlaneGeometry(width + margin, height + margin),
+                bezelMat
+            );
+            bezel.position.z = -0.012;   // behind the canvas plane
+            bezel.renderOrder = -1;
+            bezel.name = 'artwork-bezel';
+        }
+    }
 
     // Frame
     const frame = this.createFrame(width, height, data.frame_style);
 
     // Group
     const group = new THREE.Group();
+    if (bezel) group.add(bezel);   // luminous boundary first — behind canvas
     group.add(frame);
     group.add(canvas);
     group.userData = {

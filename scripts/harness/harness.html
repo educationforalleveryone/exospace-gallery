@@ -76,6 +76,19 @@
     const orient     = q.get('orient') || 'mixed';
     const layout     = q.get('layout') || 'square';
 
+    // ── Cyber Gallery QA: ?motion=still|slow|walk|fast|<m/s> ──────────────
+    // Drives the SAME normalized movement signal the live system computes
+    // (ArtworkReactive reads window.EXOSPACE_QA_MOTION when present), so
+    // screenshots of each movement state are deterministic — the QA script
+    // exercises the real math, not a separate effect preview.
+    const MOTION_PRESETS = { still: 0, stop: 0, slow: 0.9, walk: 3.0, fast: 6.0 };
+    const motionParam = q.get('motion');
+    if (motionParam !== null) {
+        const mv = MOTION_PRESETS[motionParam];
+        window.EXOSPACE_QA_MOTION = (mv !== undefined) ? mv
+            : (Number.isFinite(Number(motionParam)) ? Number(motionParam) : undefined);
+    }
+
     // The 12 sample works ship in the repo (aspect-true dimensions).
     const LIB = [
         { file: 'ascending-figure.jpg',  w: 1280, h: 1920 }, // portrait 2:3
@@ -761,6 +774,59 @@
             },
             version: '1.0.0',
         },
+    // ── Cyber Gallery — "Signal Room" (2026-09-09 v2.0.0) ─────────────────
+    // Mirrors the seeder row + guarded migration 2026_09_09_000010
+    // byte-for-byte (QA gate B): the movement-reactive artwork declaration
+    // rides in visual_config.artwork_reactive; drift here means screenshots
+    // stop meaning anything.
+    'cyber-gallery': {
+        id: 9, slug: 'cyber-gallery', name: 'Cyber Gallery', category: 'futuristic',
+        description: 'A signal room for digital natives: dark anodized walls, a floor traced in light, neon ringing every edge — and artworks that behave like living media. Stand still and they hold still. Move, and they react to you.',
+        visual_config: {
+            wall_height: 6, wall_depth: 0.4, ceiling_type: 'flat', ceiling_color: '0x04081a',
+            ceiling_height: 6, ceiling_neon: true,
+            background_color: '0x020412', fog_color: '0x020412', fog_near: 10, fog_far: 26,
+            ambient_color: '0x3060ff', ambient_intensity: 0.42, spot_intensity: 1.6,
+            fill_intensity: 0.4, tone_mapping_exposure: 0.7, frame_override: 'black',
+            environment: 'none', env_intensity: 0, hemisphere_intensity: 0.05,
+            artwork_light_base: 0.28, artwork_light_pool_cap: 12,
+            post_fx: {
+                bloom: true, bloom_strength: 0.55, bloom_threshold: 0.8, bloom_radius: 0.4,
+                vignette: true, vignette_blend: 'black', vignette_darkness: 0.55, vignette_offset: 1.1,
+            },
+            artwork_reactive: {
+                enabled: true, dead_zone: 0.18, ref_speed: 3.0,
+                attack: 0.18, release: 1.1, max_intensity: 1.0, bezel_color: '0x00e5ff',
+            },
+            structure_pass: 'rooms',
+            structure: [
+                { id: 'neon-top-front', primitive: 'emissive-strip', at: { from: 'wall_front', offset: [0, -0.05, 0.08], up: 'ceiling' }, turn: 'in', fit: 'wall', size: [1, 0.055, 0.055], material: 'neon_cyan', merge: 'cy-cyan' },
+                { id: 'neon-top-back',  primitive: 'emissive-strip', at: { from: 'wall_back',  offset: [0, -0.05, 0.08], up: 'ceiling' }, turn: 'in', fit: 'wall', size: [1, 0.055, 0.055], material: 'neon_cyan', merge: 'cy-cyan' },
+                { id: 'neon-top-left',  primitive: 'emissive-strip', at: { from: 'wall_left',  offset: [0, -0.05, 0.08], up: 'ceiling' }, turn: 'in', fit: 'wall', size: [1, 0.055, 0.055], material: 'neon_magenta', merge: 'cy-magenta' },
+                { id: 'neon-top-right', primitive: 'emissive-strip', at: { from: 'wall_right', offset: [0, -0.05, 0.08], up: 'ceiling' }, turn: 'in', fit: 'wall', size: [1, 0.055, 0.055], material: 'neon_magenta', merge: 'cy-magenta' },
+                { id: 'floor-grid', primitive: 'instance-grid', at: [0, 0.012, 0], size: [0.05, 0.02, 1], fit: 'area_z', material: 'neon_cyan', merge: 'cy-floor', grid: { mode: 'box', area: { from: 'center', y: 0.012, size: { fit: 'room', pad: [1.2, 0.9] } }, spacing: [2.4, 0, 0] } },
+                { id: 'floor-rail-front', primitive: 'emissive-strip', at: { from: 'wall_front', offset: [0, 0.012, 0.5] }, turn: 'in', fit: 'wall', fit_pad: 1.4, size: [1, 0.02, 0.05], material: 'neon_magenta', merge: 'cy-floor' },
+                { id: 'floor-rail-back',  primitive: 'emissive-strip', at: { from: 'wall_back',  offset: [0, 0.012, 0.5] }, turn: 'in', fit: 'wall', fit_pad: 1.4, size: [1, 0.02, 0.05], material: 'neon_magenta', merge: 'cy-floor' },
+                { id: 'floor-rail-left',  primitive: 'emissive-strip', at: { from: 'wall_left',  offset: [0, 0.012, 0.5] }, turn: 'in', fit: 'wall', fit_pad: 1.4, size: [1, 0.02, 0.05], material: 'neon_magenta', merge: 'cy-floor' },
+                { id: 'floor-rail-right', primitive: 'emissive-strip', at: { from: 'wall_right', offset: [0, 0.012, 0.5] }, turn: 'in', fit: 'wall', fit_pad: 1.4, size: [1, 0.02, 0.05], material: 'neon_magenta', merge: 'cy-floor' },
+            ],
+        },
+        material_config: {
+            texture_tint: true,
+            wall_color: '0x0a0a14', wall_roughness: 0.6, wall_metalness: 0.3, wall_normal_strength: 0.5,
+            floor_color: '0x0b0d14', floor_roughness: 0.35, floor_metalness: 0.55, floor_normal_strength: 0.5,
+            floor_tile_meters: 2.0,
+        },
+        decorations: [],
+        lighting_fixtures: [],
+        supported_layouts: ['square', 'corridor'],
+        hdri_url: null, default_audio_url: null,
+        default_settings: {
+            wall_texture: 'concrete', floor_material: 'concrete', lighting_preset: 'dramatic',
+            frame_style: 'modern', room_layout: 'corridor',
+        },
+        version: '2.0.0',
+    },
         // Luxury Penthouse — "The Double Volume" (2026-09-09 full redesign,
        // v3.0.0). Mirrors the seeder row + guarded migration
         // 2026_09_09_000007 byte-for-byte: drift here means screenshots stop

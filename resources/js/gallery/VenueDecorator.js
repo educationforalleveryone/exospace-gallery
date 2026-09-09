@@ -135,6 +135,15 @@ export function applyVenueConfig(cfg) {
     // own hierarchy. Config-declared (visual_config.hemisphere_intensity);
     // absent ⇒ the historical 0.15 (untouched venues render unchanged).
     if (v.hemisphere_intensity != null) this._venueHemisphereIntensity = v.hemisphere_intensity;
+    // ── Cyber Gallery iteration: movement-reactive artwork declaration ──
+    // visual_config.artwork_reactive = { enabled, dead_zone, ref_speed,
+    // attack, release, max_intensity, bezel_color } — the venue's signature
+    // interaction, interpreted by ArtworkReactive.js (TierResolve pattern:
+    // pure decision core, designed tier degradation). Absent ⇒ null ⇒ the
+    // venue takes the historic static-canvas path byte-identically. Read in
+    // applyVenueConfig (boot + Live-Preview rebuilds); consumed by
+    // RoomBuilder.buildGallery → initArtworkReactive BEFORE placeArtworks.
+    if (v.artwork_reactive !== undefined) this._venueArtworkReactive = v.artwork_reactive;
 
     this._venueMaterialConfig = m;
     this._venueSlug = cfg.slug || 'venue';

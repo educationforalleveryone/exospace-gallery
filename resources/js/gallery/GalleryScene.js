@@ -46,6 +46,15 @@ import { toggleArtworkInfo, checkArtworkFocus, focusNearestArtwork } from './Foc
 import { setupMobileControls } from './Mobile.js';
 import { PostProcessing } from './PostProcessing.js';
 import { PerformanceControls } from './PerformanceControls.js';
+// Cyber Gallery iteration: movement-reactive artwork media — config-declared
+// (visual_config.artwork_reactive), zero slug knowledge, TierResolve pattern.
+import {
+    initArtworkReactive,
+    patchReactiveMaterial,
+    makeReactiveBezelMaterial,
+    updateArtworkReactive,
+    disposeArtworkReactive,
+} from './ArtworkReactive.js';
 
 export class GalleryScene {
     constructor() {
@@ -124,6 +133,9 @@ export class GalleryScene {
         this._venueEnvIntensity  = null; // venue-level scene.environment strength
         this._venueHemisphereIntensity = null; // venue-declared hemisphere fill (museum legibility audit)
         this._circularFloor      = null; // floor handle for tier-aware treatments
+        // Cyber Gallery iteration: movement-reactive artwork identity state
+        // (registry built per buildGallery; null for non-declaring venues)
+        this._reactive = null;
 
         // SFX state
         this.sfx           = {};
@@ -230,6 +242,12 @@ export class GalleryScene {
     clearObstacles()                                { return clearObstacles.call(this); }
     updateMovement()                                { return updateMovement.call(this); }
     updateMovementMobile()                          { return updateMovementMobile.call(this); }
+    // Cyber Gallery iteration: movement-reactive artwork media
+    initArtworkReactive()                           { return initArtworkReactive.call(this); }
+    patchReactiveMaterial(mat, id)                  { return patchReactiveMaterial.call(this, mat, id); }
+    makeReactiveBezelMaterial()                     { return makeReactiveBezelMaterial.call(this); }
+    updateArtworkReactive()                         { return updateArtworkReactive.call(this); }
+    disposeArtworkReactive()                        { return disposeArtworkReactive.call(this); }
     toggleArtworkInfo()                             { return toggleArtworkInfo.call(this); }
     focusNearestArtwork()                           { return focusNearestArtwork.call(this); }
     checkArtworkFocus()                             { return checkArtworkFocus.call(this); }
@@ -364,6 +382,11 @@ export class GalleryScene {
         this.scene.clear();
         this.scene = null;
 
+        // Cyber Gallery iteration: drop the reactive registry + bezel material
+        if (this._reactive) {
+            this.disposeArtworkReactive();
+        }
+
         console.log('GalleryScene: disposed all GPU resources');
     }
 
@@ -413,6 +436,11 @@ export class GalleryScene {
         // Mobile vs desktop movement
         if (this.isMobile) this.updateMovementMobile();
         else                this.updateMovement();
+
+        // Movement-reactive artwork signal (Cyber Gallery identity —
+        // config-declared; runs AFTER movement integration so the velocity
+        // is fresh). Null registry (undeclared venues) ⇒ zero cost.
+        if (this._reactive) this.updateArtworkReactive();
 
         // Throttle expensive per-frame work
         const lightThrottle = this.isLowEnd ? 4 : 2;
