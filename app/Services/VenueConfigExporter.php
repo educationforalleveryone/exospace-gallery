@@ -208,6 +208,21 @@ class VenueConfigExporter
         // would recompose the venue into a different one, so it is owned
         // wholesale like post_fx/placement. Interpreted by ArtworkReactive.js.
         'artwork_reactive',
+        // Sculpture Garden iteration (v3.0.0 "The Curated Walk"): the
+        // landscape identity. 'garden' is the terrain/walk/court/vegetation
+        // tuning block consumed by GardenLayout.js (owned wholesale, like
+        // nebula); 'ceiling_fill_light' = false removes the sky-orb point
+        // light an open-air venue never asked for; 'field_radius_bonus' /
+        // 'field_radius_min' size the landscape floor (a garden needs more
+        // ground per artwork than a fence ring); the hemisphere sky/ground
+        // tints make the ambient light the actual sky-over-grass. A curator
+        // override of any of these would recompose the landscape itself.
+        'garden',
+        'ceiling_fill_light',
+        'field_radius_bonus',
+        'field_radius_min',
+        'hemisphere_sky_color',
+        'hemisphere_ground_color',
     ];
 
     /**

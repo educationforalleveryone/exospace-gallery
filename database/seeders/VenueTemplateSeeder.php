@@ -59,7 +59,7 @@ use Illuminate\Database\Seeder;
  * STUDIO PLAN:
  *   9. luxury-penthouse    — Moody collector space, marble + gold
  *  10. cyber-gallery       — Dark futuristic space with neon accents
- *  11. sculpture-garden    — Outdoor garden with hedges, trees, sky
+ *  11. sculpture-garden    — Curated landscape: terrain, walks, courts, groves
  *  12. mirror-lake         — Dark lake floor, moonlight, mist
  */
 class VenueTemplateSeeder extends Seeder
@@ -1270,12 +1270,12 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 10. Outdoor Sculpture Garden — Studio (REDESIGNED)
+            // 10. Outdoor Sculpture Garden — Studio (v3.0.0 "The Curated Walk")
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Outdoor Sculpture Garden',
                 'slug'          => 'sculpture-garden',
-                'description'   => 'Open-air garden exhibition. Hedges, trees, sky, and stone paths. Artworks on easels along a winding path.',
+                'description'   => 'A curated landscape exhibition. A stone promenade leads from the garden gate to a bronze centrepiece, then on to sculpture clearings framed by trees, hedges and rolling meadow. Works are discovered one by one — never all at once.',
                 'category'      => 'outdoor',
                 'tags'          => ['outdoor', 'garden', 'sculpture', 'open-air'],
                 'plan_required' => 'studio',
@@ -1283,7 +1283,7 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 30,
                 'sort_order'    => 10,
                 'is_featured'   => false,
-                'version'       => '2.0.0',
+                'version'       => '3.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'grass',
@@ -1296,24 +1296,48 @@ class VenueTemplateSeeder extends Seeder
                     'wall_depth'             => 0,
                     'ceiling_type'           => 'none',
                     'ceiling_height'         => 0,
-                    'background_color'       => '0x87ceeb',  // sky blue (overridden by sky dome shader)
-                    'fog_color'              => null,         // no fog — open air
-                    'fog_near'               => 0,
-                    'fog_far'                => 0,
-                    'ambient_color'          => '0xe0f0ff',
+                    'background_color'       => '0xd6e0e2',  // horizon haze — the world tone behind the dome
+                    'fog_color'              => '0xd6e0e2',  // aerial perspective (structure re-ranges per radius)
+                    'fog_near'               => 18,
+                    'fog_far'                => 45,
+                    'ambient_color'          => '0xe8f1f8',
                     // IT6 consolidation keys — replace the OPEN_AIR / CIRCULAR
                     // slug sets and select the bespoke garden interpreter:
                     'open_air'               => true,
                     'layout_shape'           => 'circular',
                     'structure_pass'         => 'garden',
-                    'ambient_intensity'      => 0.4,          // brighter — outdoor daylight
+                    'ambient_intensity'      => 0.16,         // the hemisphere rig carries the daylight
                     'spot_intensity'         => 0.3,
                     'fill_intensity'         => 0.2,
-                    'tone_mapping_exposure'  => 0.7,
+                    'tone_mapping_exposure'  => 0.9,
                     'frame_override'         => null,
-                    // Iteration 3 (§4.10): the garden is the only venue whose sky establishes a
-                    // sun — high-tier-only sun shadows, config-gated (rollback: remove key).
+                    // Iteration 3 (§4.10): the garden is the only venue whose sky
+                    // establishes a sun — high-tier-only sun shadows, config-gated
+                    // (rollback: remove key).
                     'sun_shadows'           => true,
+                    // ── v3.0.0 "The Curated Walk" declared identity ─────
+                    'environment'            => 'none',  // no HDRI download; the sky is the dome below
+                    'env_intensity'          => 0.22,    // IBL strength (PMREM rendered from the dome)
+                    'hemisphere_intensity'   => 0.4,     // sky-over-grass daylight bounce
+                    'hemisphere_sky_color'   => '0xbfd9ee',
+                    'hemisphere_ground_color'   => '0x51663c',
+                    'ceiling_fill_light'     => false,   // no glowing orb in an open sky
+                    'field_radius_bonus'     => 2.2,     // a landscape needs ground per artwork
+                    'field_radius_min'       => 12.5,    // …and a 5-piece show still composes as a garden
+                    'placement_mode'         => 'garden',// curated courts, approaches, hierarchy (GardenLayout.js)
+                    'artwork_light_base'     => 0.22,    // gentle standing glow — no dead canvases in daylight
+                    'garden'                 => [
+                        'sky_environment' => true,           // PMREM from the dome (rollback: false)
+                    ],
+                    // Daylight needs no glow: bloom off (it milked the sky),
+                    // a gentle corner vignette keeps the frame composed.
+                    'post_fx'                => [
+                        'bloom'             => false,
+                        'vignette'          => true,
+                        'vignette_darkness' => 0.42,
+                        'vignette_offset'   => 1.15,
+                        'vignette_blend'    => 'black',
+                    ],
                 ],
                 'material_config' => [
                     'wall_color'             => null,         // n/a — no walls
@@ -1326,7 +1350,7 @@ class VenueTemplateSeeder extends Seeder
                     'floor_normal_strength'  => 0.9,
                     'floor_tile_meters'     => 2.0,
                 ],
-                'decorations'       => [],  // hedges, trees, sky, path are procedural (VenueDecorator)
+                'decorations'       => [],  // terrain, walks, courts, vegetation are plan-built (VenueDecorator)
                 'lighting_fixtures' => [],  // sun is procedural (VenueDecorator)
                 'supported_layouts' => ['rotunda'],
             ],

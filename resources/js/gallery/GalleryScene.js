@@ -442,6 +442,12 @@ export class GalleryScene {
         // is fresh). Null registry (undeclared venues) ⇒ zero cost.
         if (this._reactive) this.updateArtworkReactive();
 
+        // Sculpture Garden: ground-follow tick (the visitor walks the
+        // TERRAIN, not a plane). Runs AFTER movement — Movement pins the
+        // camera to flat 1.6 m every frame, this settles it onto the
+        // plan's height field. Null tick (non-garden venues) ⇒ zero cost.
+        if (this._gardenTick) this._gardenTick();
+
         // Throttle expensive per-frame work
         const lightThrottle = this.isLowEnd ? 4 : 2;
         const focusThrottle = this.isLowEnd ? 6 : 3;

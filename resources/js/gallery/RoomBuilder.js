@@ -26,6 +26,8 @@ import { mergeParts } from './GeometryUtils.js';
 import { addFloorEdgeFade } from './TierEffects.js';
 import { venueFillIntensity } from './Lighting.js';
 import { computeFloatFieldRadius } from './PlacementMath.js';
+import { buildGardenPlan } from './GardenLayout.js';
+import { createVenueRng, venueSeedSource } from './Rng.js';
 
 // ── Ceiling colour from config (Iteration 6 consolidation) ──────────────────
 // The per-slug ceiling chains (museum/penthouse → 0x080808,
@@ -56,6 +58,12 @@ export function buildGallery() {
     // disposed objects. Rebuilds start from a clean registry.
     this.artworks = [];
     this._particleSystems = [];
+    // Sculpture Garden iteration: the landscape plan + the per-frame ground
+    // follow are scene-scoped state — a rebuild must never inherit the dead
+    // scene's plan (stale terrain heights) or tick.
+    this._gardenPlan = null;
+    this._gardenTick = null;
+    this._gardenLastT = 0;
 
     // Apply venue overrides BEFORE building
     this.applyVenueOverrides(data.venue_slug || 'venue');
@@ -646,7 +654,15 @@ export function createRoomCircular(data) {
     const vcBoot = this._venueVisualConfig || {};
     const bandsWanted = Math.max(1, Math.floor(vcBoot.placement?.depth_bands || 1));
     const field = computeFloatFieldRadius(imageCount, spacing, { depthBands: bandsWanted });
-    const radius = field.radius;
+    // Sculpture Garden iteration — DECLARED field sizing (config-declared,
+    // zero slug knowledge; undeclared ⇒ 0 ⇒ every existing venue is
+    // bit-exact). A landscape needs more ground per artwork than a fence
+    // ring: the garden declares a radius bonus (+2.2 m) and a floor
+    // (12.5 m) so even a 5-piece show composes as a real garden — paths,
+    // courts and breathing room — instead of a cramped circle.
+    const radiusBonus = Number(vcBoot.field_radius_bonus) || 0;
+    const radiusMin = Number(vcBoot.field_radius_min) || 0;
+    const radius = Math.max(field.radius + radiusBonus, radiusMin, field.radius);
 
     // Ground
     const floorMat = this.getFloorMaterial(data.floor_material);
@@ -667,8 +683,12 @@ export function createRoomCircular(data) {
 
     // No walls, no ceiling — venue's addVenueStructure() adds hedges / particles / etc.
 
-    // Subtle ceiling light (downward) so the space isn't pitch-black
-    if (!this.isLowEnd) {
+    // Subtle ceiling light (downward) so the space isn't pitch-black.
+    // DECLARED opt-out (visual_config.ceiling_fill_light = false) for venues
+    // where a glowing orb in the sky breaks the fiction — the Sculpture
+    // Garden's daylight comes from its sun + hemisphere rig, not a ceiling
+    // fixture. Undeclared ⇒ the light stays (void venues unchanged).
+    if (!this.isLowEnd && (this._venueVisualConfig || {}).ceiling_fill_light !== false) {
         const center = new THREE.PointLight(0xffffff, venueFillIntensity.call(this, 2.5), radius * 2);
         center.position.set(0, 8, 0);
         center.castShadow = false;
@@ -677,6 +697,30 @@ export function createRoomCircular(data) {
 
     // Layout meta — ArtworkPlacer uses this to arrange artworks in a circle
     this._layoutMeta = { type: 'circular', radius };
+
+    // ── Sculpture Garden: the landscape plan is built HERE (before floor,
+    // structure and placement) so all three consume ONE plan — terrain,
+    // walks, courts and vegetation can never disagree (the float-field
+    // planner precedent, generalized to a whole landscape). The plan draws
+    // first from the venue's seeded rng; addVenueStructure reuses the same
+    // stream (no reseed) so the full build is one deterministic sequence.
+    if ((this._venueVisualConfig || {}).structure_pass === 'garden') {
+        this._venueRng = this._venueRng || createVenueRng(venueSeedSource(this._venueSlug || 'venue'));
+        this._gardenPlan = buildGardenPlan({
+            radius,
+            count: imageCount,
+            rng: this._venueRng,
+            config: (this._venueVisualConfig || {}).garden || {},
+        });
+        // DECLARED SPAWN — the plan's plaza (south, on the promenade). The
+        // visitor arrives at the garden gate looking up the walk (the
+        // camera's default forward is −z, the plaza sits at +z·0.64R
+        // facing the centre) — the arrival reads with zero UI (brief §24).
+        // This also FIXES the v2 defect where the camera spawned at (0,0)
+        // — INSIDE the central sculpture's AABB.
+        const spawn = this._gardenPlan.spawn;
+        this.camera.position.set(spawn.x, CONFIG.camera.height, spawn.z);
+    }
     // Walkway edge: enforced bound = radius − 0.5, set ONCE here. (The void
     // structures used to re-set the same value, and Collisions subtracted a
     // FURTHER 0.5 at enforcement time — a double inset that made the real

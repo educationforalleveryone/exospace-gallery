@@ -268,6 +268,31 @@ const SCENARIOS = [
       // piece (it faces −z from z=2.75 — probe-cyber-ray), 1.8 m out.
       cam: { p: [1.75, 1.6, 0.95], t: [1.75, 1.6, 2.75] } },
     // Tier degradation: the identity must read on Lambert (low).
+    // Sculpture Garden — "The Curated Walk" (2026-09-09 v3.0.0).
+    // Count scaling (a 5-piece show still composes as a garden; the 30-piece
+    // ceiling exercises the full court plan), then the designed walk:
+    // arrival at the gate (first reveal: promenade → knot → lawn piece),
+    // the promenade mid-way, the central court, close viewing, distance,
+    // vegetation framing, the boundary (hedge + distant landscape) and the
+    // horizon, plus the low tier.
+    { id: 'garden-05',            q: 'venue=sculpture-garden&count=5' },
+    { id: 'garden-12-mixed',      q: 'venue=sculpture-garden&count=12' },
+    { id: 'garden-30-mixed',      q: 'venue=sculpture-garden&count=30' },
+    { id: 'garden-cam-arrival',   q: 'venue=sculpture-garden&count=12',
+      cam: { p: [0, 1.6, 8.4],   t: [0, 1.7, -4] } },
+    { id: 'garden-cam-promenade', q: 'venue=sculpture-garden&count=12',
+      cam: { p: [0.9, 1.62, 5.2], t: [0, 1.7, -2] } },
+    { id: 'garden-cam-court',     q: 'venue=sculpture-garden&count=12',
+      cam: { p: [0, 1.62, 3.4],  t: [0, 1.9, 0] } },
+    { id: 'garden-cam-close',     q: 'venue=sculpture-garden&count=12',
+      cam: { p: [0, 1.62, -4.2],  t: [0, 1.65, -7.4] } },
+    { id: 'garden-cam-distance',  q: 'venue=sculpture-garden&count=12',
+      cam: { p: [0, 1.6, 7.5],   t: [0, 1.9, -6.5] } },
+    { id: 'garden-cam-boundary',  q: 'venue=sculpture-garden&count=12',
+      cam: { p: [-4.5, 1.6, 0.5],   t: [-14, 2.6, -10] } },
+    { id: 'garden-cam-horizon',   q: 'venue=sculpture-garden&count=12',
+      cam: { p: [4, 1.6, -1],   t: [0.5, 4.2, -20] } },
+    { id: 'garden-tier-low-12',   q: 'venue=sculpture-garden&count=12', tier: 'low' },
     { id: 'cyber-tier-low-08',      q: 'venue=cyber-gallery&count=8', tier: 'low' },
 ];
 

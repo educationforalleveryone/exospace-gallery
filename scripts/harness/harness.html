@@ -827,6 +827,47 @@
         },
         version: '2.0.0',
     },
+    // ── Outdoor Sculpture Garden — "The Curated Walk" (2026-09-09 v3.0.0) ──
+    // Mirrors the seeder row + guarded migration 2026_09_09_000011
+    // byte-for-byte (QA gate B): the landscape declaration rides in
+    // visual_config (placement_mode 'garden', field sizing, hemisphere
+    // tints, sky environment) — drift here means screenshots stop meaning
+    // anything.
+    'sculpture-garden': {
+        id: 10, slug: 'sculpture-garden', name: 'Outdoor Sculpture Garden', category: 'outdoor',
+        description: 'A curated landscape exhibition. A stone promenade leads from the garden gate to a bronze centrepiece, then on to sculpture clearings framed by trees, hedges and rolling meadow. Works are discovered one by one — never all at once.',
+        visual_config: {
+            wall_height: 0, wall_depth: 0, ceiling_type: 'none', ceiling_height: 0,
+            background_color: '0xd6e0e2', fog_color: '0xd6e0e2', fog_near: 18, fog_far: 45,
+            ambient_color: '0xe8f1f8', ambient_intensity: 0.16, spot_intensity: 0.3,
+            fill_intensity: 0.2, tone_mapping_exposure: 0.9, frame_override: null,
+            open_air: true, layout_shape: 'circular', structure_pass: 'garden',
+            sun_shadows: true,
+            environment: 'none', env_intensity: 0.22,
+            hemisphere_intensity: 0.4,
+            hemisphere_sky_color: '0xbfd9ee', hemisphere_ground_color: '0x51663c',
+            ceiling_fill_light: false,
+            field_radius_bonus: 2.2, field_radius_min: 12.5,
+            placement_mode: 'garden',
+            artwork_light_base: 0.22,
+            garden: { sky_environment: true },
+            post_fx: { bloom: false, vignette: true, vignette_darkness: 0.42, vignette_offset: 1.15, vignette_blend: 'black' },
+        },
+        material_config: {
+            wall_color: null, wall_roughness: 1.0, wall_metalness: 0.0, wall_normal_strength: 0.5,
+            floor_color: '0x3a6a2a', floor_roughness: 1.0, floor_metalness: 0.0,
+            floor_normal_strength: 0.9, floor_tile_meters: 2.0,
+        },
+        decorations: [],
+        lighting_fixtures: [],
+        supported_layouts: ['rotunda'],
+        hdri_url: null, default_audio_url: null,
+        default_settings: {
+            wall_texture: 'white', floor_material: 'grass', lighting_preset: 'bright',
+            frame_style: 'minimal', room_layout: 'rotunda',
+        },
+        version: '3.0.0',
+    },
         // Luxury Penthouse — "The Double Volume" (2026-09-09 full redesign,
        // v3.0.0). Mirrors the seeder row + guarded migration
         // 2026_09_09_000007 byte-for-byte: drift here means screenshots stop

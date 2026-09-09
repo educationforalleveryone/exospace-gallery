@@ -28,6 +28,7 @@ import { CONFIG, parseColor } from './config.js';
 import { loadGlb } from './AssetLoader.js';
 import { mergeParts } from './GeometryUtils.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
+import { buildGardenPlan } from './GardenLayout.js';
 // Iteration 2 "Phenomena": declared tier-fallback effects + their pure
 // decision core. TierEffects/TierResolve contain zero slug knowledge —
 // venues opt in per config key (§11.3: degradation is DESIGNED, not emergent).
@@ -293,7 +294,11 @@ export function addVenueStructure(data) {
     // same venue + gallery renders an IDENTICAL composition on every load.
     // Rebuilt scenes (Live Preview override reloads) recreate the rng from
     // the same seed, so rebuilds are stable too.
-    this._venueRng = createVenueRng(venueSeedSource(slug));
+    // Sculpture Garden iteration: createRoomCircular may have ALREADY created
+    // this rng (the garden's landscape plan draws first so terrain, walks,
+    // courts and vegetation share one deterministic stream). Guard — never
+    // reseed mid-build.
+    if (!this._venueRng) this._venueRng = createVenueRng(venueSeedSource(slug));
 
     // Iteration 3: hangable surfaces are (re)built WITH the structure — a
     // Live-Preview rebuild must never accumulate stale surfaces.
@@ -1617,23 +1622,97 @@ function makeRadialPoolTexture() {
     return tex;
 }
 
-// ── SCULPTURE GARDEN — full outdoor redesign ────────────────────────────────
-// No walls, no ceiling. Circular grass plane + hedge boundary + sky dome +
-// procedural trees + stone path + central pedestal. Artworks are placed on
-// easels (built procedurally — see ArtworkPlacer.js for the easel placement).
+// ── SCULPTURE GARDEN v3.0.0 — "The Curated Walk" ────────────────────────────
+// A designed landscape, not a decorated plane. Every element here is placed
+// by the pure GardenLayout plan (terrain → walks → courts → vegetation, in
+// that order) — this body only RENDERSS the plan: it displaces the terrain,
+// paves the walks from the plan's own samples, builds the sculpture courts'
+// easel-ready clearings, the vegetation masses, the distant landscape beyond
+// the hedge, and the sky that ties them together.
+//
+// Design contract (brief):
+//   • Landscape first. Sculpture second. Decoration last.        (§3)
+//   • Terrain is gentle and controlled — a lawn, not a wilderness. (§4)
+//   • Walks connect arrival → court → court; they are circulation. (§5)
+//   • Vegetation frames and screens; it never competes.      (§9/§10)
+//   • The horizon must not reveal the illusion.                  (§15)
+//   • Deterministic: every draw comes from the venue's seeded rng. (§19)
+//   • The garden stays performant: merged meshes everywhere — the whole
+//     landscape (terrain, skirt, hedge, all trees, all shrubs, all stones)
+//     renders in ~12 draw calls.                                 (§25)
 function addSculptureGardenStructure(data) {
     const meta = this._layoutMeta || {};
     const radius = meta.radius || 15;
+    const vc = this._venueVisualConfig || {};
+    const gardenCfg = vc.garden || {};
+    const highFx = !this.isLowEnd && !this._isMobileTier;
 
-    // ── 1. Sky dome — gradient blue (top dark, horizon light) ──────────────
-    const skyGeo = new THREE.SphereGeometry(radius * 3, 32, 16);
+    // ── 0. The landscape plan (built in RoomBuilder BEFORE the structure so
+    // placement, structure and terrain share one plan). The fallback covers
+    // pathological build orders — it draws from the same seeded stream and
+    // is therefore still deterministic.
+    let plan = this._gardenPlan;
+    if (!plan) {
+        this._venueRng = this._venueRng || createVenueRng(venueSeedSource(this._venueSlug || 'venue'));
+        plan = this._gardenPlan = buildGardenPlan({
+            radius,
+            count: data.imageCount || 1,
+            rng: this._venueRng,
+            config: gardenCfg,
+        });
+    }
+    const height = plan.terrain.height;
+
+    // ── 1. Terrain — the flat grass disc becomes a gentle lawn ──────────
+    // The plan's closed-form height field displaces the floor mesh in place
+    // (same material, same UVs — the grass texture stretches negligibly at
+    // ±0.21 m amplitude). Courts and the spawn plaza are flattened BY the
+    // field itself, so easels and visitors always stand level.
+    const floor = this._circularFloor;
+    if (floor) {
+        const lawnGeo = new THREE.RingGeometry(0.02, radius, 128, 48);
+        const lp = lawnGeo.attributes.position;
+        for (let i = 0; i < lp.count; i++) {
+            // floor.rotation.x = -π/2 maps local (x, y, z) → world (x, z, -y):
+            // world height lives in local +z, world z is local -y.
+            lp.setZ(i, height(lp.getX(i), -lp.getY(i)));
+        }
+        lawnGeo.computeVertexNormals();
+        floor.geometry.dispose();
+        floor.geometry = lawnGeo;
+    }
+
+    // ── 2. The distant landscape — rolling meadow beyond the hedge ──────
+    // The v2 garden's grass disc ended at a hard seam against the sky (the
+    // horizon revealed the illusion, brief §15). The skirt shares the lawn's
+    // height field (continuity across the hedge line) and grows into hills
+    // that carry the eye to a soft, hazed horizon. Same material — the
+    // scene fog (below) does the aerial perspective.
+    const skirtGeo = new THREE.RingGeometry(radius - 0.05, radius * 2.4, 128, 36);
+    const sp = skirtGeo.attributes.position;
+    for (let i = 0; i < sp.count; i++) {
+        sp.setZ(i, height(sp.getX(i), -sp.getY(i)));
+    }
+    skirtGeo.computeVertexNormals();
+    const skirt = new THREE.Mesh(skirtGeo, floor.material);
+    skirt.rotation.x = -Math.PI / 2;
+    skirt.position.y = 0;
+    skirt.receiveShadow = highFx;
+    this.scene.add(skirt);
+
+    // ── 3. Sky dome — the v2 gradient shader, kept (it was good) ────────
+    // Palette tuned toward a clear afternoon: a deeper zenith, a warmer
+    // horizon; the fog below is matched to the horizon tone so the skirt
+    // dissolves INTO the sky instead of ending against it.
+    const skyGeo = new THREE.SphereGeometry(radius * 2.9, 32, 16);
     const skyMat = new THREE.ShaderMaterial({
         side: THREE.BackSide,
+        depthWrite: false,
         uniforms: {
-            topColor:    { value: new THREE.Color(0x2a5a9a) },
-            bottomColor: { value: new THREE.Color(0xc8d8e8) },
+            topColor:    { value: new THREE.Color(0x3572bd) },
+            bottomColor: { value: new THREE.Color(0xdde6e3) },
             offset:      { value: 0.4 },
-            exponent:    { value: 0.6 },
+            exponent:    { value: 0.55 },
         },
         vertexShader: `
             varying vec3 vWorldPosition;
@@ -1655,151 +1734,297 @@ function addSculptureGardenStructure(data) {
             }
         `,
     });
-    const sky = new THREE.Mesh(skyGeo, skyMat);
-    this.scene.add(sky);
+    this.scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-    // ── 2. Sun — directional light from above + visual sphere ──────────────
-    // Iteration 3 (§4.10): the garden is the ONLY venue where the sky
-    // establishes a sun, so it is the only venue that may enable sun shadows
-    // — tier-gated (high tier only) and config-gated (visual_config.
-    // sun_shadows — the per-venue rollback switch). Everywhere else shadows
-    // stay off (CONFIG.performance.shadowsEnabled = false, DO-NOT-DO #4).
-    const vcShadow = this._venueVisualConfig || {};
-    const sunLight = new THREE.DirectionalLight(0xfff4e0, 0.8);
-    sunLight.position.set(radius * 0.6, radius * 1.5, -radius * 0.4);
-    if (vcShadow.sun_shadows === true && !this.isLowEnd && !this._isMobileTier) {
+    // Aerial perspective: fog matched to the horizon colour. Near plane sits
+    // BEYOND every artwork (courts ≤ R − 2.2) — atmosphere adds depth to the
+    // landscape without ever touching the art (brief §14).
+    this.scene.fog = new THREE.Fog(0xd6e0e2, radius * 1.6, radius * 2.8);
+
+    // ── 4. Sun — warmer, raking, shadow-casting (tier + config gated) ───
+    // The garden is the ONLY venue whose sky establishes a sun, so it is the
+    // only venue that may enable sun shadows — tier-gated (high tier only)
+    // and config-gated (visual_config.sun_shadows — the rollback switch).
+    const sunLight = new THREE.DirectionalLight(0xffeecb, 1.3);
+    // WSW afternoon sun: long, gentle shadows model the sculpture courts.
+    sunLight.position.set(-radius * 0.8, radius * 0.9, radius * 0.12);
+    if (vc.sun_shadows === true && highFx) {
         if (!this.renderer.shadowMap.enabled) this.renderer.shadowMap.enabled = true;
         sunLight.castShadow = true;
-        sunLight.shadow.mapSize.set(1024, 1024);
+        sunLight.shadow.mapSize.set(1536, 1536);
         const sc = sunLight.shadow.camera;
-        sc.left = -radius * 1.1; sc.right = radius * 1.1;
-        sc.top  =  radius * 1.1; sc.bottom = -radius * 1.1;
+        sc.left = -radius * 1.15; sc.right = radius * 1.15;
+        sc.top  =  radius * 1.15; sc.bottom = -radius * 1.15;
         sc.near = 1; sc.far = radius * 4;
-        sunLight.shadow.bias = -0.0005;
+        sunLight.shadow.bias = -0.0006;
     }
     this.scene.add(sunLight);
 
-    const sunGeo = new THREE.SphereGeometry(2, 16, 16);
-    const sunMat = new THREE.MeshBasicMaterial({ color: 0xfff4e0 });
-    const sun = new THREE.Mesh(sunGeo, sunMat);
-    sun.position.copy(sunLight.position);
+    const sun = new THREE.Mesh(
+        new THREE.SphereGeometry(1.7, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xfff6dd, fog: false })
+    );
+    sun.position.copy(sunLight.position).multiplyScalar(2.1);
     this.scene.add(sun);
 
-    // ── 3. Hedge boundary (low wall of greenery around the circle) ─────────
-    // Low enough (1.2m) that the player can see over, dense enough to feel
-    // like a garden boundary. Registered as collision obstacles.
-    const hedgeMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0x2a4a1a })
-        : new THREE.MeshStandardMaterial({ color: 0x2a4a1a, roughness: 1.0, metalness: 0.0 });
+    // ── 5. Sky environment — the garden IS its own sky ──────────────────
+    // The venue declares environment 'none' (no 10 MB HDRI download, no
+    // interior studio reflections — the s4 authority chain skips the fetch),
+    // and the dome above is rendered once into a PMREM so the BRONZE of the
+    // hero sculpture and the lawn's sheen reflect the actual sky of THIS
+    // garden. Asset-free, deterministic, one-time cost. Config-gated
+    // (garden.sky_environment — the rollback switch).
+    // Mobile tier KEEPS the PMREM (one-time ~ms cost, zero per-frame cost):
+    // it renders full PBR, and a metal hero with no IBL renders dead. Only
+    // the low-end tier (flat Lambert everywhere) skips it.
+    if (!this.isLowEnd && gardenCfg.sky_environment === true) {
+        try {
+            const pmrem = new THREE.PMREMGenerator(this.renderer);
+            const envScene = new THREE.Scene();
+            envScene.add(new THREE.Mesh(skyGeo.clone(), skyMat.clone()));
+            const rt = pmrem.fromScene(envScene, 0.04);
+            this.scene.environment = rt.texture;
+            this.scene.environmentIntensity = this._venueEnvIntensity ?? 0.45;
+            pmrem.dispose();
+        } catch (e) {
+            console.warn('[garden] sky environment skipped:', e);
+        }
+    }
 
-    const hedgeHeight = 1.2;
-    const hedgeThickness = 0.5;
-    const hedgeSegments = 24;
-    const hedgeGeo = new THREE.BoxGeometry(2 * Math.PI * radius / hedgeSegments + 0.1, hedgeHeight, hedgeThickness);
-    // PERF-D21 (3D audit F21): the 24 hedge segments merge into ONE mesh
-    // (24 draw calls → 1). The per-segment registerObstacle calls are also
-    // dropped — they were redundant: enforceRoomBounds clamps the player to
-    // _circularBoundsRadius (radius − 1), well inside the hedge ring, so the
-    // hedge AABBs were unreachable. Collision behaviour is unchanged.
+    // ── 6. Hedge boundary — softened, still a boundary ──────────────────
+    // Per-segment height variation + a slight radius wobble break the
+    // perfect-circle read (a hedge is planted, not extruded). Still merged
+    // into ONE mesh (PERF-D21); the player bound stays radius − 0.5, inside
+    // even the wobbled segments' inner faces.
+    const hedgeMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x3f5e31 })
+        : new THREE.MeshStandardMaterial({ color: 0x3f5e31, roughness: 1.0, metalness: 0.0 });
+    const hedgeSegments = 28;
     const hedgeParts = [];
     for (let i = 0; i < hedgeSegments; i++) {
         const angle = (i / hedgeSegments) * Math.PI * 2;
+        const r = radius + (this._venueRng.next() - 0.5) * 0.24;
+        const hgt = 1.05 + this._venueRng.next() * 0.4;
         hedgeParts.push({
-            geo: hedgeGeo,
-            pos: [Math.sin(angle) * radius, hedgeHeight / 2, Math.cos(angle) * radius],
+            geo: new THREE.BoxGeometry(2 * Math.PI * radius / hedgeSegments + 0.12, 1, 0.55),
+            pos: [Math.sin(angle) * r, hgt / 2 + height(Math.sin(angle) * r, Math.cos(angle) * r) - 0.06, Math.cos(angle) * r],
+            scale: [1, hgt, 1],
             rot: [0, -angle + Math.PI / 2, 0],
         });
     }
-    this.scene.add(new THREE.Mesh(mergeParts(hedgeParts), hedgeMat));
-    hedgeGeo.dispose();
+    const hedge = new THREE.Mesh(mergeParts(hedgeParts), hedgeMat);
+    hedge.castShadow = highFx;
+    hedge.receiveShadow = highFx;
+    this.scene.add(hedge);
+    hedgeParts.forEach(p => p.geo.dispose());
 
-    // ── 4. Procedural trees — MERGED low-poly canopies (Iteration 3, §4.10).
-    // Identical silhouettes and positions; the 12 previously separate meshes
-    // (trunk + 2 cones × 4 trees) merge per part into THREE draw calls total.
-    const treePositions = [
-        { x: -radius * 0.7, z:  radius * 0.5, scale: 1.0 },
-        { x:  radius * 0.6, z:  radius * 0.7, scale: 1.2 },
-        { x: -radius * 0.5, z: -radius * 0.6, scale: 0.9 },
-        { x:  radius * 0.8, z: -radius * 0.3, scale: 1.1 },
-    ];
+    // ── 7. Trees — designed masses, merged per material (§9/§10) ────────
+    // Every tree comes from the plan (grove anchors: backdrop / gate /
+    // screen / crown / edge — each with a compositional purpose and a
+    // clearance rule that keeps canvases and walks open). Two species,
+    // three foliage tones, seeded scale + rotation. ALL trees merge into
+    // FOUR draw calls: trunks, then canopies per tone.
     const trunkMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0x3a2418 })
-        : new THREE.MeshStandardMaterial({ color: 0x3a2418, roughness: 0.9, metalness: 0.0 });
-    const leafMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0x2a4a1a })
-        : new THREE.MeshStandardMaterial({ color: 0x2a4a1a, roughness: 1.0, metalness: 0.0 });
-    const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 2.5, 8);
-    const leafGeo  = new THREE.ConeGeometry(1.5, 3.0, 8);
+        ? new THREE.MeshLambertMaterial({ color: 0x5a4433 })
+        : new THREE.MeshStandardMaterial({ color: 0x5a4433, roughness: 0.95, metalness: 0.0 });
+    const leafTones = [0x2f4d1f, 0x3d6327, 0x547a32].map(c => this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: c })
+        : new THREE.MeshStandardMaterial({ color: c, roughness: 1.0, metalness: 0.0 }));
 
-    const trunkParts = [], leaf1Parts = [], leaf2Parts = [];
-    treePositions.forEach(pos => {
-        trunkParts.push({ geo: trunkGeo, pos: [pos.x, 1.25 * pos.scale, pos.z], scale: pos.scale });
-        leaf1Parts.push({ geo: leafGeo,  pos: [pos.x, 3.5 * pos.scale,  pos.z], scale: pos.scale });
-        leaf2Parts.push({ geo: leafGeo,  pos: [pos.x, 4.5 * pos.scale,  pos.z], scale: pos.scale * 0.7 });
-        // Trunk collision (player can't walk through the tree) — an invisible
-        // proxy per tree (the merged-canopy AABB would span the whole grove).
-        const trunkProxy = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.5, 0.5), trunkMat);
-        trunkProxy.position.set(pos.x, 1.25 * pos.scale, pos.z);
-        trunkProxy.visible = false;
-        this.scene.add(trunkProxy);
-        this.registerObstacle(trunkProxy, 0.1);
-        trunkProxy.geometry.dispose();
+    const trunkParts = [];
+    const canopyParts = [[], [], []];   // per tone
+    plan.trees.forEach((t) => {
+        const gy = height(t.x, t.z) - 0.04;      // settle into the lawn
+        const s = t.scale;
+        if (t.species === 'round') {
+            trunkParts.push({
+                geo: new THREE.CylinderGeometry(0.13, 0.22, 2.6, 7),
+                pos: [t.x, gy + 1.3 * s, t.z],
+                scale: [s, s, s],
+                rot: [0, t.rot, 0],
+            });
+            // Main crown + a smaller off-axis lobe — an organism, not a cone.
+            canopyParts[t.tone].push({
+                geo: new THREE.IcosahedronGeometry(1.55, 1),
+                pos: [t.x, gy + 3.35 * s, t.z],
+                scale: [s, s * 0.82, s],
+                rot: [t.rot * 0.4, t.rot, 0],
+            });
+            const lobe = 0.9 * s;
+            canopyParts[t.tone].push({
+                geo: new THREE.IcosahedronGeometry(lobe, 1),
+                pos: [t.x + Math.sin(t.rot + 1.1) * 1.05 * s, gy + 2.75 * s, t.z + Math.cos(t.rot + 1.1) * 1.05 * s],
+                scale: [s, s * 0.85, s],
+                rot: [0.3, t.rot * 1.3, 0.2],
+            });
+        } else {
+            // Conifer — a slim trunk + three stacked, narrowing cones. NOTE:
+            // the canopies merge per tone, and a tone group mixes round-
+            // species icosahedra (PolyhedronGeometry — NON-indexed) with
+            // these cones (indexed) — mergeGeometries refuses mixed index
+            // attributes, so every cone is converted to non-indexed first
+            // (v3 render QA).
+            trunkParts.push({
+                geo: new THREE.CylinderGeometry(0.1, 0.17, 1.5, 7),
+                pos: [t.x, gy + 0.75 * s, t.z],
+                scale: [s, s, s],
+                rot: [0, t.rot, 0],
+            });
+            canopyParts[t.tone].push({
+                geo: new THREE.ConeGeometry(1.3, 2.0, 9).toNonIndexed(),
+                pos: [t.x, gy + 2.2 * s, t.z], scale: [s, s, s], rot: [0, t.rot, 0],
+            });
+            canopyParts[t.tone].push({
+                geo: new THREE.ConeGeometry(0.98, 1.7, 9).toNonIndexed(),
+                pos: [t.x, gy + 3.3 * s, t.z], scale: [s, s, s], rot: [0, t.rot, 0],
+            });
+            canopyParts[t.tone].push({
+                geo: new THREE.ConeGeometry(0.62, 1.4, 9).toNonIndexed(),
+                pos: [t.x, gy + 4.25 * s, t.z], scale: [s, s, s], rot: [0, t.rot, 0],
+            });
+        }
+        // Trunk collision — an invisible proxy per tree (a merged-canopy
+        // AABB would span the whole grove).
+        const proxy = new THREE.Mesh(new THREE.BoxGeometry(0.55, 2.6, 0.55), trunkMat);
+        proxy.position.set(t.x, gy + 1.3, t.z);
+        proxy.visible = false;
+        this.scene.add(proxy);
+        this.registerObstacle(proxy, 0.1);
+        proxy.geometry.dispose();
     });
-    this.scene.add(new THREE.Mesh(mergeParts(trunkParts), trunkMat));
-    this.scene.add(new THREE.Mesh(mergeParts(leaf1Parts), leafMat));
-    this.scene.add(new THREE.Mesh(mergeParts(leaf2Parts), leafMat));
-    trunkGeo.dispose(); leafGeo.dispose();
+    const trunkMesh = new THREE.Mesh(mergeParts(trunkParts), trunkMat);
+    trunkMesh.castShadow = highFx;
+    this.scene.add(trunkMesh);
+    trunkParts.forEach(p => p.geo.dispose());
+    canopyParts.forEach((parts, tone) => {
+        if (!parts.length) return;
+        const m = new THREE.Mesh(mergeParts(parts), leafTones[tone]);
+        m.castShadow = highFx;
+        this.scene.add(m);
+        parts.forEach(p => p.geo.dispose());
+    });
 
-    // ── 5. Stone path — circular segments of lighter-coloured ground ──────
-    const pathMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0x9a9080 })
-        : new THREE.MeshStandardMaterial({ color: 0x9a9080, roughness: 0.95, metalness: 0.0 });
-    const pathGeo = new THREE.RingGeometry(0, 1.5, 16);
-    const pathSteps = 6;
-    // PERF-D21: one merged path mesh instead of six
-    // Iteration 0: stone rotation/scale are seeded (was Math.random) — the
-    // garden path is now identical on every load for the same gallery.
-    const rng = this._venueRng;
-    const pathParts = [];
-    for (let i = 0; i < pathSteps; i++) {
-        const t = i / (pathSteps - 1);
-        const r = radius * 0.3 + t * radius * 0.4;
-        const angle = t * Math.PI * 1.5 - Math.PI / 2;
-        pathParts.push({
-            geo: pathGeo,
-            pos: [Math.cos(angle) * r, 0.02, Math.sin(angle) * r],
-            rot: [-Math.PI / 2, 0, rng.next() * Math.PI],
-            scale: 0.8 + rng.next() * 0.4,
+    // ── 8. Shrubs — low planting that softens edges (never hides art) ───
+    const shrubTones = [0x35521f, 0x476527, 0x5a7530].map(c => this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: c })
+        : new THREE.MeshStandardMaterial({ color: c, roughness: 1.0, metalness: 0.0 }));
+    const shrubParts = [[], [], []];
+    plan.shrubs.forEach((s) => {
+        const gy = height(s.x, s.z) - 0.03;
+        shrubParts[s.tone].push({
+            geo: new THREE.IcosahedronGeometry(0.5, 1),
+            pos: [s.x, gy + 0.3 * s.scale, s.z],
+            scale: [s.scale, s.scale * 0.62, s.scale],
+            rot: [0, s.rot, 0],
         });
-    }
-    this.scene.add(new THREE.Mesh(mergeParts(pathParts), pathMat));
-    pathGeo.dispose();
+    });
+    shrubParts.forEach((parts, tone) => {
+        if (!parts.length) return;
+        const m = new THREE.Mesh(mergeParts(parts), shrubTones[tone]);
+        m.castShadow = highFx;
+        m.receiveShadow = highFx;
+        this.scene.add(m);
+        parts.forEach(p => p.geo.dispose());
+    });
 
-    // ── 6. Central pedestal + the signature sculpture (Iteration 3, §4.10).
-    // The pedestal stood EMPTY — the venue was missing its hero moment. One
-    // abstract bronze knot (a single mesh, elegant-miniature register) gives
-    // the garden its centre of gravity. No new animation (§10.3 rule).
+    // ── 9. Walks — stone paving sampled from the plan's own polylines ───
+    // The promenade, ring walk and spurs are THE circulation (§5): the plan
+    // already routed them around courts and the pedestal; here they become
+    // settled stones (seeded size jitter, sparse gaps — laid by hand, not
+    // extruded). Two tones: the promenade reads lighter (limestone), the
+    // loop and spurs quieter. ALL stones merge into two draw calls.
+    const stonePromMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0xb5aa94 })
+        : new THREE.MeshStandardMaterial({ color: 0xb5aa94, roughness: 0.9, metalness: 0.0 });
+    const stoneLoopMat = this.isLowEnd
+        ? new THREE.MeshLambertMaterial({ color: 0x9c9484 })
+        : new THREE.MeshStandardMaterial({ color: 0x9c9484, roughness: 0.95, metalness: 0.0 });
+    const promStones = [], loopStones = [];
+    for (const p of plan.paths) {
+        const parts = p.kind === 'promenade' ? promStones : loopStones;
+        for (let i = 0; i < p.samples.length; i++) {
+            if (this._venueRng.next() < 0.07) continue;   // hand-laid gaps
+            const [sx, sz] = p.samples[i];
+            const gy = height(sx, sz);
+            const jitterA = this._venueRng.next() * Math.PI * 2;
+            const jitterR = this._venueRng.next() * 0.1;
+            const sz2 = 0.8 + this._venueRng.next() * 0.5;
+            parts.push({
+                geo: new THREE.CylinderGeometry(0.3 * (p.width / 1.5) * sz2, 0.34 * (p.width / 1.5) * sz2, 0.07, 7),
+                pos: [sx + Math.sin(jitterA) * jitterR, gy + 0.035, sz + Math.cos(jitterA) * jitterR],
+                rot: [0, this._venueRng.next() * Math.PI, 0],
+            });
+        }
+    }
+    if (promStones.length) {
+        const m = new THREE.Mesh(mergeParts(promStones), stonePromMat);
+        m.receiveShadow = highFx;
+        this.scene.add(m);
+        promStones.forEach(p => p.geo.dispose());
+    }
+    if (loopStones.length) {
+        const m = new THREE.Mesh(mergeParts(loopStones), stoneLoopMat);
+        m.receiveShadow = highFx;
+        this.scene.add(m);
+        loopStones.forEach(p => p.geo.dispose());
+    }
+
+    // ── 10. The central court — pedestal + bronze knot (kept from v2) ───
+    // The hero composition: the knot stands in a level clearing at the
+    // meeting point of promenade and ring walk — the landscape's centre of
+    // gravity (and, since the spawn moved to the gate, its DESTINATION).
     const pedestalMat = this.isLowEnd
-        ? new THREE.MeshLambertMaterial({ color: 0x808080 })
-        : new THREE.MeshStandardMaterial({ color: 0xa0a0a0, roughness: 0.7, metalness: 0.1 });
-    const pedestalGeo = new THREE.CylinderGeometry(0.6, 0.7, 1.2, 16);
+        ? new THREE.MeshLambertMaterial({ color: 0xb6b0a4 })
+        : new THREE.MeshStandardMaterial({ color: 0xb6b0a4, roughness: 0.75, metalness: 0.05 });
+    const pedestalGeo = new THREE.CylinderGeometry(0.55, 0.68, 1.15, 20);
     const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
-    pedestal.position.set(0, 0.6, 0);
-    pedestal.castShadow = !this.isLowEnd && !this._isMobileTier &&
-        (this._venueVisualConfig || {}).sun_shadows === true;
+    pedestal.position.set(plan.pedestal.x, height(plan.pedestal.x, plan.pedestal.z) + 0.575, plan.pedestal.z);
+    pedestal.castShadow = highFx && vc.sun_shadows === true;
+    pedestal.receiveShadow = highFx;
     this.scene.add(pedestal);
-    this.registerObstacle(pedestal, 0.2);
+    this.registerObstacle(pedestal, 0.25);
 
     const sculptureMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x8c6a3f })
-        : new THREE.MeshStandardMaterial({ color: 0x8c6a3f, roughness: 0.35, metalness: 0.9 });
+        : new THREE.MeshStandardMaterial({
+            color: 0x8c6a3f, roughness: 0.3, metalness: 0.9,
+            envMapIntensity: 1.1,   // the knot answers to THIS garden's sky
+        });
     const sculpture = new THREE.Mesh(new THREE.TorusKnotGeometry(0.32, 0.11, 96, 10), sculptureMat);
-    sculpture.position.set(0, 1.2 + 0.46, 0);
+    sculpture.position.set(plan.pedestal.x, height(plan.pedestal.x, plan.pedestal.z) + 1.15 + 0.46, plan.pedestal.z);
     sculpture.rotation.set(0.55, 0.35, 0);
     sculpture.castShadow = pedestal.castShadow;
     this.scene.add(sculpture);
 
-    // ── 7. Set circular bounds (player can't walk past the hedge) ─────────
+    // ── 11. Ground follow — the visitor walks the lawn, not a plane ─────
+    // Movement pins the camera to 1.6 m every frame; this tick (consumed by
+    // the animate loop AFTER movement) settles the eye onto the TERRAIN's
+    // 1.6 m — gently, frame-rate independently. Locomotion, not an effect:
+    // reduced-motion users keep it (it is how walking downhill feels).
+    this._gardenTick = function gardenGroundFollow() {
+        if (this.arrivalActive || this.isInspecting) return;
+        const now = performance.now();
+        const dt = Math.min(0.1, (now - (this._gardenLastT || now)) / 1000);
+        this._gardenLastT = now;
+        const cam = this.camera.position;
+        const target = height(cam.x, cam.z) + CONFIG.camera.height;
+        const nextY = cam.y + (target - cam.y) * (1 - Math.exp(-9 * dt));
+        if (Math.abs(nextY - cam.y) > 1e-4) cam.y = nextY;
+    };
+
+    // ── 12. Camera far floor — the sky must survive the off-centre spawn ─
+    // The generic room-far (2.5·reach + 10) sized for the FLOOR; the spawn
+    // plaza stands 0.64R south of the dome's centre, so the dome's forward
+    // surface sits ~3.5R from the lens — beyond that far plane the dome
+    // clipped into a hard-edged pale disc (low-tier QA catch). Floor the
+    // far plane at 3.7R on every tier.
+    const farFloor = radius * 3.7;
+    if (this.camera.far < farFloor) {
+        this.camera.far = farFloor;
+        this.camera.updateProjectionMatrix();
+    }
+
+    // ── 13. Set circular bounds (player can't walk past the hedge) ──────
     this._circularBoundsRadius = radius - 0.5;
 }
 

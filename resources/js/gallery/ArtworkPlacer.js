@@ -43,10 +43,14 @@ export function placeArtworks(data) {
     // Circular venues (sculpture garden + void venues) — DECLARED via
     // visual_config.layout_shape since Iteration 6 (the CIRCULAR_VENUES
     // slug set is deleted; §10.5 placement modes unchanged: config-declared
-    // 'float' hovers the canvases, the legacy default keeps the easel ring).
+    // 'float' hovers the canvases, 'garden' composes the CURATED WALK
+    // (courts, hierarchy, approaches — see GardenLayout.js), and the legacy
+    // default keeps the easel ring).
     if (this._venueLayoutShape === 'circular' || layout === 'circular') {
         if (this._venuePlacementMode === 'float') {
             _placeArtworksFloating.call(this, data);
+        } else if (this._venuePlacementMode === 'garden') {
+            _placeArtworksGarden.call(this, data);
         } else {
             _placeArtworksCircular.call(this, data);
         }
@@ -423,8 +427,44 @@ export function _placeArtworksCircular(data) {
         group.lookAt(0, eyeLevel, 0);
         this.placeAndRegister(group, data);
 
-        // Add an easel under the artwork (procedural — tripod legs + crossbar)
-        _addEasel.call(this, x, z, angle);
+        // Add an easel under the artwork (procedural — tripod + crossbar).
+        // canvasYaw from the lookAt above = polar angle + π; the easel leans
+        // away from the viewer (v3 geometry contract).
+        _addEasel.call(this, x, z, angle + Math.PI, 0, 1);
+    });
+}
+
+// ── GARDEN placement (Sculpture Garden v3.0.0 — "The Curated Walk") ──────
+// Every artwork stands on its own COURT — a clearing the pure GardenLayout
+// planner composed with a role (primary / secondary / transitional), an
+// approach (the nearest walk) and a facing (the easel turns toward the
+// visitor's arrival, not mechanically toward the centre). The pieces sit on
+// the TERRAIN (ground height from the plan's own field) and are PHYSICAL:
+// each registers a collision obstacle, so a visitor brushes up against a
+// sculpture court instead of clipping through it (float-mode precedent).
+// If the plan and the artwork list ever disagree (a pathological build
+// order), the legacy ring takes over — placement never guesses.
+export function _placeArtworksGarden(data) {
+    const plan = this._gardenPlan;
+    if (!plan || plan.courts.length !== this.artworkImages.length) {
+        console.warn('[garden] plan/artwork mismatch — falling back to the ring layout');
+        _placeArtworksCircular.call(this, data);
+        return;
+    }
+    const eyeLevel = CONFIG.camera.height;
+
+    this.artworkImages.forEach((img, i) => {
+        const c = plan.courts[i];
+        const gy = plan.terrain.height(c.x, c.z);
+        const { group } = this.makeArtworkGroup(img, data);
+        group.position.set(c.x, gy + eyeLevel, c.z);
+        group.rotation.y = c.facing;          // canvas front toward the approach
+        group.scale.setScalar(c.scale);       // role hierarchy (§8), carefully
+        this.placeAndRegister(group, data);
+        // Physical presence — the padded AABB stops the visitor ~0.35 m
+        // short of the canvas, exactly like the float venues.
+        this.registerObstacle(group, 0.35);
+        _addEasel.call(this, c.x, c.z, c.facing, gy, c.scale);
     });
 }
 
@@ -478,39 +518,45 @@ export function _placeArtworksFloating(data) {
     });
 }
 
-// ── Easel — three angled legs + horizontal crossbar, merged ─────────────────
-// Pure geometry — no external GLB dependency.
+// ── Easel — two front legs, a leaning rear leg + a crossbar BEHIND the
+// canvas, merged. Pure geometry — no external GLB dependency.
 // PERF-D21 (3D audit F21): was 4 separate Meshes per easel (3 legs + bar) —
 // a 30-artwork sculpture garden paid 120 draw calls for easels alone. Now
 // one merged mesh per easel = 30 draw calls, identical silhouette.
-export function _addEasel(x, z, angle) {
+//
+// Sculpture Garden v3: the easel STANDS ON THE TERRAIN (groundY) and leans
+// AWAY from the viewer (local +z points opposite the canvas front), with
+// the crossbar behind the canvas plane — the canvas rests against the
+// frame instead of the old bar poking through its plane at oblique ring
+// angles (a latent v2 geometry defect this rebuild fixes).
+export function _addEasel(x, z, canvasYaw, groundY = 0, scale = 1) {
     const woodMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x6b4a2a })
         : new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.85, metalness: 0.05 });
 
-    const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.0, 6);
-    const barGeo = new THREE.BoxGeometry(0.7, 0.04, 0.04);
+    const legGeo = new THREE.CylinderGeometry(0.042, 0.052, 2.0, 6);
+    const barGeo = new THREE.BoxGeometry(0.8, 0.055, 0.055);
 
-    // Three legs angled outward + crossbar under the canvas — one geometry
     const parts = [];
-    for (let i = 0; i < 3; i++) {
-        const legAngle = (i / 3) * Math.PI * 2;
-        parts.push({
-            geo: legGeo,
-            // Tilt each leg outward at the bottom
-            pos: [Math.sin(legAngle) * 0.25, 1.0, Math.cos(legAngle) * 0.25],
-            rot: [Math.cos(legAngle) * 0.15, 0, -Math.sin(legAngle) * 0.15],
-        });
-    }
-    parts.push({ geo: barGeo, pos: [0, 1.2, 0] });
+    // Local +z faces the SAME way as the canvas front (rotation.y =
+    // canvasYaw below) — so every part lives at z <= 0, BEHIND the canvas
+    // plane: two splayed legs just under the canvas, one rear leg leaning
+    // back, and the crossbar the canvas rests on. The depth spread stays
+    // small so an edge-on easel still reads as one legged stand.
+    parts.push({ geo: legGeo, pos: [-0.3, 0.98, -0.04], rot: [-0.04, 0, 0.13] });
+    parts.push({ geo: legGeo, pos: [ 0.3, 0.98, -0.04], rot: [-0.04, 0, -0.13] });
+    parts.push({ geo: legGeo, pos: [ 0,    0.98, -0.3],  rot: [-0.2, 0, 0] });
+    // Crossbar BEHIND the canvas plane (the canvas leans on it).
+    parts.push({ geo: barGeo, pos: [0, 1.18, -0.12] });
 
     const merged = mergeParts(parts);
     legGeo.dispose();
     barGeo.dispose();
 
     const easel = new THREE.Mesh(merged, woodMat);
-    easel.position.set(x, 0, z);
-    easel.rotation.y = -angle + Math.PI;
+    easel.position.set(x, groundY, z);
+    easel.rotation.y = canvasYaw;             // local +z = canvas front; parts sit behind the plane
+    easel.scale.setScalar(0.9 + scale * 0.1); // primary courts carry a sturdier easel
     easel.castShadow    = !this.isLowEnd;
     easel.receiveShadow = !this.isLowEnd;
     this.scene.add(easel);

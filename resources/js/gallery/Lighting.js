@@ -45,8 +45,17 @@ export function setupLighting(preset) {
     // the historical 0.15 (every existing venue renders unchanged). The
     // low-end tier keeps its boosted compensation, scaled from the same
     // declaration so degradation never recomposes the venue's darkness.
+    //
+    // Sculpture Garden iteration: the SKY and GROUND tint are also venue-
+    // declarable (hemisphere_sky_color / hemisphere_ground_color) — outdoor
+    // ambient IS the sky dome above and the lawn below, so an open-air
+    // venue declares blue sky over grass instead of neutral white over
+    // gray. Undeclared ⇒ the historical neutral pair (no venue changes).
+    const vcHemi = this._venueVisualConfig || {};
+    const hemiSky = parseColor(vcHemi.hemisphere_sky_color) || 0xffffff;
+    const hemiGround = parseColor(vcHemi.hemisphere_ground_color) || 0x404040;
     const hemiDeclared = this._venueHemisphereIntensity ?? 0.15;
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x404040, this.isLowEnd
+    const hemi = new THREE.HemisphereLight(hemiSky, hemiGround, this.isLowEnd
         ? Math.min(0.5, hemiDeclared * 2.5)
         : hemiDeclared);
     this.scene.add(hemi);
