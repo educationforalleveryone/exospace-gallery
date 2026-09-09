@@ -794,6 +794,62 @@ ok('shoot.mjs carries the v3 scenarios (arrival, terminus, corner, city, low tie
     /pent-v21-12/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')) &&
     /pent-legacy-12/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')));
 
+// ── D3. The Media Wall pass (000009) — v3.0.0 → v3.1.0 ──────────────────────
+// Owner feedback on the deployed v3.0.0 floor: the lounge read as a dead
+// black mass (asked for "an LCD, there is a sofa nearby"), the art wall's
+// statement work hung unlit, the floor lamp read as a floating blank panel,
+// and the axis knot floated above its plinth. 000009 + buildMediaWall answer
+// all four under the 000008 guard discipline. This section pins the pair.
+const migrationPath9 = rel('database/migrations/2026_09_09_000009_luxury_penthouse_media_wall.php');
+ok('guarded media-wall migration (000009) exists', existsSync(migrationPath9));
+if (existsSync(migrationPath9)) {
+    const mig9 = readFileSync(migrationPath9, 'utf8');
+    ok('migration 000009 is reversible (down() restores the v3.0.0 bodies)',
+        /public function down\(\)/.test(mig9) && /row restored toward v3\.0\.0/.test(mig9));
+    ok('migration 000009 carries the SEMANTIC comparator (the 000008 rule)',
+        /private function sameValue\(/.test(mig9) && /PHP_FLOAT_EPSILON/.test(mig9));
+    ok('migration 000009 mutates only guarded descriptors (lamp, bench, knot) and RESPECTS admin edits',
+        /admin-customised/.test(mig9) && /left untouched/.test(mig9) &&
+        /'lamp-pole'/.test(mig9) && /'bench-base'/.test(mig9) && /'sculpture-knot'/.test(mig9));
+    ok('migration 000009 adds the media furniture + picture bar (console, bezel, light bar)',
+        /'media-console'/.test(mig9) && /'media-bezel'/.test(mig9) && /'art-wall-light-bar'/.test(mig9));
+    ok('migration 000009 anchors the picture light + media glow into the fixture rig',
+        /'art-wall-picture-light'/.test(mig9) && /'media-glow'/.test(mig9));
+    ok('migration 000009 declares visual_config.media_wall (the viewer screen binding)',
+        /'media_wall'\]\s*=/.test(mig9) && /MEDIA_WALL_CONFIG\s*=\s*\['bezel'\s*=>\s*'media-bezel'/.test(mig9));
+    ok('migration 000009 rests the axis knot ON the basalt (y 1.42 → 1.32)',
+        /\[0, 1\.32, 1\.5\]/.test(mig9));
+    ok('migration 000009 is LOUD (every decision logs)', (mig9.match(/\$this->log\(/g) || []).length >= 6);
+}
+{
+const decoratorSrc = readFileSync(rel('resources/js/gallery/VenueDecorator.js'), 'utf8');
+ok('VenueDecorator.buildMediaWall exists and hooks the rooms structure pass',
+    /function buildMediaWall\(/.test(decoratorSrc) &&
+    /vc\.media_wall && typeof vc\.media_wall === 'object'/.test(decoratorSrc));
+ok('the media screen is self-locating (child of the bezel mesh — rebuild-safe)',
+    /bezel\.add\(screen\)/.test(decoratorSrc) && /structure:\$\{bezelId\}/.test(decoratorSrc));
+ok('the media screen is an emissive truth (unlit MeshBasicMaterial, tone-mapped)',
+    /MeshBasicMaterial\(\{ map: tex, toneMapped: true \}\)/.test(decoratorSrc));
+ok('the media screen is STATIC by design (no ticker — reduced-motion needs no opt-out)',
+    !/setAnimationLoop|requestAnimationFrame/.test(decoratorSrc.slice(decoratorSrc.indexOf('function buildMediaWall'))));
+ok('the media screen degrades honestly (no bezel → no-op; thumbnail failure → typographic idle)',
+    /screen skipped/.test(decoratorSrc) && /typographic idle screen stands/.test(decoratorSrc));
+ok('the harness carries the DERIVED v3.1.0 venue (mirror-of-the-migration, not hand-authored)',
+    /derivePenthouseMediaWall/.test(readFileSync(rel('scripts/harness/harness.html'), 'utf8')));
+ok('the media_wall declaration is venue-owned (a curator override cannot move/remove it)',
+    /'media_wall'/.test(readFileSync(rel('app/Services/VenueConfigExporter.php'), 'utf8')));
+}
+{
+    const testSrc = readFileSync(rel('tests/Feature/VenuePenthouseIterationTest.php'), 'utf8');
+    for (const t of ['test_the_media_wall_pass_upgrades_the_seeded_floor',
+        'test_the_media_wall_pass_is_idempotent',
+        'test_the_media_wall_pass_respects_admin_edits',
+        'test_the_media_wall_pass_reverses_to_the_seed_baseline',
+        'test_the_media_wall_declaration_is_venue_owned']) {
+        ok(`PHP media-wall test exists: ${t}`, testSrc.includes(t));
+    }
+}
+
 // ── Verdict ─────────────────────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(66));
 if (failures === 0) console.log('LUXURY PENTHOUSE QA GATE: ALL PASS');

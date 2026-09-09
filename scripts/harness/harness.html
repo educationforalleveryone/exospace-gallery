@@ -3731,6 +3731,39 @@
             version: '2.0.0',
         },
     };
+    // ── 'luxury-penthouse-v31' — DERIVED, not hand-authored ─────────────
+    // Clones the pinned v3.0.0 penthouse body and applies exactly the
+    // 2026_09_09_000009_luxury_penthouse_media_wall deltas (lamp move,
+    // bench walnut, knot rest, media console/bezel, picture bar, fixtures,
+    // media_wall key). Mirror-of-the-migration: drift here means the
+    // after-screenshots stop meaning anything (QA gate D3).
+    const derivePenthouseMediaWall = () => {
+        const base = VENUES['luxury-penthouse'];
+        const v = JSON.parse(JSON.stringify(base));
+        v.slug = 'luxury-penthouse-v31';
+        v.version = '3.1.0';
+        const st = v.visual_config.structure;
+        const byId = {};
+        st.forEach((d, i) => { if (d?.id) byId[d.id] = i; });
+        const put = (id, patch) => { if (byId[id] !== undefined) Object.assign(st[byId[id]], patch); };
+        put('lamp-pole',   { at: { from: 'glazing', offset: [1.85, 0.8, 0.65] }, size: [0.055, 1.6, 0.055] });
+        put('lamp-shade',  { at: { from: 'glazing', offset: [1.85, 1.68, 0.65] }, material: { color: '0x2a2018', emissive: '0xffd9a0', emissiveIntensity: 1.35 } });
+        put('bench-base',  { material: 'walnut' });
+        put('sculpture-knot', { at: { from: 'junction', offset: [0, 1.32, 1.5] } });
+        st.push(
+            { id: 'media-console', primitive: 'box', at: { from: 'glazing', offset: [-2.3, 0.225, 0.85] }, turn: 'in', rot: [0, 0.7854, 0], size: [1.8, 0.45, 0.5], material: 'basalt', collide: true },
+            { id: 'media-bezel', primitive: 'box', at: { from: 'glazing', offset: [-2.3, 0.94, 0.85] }, turn: 'in', rot: [0, 0.7854, 0], size: [1.66, 0.98, 0.08], material: { color: '0x18130e', roughness: 0.4, metalness: 0.6 }, collide: true },
+            { id: 'art-wall-light-bar', primitive: 'emissive-strip', at: { from: 'wall_left_high', offset: [0, 3.72, 0.12] }, turn: 'in', size: [1.6, 0.04, 0.1], material: { color: '0x2a1c10', emissive: '0xffd9a0', emissiveIntensity: 1.4 } },
+        );
+        v.lighting_fixtures = [
+            ...(v.lighting_fixtures || []),
+            { id: 'art-wall-picture-light', type: 'point', anchor: { from: 'wall_left_high', offset: [0, 3.4, 0.8] }, color: '0xffd9a0', intensity: 2.4, distance: 5.5, decay: 2.0, cast_shadow: false },
+            { id: 'media-glow', type: 'point', anchor: { from: 'glazing', offset: [-1.85, 1.15, 1.65] }, color: '0xffe8c8', intensity: 1.3, distance: 4.5, decay: 2.0, cast_shadow: false },
+        ];
+        v.visual_config.media_wall = { bezel: 'media-bezel', screen: { w: 1.5, h: 0.84 }, accent: '0xd8a35a' };
+        return v;
+    };
+    VENUES['luxury-penthouse-v31'] = derivePenthouseMediaWall();
     const venueSlug = q.get('venue') || 'white-cube';
     const venueConfig = VENUES[venueSlug] || VENUES['white-cube'];
 

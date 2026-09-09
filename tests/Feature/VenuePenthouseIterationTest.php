@@ -231,6 +231,11 @@ class VenuePenthouseIterationTest extends TestCase
         return require database_path('migrations/2026_09_09_000008_luxury_penthouse_convergence.php');
     }
 
+    private function penthouseMigration9(): object
+    {
+        return require database_path('migrations/2026_09_09_000009_luxury_penthouse_media_wall.php');
+    }
+
     /**
      * The venue-template editor's JSON round-trip (the ROOT CAUSE the
      * convergence pass repairs): re-serializing the row through the browser
@@ -593,6 +598,140 @@ class VenuePenthouseIterationTest extends TestCase
         $this->penthouseMigration7()->down();
         $this->assertSame('2.1.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'),
             '000007.down() recognises the restored v2.1.0 state (chain rollback stays coherent).');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // The Media Wall pass (000009) — v3.0.0 → v3.1.0.
+    //
+    // OWNER CONTEXT: on the deployed v3.0.0 floor the lounge sofa group
+    // read as a dead black mass, the art wall's statement work hung
+    // unlit, the floor lamp read as a floating blank panel, and the axis
+    // knot floated 0.10 m above its plinth. 000009 answers with the media
+    // console + bezel (viewer-drawn Now Showing screen), a picture-light
+    // bar + fixture, the lamp move/strengthen, and the small craft debts
+    // — all under per-descriptor semantic guards (the 000008 rule).
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function test_the_media_wall_pass_upgrades_the_seeded_floor(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->assertSame('3.0.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'));
+
+        $this->penthouseMigration9()->up();
+
+        $row = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
+        $this->assertSame('3.1.0', $row->version, 'The version string carries the media wall pass.');
+
+        $visual = json_decode((string) $row->visual_config, true);
+        $structure = $visual['structure'] ?? [];
+        $this->assertCount(64, $structure, '61 v3.0.0 descriptors + console + bezel + picture bar.');
+
+        $byId = [];
+        foreach ($structure as $d) {
+            if (is_array($d) && isset($d['id'])) $byId[$d['id']] = $d;
+        }
+        $this->assertSame([1.85, 0.8, 0.65], $byId['lamp-pole']['at']['offset'] ?? null,
+            'The floor lamp moved into the lounge corner (out of the mid-glass sightline).');
+        $this->assertSame(0.055, $byId['lamp-pole']['size'][0] ?? null,
+            'The lamp pole thickened (5.5 cm — it survives the skyline silhouette).');
+        $this->assertSame(1.35, $byId['lamp-shade']['material']['emissiveIntensity'] ?? null,
+            'The lamp shade strengthened — no longer a blank floating panel.');
+        $this->assertSame('walnut', $byId['bench-base']['material'] ?? null,
+            'The bench base joined the walnut family (no more floor hole in the spawn corner).');
+        $this->assertSame([0, 1.32, 1.5], $byId['sculpture-knot']['at']['offset'] ?? null,
+            'The bronze knot rests ON the basalt (plinth top 1.10 + torus half 0.22).');
+        $this->assertSame('basalt', $byId['media-console']['material'] ?? null);
+        $this->assertTrue($byId['media-console']['collide'] ?? false, 'The media console collides.');
+        $this->assertSame(0.7854, $byId['media-bezel']['rot'][1] ?? null,
+            'The media wall stands 45° into the room (walk + sofa both own it).');
+        $this->assertArrayNotHasKey('hangable', $byId['media-bezel'],
+            'The bezel is furniture — glazed-face rule aside, it must never join the hang.');
+        $this->assertSame(1.6, $byId['art-wall-light-bar']['size'][0] ?? null,
+            'The bronze picture bar spans the statement hang.');
+
+        $this->assertSame(
+            ['bezel' => 'media-bezel', 'screen' => ['w' => 1.5, 'h' => 0.84], 'accent' => '0xd8a35a'],
+            $visual['media_wall'] ?? null,
+            'The viewer screen declaration ships with the furniture.'
+        );
+
+        $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
+        $this->assertCount(7, $fixtures, 'The v3.0.0 rig + picture light + media glow.');
+        $fixtureIds = array_column($fixtures, 'id');
+        $this->assertContains('art-wall-picture-light', $fixtureIds, 'The art wall finally has its wash.');
+        $this->assertContains('media-glow', $fixtureIds, 'The media wall casts its screen glow on the sofa.');
+
+        $this->assertStringContainsString('media wall', (string) $row->description,
+            'The honest-pass description mentions the media wall.');
+    }
+
+    public function test_the_media_wall_pass_is_idempotent(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->penthouseMigration9()->up();
+
+        $afterFirst = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first(['visual_config', 'lighting_fixtures', 'version']);
+
+        $this->penthouseMigration9()->up();  // the deploy-log replay
+
+        $afterSecond = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first(['visual_config', 'lighting_fixtures', 'version']);
+        $this->assertSame($this->canonicalJson($afterFirst->visual_config), $this->canonicalJson($afterSecond->visual_config),
+            'Replaying 000009 changes nothing (idempotent additions + guarded swaps).');
+        $this->assertSame($this->canonicalJson($afterFirst->lighting_fixtures), $this->canonicalJson($afterSecond->lighting_fixtures),
+            'The fixture list never grows on replay.');
+        $this->assertSame('3.1.0', $afterSecond->version);
+    }
+
+    public function test_the_media_wall_pass_respects_admin_edits(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->penthouseMigration9()->up();
+
+        // The curator moves the lamp by hand after the deploy.
+        $visual = $this->visualConfig('luxury-penthouse');
+        foreach ($visual['structure'] as $i => $d) {
+            if (($d['id'] ?? null) === 'lamp-pole') {
+                $visual['structure'][$i]['at']['offset'] = [3.0, 0.8, 1.5];
+            }
+        }
+        DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
+            'visual_config' => json_encode($visual),
+        ]);
+
+        $this->penthouseMigration9()->up();  // a later deploy re-runs the pass
+
+        $byId = [];
+        foreach ($this->visualConfig('luxury-penthouse')['structure'] as $d) {
+            $byId[$d['id']] = $d;
+        }
+        $this->assertSame([3.0, 0.8, 1.5], $byId['lamp-pole']['at']['offset'] ?? null,
+            'The admin lamp move survives the replay — the semantic guard skips it.');
+        $this->assertSame('3.1.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'),
+            'The version is not downgraded by the skipped swap.');
+    }
+
+    public function test_the_media_wall_pass_reverses_to_the_seed_baseline(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->penthouseMigration9()->up();
+        $this->penthouseMigration9()->down();
+
+        $migrated = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $seeded = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
+
+        $this->assertSame($this->canonicalJson($seeded->visual_config), $this->canonicalJson($migrated->visual_config),
+            'down() restores the exact v3.0.0 seeded identity (structure + no media_wall key).');
+        $this->assertSame($this->canonicalJson($seeded->lighting_fixtures), $this->canonicalJson($migrated->lighting_fixtures),
+            'down() restores the exact v3.0.0 five-light rig.');
+        $this->assertSame('3.0.0', $migrated->version, 'The version returns to 3.0.0 — the 000008 rollback target.');
+        $this->assertSame('3.0.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'));
+    }
+
+    public function test_the_media_wall_declaration_is_venue_owned(): void
+    {
+        $this->assertContains('media_wall', VenueConfigExporter::VENUE_OWNED_VISUAL_KEYS,
+            'A curator override can neither move nor remove the media wall.');
     }
 
     /** Step 2 of the production replay: the admin save's JSON round-trip. */

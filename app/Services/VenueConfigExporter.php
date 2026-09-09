@@ -196,6 +196,11 @@ class VenueConfigExporter
         'artwork_light_base', 'artwork_light_pool_cap',
         // curation + presentation (s3 — nested objects, owned wholesale)
         'placement', 'post_fx',
+        // s7/penthouse v3.1.0: the media-wall declaration (bezel binding +
+        // screen size + accent). The screen renders the GALLERY's identity,
+        // but WHERE it stands and how big it is is furniture identity — a
+        // curator override can neither move nor remove the media wall.
+        'media_wall',
     ];
 
     /**

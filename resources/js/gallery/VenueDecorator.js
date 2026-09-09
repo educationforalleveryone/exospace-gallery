@@ -341,6 +341,13 @@ export function addVenueStructure(data) {
         if (Array.isArray(vc.structure) && vc.structure.length > 0) {
             buildStructure(this, vc.structure);
         }
+        // The Media Wall (penthouse v3.1.0, generic for any rooms venue):
+        // runs AFTER buildStructure because it self-locates on the bezel
+        // descriptor's mesh (structure:<bezel>). Absent key → absent screen;
+        // the console/bezel furniture still renders as plain descriptors.
+        if (vc.media_wall && typeof vc.media_wall === 'object') {
+            buildMediaWall(this, vc.media_wall);
+        }
     } else if (pass === 'cube') {
         addWhiteCubeRespectPass.call(this, data);
     } else if (pass === 'loft') {
@@ -3421,4 +3428,189 @@ function addMirrorLakeStructure(radius) {
     this.scene.add(mist);
     this._particleSystems = this._particleSystems || [];
     this._particleSystems.push({ obj: mist, type: 'drift', phase: rng.next() * Math.PI * 2 });
+}
+
+// ── THE MEDIA WALL (v3.1.0 "The Media Wall", penthouse — generic mechanism) ──
+// visual_config.media_wall = {
+//     bezel:  'media-bezel',           // descriptor id whose mesh hosts the screen
+//     screen: { w: 1.5, h: 0.84 },     // display size in metres
+//     accent: '0xd8a35a',              // UI accent (the room's bronze line)
+// }
+//
+// WHY the screen is viewer-drawn and not a descriptor: the display shows the
+// GALLERY'S identity — wordmark, featured artwork, work count — and a shared
+// venue-template row cannot know the gallery it will serve. The viewer reads
+// window.GALLERY_DATA at build time and bakes one CanvasTexture.
+//
+// Design rules honoured here:
+//  • Self-locating: the display plane becomes a CHILD of the bezel mesh, so
+//    anchors/turn/rot stay the migration's business and Live-Preview rebuilds
+//    (scene.clear() → full re-run) cannot leak or orphan the plane.
+//  • Facing: the plane sits on the bezel's local +Z face and is yaw-flipped
+//    once if that face points away from the venue's occupied centre — the
+//    screen always reads from the room, whatever the anchor convention.
+//  • Emissive truth: a display is a light source — MeshBasicMaterial (unlit)
+//    with tone mapping, so the panel glows in the dusk interior exactly like
+//    hardware; the venue's bloom pass picks it up at its own threshold.
+//  • Static by design: no per-frame ticker, no breathing, no slideshow —
+//    zero animation cost on every tier and nothing for reduced-motion users
+//    to opt out of. One 768×432 bake, redrawn at most once (thumbnail load).
+//  • Honest fallbacks: no bezel mesh → silent no-op; no GALLERY_DATA →
+//    generic wordmark; thumbnail 404/timeout → typographic idle screen.
+function buildMediaWall(ctx, spec) {
+    const bezelId = typeof spec.bezel === 'string' && spec.bezel ? spec.bezel : 'media-bezel';
+    const bezel = ctx.scene.getObjectByName(`structure:${bezelId}`);
+    if (!bezel?.isMesh) {
+        // Config without furniture (admin pruned the descriptors) — skip,
+        // never conjure a floating screen.
+        console.warn(`[exospace] media_wall: bezel mesh 'structure:${bezelId}' not found — screen skipped.`);
+        return;
+    }
+
+    const sw = Number(spec.screen?.w) || 1.5;
+    const sh = Number(spec.screen?.h) || 0.84;
+    const accent = parseColor(spec.accent || '0xd8a35a') || new THREE.Color(0xd8a35a);
+
+    // ── The bake ─────────────────────────────────────────────────────────
+    const W = 768, H = 432;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const g = canvas.getContext('2d');
+
+    const drawIdle = (art) => {
+        // Glass: near-black vertical sheen + corner vignette.
+        const bg = g.createLinearGradient(0, 0, 0, H);
+        bg.addColorStop(0, '#141110');
+        bg.addColorStop(0.55, '#0c0a09');
+        bg.addColorStop(1, '#080706');
+        g.fillStyle = bg;
+        g.fillRect(0, 0, W, H);
+        const vig = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.72);
+        vig.addColorStop(0, 'rgba(0,0,0,0)');
+        vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+        g.fillStyle = vig;
+        g.fillRect(0, 0, W, H);
+
+        const hex = '#' + accent.getHexString();
+        const cream = '#f2e9da';
+        const dim = '#8a7a64';
+
+        // Hairline bronze frame inset.
+        g.strokeStyle = hex;
+        g.globalAlpha = 0.55;
+        g.lineWidth = 2;
+        g.strokeRect(14.5, 14.5, W - 29, H - 29);
+        g.globalAlpha = 1;
+
+        const title = String(window.GALLERY_DATA?.title || 'EXOSPACE').trim() || 'EXOSPACE';
+        const images = Array.isArray(window.GALLERY_DATA?.images) ? window.GALLERY_DATA.images : [];
+        const count = Number(window.GALLERY_DATA?.imageCount ?? images.length);
+
+        // Eyebrow.
+        g.fillStyle = hex;
+        g.font = '600 21px "Helvetica Neue", Arial, sans-serif';
+        g.textAlign = 'left';
+        g.textBaseline = 'alphabetic';
+        g.save();
+        g.translate(58, 96);
+        const eyebrow = 'NOW SHOWING';
+        for (let i = 0; i < eyebrow.length; i++) {
+            g.fillText(eyebrow[i], i * 17, 0);
+        }
+        g.restore();
+
+        // Wordmark (serif — the room's printed-catalogue voice).
+        g.fillStyle = cream;
+        g.font = `${title.length > 18 ? 58 : 76}px Georgia, "Times New Roman", serif`;
+        g.fillText(title.length > 26 ? title.slice(0, 25) + '…' : title, 54, 188);
+
+        // Rule + meta line.
+        g.strokeStyle = dim;
+        g.globalAlpha = 0.8;
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.moveTo(56, 226);
+        g.lineTo(art ? 448 : W - 56, 226);
+        g.stroke();
+        g.globalAlpha = 1;
+        g.fillStyle = dim;
+        g.font = '500 23px "Helvetica Neue", Arial, sans-serif';
+        const meta = `${count} WORK${count === 1 ? '' : 'S'} · OPEN DAILY`;
+        g.fillText(meta, 56, 268);
+
+        // Footer mark.
+        g.fillStyle = dim;
+        g.font = '600 19px "Helvetica Neue", Arial, sans-serif';
+        g.textAlign = 'right';
+        g.fillText('E X O S P A C E', W - 58, H - 52);
+        g.textAlign = 'left';
+
+        // Featured artwork panel (right third) — cover-fit, bronze keyline.
+        if (art?.img) {
+            const pw = 232, ph = 300, px = W - pw - 62, py = (H - ph) / 2;
+            g.save();
+            g.beginPath();
+            g.rect(px, py, pw, ph);
+            g.clip();
+            const iw = art.img.width || art.img.naturalWidth || 1;
+            const ih = art.img.height || art.img.naturalHeight || 1;
+            const s = Math.max(pw / iw, ph / ih);
+            const dw = iw * s, dh = ih * s;
+            g.drawImage(art.img, px + (pw - dw) / 2, py + (ph - dh) / 2, dw, dh);
+            g.restore();
+            g.strokeStyle = hex;
+            g.globalAlpha = 0.7;
+            g.lineWidth = 2;
+            g.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+            g.globalAlpha = 1;
+            if (art.title) {
+                g.fillStyle = cream;
+                g.font = '500 19px "Helvetica Neue", Arial, sans-serif';
+                const t = art.title.length > 30 ? art.title.slice(0, 29) + '…' : art.title;
+                g.fillText(t, px, py + ph + 28);
+            }
+        }
+    };
+
+    drawIdle(null);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+
+    // ── The display plane ────────────────────────────────────────────────
+    const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: true });
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), mat);
+    const bezelDepth = bezel.geometry?.parameters?.depth ?? 0.08;
+    screen.position.set(0, 0, bezelDepth / 2 + 0.004);
+    bezel.add(screen);
+
+    // Facing: flip once if the local +Z face points away from the venue's
+    // occupied centre (scene bounds, not the origin — void venues lie).
+    bezel.updateWorldMatrix(true, false);
+    const faceNormal = new THREE.Vector3(0, 0, 1)
+        .applyQuaternion(bezel.getWorldQuaternion(new THREE.Quaternion()));
+    const centre = new THREE.Box3().setFromObject(ctx.scene).getCenter(new THREE.Vector3());
+    const bezelPos = bezel.getWorldPosition(new THREE.Vector3());
+    if (faceNormal.dot(centre.sub(bezelPos)) < 0) {
+        screen.rotation.y = Math.PI;
+    }
+
+    // ── Featured artwork (async, at most one redraw) ─────────────────────
+    // The AssetLoader owns the artwork textures; rather than couple to its
+    // cache state we reuse the browser cache via a plain Image on the SAME
+    // origin (urls.* are app-hosted conversions). Failure keeps the idle art.
+    const first = (window.GALLERY_DATA?.images || [])
+        .find(i => i?.urls?.large || i?.urls?.medium || i?.urls?.original);
+    const src = first?.urls?.large || first?.urls?.medium || first?.urls?.original;
+    if (src) {
+        const img = new Image();
+        img.decoding = 'async';
+        img.onload = () => {
+            drawIdle({ img, title: first.title || '' });
+            tex.needsUpdate = true;
+        };
+        img.onerror = () => { /* typographic idle screen stands */ };
+        img.src = src;
+    }
 }

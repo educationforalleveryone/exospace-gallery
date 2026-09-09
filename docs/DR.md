@@ -92,6 +92,34 @@ false and the swap silently skips — for every later migration in the chain.
    following the 000008 pattern (semantic comparator + byte-verbatim chain
    bodies + loud logging + respected admin edits). Do NOT reseed production.
 
+### 3.5 The Media Wall pass (000009) — "screen/fixture looks wrong" checklist
+
+The v3.1.0 pass adds viewer-drawn furniture (media console + bezel + Now
+Showing screen) and two anchored fixtures. Symptoms and their first moves:
+
+- **Media screen missing (console/bezel render, no glowing display):**
+  the screen needs `visual_config.media_wall` AND `buildMediaWall` in the
+  deployed JS bundle. Check the payload carries `media_wall` (venue-owned
+  key — a gallery override cannot strip it); check the browser console for
+  `[exospace] media_wall: bezel mesh … not found` (descriptor pruned by an
+  admin save — the JS intentionally skips rather than conjure a floating
+  screen; re-run `php artisan migrate --force`, 000009 re-adds absent ids).
+- **Screen shows the generic wordmark, no artwork thumbnail:** the
+  featured-artwork `Image` failed (404 on `urls.large`) — the typographic
+  idle is the designed fallback, not a bug. Check the gallery's first image
+  conversion exists.
+- **Media wall / picture light stands in the wrong place after an admin
+  edit:** the per-descriptor semantic guards SKIPPED an admin-customised
+  descriptor by design — the deploy log says
+  `[luxury-penthouse-media-wall] descriptor '…' is admin-customised … left
+  untouched`. Either accept the admin state or revert the descriptor in the
+  Venue Editor; the migration never fights a live edit.
+- **Lamp/sofa/art-wall regression after rollback:** 000009.down() restores
+  the exact v3.0.0 bodies; if a row was admin-edited between up() and
+  down(), the guards leave those descriptors at the admin state (logged).
+- Full context: `docs/ITERATION_PENTHOUSE_MEDIA_WALL.md`; offline replay:
+  `python3 scripts/validate_migration9.py` (no PHP needed).
+
 
 ## 4. What is backed up where
 
