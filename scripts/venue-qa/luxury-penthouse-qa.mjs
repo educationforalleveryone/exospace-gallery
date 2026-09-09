@@ -753,7 +753,40 @@ if (existsSync(migrationPath7)) {
         (mig7.match(/\['id' => '/g) || []).length === 47 + 61 + 5 + 5,
         `got ${(mig7.match(/\['id' => '/g) || []).length}`);
 }
+
+// ── D2. The convergence pass (000008) — the production drift repair ─────────
+// The production row was re-serialized by a venue-template editor save
+// (float 5.0 → int 5 + alphabetically re-sorted descriptor keys) BEFORE the
+// chain ran, so every strict `===` structure guard silently skipped and the
+// venue kept rendering the v1.0.0 body under a 3.0.0 version string. 000008
+// converges such rows with SEMANTIC guards; this section pins it.
+const migrationPath8 = rel('database/migrations/2026_09_09_000008_luxury_penthouse_convergence.php');
+ok('guarded convergence migration (000008) exists', existsSync(migrationPath8));
+if (existsSync(migrationPath8)) {
+    const mig8 = readFileSync(migrationPath8, 'utf8');
+    ok('migration 000008 is reversible', /public function down\(\)/.test(mig8));
+    ok('migration 000008 carries the SEMANTIC comparator (numbers by value, maps key-order-free, lists strict)',
+        /private function sameValue\(/.test(mig8) &&
+        /\(float\) \$a === \(float\) \$b/.test(mig8) &&
+        /array_values\(\$a\)/.test(mig8));
+    ok('migration 000008 carries all four chain bodies + the three fixture sets verbatim (17+40+2+47+5+61+5)',
+        (mig8.match(/\['id' => '/g) || []).length === 17 + 40 + 2 + 47 + 5 + 61 + 5,
+        `got ${(mig8.match(/\['id' => '/g) || []).length}`);
+    ok('migration 000008 swaps only on a chain-body match and RESPECTS custom structures',
+        /matches NO chain body/.test(mig8) && /left untouched/.test(mig8));
+    ok('migration 000008 targets the v3 body + v3 fixtures (61 descriptors, 5-light rig)',
+        /V3_STRUCTURE/.test(mig8) && /V3_FIXTURES/.test(mig8));
+    ok('migration 000008 union-adds the architecture keys when absent (wing_heights + glazing_walls)',
+        /'wing_heights'\s*=>\s*\['wing_a' => 3\.55, 'wing_b' => 6\.3\]/.test(mig8) &&
+        /'glazing_walls'\s*=>\s*\['wing_b_end', 'wing_b_north'\]/.test(mig8));
+    ok('migration 000008 is LOUD (every decision logs — guarded passes must never be silent again)',
+        (mig8.match(/\$this->log\(/g) || []).length >= 8);
+}
 ok('PHP iteration test exists', existsSync(rel('tests/Feature/VenuePenthouseIterationTest.php')));
+ok('PHP drift-replay test exists (the production history is pinned, not just the clean chain)',
+    existsSync(rel('tests/Feature/VenuePenthouseIterationTest.php')) &&
+    /test_the_drifted_production_row_converges_to_the_double_volume/.test(
+        readFileSync(rel('tests/Feature/VenuePenthouseIterationTest.php'), 'utf8')));
 ok('shoot.mjs carries the v3 scenarios (arrival, terminus, corner, city, low tier, rollback bodies)',
     /pent-cam-arrival/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')) &&
     /pent-cam-corner/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')) &&

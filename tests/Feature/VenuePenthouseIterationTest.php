@@ -226,6 +226,38 @@ class VenuePenthouseIterationTest extends TestCase
         return require database_path('migrations/2026_09_09_000007_luxury_penthouse_double_volume.php');
     }
 
+    private function penthouseMigration8(): object
+    {
+        return require database_path('migrations/2026_09_09_000008_luxury_penthouse_convergence.php');
+    }
+
+    /**
+     * The venue-template editor's JSON round-trip (the ROOT CAUSE the
+     * convergence pass repairs): re-serializing the row through the browser
+     * (a) loses the float-ness of integral numbers (5.0 → 5) and (b) re-sorts
+     * every object's keys alphabetically. PHP's `===` guards see
+     * int(5) !== float(5.0) and skip — this helper reproduces the drift
+     * byte-faithfully (verified against the live production payload).
+     */
+    private function editorRoundTrip(mixed $value): mixed
+    {
+        if (is_bool($value) || is_null($value) || is_string($value) || is_int($value)) {
+            return $value;
+        }
+        if (is_float($value)) {
+            return floor($value) === $value ? (int) $value : $value;
+        }
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $k => $v) {
+                $out[$k] = $this->editorRoundTrip($v);
+            }
+            ksort($out);
+            return $out;
+        }
+        return $value;
+    }
+
     /** The v1.0.0 row exactly as production holds it pre-chain. */
     private function seedLegacyPenthouseRow(): void
     {
@@ -423,6 +455,155 @@ class VenuePenthouseIterationTest extends TestCase
         $this->assertSame('cove-wash-a', $fixturesRolled[2]['id'] ?? null, 'down() restores the v2.1.0 cove washes.');
         $this->assertSame('2.1.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'), 'down() restores the v2.1.0 version.');
         $this->assertStringContainsString('floor at dusk', (string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('description'), 'down() restores the v2.1.0 copy.');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // The convergence pass (000008) — the production drift repair.
+    //
+    // FORENSIC CONTEXT: the live production row drifted from the chain — an
+    // admin venue-template save re-serialized visual_config through a
+    // browser JSON round-trip BEFORE batches 53–55 ran, storing float 5.0 as
+    // int 5 and alphabetically re-sorting every descriptor's keys. Every
+    // strict `===` STRUCTURE guard then missed (int 5 !== float 5.0) and the
+    // swaps SILENTLY skipped, so production served the v1.0.0 "Rooms" body
+    // (the blue/warm preset-tower skyline) under a 3.0.0 version string.
+    // These tests replay that exact history and pin the repair.
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function test_the_drifted_production_row_converges_to_the_double_volume(): void
+    {
+        // 1. The clean v1.0.0 row (batch 42 era).
+        $this->seedLegacyPenthouseRow();
+
+        // 2. The admin save drifts the row (the JS JSON round-trip).
+        $row = DB::table('venue_templates')->where('slug', 'luxury-penthouse')
+            ->first(['visual_config', 'lighting_fixtures']);
+        DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
+            'visual_config'     => json_encode($this->editorRoundTrip(json_decode((string) $row->visual_config, true))),
+            'lighting_fixtures' => json_encode($this->editorRoundTrip(json_decode((string) $row->lighting_fixtures, true) ?: [])),
+        ]);
+
+        // 3. The guarded chain runs — but history repeats mid-chain: the
+        //    editor save happened again between the v2.0.0 and v2.1.0
+        //    deploys (that is why production's fixtures froze at the v2
+        //    pair). Scalar/copy guards fire; every structure/fixture guard
+        //    MISSES (this is the production bug — assert it so the test
+        //    fails loudly if the chain semantics ever change).
+        $this->penthouseMigration5()->up();
+        $this->driftRowLikeProduction();   // the second editor save
+        $this->penthouseMigration6()->up();
+        $this->penthouseMigration7()->up();
+
+        $drifted = $this->visualConfig('luxury-penthouse');
+        $this->assertSame(6.3, $drifted['wall_height'] ?? null, 'The scalar guards fire through the drift (4.5 → 5.2 → 6.3).');
+        $this->assertCount(17, $drifted['structure'] ?? [],
+            'The strict === structure guards skip the drifted row: the v1.0.0 body survives the whole chain (the bug).');
+        $this->assertSame('3.0.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'),
+            'The version string claims v3.0.0 over a v1.0.0 building — the silent-skip signature.');
+        $driftedFixtures = json_decode((string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('lighting_fixtures'), true) ?: [];
+        $this->assertCount(2, $driftedFixtures, 'The fixtures froze at the v2.0.0 pair (production state).');
+
+        // 4. The convergence pass repairs the row.
+        $this->penthouseMigration8()->up();
+
+        // 5. …and lands EXACTLY on the seeder baseline.
+        $migrated = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $seeded = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
+
+        $this->assertSame(
+            $this->canonicalJson($seeded->visual_config),
+            $this->canonicalJson($migrated->visual_config),
+            'The drifted production row converges to the seeder identity (visual_config).'
+        );
+        $this->assertSame(
+            $this->canonicalJson($seeded->lighting_fixtures),
+            $this->canonicalJson($migrated->lighting_fixtures),
+            'The drifted fixtures converge to the v3.0.0 five-light rig.'
+        );
+        $this->assertSame('3.0.0', $migrated->version, 'The version stays 3.0.0 — now honest.');
+
+        $converged = $this->visualConfig('luxury-penthouse');
+        $this->assertCount(61, $converged['structure'] ?? [], 'The Double Volume body (61 descriptors) is live.');
+        $ids = array_column($converged['structure'] ?? [], 'id');
+        $this->assertContains('step-fascia', $ids, 'The seam arrives.');
+        $this->assertContains('glazing-glass-north', $ids, 'The second glass face arrives.');
+        $this->assertContains('art-wall-panel', $ids, 'The walnut art wall arrives.');
+        $this->assertNotContains('skyline-cool', $ids, 'The v1 preset-tower skyline is gone.');
+    }
+
+    public function test_the_convergence_pass_is_idempotent_and_admin_respecting(): void
+    {
+        // Build the drifted production state, then converge it.
+        $this->seedLegacyPenthouseRow();
+        $this->driftRowLikeProduction();
+        $this->penthouseMigration5()->up();
+        $this->driftRowLikeProduction();   // the second editor save
+        $this->penthouseMigration6()->up();
+        $this->penthouseMigration7()->up();
+        $this->penthouseMigration8()->up();
+
+        // An admin then customises the structure (a genuine hand edit).
+        $config = $this->visualConfig('luxury-penthouse');
+        $config['structure'] = [
+            ['id' => 'admin-shelf', 'primitive' => 'box', 'at' => [1.0, 0.5, 2.0], 'size' => [2, 0.4, 0.5], 'material' => 'walnut'],
+            ['id' => 'admin-plinth', 'primitive' => 'cylinder', 'at' => [-1.0, 0.5, 2.0], 'size' => [0.4, 1.0, 0.4], 'material' => 'basalt'],
+        ];
+        DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
+            'visual_config' => json_encode($config),
+        ]);
+
+        // The pass must RESPECT the custom body and rewrite nothing.
+        $before = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
+        $this->penthouseMigration8()->up();
+        $after = DB::table('venue_templates')->where('slug', 'luxury-penthouse')->first();
+        $this->assertSame($before->visual_config, $after->visual_config,
+            'A customised (non-chain) structure is respected — the semantic guard matches no body and skips.');
+        $this->assertSame($before->lighting_fixtures, $after->lighting_fixtures,
+            'Already-converged fixtures are never rewritten (idempotent).');
+        $this->assertSame(['wing_a' => 3.55, 'wing_b' => 6.3], $this->visualConfig('luxury-penthouse')['wing_heights'] ?? null,
+            'The declared architecture keys stay (union-add never overwrites).');
+    }
+
+    public function test_the_convergence_pass_is_reversible_for_chain_bodies(): void
+    {
+        // Build the drifted production state, then converge it.
+        $this->seedLegacyPenthouseRow();
+        $this->driftRowLikeProduction();
+        $this->penthouseMigration5()->up();
+        $this->driftRowLikeProduction();   // the second editor save
+        $this->penthouseMigration6()->up();
+        $this->penthouseMigration7()->up();
+        $this->penthouseMigration8()->up();
+
+        // Reversibility: down() restores the v2.1.0 bodies under the same
+        // semantic guards (000007.down() then owns the rest of the chain).
+        $this->penthouseMigration8()->down();
+        $rolled = $this->visualConfig('luxury-penthouse');
+        $this->assertCount(47, $rolled['structure'] ?? [], 'down() restores the v2.1.0 payload for chain bodies.');
+        $this->assertSame(['wing_a' => 3.55, 'wing_b' => 6.3], $rolled['wing_heights'] ?? null,
+            'down() leaves the union-added architecture keys alone (000007.down() removes them under its own guards).');
+        $rolledFixtures = json_decode((string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('lighting_fixtures'), true) ?: [];
+        $this->assertCount(5, $rolledFixtures, 'down() restores the v2.1.0 fixture rig.');
+        $this->assertSame('cove-wash-a', $rolledFixtures[2]['id'] ?? null, 'The v2.1.0 cove washes come back.');
+
+        // The chain stays coherent after the rollback: 000007.down() must
+        // find its exact v2.1.0 expectations (the reason down() targets the
+        // v2.1 bodies rather than inventing a state).
+        $this->penthouseMigration7()->down();
+        $this->assertSame('2.1.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'),
+            '000007.down() recognises the restored v2.1.0 state (chain rollback stays coherent).');
+    }
+
+    /** Step 2 of the production replay: the admin save's JSON round-trip. */
+    private function driftRowLikeProduction(): void
+    {
+        $row = DB::table('venue_templates')->where('slug', 'luxury-penthouse')
+            ->first(['visual_config', 'lighting_fixtures']);
+        DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
+            'visual_config'     => json_encode($this->editorRoundTrip(json_decode((string) $row->visual_config, true))),
+            'lighting_fixtures' => json_encode($this->editorRoundTrip(json_decode((string) $row->lighting_fixtures, true) ?: [])),
+        ]);
     }
 
     // ─────────────────────────────────────────────────────────────────────

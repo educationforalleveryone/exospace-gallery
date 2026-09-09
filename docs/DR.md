@@ -56,6 +56,43 @@ as a single app + a MySQL database + a Redis instance (session, cache, queue;
    maintenance window only (the ops credentials ledger notes this per key).
 4. Record the rotation in Ops → Credentials (audit + Slack + cadence clock).
 
+### 3.4 Venue identity drift (a guarded pass silently skipped)
+*Class incident: Luxury Penthouse rendered the retired v1.0.0 "Rooms" body
+(blue/warm preset-tower skyline) while `migrate:status` reported every venue
+migration RAN and the row's `version` string said `3.0.0`.*
+
+**Mechanism:** a SuperAdmin venue-template save re-serializes
+`visual_config`/`lighting_fixtures` through a browser JSON round-trip —
+integral floats lose their `.0` (`5.0` → `5`) and every object's keys are
+re-sorted alphabetically. Guarded chain migrations compare the decoded row
+with PHP `===` (type- AND order-sensitive), so `int(5) === float(5.0)` is
+false and the swap silently skips — for every later migration in the chain.
+
+**Detection:**
+- `php artisan migrate:status` shows RAN but the venue renders an old body.
+- Decisive on-site check: open the public preview page and diff the served
+  `window.GALLERY_DATA.venueConfig.visual_config.structure` against the
+  seeder body (descriptor COUNT first: 61 = v3.0.0 Penthouse; 17/40/47 =
+  a skipped chain). Verify `wall_height`/`wing_heights` versus the
+  descriptor list — a mismatch (v3 scalars + v1 structure) is this drift.
+- Version string is NOT evidence — it updates under its own guard.
+
+**Repair:**
+1. Run the corrective convergence pass for the affected venue —
+   `php artisan migrate --force` (for Luxury Penthouse this is
+   `2026_09_09_000008_luxury_penthouse_convergence`, which matches the row
+   SEMANTICALLY against the known chain bodies and converges only those;
+   custom/admin structures are logged and left untouched). Deploy logs carry
+   `[luxury-penthouse-convergence]` lines for every decision.
+2. No manual cache clear: the exporter cache key includes the row contents
+   hash + `updated_at`, so the converged row serves on the next request.
+3. Verify: `php artisan test --filter=VenuePenthouseIterationTest` (includes
+   the drifted-row replay), plus one live render of the venue preview.
+4. If NO convergence migration exists for the drifted venue: write one
+   following the 000008 pattern (semantic comparator + byte-verbatim chain
+   bodies + loud logging + respected admin edits). Do NOT reseed production.
+
+
 ## 4. What is backed up where
 
 | Asset | Cadence | Retention | Restore tool |
