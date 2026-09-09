@@ -363,6 +363,68 @@ section('D. JS/PHP hygiene');
     ok('spawn comes from the plan, never the centre', /camera\.position\.set\(spawn\.x, CONFIG\.camera\.height, spawn\.z\)/.test(roomSrc));
 }
 
+// ── E. Iteration-5 contracts (asset completeness + artwork rear presentation)
+section('E. Iteration-5: asset completeness + artwork rear presentation');
+{
+    // E1. Every manifest role must resolve to a file that SHIPS. The v4
+    // manifest declared `bench` without a file — correct graceful-skip
+    // behaviour, but it produced a recurring production 404. The manifest↔
+    // files parity is now a gate: a role is either shipped or explicitly
+    // nulled in the manifest.
+    const assets = await import(rel('resources/js/gallery/GardenAssets.js'));
+    const requests = assets.resolveGardenAssetRequests({});
+    let allShipped = true;
+    for (const req of requests) {
+        const fp = rel('public/' + req.url.replace(/^\//, ''));
+        if (!existsSync(fp)) { allShipped = false; console.error(`    missing: ${req.url}`); }
+    }
+    ok('every manifest role ships its GLB (no load-time 404s)', allShipped);
+    ok('bench role ships (bench_01.glb)', existsSync(rel('public/assets/venues/sculpture-garden/bench_01.glb')));
+
+    // E2. Artwork REAR PRESENTATION (the global empty-frame fix): every
+    // artwork group carries a backing board — rotated π (faces the rear),
+    // 6 mm behind the canvas, covering the frame opening, and ONE shared
+    // material instance across all artworks. The canvas itself stays
+    // FrontSide (front presentation + progressive swap + Cyber reactive
+    // untouched).
+    const { makeArtworkGroup } = await import(rel('resources/js/gallery/ArtworkPlacer.js'));
+    const { createFrame } = await import(rel('resources/js/gallery/Materials.js'));
+    const ctx = { isLowEnd: false, textures: {}, _reactive: false, artworks: [], createFrame };
+    const g1 = makeArtworkGroup.call(ctx, { id: 'qa-1', aspectRatio: 1.5, title: 'QA 1' }, { frame_style: 'modern' }).group;
+    const g2 = makeArtworkGroup.call(ctx, { id: 'qa-2', aspectRatio: 0.8, title: 'QA 2' }, { frame_style: 'gold' }).group;
+    const backing1 = g1.children.find(c => c.name === 'artwork-backing');
+    const backing2 = g2.children.find(c => c.name === 'artwork-backing');
+    ok('artwork group contains a rear backing board', !!backing1 && !!backing2);
+    if (backing1) {
+        const canvas1 = g1.children.find(c => c.name === 'artwork-canvas');
+        ok('backing faces the REAR (rotation.y = π)', Math.abs(Math.abs(backing1.rotation.y) - Math.PI) < 1e-6);
+        ok('backing sits just behind the canvas plane (z = −6 mm)', Math.abs(backing1.position.z + 0.006) < 1e-6);
+        ok('backing fills the frame opening (≥ canvas area)',
+            backing1.geometry.parameters.width >= canvas1.geometry.parameters.width &&
+            backing1.geometry.parameters.height >= canvas1.geometry.parameters.height);
+        ok('canvas stays FrontSide (no mirrored backside)',
+            canvas1.material.side === 0 /* THREE.FrontSide */);
+        ok('backing material shared across artworks (one instance)',
+            backing1.material === backing2.material && ctx._artworkBackingMat === backing1.material);
+        ok('backing casts no shadow', backing1.castShadow === false);
+    }
+
+    // E3. The /track transport fix: every event (incl. dwell + perf) travels
+    // via fetch with the CSRF header; sendBeacon (which cannot carry
+    // headers → guaranteed 419) is gone.
+    const analyticsSrc = readFileSync(rel('resources/js/gallery/Analytics.js'), 'utf8');
+    ok('analytics: no sendBeacon transport left', !analyticsSrc.includes('sendBeacon('));
+    ok('analytics: keepalive unload-safe transport present', analyticsSrc.includes('keepalive: true'));
+    ok('analytics: CSRF header on every send', analyticsSrc.includes("'X-CSRF-TOKEN'"));
+    ok('analytics: dead-session backoff exists', analyticsSrc.includes('_csrfDead'));
+
+    // E4. CSP: the narrow blob: allowance for the three.js ImageBitmapLoader
+    // blob fetch path (GLB-embedded textures) is declared in the middleware.
+    const securitySrc = readFileSync(rel('app/Http/Middleware/SecurityHeaders.php'), 'utf8');
+    ok('CSP: connect-src allows blob: (GLB-embedded texture decode)',
+        /"connect-src[^"]*blob:/.test(securitySrc));
+}
+
 console.log(failures === 0
     ? '\nALL CHECKS PASSED — the Sculpture Park contract holds.'
     : `\n${failures} CHECK(S) FAILED`);

@@ -724,10 +724,56 @@ export function makeArtworkGroup(img, data) {
     // Frame
     const frame = this.createFrame(width, height, data.frame_style);
 
+    // ── REAR PRESENTATION FIX (garden-iteration-5) ──────────────────────────
+    // The artwork used to be a single FrontSide plane inside a closed frame
+    // ring: from the FRONT everything read correctly, but from the REAR the
+    // canvas was backface-CULLED, so the frame showed an empty hole — an
+    // accidental-looking broken object. Wall venues hide the rear against
+    // the wall, but any venue where a visitor can legitimately walk around
+    // a piece (the sculpture garden's panel stands, the floating void
+    // placements, easel rings) exposed the hole. This is a GLOBAL artwork
+    // pipeline property, so the fix lives here — in the shared artwork
+    // group builder — NOT in any venue.
+    //
+    // What real exhibition practice does: a framed 2D work is backed. The
+    // rear shows the frame + a neutral backing board, never the image and
+    // never a void. So we add a backing plane just behind the canvas:
+    //   • sized canvas+1.2 cm so it fully fills the frame's inner opening
+    //     with a hairline overlap margin (no grazing-angle gaps)
+    //   • 6 mm behind the canvas plane, inside the frame's 8 cm depth
+    //   • rotated π so its face points REARWARD (FrontSide material, no
+    //     culling surprises, no lighting flip)
+    //   • ONE shared material for the whole scene (archival warm grey,
+    //     fully matte) — 2 triangles and zero texture memory per artwork
+    //
+    // Deliberately NOT done instead: making the canvas DoubleSide would
+    // mirror the artwork (wrong for anything containing text/signatures),
+    // double-light the surface, and contradict exhibition practice. The
+    // canvas stays FrontSide — its front presentation is untouched, the
+    // progressive texture swap (applyArtworkTexture) is untouched, and the
+    // Cyber Gallery reactive material/bezel path is untouched (the bezel
+    // faces forward as before; from the rear it is occluded by the backing).
+    let backingMat = this._artworkBackingMat;
+    if (!backingMat) {
+        backingMat = this._artworkBackingMat = this.isLowEnd
+            ? new THREE.MeshLambertMaterial({ color: 0x8a847a })
+            : new THREE.MeshStandardMaterial({ color: 0x8a847a, roughness: 0.95, metalness: 0.0 });
+    }
+    const backing = new THREE.Mesh(
+        new THREE.PlaneGeometry(width + 0.012, height + 0.012),
+        backingMat
+    );
+    backing.position.z = -0.006;          // just behind the canvas, inside the frame depth
+    backing.rotation.y = Math.PI;         // faces the artwork's rear — intentional backing
+    backing.name = 'artwork-backing';
+    backing.castShadow = false;
+    backing.receiveShadow = false;
+
     // Group
     const group = new THREE.Group();
     if (bezel) group.add(bezel);   // luminous boundary first — behind canvas
     group.add(frame);
+    group.add(backing);            // rear presentation — intentional, never an empty frame
     group.add(canvas);
     group.userData = {
         type: 'artwork',

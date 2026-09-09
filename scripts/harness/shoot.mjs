@@ -293,6 +293,23 @@ const SCENARIOS = [
     { id: 'garden-cam-horizon',   q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [4, 1.6, -1],   t: [0.5, 4.2, -20] } },
     { id: 'garden-tier-low-12',   q: 'venue=sculpture-garden&shadows=0&assets=0&count=12', tier: 'low' },
+    // ── Artwork REAR-PRESENTATION matrix (garden-iteration-5) ────────────────
+    // The primary court artwork sits at ≈(0.1, −5.0) on the promenade axis
+    // (facing the spawn). These four framings walk around ONE piece the way
+    // the visual tests demand: directly in front, oblique from the side,
+    // directly behind (backing board must read as intentional — never an
+    // empty frame), and a rear three-quarter. Void backside proves the fix
+    // is GLOBAL (floating artwork, no stand, nothing but the artwork itself).
+    { id: 'garden-cam-front',     q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
+      cam: { p: [0.1, 1.62, -2.9],  t: [0.1, 1.6, -5.0] } },
+    { id: 'garden-cam-oblique',   q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
+      cam: { p: [-2.4, 1.62, -3.6], t: [0.1, 1.6, -5.0] } },
+    { id: 'garden-cam-backside',  q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
+      cam: { p: [0.1, 1.62, -7.6],  t: [0.1, 1.6, -5.0] } },
+    { id: 'garden-cam-backside3q',q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
+      cam: { p: [-1.9, 1.62, -7.1], t: [0.1, 1.6, -5.0] } },
+    { id: 'void-cam-behind',      q: 'venue=infinite-void&count=1',
+      cam: { behind: 0, behindDist: 2.6 } },
     // Full-asset capture (the designed landscape): needs the GLB set present
     // AND a patient rasterizer — the alpha-blended canopy sweep is minutes
     // per frame under SwiftShader; on real GPUs it is a normal load.
@@ -414,6 +431,29 @@ async function run() {
             await page.evaluate((cam) => {
                 const s = window.__exospace?.scene;
                 if (!s?.camera) return;
+                if (cam.behind !== undefined) {
+                    // Artwork-relative framing: place the camera BEHIND
+                    // artwork[cam.behind] along its own facing (local −z =
+                    // the rear of the piece) and aim at its centre. This is
+                    // how the rear-presentation matrix stays valid regardless
+                    // of where the seeded plan actually hung the piece.
+                    const art = s.artworks?.[cam.behind];
+                    if (!art) return;
+                    art.updateMatrixWorld(true);
+                    const V3 = s.camera.position.constructor;
+                    const Q  = s.camera.quaternion.constructor;
+                    const pos = new V3();
+                    art.getWorldPosition(pos);
+                    const q = new Q();
+                    art.getWorldQuaternion(q);
+                    const back = new V3(0, 0, -1).applyQuaternion(q);
+                    const eye = pos.clone().add(back.multiplyScalar(cam.behindDist || 2.4));
+                    eye.y = pos.y + (cam.behindLift ?? 0.04);
+                    s.camera.position.copy(eye);
+                    s.camera.lookAt(pos);
+                    s.camera.updateMatrixWorld();
+                    return;
+                }
                 s.camera.position.set(...cam.p);
                 s.camera.lookAt(...cam.t);
                 s.camera.updateMatrixWorld();

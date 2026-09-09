@@ -131,7 +131,10 @@ if (window.__planMode) {
     for (const t of plan.trees) (byRole[t.role] = byRole[t.role] || []).push([t.x, t.scale, t.z, t.rot, height]);
     for (const sh of plan.shrubs) (byRole[sh.role] = byRole[sh.role] || []).push([sh.x, sh.scale, sh.z, sh.rot, height]);
     for (const b of plan.boulders) (byRole['boulder'] = byRole['boulder'] || []).push([b.x, b.scale, b.z, b.rot, height]);
-    const files = { tree_large: ['tree_large_01.glb', 8.5], tree_medium: ['tree_medium_01.glb', 6.5], tree_accent: ['tree_medium_02.glb', 5.0], shrub: ['shrub_01.glb', 1.5], grass: ['grass_clump_01.glb', 0.7], boulder: ['boulder_01.glb', 0.9] };
+    // Bench anchors (iteration-5): the plan's pause points, composed toward
+    // their views — the authored bench_01.glb fills them.
+    for (const bn of (plan.benches || [])) (byRole['bench'] = byRole['bench'] || []).push([bn.x, 1, bn.z, bn.yaw, height]);
+    const files = { tree_large: ['tree_large_01.glb', 8.5], tree_medium: ['tree_medium_01.glb', 6.5], tree_accent: ['tree_medium_02.glb', 5.0], shrub: ['shrub_01.glb', 1.5], grass: ['grass_clump_01.glb', 0.7], boulder: ['boulder_01.glb', 0.9], bench: ['bench_01.glb', 0.85] };
     for (const [role, anchors] of Object.entries(byRole)) {
         if (!files[role]) continue;
         roles.push([role, files[role][0], files[role][1], anchors]);

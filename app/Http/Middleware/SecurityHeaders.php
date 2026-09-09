@@ -86,6 +86,34 @@ class SecurityHeaders
         ]));
 
         // ── Content-Security-Policy ──────────────────────────────────────────
+        // GARDEN-ITERATION-5 FIX — 'blob:' added to connect-src:
+        //
+        // three.js's GLTFLoader (r182) converts every GLB-EMBEDDED image into
+        // a blob: object URL (GLTFLoader.loadImageSource: bufferView → Blob →
+        // URL.createObjectURL) and then loads it through ImageBitmapLoader,
+        // which fetch()es that blob: URL. fetch() is governed by
+        // connect-src — with blob: absent, EVERY embedded texture of EVERY
+        // GLB in every venue was refused ("Connecting to 'blob:…' violates
+        // this Content-Security-Policy directive: connect-src", then
+        // "THREE.GLTFLoader: Couldn't load texture blob:…"). The v4 garden's
+        // DRACO+WebP asset layer is what surfaced the storm in production.
+        //
+        // Why this is the correct and safe fix (investigated, not sprayed):
+        //   - blob: URLs are origin-internal and opaque. They can only be
+        //     CREATED by scripts already running in the page (script-src is
+        //     nonce'd + strict-dynamic), and a fetch of blob: never leaves
+        //     the browser — no cross-origin exfiltration channel is opened.
+        //   - img-src already allowed 'blob:' for the TextureLoader path
+        //     (Image element); connect-src needed the same one token for
+        //     the ImageBitmap path. worker-src already carries 'blob:' for
+        //     the DRACO/KTX2 workers — this completes the standard three.js
+        //     CSP triad (worker-src, img-src, connect-src).
+        //   - Alternative considered and REJECTED: re-encoding every venue
+        //     GLB to KTX2/Basis (KTX2Loader decodes in-worker from the
+        //     ArrayBuffer, no blob fetch) would avoid the token — at the
+        //     cost of re-encoding the whole GLB corpus and shipping the
+        //     Basis transcoder. Disproportionate to a one-token policy
+        //     change that is the officially documented three.js pattern.
         if (app()->environment('local')) {
             // D-8 FIX: In local dev, still generate the nonce (so the @nonce
             // directive works) but don't enforce CSP — local dev tools
@@ -119,7 +147,7 @@ class SecurityHeaders
             "img-src 'self' data: blob:",
             "font-src 'self' data: https://fonts.bunny.net",
             "media-src 'self' blob:",
-            "connect-src 'self' https://fonts.bunny.net",
+            "connect-src 'self' https://fonts.bunny.net blob:",
             "worker-src 'self' blob:",
             "frame-src 'self'",
             "object-src 'none'",
