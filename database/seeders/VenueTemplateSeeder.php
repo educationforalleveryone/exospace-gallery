@@ -1270,12 +1270,23 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 10. Outdoor Sculpture Garden — Studio (v3.0.0 "The Curated Walk")
+            // 10. Outdoor Sculpture Garden — Studio (v4.0.0 "The Sculpture Park")
+            //
+            // v4 RESET (asset-driven): the user verdict on v3 was that the
+            // procedural asset vocabulary (primitive trees, stepping-stone
+            // discs, box hedge) reads as a game level, not a sculpture
+            // garden. v4 keeps the v3 landscape PLAN (terrain/walks/courts
+            // — sound composition) and replaces the LIVING layer with named
+            // external GLB assets the owner supplies under
+            // public/assets/venues/sculpture-garden/ (garden.assets below).
+            // Missing files skip their layer gracefully; the base
+            // environment (gravel walks, panel stands, hero court, sky)
+            // stands alone.
             // ─────────────────────────────────────────────────────────────
             [
                 'name'          => 'Outdoor Sculpture Garden',
                 'slug'          => 'sculpture-garden',
-                'description'   => 'A curated landscape exhibition. A stone promenade leads from the garden gate to a bronze centrepiece, then on to sculpture clearings framed by trees, hedges and rolling meadow. Works are discovered one by one — never all at once.',
+                'description'   => 'A curated open-air exhibition. A gravel walk leads from the tree-lined gate to a bronze centrepiece on a travertine court, then on to works presented on outdoor museum stands across lawns and sculpture clearings, framed by mature trees and a distant treeline.',
                 'category'      => 'outdoor',
                 'tags'          => ['outdoor', 'garden', 'sculpture', 'open-air'],
                 'plan_required' => 'studio',
@@ -1283,7 +1294,7 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 30,
                 'sort_order'    => 10,
                 'is_featured'   => false,
-                'version'       => '3.0.0',
+                'version'       => '4.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
                     'floor_material'  => 'grass',
@@ -1296,8 +1307,8 @@ class VenueTemplateSeeder extends Seeder
                     'wall_depth'             => 0,
                     'ceiling_type'           => 'none',
                     'ceiling_height'         => 0,
-                    'background_color'       => '0xd6e0e2',  // horizon haze — the world tone behind the dome
-                    'fog_color'              => '0xd6e0e2',  // aerial perspective (structure re-ranges per radius)
+                    'background_color'       => '0xdfe2d1',  // horizon haze — the world tone behind the dome
+                    'fog_color'              => '0xdfe2d1',  // aerial perspective (structure re-ranges per radius)
                     'fog_near'               => 18,
                     'fog_far'                => 45,
                     'ambient_color'          => '0xe8f1f8',
@@ -1322,12 +1333,28 @@ class VenueTemplateSeeder extends Seeder
                     'hemisphere_sky_color'   => '0xbfd9ee',
                     'hemisphere_ground_color'   => '0x51663c',
                     'ceiling_fill_light'     => false,   // no glowing orb in an open sky
-                    'field_radius_bonus'     => 2.2,     // a landscape needs ground per artwork
-                    'field_radius_min'       => 12.5,    // …and a 5-piece show still composes as a garden
+                    'field_radius_bonus'     => 2.6,     // a landscape needs ground per artwork
+                    'field_radius_min'       => 14,      // …and a 5-piece show still composes as a garden
                     'placement_mode'         => 'garden',// curated courts, approaches, hierarchy (GardenLayout.js)
                     'artwork_light_base'     => 0.22,    // gentle standing glow — no dead canvases in daylight
                     'garden'                 => [
                         'sky_environment' => true,           // PMREM from the dome (rollback: false)
+                        // ── v4 ASSET MANIFEST (the owner fills this library) ──
+                        // Filenames live under public/assets/venues/sculpture-garden/.
+                        // Each role normalizes to a designed height; a missing
+                        // file skips its layer gracefully (no placeholders).
+                        // Replace any file 1:1 with your own GLB of the same
+                        // name — or edit the mapping here.
+                        'assets_base'  => '/assets/venues/sculpture-garden/',
+                        'assets'       => [
+                            'tree_large'  => 'tree_large_01.glb',   // specimen ~8.5 m — gate pair, crown
+                            'tree_medium' => 'tree_medium_01.glb',  // standard ~6.5 m — groves, treeline
+                            'tree_accent' => 'tree_medium_02.glb',  // secondary ~5 m — edges, screens
+                            'shrub'       => 'shrub_01.glb',        // planting masses ~1.5 m
+                            'grass'       => 'grass_clump_01.glb',  // walk-edge grasses ~0.7 m
+                            'boulder'     => 'boulder_01.glb',      // weathered stone ~0.9 m
+                            'bench'       => 'bench_01.glb',        // garden bench ~0.85 m
+                        ],
                     ],
                     // Daylight needs no glow: bloom off (it milked the sky),
                     // a gentle corner vignette keeps the frame composed.
@@ -1344,11 +1371,11 @@ class VenueTemplateSeeder extends Seeder
                     'wall_roughness'         => 1.0,
                     'wall_metalness'         => 0.0,
                     'wall_normal_strength'   => 0.5,
-                    'floor_color'            => '0x3a6a2a',   // grass green fallback
+                    'floor_color'            => '0x5e7a46',   // muted lawn green (fallback + tint builds)
                     'floor_roughness'        => 1.0,
                     'floor_metalness'        => 0.0,
                     'floor_normal_strength'  => 0.9,
-                    'floor_tile_meters'     => 2.0,
+                    'floor_tile_meters'     => 3.0,
                 ],
                 'decorations'       => [],  // terrain, walks, courts, vegetation are plan-built (VenueDecorator)
                 'lighting_fixtures' => [],  // sun is procedural (VenueDecorator)

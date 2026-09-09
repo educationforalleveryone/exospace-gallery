@@ -434,14 +434,22 @@ export function _placeArtworksCircular(data) {
     });
 }
 
-// ── GARDEN placement (Sculpture Garden v3.0.0 — "The Curated Walk") ──────
+// ── GARDEN placement (Sculpture Garden v4.0.0 — "The Sculpture Park") ─────
 // Every artwork stands on its own COURT — a clearing the pure GardenLayout
 // planner composed with a role (primary / secondary / transitional), an
-// approach (the nearest walk) and a facing (the easel turns toward the
+// approach (the nearest walk) and a facing (the panel turns toward the
 // visitor's arrival, not mechanically toward the centre). The pieces sit on
 // the TERRAIN (ground height from the plan's own field) and are PHYSICAL:
 // each registers a collision obstacle, so a visitor brushes up against a
 // sculpture court instead of clipping through it (float-mode precedent).
+//
+// v4 PRESENTATION: the v2/v3 artist's tripod easel (three brown sticks)
+// read as yard-sale signage — fatal to the "premium exhibition" read. Each
+// work now stands on a MUSEUM PANEL STAND: two slim charcoal-steel posts, a
+// grounded sled foot and a rear lean strut, plus a small label plaque —
+// the architecture of an outdoor exhibition, not a painting prop. All
+// stands share ONE unit geometry per part and render as 4 InstancedMeshes
+// total (n artworks → 4 draw calls, was n merged easel meshes).
 // If the plan and the artwork list ever disagree (a pathological build
 // order), the legacy ring takes over — placement never guesses.
 export function _placeArtworksGarden(data) {
@@ -452,6 +460,7 @@ export function _placeArtworksGarden(data) {
         return;
     }
     const eyeLevel = CONFIG.camera.height;
+    const standData = [];
 
     this.artworkImages.forEach((img, i) => {
         const c = plan.courts[i];
@@ -464,8 +473,90 @@ export function _placeArtworksGarden(data) {
         // Physical presence — the padded AABB stops the visitor ~0.35 m
         // short of the canvas, exactly like the float venues.
         this.registerObstacle(group, 0.35);
-        _addEasel.call(this, c.x, c.z, c.facing, gy, c.scale);
+        // Panel stand dims (same sizing contract as makeArtworkGroup)
+        const aspect = img.aspectRatio || 1;
+        let h = 2.0, w = h * aspect;
+        if (w > 3.0) { w = 3.0; h = w / aspect; }
+        standData.push({ x: c.x, z: c.z, yaw: c.facing, w, gy, scale: c.scale });
     });
+
+    _addPanelStands.call(this, standData);
+}
+
+// ── Museum panel stands — instanced outdoor exhibition hardware ─────────
+// Parts (unit geometry, composed per instance):
+//   • 2 posts  — slim charcoal cylinders behind the canvas (±0.36·w),
+//     leaning back 3° like real gallery stands
+//   • 1 sled   — grounded foot bar spanning the posts
+//   • 1 plaque — small label plate mounted on the right post
+// n artworks → 4n instances across 3 draw calls. Low tier: Lambert, no
+// shadows — silhouette identical.
+export function _addPanelStands(standData) {
+    if (!standData.length) return;
+    const low = this.isLowEnd;
+    const steelMat = low
+        ? new THREE.MeshLambertMaterial({ color: 0x2b2a26 })
+        : new THREE.MeshStandardMaterial({ color: 0x2b2a26, roughness: 0.6, metalness: 0.35 });
+    const plaqueMat = low
+        ? new THREE.MeshLambertMaterial({ color: 0x8f8a80 })
+        : new THREE.MeshStandardMaterial({ color: 0x8f8a80, roughness: 0.35, metalness: 0.6 });
+
+    const n = standData.length;
+    const postGeo   = new THREE.CylinderGeometry(0.016, 0.021, 1.5, 8);
+    const sledGeo   = new THREE.BoxGeometry(1, 0.045, 0.07);
+    const plaqueGeo = new THREE.BoxGeometry(0.085, 0.055, 0.006);
+
+    const posts   = new THREE.InstancedMesh(postGeo, steelMat, n * 2);
+    const sleds   = new THREE.InstancedMesh(sledGeo, steelMat, n);
+    const plaques = new THREE.InstancedMesh(plaqueGeo, plaqueMat, n);
+    for (const im of [posts, sleds, plaques]) {
+        im.frustumCulled = false;
+        im.castShadow = !low;
+        im.receiveShadow = !low;
+        im.matrixAutoUpdate = false;
+    }
+
+    const M = new THREE.Matrix4();
+    const Mroot = new THREE.Matrix4();
+    const Mlocal = new THREE.Matrix4();
+    const pos = new THREE.Vector3(), scl = new THREE.Vector3();
+    const quat = new THREE.Quaternion(), euler = new THREE.Euler();
+
+    // world = T(root) · R(rootYaw) · [ T(local) · R(lean) · S(localScale) ]
+    const compose = (rootYaw, rootX, rootY, rootZ, lx, ly, lz,
+                     lScaleX = 1, lScaleY = 1, lScaleZ = 1, leanX = 0) => {
+        euler.set(0, rootYaw, 0);
+        quat.setFromEuler(euler);
+        pos.set(rootX, rootY, rootZ);
+        scl.set(1, 1, 1);
+        Mroot.compose(pos, quat, scl);
+        euler.set(leanX, 0, 0);
+        quat.setFromEuler(euler);
+        pos.set(lx, ly, lz);
+        scl.set(lScaleX, lScaleY, lScaleZ);
+        Mlocal.compose(pos, quat, scl);
+        M.multiplyMatrices(Mroot, Mlocal);
+    };
+
+    const LEAN = -0.055;   // posts lean back ~3° (negative X tips the top to −z)
+    let pi = 0;
+    standData.forEach((s, i) => {
+        const hw = 0.36 * s.w;
+        compose(s.yaw, s.x, s.gy, s.z, -hw, 0.75, -0.08, 1, 1, 1, LEAN);
+        posts.setMatrixAt(pi++, M);
+        compose(s.yaw, s.x, s.gy, s.z,  hw, 0.75, -0.08, 1, 1, 1, LEAN);
+        posts.setMatrixAt(pi++, M);
+        compose(s.yaw, s.x, s.gy, s.z, 0, 0.023, -0.055, hw * 2 + 0.26, 1, 1);
+        sleds.setMatrixAt(i, M);
+        // plaque on the right post at label height, tilted toward the viewer
+        compose(s.yaw, s.x, s.gy, s.z, hw + 0.033, 0.9, -0.125, 1, 1, 1, -0.42);
+        plaques.setMatrixAt(i, M);
+    });
+    posts.count = pi; sleds.count = n; plaques.count = n;
+    for (const im of [posts, sleds, plaques]) {
+        im.instanceMatrix.needsUpdate = true;
+        this.scene.add(im);
+    }
 }
 
 // ── FLOAT placement (Iteration 2 — void family; depth bands since the

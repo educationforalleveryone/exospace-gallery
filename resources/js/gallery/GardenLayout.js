@@ -309,6 +309,51 @@ export function buildGardenPlan(opts) {
     pushPath(promenadePoints, o.promenadeWidth, 'promenade');
     pushPath(ringPoints, o.loopWidth, 'loop');
 
+    // ── 1b. The GATE pair — seeded BEFORE the courts ─────────────────
+    // The arrival composition is fixed infrastructure (spawn-relative,
+    // walk-relative), so it places first against paths + plaza only, and
+    // the court planner then keeps treeCourtClear from the REAL tree
+    // positions (mutual clearance with a deterministic winner). A tree
+    // that fails its own placement check retries around the anchor like
+    // every other grove tree.
+    const groves = [];
+    const trees = [];
+    const thetaOf = (c) => Math.atan2(c.x, c.z);
+
+    const gateSeedFits = (tx, tz) => {
+        if (dist2D(tx, tz, 0, 0) < o.centralCourtR + 1.0) return false;
+        if (dist2D(tx, tz, spawn[0], spawn[1]) < o.treeSpawnClear) return false;
+        if (Math.hypot(tx, tz) > R - 1.0) return false;
+        if (nearestPathDist(paths, tx, tz) < o.treePathClear) return false;
+        return true;
+    };
+    // Tucked against the plaza edge: most of the gate's exclusion circle
+    // overlaps the spawn clearance the courts already respect, so the
+    // arrival pair costs the dense-show retry pool almost no new area.
+    const gateX = 0.10 * R + 1.5;
+    for (const gx of [gateX, -gateX]) {
+        const grove = { x: gx, z: spawn[1] - 0.4, purpose: 'gate', trees: [] };
+        for (let i = 0; i < 2; i++) {
+            for (let a = 0; a < 12 && grove.trees.length <= i; a++) {
+                const widen = 0.3 + 1.2 * (a / 12);
+                const ang = rng.next() * TAU;
+                const rad = Math.sqrt(rng.next()) * o.groveSpread * widen * 0.8;
+                const tx = gx + Math.sin(ang) * rad, tz = grove.z + Math.cos(ang) * rad;
+                if (!gateSeedFits(tx, tz)) continue;
+                const tree = {
+                    x: tx, z: tz,
+                    scale: (0.9 + rng.next() * 0.45) * 1.1,
+                    role: i === 0 ? 'tree_large' : 'tree_medium',
+                    rot: rng.next() * TAU,
+                    purpose: 'gate',
+                };
+                grove.trees.push(tree);
+                trees.push(tree);
+            }
+        }
+        if (grove.trees.length) groves.push(grove);
+    }
+
     // ── 2. Courts — the sculpture clearings (§6/§8) ──────────────────────
     // Role mix: primary pieces own the sightlines, transitional pieces live
     // near the boundary and are discovered, secondary pieces people the
@@ -329,6 +374,10 @@ export function buildGardenPlan(opts) {
         const r = Math.hypot(x, z);
         if (r > rMax || r < o.centralCourtR + 0.2) return false;   // bounds + central clearing
         if (dist2D(x, z, spawn[0], spawn[1]) < o.spawnClearance) return false;
+        // The gate pair placed first — courts keep treeCourtMin from the
+        // REAL gate-tree positions (the full facing-cone rule stays in
+        // force for everything else; the plaza edge is court-free anyway).
+        for (const t of trees) if (t.purpose === 'gate' && dist2D(x, z, t.x, t.z) < o.treeCourtClear) return false;
         for (const c of courts) if (dist2D(x, z, c.x, c.z) < minGap) return false;
         if (nearestPathDist(paths, x, z) < o.walkClearance) return false;
         return true;
@@ -433,19 +482,25 @@ export function buildGardenPlan(opts) {
     });
 
     // ── 5. Vegetation anchors — framing, backdrop, screen (§9/§10) ──────
-    // Groves are DESIGNED (anchor + purpose), then individual trees are
-    // seeded inside each grove. Every tree is clearance-checked against
-    // courts (with the facing-cone rule: backdrops/beside-trees may stand
-    // closer, in FRONT of a canvas never), walks and the spawn plaza.
-    const groves = [];
-    const trees = [];
-    const thetaOf = (c) => Math.atan2(c.x, c.z);
+    // v4.0.0 "The Sculpture Park": vegetation is ASSET-DRIVEN. The plan no
+    // longer decides species geometry — it emits ROLE-TAGGED anchors
+    // (tree_large / tree_medium / tree_accent / shrub / grass / boulder /
+    // bench) that the runtime fills from the owner-supplied GLB library
+    // (GardenAssets.js). The plan still owns COMPOSITION: which ensembles
+    // exist, where they stand, how big, which way they face, and what they
+    // must never crowd. (The GATE pair already seeded at stage 1b.)
 
-    const treeFits = (tx, tz) => {
+    const treeFits = (tx, tz, opts = {}) => {
+        const r = Math.hypot(tx, tz);
         if (dist2D(tx, tz, 0, 0) < o.centralCourtR + 1.0) return false;
         if (dist2D(tx, tz, spawn[0], spawn[1]) < o.treeSpawnClear) return false;
-        if (Math.hypot(tx, tz) > R - 1.0) return false;            // inside the hedge
-        if (nearestPathDist(paths, tx, tz) < o.treePathClear) return false;
+        // Horizon trees stand ON the rising skirt BEYOND the playable bound
+        // (they close the view instead of a hedge wall) and only there;
+        // grove trees stay inside the lawn.
+        const maxR = opts.horizon ? R * 1.16 : R - 1.0;
+        if (r > maxR) return false;
+        if (opts.horizon && r < R * 0.9) return false;
+        if (!opts.horizon && nearestPathDist(paths, tx, tz) < o.treePathClear) return false;
         for (const c of courts) {
             const d = dist2D(tx, tz, c.x, c.z);
             if (d < o.treeCourtClear) {
@@ -458,22 +513,34 @@ export function buildGardenPlan(opts) {
         return true;
     };
 
-    const addGrove = (x, z, treeCount, purpose) => {
+    // Per-ensemble role mixes — the asset vocabulary, composed. A grove's
+    // first tree carries its ensemble's voice (gate pair opens LARGE, the
+    // crown IS the signature tree), the rest support in medium/accent.
+    const ENSEMBLE_MIX = {
+        gate:     ['tree_large', 'tree_medium'],
+        backdrop: ['tree_medium', 'tree_large', 'tree_medium'],
+        screen:   ['tree_medium', 'tree_accent', 'tree_medium'],
+        crown:    ['tree_large'],
+        edge:     ['tree_accent', 'tree_medium'],
+        horizon:  ['tree_medium', 'tree_accent'],
+    };
+
+    const addGrove = (x, z, treeCount, purpose, opts = {}) => {
         const grove = { x, z, purpose, trees: [] };
+        const mix = ENSEMBLE_MIX[purpose] || ['tree_medium'];
         for (let i = 0; i < treeCount; i++) {
             let placed = false;
             // Seeded retry around the grove anchor (progressive widening).
             for (let a = 0; a < 10 && !placed; a++) {
                 const widen = 0.3 + 1.2 * (a / 10);
                 const ang = rng.next() * TAU;
-                const rad = Math.sqrt(rng.next()) * o.groveSpread * widen;
+                const rad = Math.sqrt(rng.next()) * o.groveSpread * widen * (opts.spread ?? 1);
                 const tx = x + Math.sin(ang) * rad, tz = z + Math.cos(ang) * rad;
-                if (!treeFits(tx, tz)) continue;
+                if (!treeFits(tx, tz, opts)) continue;
                 const tree = {
                     x: tx, z: tz,
-                    scale: 0.9 + rng.next() * 0.45,
-                    species: rng.next() < 0.62 ? 'round' : 'conifer',
-                    tone: Math.floor(rng.next() * 3),  // foliage tone index
+                    scale: (0.9 + rng.next() * 0.45) * (opts.scale ?? 1),
+                    role: mix[i % mix.length],
                     rot: rng.next() * TAU,
                     purpose,
                 };
@@ -494,26 +561,38 @@ export function buildGardenPlan(opts) {
         addGrove(...polar(br, bt + 0.16), 3, 'backdrop');
         addGrove(...polar(br, bt - 0.14), 2, 'backdrop');
     }
-    // gate — flank the promenade's opening: frames the arrival vista.
-    const promMid = promCtrl[1];
-    const promDir = Math.atan2(promCtrl[2][0] - promCtrl[1][0], promCtrl[2][1] - promCtrl[1][1]);
-    const perp = promDir + Math.PI / 2;
-    addGrove(promMid[0] + Math.sin(perp) * 2.6, promMid[1] + Math.cos(perp) * 2.6, 2, 'gate');
-    addGrove(promMid[0] - Math.sin(perp) * 2.6, promMid[1] - Math.cos(perp) * 2.6, 2, 'gate');
     // screen — SW behind the spawn: the far side stays to be found.
     addGrove(...polar(Math.min(0.68 * R, rMax - 0.5), 260 * Math.PI / 180), 3, 'screen');
-    // crown — one focal tree NE of the central court.
-    addGrove(...polar(Math.max(4.6, o.centralCourtR + 1.6), 55 * Math.PI / 180), 1, 'crown');
+    // crown — one focal tree NE of the central court (the lawn's landmark).
+    addGrove(...polar(Math.max(4.6, o.centralCourtR + 1.6), 55 * Math.PI / 180), 1, 'crown', { scale: 1.15 });
     // edge — beside each transitional court (partial concealment → reveal).
     courts.forEach((c) => {
         if (c.role !== 'transitional') return;
         const cr = Math.hypot(c.x, c.z);
         addGrove(...polar(Math.min(cr + 2.9, R - 1.2), thetaOf(c) + 0.30), 2, 'edge');
     });
+    // horizon — the treeline BEYOND the playable bound, standing on the
+    // rising skirt (1.03R–1.16R). This is what replaces the v2/v3 hedge
+    // box-ring: the garden closes with landscape, not with a fence. Clusters
+    // at the compass points leave deliberate GAPS where the distant hills
+    // show through — enclosure and vista in alternation.
+    const horizonClusters = [
+        { theta: 20 * Math.PI / 180, n: 3, spread: 1.5 },
+        { theta: 80 * Math.PI / 180, n: 2, spread: 1.0 },
+        { theta: 150 * Math.PI / 180, n: 3, spread: 1.5 },
+        { theta: 210 * Math.PI / 180, n: 2, spread: 1.0 },
+        { theta: 300 * Math.PI / 180, n: 3, spread: 1.5 },
+    ];
+    horizonClusters.forEach((cl) => {
+        addGrove(...polar(R * (1.055 + rng.next() * 0.05), cl.theta), cl.n, 'horizon',
+            { horizon: true, spread: cl.spread, scale: 1.0 + rng.next() * 0.18 });
+    });
 
-    // Shrub drifts — low planting that SOFTENS, never hides: along path
-    // edges (alternating sides), framing the spawn plaza, and at the hedge
-    // base. Every shrub is clearance-checked against courts and the plaza.
+    // Planting drifts — low vegetation that SOFTENS, never hides (§13: less
+    // is more). Grass clumps trace the walk edges (alternating sides, sparse
+    // enough that the gravel reads); shrub masses anchor the gate pair, the
+    // spawn plaza and the backdrop groves. Every anchor is clearance-checked
+    // against courts and the plaza.
     const shrubs = [];
     const shrubFits = (x, z) => {
         if (dist2D(x, z, 0, 0) < o.centralCourtR + 1.4) return false;
@@ -521,35 +600,98 @@ export function buildGardenPlan(opts) {
         for (const c of courts) if (dist2D(x, z, c.x, c.z) < o.shrubCourtClear) return false;
         return true;
     };
-    const addShrub = (x, z) => {
+    const addPlanting = (x, z, role) => {
         if (!shrubFits(x, z)) return;
         shrubs.push({
             x, z,
-            scale: 0.55 + rng.next() * 0.5,
-            tone: Math.floor(rng.next() * 3),
+            role,
+            scale: role === 'grass' ? 0.7 + rng.next() * 0.5 : 0.75 + rng.next() * 0.45,
             rot: rng.next() * TAU,
         });
     };
     for (const p of paths) {
         if (p.kind === 'spur') continue;
         let side = rng.next() < 0.5 ? 1 : -1;
-        for (let i = 3; i < p.samples.length - 2; i += Math.round(3.2 / o.pathStep)) {
+        for (let i = 3; i < p.samples.length - 2; i += Math.round(4.4 / o.pathStep)) {
             const s = p.samples[i], sPrev = p.samples[i - 2];
             const dx = s[0] - sPrev[0], dz = s[1] - sPrev[1];
             const len = Math.hypot(dx, dz) || 1;
             const off = (p.width / 2 + o.shrubPathOffset) * side;
-            addShrub(s[0] + (-dz / len) * off, s[1] + (dx / len) * off);
+            addPlanting(s[0] + (-dz / len) * off, s[1] + (dx / len) * off, 'grass');
             side = -side;
         }
     }
     // Spawn plaza accents: two low masses flanking the walk's start.
-    addShrub(spawn[0] + 2.6, spawn[1] + 0.3);
-    addShrub(spawn[0] - 2.6, spawn[1] + 0.3);
-    // Hedge base softening: inner ring accents every ~36°.
-    for (let k = 0; k < 10; k++) {
-        const theta = k / 10 * TAU + (rng.next() - 0.5) * 0.2;
-        addShrub(...polar(R - 1.35, theta));
+    addPlanting(spawn[0] + 2.6, spawn[1] + 0.3, 'shrub');
+    addPlanting(spawn[0] - 2.6, spawn[1] + 0.3, 'shrub');
+    // Boundary planting: low masses where the horizon trees leave gaps —
+    // the meadow rolls on without a hard stop.
+    for (let k = 0; k < 8; k++) {
+        const theta = (k + 0.5) / 8 * TAU + (rng.next() - 0.5) * 0.24;
+        const pr = R - 1.35;
+        if (!treeFits(pr * Math.sin(theta), pr * Math.cos(theta))) continue;
+        addPlanting(...polar(pr, theta), 'shrub');
     }
+    // Backdrop grove bases: shrubs knit the trunks into one planted mass.
+    groves.forEach((g) => {
+        if (g.purpose !== 'backdrop' || !g.trees.length) return;
+        addPlanting(g.x + (rng.next() - 0.5), g.z + (rng.next() - 0.5), 'shrub');
+    });
+
+    // ── 5b. Boulders — grounded geology, not decoration (§14: one coherent
+    // vocabulary). Two at the boundary gaps, one by the crown tree. Sized
+    // and sunk like real stones (partially buried). Dense shows may reject
+    // the designed slot — the retry sweeps outward until a legal pocket is
+    // found, or the boulder drops (deterministically either way).
+    const boulders = [];
+    const addBoulder = (x, z, scale) => {
+        const legal = (bx, bz) => {
+            if (dist2D(bx, bz, spawn[0], spawn[1]) < o.spawnPlazaRadius + 0.6) return false;
+            if (nearestPathDist(paths, bx, bz) < o.treePathClear) return false;
+            for (const c of courts) if (dist2D(bx, bz, c.x, c.z) < o.shrubCourtClear) return false;
+            return true;
+        };
+        if (legal(x, z)) { boulders.push({ x, z, scale, rot: rng.next() * TAU }); return; }
+        for (let t = 1; t <= 6; t++) {
+            const ang = rng.next() * TAU;
+            const rr = Math.hypot(x, z) + t * 0.5;
+            const cand = polar(Math.min(rr, R - 1.5), ang);
+            if (legal(cand[0], cand[1])) {
+                boulders.push({ x: cand[0], z: cand[1], scale, rot: rng.next() * TAU });
+                return;
+            }
+        }
+    };
+    addBoulder(...polar(R - 1.6, 118 * Math.PI / 180), 1.25);
+    addBoulder(...polar(R - 1.5, 258 * Math.PI / 180), 0.9);
+    addBoulder(...polar(Math.max(5.2, o.centralCourtR + 2.1), 62 * Math.PI / 180), 0.75);
+
+    // ── 5c. Benches — the garden's pause points (three, no more). Each one
+    // FACES a composed view: the hero court, the promenade vista, the crown
+    // tree. A bench is furniture with a purpose, not a prop. Rejected slots
+    // retry around their anchor (same widening contract as courts).
+    const benches = [];
+    const addBench = (x, z, lookAt) => {
+        const legal = (bx, bz) => {
+            if (nearestPathDist(paths, bx, bz) < 1.35) return false;
+            for (const c of courts) if (dist2D(bx, bz, c.x, c.z) < o.shrubCourtClear) return false;
+            return true;
+        };
+        const yaw = Math.atan2(lookAt[0] - x, lookAt[1] - z);
+        if (legal(x, z)) { benches.push({ x, z, yaw }); return; }
+        for (let t = 1; t <= 8; t++) {
+            const ang = yaw + (t % 2 ? 1 : -1) * (0.6 + 0.35 * t);
+            const rr = Math.hypot(x, z) + (t > 4 ? 0.5 : -0.5);
+            const cand = polar(clamp(rr, o.centralCourtR + 1.2, rMax), ang);
+            if (legal(cand[0], cand[1])) {
+                benches.push({ x: cand[0], z: cand[1], yaw: Math.atan2(lookAt[0] - cand[0], lookAt[1] - cand[1]) });
+                return;
+            }
+        }
+    };
+    addBench(...polar(o.centralCourtR + 1.35, 235 * Math.PI / 180), [0, 0]);          // watches the hero
+    addBench(promCtrl[1][0] + 1.9, promCtrl[1][1] + 0.4, [0, 0]);                     // promenade pause
+    addBench(...polar(Math.max(6.2, o.centralCourtR + 2.9), 70 * Math.PI / 180), [0, 0]); // under the crown tree
 
     // ── 6. Terrain field (last draw: phases) ─────────────────────────────
     const height = buildTerrainField(flattenZones, R, rng, o);
@@ -562,7 +704,7 @@ export function buildGardenPlan(opts) {
         pedestal: { x: 0, z: 0 },
         paths,                     // [{ points, samples, width, kind }]
         courts,                    // [{ x, z, role, scale, facing }]
-        groves, trees, shrubs,
+        groves, trees, shrubs, boulders, benches,
         terrain: { height },
         defaults: o,
     };
@@ -612,8 +754,11 @@ export function validateGardenPlan(plan) {
 
     // Vegetation: sightlines stay open (the same facing-cone rule as the
     // planner — backdrops/beside-trees may stand closer, never in front).
+    // Horizon-purpose trees legitimately stand on the skirt (≤ 1.16R).
     plan.trees.forEach((t, i) => {
-        if (Math.hypot(t.x, t.z) > R - 1.0 + 1e-6) v.push(`tree ${i} outside the hedge line`);
+        const maxR = t.purpose === 'horizon' ? R * 1.16 + 1e-6 : R - 1.0 + 1e-6;
+        if (Math.hypot(t.x, t.z) > maxR) v.push(`tree ${i} (${t.purpose}) outside its bound`);
+        if (!t.role) v.push(`tree ${i} has no asset role`);
         for (const c of plan.courts) {
             const d = dist2D(t.x, t.z, c.x, c.z);
             if (d < o.treeCourtClear) {
@@ -624,22 +769,46 @@ export function validateGardenPlan(plan) {
                 }
             }
         }
-        for (const p of plan.paths) {
-            for (const s of p.samples) {
-                const d = dist2D(t.x, t.z, s[0], s[1]);
-                if (d < o.treePathClear) { v.push(`tree ${i} stands on a walk (d=${d.toFixed(2)})`); break; }
+        if (t.purpose !== 'horizon') {
+            for (const p of plan.paths) {
+                for (const s of p.samples) {
+                    const d = dist2D(t.x, t.z, s[0], s[1]);
+                    if (d < o.treePathClear) { v.push(`tree ${i} stands on a walk (d=${d.toFixed(2)})`); break; }
+                }
             }
         }
         const ds = dist2D(t.x, t.z, plan.spawn.x, plan.spawn.z);
         if (ds < o.treeSpawnClear) v.push(`tree ${i} crowds the spawn (d=${ds.toFixed(2)})`);
     });
     plan.shrubs.forEach((s, i) => {
+        if (!s.role) v.push(`planting ${i} has no asset role`);
         for (const c of plan.courts) {
             const d = dist2D(s.x, s.z, c.x, c.z);
-            if (d < o.shrubCourtClear) v.push(`shrub ${i} crowds a canvas front (d=${d.toFixed(2)})`);
+            if (d < o.shrubCourtClear) v.push(`planting ${i} crowds a canvas front (d=${d.toFixed(2)})`);
         }
         const dp = dist2D(s.x, s.z, plan.spawn.x, plan.spawn.z);
-        if (dp < o.spawnPlazaRadius - 1e-6) v.push(`shrub ${i} inside the spawn plaza`);
+        if (dp < o.spawnPlazaRadius - 1e-6) v.push(`planting ${i} inside the spawn plaza`);
+    });
+
+    // Boulders + benches: never on a walk, never crowding a court front, off
+    // the plaza. Benches must face a composed target (yaw present).
+    const offWalk = (x, z, min) => plan.paths.every((p) =>
+        p.samples.every((s) => dist2D(x, z, s[0], s[1]) >= min));
+    (plan.boulders || []).forEach((b, i) => {
+        if (!offWalk(b.x, b.z, o.treePathClear)) v.push(`boulder ${i} stands on a walk`);
+        for (const c of plan.courts) {
+            if (dist2D(b.x, b.z, c.x, c.z) < o.shrubCourtClear) v.push(`boulder ${i} crowds a court`);
+        }
+    });
+    (plan.benches || []).forEach((b, i) => {
+        if (!Number.isFinite(b.yaw)) v.push(`bench ${i} has no facing`);
+        if (!offWalk(b.x, b.z, 1.35)) v.push(`bench ${i} stands on a walk`);
+        for (const c of plan.courts) {
+            if (dist2D(b.x, b.z, c.x, c.z) < o.shrubCourtClear) v.push(`bench ${i} crowds a court`);
+        }
+        if (dist2D(b.x, b.z, plan.spawn.x, plan.spawn.z) < o.spawnPlazaRadius) {
+            v.push(`bench ${i} inside the spawn plaza`);
+        }
     });
 
     return { ok: v.length === 0, violations: v };

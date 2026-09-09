@@ -275,24 +275,29 @@ const SCENARIOS = [
     // the promenade mid-way, the central court, close viewing, distance,
     // vegetation framing, the boundary (hedge + distant landscape) and the
     // horizon, plus the low tier.
-    { id: 'garden-05',            q: 'venue=sculpture-garden&count=5' },
-    { id: 'garden-12-mixed',      q: 'venue=sculpture-garden&count=12' },
-    { id: 'garden-30-mixed',      q: 'venue=sculpture-garden&count=30' },
-    { id: 'garden-cam-arrival',   q: 'venue=sculpture-garden&count=12',
+    { id: 'garden-05',            q: 'venue=sculpture-garden&shadows=0&assets=0&count=5' },
+    { id: 'garden-12-mixed',      q: 'venue=sculpture-garden&shadows=0&assets=0&count=12' },
+    { id: 'garden-30-mixed',      q: 'venue=sculpture-garden&shadows=0&assets=0&count=30' },
+    { id: 'garden-cam-arrival',   q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [0, 1.6, 8.4],   t: [0, 1.7, -4] } },
-    { id: 'garden-cam-promenade', q: 'venue=sculpture-garden&count=12',
+    { id: 'garden-cam-promenade', q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [0.9, 1.62, 5.2], t: [0, 1.7, -2] } },
-    { id: 'garden-cam-court',     q: 'venue=sculpture-garden&count=12',
+    { id: 'garden-cam-court',     q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [0, 1.62, 3.4],  t: [0, 1.9, 0] } },
-    { id: 'garden-cam-close',     q: 'venue=sculpture-garden&count=12',
+    { id: 'garden-cam-close',     q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [0, 1.62, -4.2],  t: [0, 1.65, -7.4] } },
-    { id: 'garden-cam-distance',  q: 'venue=sculpture-garden&count=12',
+    { id: 'garden-cam-distance',  q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [0, 1.6, 7.5],   t: [0, 1.9, -6.5] } },
-    { id: 'garden-cam-boundary',  q: 'venue=sculpture-garden&count=12',
+    { id: 'garden-cam-boundary',  q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [-4.5, 1.6, 0.5],   t: [-14, 2.6, -10] } },
-    { id: 'garden-cam-horizon',   q: 'venue=sculpture-garden&count=12',
+    { id: 'garden-cam-horizon',   q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [4, 1.6, -1],   t: [0.5, 4.2, -20] } },
-    { id: 'garden-tier-low-12',   q: 'venue=sculpture-garden&count=12', tier: 'low' },
+    { id: 'garden-tier-low-12',   q: 'venue=sculpture-garden&shadows=0&assets=0&count=12', tier: 'low' },
+    // Full-asset capture (the designed landscape): needs the GLB set present
+    // AND a patient rasterizer — the alpha-blended canopy sweep is minutes
+    // per frame under SwiftShader; on real GPUs it is a normal load.
+    { id: 'garden-cam-assets',    q: 'venue=sculpture-garden&shadows=0&count=12',
+      cam: { p: [0, 1.6, 8.4],   t: [0, 1.9, -5] } },
     { id: 'cyber-tier-low-08',      q: 'venue=cyber-gallery&count=8', tier: 'low' },
 ];
 
@@ -362,7 +367,9 @@ async function run() {
         page.on('crash', () => errors.push('PAGE CRASHED'));
         page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
+        console.error(`[shoot] ${sc.id}: page loading…`);
         await page.goto(`http://127.0.0.1:${PORT}/harness/scripts/harness/harness.html?${sc.q}`, { waitUntil: 'load' });
+        console.error(`[shoot] ${sc.id}: loaded, waiting for enter…`);
 
         // Wait for the viewer to unlock Enter (enterReady or 100%)
         try {
@@ -371,12 +378,31 @@ async function run() {
                 return b && b.style.pointerEvents === 'auto';
             }, { timeout: 45000 });
         } catch { errors.push('enter-btn never unlocked'); }
+        console.error(`[shoot] ${sc.id}: entering…`);
 
         // Enter, then let the arrival choreography finish (1.5 s dolly + margin)
-        await page.$eval('#enter-btn', el => el.click());
+        await page.$eval('#enter-btn', el => el.click()).catch(e => errors.push(`enter click: ${e}`));
+        // Deterministic async-content gate: venues with an asset layer (the
+        // sculpture garden's GLB vegetation) settle asynchronously — capture
+        // must wait for the scene to say so, never guess with a sleep.
+        await page.waitForFunction(() => {
+            const s = window.__exospace?.scene;
+            return !s || s._gardenAssetsSettled !== false;
+        }, { timeout: 90000 }).catch(() => errors.push('garden assets never settled'));
+        console.error(`[shoot] ${sc.id}: assets gate passed`);
         await page.waitForTimeout(Math.round(10000 * SETTLE));       // FPS-benchmark window closes
         await page.setViewportSize(SHOT_VIEWPORT);    // capture resolution
         await page.waitForTimeout(Math.round(9000 * SETTLE));        // frames at capture res + background texture stream
+        // Venues with an ASSET layer (the sculpture garden's GLB trees): the
+        // first render of each asset material compiles its shader program,
+        // and under SwiftShader that compile is orders of magnitude slower
+        // than on a real GPU. Give the asset layer its first rendered frames
+        // before capturing — a capture raced against a shader compile ships
+        // a treeless "garden" still that verifies nothing.
+        if ((sc.q || '').includes('sculpture-garden')) {
+            await page.waitForTimeout(Math.round(15000 * SETTLE));
+        }
+        console.error(`[shoot] ${sc.id}: capturing…`);
 
         // Hide HUD chrome for clean venue captures (crosshair, buttons, hint)
         await page.addStyleTag({ content: '#crosshair,#ui-layer,#controls-hint{display:none!important}' }).catch(() => {});
@@ -413,8 +439,15 @@ async function run() {
         let pngB64 = null;
         try {
             const cdp = await ctx.newCDPSession(page);
-            const shotData = await cdp.send('Page.captureScreenshot', { format: 'png' });
-            pngB64 = shotData.data;
+            // Hard-bound the capture: a software-rendered scene that cannot
+            // present a frame must not wedge the whole run (the race loses
+            // to a timer and the scenario logs a dead capture instead).
+            pngB64 = await Promise.race([
+                cdp.send('Page.captureScreenshot', { format: 'png' }, { timeout: 310000 })
+                    .then(d => d.data),
+                new Promise(resolve => setTimeout(() => resolve(null), 300000)),
+            ]);
+            if (!pngB64) errors.push('capture timed out (scene too heavy for the software rasterizer)');
         } catch (e) {
             errors.push(`capture failed: ${String(e).slice(0, 120)}`);
         }

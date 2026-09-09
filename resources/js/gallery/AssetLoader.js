@@ -97,9 +97,13 @@ function loadArtworkTexture(loader, url, onLoad, onError) {
 function getDracoLoader(renderer) {
     if (!_dracoLoader) {
         _dracoLoader = new DRACOLoader();
-        // Decoder wasm files live in /decoders/ — copied by Vite plugin or
-        // manually placed from node_modules/three/examples/jsm/libs/draco/.
-        _dracoLoader.setDecoderPath('/decoders/');
+        // Decoder wasm files live in /decoders/draco/ — the exact layout
+        // scripts/copy-decoders.sh creates (and the path this comment block
+        // always claimed). The historic '/decoders/' root pointed one level
+        // too high: every DRACO GLB (venue decorations, the sculpture
+        // garden's asset layer) 404'd its decoder and fell back per-prop.
+        // The garden asset iteration surfaced it; this is the root-cause fix.
+        _dracoLoader.setDecoderPath('/decoders/draco/');
         // PERF-A5 (3D audit F5): was { type: 'js' } — the asm.js decoder.
         // The wasm decoder decodes the same GLBs 2-4x faster. Both files
         // ship in /decoders/draco/ (draco_wasm_wrapper.js + draco_decoder.wasm),

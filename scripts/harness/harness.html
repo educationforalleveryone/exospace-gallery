@@ -827,18 +827,18 @@
         },
         version: '2.0.0',
     },
-    // ── Outdoor Sculpture Garden — "The Curated Walk" (2026-09-09 v3.0.0) ──
-    // Mirrors the seeder row + guarded migration 2026_09_09_000011
+    // ── Outdoor Sculpture Garden — "The Sculpture Park" (2026-09-09 v4.0.0) ──
+    // Mirrors the seeder row + guarded migration 2026_09_09_000012
     // byte-for-byte (QA gate B): the landscape declaration rides in
     // visual_config (placement_mode 'garden', field sizing, hemisphere
-    // tints, sky environment) — drift here means screenshots stop meaning
-    // anything.
+    // tints, sky environment, ASSET MANIFEST) — drift here means
+    // screenshots stop meaning anything.
     'sculpture-garden': {
         id: 10, slug: 'sculpture-garden', name: 'Outdoor Sculpture Garden', category: 'outdoor',
-        description: 'A curated landscape exhibition. A stone promenade leads from the garden gate to a bronze centrepiece, then on to sculpture clearings framed by trees, hedges and rolling meadow. Works are discovered one by one — never all at once.',
+        description: 'A curated open-air exhibition. A gravel walk leads from the tree-lined gate to a bronze centrepiece on a travertine court, then on to works presented on outdoor museum stands across lawns and sculpture clearings, framed by mature trees and a distant treeline.',
         visual_config: {
             wall_height: 0, wall_depth: 0, ceiling_type: 'none', ceiling_height: 0,
-            background_color: '0xd6e0e2', fog_color: '0xd6e0e2', fog_near: 18, fog_far: 45,
+            background_color: '0xdfe2d1', fog_color: '0xdfe2d1', fog_near: 18, fog_far: 45,
             ambient_color: '0xe8f1f8', ambient_intensity: 0.16, spot_intensity: 0.3,
             fill_intensity: 0.2, tone_mapping_exposure: 0.9, frame_override: null,
             open_air: true, layout_shape: 'circular', structure_pass: 'garden',
@@ -847,16 +847,28 @@
             hemisphere_intensity: 0.4,
             hemisphere_sky_color: '0xbfd9ee', hemisphere_ground_color: '0x51663c',
             ceiling_fill_light: false,
-            field_radius_bonus: 2.2, field_radius_min: 12.5,
+            field_radius_bonus: 2.6, field_radius_min: 14,
             placement_mode: 'garden',
             artwork_light_base: 0.22,
-            garden: { sky_environment: true },
+            garden: {
+                sky_environment: true,
+                assets_base: '/assets/venues/sculpture-garden/',
+                assets: {
+                    tree_large: 'tree_large_01.glb',
+                    tree_medium: 'tree_medium_01.glb',
+                    tree_accent: 'tree_medium_02.glb',
+                    shrub: 'shrub_01.glb',
+                    grass: 'grass_clump_01.glb',
+                    boulder: 'boulder_01.glb',
+                    bench: 'bench_01.glb',
+                },
+            },
             post_fx: { bloom: false, vignette: true, vignette_darkness: 0.42, vignette_offset: 1.15, vignette_blend: 'black' },
         },
         material_config: {
             wall_color: null, wall_roughness: 1.0, wall_metalness: 0.0, wall_normal_strength: 0.5,
-            floor_color: '0x3a6a2a', floor_roughness: 1.0, floor_metalness: 0.0,
-            floor_normal_strength: 0.9, floor_tile_meters: 2.0,
+            floor_color: '0x5e7a46', floor_roughness: 1.0, floor_metalness: 0.0,
+            floor_normal_strength: 0.9, floor_tile_meters: 3.0,
         },
         decorations: [],
         lighting_fixtures: [],
@@ -866,7 +878,7 @@
             wall_texture: 'white', floor_material: 'grass', lighting_preset: 'bright',
             frame_style: 'minimal', room_layout: 'rotunda',
         },
-        version: '3.0.0',
+        version: '4.0.0',
     },
         // Luxury Penthouse — "The Double Volume" (2026-09-09 full redesign,
        // v3.0.0). Mirrors the seeder row + guarded migration
@@ -3873,6 +3885,26 @@
     VENUES['luxury-penthouse-v31'] = derivePenthouseMediaWall();
     const venueSlug = q.get('venue') || 'white-cube';
     const venueConfig = VENUES[venueSlug] || VENUES['white-cube'];
+
+    // ?shadows=0 — QA-only renderer relief. The garden's sun-shadow pass over
+    // hundreds of thousands of alpha-tested canopy vertices is minutes per
+    // frame under SwiftShader (the QA software rasterizer); on any real GPU
+    // it is a trivial load. The strip happens at the CONFIG level (the same
+    // rollback key the venue declares), never via a code branch, so the
+    // capture still exercises the shipping interpreter paths.
+    if (q.get('shadows') === '0' && venueConfig.visual_config?.sun_shadows === true) {
+        venueConfig.visual_config.sun_shadows = false;
+    }
+    // ?assets=0 — QA-only: capture the BASE ENVIRONMENT without the GLB
+    // layer (the graceful-degradation path a gallery owner sees before
+    // dropping assets in). Software rasterizers cannot push the full
+    // alpha-blended canopy set in QA time; the asset layer's visual proof
+    // lives in scripts/harness/probe-garden-asset-render.mjs.
+    if (q.get('assets') === '0' && venueConfig.visual_config?.garden) {
+        venueConfig.visual_config.garden.assets = Object.fromEntries(
+            Object.keys(venueConfig.visual_config.garden.assets || {}).map(k => [k, null])
+        );
+    }
 
     // ?frame= overrides; absent → the venue's default (what a preview shows).
     const frameStyle = q.get('frame') || venueConfig.default_settings.frame_style;
