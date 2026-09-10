@@ -409,6 +409,12 @@ class VenueTemplate extends Model
         return [
             'id'              => $this->id,
             'slug'            => $this->slug,
+            // v3.0.0 observability: the payload version ships to the viewer so
+            // a stale deployment (a migration that has not run yet) is
+            // diagnosable from the browser console alone (GalleryScene logs
+            // it once per load). Field reports previously could not
+            // distinguish "old bundle" from "old payload".
+            'version'         => $this->version,
             'name'            => $this->name,
             'category'        => $this->category,
             'visual_config'   => $this->visual_config ?? [],

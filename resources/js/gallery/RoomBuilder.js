@@ -28,7 +28,7 @@ import { venueFillIntensity } from './Lighting.js';
 import { computeFloatFieldRadius } from './PlacementMath.js';
 // Salon iteration: the square room sizes from the SAME line plan the placer
 // hangs from (one math, never two — the loft/zen precedent).
-import { resolveSquareHang } from './PlacementCuration.js';
+import { resolveSquareHang, resolveDividerHang } from './PlacementCuration.js';
 import { squareLinePlan } from './ArtworkPlacer.js';
 // Mirror Lake v3.0.0 "The Still Shore": the pure waterfront plan.
 import { buildLakePlan } from './LakeLayout.js';
@@ -147,10 +147,20 @@ export function createRoom(data) {
     // the placer hangs from (resolveSquareHang + squareLinePlan — one math,
     // never two). Venues without the salon keys resolve exactly as before:
     // rows 1, perLine = ceil(count/wallCount) → the historic formula.
-    const hangPlan     = resolveSquareHang(this._venuePlacement, imageCount, wallCount,
-                                           spacing, minWallLen);
-    const linePlan     = squareLinePlan(imageCount, spacing, wallCount, minWallLen, hangPlan);
-    const wallLength   = linePlan.wallLength;
+    // Salon v3 divider: a venue declaring placement.room_divider sizes from
+    // the SEGMENT plan instead (two rooms, six hang lines per row) — same
+    // one-math contract, one branch, zero drift possible.
+    const dividerCfg = (this._venuePlacement || {}).room_divider;
+    let wallLength;
+    if (dividerCfg && typeof dividerCfg === 'object') {
+        wallLength = resolveDividerHang(this._venuePlacement, imageCount, spacing,
+                                        minWallLen).wallLength;
+    } else {
+        const hangPlan     = resolveSquareHang(this._venuePlacement, imageCount, wallCount,
+                                               spacing, minWallLen);
+        const linePlan     = squareLinePlan(imageCount, spacing, wallCount, minWallLen, hangPlan);
+        wallLength         = linePlan.wallLength;
+    }
     const wallHeight = CONFIG.room.wallHeight;
 
     // Floor — tile density is venue-declared (material_config.

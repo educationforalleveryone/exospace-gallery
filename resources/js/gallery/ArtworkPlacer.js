@@ -16,7 +16,7 @@ import { CONFIG } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
 import { computeFloatLayout } from './PlacementMath.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
-import { pairByOrientation, focalWallOf, isFocalHero, FOCAL, resolveSquareHang } from './PlacementCuration.js';
+import { pairByOrientation, focalWallOf, isFocalHero, FOCAL, resolveSquareHang, resolveDividerHang } from './PlacementCuration.js';
 
 // ── Shared placeholder texture (PERF-C9) ─────────────────────────────────────
 // A 1×1 dark-tinted texture used when neither the real artwork nor a
@@ -205,6 +205,16 @@ export function _placeArtworksSquare(data) {
     const order = curation.pair_orientation === true
         ? pairByOrientation(this.artworkImages)
         : this.artworkImages.map((_, i) => i);
+
+    // ── DIVIDER PATH (Salon v3 "two rooms") — engaged only by the declared
+    // room_divider key: the square hang becomes six wall segments split by a
+    // full-height curtain (PlacementCuration.resolveDividerHang owns the one
+    // math RoomBuilder sizes from). Every other square venue resolves exactly
+    // as before (§11.3 rule 2: the config is the only on-switch).
+    if (curation.room_divider && typeof curation.room_divider === 'object' && !glazingWallId) {
+        _placeArtworksSquareDivider.call(this, data, { order, focalWall });
+        return;
+    }
 
     // ── ROWS PATH — engaged only by declared keys (hang.rows > 1 or an
     // active keep_clear). Every other square venue resolves exactly as
@@ -438,6 +448,101 @@ export function _placeArtworksSquareRows(data, ctx) {
 
         // Focal hero treatment (§6.5) — same one-shot contract as the
         // legacy path; the hero is the first piece on the focal wall.
+        if (!focalHeroTaken && isFocalHero(focalWall, group.userData.wallId, false)) {
+            group.scale.multiplyScalar(FOCAL.scaleBoost);
+            const ud = group.userData;
+            if (ud.lightMax != null)  ud.lightMax  *= FOCAL.lightBoost;
+            if (ud.lightBase != null) ud.lightBase *= FOCAL.lightBoost;
+            focalHeroTaken = true;
+        }
+    }
+}
+
+// ── DIVIDER-path square hang (Salon v3 "two rooms") ──────────────────────────
+// ctx = { order: hang permutation, focalWall }
+// Consumes the ONE plan RoomBuilder sized from (resolveDividerHang): six wall
+// segments, two rows, deterministic greedy fill (PlacementCuration owns the
+// counts). Slots reuse wallRunOffset so the run-centring invariant the QA
+// suite pins stays the single math — measured from each SEGMENT's centre.
+export function _placeArtworksSquareDivider(data, ctx) {
+    const { order, focalWall } = ctx;
+    const imageCount = this.artworkImages.length;
+    const curation   = this._venuePlacement || {};
+    const eyeLevel   = CONFIG.camera.height;
+
+    const plan = resolveDividerHang(curation, imageCount, CONFIG.room.artworkSpacing,
+                                    CONFIG.room.minWallLength);
+    if (!plan) return;   // unreachable (the branch guarantees the key)
+
+    const inset = wallInset();
+    const h = plan.wallLength / 2;
+    // Wall frames — identical convention to the rows path (start = wall face
+    // centre; tangent offset measured from the wall centre by the caller).
+    const walls = {
+        front: { start: [0, 0, -h + inset],          dir: [1, 0, 0], normal: [0, 0, 1] },
+        back:  { start: [0, 0,  h - inset],          dir: [1, 0, 0], normal: [0, 0, -1] },
+        left:  { start: [-h + inset, 0, 0],          dir: [0, 0, 1], normal: [1, 0, 0] },
+        right: { start: [ h - inset, 0, 0],          dir: [0, 0, 1], normal: [-1, 0, 0] },
+    };
+
+    const upperY = Number.isFinite(Number(curation.upper_row_y)) && Number(curation.upper_row_y) > 0
+        ? Number(curation.upper_row_y) : 2.98;
+    const rowCaps = (Array.isArray(curation.row_caps) && curation.row_caps.length)
+        ? curation.row_caps : SALON_ROW_CAPS;
+    const capFor = (row) => {
+        const c = rowCaps[Math.min(row, rowCaps.length - 1)] || {};
+        return { maxWidth: c.maxWidth, maxHeight: c.maxHeight };
+    };
+
+    // Slots in hang order: the plan's lines are already in fill order
+    // (row 0 before row 1, DIVIDER_FILL_ORDER inside each row).
+    const slots = [];
+    for (const ln of plan.lines) {
+        const seg = plan.segs[ln.seg];
+        if (!seg || seg.len <= 0 || ln.count <= 0) continue;
+        const y = ln.row === 0 ? eyeLevel : upperY;
+        for (let p = 0; p < ln.count; p++) {
+            // wallRunOffset measures from the segment corner; re-centring on
+            // the SEGMENT (not the wall) is the delta − seg.len/2.
+            const off = wallRunOffset(ln.count, p, plan.spacing, seg.len) - seg.len / 2;
+            slots.push({ wall: walls[seg.wall], row: ln.row, y, tOff: seg.center + off, segId: ln.seg });
+        }
+    }
+
+    let focalHeroTaken = false;
+    let si = 0;
+    for (const imgIdx of order) {
+        const img = this.artworkImages[imgIdx];
+        const s = si < slots.length ? slots[si] : null;
+        const caps = s ? capFor(s.row) : capFor(0);
+        const { group } = this.makeArtworkGroup(img, data, {
+            maxWidth: caps.maxWidth, maxHeight: caps.maxHeight,
+        });
+        if (s) {
+            const wall = s.wall;
+            group.position.set(
+                wall.start[0] + wall.dir[0] * s.tOff,
+                s.y,
+                wall.start[2] + wall.dir[2] * s.tOff,
+            );
+            group.lookAt(group.position.x + wall.normal[0], s.y, group.position.z + wall.normal[2]);
+            group.userData.wallId = wall.id;
+            group.userData.row = s.row;
+            group.userData.room = s.segId.endsWith('-a') ? 'a' : 'b';
+            si++;
+        } else {
+            // Unreachable with the shared plan (the normalisation above
+            // guarantees slots ≥ works); a pathological build still hangs —
+            // room centre, eye level — instead of vanishing.
+            console.warn('[placer] square divider: slot shortfall — work hung centre');
+            group.position.set(0, eyeLevel, 0);
+        }
+        this.placeAndRegister(group, data);
+
+        // Focal hero treatment (§6.5) — same one-shot contract as every
+        // square path; the hero is the first piece on the focal wall (with
+        // the divider's odd-front rule that is the dead-centre slot, seen
+        // through the curtain opening from the spawn).
         if (!focalHeroTaken && isFocalHero(focalWall, group.userData.wallId, false)) {
             group.scale.multiplyScalar(FOCAL.scaleBoost);
             const ud = group.userData;

@@ -984,7 +984,7 @@
         // stop meaning anything (QA gate B).
         'the-salon': {
             id: 12, slug: 'the-salon', name: 'The Salon', category: 'classic',
-            description: 'A warm collector\u2019s salon in the domestic tradition: a doorcase behind you, a hero wall ahead, works hung salon-style \u2014 large at eye level, smaller above \u2014 between walnut trim and a picture rail, under a coved warm light. Made for studies, prints, photography and portrait formats.',
+            description: 'A warm collector\u2019s suite of two rooms: a full-height olive velvet curtain, tied back over a brass rod, divides the receiving room from the gallery room — both hung salon-style, large at eye level and smaller above, between walnut trim and a picture rail under a coved warm light. The arrival frames its hero through the curtain opening; the wide walnut double door closes the enfilade behind you. Made for studies, prints, photography and portrait formats.',
             visual_config: {
                 wall_height: 3.8,
                 wall_depth: 0.15,
@@ -1016,8 +1016,15 @@
                     wall_length_cap: 12.6,
                     salon_rows: 2,
                     upper_row_y: 2.98,
-                    keep_clear: { wall: 'back', width: 1.9, max_width: 1.2 },
-                    row_caps: [{ maxWidth: 2.4, maxHeight: 1.45 }, { maxWidth: 1.7, maxHeight: 0.84 }],
+                    // v3 "two rooms": the full-height curtain splits the salon
+                    // into TWO hang rooms (receiving room at the spawn, gallery
+                    // room at the hero wall). Six wall segments, both rooms
+                    // filled at every count; the hero keeps a dead-centre slot
+                    // on the front wall so the arrival reads it THROUGH the
+                    // opening. keep_clear is superseded — the door keep lives
+                    // in room_divider.door_keep now.
+                    room_divider: { at: 0.5, opening: 2.4, keep: 0.55, door_keep: 1.15, spacing: 2.4 },
+                    row_caps: [{ maxWidth: 2.0, maxHeight: 1.45 }, { maxWidth: 1.7, maxHeight: 0.84 }],
                 },
                 structure: [
                     // ── Per-wall architectural trim (fit: wall — adapts to
@@ -1043,22 +1050,33 @@
                     { id: 'cove-back',  primitive: 'box', at: { from: 'wall_back',  offset: [0, 3.615, 0.0] }, size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
                     { id: 'cove-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 3.615, 0.0] }, turn: 'in', size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
                     { id: 'cove-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 3.615, 0.0] }, turn: 'in', size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
-                    // ── The threshold — a classical double-leaf walnut
-                    // doorcase on the entry wall (portes à deux vantaux:
-                    // two 0.74 m leaves, two recessed panels each, 1.66 m
-                    // entablature, the ivory overdoor above; keep_clear
-                    // holds its wall; the hang flows around it).
-                    { id: 'door-leaf-l', primitive: 'box', at: { from: 'wall_back', offset: [-0.37, 1.26, 0.035] }, size: [0.74, 2.52, 0.04], material: { color: '0x35281a', roughness: 0.85, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
-                    { id: 'door-leaf-r', primitive: 'box', at: { from: 'wall_back', offset: [0.37, 1.26, 0.035] }, size: [0.74, 2.52, 0.04], material: { color: '0x35281a', roughness: 0.85, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
-                    { id: 'door-panel-ll', primitive: 'box', at: { from: 'wall_back', offset: [-0.37, 0.62, 0.061] }, size: [0.46, 0.92, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
-                    { id: 'door-panel-lu', primitive: 'box', at: { from: 'wall_back', offset: [-0.37, 1.85, 0.061] }, size: [0.46, 1.02, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
-                    { id: 'door-panel-rl', primitive: 'box', at: { from: 'wall_back', offset: [0.37, 0.62, 0.061] }, size: [0.46, 0.92, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
-                    { id: 'door-panel-ru', primitive: 'box', at: { from: 'wall_back', offset: [0.37, 1.85, 0.061] }, size: [0.46, 1.02, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
-                    { id: 'door-jamb-l', primitive: 'box', at: { from: 'wall_back', offset: [-0.785, 1.26, 0.02] }, size: [0.09, 2.52, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'door-jamb-r', primitive: 'box', at: { from: 'wall_back', offset: [0.785, 1.26, 0.02] }, size: [0.09, 2.52, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'door-head',   primitive: 'box', at: { from: 'wall_back', offset: [0, 2.595, 0.02] }, size: [1.66, 0.15, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'door-overdoor', primitive: 'box', at: { from: 'wall_back', offset: [0, 2.99, 0.024] }, size: [1.62, 0.64, 0.024], material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
-                    { id: 'door-knob',   primitive: 'sphere', at: { from: 'wall_back', offset: [-0.13, 1.16, 0.08] }, size: [0.05, 0.05, 0.05], material: 'bronze', tier_floor: 'low' },
+                    // ── The threshold — a wide classical double-leaf walnut
+                    // doorcase on the entry wall (portes à deux vantaux,
+                    // v3: 2 × 0.92 m leaves = 1.84 m clear under a 2.06 m
+                    // entablature, two raised panels per leaf, bronze knobs
+                    // and backplates at BOTH meeting stiles, the ivory
+                    // overdoor above; room_divider.door_keep holds its wall).
+                    { id: 'door-leaf-l', primitive: 'box', at: { from: 'wall_back', offset: [-0.46, 1.31, 0.05] }, size: [0.92, 2.62, 0.045], material: { color: '0x35281a', roughness: 0.85, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-leaf-r', primitive: 'box', at: { from: 'wall_back', offset: [0.46, 1.31, 0.05] }, size: [0.92, 2.62, 0.045], material: { color: '0x35281a', roughness: 0.85, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-panel-ll', primitive: 'box', at: { from: 'wall_back', offset: [-0.46, 0.71, 0.085] }, size: [0.56, 0.92, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-panel-lu', primitive: 'box', at: { from: 'wall_back', offset: [-0.46, 1.86, 0.085] }, size: [0.56, 1.02, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-panel-rl', primitive: 'box', at: { from: 'wall_back', offset: [0.46, 0.71, 0.085] }, size: [0.56, 0.92, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-panel-ru', primitive: 'box', at: { from: 'wall_back', offset: [0.46, 1.86, 0.085] }, size: [0.56, 1.02, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-jamb-l', primitive: 'box', at: { from: 'wall_back', offset: [-0.975, 1.31, 0.03] }, size: [0.11, 2.62, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'door-jamb-r', primitive: 'box', at: { from: 'wall_back', offset: [0.975, 1.31, 0.03] }, size: [0.11, 2.62, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'door-head',   primitive: 'box', at: { from: 'wall_back', offset: [0, 2.7, 0.03] }, size: [2.06, 0.16, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'door-overdoor', primitive: 'box', at: { from: 'wall_back', offset: [0, 3.09, 0.024] }, size: [2.02, 0.6, 0.024], material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
+                    { id: 'door-knob-l',   primitive: 'sphere', at: { from: 'wall_back', offset: [-0.08, 1.16, 0.095] }, size: [0.052, 0.052, 0.052], material: 'bronze', tier_floor: 'low' },
+                    { id: 'door-knob-r',   primitive: 'sphere', at: { from: 'wall_back', offset: [0.08, 1.16, 0.095] }, size: [0.052, 0.052, 0.052], material: 'bronze', tier_floor: 'low' },
+                    { id: 'door-plate-l',  primitive: 'cylinder', at: { from: 'wall_back', offset: [-0.08, 1.16, 0.078] }, rot: [1.5707963, 0, 0], size: [0.07, 0.012], params: { seg: 14 }, material: 'bronze', tier_floor: 'low' },
+                    { id: 'door-plate-r',  primitive: 'cylinder', at: { from: 'wall_back', offset: [0.08, 1.16, 0.078] }, rot: [1.5707963, 0, 0], size: [0.07, 0.012], params: { seg: 14 }, material: 'bronze', tier_floor: 'low' },
+                    // ── The curtain — THE salon v3 identity moment: a
+                    // full-height olive velvet wall of fabric, tied back over
+                    // a brass rod, dividing the two rooms. Parametric
+                    // 'curtain' primitive (StructureBuilder): sine folds,
+                    // gathered waist, hem wave; collision hugs the panels so
+                    // the 2.4 m opening is the walk gap. Renders on every tier.
+                    { id: 'salon-curtain', primitive: 'curtain', at: { from: 'center', offset: [0, 0, 0] }, params: { opening: 2.4, rod_y: 3.12, top_y: 3.04, hem_y: 0.02, amplitude: 0.085, folds: 6, tie_y: 1.12, gather: 0.15, hem_gather: 0.06, bracket: 0.16, hardware: 'bronze', seed: 'salon-two-rooms' }, material: { color: '0x565c49', roughness: 0.96, metalness: 0.0, side: 'double' }, collide: true, tier_floor: 'low' },
                     // ── The hero bench — the museum habit in domestic dress:
                     // sit (or stand) one pace from the hero wall.
                     { id: 'bench-top',  primitive: 'box', at: { from: 'wall_front', offset: [0, 0.34, 0.85] }, size: [1.7, 0.1, 0.46], material: 'wood_warm', collide: true, merge: 'salon-bench', tier_floor: 'low' },
@@ -1079,11 +1097,14 @@
                     { id: 'table-top',  primitive: 'cylinder', at: { from: 'center', offset: [2.25, 0.52, 2.25] }, size: [0.64, 0.05], params: { seg: 20 }, material: 'wood_warm', collide: true, merge: 'salon-table', tier_floor: 'low' },
                     { id: 'table-stem', primitive: 'cylinder', at: { from: 'center', offset: [2.25, 0.26, 2.25] }, size: [0.07, 0.46], params: { seg: 10 }, material: 'wood_dark', merge: 'salon-table', tier_floor: 'low' },
                     { id: 'table-base', primitive: 'cylinder', at: { from: 'center', offset: [2.25, 0.015, 2.25] }, size: [0.36, 0.03], params: { seg: 16 }, material: 'wood_dark', merge: 'salon-table', tier_floor: 'low' },
-                    // ── The ceiling rose — a small plaster + bronze moment
-                    // at the centre of the coved ceiling field.
-                    { id: 'rose-disc', primitive: 'cylinder', at: { from: 'center', offset: [0, 3.78, 0] }, size: [1.0, 0.04], params: { seg: 24 }, material: { color: '0xd0c3a8', roughness: 0.9, metalness: 0.0 }, tier_floor: 'low' },
-                    { id: 'rose-ring', primitive: 'torus', at: { from: 'center', offset: [0, 3.755, 0] }, rot: [1.5707963, 0, 0], size: [0.5, 0.05], params: { seg: 24, seg2: 32 }, material: 'bronze', tier_floor: 'low' },
-                    { id: 'rose-glow', primitive: 'cylinder', at: { from: 'center', offset: [0, 3.768, 0] }, size: [0.32, 0.02], params: { seg: 20 }, material: { color: '0xfff1dc', emissive: '0xffe2b8', emissiveIntensity: 0.9 }, tier_floor: 'low' },
+                    // ── The ceiling roses — one plaster + bronze moment per
+                    // room (the v2 single rose would sit ON the curtain line).
+                    { id: 'rose-disc-a', primitive: 'cylinder', at: { from: 'center', offset: [0, 3.78, 2.4] }, size: [1.0, 0.04], params: { seg: 24 }, material: { color: '0xd0c3a8', roughness: 0.9, metalness: 0.0 }, tier_floor: 'low' },
+                    { id: 'rose-ring-a', primitive: 'torus', at: { from: 'center', offset: [0, 3.755, 2.4] }, rot: [1.5707963, 0, 0], size: [0.5, 0.05], params: { seg: 24, seg2: 32 }, material: 'bronze', tier_floor: 'low' },
+                    { id: 'rose-glow-a', primitive: 'cylinder', at: { from: 'center', offset: [0, 3.768, 2.4] }, size: [0.32, 0.02], params: { seg: 20 }, material: { color: '0xfff1dc', emissive: '0xffe2b8', emissiveIntensity: 0.9 }, tier_floor: 'low' },
+                    { id: 'rose-disc-b', primitive: 'cylinder', at: { from: 'center', offset: [0, 3.78, -2.4] }, size: [1.0, 0.04], params: { seg: 24 }, material: { color: '0xd0c3a8', roughness: 0.9, metalness: 0.0 }, tier_floor: 'low' },
+                    { id: 'rose-ring-b', primitive: 'torus', at: { from: 'center', offset: [0, 3.755, -2.4] }, rot: [1.5707963, 0, 0], size: [0.5, 0.05], params: { seg: 24, seg2: 32 }, material: 'bronze', tier_floor: 'low' },
+                    { id: 'rose-glow-b', primitive: 'cylinder', at: { from: 'center', offset: [0, 3.768, -2.4] }, size: [0.32, 0.02], params: { seg: 20 }, material: { color: '0xfff1dc', emissive: '0xffe2b8', emissiveIntensity: 0.9 }, tier_floor: 'low' },
                 ],
                 post_fx: {
                     bloom: false,
@@ -1113,7 +1134,7 @@
                 wall_texture: 'plaster', floor_material: 'wood', lighting_preset: 'bright',
                 frame_style: 'classic', room_layout: 'square',
             },
-            version: '2.0.0',
+            version: '3.0.0',
         },
         // Luxury Penthouse — "The Double Volume" (2026-09-09 full redesign,
        // v3.0.0). Mirrors the seeder row + guarded migration

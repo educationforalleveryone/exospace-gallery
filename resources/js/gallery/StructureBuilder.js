@@ -110,6 +110,7 @@ import { makeGlassMaterial } from './TierEffects.js';
 export const STRUCTURE_PRIMITIVES = Object.freeze([
     'box', 'cylinder', 'cone', 'plane', 'sphere', 'torus',
     'emissive-strip', 'points-cloud', 'glyph-plane', 'instance-grid',
+    'curtain',
 ]);
 
 // ── Material presets (interpreted generically; venues reference by key) ──────
@@ -209,6 +210,15 @@ export function validateStructure(entries) {
         }
         if (e.primitive === 'glyph-plane' && typeof e.text !== 'string') {
             errors.push(`${at}: glyph-plane requires text`);
+        }
+        if (e.primitive === 'curtain') {
+            const cp = (e.params && typeof e.params === 'object') ? e.params : {};
+            if (cp.opening !== undefined && !(Number(cp.opening) > 0)) {
+                errors.push(`${at}: curtain params.opening must be > 0`);
+            }
+            if (cp.folds !== undefined && !(Number(cp.folds) >= 1)) {
+                errors.push(`${at}: curtain params.folds must be ≥ 1`);
+            }
         }
         if (e.tier_floor && !['low', 'mobile', 'high'].includes(e.tier_floor)) {
             errors.push(`${at}: tier_floor must be low|mobile|high`);
@@ -545,6 +555,174 @@ function buildGlyphMaterial(e) {
     });
 }
 
+// ── curtain (Salon v3 "two rooms") ─────────────────────────────────────
+// One descriptor builds a full-height divided curtain wall: two tied-back
+// fabric panels with sine folds, a brass rod with brackets, finials, rings
+// and tie bands. Parametric from params so ANY square venue can declare it:
+//
+//   params: {
+//     opening: 2.4,        // clear top gap — also the guaranteed walk gap
+//     rod_y: 3.1,          // brass rod centre height
+//     top_y: 3.03,         // fabric heading height
+//     hem_y: 0.02,         // fabric hem height (just off the floor)
+//     amplitude: 0.085,    // fold depth (metres, ± from the curtain plane)
+//     folds: 6,            // sine folds per panel
+//     tie_y: 1.12,         // tie-band height (the gathered waist)
+//     gather: 0.15,        // waist pull toward the wall (fraction of span)
+//     hem_gather: 0.06,    // hem pull (the flared skirt)
+//     bracket: 0.16,       // standoff of the fabric's outer edge from a wall
+//     hardware: 'bronze',  // material preset key for rod/rings/bands
+//     seed: '…',           // folds the phase (deterministic from id+seed)
+//   }
+//
+// Draw calls: 2 fabric meshes (one per side — separate so each registers
+// its OWN collision box and the opening stays walkable) + 1 merged hardware
+// mesh. Collision: each fabric panel registers its world AABB with a tight
+// 0.06 pad — the free passage is exactly `opening`. Requires the square
+// layout (reads _layoutMeta.wallLength); anything else skips with one
+// warning. Deterministic: the fold phase is an FNV-1a hash of id+seed.
+function _strHash01(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0) / 4294967295;
+}
+
+function _curtainPanelGeometry(o) {
+    const { xOut, xIn, side, topY, hemY, amp, folds, phase, tieV, gather, hemGather, nu, nv } = o;
+    const span  = Math.abs(xOut - xIn);
+    const widthAt = (v) => {
+        // waist pull: full span at the heading, gathered at the tie band,
+        // gently flared again at the hem (smoothstep both ways).
+        if (v <= tieV) {
+            const t = v / Math.max(1e-6, tieV);
+            const s = t * t * (3 - 2 * t);
+            return span * (1 - gather * s);
+        }
+        const t = (v - tieV) / Math.max(1e-6, 1 - tieV);
+        const s = t * t * (3 - 2 * t);
+        return span * (1 - gather - (gather - hemGather) * s);
+    };
+    const env = (v) =>
+        1 + 0.5 * Math.exp(-Math.pow((v - tieV) / 0.18, 2)) + 0.3 * v * v * v;
+
+    const pos = new Float32Array(nu * nv * 3);
+    const uv  = new Float32Array(nu * nv * 2);
+    const idx = [];
+    let k = 0, q = 0;
+    for (let iv = 0; iv < nv; iv++) {
+        const v = iv / (nv - 1);
+        const y = topY + (hemY - topY) * v;
+        const w = widthAt(v);
+        const e = env(v);
+        const hemWave = Math.min(1, Math.max(0, (v - 0.88) / 0.12));
+        for (let iu = 0; iu < nu; iu++) {
+            const u = iu / (nu - 1);                 // 0 = outer (wall), 1 = inner
+            const x = xOut - side * (u * w);
+            const z = amp * e * Math.sin(u * folds * Math.PI * 2 + phase)
+                    + hemWave * 0.05 * Math.sin(u * 3 * Math.PI + phase * 1.7);
+            pos[k++] = x; pos[k++] = y; pos[k++] = z;
+            uv[q++] = u;  uv[q++] = 1 - v;
+        }
+    }
+    for (let iv = 0; iv < nv - 1; iv++) {
+        for (let iu = 0; iu < nu - 1; iu++) {
+            const a = iv * nu + iu, b = a + 1, c = a + nu, d = c + 1;
+            idx.push(a, c, b, b, c, d);
+        }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+}
+
+function buildCurtain(ctx, e, pos, finishMesh) {
+    const meta = ctx._layoutMeta;
+    if (!meta || meta.type !== 'square' || !(meta.wallLength > 0)) {
+        console.warn('[structure] curtain primitive requires a square room — entry skipped');
+        return 0;
+    }
+    const W = meta.wallLength;
+    const p = (e.params && typeof e.params === 'object') ? e.params : {};
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const opening = clamp(Number(p.opening) > 0 ? Number(p.opening) : 2.4, 0.8, W - 0.8);
+    const rodY  = clamp(Number(p.rod_y)  > 0 ? Number(p.rod_y)  : 3.1,  1.2, CONFIG.room.wallHeight - 0.15);
+    const topY  = clamp(Number(p.top_y)  > 0 ? Number(p.top_y)  : rodY - 0.07, 0.5, rodY - 0.02);
+    const hemY  = clamp(Number.isFinite(Number(p.hem_y)) ? Number(p.hem_y) : 0.02, 0, topY - 0.5);
+    const amp    = clamp(Number(p.amplitude) > 0 ? Number(p.amplitude) : 0.085, 0.02, 0.3);
+    const folds  = Math.max(1, Math.min(12, Math.floor(Number(p.folds) || 6)));
+    const tieY   = clamp(Number(p.tie_y) > 0 ? Number(p.tie_y) : 1.12, hemY + 0.3, topY - 0.5);
+    const gather = clamp(Number.isFinite(Number(p.gather)) ? Number(p.gather) : 0.15, 0, 0.45);
+    const hemGather = clamp(Number.isFinite(Number(p.hem_gather)) ? Number(p.hem_gather) : 0.06, 0, gather);
+    const bracket = clamp(Number(p.bracket) > 0 ? Number(p.bracket) : 0.16, 0.06, (W - opening) / 2 - 0.1);
+    const tieV = (topY - tieY) / Math.max(1e-6, topY - hemY);
+    const phase = _strHash01(`${e.id || 'curtain'}:${p.seed || ''}`) * Math.PI * 2;
+
+    const fabricMat = buildMaterial(ctx, e.material);
+    const hwMat = buildMaterial(ctx, p.hardware || 'bronze');
+    const parts = [];   // hardware merged into one draw call
+    const nu = Math.max(24, folds * 8 + 1);
+    const nv = 30;
+
+    // 1. Fabric panels (one mesh per side — separate collision boxes keep
+    //    the opening exactly `opening` wide).
+    for (const side of [-1, 1]) {
+        const xOut = side * (W / 2 - bracket);
+        const xIn  = side * (opening / 2);
+        const geo = _curtainPanelGeometry({
+            xOut, xIn, side, topY, hemY, amp, folds, phase, tieV,
+            gather, hemGather, nu, nv,
+        });
+        const mesh = new THREE.Mesh(geo, fabricMat);
+        mesh.position.set(pos[0], 0, pos[2]);   // geometry is room-local X/Z
+        // Collision is registered BELOW with a TIGHT pad — finishMesh's own
+        // obstacle path pads 0.25, which would eat 0.5 m of the passage.
+        finishMesh(mesh, e, false, null);
+        if (e.collide) {
+            // The panel AABB must hug the fabric so the walk gap stays the
+            // declared opening (the fabric sweeps ±(amp·env) ≈ 0.2 m; the
+            // world AABB covers the full heading width — the conservative
+            // read keeps visitors from brushing the gathered cloth).
+            ctx.registerObstacle(mesh, 0.06);
+        }
+    }
+
+    // 2. Hardware — rod, brackets, finials, rings, tie bands (one mesh).
+    const rodHalf = W / 2 - 0.06;
+    parts.push({ geo: new THREE.CylinderGeometry(0.024, 0.024, rodHalf * 2, 12), pos: [pos[0], rodY, pos[2]], rot: [0, 0, Math.PI / 2] });
+    for (const side of [-1, 1]) {
+        // bracket: wall plate + arm
+        parts.push({ geo: new THREE.BoxGeometry(0.05, 0.16, 0.03), pos: [pos[0] + side * (W / 2 - 0.025), rodY, pos[2]], rot: [0, 0, 0] });
+        parts.push({ geo: new THREE.BoxGeometry(0.12, 0.04, 0.035), pos: [pos[0] + side * (W / 2 - 0.1), rodY, pos[2]], rot: [0, 0, 0] });
+        // finial
+        parts.push({ geo: new THREE.SphereGeometry(0.045, 12, 8), pos: [pos[0] + side * (rodHalf - 0.01), rodY, pos[2]], rot: [0, 0, 0] });
+        // heading rings at the fold crests
+        const xOut = side * (W / 2 - bracket);
+        const xIn  = side * (opening / 2);
+        const ringCount = Math.min(10, folds + 2);
+        for (let rIdx = 0; rIdx < ringCount; rIdx++) {
+            const u = (rIdx + 0.5) / ringCount;
+            const x = xIn + (xOut - xIn) * u;
+            parts.push({ geo: new THREE.TorusGeometry(0.042, 0.011, 8, 18), pos: [pos[0] + x, rodY, pos[2]], rot: [0, Math.PI / 2, 0] });
+        }
+        // tie band around the gathered waist
+        const span = Math.abs(xOut - xIn);
+        const waist = span * (1 - gather);
+        const xTie = xOut - side * (waist / 2 + 0.02);
+        parts.push({ geo: new THREE.TorusGeometry(0.14, 0.02, 8, 22), pos: [pos[0] + xTie, tieY, pos[2]], rot: [Math.PI / 2, 0, 0] });
+    }
+    const hwMesh = new THREE.Mesh(mergeParts(parts), hwMat);
+    parts.forEach(pt => pt.geo.dispose());
+    finishMesh(hwMesh, { id: `${e.id || 'curtain'}-hardware`, primitive: 'curtain' }, false, null);
+
+    return 3;   // fabric-l + fabric-r + hardware
+}
+
 // ── Main entry ─────────────────────────────────────────────────────────────────
 // ctx = the GalleryScene controller (same convention as every gallery module).
 // Reads only generic state: _layoutMeta, _glazing, isLowEnd, _isMobileTier,
@@ -664,6 +842,7 @@ export function buildStructure(ctx, entries) {
         // 4. Primitive families.
         if (e.primitive === 'instance-grid') { built += buildInstanceGrid(ctx, e, pos, ry, fwd, seedSource, finishMesh); continue; }
         if (e.primitive === 'points-cloud')  { built += buildPointCloud(ctx, e, seedSource);                              continue; }
+        if (e.primitive === 'curtain')       { built += buildCurtain(ctx, e, pos, finishMesh);                            continue; }
 
         let mesh;
         if (e.primitive === 'glyph-plane') {

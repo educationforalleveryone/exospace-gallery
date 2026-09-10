@@ -216,3 +216,190 @@ export function resolveSquareHang(placement, imageCount, wallCount, spacing, min
         keep: keepWall ? { wall: keepWall, half: keepWidth / 2 } : null,
     };
 }
+
+// ── Room divider (Salon v3 "two rooms", pure) ────────────────────────────────
+//
+// placement.room_divider — { at, opening, keep, door_keep, spacing } — splits
+// the square room into TWO connected hang rooms divided by a full-height
+// curtain standing at `at` (a depth fraction of the room, measured from the
+// FRONT wall). This is the opt-in on-switch for the whole v3 layout: the
+// hang becomes six wall SEGMENTS (front wall, two back-wall door flanks,
+// two side segments per room), the room sizing solves the smallest square
+// that places every work, and the arrival hero keeps a dead-centre slot on
+// the front wall so it reads through the curtain opening.
+//
+//   at        — curtain plane depth fraction from the front wall (0.2–0.8)
+//   opening   — the curtain's clear top gap in metres (the guaranteed
+//               walkable gap: collision boxes stop exactly here)
+//   keep      — segment edge standoff from the curtain plane (fabric sweep
+//               + frame reveal; frames never approach closer than this)
+//   door_keep — half-extent around the back-wall door centre kept free
+//               (the two door-flank segments end here; 0 disables)
+//   spacing   — the divider hang's own rhythm (the two rooms hang a little
+//               closer than the one-room salon). Falls back to the venue
+//               density, then the historic default.
+//
+// Returns null when room_divider is absent (default venues: bit-identical,
+// §11.3 rule 2). Pure, deterministic, unit-testable — RoomBuilder and the
+// placer consume ONE plan so the room and the hang can never disagree.
+export const DIVIDER_FILL_ORDER = Object.freeze([
+    // Curated interleave: the hero wall leads, then the arrival room flanks
+    // the door, then the hero-room sides, then the arrival-room sides — both
+    // rooms receive works at every count the venue serves.
+    'front', 'back-l', 'west-b', 'back-r', 'east-b', 'west-a', 'east-a',
+]);
+
+// Reveal kept clear at every wall corner and segment end (frame edge to
+// segment boundary) — the salon-hang edge breathing room.
+export const DIVIDER_EDGE = 0.25;
+
+export function resolveDividerHang(placement, imageCount, fallbackSpacing, minWallLength) {
+    const p = (placement && typeof placement === 'object') ? placement : {};
+    const d = (p.room_divider && typeof p.room_divider === 'object') ? p.room_divider : null;
+    if (!d) return null;
+
+    const spacing = Number(d.spacing) > 0 ? Number(d.spacing)
+        : (Number(fallbackSpacing) > 0 ? Number(fallbackSpacing) : 2.8);
+    const minWall = (typeof minWallLength === 'number' && minWallLength > 0) ? minWallLength : 8;
+    const capNum  = Number(p.wall_length_cap);
+    const cap     = Number.isFinite(capNum) && capNum > 0 ? capNum : 14;
+    const rows    = Math.max(1, Math.floor(Number(p.salon_rows)) || 2);
+    const at      = Math.min(0.8, Math.max(0.2, Number(d.at) || 0.5));
+    const opening = Math.max(1.0, Number(d.opening) || 2.4);
+    const keep    = Math.max(0.3, Number(d.keep) || 0.55);
+    const doorKeepRaw = Number(d.door_keep);
+    const doorKeep = Number.isFinite(doorKeepRaw) && doorKeepRaw > 0 ? doorKeepRaw : 1.15;
+
+    // Per-row canvas width caps (the salon row_caps block; sane default).
+    const rowCaps = (Array.isArray(p.row_caps) && p.row_caps.length) ? p.row_caps : null;
+    const capFor = (row) => {
+        const c = rowCaps ? rowCaps[Math.min(row, rowCaps.length - 1)] : null;
+        return Math.max(0.4, Number(c && c.maxWidth) || 1.7);
+    };
+
+    // Segment spans in each wall's tangent coordinate (metres), as functions
+    // of the wall length L. Tangent zero = wall centre (the placer's slot
+    // convention), so `center`/`a`/`b` map straight onto world offsets.
+    const spansFor = (L) => {
+        const h = L / 2;
+        const atZ = -h + at * L;    // curtain plane (world z)
+        const segs = {
+            'front':  { wall: 'front', a: -h + DIVIDER_EDGE, b: h - DIVIDER_EDGE },
+            'back-l': { wall: 'back',  a: -h + DIVIDER_EDGE, b: -doorKeep },
+            'back-r': { wall: 'back',  a: doorKeep,  b: h - DIVIDER_EDGE },
+            'west-b': { wall: 'left',  a: -h + DIVIDER_EDGE, b: atZ - keep },
+            'east-b': { wall: 'right', a: -h + DIVIDER_EDGE, b: atZ - keep },
+            'west-a': { wall: 'left',  a: atZ + keep, b: h - DIVIDER_EDGE },
+            'east-a': { wall: 'right', a: atZ + keep, b: h - DIVIDER_EDGE },
+        };
+        for (const id of Object.keys(segs)) {
+            const s = segs[id];
+            s.len = Math.max(0, s.b - s.a);
+            s.center = (s.a + s.b) / 2;
+        }
+        return segs;
+    };
+
+    // Line capacity: a run of n frames spans (n−1)·spacing between slot
+    // centres plus one row cap + two frame borders at the ends; it fits the
+    // segment when that span plus the corner reveals stays inside. The 0.68
+    // = row cap reserve is added separately, so the constant here is the
+    // two frame borders (2 × 0.09) + two end reveals (2 × 0.25).
+    const lineCap = (len, capRow) => {
+        const head = capRow + 0.68;
+        if (len < head) return 0;
+        return Math.max(0, Math.floor((len - head) / spacing) + 1);
+    };
+
+    // Deterministic greedy fill, three phases (both-rooms invariant baked
+    // into the fill itself):
+    //   1. THE HERO — one dead-centre slot on the front wall (odd line
+    //      contract: the arrival reads it through the curtain opening).
+    //   2. THE ARRIVAL SEED — one work into the first arrival-room line
+    //      with capacity, so room A is never empty at small counts (the
+    //      field brief: "both rooms contains artworks").
+    //   3. THE CURATED ORDER — DIVIDER_FILL_ORDER, row 0 then row 1; the
+    //      hero line tops up keeping its ODD total (an odd run hangs a
+    //      slot dead-centre; composeArrivalPose's +Z approach stays
+    //      unobstructed).
+    const linesFor = (L) => {
+        const segs = spansFor(L);
+        const lines = new Map();               // 'seg|row' → count (insertion order = hang order)
+        let remaining = imageCount;
+        const capOf = (id, row) => {
+            const seg = segs[id];
+            if (!seg || seg.len <= 0) return 0;
+            return lineCap(seg.len, capFor(row));
+        };
+        const add = (id, row, n) => {
+            if (n <= 0) return;
+            const k = `${id}|${row}`;
+            lines.set(k, (lines.get(k) || 0) + n);
+            remaining -= n;
+        };
+        // 1. hero
+        if (remaining > 0) add('front', 0, Math.min(1, capOf('front', 0)));
+        // 2. arrival seed
+        if (remaining > 0) {
+            for (const id of ['back-l', 'back-r', 'west-a', 'east-a']) {
+                if (capOf(id, 0) > 0) { add(id, 0, 1); break; }
+            }
+        }
+        // 3. curated fill (the hero line keeps an odd TOTAL); every line
+        //    fills only its REMAINING capacity (phase 2 may have seeded it)
+        for (let row = 0; row < rows && remaining > 0; row++) {
+            for (const id of DIVIDER_FILL_ORDER) {
+                if (remaining <= 0) break;
+                const k = `${id}|${row}`;
+                const cur = lines.get(k) || 0;
+                let n = Math.min(capOf(id, row) - cur, remaining);
+                if (n <= 0) continue;
+                if (id === 'front' && row === 0) {
+                    let total = Math.min(capOf('front', 0), cur + remaining);
+                    if (total > 1 && total % 2 === 0) total -= 1;
+                    n = Math.max(0, total - cur);
+                    if (n <= 0) continue;
+                }
+                add(id, row, n);
+            }
+        }
+        const out = [];
+        for (const [k, count] of lines) {
+            const pipe = k.lastIndexOf('|');
+            out.push({ seg: k.slice(0, pipe), row: Number(k.slice(pipe + 1)), count });
+        }
+        return { segs, lines: out, remaining };
+    };
+
+    // Sizing: the smallest wall length (≤ cap, 0.1 m steps) that places
+    // every work. Scanning up from minWall keeps rooms as small as the
+    // divider allows — the two-room read is the point.
+    let wallLength = cap;
+    const steps = Math.max(1, Math.round((cap - minWall) / 0.1));
+    for (let i = 0; i <= steps; i++) {
+        const L = Math.min(cap, minWall + i * 0.1);
+        if (linesFor(L).remaining === 0) { wallLength = L; break; }
+    }
+
+    const { segs, lines, remaining } = linesFor(wallLength);
+    // Defensive normalisation (a mis-sized config must never unplace a
+    // work): top up non-hero lines by pairs — bounded greed, deterministic.
+    if (remaining > 0) {
+        for (const ln of lines) {
+            if (remaining <= 0) break;
+            if (ln.seg === 'front' && ln.row === 0) continue;   // hero stays odd
+            const extra = Math.min(remaining, 2);
+            ln.count += extra;
+            remaining -= extra;
+        }
+    }
+
+    return {
+        spacing, at, opening, keep, doorKeep, cap, rows,
+        wallLength,
+        atZ: -wallLength / 2 + at * wallLength,
+        segs,
+        lines,
+        unplaced: remaining,
+    };
+}

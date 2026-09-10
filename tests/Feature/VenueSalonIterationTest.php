@@ -8,36 +8,47 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * THE SALON v2.1.0 — "turn + threshold" (post-deploy pass, as CI).
+ * THE SALON v3.0.0 — "two rooms" (the curtain iteration, as CI).
  *
- * The v2.0.0 body (superseding the Iteration 8 stub) authored the venue —
- * and its field report found the one defect the authored payload carried:
- * ten side-wall fit descriptors shipped WITHOUT turn:'in', so the side
- * fields/baseboards/rails/cornices/coves rendered PERPENDICULAR to their
- * walls — phantom mid-room slabs the visitor could walk through
- * ("is this a wall or a curtain?"). v2.1.0 turns the side wall architecture
- * onto its walls and widens the threshold into a classical double-leaf
- * doorcase (portes à deux vantaux) worthy of the enfilade axis.
+ * The field reports drove this body:
+ *   • the accidental two-room read of the v2.0 phantom slabs was the BEST
+ *     thing the venue had ("i liked the two room kind structure better even
+ *     if it was a bug … it also make this venue unique because none of the
+ *     other venues has two rooms") — v3 makes it DELIBERATE: a parametric
+ *     'curtain' primitive hangs a real tied-back velvet wall across the
+ *     room, both rooms hang artworks, and the panels COLLIDE (the opening
+ *     is the walk gap — you cannot walk through the fabric).
+ *   • "problem 2 about door still exists its width is still same and it
+ *     does not look like a door" — the v2.1 door never reached production
+ *     because the v2.1 migration's byte-exact guards silently no-op'd on
+ *     the deployed row. v3 rewrites the template row FORCIBLY, guarded
+ *     only by the payload version, and the payload version ships to the
+ *     viewer ([venue] payload_version in the console) so a stale deploy is
+ *     diagnosable from the browser alone.
  *
  * Pins:
  *   1. The catalog is TWELVE seeded venues; `the-salon` is Pro, published
- *      and active (unchanged from Iteration 8).
- *   2. The seeder entry and the v2.1 migration payload are byte-equal —
- *      one authored identity, two delivery paths. (The unchanged v2 blocks
- *      — post_fx, material_config, description — stay pinned to the v2
- *      migration that authored them.)
- *   3. The v2.1 migration is a guarded, per-element heal: side elements
- *      gain turn:'in' only in their exact v2 form; the door group splices
- *      only when ALL SEVEN v2 door descriptors match exactly; keep_clear
- *      rewrites only when exact; a super-admin's retuned element survives
- *      untouched; idempotent; down() reverses under mirrored guards.
+ *      and active, version 3.0.0 (unchanged from Iteration 8 otherwise).
+ *   2. The seeder entry and the v3 migration payload are byte-equal — one
+ *      authored identity, two delivery paths. (The unchanged v2 blocks —
+ *      material_config — stay pinned to the v2 migration that authored
+ *      them.)
+ *   3. The v3 migration force-heals ANY stale row (v1 stub, v2.0.0, drifted
+ *      v2.1) to the canonical v3 payload; idempotent; down() restores the
+ *      canonical v2.1.0 payload from an exact 3.0.0 row; the older guard
+ *      migrations (v2, v2.1) no-op on a fresh v3 install.
  *   4. The placement block IS the salon's hang: intimate density +
  *      orientation pairing + the focal hero wall + the domestic room cap
  *      (wall_length_cap 12.6) + the two-line salon hang (salon_rows 2) +
- *      the door keep-clear + per-row size caps.
+ *      room_divider (the two-room curtain plan: opening 2.4 m walk gap,
+ *      door keep, segment keeps, 2.4 m two-room rhythm) + per-row size
+ *      caps. keep_clear is superseded and must be ABSENT.
  *   5. The structure uses ONLY the descriptor vocabulary (closed primitive
- *      set, preset or explicit materials, anchors, fit:'wall') — zero JS
- *      shipped (§10.2, DoD #7). Every element renders on the LOWEST tier.
+ *      set + 'curtain', preset or explicit materials, anchors, fit:'wall')
+ *      — zero JS shipped (§10.2, DoD #7). Every element renders on the
+ *      LOWEST tier. Side-wall fit descriptors declare turn:'in' (the
+ *      phantom-slab guard). Collision discipline: exactly the solid
+ *      furniture AND the curtain fabric register.
  *   6. The register map: intimacy via the salon; grandeur remains the open
  *      register. Pricing copy claims twelve. The gallery JS stays slug-free
  *      for ALL TWELVE slugs.
@@ -60,10 +71,12 @@ class VenueSalonIterationTest extends TestCase
     private const CLOSED_PRIMITIVES = [
         'box', 'cylinder', 'cone', 'plane', 'sphere', 'torus',
         'emissive-strip', 'points-cloud', 'glyph-plane', 'instance-grid',
+        'curtain',
     ];
 
     private const MIGRATION = '2026_09_10_000001_salon_collector_identity.php';
     private const MIGRATION_V21 = '2026_09_11_000001_salon_v2_1_turn_and_door.php';
+    private const MIGRATION_V3 = '2026_09_11_000002_salon_v3_two_rooms.php';
 
     /**
      * Payload accessor for the migrations' (historically private) shape
@@ -101,7 +114,7 @@ class VenueSalonIterationTest extends TestCase
         $this->assertTrue((bool) $salon->is_active);
         $this->assertFalse((bool) $salon->is_draft);
         $this->assertNotNull($salon->published_at);
-        $this->assertSame('2.1.0', $salon->version, 'The v2.1.0 turn+threshold body is the fresh-install baseline.');
+        $this->assertSame('3.0.0', $salon->version, 'The v3.0.0 two-room body is the fresh-install baseline.');
 
         foreach (self::ELEVEN_SEEDED as $slug) {
             $this->assertNotNull(
@@ -115,33 +128,27 @@ class VenueSalonIterationTest extends TestCase
     // 2. One authored identity, two delivery paths — byte-equal payloads
     // ─────────────────────────────────────────────────────────────────────
 
-    public function test_seeder_and_v21_migration_payloads_are_equal(): void
+    public function test_seeder_and_v3_migration_payloads_are_equal(): void
     {
         $salon = collect(\Database\Seeders\VenueTemplateSeeder::templates())
             ->firstWhere('slug', 'the-salon');
         $this->assertNotNull($salon, 'Seeder must carry the-salon entry #12.');
 
-        $this->assertSame($this->migrationPayload(self::MIGRATION_V21, 'v21Structure'), $salon['visual_config']['structure'],
-            'Seeder structure and the v2.1 migration payload MUST be byte-equal — one identity, two delivery paths.'
+        $this->assertSame($this->migrationPayload(self::MIGRATION_V3, 'v3Payload'), $salon['visual_config'],
+            'Seeder visual_config and the v3 migration payload MUST be byte-equal — one identity, two delivery paths.'
         );
-        $this->assertSame($this->migrationPayload(self::MIGRATION_V21, 'v21KeepClear'), $salon['visual_config']['placement']['keep_clear'],
-            'Seeder keep_clear and the v2.1 migration payload MUST be byte-equal.'
+        $this->assertSame($this->migrationPayload(self::MIGRATION_V3, 'v3Description'), $salon['description'],
+            'Seeder description and the v3 migration payload MUST be byte-equal.'
         );
-        // the blocks v2.1 does not touch stay pinned to the migration that
+        // the blocks v3 does not touch stay pinned to the migration that
         // authored them
-        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2PostFx'), $salon['visual_config']['post_fx'],
-            'Seeder post_fx and the v2 migration payload MUST be byte-equal.'
-        );
         $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Material'), $salon['material_config'],
             'Seeder material_config and the v2 migration payload MUST be byte-equal.'
-        );
-        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Description'), $salon['description'],
-            'Seeder description and the v2 migration payload MUST be byte-equal.'
         );
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // 3. The v2 migration — guarded, idempotent, admin-respecting
+    // 3. The v2 identity migration — guarded, idempotent, admin-respecting
     // ─────────────────────────────────────────────────────────────────────
 
     private function runSalonIdentityMigration(): void
@@ -490,8 +497,13 @@ class VenueSalonIterationTest extends TestCase
             'down() restores the exact v2 placement.');
     }
 
-    public function test_the_turn_migration_noops_on_a_fresh_v21_install(): void
+    public function test_the_turn_migration_noops_on_a_fresh_v3_install(): void
     {
+        // v3 note: the seeder now ships v3.0.0 — the v2.1 guards (exact v2.0
+        // element forms) match nothing in it, so the older migration must
+        // write nothing at all. This is the guard that FAILED OPEN in the
+        // field the other way: the v2.1 migration ran against the deployed
+        // row, matched nothing, and silently kept the site on v2.0.
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         $before = DB::table('venue_templates')->where('slug', 'the-salon')->first();
 
@@ -499,8 +511,121 @@ class VenueSalonIterationTest extends TestCase
 
         $after = DB::table('venue_templates')->where('slug', 'the-salon')->first();
         $this->assertSame($before->visual_config, $after->visual_config,
-            'the seeder already ships v2.1 — the migration must write nothing.');
-        $this->assertSame('2.1.0', $after->version);
+            'the seeder ships v3.0.0 — the v2.1 migration must write nothing.');
+        $this->assertSame('3.0.0', $after->version);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 3c. The v3 two-rooms migration — FORCE version-guarded rewrite
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Invoke the v3 migration's up()/down() directly (true re-run semantics). */
+    private function runTwoRoomsMigration(string $direction = 'up'): void
+    {
+        $migration = require database_path('migrations/' . self::MIGRATION_V3);
+        $migration->$direction();
+    }
+
+    public function test_two_rooms_migration_force_heals_a_stale_v2_row(): void
+    {
+        // THE field failure: the deployed row was v2.0.0 (or a drifted
+        // v2.1) — the v2.1 exact-form guards no-op'd and the site kept
+        // serving the old door + mis-turned panels. The v3 migration must
+        // heal ANY stale version in one shot.
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->v2ProductionRow();
+        $this->runTwoRoomsMigration('up');
+
+        $venue = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+        $this->assertSame('3.0.0', $venue->version, 'any stale version force-heals to 3.0.0');
+        $config = json_decode((string) $venue->visual_config, true);
+
+        // the whole payload is the canonical v3 — not a partial heal
+        $this->assertSame($this->migrationPayload(self::MIGRATION_V3, 'v3Payload'), $config,
+            'the healed row IS the canonical v3 payload, byte-equal.');
+
+        // spot pins: the two-room identity stands
+        $byId = collect($config['structure'])->keyBy('id');
+        $this->assertArrayHasKey('salon-curtain', $byId, 'the curtain exists');
+        $this->assertTrue((bool) $byId['salon-curtain']['collide'], 'the curtain fabric registers collision');
+        $this->assertSame(0.92, $byId['door-leaf-l']['size'][0], 'the door leaves are 0.92 m — 1.84 m clear');
+        $this->assertArrayHasKey('rose-disc-b', $byId, 'the second room has its rose');
+        $this->assertSame(['at' => 0.5, 'opening' => 2.4, 'keep' => 0.55, 'door_keep' => 1.15, 'spacing' => 2.4],
+            $config['placement']['room_divider'], 'the divider plan ships');
+        $this->assertArrayNotHasKey('keep_clear', $config['placement'],
+            'keep_clear is superseded by the segment plan');
+        $this->assertStringContainsString('two rooms', (string) $venue->description);
+    }
+
+    public function test_two_rooms_migration_force_heals_a_drifted_row(): void
+    {
+        // a drifted row: v2.1-declared version, payload mutated by an
+        // unknown hand (extra element, junk key) — still force-heals
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $config = json_decode((string) DB::table('venue_templates')->where('slug', 'the-salon')->value('visual_config'), true);
+        $config['structure'][] = ['id' => 'mystery-prop', 'primitive' => 'box', 'at' => [0, 0, 0], 'size' => [1, 1, 1], 'material' => 'wood_dark'];
+        $config['mystery_key'] = true;
+        DB::table('venue_templates')->where('slug', 'the-salon')->update([
+            'version'       => '2.1.0',
+            'visual_config' => json_encode($config),
+        ]);
+
+        $this->runTwoRoomsMigration('up');
+
+        $venue = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+        $this->assertSame('3.0.0', $venue->version);
+        $this->assertSame($this->migrationPayload(self::MIGRATION_V3, 'v3Payload'),
+            json_decode((string) $venue->visual_config, true),
+            'drift cannot survive the force heal — the payload is canonical.');
+    }
+
+    public function test_two_rooms_migration_is_idempotent(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->runTwoRoomsMigration('up');
+
+        $afterFirst = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+        $this->runTwoRoomsMigration('up');
+        $afterSecond = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+
+        $this->assertSame($afterFirst->visual_config, $afterSecond->visual_config, 're-running must rewrite nothing.');
+        $this->assertSame($afterFirst->description, $afterSecond->description);
+        $this->assertSame('3.0.0', $afterSecond->version);
+    }
+
+    public function test_two_rooms_migration_is_reversible(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->v2ProductionRow();
+        $this->runTwoRoomsMigration('up');
+        $this->runTwoRoomsMigration('down');
+
+        $venue = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+        $this->assertSame('2.1.0', $venue->version, 'down() restores the v2.1 version of record');
+        $config = json_decode((string) $venue->visual_config, true);
+
+        $byId = collect($config['structure'])->keyBy('id');
+        $this->assertArrayNotHasKey('salon-curtain', $byId, 'the curtain comes back off');
+        $this->assertSame(0.74, $byId['door-leaf-l']['size'][0] ?? null, 'the v2.1 door is restored');
+        $this->assertArrayHasKey('rose-disc', $byId, 'the single rose is restored');
+        $this->assertArrayNotHasKey('rose-disc-b', $byId, 'the second rose comes back off');
+        $this->assertSame(['wall' => 'back', 'width' => 1.9, 'max_width' => 1.2], $config['placement']['keep_clear'] ?? null,
+            'the v2.1 keep_clear is restored');
+        $this->assertArrayNotHasKey('room_divider', $config['placement'], 'the divider plan comes back off');
+        $this->assertStringContainsString('doorcase', (string) $venue->description);
+    }
+
+    public function test_two_rooms_migration_noops_on_a_fresh_v3_install(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $before = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+
+        $this->runTwoRoomsMigration('up');
+
+        $after = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+        $this->assertSame($before->visual_config, $after->visual_config,
+            'the seeder already ships v3.0.0 — the migration must write nothing.');
+        $this->assertSame('3.0.0', $after->version);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -524,7 +649,7 @@ class VenueSalonIterationTest extends TestCase
         $this->assertIsArray($placement, '[the-salon] declares a placement block.');
 
         $this->assertSame('intimate', $placement['density'] ?? null,
-            'the salon-close ~2.8 m rhythm is the venue\'s declared hang.');
+            'the salon-close rhythm is the venue\'s declared hang.');
         $this->assertTrue($placement['pair_orientation'] ?? false,
             'orientation-aware pairing composes the wall runs.');
         $this->assertSame('front', $placement['focal_wall'] ?? null,
@@ -532,13 +657,12 @@ class VenueSalonIterationTest extends TestCase
         $this->assertSame(12.6, $placement['wall_length_cap'] ?? null,
             'the room stays domestic at any count (the v1 hall defect is dead).');
         $this->assertSame(2, $placement['salon_rows'] ?? null,
-            'the two-line salon hang engages when the cap bites.');
-        $this->assertSame('back', $placement['keep_clear']['wall'] ?? null,
-            'the doorcase keeps its wall — the architectural threshold.');
-        $this->assertSame(1.9, $placement['keep_clear']['width'] ?? null,
-            'the keep-clear spans the double-leaf assembly (1.66 m) plus its breathing room.');
-        $this->assertSame(1.2, $placement['keep_clear']['max_width'] ?? null,
-            'works beside the threshold take the near-door canvas cap — frames clear the assembly edge-wise.');
+            'the two-line salon hang is the venue read.');
+        $this->assertSame(['at' => 0.5, 'opening' => 2.4, 'keep' => 0.55, 'door_keep' => 1.15, 'spacing' => 2.4],
+            $placement['room_divider'] ?? null,
+            'the two-room divider plan: the curtain plane at mid-depth, the 2.4 m walk gap, the fabric keep, the door keep, the closer two-room rhythm.');
+        $this->assertArrayNotHasKey('keep_clear', $placement,
+            'keep_clear is superseded — the segment plan holds the door wall.');
         $this->assertNotEmpty($placement['row_caps'] ?? [],
             'per-row size caps: large works at eye, smaller above.');
 
@@ -554,8 +678,8 @@ class VenueSalonIterationTest extends TestCase
         $structure = $this->salonVisualConfig()['structure'] ?? null;
 
         $this->assertIsArray($structure);
-        $this->assertCount(49, $structure,
-            '20 wall trim pieces + doorcase (11: double leaf ×2, panels ×4, jambs ×2, head, overdoor, knob) + bench (3) + chairs (8) + table (3) + rug + rose (3) = 49.');
+        $this->assertCount(56, $structure,
+            '20 wall trim pieces + doorcase (14: leaves ×2, panels ×4, jambs ×2, head, overdoor, knobs ×2, backplates ×2) + curtain + bench (3) + chairs (8) + table (3) + rug + roses (6) = 56.');
 
         foreach ($structure as $el) {
             $this->assertContains($el['primitive'] ?? null, self::CLOSED_PRIMITIVES,
@@ -575,23 +699,38 @@ class VenueSalonIterationTest extends TestCase
         foreach (['base-front', 'field-front', 'rail-front', 'cornice-front', 'cove-front'] as $wallPiece) {
             $this->assertContains($wallPiece, $ids, "the per-wall architecture exists ([{$wallPiece}]).");
         }
-        foreach (['door-leaf-l', 'door-leaf-r', 'door-panel-ll', 'door-panel-lu', 'door-panel-rl', 'door-panel-ru', 'door-jamb-l', 'door-jamb-r', 'door-head', 'door-overdoor', 'door-knob'] as $door) {
+        foreach (['door-leaf-l', 'door-leaf-r', 'door-panel-ll', 'door-panel-lu', 'door-panel-rl', 'door-panel-ru', 'door-jamb-l', 'door-jamb-r', 'door-head', 'door-overdoor', 'door-knob-l', 'door-knob-r', 'door-plate-l', 'door-plate-r'] as $door) {
             $this->assertContains($door, $ids, "the threshold exists ([{$door}]).");
         }
-        $this->assertNotContains('door-leaf', $ids, 'the single-leaf v2 threshold is gone — the enfilade door is a double leaf.');
+        $this->assertNotContains('door-leaf', $ids, 'the single-leaf v2 threshold is gone.');
+        $this->assertNotContains('door-knob', $ids, 'the single-knob v2.1 form is gone — both meeting stiles carry hardware.');
+        foreach (['rose-disc-a', 'rose-ring-a', 'rose-glow-a', 'rose-disc-b', 'rose-ring-b', 'rose-glow-b'] as $rose) {
+            $this->assertContains($rose, $ids, "both rooms carry a ceiling rose ([{$rose}]).");
+        }
+        $this->assertNotContains('rose-disc', $ids, 'the single-room rose is retired.');
         foreach (['chair-a-seat', 'chair-b-seat', 'table-top', 'rug', 'bench-top'] as $furniture) {
             $this->assertContains($furniture, $ids, "the social layer exists ([{$furniture}]).");
         }
-        foreach (['rose-disc', 'rose-ring', 'rose-glow'] as $rose) {
-            $this->assertContains($rose, $ids, "the ceiling rose exists ([{$rose}]).");
-        }
+
+        // THE v3 identity element: the curtain
+        $curtain = collect($structure)->firstWhere('id', 'salon-curtain');
+        $this->assertNotNull($curtain, 'the two-room curtain exists.');
+        $this->assertSame('curtain', $curtain['primitive'], 'the curtain is the parametric primitive.');
+        $this->assertTrue((bool) ($curtain['collide'] ?? false),
+            'the fabric registers collision — the opening is the walk gap (the v2.0 walk-through defect is dead).');
+        $this->assertSame('double', $curtain['material']['side'] ?? null,
+            'the fabric reads from both rooms.');
+        $this->assertSame(2.4, $curtain['params']['opening'] ?? null,
+            'the declared walk gap matches the placement plan opening.');
+        $this->assertSame(2.4, $this->salonVisualConfig()['placement']['room_divider']['opening'] ?? null,
+            'structure and placement agree on the walk gap (one number, one truth).');
 
         // collision discipline: walkable things never collide, solid things do
         $colliding = array_column(array_filter($structure, fn ($e) => !empty($e['collide'])), 'id');
         $this->assertEqualsCanonicalizing(
-            ['bench-top', 'chair-a-seat', 'chair-b-seat', 'table-top'],
+            ['bench-top', 'chair-a-seat', 'chair-b-seat', 'table-top', 'salon-curtain'],
             $colliding,
-            'exactly the four solid furniture pieces register collision.'
+            'exactly the four solid furniture pieces AND the curtain fabric register collision.'
         );
         $rug = collect($structure)->firstWhere('id', 'rug');
         $this->assertEmpty($rug['collide'] ?? null, 'the rug is walkable.');
@@ -648,6 +787,8 @@ class VenueSalonIterationTest extends TestCase
         $this->assertTrue(is_array($galleryData['venueConfig']['visual_config'] ?? null)
             && isset($galleryData['venueConfig']['visual_config']['placement']),
             'The preview payload carries the placement block end-to-end (exporter → runtime).');
+        $this->assertSame('3.0.0', $galleryData['venueConfig']['version'] ?? null,
+            'the payload version ships to the viewer — a stale deploy is console-diagnosable.');
         $this->assertStringContainsString('salon', (string) $response->viewData('sampleNote'),
             'The curated curtain note names the salon rationale.');
     }

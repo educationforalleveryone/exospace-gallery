@@ -541,6 +541,15 @@ export class GalleryScene {
         // stalls, not the GPU — a healthy RX 580 was falsely downgraded
         // to low-end at "13.1 fps").
         this._assetsSettledAt = performance.now();
+        // v3.0.0 field diagnosability: one line that names the venue payload
+        // actually SERVED (window.GALLERY_DATA is embedded per page load by
+        // the blade view). A stale deployment (migrations not yet run) shows
+        // the old version here even on a brand-new bundle — the exact
+        // failure mode that hid the salon v2.1 door fix in production.
+        const servedVersion = window.GALLERY_DATA?.venueConfig?.version;
+        if (servedVersion || this._venueSlug) {
+            console.info(`[venue] slug="${this._venueSlug || 'unknown'}" payload_version="${servedVersion || 'n/a'}"`);
+        }
         console.log('✅ Loading complete — gallery ready');
     }
 

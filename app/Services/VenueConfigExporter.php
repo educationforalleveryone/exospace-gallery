@@ -435,6 +435,11 @@ class VenueConfigExporter
             $venue->plan_required,
             $venue->is_draft,
             $venue->is_active,
+            // v3.0.0: the declared payload version joins the fingerprint so
+            // even a version-only rewrite re-keys the flexible cache — a
+            // content-identical-but-version-bumped migration must not wait
+            // out the 1 h fresh + 2 h stale window.
+            $venue->version,
             $venue->archived_at?->timestamp,
         ])), 0, 16);
     }

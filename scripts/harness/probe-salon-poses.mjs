@@ -24,14 +24,22 @@ const server = createServer((req, res) => {
 });
 await new Promise(r => server.listen(PORT, r));
 
+// v3 "two rooms" poses — the room spans ±L/2 (L 8.0–12.6 by count), the
+// curtain stands at z=0 with its 2.4 m opening, the hero wall is at z=−L/2
+// (front), the walnut double door on z=+L/2 (back). Poses use count-24
+// geometry (L=11.2, half 5.6) unless noted; the camera-space checks in the
+// walk probe cover the rest.
 const POSES = [
-    { id: 'spawn',        p: [0, 1.6, 0],        t: [0, 1.55, -4.2] },
-    { id: 'corner',       p: [-3.0, 1.62, 3.0],  t: [1.6, 1.5, -1.6] },
-    { id: 'doorway',      p: [0, 1.62, 0.8],     t: [0, 1.5, 4.2] },
-    { id: 'hero-close',   p: [-1.4, 1.62, -2.0], t: [-1.4, 1.5, -4.2] },
-    { id: 'along-left',   p: [-2.9, 1.62, -2.9], t: [3.0, 1.5, 3.0] },
-    { id: 'seating',      p: [-0.5, 1.62, 0.2],  t: [2.4, 1.0, 2.4] },
-    { id: 'upper-row',    p: [0, 1.62, 1.6],     t: [-1.4, 2.9, -4.2] },
+    { id: 'spawn-view',    p: [0, 1.6, 4.9],      t: [0, 1.5, -5.4] },   // arrival: hero THROUGH the opening
+    { id: 'opening',       p: [0, 1.58, 1.6],     t: [0, 1.5, -5.4] },   // the opening sightline
+    { id: 'curtain-front', p: [0, 1.55, 1.9],     t: [0, 1.45, 0.0] },   // the fabric face-on (room A side)
+    { id: 'curtain-tie',   p: [-2.2, 1.5, 1.4],   t: [-1.15, 1.15, 0.0] }, // the tie band + gathered waist
+    { id: 'room-a-door',   p: [0, 1.6, 1.2],      t: [0, 1.5, 5.4] },    // the walnut double door
+    { id: 'room-b-hero',   p: [0, 1.6, -1.4],     t: [0, 1.5, -5.35] },  // hero wall + bench
+    { id: 'room-b-back',   p: [2.4, 1.6, -2.8],   t: [-1.2, 1.45, 0.6] },// looking back at the curtain from room B
+    { id: 'room-a-corner', p: [-2.5, 1.62, 3.6],  t: [1.8, 1.4, 0.2] },  // conversation corner + curtain
+    { id: 'along-left-b',  p: [-4.9, 1.62, -2.2], t: [3.0, 1.4, -4.9] }, // room B hang along the west wall
+    { id: 'upper-row',     p: [0, 1.62, -1.2],    t: [-1.6, 2.9, -5.3] },// the upper salon line
 ];
 
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -64,7 +72,20 @@ for (let i = 0; i < 5; i++) {
 await page.waitForTimeout(1500); // capture BEFORE the fps benchmark downgrades
 
 const cdp = await page.context().newCDPSession(page);
+// Room-size the poses: they are authored against count-24 geometry
+// (half-depth 5.9); scale the horizontal components so every count's
+// camera stands INSIDE its room.
+const scale = await page.evaluate(() => {
+    const s = window.__exospace.scene;
+    const L = s._layoutMeta?.wallLength || 11.8;
+    return (L / 2) / 5.9;
+});
 for (const pose of POSES) {
+    const sized = {
+        id: pose.id,
+        p: [pose.p[0] * scale, pose.p[1], pose.p[2] * scale],
+        t: [pose.t[0] * scale, pose.t[1], pose.t[2] * scale],
+    };
     await page.evaluate((pose) => {
         const s = window.__exospace.scene;
         // stop the RAF chain — the loop is the only thing that overwrites
@@ -77,7 +98,7 @@ for (const pose of POSES) {
         s.updateProximityLighting && s.updateProximityLighting();
         if (s._postFx && !s.isLowEnd) s._postFx.render();
         else s.renderer.render(s.scene, s.camera);
-    }, pose);
+    }, sized);
     const shot = await cdp.send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(join(outDir, `${pose.id}.png`), Buffer.from(shot.data, 'base64'));
     if (pose.id === 'spawn') {
