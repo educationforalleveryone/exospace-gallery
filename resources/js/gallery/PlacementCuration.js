@@ -375,15 +375,34 @@ export function resolveDividerHang(placement, imageCount, fallbackSpacing, minWa
     // every work. Scanning up from minWall keeps rooms as small as the
     // divider allows — the two-room read is the point.
     let wallLength = cap;
+    let fitsAtCap = false;
     const steps = Math.max(1, Math.round((cap - minWall) / 0.1));
     for (let i = 0; i <= steps; i++) {
         const L = Math.min(cap, minWall + i * 0.1);
-        if (linesFor(L).remaining === 0) { wallLength = L; break; }
+        if (linesFor(L).remaining === 0) { wallLength = L; fitsAtCap = true; break; }
+    }
+    // ── FIX (root-cause): wall_length_cap was a HARD ceiling — once a
+    // gallery's image count needed more room than the cap allowed, the loop
+    // above never found a zero-remaining L, wallLength stayed pinned at cap,
+    // and the "defensive normalisation" below stuffed the leftover frames
+    // into already max-sized lines WITHOUT growing the segment — frames
+    // overlapped each other, the wall corners, and the door. The cap is now
+    // a PREFERRED ceiling: if nothing up to cap fits everyone, keep growing
+    // past it (0.1 m steps, generously bounded) until every work has a real
+    // slot. Venues within their cap are byte-identical to before.
+    if (!fitsAtCap) {
+        let L = cap;
+        let guard = 0;
+        while (linesFor(L).remaining > 0 && guard < 4000) {
+            L += 0.1;
+            guard++;
+        }
+        wallLength = L;
     }
 
     let { segs, lines, remaining } = linesFor(wallLength);
-    // Defensive normalisation (a mis-sized config must never unplace a
-    // work): top up non-hero lines by pairs — bounded greed, deterministic.
+    // Defensive normalisation — should be a no-op now that sizing always
+    // grows to fit; kept as a last-resort safety net only.
     if (remaining > 0) {
         for (const ln of lines) {
             if (remaining <= 0) break;

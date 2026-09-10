@@ -710,11 +710,23 @@ function buildCurtain(ctx, e, pos, finishMesh) {
             const x = xIn + (xOut - xIn) * u;
             parts.push({ geo: new THREE.TorusGeometry(0.042, 0.011, 8, 18), pos: [pos[0] + x, rodY, pos[2]], rot: [0, Math.PI / 2, 0] });
         }
-        // tie band around the gathered waist
+        // Tie band around the gathered waist — must sit ON the fabric, not
+        // on the flat curtain plane. _curtainPanelGeometry folds the cloth
+        // in Z via amp·env(v)·sin(u·folds·2π+phase), and env(v) PEAKS at
+        // v = tieV (the Gaussian bump term is 1 there) — the gathered waist
+        // is exactly where the fold depth is amplified. This hardware used
+        // pos[2] (the flat plane) with no fold term, so the ring sat up to
+        // amp·env(tieV) ≈ 0.13–0.15 m in front of/behind the actual puckered
+        // cloth — a visibly detached ring "floating" near the curtain.
+        // u mirrors the panel geometry's parametrisation (u=0 at the wall
+        // edge, x = xOut − side·u·width); at v=tieV, widthAt(tieV) = waist.
         const span = Math.abs(xOut - xIn);
         const waist = span * (1 - gather);
         const xTie = xOut - side * (waist / 2 + 0.02);
-        parts.push({ geo: new THREE.TorusGeometry(0.14, 0.02, 8, 22), pos: [pos[0] + xTie, tieY, pos[2]], rot: [Math.PI / 2, 0, 0] });
+        const tieU = 0.5 + 0.02 / waist;
+        const tieEnv = 1 + 0.5 + 0.3 * tieV * tieV * tieV; // env(tieV): exp term = 1 at v=tieV
+        const tieFoldZ = amp * tieEnv * Math.sin(tieU * folds * Math.PI * 2 + phase);
+        parts.push({ geo: new THREE.TorusGeometry(0.14, 0.02, 8, 22), pos: [pos[0] + xTie, tieY, pos[2] + tieFoldZ], rot: [Math.PI / 2, 0, 0] });
     }
     const hwMesh = new THREE.Mesh(mergeParts(parts), hwMat);
     parts.forEach(pt => pt.geo.dispose());
