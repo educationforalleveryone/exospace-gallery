@@ -348,6 +348,32 @@ const SCENARIOS = [
     { id: 'lake-cam-backside',    q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
       cam: { p: [-4.4, 1.62, -9.4], t: [-4.4, 1.6, -6.5] } },
     { id: 'lake-tier-low-12',     q: 'venue=mirror-lake&tier=low&reflect=0&assets=0&count=12', tier: 'low' },
+    // ── THE SALON — Iteration 8 production pass ───────────────────────────
+    // Count scaling: 1, 8 (the curated preview hang), 12, 30 (capacity
+    // ceiling). Orientation stress: portrait-heavy (the salon's declared
+    // strength). Spawn view + low tier.
+    { id: 'salon-01',             q: 'venue=the-salon&count=1' },
+    { id: 'salon-08-mixed',       q: 'venue=the-salon&count=8' },
+    { id: 'salon-12-mixed',       q: 'venue=the-salon&count=12' },
+    { id: 'salon-30-mixed',       q: 'venue=the-salon&count=30' },
+    { id: 'salon-08-portrait',    q: 'venue=the-salon&count=8&orient=portrait' },
+    { id: 'salon-tier-low-08',    q: 'venue=the-salon&count=8', tier: 'low' },
+    // Forensic poses for a 12-work square (8.4 m room): the spawn read, a
+    // corner view across the room, the doorcase wall, and a close approach
+    // at conversational distance.
+    { id: 'salon-cam-spawn',      q: 'venue=the-salon&count=12' },
+    { id: 'salon-cam-corner',     q: 'venue=the-salon&count=12',
+      cam: { p: [-3.1, 1.62, 3.1], t: [1.5, 1.5, -1.5] } },
+    { id: 'salon-cam-door',       q: 'venue=the-salon&count=12',
+      cam: { p: [0, 1.62, -2.6],  t: [0, 1.5, 4.2] } },
+    { id: 'salon-cam-close',      q: 'venue=the-salon&count=12',
+      cam: { p: [-1.4, 1.62, -2.2], t: [-1.4, 1.55, -4.2] } },
+    { id: 'salon-cam-high',       q: 'venue=the-salon&count=12',
+      cam: { p: [0, 3.0, 3.4],    t: [0, 1.2, -3] } },
+    { id: 'salon-cam-front',      q: 'venue=the-salon&count=12',
+      cam: { p: [0, 1.62, 3.2],   t: [0, 1.5, -4.2] } },
+    { id: 'salon-cam-left',       q: 'venue=the-salon&count=12',
+      cam: { p: [2.6, 1.62, 0],   t: [-4.2, 1.5, 0] } },
 ];
 
 const tierInit = {

@@ -16,7 +16,7 @@ import { CONFIG } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
 import { computeFloatLayout } from './PlacementMath.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
-import { pairByOrientation, focalWallOf, isFocalHero, FOCAL } from './PlacementCuration.js';
+import { pairByOrientation, focalWallOf, isFocalHero, FOCAL, resolveSquareHang } from './PlacementCuration.js';
 
 // ── Shared placeholder texture (PERF-C9) ─────────────────────────────────────
 // A 1×1 dark-tinted texture used when neither the real artwork nor a
@@ -96,6 +96,31 @@ export function squareRunPlan(imageCount, distribute, spacing, wallCount,
     return { wallLength, imagesPerWall, runCounts };
 }
 
+// ── Square LINE plan (Salon iteration — rows-aware sizing, pure) ─────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// The rows-aware counterpart of squareRunPlan: `hang` is resolveSquareHang's
+// output ({ rows, perLine, keep } — or null for the historic single line).
+// Sizing and the per-LINE run counts (hang order: wall by wall, row 0 before
+// row 1) come from ONE math, so RoomBuilder's room and the placer's hang can
+// never disagree. With rows = 1 the plan reduces exactly to squareRunPlan's
+// sizing (bit-identical rooms for venues that declare nothing).
+export function squareLinePlan(imageCount, spacing, wallCount, minWallLength, hang) {
+    const rows    = (hang && hang.rows > 1) ? hang.rows : 1;
+    const perLine = (hang && hang.perLine > 0)
+        ? hang.perLine
+        : Math.ceil(imageCount / wallCount);
+    const wallLength = Math.max(minWallLength, perLine * spacing + spacing);
+    const lines = [];
+    const lineCount = wallCount * rows;
+    for (let i = 0; i < lineCount; i++) {
+        const c = Math.min(perLine, Math.max(0, imageCount - i * perLine));
+        lines.push(c);
+        if (c <= 0 && i >= wallCount) break;   // row-1 lines may stay empty
+    }
+    while (lines.length < lineCount) lines.push(0);
+    return { wallLength, rows, perLine, lines };
+}
+
 // ── L-shape row plan (pure, shared by the l-shape placer AND structure passes)
 // ─────────────────────────────────────────────────────────────────────────────
 // Mirrors the alternating-face walk: rows step zStart→zLimit by `spacing`,
@@ -156,11 +181,41 @@ export function wallInset(depth = CONFIG.room.wallDepth) {
 //   4. Focal wall (placement.focal_wall) gives the FIRST outer-wall piece on
 //      that wall the hero treatment (scale + stronger pool, FOCAL consts);
 //      every other piece stays equal. Bay pieces never qualify.
+// Salon iteration (all opt-in — no keys ⇒ the legacy path byte-identical):
+//   5. placement.salon_rows + placement.wall_length_cap — the square hang
+//      wraps onto a SECOND line (large works at eye, smaller works above —
+//      the classic salon hang) whenever the one-row room would breach the
+//      declared wall-length cap. Room sizing shares ONE line plan with the
+//      placer (squareLinePlan) so they can never disagree.
+//   6. placement.keep_clear { wall, width } — no column may fall within
+//      width/2 of that wall's centre: the architectural threshold (a
+//      doorcase) keeps its wall. The nearest centre slot is dropped and the
+//      displaced work re-hangs on the last line with spare capacity.
+//   7. placement.row_caps / placement.upper_row_y — per-line canvas caps
+//      and the upper line's hang height (sane salon defaults).
 export function _placeArtworksSquare(data) {
     const imageCount = this.artworkImages.length;
     const spacing    = CONFIG.room.artworkSpacing;
     const glazingWallId = this._glazing ? this._glazing.wallId : null;
     const wallCount  = glazingWallId ? 3 : 4;
+    const curation  = this._venuePlacement || {};
+    const focalWall = focalWallOf(curation);
+    // Orientation pairing (§6.4): a stable index permutation. With the key
+    // absent this is the identity — hang order untouched (default unchanged).
+    const order = curation.pair_orientation === true
+        ? pairByOrientation(this.artworkImages)
+        : this.artworkImages.map((_, i) => i);
+
+    // ── ROWS PATH — engaged only by declared keys (hang.rows > 1 or an
+    // active keep_clear). Every other square venue resolves exactly as
+    // before (§11.3 rule 2: the config is the only on-switch).
+    const hang = resolveSquareHang(curation, imageCount, wallCount, spacing,
+                                   CONFIG.room.minWallLength);
+    if ((hang.rows > 1 || hang.keep) && !glazingWallId) {
+        _placeArtworksSquareRows.call(this, data, { hang, order, focalWall });
+        return;
+    }
+
     // Room sizing comes from the SHARED pure helper — the 'bays' structure
     // pass consumes the same plan, so the framed architecture always wraps
     // the real hang (one math, never two).
@@ -176,14 +231,6 @@ export function _placeArtworksSquare(data) {
         { id: 'right', start: [ wallLength/2-inset,   eyeLevel, -wallLength/2+spacing], dir:[0,0,1],  normal:[-1,0,0] },
     ];
     const hangWalls = glazingWallId ? walls.filter(w => w.id !== glazingWallId) : walls;
-
-    const curation  = this._venuePlacement || {};
-    const focalWall = focalWallOf(curation);
-    // Orientation pairing (§6.4): a stable index permutation. With the key
-    // absent this is the identity — hang order untouched (default unchanged).
-    const order = curation.pair_orientation === true
-        ? pairByOrientation(this.artworkImages)
-        : this.artworkImages.map((_, i) => i);
 
     const bayPlan = _planBayHangs(imageCount, this._hangableSurfaces, spacing);
     const outerCount = imageCount - (bayPlan ? bayPlan.length : 0);
@@ -228,6 +275,139 @@ export function _placeArtworksSquare(data) {
         // first outer-wall piece on the declared focal wall.
         if (!focalHeroTaken && imgIdx < outerCount &&
             isFocalHero(focalWall, group.userData.wallId, false)) {
+            group.scale.multiplyScalar(FOCAL.scaleBoost);
+            const ud = group.userData;
+            if (ud.lightMax != null)  ud.lightMax  *= FOCAL.lightBoost;
+            if (ud.lightBase != null) ud.lightBase *= FOCAL.lightBoost;
+            focalHeroTaken = true;
+        }
+    }
+}
+
+// ── Per-line canvas caps (Salon rows) ────────────────────────────────────────
+// Large works at eye, smaller works above — the salon hang's size hierarchy
+// is what keeps a two-line wall legible (and what keeps the two lines from
+// ever touching). Declared override: placement.row_caps (an array of
+// { maxWidth, maxHeight } entries; the last entry covers further rows).
+export const SALON_ROW_CAPS = Object.freeze([
+    { maxWidth: 2.4, maxHeight: 1.45 },   // eye line
+    { maxWidth: 1.7, maxHeight: 0.84 },   // upper line
+]);
+
+// ── ROWS-path square hang (Salon iteration) ──────────────────────────────────
+// ctx = { hang: resolveSquareHang output, order: hang permutation, focalWall }
+// Hang order: wall by wall, row 0 before row 1 (salon walls fill bottom-up).
+// Sizing already agreed with RoomBuilder through squareLinePlan.
+export function _placeArtworksSquareRows(data, ctx) {
+    const { hang, order, focalWall } = ctx;
+    const imageCount = this.artworkImages.length;
+    const spacing    = CONFIG.room.artworkSpacing;
+    const eyeLevel   = CONFIG.camera.height;
+
+    const plan = squareLinePlan(imageCount, spacing, 4, CONFIG.room.minWallLength, hang);
+    const wallLength = plan.wallLength;
+    const inset = wallInset();
+    const walls = [
+        { id: 'front', start: [-wallLength/2+spacing, eyeLevel, -wallLength/2+inset], dir:[1,0,0],  normal:[0,0,1]  },
+        { id: 'back',  start: [ wallLength/2-spacing, eyeLevel,  wallLength/2-inset], dir:[-1,0,0], normal:[0,0,-1] },
+        { id: 'left',  start: [-wallLength/2+inset,   eyeLevel,  wallLength/2-spacing], dir:[0,0,-1], normal:[1,0,0]  },
+        { id: 'right', start: [ wallLength/2-inset,   eyeLevel, -wallLength/2+spacing], dir:[0,0,1],  normal:[-1,0,0] },
+    ];
+
+    const curation = this._venuePlacement || {};
+    const upperY = Number.isFinite(Number(curation.upper_row_y)) && Number(curation.upper_row_y) > 0
+        ? Number(curation.upper_row_y) : 2.98;
+    const rowCaps = (Array.isArray(curation.row_caps) && curation.row_caps.length)
+        ? curation.row_caps : SALON_ROW_CAPS;
+    // A keep_clear wall may cap the WIDTH of works hung beside its
+    // architecture (keep_clear.max_width) — the doorcase stays visible
+    // instead of being walled behind a wide canvas. 0/absent = no cap.
+    const keepMaxWidth = hang.keep
+        ? Math.max(0, Number(curation.keep_clear?.max_width) || 0) : 0;
+    const capFor = (row, wallId) => {
+        const c = rowCaps[Math.min(row, rowCaps.length - 1)] || {};
+        let mw = c.maxWidth;
+        if (hang.keep && wallId === hang.keep.wall && keepMaxWidth > 0) {
+            mw = mw > 0 ? Math.min(mw, keepMaxWidth) : keepMaxWidth;
+        }
+        return { maxWidth: mw, maxHeight: c.maxHeight };
+    };
+
+    // Keep-clear lines (the door wall's lines): back wall = wall index 1 →
+    // lines 1 and 1+4. An ODD run drops its centre slot.
+    const keepLines = new Set();
+    if (hang.keep) {
+        const kw = walls.findIndex(w => w.id === hang.keep.wall);
+        if (kw >= 0) for (let r = 0; r < plan.rows; r++) keepLines.add(kw + r * 4);
+    }
+
+    const counts = plan.lines.slice(0, 4 * plan.rows);
+    let displaced = 0;
+    for (const li of keepLines) {
+        if (li < counts.length && counts[li] % 2 === 1) { counts[li] -= 1; displaced += 1; }
+    }
+    // Displaced works re-hang on the last line with spare capacity — never a
+    // keep line (its dropped centre must stay dropped). Deterministic scan.
+    for (let d = 0; d < displaced; d++) {
+        for (let i = counts.length - 1; i >= 0; i--) {
+            if (!keepLines.has(i) && counts[i] < plan.perLine + 1) { counts[i] += 1; break; }
+        }
+    }
+    // Defensive normalisation (a mis-sized config must never unplace a
+    // work): top up non-keep lines until every work has a slot.
+    let total = counts.reduce((a, b) => a + b, 0);
+    for (let guard = 0; total < imageCount && guard < 16; guard++) {
+        let best = -1;
+        for (let i = counts.length - 1; i >= 0; i--) {
+            if (!keepLines.has(i) && (best === -1 || counts[i] <= counts[best])) best = i;
+        }
+        if (best === -1) break;
+        counts[best] += 1; total += 1;
+    }
+
+    // Slots in hang order: wall by wall, row 0 before row 1.
+    const slots = [];
+    for (let w = 0; w < 4; w++) {
+        for (let r = 0; r < plan.rows; r++) {
+            const n = counts[w + r * 4] || 0;
+            if (n <= 0) continue;
+            const y = r === 0 ? eyeLevel : upperY;
+            for (let p = 0; p < n; p++) {
+                const off = wallRunOffset(n, p, spacing, wallLength) - spacing;
+                slots.push({ wall: walls[w], row: r, y, off });
+            }
+        }
+    }
+
+    let focalHeroTaken = false;
+    let si = 0;
+    for (const imgIdx of order) {
+        const img = this.artworkImages[imgIdx];
+        const s = si < slots.length ? slots[si] : null;
+        const caps = s ? capFor(s.row, s.wall.id) : capFor(0, null);
+        const { group } = this.makeArtworkGroup(img, data, {
+            maxWidth: caps.maxWidth, maxHeight: caps.maxHeight,
+        });
+        if (s) {
+            const wall = s.wall;
+            group.position.set(wall.start[0]+wall.dir[0]*s.off, s.y, wall.start[2]+wall.dir[2]*s.off);
+            group.lookAt(group.position.x+wall.normal[0], s.y, group.position.z+wall.normal[2]);
+            group.userData.wallId = wall.id;
+            group.userData.row = s.row;
+            si++;
+        } else {
+            // Unreachable with the shared plan (the normalisation above
+            // guarantees slots ≥ works); if a pathological build ever lands
+            // here the work still hangs — room centre, eye level — instead
+            // of vanishing.
+            console.warn('[placer] square rows: slot shortfall — work hung centre');
+            group.position.set(0, eyeLevel, 0);
+        }
+        this.placeAndRegister(group, data);
+
+        // Focal hero treatment (§6.5) — same one-shot contract as the
+        // legacy path; the hero is the first piece on the focal wall.
+        if (!focalHeroTaken && isFocalHero(focalWall, group.userData.wallId, false)) {
             group.scale.multiplyScalar(FOCAL.scaleBoost);
             const ud = group.userData;
             if (ud.lightMax != null)  ud.lightMax  *= FOCAL.lightBoost;
@@ -708,7 +888,10 @@ export function _addEasel(x, z, canvasYaw, groundY = 0, scale = 1) {
 // full-quality texture streams in.
 export function makeArtworkGroup(img, data, opts = {}) {
     const aspectRatio = img.aspectRatio || 1;
-    const maxHeight   = 2.0;
+    // Salon iteration: a per-call HEIGHT cap joins the width cap (the upper
+    // salon line hangs smaller works; defaults keep every existing caller
+    // at the historic 2.0 m).
+    const maxHeight   = Number(opts.maxHeight) > 0 ? Number(opts.maxHeight) : 2.0;
     // QA FIX (post-implementation pass): the 3.0 m shared width cap let two
     // adjacent wide landscapes on Mirror Lake's 2.7 m berth line physically
     // intersect (frames overlapping ~0.45 m). Venues with tighter hang

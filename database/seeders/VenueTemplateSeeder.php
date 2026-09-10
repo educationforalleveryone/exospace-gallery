@@ -1486,22 +1486,46 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 12. The Salon — Pro (Iteration 8, roadmap P3.2)
+            // 12. The Salon — Pro (v2.0.0 "The Collector's Salon")
             // ─────────────────────────────────────────────────────────────
-            // The catalog's first pipeline-born venue (§16.7: brief →
-            // descriptors → preview → publish). Family: Room. One idea:
-            // close-hung warmth. Placement block = the first seeded USE of
-            // the IT6 curation machinery, as DECLARED venue character
-            // (density 'intimate' ≈ 2.8 m rhythm + §6.4 orientation
-            // pairing). No focal wall: hierarchy stays "carefully" — every
-            // wall reads equal (the brief assigns focal treatment to the
-            // grand hall, not the salon). Structure is domestic-scale and
-            // anchor-based (wall-fit picture rail, centre bench, rug), so
-            // it adapts to any square room the admin configures.
+            // The production pass over the Iteration 8 stub. The v1.0.0
+            // body (a default square room + rail/bench/rug descriptors)
+            // was superseded by the audit: rails clipping the artwork
+            // frames, declared colours dead on textured builds (no
+            // texture_tint), a murk rig that starved the canvases, and a
+            // room that scaled to a 25 m hall at the capacity ceiling.
+            // v2.0.0 is the authored venue:
+            //   intimate PLAN   — wall_length_cap 12.6 m + the two-line
+            //                     salon hang keeps every count 5–30 inside
+            //                     domestic proportions (8.4–14 m walls);
+            //   cultured SECTION — 3.8 m ceiling, baseboard → ivory
+            //                     hanging field → picture rail → lit
+            //                     cornice reveal → plaster ceiling rose;
+            //   enfilade AXIS   — the walnut doorcase behind the spawn,
+            //                     the hero wall + bench ahead (keep_clear
+            //                     holds the door wall; the hang flows
+            //                     around it, capped narrow beside it);
+            //   salon HANG      — large works at eye, smaller above
+            //                     (row_caps), intimate 2.8 m rhythm,
+            //                     orientation pairing, focal hero;
+            //   social CORNER   — two armchairs + a round table on a rug,
+            //                     off the arrival sightline;
+            //   warm READABLE rig — exposure 1.0, ambient 0.5, artwork
+            //                     standing glow 0.3, texture_tint on,
+            //                     classic frames, bloom off.
+            // All placement keys are interpreted by the SHARED pure helpers
+            // (PlacementCuration.resolveSquareHang + ArtworkPlacer.
+            // squareLinePlan) — room sizing and the hang can never
+            // disagree. Descriptors render generically through
+            // StructureBuilder (zero venue JS — DoD rule #7). Production
+            // rows are rewritten by the GUARDED migration
+            // 2026_09_10_000001_salon_collector_identity; this seeder is
+            // the fresh-install baseline and the payloads stay pinned
+            // byte-equal by VenueSalonIterationTest.
             [
                 'name'          => 'The Salon',
                 'slug'          => 'the-salon',
-                'description'   => 'A small, warm room in the domestic tradition: works hung close together at conversational distance, a wooden picture rail and a bench, under soft warm light. Made for studies, prints, photography and portrait formats.',
+                'description'   => 'A warm collector\u2019s salon in the domestic tradition: a doorcase behind you, a hero wall ahead, works hung salon-style \u2014 large at eye level, smaller above \u2014 between walnut trim and a picture rail, under a coved warm light. Made for studies, prints, photography and portrait formats.,',
                 'category'      => 'classic',
                 'tags'          => ['salon', 'warm', 'intimate', 'portrait'],
                 'plan_required' => 'pro',
@@ -1509,67 +1533,113 @@ class VenueTemplateSeeder extends Seeder
                 'capacity_max'  => 30,
                 'sort_order'    => 12,
                 'is_featured'   => false,
-                'version'       => '1.0.0',
+                'version'       => '2.0.0',
                 'default_settings' => [
-                    'wall_texture'    => 'white',
+                    'wall_texture'    => 'plaster',
                     'floor_material'  => 'wood',
                     'lighting_preset'  => 'bright',
-                    'frame_style'     => 'minimal',
+                    'frame_style'     => 'classic',
                     'room_layout'     => 'square',
                 ],
                 'visual_config' => [
-                    'wall_height'            => 3.0,
-                    'wall_depth'             => 0.15,
-                    'ceiling_type'           => 'flat',
-                    'ceiling_color'          => '0x2b241a',
-                    'ceiling_height'         => 3.0,
-                    'background_color'       => '0x1d1712',
-                    'fog_color'              => '0x1d1712',
-                    'fog_near'               => 10,
-                    'fog_far'                => 32,
-                    'ambient_color'          => '0xffdcae',
-                    'ambient_intensity'      => 0.26,
-                    'spot_intensity'         => 0.5,
-                    'fill_intensity'         => 0.16,
-                    'tone_mapping_exposure'  => 0.6,
-                    'frame_override'         => null,
-                    // ── Iteration 8 declared identity (rollback = remove
-                    // these keys — the venue reverts to a plain default
-                    // room, live; no deploy, no flag).
-                    'structure_pass'        => 'rooms',
-                    'placement'             => [
-                        'density'          => 'intimate',  // §6.3 — ~2.8 m salon-close rhythm
-                        'pair_orientation' => true,        // §6.4 — portrait/landscape interleave
+                    'wall_height'             => 3.8,
+                    'wall_depth'              => 0.15,
+                    'ceiling_type'            => 'flat',
+                    'ceiling_color'           => '0xd8cbb0',
+                    'ceiling_height'          => 3.8,
+                    'background_color'        => '0x171310',
+                    'fog_color'               => '0x171310',
+                    'fog_near'                => 22,
+                    'fog_far'                 => 70,
+                    'ambient_color'           => '0xffe9cf',
+                    'ambient_intensity'       => 0.5,
+                    'spot_intensity'          => 1.5,
+                    'fill_intensity'          => 0.8,
+                    'tone_mapping_exposure'   => 1.0,
+                    'frame_override'          => 'classic',
+                    'environment'             => 'studio',
+                    'env_intensity'           => 0.18,
+                    'hemisphere_intensity'    => 0.22,
+                    'hemisphere_sky_color'    => '0xfff1dc',
+                    'hemisphere_ground_color' => '0x4a3f33',
+                    'artwork_light_base'      => 0.3,
+                    'artwork_light_pool_cap'  => 12,
+                    'structure_pass'          => 'rooms',
+                    'placement'               => [
+                        'density'          => 'intimate',   // salon-close ~2.8 m rhythm
+                        'pair_orientation' => true,         // portrait/landscape interleave
+                        'focal_wall'       => 'front',      // the hero wall the arrival faces
+                        'wall_length_cap'  => 12.6,   // the room stays domestic at any count
+                        'salon_rows'       => 2,            // the two-line salon hang when the cap bites
+                        'upper_row_y'      => 2.98,         // upper hang centre (eye = 1.6)
+                        'keep_clear'       => ['wall' => 'back', 'width' => 1.05, 'max_width' => 1.6],
+                        'row_caps'         => [
+                            ['maxWidth' => 2.4, 'maxHeight' => 1.45],   // eye line — large works
+                            ['maxWidth' => 1.7, 'maxHeight' => 0.84],   // upper line — smaller works
+                        ],
                     ],
-                    'structure'              => [
-            // ── Picture rail — one thin timber line fitted to each wall
-            // (fit: 'wall' stretches it to the wall span, minus corner
-            // pads). The salon-wall convention made physical.
-            ['id' => 'rail-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
-            ['id' => 'rail-back',  'primitive' => 'box', 'at' => ['from' => 'wall_back',  'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
-            ['id' => 'rail-left',  'primitive' => 'box', 'at' => ['from' => 'wall_left',  'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
-            ['id' => 'rail-right', 'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
-            // ── Bench — the domestic datum (§4.5 convention, centred),
-            // colliding so walkers respect it.
-            ['id' => 'bench-top',  'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0, 0.42, 1.4]], 'turn' => 'in', 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'salon-bench', 'tier_floor' => 'low'],
-            ['id' => 'bench-leg-l', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [-0.65, 0.19, 1.4]], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'salon-bench', 'tier_floor' => 'low'],
-            ['id' => 'bench-leg-r', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0.65, 0.19, 1.4]], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'salon-bench', 'tier_floor' => 'low'],
-            // ── Rug — the one warm floor note. Flat: walkable, not an
-            // obstacle (no collide), cheapest tier renders it.
-            ['id' => 'rug', 'primitive' => 'plane', 'at' => ['from' => 'center', 'offset' => [0, 0.012, 1.4]], 'rot' => [-1.5707963, 0, 0], 'size' => [2.6, 1.8], 'material' => 'fabric_warm', 'tier_floor' => 'low'],
-        ],
+                    'structure'               => [
+                        ['id' => 'base-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.09, 0.0]], 'size' => [1, 0.18, 0.024], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'base-back', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 0.09, 0.0]], 'size' => [1, 0.18, 0.024], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'base-left', 'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 0.09, 0.0]], 'size' => [1, 0.18, 0.024], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'base-right', 'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 0.09, 0.0]], 'size' => [1, 0.18, 0.024], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'field-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 1.98, 0.011]], 'size' => [1, 3.08, 0.022], 'fit' => 'wall', 'fit_pad' => 0.34, 'material' => ['color' => '0xe9dfc9', 'roughness' => 0.94, 'metalness' => 0.0], 'merge' => 'salon-field', 'tier_floor' => 'low'],
+                        ['id' => 'field-back', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 1.98, 0.011]], 'size' => [1, 3.08, 0.022], 'fit' => 'wall', 'fit_pad' => 0.34, 'material' => ['color' => '0xe9dfc9', 'roughness' => 0.94, 'metalness' => 0.0], 'merge' => 'salon-field', 'tier_floor' => 'low'],
+                        ['id' => 'field-left', 'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 1.98, 0.011]], 'size' => [1, 3.08, 0.022], 'fit' => 'wall', 'fit_pad' => 0.34, 'material' => ['color' => '0xe9dfc9', 'roughness' => 0.94, 'metalness' => 0.0], 'merge' => 'salon-field', 'tier_floor' => 'low'],
+                        ['id' => 'field-right', 'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 1.98, 0.011]], 'size' => [1, 3.08, 0.022], 'fit' => 'wall', 'fit_pad' => 0.34, 'material' => ['color' => '0xe9dfc9', 'roughness' => 0.94, 'metalness' => 0.0], 'merge' => 'salon-field', 'tier_floor' => 'low'],
+                        ['id' => 'rail-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 3.53, 0.0]], 'size' => [1, 0.09, 0.04], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'rail-back', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 3.53, 0.0]], 'size' => [1, 0.09, 0.04], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'rail-left', 'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 3.53, 0.0]], 'size' => [1, 0.09, 0.04], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'rail-right', 'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 3.53, 0.0]], 'size' => [1, 0.09, 0.04], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'cornice-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 3.72, 0.0]], 'size' => [1, 0.16, 0.056], 'fit' => 'wall', 'fit_pad' => 0.0, 'material' => ['color' => '0xcabfa4', 'roughness' => 0.9, 'metalness' => 0.0], 'merge' => 'salon-cornice', 'tier_floor' => 'low'],
+                        ['id' => 'cornice-back', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 3.72, 0.0]], 'size' => [1, 0.16, 0.056], 'fit' => 'wall', 'fit_pad' => 0.0, 'material' => ['color' => '0xcabfa4', 'roughness' => 0.9, 'metalness' => 0.0], 'merge' => 'salon-cornice', 'tier_floor' => 'low'],
+                        ['id' => 'cornice-left', 'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 3.72, 0.0]], 'size' => [1, 0.16, 0.056], 'fit' => 'wall', 'fit_pad' => 0.0, 'material' => ['color' => '0xcabfa4', 'roughness' => 0.9, 'metalness' => 0.0], 'merge' => 'salon-cornice', 'tier_floor' => 'low'],
+                        ['id' => 'cornice-right', 'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 3.72, 0.0]], 'size' => [1, 0.16, 0.056], 'fit' => 'wall', 'fit_pad' => 0.0, 'material' => ['color' => '0xcabfa4', 'roughness' => 0.9, 'metalness' => 0.0], 'merge' => 'salon-cornice', 'tier_floor' => 'low'],
+                        ['id' => 'cove-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 3.615, 0.0]], 'size' => [1, 0.045, 0.028], 'fit' => 'wall', 'fit_pad' => 0.06, 'material' => ['color' => '0xffe8cc', 'emissive' => '0xffd9a8', 'emissiveIntensity' => 0.85], 'merge' => 'salon-cove', 'tier_floor' => 'low'],
+                        ['id' => 'cove-back', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 3.615, 0.0]], 'size' => [1, 0.045, 0.028], 'fit' => 'wall', 'fit_pad' => 0.06, 'material' => ['color' => '0xffe8cc', 'emissive' => '0xffd9a8', 'emissiveIntensity' => 0.85], 'merge' => 'salon-cove', 'tier_floor' => 'low'],
+                        ['id' => 'cove-left', 'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 3.615, 0.0]], 'size' => [1, 0.045, 0.028], 'fit' => 'wall', 'fit_pad' => 0.06, 'material' => ['color' => '0xffe8cc', 'emissive' => '0xffd9a8', 'emissiveIntensity' => 0.85], 'merge' => 'salon-cove', 'tier_floor' => 'low'],
+                        ['id' => 'cove-right', 'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 3.615, 0.0]], 'size' => [1, 0.045, 0.028], 'fit' => 'wall', 'fit_pad' => 0.06, 'material' => ['color' => '0xffe8cc', 'emissive' => '0xffd9a8', 'emissiveIntensity' => 0.85], 'merge' => 'salon-cove', 'tier_floor' => 'low'],
+                        ['id' => 'door-leaf', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 1.21, 0.0]], 'size' => [0.92, 2.42, 0.04], 'material' => ['color' => '0x35281a', 'roughness' => 0.85, 'metalness' => 0.0], 'merge' => 'salon-door', 'tier_floor' => 'low'],
+                        ['id' => 'door-panel', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 1.21, 0.026]], 'size' => [0.68, 1.9, 0.012], 'material' => ['color' => '0x463623', 'roughness' => 0.75, 'metalness' => 0.0], 'merge' => 'salon-door', 'tier_floor' => 'low'],
+                        ['id' => 'door-jamb-l', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [-0.475, 1.26, 0.02]], 'size' => [0.1, 2.52, 0.032], 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'door-jamb-r', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0.475, 1.26, 0.02]], 'size' => [0.1, 2.52, 0.032], 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'door-head', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 2.59, 0.02]], 'size' => [1.05, 0.14, 0.032], 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'door-overdoor', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 2.95, 0.008]], 'size' => [1.05, 0.72, 0.024], 'material' => ['color' => '0xe9dfc9', 'roughness' => 0.94, 'metalness' => 0.0], 'merge' => 'salon-field', 'tier_floor' => 'low'],
+                        ['id' => 'door-knob', 'primitive' => 'sphere', 'at' => ['from' => 'wall_back', 'offset' => [0.33, 1.08, 0.035]], 'size' => [0.044, 0.044, 0.044], 'material' => 'bronze', 'tier_floor' => 'low'],
+                        ['id' => 'bench-top', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.34, 0.85]], 'size' => [1.7, 0.1, 0.46], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'salon-bench', 'tier_floor' => 'low'],
+                        ['id' => 'bench-leg-l', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [-0.72, 0.145, 0.85]], 'size' => [0.1, 0.29, 0.42], 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'bench-leg-r', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0.72, 0.145, 0.85]], 'size' => [0.1, 0.29, 0.42], 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
+                        ['id' => 'rug', 'primitive' => 'plane', 'at' => ['from' => 'center', 'offset' => [2.2, 0.012, 2.2]], 'rot' => [-1.5707963, 0, 0], 'size' => [2.6, 2.6], 'material' => ['color' => '0x74604a', 'roughness' => 1.0, 'metalness' => 0.0], 'tier_floor' => 'low'],
+                        ['id' => 'chair-a-seat', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [2.75, 0.275, 1.75]], 'rot' => [0, -0.785398, 0], 'size' => [0.7, 0.35, 0.7], 'material' => ['color' => '0x6a5a48', 'roughness' => 1.0, 'metalness' => 0.0], 'collide' => true, 'merge' => 'salon-chair-a', 'tier_floor' => 'low'],
+                        ['id' => 'chair-a-back', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [3.0, 0.7, 1.5]], 'rot' => [0, -0.785398, 0], 'size' => [0.7, 0.6, 0.14], 'material' => ['color' => '0x6a5a48', 'roughness' => 1.0, 'metalness' => 0.0], 'merge' => 'salon-chair-a', 'tier_floor' => 'low'],
+                        ['id' => 'chair-a-arm-l', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [2.5, 0.55, 1.5]], 'rot' => [0, -0.785398, 0], 'size' => [0.12, 0.3, 0.62], 'material' => ['color' => '0x6a5a48', 'roughness' => 1.0, 'metalness' => 0.0], 'merge' => 'salon-chair-a', 'tier_floor' => 'low'],
+                        ['id' => 'chair-a-arm-r', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [3.0, 0.55, 2.0]], 'rot' => [0, -0.785398, 0], 'size' => [0.12, 0.3, 0.62], 'material' => ['color' => '0x6a5a48', 'roughness' => 1.0, 'metalness' => 0.0], 'merge' => 'salon-chair-a', 'tier_floor' => 'low'],
+                        ['id' => 'chair-b-seat', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [1.75, 0.275, 2.75]], 'rot' => [0, 2.356194, 0], 'size' => [0.7, 0.35, 0.7], 'material' => ['color' => '0x5f5344', 'roughness' => 1.0, 'metalness' => 0.0], 'collide' => true, 'merge' => 'salon-chair-b', 'tier_floor' => 'low'],
+                        ['id' => 'chair-b-back', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [1.5, 0.7, 3.0]], 'rot' => [0, 2.356194, 0], 'size' => [0.7, 0.6, 0.14], 'material' => ['color' => '0x5f5344', 'roughness' => 1.0, 'metalness' => 0.0], 'merge' => 'salon-chair-b', 'tier_floor' => 'low'],
+                        ['id' => 'chair-b-arm-l', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [1.5, 0.55, 2.5]], 'rot' => [0, 2.356194, 0], 'size' => [0.12, 0.3, 0.62], 'material' => ['color' => '0x5f5344', 'roughness' => 1.0, 'metalness' => 0.0], 'merge' => 'salon-chair-b', 'tier_floor' => 'low'],
+                        ['id' => 'chair-b-arm-r', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [2.0, 0.55, 3.0]], 'rot' => [0, 2.356194, 0], 'size' => [0.12, 0.3, 0.62], 'material' => ['color' => '0x5f5344', 'roughness' => 1.0, 'metalness' => 0.0], 'merge' => 'salon-chair-b', 'tier_floor' => 'low'],
+                        ['id' => 'table-top', 'primitive' => 'cylinder', 'at' => ['from' => 'center', 'offset' => [2.25, 0.52, 2.25]], 'size' => [0.64, 0.05], 'params' => ['seg' => 20], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'salon-table', 'tier_floor' => 'low'],
+                        ['id' => 'table-stem', 'primitive' => 'cylinder', 'at' => ['from' => 'center', 'offset' => [2.25, 0.26, 2.25]], 'size' => [0.07, 0.46], 'params' => ['seg' => 10], 'material' => 'wood_dark', 'merge' => 'salon-table', 'tier_floor' => 'low'],
+                        ['id' => 'table-base', 'primitive' => 'cylinder', 'at' => ['from' => 'center', 'offset' => [2.25, 0.015, 2.25]], 'size' => [0.36, 0.03], 'params' => ['seg' => 16], 'material' => 'wood_dark', 'merge' => 'salon-table', 'tier_floor' => 'low'],
+                        ['id' => 'rose-disc', 'primitive' => 'cylinder', 'at' => ['from' => 'center', 'offset' => [0, 3.78, 0]], 'size' => [1.0, 0.04], 'params' => ['seg' => 24], 'material' => ['color' => '0xd0c3a8', 'roughness' => 0.9, 'metalness' => 0.0], 'tier_floor' => 'low'],
+                        ['id' => 'rose-ring', 'primitive' => 'torus', 'at' => ['from' => 'center', 'offset' => [0, 3.755, 0]], 'rot' => [1.5707963, 0, 0], 'size' => [0.5, 0.05], 'params' => ['seg' => 24, 'seg2' => 32], 'material' => 'bronze', 'tier_floor' => 'low'],
+                        ['id' => 'rose-glow', 'primitive' => 'cylinder', 'at' => ['from' => 'center', 'offset' => [0, 3.768, 0]], 'size' => [0.32, 0.02], 'params' => ['seg' => 20], 'material' => ['color' => '0xfff1dc', 'emissive' => '0xffe2b8', 'emissiveIntensity' => 0.9], 'tier_floor' => 'low']
+                    ],
+                    'post_fx'                 => ['bloom' => false, 'vignette' => true, 'vignette_darkness' => 0.38, 'vignette_offset' => 1.1, 'vignette_blend' => 'black'],
                 ],
                 'material_config' => [
-                    'wall_color'             => '0xe6dcc6',
-                    'wall_roughness'         => 0.92,
-                    'wall_metalness'         => 0.0,
-                    'wall_normal_strength'   => 0.35,
-                    'floor_color'            => '0x6b5236',
-                    'floor_roughness'        => 0.65,
-                    'floor_metalness'        => 0.0,
-                    'floor_normal_strength'  => 0.55,
+                    'wall_color' => '0xd9cbaf',
+                    'wall_roughness' => 0.92,
+                    'wall_metalness' => 0.0,
+                    'wall_normal_strength' => 0.35,
+                    'floor_color' => '0x7a5c38',
+                    'floor_roughness' => 0.5,
+                    'floor_metalness' => 0.02,
+                    'floor_normal_strength' => 0.55,
+                    'floor_tile_meters' => 2.4,
+                    'texture_tint' => true
                 ],
-                'decorations'       => [],  // rail + bench + rug are descriptors (StructureBuilder)
+                'decorations'       => [],   // the architecture is descriptors (StructureBuilder)
                 'lighting_fixtures' => [],
                 'supported_layouts' => ['square'],
             ],

@@ -26,6 +26,10 @@ import { mergeParts } from './GeometryUtils.js';
 import { addFloorEdgeFade } from './TierEffects.js';
 import { venueFillIntensity } from './Lighting.js';
 import { computeFloatFieldRadius } from './PlacementMath.js';
+// Salon iteration: the square room sizes from the SAME line plan the placer
+// hangs from (one math, never two — the loft/zen precedent).
+import { resolveSquareHang } from './PlacementCuration.js';
+import { squareLinePlan } from './ArtworkPlacer.js';
 // Mirror Lake v3.0.0 "The Still Shore": the pure waterfront plan.
 import { buildLakePlan } from './LakeLayout.js';
 import { buildGardenPlan } from './GardenLayout.js';
@@ -139,9 +143,14 @@ export function createRoom(data) {
     // built. ArtworkPlacer mirrors this exact math (no drift, ever).
     const glazing      = (this._venueVisualConfig || {}).glazing_wall === true;
     const wallCount    = glazing ? 3 : 4;
-    const imagesPerWall  = Math.ceil(imageCount / wallCount);
-    const calculatedLen  = (imagesPerWall * spacing) + spacing;
-    const wallLength = Math.max(minWallLen, calculatedLen);
+    // Salon iteration: rows-aware sizing flows through the SAME shared plan
+    // the placer hangs from (resolveSquareHang + squareLinePlan — one math,
+    // never two). Venues without the salon keys resolve exactly as before:
+    // rows 1, perLine = ceil(count/wallCount) → the historic formula.
+    const hangPlan     = resolveSquareHang(this._venuePlacement, imageCount, wallCount,
+                                           spacing, minWallLen);
+    const linePlan     = squareLinePlan(imageCount, spacing, wallCount, minWallLen, hangPlan);
+    const wallLength   = linePlan.wallLength;
     const wallHeight = CONFIG.room.wallHeight;
 
     // Floor — tile density is venue-declared (material_config.

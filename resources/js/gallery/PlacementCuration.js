@@ -113,3 +113,106 @@ export function isFocalHero(focalWall, wallId, heroTaken) {
     if (wallId == null) return false; // bay hang (no wall id) — skip
     return wallId === focalWall;
 }
+
+// ── Square rows + keep-clear (Salon iteration, pure) ─────────────────────────
+//
+// TWO opt-in curation keys extend the square hang to a true salon hang:
+//
+//   placement.salon_rows      — max hang LINES per wall (2 = classic
+//                               salon hang: large works at eye, smaller
+//                               works above). The row count ENGAGES only
+//                               when the one-row room would breach
+//                               placement.wall_length_cap — small shows
+//                               keep the single-row room (bit-identical
+//                               when the keys are absent).
+//   placement.wall_length_cap — soft identity ceiling on the square room's
+//                               wall length (metres). When the one-row
+//                               sizing exceeds it and salon_rows ≥ 2, the
+//                               hang wraps onto a second line instead of
+//                               stretching the room.
+//   placement.keep_clear      — { wall, width }: no artwork column may
+//                               fall within width/2 of that wall's centre
+//                               (the architectural threshold — a doorcase —
+//                               stands there). The nearest slot on that
+//                               wall's line is dropped; the displaced work
+//                               moves to the last line with spare capacity.
+//
+// ALL sizing flows through ONE plan (squareRunPlan in ArtworkPlacer) so the
+// room and the hang can never disagree. This helper resolves the plan
+// INPUTS (rows + reserve + keep) from the venue's placement block; pure,
+// deterministic, unit-testable.
+//
+// RESERVE rule: a keep wall with an ODD run hangs its centre slot under
+// the doorcase; that work must hang somewhere, and an exactly-full room has
+// nowhere to put it — so the room grows by one column in exactly that case.
+// Rooms with slack absorb the displacement as-is.
+export function resolveSquareHang(placement, imageCount, wallCount, spacing, minWallLength) {
+    const p = (placement && typeof placement === 'object') ? placement : {};
+    const capNum = Number(p.wall_length_cap);
+    const cap = Number.isFinite(capNum) && capNum > 0 ? capNum : 0;
+    const rowsMax = Math.max(1, Math.floor(Number(p.salon_rows)) || 1);
+
+    const keep = p.keep_clear && typeof p.keep_clear === 'object' ? p.keep_clear : null;
+    const keepWall = keep && FOCAL_WALLS.includes(keep.wall) ? keep.wall : null;
+    const keepWidth = keepWall ? Math.max(0, Number(keep.width) || 0) : 0;
+
+    // Column parity decides whether the doorcase actually steals a slot:
+    // an EVEN line run has no centre column (its nearest columns stand at
+    // ±spacing, outside the doorcase), an ODD run hangs one dead-centre.
+    // Strictness note: only a keep width narrower than one spacing is
+    // served — a wider keep degrades to "no drop" (today's behaviour)
+    // rather than attempting a multi-slot steal it cannot size for.
+    const minWall = (typeof minWallLength === 'number' && minWallLength > 0) ? minWallLength : 8;
+    const sizeFor = (perLine) => Math.max(minWall, perLine * spacing + spacing);
+    // Per-line run counts from the same ceil-split the placer uses: line i
+    // holds clamp(count − i·perLine, 0, perLine) works. The door wall is the
+    // SECOND wall — its lines are index 1 and (rows 2) index 5.
+    const lineRunsFor = (pl) => {
+        const runs = [];
+        for (let i = 0; i < wallCount * 2; i++) {   // upper bound; rows ≤ 2
+            const r = Math.min(pl, Math.max(0, imageCount - i * pl));
+            if (r <= 0 && i > 0) break;
+            runs.push(r);
+        }
+        return runs;
+    };
+    const centreHitsKeep = (run) =>
+        !!keepWall && keepWidth > 0 && keepWidth / 2 < spacing / 2 && run % 2 === 1;
+    // How many keep-wall centre slots this plan would drop, and whether the
+    // room has the slack to absorb them (each drop displaces one work).
+    const strandedFor = (rowsN, pl) => {
+        const runs = lineRunsFor(pl);
+        const keepLines = rowsN === 2 ? [1, 5] : [1];
+        const drops = keepLines.filter(i => centreHitsKeep(runs[i] ?? 0)).length;
+        const slack = wallCount * rowsN * pl - imageCount;
+        return Math.max(0, drops - slack);
+    };
+
+    // ── Row selection ────────────────────────────────────────────────────
+    // Rows engage only when the one-row room (AFTER the exact-full bump the
+    // doorcase can force) would breach the declared cap — a small show keeps
+    // the single-line room and the historic look.
+    let rows = 1;
+    let perLine = Math.ceil(imageCount / (wallCount * rows));
+    if (rowsMax > 1 && cap > 0) {
+        let projected = perLine + strandedFor(1, perLine);
+        if (sizeFor(projected) > cap) {
+            rows = rowsMax;
+            perLine = Math.ceil(imageCount / (wallCount * rows));
+        }
+    }
+
+    // ── Exact-full bump ──────────────────────────────────────────────────
+    // Stranded displacements (drops with no slack to absorb them) grow the
+    // room by one column — one bump settles it (the grown line is even when
+    // the odd one was, and slack turns positive).
+    if (strandedFor(rows, perLine) > 0) {
+        perLine += 1;
+    }
+
+    return {
+        rows,
+        perLine,
+        keep: keepWall ? { wall: keepWall, half: keepWidth / 2 } : null,
+    };
+}
