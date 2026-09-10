@@ -12,12 +12,18 @@ import * as THREE from 'three';
 import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader }      from 'three/addons/loaders/KTX2Loader.js';
-// Three.js r163+ deprecated RGBELoader in favour of HDRLoader. The file is
-// still at examples/jsm/loaders/RGBELoader.js but the class emits a console
-// warning. We import via namespace and pick whichever export exists — this
-// silences the deprecation warning without breaking on older three versions.
-import * as _HDRLoaderModule from 'three/addons/loaders/RGBELoader.js';
-const _HDRLoader = _HDRLoaderModule.HDRLoader || _HDRLoaderModule.RGBELoader;
+// Three.js r167+ ships HDRLoader (examples/jsm/loaders/HDRLoader.js) and
+// deprecated RGBELoader — but HDRLoader is a SEPARATE module, not an export
+// of RGBELoader.js, so the old "pick whichever export exists" fallback read
+// `_HDRLoaderModule.HDRLoader` from the WRONG module (always undefined) and
+// silently kept loading the deprecated class: every boot logged
+// "RGBELoader has been deprecated. Please use HDRLoader instead."
+// HDRLoader.js is imported directly (present since r167; the lockfile pins
+// ^0.182.0) with the RGBELoader namespace import kept only as a build-time
+// safety net for older trees.
+import * as _HDRLoaderModule from 'three/addons/loaders/HDRLoader.js';
+import * as _RGBELoaderModule from 'three/addons/loaders/RGBELoader.js';
+const _HDRLoader = _HDRLoaderModule.HDRLoader || _HDRLoaderModule.RGBELoader || _RGBELoaderModule.RGBELoader;
 import { CONFIG } from './config.js';
 import { preloadMaterialTextures } from './Materials.js';
 

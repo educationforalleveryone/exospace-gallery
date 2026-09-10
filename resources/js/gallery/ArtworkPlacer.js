@@ -319,15 +319,35 @@ export function _placeArtworksSquareRows(data, ctx) {
         ? Number(curation.upper_row_y) : 2.98;
     const rowCaps = (Array.isArray(curation.row_caps) && curation.row_caps.length)
         ? curation.row_caps : SALON_ROW_CAPS;
-    // A keep_clear wall may cap the WIDTH of works hung beside its
+    // A keep_clear wall may cap the WIDTH of works hung BESIDE its
     // architecture (keep_clear.max_width) — the doorcase stays visible
     // instead of being walled behind a wide canvas. 0/absent = no cap.
     const keepMaxWidth = hang.keep
         ? Math.max(0, Number(curation.keep_clear?.max_width) || 0) : 0;
-    const capFor = (row, wallId) => {
+
+    // ── Keep-line reserve (v2.1 field report): the rhythm's nearest slot
+    // stands at ±spacing/2 from the wall centre, and a wide canvas + its
+    // frame reaches BACK into the doorcase — a 2.38 m frame covered the
+    // jamb and interpenetrated the door leaves in 3D. Two guards, keep
+    // lines only:
+    //   1. SHIFT — the run slides outward so the innermost frame clears
+    //      the reserved zone by a visible reveal (assembly half + reveal +
+    //      frame pad + the capped canvas half, minus the rhythm's ±s/2).
+    //   2. NEAR CAP — works within one spacing of the centre take the
+    //      keep width cap; outer slots keep the row's full cap.
+    // Both are pure arithmetic on (n, p, spacing) — deterministic, and
+    // venues without keep_clear are untouched (bit-identical).
+    const KEEP_FRAME_PAD = 0.09;   // classic frame border (measured on builds)
+    const KEEP_REVEAL    = 0.30;   // wall reveal between assembly and frame
+    let keepShift = 0;
+    if (hang.keep && keepMaxWidth > 0) {
+        keepShift = Math.max(0,
+            hang.keep.half + KEEP_REVEAL + KEEP_FRAME_PAD + keepMaxWidth / 2 - spacing / 2);
+    }
+    const capFor = (row, wallId, nearKeep) => {
         const c = rowCaps[Math.min(row, rowCaps.length - 1)] || {};
         let mw = c.maxWidth;
-        if (hang.keep && wallId === hang.keep.wall && keepMaxWidth > 0) {
+        if (nearKeep && keepMaxWidth > 0) {
             mw = mw > 0 ? Math.min(mw, keepMaxWidth) : keepMaxWidth;
         }
         return { maxWidth: mw, maxHeight: c.maxHeight };
@@ -372,9 +392,20 @@ export function _placeArtworksSquareRows(data, ctx) {
             const n = counts[w + r * 4] || 0;
             if (n <= 0) continue;
             const y = r === 0 ? eyeLevel : upperY;
+            const isKeep = keepLines.has(w + r * 4);
             for (let p = 0; p < n; p++) {
-                const off = wallRunOffset(n, p, spacing, wallLength) - spacing;
-                slots.push({ wall: walls[w], row: r, y, off });
+                const off0 = wallRunOffset(n, p, spacing, wallLength) - spacing;
+                let off = off0;
+                let nearKeep = false;
+                if (isKeep && keepShift > 0) {
+                    // the slot's tangential offset from the wall centre —
+                    // wallRunOffset is L/2 − t for every wall, so t =
+                    // ((n−1)/2 − p)·spacing; shifting outward = off − sign(t)·Δ.
+                    const t = ((n - 1) / 2 - p) * spacing;
+                    off = off0 - Math.sign(t) * keepShift;
+                    nearKeep = Math.abs(t) < spacing;
+                }
+                slots.push({ wall: walls[w], row: r, y, off, nearKeep });
             }
         }
     }
@@ -384,7 +415,7 @@ export function _placeArtworksSquareRows(data, ctx) {
     for (const imgIdx of order) {
         const img = this.artworkImages[imgIdx];
         const s = si < slots.length ? slots[si] : null;
-        const caps = s ? capFor(s.row, s.wall.id) : capFor(0, null);
+        const caps = s ? capFor(s.row, s.wall.id, s.nearKeep) : capFor(0, null, false);
         const { group } = this.makeArtworkGroup(img, data, {
             maxWidth: caps.maxWidth, maxHeight: caps.maxHeight,
         });

@@ -8,30 +8,29 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * THE SALON v2.0.0 — "The Collector's Salon" (the final venue production
- * pass, as CI).
+ * THE SALON v2.1.0 — "turn + threshold" (post-deploy pass, as CI).
  *
- * Supersedes the Iteration 8 stub pins. The v1.0.0 body (a default square
- * room + eight descriptors) failed its own audit: rails at 0.9 m sliced
- * THROUGH the artwork frames, the murk rig starved the canvases, the
- * declared colours never reached textured builds (no texture_tint), and
- * the room scaled to a 25 m hall at the capacity ceiling. v2.0.0 is the
- * authored venue:
+ * The v2.0.0 body (superseding the Iteration 8 stub) authored the venue —
+ * and its field report found the one defect the authored payload carried:
+ * ten side-wall fit descriptors shipped WITHOUT turn:'in', so the side
+ * fields/baseboards/rails/cornices/coves rendered PERPENDICULAR to their
+ * walls — phantom mid-room slabs the visitor could walk through
+ * ("is this a wall or a curtain?"). v2.1.0 turns the side wall architecture
+ * onto its walls and widens the threshold into a classical double-leaf
+ * doorcase (portes à deux vantaux) worthy of the enfilade axis.
  *
  * Pins:
  *   1. The catalog is TWELVE seeded venues; `the-salon` is Pro, published
  *      and active (unchanged from Iteration 8).
- *   2. The seeder entry and the v2 migration payload are byte-equal — one
- *      authored identity, two delivery paths. (This pin ALSO closes the
- *      v1 drift: the old seeder carried 'turn' on bench-top and migration
- *      2026_09_01_000006 did not, so the old equality pin could not run
- *      green; both pre-v2 payload variants are accepted by the v2
- *      migration's guards and every production row heals.)
- *   3. The v2 migration is a guarded rewrite: exact-match guards keep a
- *      super-admin's custom value untouched; both v1 structure variants
- *      (with/without the drifted 'turn' key) upgrade; idempotent; down()
- *      reverses every rewrite and removes the added keys under exact v2
- *      guards.
+ *   2. The seeder entry and the v2.1 migration payload are byte-equal —
+ *      one authored identity, two delivery paths. (The unchanged v2 blocks
+ *      — post_fx, material_config, description — stay pinned to the v2
+ *      migration that authored them.)
+ *   3. The v2.1 migration is a guarded, per-element heal: side elements
+ *      gain turn:'in' only in their exact v2 form; the door group splices
+ *      only when ALL SEVEN v2 door descriptors match exactly; keep_clear
+ *      rewrites only when exact; a super-admin's retuned element survives
+ *      untouched; idempotent; down() reverses under mirrored guards.
  *   4. The placement block IS the salon's hang: intimate density +
  *      orientation pairing + the focal hero wall + the domestic room cap
  *      (wall_length_cap 12.6) + the two-line salon hang (salon_rows 2) +
@@ -64,6 +63,20 @@ class VenueSalonIterationTest extends TestCase
     ];
 
     private const MIGRATION = '2026_09_10_000001_salon_collector_identity.php';
+    private const MIGRATION_V21 = '2026_09_11_000001_salon_v2_1_turn_and_door.php';
+
+    /**
+     * Payload accessor for the migrations' (historically private) shape
+     * methods — reflection keeps the historical files untouched while the
+     * pins read the same payload the DB-side guards compare against.
+     */
+    private function migrationPayload(string $file, string $method): array
+    {
+        $migration = require database_path('migrations/' . $file);
+        $ref = new \ReflectionMethod($migration, $method);
+        $ref->setAccessible(true);
+        return $ref->invoke($migration);
+    }
 
     // ─────────────────────────────────────────────────────────────────────
     // 1. The twelfth venue
@@ -88,7 +101,7 @@ class VenueSalonIterationTest extends TestCase
         $this->assertTrue((bool) $salon->is_active);
         $this->assertFalse((bool) $salon->is_draft);
         $this->assertNotNull($salon->published_at);
-        $this->assertSame('2.0.0', $salon->version, 'The v2.0.0 authored body is the fresh-install baseline.');
+        $this->assertSame('2.1.0', $salon->version, 'The v2.1.0 turn+threshold body is the fresh-install baseline.');
 
         foreach (self::ELEVEN_SEEDED as $slug) {
             $this->assertNotNull(
@@ -102,26 +115,27 @@ class VenueSalonIterationTest extends TestCase
     // 2. One authored identity, two delivery paths — byte-equal payloads
     // ─────────────────────────────────────────────────────────────────────
 
-    public function test_seeder_and_v2_migration_payloads_are_equal(): void
+    public function test_seeder_and_v21_migration_payloads_are_equal(): void
     {
         $salon = collect(\Database\Seeders\VenueTemplateSeeder::templates())
             ->firstWhere('slug', 'the-salon');
         $this->assertNotNull($salon, 'Seeder must carry the-salon entry #12.');
 
-        $migration = require database_path('migrations/' . self::MIGRATION);
-        $this->assertSame($migration->v2Structure(), $salon['visual_config']['structure'],
-            'Seeder structure and the v2 migration payload MUST be byte-equal — one identity, two delivery paths.'
+        $this->assertSame($this->migrationPayload(self::MIGRATION_V21, 'v21Structure'), $salon['visual_config']['structure'],
+            'Seeder structure and the v2.1 migration payload MUST be byte-equal — one identity, two delivery paths.'
         );
-        $this->assertSame($migration->v2Placement(), $salon['visual_config']['placement'],
-            'Seeder placement and the v2 migration payload MUST be byte-equal.'
+        $this->assertSame($this->migrationPayload(self::MIGRATION_V21, 'v21KeepClear'), $salon['visual_config']['placement']['keep_clear'],
+            'Seeder keep_clear and the v2.1 migration payload MUST be byte-equal.'
         );
-        $this->assertSame($migration->v2PostFx(), $salon['visual_config']['post_fx'],
+        // the blocks v2.1 does not touch stay pinned to the migration that
+        // authored them
+        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2PostFx'), $salon['visual_config']['post_fx'],
             'Seeder post_fx and the v2 migration payload MUST be byte-equal.'
         );
-        $this->assertSame($migration->v2Material(), $salon['material_config'],
+        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Material'), $salon['material_config'],
             'Seeder material_config and the v2 migration payload MUST be byte-equal.'
         );
-        $this->assertSame($migration->v2Description(), $salon['description'],
+        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Description'), $salon['description'],
             'Seeder description and the v2 migration payload MUST be byte-equal.'
         );
     }
@@ -344,6 +358,152 @@ class VenueSalonIterationTest extends TestCase
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // 3b. The v2.1 turn+threshold migration — per-element guarded heal
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Invoke the v2.1 migration's up()/down() directly (true re-run semantics). */
+    private function runTurnMigration(string $direction = 'up'): void
+    {
+        $migration = require database_path('migrations/' . self::MIGRATION_V21);
+        $migration->$direction();
+    }
+
+    /** Overwrite the seeded row with the exact v2.0.0 production payload. */
+    private function v2ProductionRow(): void
+    {
+        DB::table('venue_templates')->where('slug', 'the-salon')->update([
+            'version'       => '2.0.0',
+            'visual_config' => json_encode([
+                'wall_height'            => 3.8,
+                'wall_depth'             => 0.15,
+                'ceiling_type'           => 'flat',
+                'ceiling_color'          => '0xd8cbb0',
+                'ceiling_height'         => 3.8,
+                'background_color'       => '0x171310',
+                'fog_color'              => '0x171310',
+                'fog_near'               => 22,
+                'fog_far'                => 70,
+                'ambient_color'          => '0xffe9cf',
+                'ambient_intensity'      => 0.5,
+                'spot_intensity'         => 1.5,
+                'fill_intensity'         => 0.8,
+                'tone_mapping_exposure'  => 1.0,
+                'frame_override'         => 'classic',
+                'structure_pass'         => 'rooms',
+                'placement'              => $this->migrationPayload(self::MIGRATION, 'v2Placement'),
+                'structure'              => $this->migrationPayload(self::MIGRATION, 'v2Structure'),
+            ]),
+        ]);
+    }
+
+    public function test_the_turn_migration_heals_a_v2_production_row(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->v2ProductionRow();
+        $this->runTurnMigration('up');
+
+        $venue = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+        $this->assertSame('2.1.0', $venue->version, 'the heal bumps the version');
+        $config = json_decode((string) $venue->visual_config, true);
+
+        // side elements carry the tangent yaw now
+        $byId = collect($config['structure'])->keyBy('id');
+        $this->assertCount(49, $config['structure'], '7 door descriptors became 11');
+        foreach (['base-left', 'base-right', 'field-left', 'field-right', 'rail-left', 'rail-right', 'cornice-left', 'cornice-right', 'cove-left', 'cove-right'] as $side) {
+            $this->assertSame('in', $byId[$side]['turn'] ?? null, "[{$side}] gains turn:'in'");
+        }
+        // the double-leaf threshold stands
+        foreach (['door-leaf-l', 'door-leaf-r', 'door-panel-ll', 'door-panel-lu', 'door-panel-rl', 'door-panel-ru'] as $door) {
+            $this->assertArrayHasKey($door, $byId, "the double-leaf doorcase exists ([{$door}])");
+        }
+        $this->assertArrayNotHasKey('door-leaf', $byId, 'the single leaf is retired');
+        $leafL = $byId['door-leaf-l'];
+        $leafR = $byId['door-leaf-r'];
+        $this->assertSame(0.74, $leafL['size'][0], 'each leaf is 0.74 m — 1.48 m clear');
+        $this->assertSame(2.52, $leafL['size'][1], 'leaves stand 2.52 m — taller than the v2 door');
+        $this->assertEqualsWithDelta(0.37, abs($leafR['at']['offset'][0]), 1e-9, 'leaves meet at the centre stile');
+        $this->assertSame(1.66, $byId['door-head']['size'][0], 'the entablature spans the assembly');
+        // the hang respects the wider assembly
+        $this->assertSame(1.9, $config['placement']['keep_clear']['width']);
+        $this->assertSame(1.2, $config['placement']['keep_clear']['max_width']);
+        // untouched blocks stay byte-identical
+        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Material'), json_decode((string) $venue->material_config, true));
+    }
+
+    public function test_the_turn_migration_respects_admin_edits(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->v2ProductionRow();
+
+        // an admin retunes the left cove before the migration runs
+        $config = json_decode((string) DB::table('venue_templates')->where('slug', 'the-salon')->value('visual_config'), true);
+        foreach ($config['structure'] as $i => $el) {
+            if ($el['id'] === 'cove-left') {
+                $config['structure'][$i]['material']['emissiveIntensity'] = 1.4; // ← the admin's retune
+            }
+        }
+        DB::table('venue_templates')->where('slug', 'the-salon')->update([
+            'visual_config' => json_encode($config),
+        ]);
+
+        $this->runTurnMigration('up');
+
+        $after = json_decode((string) DB::table('venue_templates')->where('slug', 'the-salon')->value('visual_config'), true);
+        $byId = collect($after['structure'])->keyBy('id');
+        $this->assertSame(1.4, $byId['cove-left']['material']['emissiveIntensity'],
+            'the admin retune survives — the heal never touches a non-v2 element');
+        $this->assertArrayNotHasKey('turn', $byId['cove-left'],
+            'the edited element is not force-turned (admin edits win)');
+        $this->assertSame('in', $byId['field-left']['turn'] ?? null,
+            'the untouched side elements still heal');
+        $this->assertSame('2.1.0', DB::table('venue_templates')->where('slug', 'the-salon')->value('version'));
+    }
+
+    public function test_the_turn_migration_is_idempotent(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->v2ProductionRow();
+        $this->runTurnMigration('up');
+
+        $afterFirst = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+        $this->runTurnMigration('up');
+        $afterSecond = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+
+        $this->assertSame($afterFirst->visual_config, $afterSecond->visual_config, 're-running must rewrite nothing.');
+        $this->assertSame($afterFirst->version, $afterSecond->version);
+    }
+
+    public function test_the_turn_migration_is_reversible(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $this->v2ProductionRow();
+        $this->runTurnMigration('up');
+        $this->runTurnMigration('down');
+
+        $venue = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+        $config = json_decode((string) $venue->visual_config, true);
+
+        $this->assertSame('2.0.0', $venue->version);
+        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Structure'), $config['structure'],
+            'down() restores the exact v2 structure — element order included.');
+        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Placement'), $config['placement'],
+            'down() restores the exact v2 placement.');
+    }
+
+    public function test_the_turn_migration_noops_on_a_fresh_v21_install(): void
+    {
+        $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
+        $before = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+
+        $this->runTurnMigration('up');
+
+        $after = DB::table('venue_templates')->where('slug', 'the-salon')->first();
+        $this->assertSame($before->visual_config, $after->visual_config,
+            'the seeder already ships v2.1 — the migration must write nothing.');
+        $this->assertSame('2.1.0', $after->version);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // 4. The declared identity — curation contract + descriptor vocabulary
     // ─────────────────────────────────────────────────────────────────────
 
@@ -375,6 +535,10 @@ class VenueSalonIterationTest extends TestCase
             'the two-line salon hang engages when the cap bites.');
         $this->assertSame('back', $placement['keep_clear']['wall'] ?? null,
             'the doorcase keeps its wall — the architectural threshold.');
+        $this->assertSame(1.9, $placement['keep_clear']['width'] ?? null,
+            'the keep-clear spans the double-leaf assembly (1.66 m) plus its breathing room.');
+        $this->assertSame(1.2, $placement['keep_clear']['max_width'] ?? null,
+            'works beside the threshold take the near-door canvas cap — frames clear the assembly edge-wise.');
         $this->assertNotEmpty($placement['row_caps'] ?? [],
             'per-row size caps: large works at eye, smaller above.');
 
@@ -390,8 +554,8 @@ class VenueSalonIterationTest extends TestCase
         $structure = $this->salonVisualConfig()['structure'] ?? null;
 
         $this->assertIsArray($structure);
-        $this->assertCount(45, $structure,
-            '20 wall trim pieces + doorcase (7) + bench (3) + chairs (8) + table (3) + rug + rose (3) = 45.');
+        $this->assertCount(49, $structure,
+            '20 wall trim pieces + doorcase (11: double leaf ×2, panels ×4, jambs ×2, head, overdoor, knob) + bench (3) + chairs (8) + table (3) + rug + rose (3) = 49.');
 
         foreach ($structure as $el) {
             $this->assertContains($el['primitive'] ?? null, self::CLOSED_PRIMITIVES,
@@ -411,9 +575,10 @@ class VenueSalonIterationTest extends TestCase
         foreach (['base-front', 'field-front', 'rail-front', 'cornice-front', 'cove-front'] as $wallPiece) {
             $this->assertContains($wallPiece, $ids, "the per-wall architecture exists ([{$wallPiece}]).");
         }
-        foreach (['door-leaf', 'door-jamb-l', 'door-jamb-r', 'door-head', 'door-overdoor', 'door-knob'] as $door) {
+        foreach (['door-leaf-l', 'door-leaf-r', 'door-panel-ll', 'door-panel-lu', 'door-panel-rl', 'door-panel-ru', 'door-jamb-l', 'door-jamb-r', 'door-head', 'door-overdoor', 'door-knob'] as $door) {
             $this->assertContains($door, $ids, "the threshold exists ([{$door}]).");
         }
+        $this->assertNotContains('door-leaf', $ids, 'the single-leaf v2 threshold is gone — the enfilade door is a double leaf.');
         foreach (['chair-a-seat', 'chair-b-seat', 'table-top', 'rug', 'bench-top'] as $furniture) {
             $this->assertContains($furniture, $ids, "the social layer exists ([{$furniture}]).");
         }
@@ -430,6 +595,21 @@ class VenueSalonIterationTest extends TestCase
         );
         $rug = collect($structure)->firstWhere('id', 'rug');
         $this->assertEmpty($rug['collide'] ?? null, 'the rug is walkable.');
+
+        // side-wall fit discipline (the v2.0.0 phantom-slab defect class):
+        // every fit:'wall' descriptor anchored on a SIDE wall must declare
+        // the tangent yaw — the vocabulary stretches local X, and a side
+        // wall's tangent is world Z.
+        foreach ($structure as $el) {
+            $from = $el['at']['from'] ?? null;
+            $isSideWall = in_array($from, ['wall_left', 'wall_right'], true);
+            if ($isSideWall && isset($el['fit'])) {
+                $yaw = (float) ($el['rot'][1] ?? 0.0);
+                $declaredYaw = in_array($el['turn'] ?? null, ['in', 'out'], true) || $yaw !== 0.0;
+                $this->assertTrue($declaredYaw,
+                    "[{$el['id']}] anchors fit:'{$el['fit']}' on a side wall — it must declare turn:'in' (the phantom-slab guard).");
+            }
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ─────────────────────────────────────────────────────────────────────────────
-// salon-qa.mjs — the venue QA gate for The Salon (v2.0.0 "The Collector's
-// Salon").
+// salon-qa.mjs — the venue QA gate for The Salon (v2.1.0 "turn +
+// threshold" — the post-deploy pass over "The Collector's Salon").
 //
 //   node scripts/venue-qa/salon-qa.mjs
 //
@@ -11,9 +11,10 @@
 // scripts/harness/probe-salon-poses.mjs captures the visual evidence.
 //
 // Checks:
-//   A. Seeder contract — the v2.0.0 row declares the authored identity
-//      (domestic room cap, salon rows, door keep-clear, row caps, warm
-//      readable rig, texture authority, restraint).
+//   A. Seeder contract — the v2.1.0 row declares the authored identity
+//      (domestic room cap, salon rows, double-leaf door keep-clear, row
+//      caps, warm readable rig, texture authority, restraint, and the
+//      side-wall tangent-yaw discipline — the phantom-slab guard).
 //   B. DB↔harness sync — the PHP-less harness renders the same payload a
 //      fresh install seeds (drift here means screenshots stop meaning
 //      anything). This pin would have caught the v1 'turn' drift.
@@ -90,10 +91,11 @@ const chunk = seederSalonChunk();
 const phpLit = rawLiteral(chunk, true);
 const vc = phpLit.placement ? chunk : chunk; // vc checked via needles below
 
-ok('version 2.0.0 declared', /'version'\s*=>\s*'2\.0\.0'/.test(chunk));
+ok('version 2.1.0 declared', /'version'\s*=>\s*'2\.1\.0'/.test(chunk));
 ok('the room stays domestic (wall_length_cap 12.6)', /'wall_length_cap'\s*=>\s*12\.6/.test(chunk));
 ok('the two-line salon hang declared (salon_rows 2)', /'salon_rows'\s*=>\s*2(?!\.)/.test(chunk));
-ok('the doorcase keeps its wall (keep_clear back)', /'keep_clear'\s*=>\s*\['wall'\s*=>\s*'back'/.test(chunk));
+ok('the double-leaf doorcase keeps its wall (keep_clear back, 1.9 / 1.2)',
+    /'keep_clear'\s*=>\s*\['wall'\s*=>\s*'back',\s*'width'\s*=>\s*1\.9,\s*'max_width'\s*=>\s*1\.2\]/.test(chunk));
 ok('the focal hero faces the arrival (focal_wall front)', /'focal_wall'\s*=>\s*'front'/.test(chunk));
 ok('intimate rhythm + orientation pairing kept',
     /'density'\s*=>\s*'intimate'/.test(chunk) && /'pair_orientation'\s*=>\s*true/.test(chunk));
@@ -113,6 +115,29 @@ ok('fresh-install copy names the authored venue',
 ok('rails stand ABOVE the hang (y 3.53 — the v1 clip is dead)',
     chunk.includes('[0, 3.53, 0.0]'));
 ok('no mid-wall rail remains (the v1 0.9 m rail is gone)', !chunk.includes('[0, 0.9, 0.045]'));
+
+// ── A2. The phantom-slab guard (v2.0.0 field report: side-wall fit
+//        elements without turn:'in' rendered PERPENDICULAR to their walls —
+//        "a wall or a curtain? I can walk through it"). The vocabulary
+//        stretches fit:'wall' geometry along local X; a side wall's tangent
+//        is world Z. Every side-anchored fit element MUST declare the yaw.
+{
+    const sideFitRe = /'id'\s*=>\s*'([\w-]+)',\s*'primitive'\s*=>\s*'[\wa-z-]+',\s*'at'\s*=>\s*\['from'\s*=>\s*'wall_(left|right)'/g;
+    const sideIds = [...chunk.matchAll(sideFitRe)].map(m => m[1]);
+    ok('side-wall anchored descriptors exist to guard', sideIds.length >= 10, `found ${sideIds.length}`);
+    const noTurn = sideIds.filter(id => {
+        const elRe = new RegExp(`'id'\\s*=>\\s*'${id}'[^\\n]*`);
+        const line = chunk.match(elRe)?.[0] || '';
+        return !/\bturn'\s*=>\s*'(in|out)'/.test(line);
+    });
+    ok('every side-wall descriptor declares the tangent yaw (turn)', noTurn.length === 0,
+        `missing turn: ${noTurn.join(', ')}`);
+    ok('the double-leaf threshold ships (2 leaves, 4 panels, 1.66 m head)',
+        /'id'\s*=>\s*'door-leaf-l'/.test(chunk) && /'id'\s*=>\s*'door-leaf-r'/.test(chunk)
+        && /'id'\s*=>\s*'door-panel-ll'/.test(chunk) && /'id'\s*=>\s*'door-panel-ru'/.test(chunk)
+        && /'size'\s*=>\s*\[1\.66,\s*0\.15,\s*0\.032\]/.test(chunk));
+    ok('the single-leaf v2 door is retired', !chunk.includes("'id' => 'door-leaf',"));
+}
 
 // ── B. DB↔harness sync ───────────────────────────────────────────────────
 section('B. DB↔harness sync (drift = screenshots stop meaning anything)');
@@ -143,7 +168,7 @@ ok('structure payload matches the harness token-for-token',
 const idsFromPhp = [...phpLit.structure.matchAll(/'id'\s*=>\s*'([\w-]+)'/g)].map(m => m[1]).sort();
 const idsFromJs = [...jsLit.structure.replace(/\/\/[^\n]*/g, '').matchAll(/\bid\s*:\s*'([\w-]+)'/g)].map(m => m[1]).sort();
 ok('descriptor id sets identical', JSON.stringify(idsFromPhp) === JSON.stringify(idsFromJs));
-ok('45 descriptors ship (the authored architecture)', idsFromPhp.length === 45, `found ${idsFromPhp.length}`);
+ok('49 descriptors ship (the authored architecture + the double-leaf door)', idsFromPhp.length === 49, `found ${idsFromPhp.length}`);
 
 // ── C. Placement invariants (REAL modules, full capacity sweep) ───────────
 section('C. Placement invariants (shared pure math, counts 5→30)');
@@ -154,7 +179,7 @@ const Placer = await import(placerUrl);
 const placement = {
     density: 'intimate', pair_orientation: true, focal_wall: 'front',
     wall_length_cap: 12.6, salon_rows: 2, upper_row_y: 2.98,
-    keep_clear: { wall: 'back', width: 1.05, max_width: 1.6 },
+    keep_clear: { wall: 'back', width: 1.9, max_width: 1.2 },
     row_caps: [{ maxWidth: 2.4, maxHeight: 1.45 }, { maxWidth: 1.7, maxHeight: 0.84 }],
 };
 const SPACING = DENSITY_PRESETS.intimate;
@@ -204,26 +229,45 @@ for (let count = 5; count <= 30; count++) {
         if (total < count) { sweepOk = false; sweepLog.push(`count ${count}: ${count - total} works unplaced`); }
 
         // (3) geometry: no frame overlap on any line, bands never touch,
-        //     door zone clear, everything inside the wall span
+        //     door zone clear (edge clearance, not just centres), everything
+        //     inside the wall span — mirroring the placer's keep-line shift
+        //     + near-cap (the v2.1 field-report guards).
         const widths = widthsFor(count, count);
+        const keepHalf = hang.keep ? hang.keep.half : 0;
+        const keepShift = (hang.keep && placement.keep_clear.max_width > 0)
+            ? Math.max(0, keepHalf + 0.30 + 0.09 + placement.keep_clear.max_width / 2 - SPACING / 2)
+            : 0;
         let idx = 0;
         for (let w = 0; w < 4; w++) {
             for (let r = 0; r < plan.rows; r++) {
                 const n = counts[w + r * 4] || 0;
                 const y = r === 0 ? eyeY : upperY;
                 const cap = r === 0 ? placement.row_caps[0] : placement.row_caps[1];
+                const isKeep = keepLines.has(w + r * 4);
                 const spans = [];
-                const wCap = (w === 1)
-                    ? Math.min(cap.maxWidth, placement.keep_clear.max_width)  // the placer merges the keep-clear cap first
-                    : cap.maxWidth;
                 for (let p = 0; p < n; p++) {
                     const img = { id: idx, aspectRatio: widths[idx % widths.length] };
                     const aspect = img.aspectRatio;
+                    // slot's tangential offset from the wall centre (wallRunOffset
+                    // is L/2 − t on every wall)
+                    const t = ((n - 1) / 2 - p) * SPACING;
+                    const cAbs = Math.abs(t);
+                    const nearKeep = isKeep && keepShift > 0 && cAbs < SPACING;
+                    const wCap = nearKeep
+                        ? Math.min(cap.maxWidth, placement.keep_clear.max_width)
+                        : cap.maxWidth;
                     let h = cap.maxHeight, wd = h * aspect;
                     if (wd > wCap) { wd = wCap; h = wd / aspect; }
-                    const off = Placer.wallRunOffset(n, p, SPACING, L) - SPACING;
-                    const center = -L / 2 + (w === 0 || w === 1 ? 0 : 0) + off + (w === 0 || w === 1 ? SPACING : 0);
-                    spans.push({ c: -L / 2 + off + SPACING, half: wd / 2 + 0.05 });
+                    const c = isKeep && keepShift > 0
+                        ? Math.sign(t || 1) * (cAbs + keepShift)
+                        : t;
+                    spans.push({ c, half: wd / 2 + 0.05 });
+                    // doorcase EDGE clearance: the SHIFTED frame edge clears
+                    // the assembly (v2.1 assembly half = 0.83) — the
+                    // field-report defect
+                    if (isKeep && (Math.abs(c) - (wd / 2 + 0.09) < 0.83 - 1e-9)) {
+                        sweepOk = false; sweepLog.push(`count ${count}: frame reaches the doorcase (edge ${(Math.abs(c) - (wd / 2 + 0.09)).toFixed(2)})`);
+                    }
                     // vertical band discipline
                     const top = y + h / 2 + 0.05, bot = y - h / 2 - 0.05;
                     if (r === 0 && top > (plan.rows > 1 ? upperY - 0.84 / 2 - 0.04 : 3.8)) { /* eye top under upper band */ }
@@ -245,7 +289,7 @@ for (let count = 5; count <= 30; count++) {
                         }
                     }
                 }
-                // span inside the wall
+                // shifted keep runs must stay inside the wall
                 for (const s of spans) {
                     if (s.c - s.half < -L / 2 - 1e-9 || s.c + s.half > L / 2 + 1e-9) {
                         sweepOk = false; sweepLog.push(`count ${count}: canvas off the wall`);

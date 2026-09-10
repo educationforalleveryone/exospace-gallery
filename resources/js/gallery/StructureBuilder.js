@@ -560,6 +560,7 @@ export function buildStructure(ctx, entries) {
     const seedSource = venueSeedSource(ctx._venueSlug || 'venue');
     const mergeGroups = new Map();   // `${group}|${matKey}` → { mat, parts, collide, hangs }
     let built = 0;
+    let warnedMisalignedFit = false;
 
     const finishMesh = (mesh, e, collide, hang) => {
         mesh.name = `structure:${e.id || e.primitive}`;
@@ -620,6 +621,24 @@ export function buildStructure(ctx, entries) {
             // v2.0.0. One shape for every consumer, end.
             if (e.turn === 'in')  yaw = Math.atan2(fx, fz);
             if (e.turn === 'out') yaw = Math.atan2(fx, fz) + Math.PI;
+            // FIT-TANGENT GUARD (salon v2.0.0 field report): fit:'wall'
+            // stretches the geometry's local X axis — which is the wall's
+            // TANGENT only when the mesh is yawed to its anchor. Front/back
+            // anchors have tangent X at yaw 0; a SIDE anchor (fwd along ±X)
+            // needs the ±90° turn. A payload that forgets turn:'in' renders
+            // its panels PERPENDICULAR to the wall — the salon's phantom
+            // mid-room slabs ("is this a wall or a curtain? I can walk
+            // through it", deployed 2026-09-10). When the descriptor
+            // declares neither a turn nor its own yaw, apply the tangent
+            // yaw here and warn once: the payload stays authoritative, the
+            // room stays sane.
+            if (e.fit === 'wall' && fwd[0] !== 0 && e.turn === undefined && !(e.rot && e.rot[1])) {
+                yaw = Math.atan2(fx, fz);
+                if (!warnedMisalignedFit) {
+                    warnedMisalignedFit = true;
+                    console.warn(`[structure] "${e.id || e.primitive}" anchors fit:'wall' on a side wall without turn:'in' — auto-aligned to the wall tangent. Fix the payload.`);
+                }
+            }
         }
         const rot = e.rot || [0, 0, 0];
         const ry  = rot[1] + yaw;

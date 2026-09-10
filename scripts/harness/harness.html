@@ -1016,7 +1016,7 @@
                     wall_length_cap: 12.6,
                     salon_rows: 2,
                     upper_row_y: 2.98,
-                    keep_clear: { wall: 'back', width: 1.05, max_width: 1.6 },
+                    keep_clear: { wall: 'back', width: 1.9, max_width: 1.2 },
                     row_caps: [{ maxWidth: 2.4, maxHeight: 1.45 }, { maxWidth: 1.7, maxHeight: 0.84 }],
                 },
                 structure: [
@@ -1025,33 +1025,40 @@
                     // field + picture rail + cornice + cove light line.
                     { id: 'base-front', primitive: 'box', at: { from: 'wall_front', offset: [0, 0.09, 0.0] }, size: [1, 0.18, 0.024], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
                     { id: 'base-back',  primitive: 'box', at: { from: 'wall_back',  offset: [0, 0.09, 0.0] }, size: [1, 0.18, 0.024], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'base-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 0.09, 0.0] }, size: [1, 0.18, 0.024], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'base-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 0.09, 0.0] }, size: [1, 0.18, 0.024], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'base-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 0.09, 0.0] }, turn: 'in', size: [1, 0.18, 0.024], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'base-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 0.09, 0.0] }, turn: 'in', size: [1, 0.18, 0.024], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
                     { id: 'field-front', primitive: 'box', at: { from: 'wall_front', offset: [0, 1.98, 0.011] }, size: [1, 3.08, 0.022], fit: 'wall', fit_pad: 0.34, material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
                     { id: 'field-back',  primitive: 'box', at: { from: 'wall_back',  offset: [0, 1.98, 0.011] }, size: [1, 3.08, 0.022], fit: 'wall', fit_pad: 0.34, material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
-                    { id: 'field-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 1.98, 0.011] }, size: [1, 3.08, 0.022], fit: 'wall', fit_pad: 0.34, material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
-                    { id: 'field-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 1.98, 0.011] }, size: [1, 3.08, 0.022], fit: 'wall', fit_pad: 0.34, material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
+                    { id: 'field-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 1.98, 0.011] }, turn: 'in', size: [1, 3.08, 0.022], fit: 'wall', fit_pad: 0.34, material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
+                    { id: 'field-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 1.98, 0.011] }, turn: 'in', size: [1, 3.08, 0.022], fit: 'wall', fit_pad: 0.34, material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
                     { id: 'rail-front', primitive: 'box', at: { from: 'wall_front', offset: [0, 3.53, 0.0] }, size: [1, 0.09, 0.04], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
                     { id: 'rail-back',  primitive: 'box', at: { from: 'wall_back',  offset: [0, 3.53, 0.0] }, size: [1, 0.09, 0.04], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'rail-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 3.53, 0.0] }, size: [1, 0.09, 0.04], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'rail-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 3.53, 0.0] }, size: [1, 0.09, 0.04], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'rail-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 3.53, 0.0] }, turn: 'in', size: [1, 0.09, 0.04], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'rail-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 3.53, 0.0] }, turn: 'in', size: [1, 0.09, 0.04], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
                     { id: 'cornice-front', primitive: 'box', at: { from: 'wall_front', offset: [0, 3.72, 0.0] }, size: [1, 0.16, 0.056], fit: 'wall', fit_pad: 0.0, material: { color: '0xcabfa4', roughness: 0.9, metalness: 0.0 }, merge: 'salon-cornice', tier_floor: 'low' },
                     { id: 'cornice-back',  primitive: 'box', at: { from: 'wall_back',  offset: [0, 3.72, 0.0] }, size: [1, 0.16, 0.056], fit: 'wall', fit_pad: 0.0, material: { color: '0xcabfa4', roughness: 0.9, metalness: 0.0 }, merge: 'salon-cornice', tier_floor: 'low' },
-                    { id: 'cornice-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 3.72, 0.0] }, size: [1, 0.16, 0.056], fit: 'wall', fit_pad: 0.0, material: { color: '0xcabfa4', roughness: 0.9, metalness: 0.0 }, merge: 'salon-cornice', tier_floor: 'low' },
-                    { id: 'cornice-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 3.72, 0.0] }, size: [1, 0.16, 0.056], fit: 'wall', fit_pad: 0.0, material: { color: '0xcabfa4', roughness: 0.9, metalness: 0.0 }, merge: 'salon-cornice', tier_floor: 'low' },
+                    { id: 'cornice-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 3.72, 0.0] }, turn: 'in', size: [1, 0.16, 0.056], fit: 'wall', fit_pad: 0.0, material: { color: '0xcabfa4', roughness: 0.9, metalness: 0.0 }, merge: 'salon-cornice', tier_floor: 'low' },
+                    { id: 'cornice-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 3.72, 0.0] }, turn: 'in', size: [1, 0.16, 0.056], fit: 'wall', fit_pad: 0.0, material: { color: '0xcabfa4', roughness: 0.9, metalness: 0.0 }, merge: 'salon-cornice', tier_floor: 'low' },
                     { id: 'cove-front', primitive: 'box', at: { from: 'wall_front', offset: [0, 3.615, 0.0] }, size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
                     { id: 'cove-back',  primitive: 'box', at: { from: 'wall_back',  offset: [0, 3.615, 0.0] }, size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
-                    { id: 'cove-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 3.615, 0.0] }, size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
-                    { id: 'cove-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 3.615, 0.0] }, size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
-                    // ── The threshold — a walnut doorcase on the entry wall
-                    // (keep_clear holds its wall; the hang flows around it).
-                    { id: 'door-leaf',   primitive: 'box', at: { from: 'wall_back', offset: [0, 1.21, 0.0] }, size: [0.92, 2.42, 0.04], material: { color: '0x35281a', roughness: 0.85, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
-                    { id: 'door-panel',  primitive: 'box', at: { from: 'wall_back', offset: [0, 1.21, 0.026] }, size: [0.68, 1.9, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
-                    { id: 'door-jamb-l', primitive: 'box', at: { from: 'wall_back', offset: [-0.475, 1.26, 0.02] }, size: [0.1, 2.52, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'door-jamb-r', primitive: 'box', at: { from: 'wall_back', offset: [0.475, 1.26, 0.02] }, size: [0.1, 2.52, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'door-head',   primitive: 'box', at: { from: 'wall_back', offset: [0, 2.59, 0.02] }, size: [1.05, 0.14, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    { id: 'door-overdoor', primitive: 'box', at: { from: 'wall_back', offset: [0, 2.95, 0.008] }, size: [1.05, 0.72, 0.024], material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
-                    { id: 'door-knob',   primitive: 'sphere', at: { from: 'wall_back', offset: [0.33, 1.08, 0.035] }, size: [0.044, 0.044, 0.044], material: 'bronze', tier_floor: 'low' },
+                    { id: 'cove-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 3.615, 0.0] }, turn: 'in', size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
+                    { id: 'cove-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 3.615, 0.0] }, turn: 'in', size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
+                    // ── The threshold — a classical double-leaf walnut
+                    // doorcase on the entry wall (portes à deux vantaux:
+                    // two 0.74 m leaves, two recessed panels each, 1.66 m
+                    // entablature, the ivory overdoor above; keep_clear
+                    // holds its wall; the hang flows around it).
+                    { id: 'door-leaf-l', primitive: 'box', at: { from: 'wall_back', offset: [-0.37, 1.26, 0.035] }, size: [0.74, 2.52, 0.04], material: { color: '0x35281a', roughness: 0.85, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-leaf-r', primitive: 'box', at: { from: 'wall_back', offset: [0.37, 1.26, 0.035] }, size: [0.74, 2.52, 0.04], material: { color: '0x35281a', roughness: 0.85, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-panel-ll', primitive: 'box', at: { from: 'wall_back', offset: [-0.37, 0.62, 0.061] }, size: [0.46, 0.92, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-panel-lu', primitive: 'box', at: { from: 'wall_back', offset: [-0.37, 1.85, 0.061] }, size: [0.46, 1.02, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-panel-rl', primitive: 'box', at: { from: 'wall_back', offset: [0.37, 0.62, 0.061] }, size: [0.46, 0.92, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-panel-ru', primitive: 'box', at: { from: 'wall_back', offset: [0.37, 1.85, 0.061] }, size: [0.46, 1.02, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
+                    { id: 'door-jamb-l', primitive: 'box', at: { from: 'wall_back', offset: [-0.785, 1.26, 0.02] }, size: [0.09, 2.52, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'door-jamb-r', primitive: 'box', at: { from: 'wall_back', offset: [0.785, 1.26, 0.02] }, size: [0.09, 2.52, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'door-head',   primitive: 'box', at: { from: 'wall_back', offset: [0, 2.595, 0.02] }, size: [1.66, 0.15, 0.032], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
+                    { id: 'door-overdoor', primitive: 'box', at: { from: 'wall_back', offset: [0, 2.99, 0.024] }, size: [1.62, 0.64, 0.024], material: { color: '0xe9dfc9', roughness: 0.94, metalness: 0.0 }, merge: 'salon-field', tier_floor: 'low' },
+                    { id: 'door-knob',   primitive: 'sphere', at: { from: 'wall_back', offset: [-0.13, 1.16, 0.08] }, size: [0.05, 0.05, 0.05], material: 'bronze', tier_floor: 'low' },
                     // ── The hero bench — the museum habit in domestic dress:
                     // sit (or stand) one pace from the hero wall.
                     { id: 'bench-top',  primitive: 'box', at: { from: 'wall_front', offset: [0, 0.34, 0.85] }, size: [1.7, 0.1, 0.46], material: 'wood_warm', collide: true, merge: 'salon-bench', tier_floor: 'low' },
