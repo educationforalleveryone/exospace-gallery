@@ -30,6 +30,9 @@ import { mergeParts } from './GeometryUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
 import { buildGardenPlan } from './GardenLayout.js';
+// Mirror Lake v3.0.0 "The Still Shore": the pure waterfront plan (shoreline,
+// landing, shore walk, pier + pavilion, over-water artwork arc, far shore).
+import { buildLakePlan } from './LakeLayout.js';
 // Garden v4.0.0 "The Sculpture Park": the ASSET-DRIVEN environment layer —
 // role-tagged plan anchors consume owner-supplied GLBs (trees, planting,
 // boulders, benches) with graceful per-role fallback and instanced batching.
@@ -47,6 +50,7 @@ import {
     addPlanarReflection,
     addMoonLightStreak,
     addFloorEdgeFade,
+    addWaterReflection,
 } from './TierEffects.js';
 import { resolveReflectionMode } from './TierResolve.js';
 // Iteration 3 "Rooms": the generic structure-descriptor interpreter (§10.3).
@@ -385,6 +389,12 @@ export function addVenueStructure(data) {
                                            // hang alignment via the shared run plan)
     } else if (pass === 'garden') {
         addSculptureGardenStructure.call(this, data); // grass, hedges, trees, sky
+    } else if (pass === 'lake') {
+        // Mirror Lake v3.0.0 "The Still Shore" — the waterfront body.
+        // (The v1.0.0 void-lake rollback stays reachable at the SAME level:
+        // structure_pass 'phenomena' + void_lake renders the phenomena
+        // composer's lake body, untouched.)
+        addMirrorLakeShore.call(this, (this._layoutMeta || {}).radius, data);
     } else if (pass === 'phenomena') {
         addVoidVenueStructure.call(this, data);
     }
@@ -2167,6 +2177,9 @@ function addVoidVenueStructure(data) {
         addCrystalCathedralLegacyShards.call(this, radius);
     }
     if (vc.void_lake === true) {
+        // v1.0.0 "Phomena" lake body — the rollback target for Mirror Lake
+        // (structure_pass 'phenomena' + void_lake). The v3.0.0 flagship
+        // body is the top-level 'lake' pass branch above.
         addMirrorLakeStructure.call(this, radius);
     }
 }
@@ -3730,6 +3743,646 @@ function addMirrorLakeStructure(radius) {
     this.scene.add(mist);
     this._particleSystems = this._particleSystems || [];
     this._particleSystems.push({ obj: mist, type: 'drift', phase: rng.next() * Math.PI * 2 });
+}
+
+// ── MIRROR LAKE v3.0.0 — "The Still Shore" ──────────────────────────────────
+// The flagship redesign. The v1 body above was a void-family room: one dark
+// disc the visitor SPAWNED ON (the "lake" was the floor), a chrome-perfect
+// Reflector, square mist sprites, a moon fogged to invisibility. The forensic
+// audit (worklog, Mirror Lake Task 1) recorded the full defect set; the brief
+// asked for a venue whose name, water, reflection, architecture and artwork
+// presentation all say the same thing.
+//
+// The design — THE STILL SHORE — renders the pure LakeLayout plan:
+//
+//   THE LANDING    cut-stone arrival plaza on the southern shore (declared
+//                  spawn): the first sightline crosses the water to the art
+//                  arc, the far-shore treeline and the moon.
+//   THE LAKE       ~60% of the field: a real water plane at y=−0.24 with a
+//                  wet-stone edge, a dark depth tint, a two-train ripple and
+//                  a living sheen (TierEffects.addWaterReflection) — still
+//                  water, never a mirror tile (brief §5-§7).
+//   THE ART WALK   a stone walk follows the shoreline; the artworks FLOAT
+//                  over the water along an arc (the void heritage, kept),
+//                  facing the walk — every piece doubled by its reflection.
+//   THE PIER       a low timber pier runs east over the water to…
+//   THE PAVILION   …a stilted viewing pavilion, the Destination, one warm
+//                  lantern glow reflected in the lake.
+//   THE HORIZON    the far shore rises north in the haze with a treeline
+//                  (owner GLB assets via the garden's manifest system); the
+//                  sky is a procedural night dome — the venue IS its own sky
+//                  (PMREM environment, no HDRI leak — the v1 accidental
+//                  rural_evening environment is gone).
+//
+// Determinism: the plan (and every extra draw below — stars, noise table,
+// mist) comes from the venue's seeded rng in documented order.
+//
+// Tiers: high → water Reflector + PMREM + full composition; mobile → gloss
+// water plane + streak (the designed fallback, retinted for water); low →
+// Lambert water + streak, Lambert everywhere, static mist. Identity survives
+// every tier — the shoreline, the pier, the pavilion and the art arc are
+// geometry, not effects.
+//
+// Rollback: structure_pass 'phenomena' + void_lake renders the v1 body above,
+// untouched (the dispatcher's else branch).
+
+// Night-stone paving — cool dark flagstone, deterministic (tileable).
+let _lakeStoneTex = null;
+function makeLakeStoneTexture() {
+    if (_lakeStoneTex) return _lakeStoneTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const g = c.getContext('2d');
+    const rng = _gardenTexRng('lake-stone-v3');
+    g.fillStyle = '#8e9298';
+    g.fillRect(0, 0, 256, 256);
+    // irregular flagstones on a jittered grid, dark joints
+    const cell = 64;
+    for (let gy = 0; gy < 4; gy++) {
+        for (let gx = 0; gx < 4; gx++) {
+            const x0 = gx * cell + rng() * 6 - 3;
+            const y0 = gy * cell + rng() * 6 - 3;
+            const w = cell - 5 - rng() * 5;
+            const h = cell - 5 - rng() * 5;
+            const tone = 96 + Math.floor(rng() * 46);
+            g.fillStyle = `rgb(${tone},${tone + 3},${tone + 8})`;
+            g.fillRect(x0, y0, w, h);
+            // per-stone mottle
+            for (let i = 0; i < 26; i++) {
+                const v = tone + (rng() - 0.5) * 34;
+                g.fillStyle = `rgba(${v},${v + 3},${v + 8},${0.16 + rng() * 0.2})`;
+                g.fillRect(x0 + rng() * w, y0 + rng() * h, 1 + rng() * 2.4, 1 + rng() * 2.4);
+            }
+        }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    _lakeStoneTex = tex;
+    return tex;
+}
+
+// Wet-dark timber — pier decking + pavilion, warm heartwood under night light.
+let _lakeTimberTex = null;
+function makeLakeTimberTexture() {
+    if (_lakeTimberTex) return _lakeTimberTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const g = c.getContext('2d');
+    const rng = _gardenTexRng('lake-timber-v3');
+    g.fillStyle = '#6b543c';
+    g.fillRect(0, 0, 256, 256);
+    // planks along u (128px pitch), grain streaks + joint shadows
+    for (let p = 0; p < 2; p++) {
+        const y0 = p * 128;
+        const tone = 92 + Math.floor(rng() * 26);
+        g.fillStyle = `rgb(${Math.round(tone * 1.24)},${Math.round(tone * 0.98)},${Math.round(tone * 0.7)})`;
+        g.fillRect(0, y0, 256, 124);
+        for (let i = 0; i < 90; i++) {
+            const v = tone + (rng() - 0.5) * 30;
+            g.strokeStyle = `rgba(${Math.round(v * 1.2)},${Math.round(v * 0.96)},${Math.round(v * 0.68)},${0.10 + rng() * 0.16})`;
+            g.lineWidth = 0.8 + rng() * 1.4;
+            g.beginPath();
+            const yy = y0 + 4 + rng() * 118;
+            g.moveTo(0, yy);
+            g.bezierCurveTo(64, yy + (rng() - 0.5) * 5, 190, yy + (rng() - 0.5) * 5, 256, yy);
+            g.stroke();
+        }
+        g.fillStyle = 'rgba(14,11,8,0.85)';
+        g.fillRect(0, y0 + 124, 256, 4);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    _lakeTimberTex = tex;
+    return tex;
+}
+
+// Soft round sprite — the mist reads as vapour, never as the v1 squares.
+let _mistSpriteTex = null;
+function makeMistSpriteTexture() {
+    if (_mistSpriteTex) return _mistSpriteTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    grad.addColorStop(0, 'rgba(214,224,240,0.55)');
+    grad.addColorStop(0.5, 'rgba(196,208,228,0.22)');
+    grad.addColorStop(1, 'rgba(188,200,222,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    _mistSpriteTex = tex;
+    return tex;
+}
+
+// Star sprite — a tight luminous core with a faint falloff. Without a map,
+// PointsMaterial renders SQUARE points (the same defect class as the v1
+// mist squares — caught in the first lake render QA).
+let _starSpriteTex = null;
+function makeStarSpriteTexture() {
+    if (_starSpriteTex) return _starSpriteTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 32;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(16, 16, 1, 16, 16, 15);
+    grad.addColorStop(0, 'rgba(238,242,252,1)');
+    grad.addColorStop(0.35, 'rgba(214,224,244,0.55)');
+    grad.addColorStop(1, 'rgba(200,212,236,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 32, 32);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    _starSpriteTex = tex;
+    return tex;
+}
+
+// Moon halo — one soft ring of scattered light.
+let _moonHaloTex = null;
+function makeMoonHaloTexture() {
+    if (_moonHaloTex) return _moonHaloTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(128, 128, 30, 128, 128, 126);
+    grad.addColorStop(0, 'rgba(226,236,252,0.5)');
+    grad.addColorStop(0.35, 'rgba(206,220,246,0.16)');
+    grad.addColorStop(1, 'rgba(196,212,240,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 256, 256);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    _moonHaloTex = tex;
+    return tex;
+}
+
+function addMirrorLakeShore(radius, data) {
+    const vc = this._venueVisualConfig || {};
+    const lakeCfg = vc.lake || {};
+    const highFx = !this.isLowEnd && !this._isMobileTier;
+    const low = !!this.isLowEnd;
+
+    // ── 0. The plan (built in RoomBuilder before the structure — placement,
+    // terrain, water and architecture share ONE plan). The fallback covers
+    // pathological build orders; it draws from the same seeded stream.
+    let plan = this._lakePlan;
+    if (!plan) {
+        this._venueRng = this._venueRng || createVenueRng(venueSeedSource(this._venueSlug || 'venue'));
+        plan = this._lakePlan = buildLakePlan({
+            radius,
+            count: data?.imageCount || 1,
+            rng: this._venueRng,
+            config: lakeCfg,
+        });
+    }
+    const R = plan.radius;
+    const height = plan.terrain.height;
+    const waterLevel = plan.waterLevel;
+
+    // ── 1. Terrain — the flat disc becomes land + lakebed ───────────────
+    // The plan's height field displaces the floor mesh in place (land y=0,
+    // the bed dropping to −0.9 north of the waterline — the visible wet band
+    // is the slope crossing the water plane).
+    const floor = this._circularFloor;
+    if (floor) {
+        const landGeo = new THREE.RingGeometry(0.02, R, 128, 40);
+        const lp = landGeo.attributes.position;
+        for (let i = 0; i < lp.count; i++) {
+            lp.setZ(i, height(lp.getX(i), -lp.getY(i)));
+        }
+        landGeo.computeVertexNormals();
+        floor.geometry.dispose();
+        floor.geometry = landGeo;
+        // Night-earth detail: soft tonal patches multiplying the declared
+        // floor_colour (same mechanism as the garden's lawn detail). No
+        // darkening multiplier — the night light budget is spent honestly;
+        // a mulched albedo reads as murk, not moonlight.
+        if (!floor.material.map && typeof document !== 'undefined') {
+            floor.material.map = makeLawnDetailTexture();
+            floor.material.map.repeat.set(10, 10);
+            floor.material.needsUpdate = true;
+        }
+        if (floor.material.roughness !== undefined) floor.material.roughness = 1;
+        if (floor.material.metalness !== undefined) floor.material.metalness = 0;
+    }
+
+    // ── 2. The far shore + southern swell — the horizon ─────────────────
+    // One skirt ring beyond the bound: north (and along both water arcs) it
+    // rises from BELOW the water plane into a dark silhouette ridge that
+    // carries the treeline; south it swells gently and sinks into the haze.
+    // A seeded 16-stop noise table gives the ridge its natural cadence.
+    const noiseT = [];
+    for (let i = 0; i < 16; i++) noiseT.push(this._venueRng.next());
+    const nAt = (th) => {
+        const u = (((th / (Math.PI * 2)) % 1) + 1) % 1 * 16;
+        const i = Math.floor(u), f = u - i;
+        return noiseT[i % 16] * (1 - f) + noiseT[(i + 1) % 16] * f;
+    };
+    const clamp01 = (v) => Math.min(1, Math.max(0, v));
+    const sstep = (e0, e1, x) => {
+        const t = clamp01((x - e0) / ((e1 - e0) || 1e-6));
+        return t * t * (3 - 2 * t);
+    };
+    const skirtHeight = (x, z) => {
+        const r = Math.hypot(x, z);
+        const t = clamp01((r - (R - 0.05)) / 11.55);
+        const th = Math.atan2(x, z);
+        const bandF = 1 - sstep(0.10, 0.42, Math.cos(th)); // 0 south, 1 water arcs
+        const n = nAt(th);
+        const landY = Math.sin(t * Math.PI) * (0.5 + 0.9 * n) - t * t * 1.4;
+        const bandY = -0.55 + (1.9 + 1.3 * n) * sstep(0, 1, Math.min(1, t * 1.25));
+        return landY * (1 - bandF) + bandY * bandF;
+    };
+    const skirtGeo = new THREE.RingGeometry(R - 0.05, R + 11.5, 128, 30);
+    const sp = skirtGeo.attributes.position;
+    for (let i = 0; i < sp.count; i++) {
+        sp.setZ(i, skirtHeight(sp.getX(i), -sp.getY(i)));
+    }
+    skirtGeo.computeVertexNormals();
+    const skirt = new THREE.Mesh(skirtGeo, floor ? floor.material : new THREE.MeshLambertMaterial({ color: 0x161a14 }));
+    skirt.rotation.x = -Math.PI / 2;
+    this.scene.add(skirt);
+
+    // ── 3. The water — still, deep-tinted, alive (brief §5-§7) ──────────
+    // high: the water Reflector (depth tint + two-train ripple + sheen +
+    // manual fog). mobile: dark gloss PBR plane (the designed fallback —
+    // moonlight specular + PMREM sheen). low: Lambert water + streak.
+    const fogColor = parseColor(vc.fog_color) || new THREE.Color(0x0f1726);
+    const fogNear = Number(vc.fog_near) || 20;
+    const fogFar = Number(vc.fog_far) || 64;
+    // The declared reflection gate (floor_reflection): 'planar' → the water
+    // Reflector on high tier, the designed gloss mood on mobile/low — the
+    // SAME TierResolve decision the v1 body and the Cathedral consume. The
+    // ?reflect=0 QA strip flips the declared value, never a code branch.
+    const reflMode = resolveReflectionMode({
+        isLowEnd: low,
+        isMobileTier: !!this._isMobileTier,
+        declared: vc.floor_reflection === 'planar',
+    });
+    let waterMat = null;
+    if (reflMode === 'planar') {
+        const reflector = addWaterReflection(this, {
+            radius: R + 3,
+            level: waterLevel,
+            color: 0x5a6a78,          // deep blue-grey: the water returns a fraction
+            resolution: 1024,
+            fogColor: fogColor.getHex(),
+            fogNear,
+            fogFar,
+        });
+        // uTime rides the generic particle loop ('void-drift'): reduced-
+        // motion + low tier freeze it automatically.
+        this._particleSystems = this._particleSystems || [];
+        this._particleSystems.push({ obj: reflector, type: 'void-drift' });
+    } else {
+        // The DESIGNED no-reflector water (mobile gloss / low Lambert): still
+        // water has a faint blue-green BODY tone from scattered skylight —
+        // pure black reads as a hole in the composition, not as a lake. The
+        // moon streak + the sky-PMREM glint carry the highlight language.
+        waterMat = low
+            ? new THREE.MeshLambertMaterial({ color: 0x121c26 })
+            : new THREE.MeshStandardMaterial({
+                color: 0x16222e, roughness: 0.06, metalness: 0.55,
+                envMapIntensity: 1.3,
+            });
+        const water = new THREE.Mesh(new THREE.CircleGeometry(R + 3, 72), waterMat);
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = waterLevel;
+        this.scene.add(water);
+    }
+
+    // ── 4. Sky — the venue IS its own night (no HDRI leak) ──────────────
+    // Deep blue-black dome, a faint horizon band, ~340 seeded stars, the
+    // moon + halo. The dome (+ moon) is PMREM'd once so the water, the
+    // steel and the artworks reflect THIS sky (garden precedent).
+    const domeR = (R + 14) * 1.15;
+    const skyGeo = new THREE.SphereGeometry(domeR, 40, 22);
+    const skyMat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+            topColor:    { value: new THREE.Color(0x05070f) },
+            midColor:    { value: new THREE.Color(0x0e1a30) },
+            bottomColor: { value: new THREE.Color(0x24365a) },
+        },
+        vertexShader: `
+            varying vec3 vWorldPosition;
+            void main() {
+                vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                vWorldPosition = worldPosition.xyz;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 topColor;
+            uniform vec3 midColor;
+            uniform vec3 bottomColor;
+            varying vec3 vWorldPosition;
+            void main() {
+                float h = normalize(vWorldPosition).y;
+                vec3 c = h > 0.18
+                    ? mix(midColor, topColor, smoothstep(0.18, 0.72, h))
+                    : mix(bottomColor, midColor, smoothstep(-0.04, 0.18, h));
+                gl_FragColor = vec4(c, 1.0);
+            }
+        `,
+    });
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    this.scene.add(sky);
+
+    // Stars — faint; the lake, not the cosmos, is the identity.
+    const STAR_COUNT = low ? 160 : 340;
+    const starPos = new Float32Array(STAR_COUNT * 3);
+    for (let i = 0; i < STAR_COUNT; i++) {
+        const a = this._venueRng.next() * Math.PI * 2;
+        const y = 0.06 + this._venueRng.next() * 0.9;    // upper hemisphere band
+        const rr = Math.sqrt(Math.max(0, 1 - y * y)) * domeR * 0.97;
+        starPos[i * 3] = Math.cos(a) * rr;
+        starPos[i * 3 + 1] = y * domeR * 0.97;
+        starPos[i * 3 + 2] = Math.sin(a) * rr;
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+        map: makeStarSpriteTexture(), color: 0xcfd8ee, size: 0.55, sizeAttenuation: true,
+        transparent: true, opacity: 0.9, depthWrite: false, fog: false,
+    }));
+    this.scene.add(stars);
+
+    // Moon — the composition anchor. ENE by plan: its light lies across the
+    // water, right of the arrival sightline, over the pavilion.
+    const moonEl = plan.moon.elevation;
+    const moonAz = plan.moon.azimuth;
+    const moonDir = new THREE.Vector3(
+        Math.sin(moonAz) * Math.cos(moonEl),
+        Math.sin(moonEl),
+        Math.cos(moonAz) * Math.cos(moonEl),
+    );
+    const moonPos = moonDir.clone().multiplyScalar(domeR * 0.86);
+
+    const moonLight = new THREE.DirectionalLight(0xbdd0f2, 1.5);
+    moonLight.position.copy(moonDir).multiplyScalar(60);
+    this.scene.add(moonLight);
+
+    const moon = new THREE.Mesh(
+        new THREE.SphereGeometry(1.45, 20, 20),
+        new THREE.MeshBasicMaterial({ color: 0xe3ebfa, fog: false }),
+    );
+    moon.position.copy(moonPos);
+    this.scene.add(moon);
+
+    const halo = new THREE.Mesh(
+        new THREE.PlaneGeometry(11, 11),
+        new THREE.MeshBasicMaterial({
+            map: makeMoonHaloTexture(), transparent: true, opacity: 0.5,
+            depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+        }),
+    );
+    halo.position.copy(moonPos);
+    halo.lookAt(0, 0, 0);
+    this.scene.add(halo);
+
+    // Mobile / low tiers: the designed dark-gloss mood — the moon's light
+    // streak lying on the water toward the moon azimuth (the v1 fallback,
+    // retinted for the still shore).
+    if (!highFx) {
+        addMoonLightStreak(this, R, moonDir, { color: 0xa8bcd8, opacity: 0.2 });
+    }
+
+    // Sky environment — PMREM of dome + moon; no HDRI download, no wrong
+    // world reflected in the water (the v1 rural_evening leak is dead).
+    // Config-gated (lake.sky_environment — the rollback switch).
+    if (!low && lakeCfg.sky_environment === true) {
+        try {
+            const pmrem = new THREE.PMREMGenerator(this.renderer);
+            const envScene = new THREE.Scene();
+            envScene.add(new THREE.Mesh(skyGeo.clone(), skyMat.clone()));
+            const envMoon = new THREE.Mesh(
+                new THREE.SphereGeometry(1.45, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xe3ebfa }),
+            );
+            envMoon.position.copy(moonPos);
+            envScene.add(envMoon);
+            const rt = pmrem.fromScene(envScene, 0.04);
+            this.scene.environment = rt.texture;
+            this.scene.environmentIntensity = this._venueEnvIntensity ?? 0.14;
+            pmrem.dispose();
+        } catch (e) {
+            console.warn('[lake] sky environment skipped:', e);
+        }
+    }
+
+    // ── 5. The Landing + shore walk + pier apron — cut stone ────────────
+    const stoneMat = low
+        ? new THREE.MeshLambertMaterial({ color: 0x3d4149 })
+        : new THREE.MeshStandardMaterial({
+            color: 0x41454d, roughness: 0.92, metalness: 0.02,
+            map: makeLakeStoneTexture(),
+        });
+    const addStone = (geo, lift) => {
+        const m = new THREE.Mesh(geo, stoneMat);
+        m.receiveShadow = highFx;
+        this.scene.add(m);
+        return m;
+    };
+    addStone(buildGravelDisc(plan.spawn.x, plan.spawn.z, plan.plaza.r, height, 0.016));
+    const walkGeo = buildGravelRibbon(plan.walk.samples, plan.walk.width, height, 0.015);
+    if (walkGeo) addStone(walkGeo);
+    addStone(buildGravelDisc(plan.pier.x, plan.shoreZ(plan.pier.x) + 0.4, 1.5, height, 0.014));
+
+    // ── 6. The pier + pavilion — the Destination ────────────────────────
+    const timberMat = low
+        ? new THREE.MeshLambertMaterial({ color: 0x3d2f21 })
+        : new THREE.MeshStandardMaterial({
+            color: 0x57432e, roughness: 0.82, metalness: 0.02,
+            map: makeLakeTimberTexture(),
+        });
+    const steelMat = low
+        ? new THREE.MeshLambertMaterial({ color: 0x232527 })
+        : new THREE.MeshStandardMaterial({ color: 0x2a2c2f, roughness: 0.45, metalness: 0.7 });
+
+    const pier = plan.pier;
+    const pav = plan.pavilion;
+    const pierGroup = new THREE.Group();
+    {
+        const deckZ0 = pav.z - pav.size / 2 - 0.2;
+        const deckZ1 = pier.footZ + 0.8;               // bites into the bank
+        const len = deckZ1 - deckZ0;
+        const midZ = (deckZ0 + deckZ1) / 2;
+        const parts = [];
+        const deck = new THREE.BoxGeometry(pier.width, 0.1, len);
+        parts.push(deck);
+        // posts to the bed + rail stanchions
+        const nBays = Math.max(2, Math.round(len / 2.4));
+        for (let i = 0; i <= nBays; i++) {
+            const z = deckZ1 - (len * i) / nBays;
+            for (const sx of [-1, 1]) {
+                const post = new THREE.CylinderGeometry(0.075, 0.085, 1.25, 8);
+                post.translate(sx * (pier.width / 2 - 0.14), -0.55, z);
+                parts.push(post);
+                const rst = new THREE.BoxGeometry(0.05, 0.62, 0.05);
+                rst.translate(sx * (pier.width / 2 - 0.05), 0.36, z);
+                parts.push(rst);
+            }
+        }
+        const pierMesh = new THREE.Mesh(mergeGeometries(parts, false), timberMat);
+        pierMesh.castShadow = false;
+        pierMesh.receiveShadow = highFx;
+        pierGroup.add(pierMesh);
+        // rails — dark steel, two runs
+        const railParts = [];
+        for (const sx of [-1, 1]) {
+            const rail = new THREE.BoxGeometry(0.045, 0.045, len - 0.2);
+            rail.translate(sx * (pier.width / 2 - 0.05), 0.64, midZ);
+            railParts.push(rail);
+        }
+        const railMesh = new THREE.Mesh(mergeGeometries(railParts, false), steelMat);
+        pierGroup.add(railMesh);
+        pierGroup.position.set(pier.x, 0, 0);
+        this.scene.add(pierGroup);
+    }
+
+    // The pavilion — stilted deck, four posts, low roof, one warm lantern.
+    const pavGroup = new THREE.Group();
+    {
+        const s = pav.size;
+        const parts = [];
+        const deck = new THREE.BoxGeometry(s, 0.14, s);
+        deck.translate(0, pav.deckY - 0.07, 0);
+        parts.push(deck);
+        for (const cx of [-1, 1]) for (const cz of [-1, 1]) {
+            const post = new THREE.BoxGeometry(0.09, 2.85, 0.09);
+            post.translate(cx * (s / 2 - 0.22), pav.deckY + 0.07 + 1.425, cz * (s / 2 - 0.22));
+            parts.push(post);
+        }
+        // an interior bench facing the view
+        const seat = new THREE.BoxGeometry(1.7, 0.055, 0.42);
+        seat.translate(-s / 2 + 0.75, pav.deckY + 0.52, 0);
+        parts.push(seat);
+        for (const bz of [-0.14, 0.14]) {
+            const skid = new THREE.BoxGeometry(1.6, 0.05, 0.07);
+            skid.translate(-s / 2 + 0.75, pav.deckY + 0.26, bz);
+            parts.push(skid);
+        }
+        const body = new THREE.Mesh(mergeGeometries(parts, false), timberMat);
+        body.receiveShadow = highFx;
+        pavGroup.add(body);
+
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(s + 0.8, 0.1, s + 0.8), timberMat);
+        roof.position.y = pav.deckY + 2.9;
+        pavGroup.add(roof);
+        const fascia = new THREE.Mesh(new THREE.BoxGeometry(s + 0.9, 0.06, s + 0.9), steelMat);
+        fascia.position.y = pav.deckY + 2.83;
+        pavGroup.add(fascia);
+        // the lantern — one warm emissive line under the south roof edge,
+        // visible (and reflected) across the whole bay
+        const stripMat = new THREE.MeshBasicMaterial({ color: 0xffd9a6 });
+        stripMat.toneMapped = true;
+        const strip = new THREE.Mesh(new THREE.BoxGeometry(s - 0.3, 0.045, 0.045), stripMat);
+        strip.position.set(0, pav.deckY + 2.76, s / 2 - 0.12);
+        pavGroup.add(strip);
+
+        const lamp = new THREE.PointLight(0xffd2a0, 1.7, 8.5, 2);
+        lamp.position.set(0, pav.deckY + 2.4, 0.6);
+        pavGroup.add(lamp);
+
+        pavGroup.position.set(pav.x, 0, pav.z);
+        pavGroup.rotation.y = pav.yaw;
+        this.scene.add(pavGroup);
+        // corner posts are physical
+        for (const cx of [-1, 1]) for (const cz of [-1, 1]) {
+            const proxy = new THREE.Mesh(
+                new THREE.BoxGeometry(0.18, 2.8, 0.18),
+                new THREE.MeshBasicMaterial({ visible: false }),
+            );
+            proxy.position.set(
+                pav.x + (cx * (pav.size / 2 - 0.22)) * Math.cos(pav.yaw) + (cz * (pav.size / 2 - 0.22)) * Math.sin(pav.yaw),
+                1.4,
+                pav.z - (cx * (pav.size / 2 - 0.22)) * Math.sin(pav.yaw) + (cz * (pav.size / 2 - 0.22)) * Math.cos(pav.yaw),
+            );
+            proxy.visible = false;
+            this.scene.add(proxy);
+            this.registerObstacle(proxy, 0.1);
+        }
+    }
+
+    // ── 7. Mist — low vapour over the WATER (soft sprites; never squares) ─
+    const mistSprite = makeMistSpriteTexture();
+    const makeMistCloud = (count, size, opacity, yBase, ySpan) => {
+        const pos = new Float32Array(count * 3);
+        let placed = 0, guard = 0;
+        while (placed < count && guard++ < count * 30) {
+            const a = this._venueRng.next() * Math.PI * 2;
+            const r = Math.sqrt(this._venueRng.next()) * (R - 1.5);
+            const x = Math.cos(a) * r, z = Math.sin(a) * r;
+            if (!plan.terrain.isWater(x, z, 1.6)) continue;    // over open water only
+            pos[placed * 3] = x;
+            pos[placed * 3 + 1] = yBase + this._venueRng.next() * ySpan;
+            pos[placed * 3 + 2] = z;
+            placed++;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos.slice(0, placed * 3), 3));
+        const mat = new THREE.PointsMaterial({
+            map: mistSprite, color: 0x9fb0c8, size, transparent: true,
+            opacity, sizeAttenuation: true, depthWrite: false,
+        });
+        const pts = new THREE.Points(geo, mat);
+        this.scene.add(pts);
+        this._particleSystems = this._particleSystems || [];
+        this._particleSystems.push({ obj: pts, type: 'drift', phase: this._venueRng.next() * Math.PI * 2 });
+        return pts;
+    };
+    makeMistCloud(low ? 10 : 22, 7.5, 0.10, -0.05, 0.55);   // broad banks
+    makeMistCloud(low ? 14 : 30, 3.2, 0.12, 0.05, 0.5);     // near-surface haze
+
+    // ── 8. The living layer — owner GLB assets via the manifest system ──
+    // Same contract as the garden: missing files skip their layer with one
+    // diagnostic; the base environment above stands alone. Far-shore trees
+    // stand ON the skirt (band height fn), near planting on the land.
+    const anchors = [
+        ...plan.vegetation.map(a => ({ x: a.x, z: a.z, role: a.role, yaw: a.yaw, scale: a.scale })),
+        ...plan.benches.map(b => ({ x: b.x, z: b.z, role: 'bench', yaw: b.yaw, scale: 1 })),
+    ];
+    const anchorHeight = (x, z) => (Math.hypot(x, z) > R - 0.06 ? skirtHeight(x, z) : height(x, z));
+    const gen = (this._lakeAssetGen = (this._lakeAssetGen || 0) + 1);
+    this._lakeAssetsSettled = false;   // deterministic async-content gate (QA harness polls this)
+    loadGardenAssets(resolveGardenAssetRequests(lakeCfg), this).then(({ entries }) => {
+        if (gen !== this._lakeAssetGen || this._disposed) return;   // stale build
+        buildGardenAssetInstances(this, entries, groupAnchorsByRole(anchors), anchorHeight, {
+            tierLow: low,
+            anchorCap: 18,   // low tier trims trailing (horizon) anchors first
+            sink: 0.05,
+        });
+        this._lakeAssetsSettled = true;
+    }).catch(() => { this._lakeAssetsSettled = true; /* never blocks boot */ });
+
+    // ── 9. Shore clamp — the visitor walks the LAND, not the lake ──────
+    // Movement enforces the circular field bound; this tick (after movement,
+    // the garden-tick slot) closes the shoreline: water is standable-from,
+    // never standable-on — except the pier corridor and the pavilion deck,
+    // which ARE the over-water walk. Reduced-motion keeps it (locomotion,
+    // not an effect — the garden ground-follow precedent).
+    const halfPier = pier.width / 2 + 0.3;
+    const halfPav = pav.size / 2 + 0.25;
+    this._lakeTick = function lakeShoreClamp() {
+        if (this.arrivalActive || this.isInspecting) return;
+        const pos = this.camera.position;
+        const onPier = Math.abs(pos.x - pier.x) < halfPier
+            && pos.z < pier.footZ + 0.5 && pos.z > pav.z - halfPav;
+        const inPavilion = Math.abs(pos.x - pav.x) < halfPav && Math.abs(pos.z - pav.z) < halfPav;
+        if (onPier || inPavilion) return;
+        const edge = plan.shoreZ(pos.x) - 0.15;    // toes at the waterline
+        if (pos.z < edge) pos.z = edge;
+    };
+
+    // ── 10. Camera far floor — the sky must survive the south spawn ─────
+    // The generic room-far (2.5·reach + 10) sizes for the floor; the dome
+    // stands (R+14)·1.15 out and the spawn is 0.72R south of centre.
+    const farFloor = Math.ceil(domeR * 2.2);
+    if (this.camera.far < farFloor) this.camera.far = farFloor;
 }
 
 // ── THE MEDIA WALL (v3.1.0 "The Media Wall", penthouse — generic mechanism) ──

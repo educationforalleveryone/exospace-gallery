@@ -448,6 +448,11 @@ export class GalleryScene {
         // plan's height field. Null tick (non-garden venues) ⇒ zero cost.
         if (this._gardenTick) this._gardenTick();
 
+        // Mirror Lake: shoreline clamp (the visitor walks the LAND and the
+        // pier — never the water). Same slot contract as the garden tick.
+        // Null tick (non-lake venues) ⇒ zero cost.
+        if (this._lakeTick) this._lakeTick();
+
         // Throttle expensive per-frame work
         const lightThrottle = this.isLowEnd ? 4 : 2;
         const focusThrottle = this.isLowEnd ? 6 : 3;

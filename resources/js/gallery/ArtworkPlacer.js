@@ -51,6 +51,8 @@ export function placeArtworks(data) {
             _placeArtworksFloating.call(this, data);
         } else if (this._venuePlacementMode === 'garden') {
             _placeArtworksGarden.call(this, data);
+        } else if (this._venuePlacementMode === 'lake') {
+            _placeArtworksLake.call(this, data);
         } else {
             _placeArtworksCircular.call(this, data);
         }
@@ -605,6 +607,47 @@ export function _placeArtworksFloating(data) {
         // Physical presence: the padded AABB (Collisions) blocks the visitor
         // ~0.3 m short of the frame — walking up to a floating work still
         // feels close (focus distance is 1.8 m); walking through is gone.
+        this.registerObstacle(group, 0.3);
+    });
+}
+
+// ── MIRROR LAKE — the over-water art arc (v3.0.0 "The Still Shore") ────────
+// The plan's courts carry EVERYTHING: position (over the water along the
+// shoreline arc), hover height (eye-ish, land datum), facing (toward the
+// nearest point of the shore walk — each work turns to its visitor), scale
+// (role hierarchy), seeded roll (the float heritage, calmed to ±2.6°).
+//
+// Why keep hovering: the venue's promise is "artworks suspended over still
+// water, every piece doubled by its reflection". Stands would plant the
+// show on the shore and kill the reflection language; hovering over the
+// water IS the curated presentation. Same collision contract as float mode
+// (obstacle 0.3) — plus the shoreline clamp (VenueDecorator._lakeTick)
+// means the pieces are approached from the walk or the pier, never walked
+// through.
+//
+// Fallback: plan/artwork count mismatch (a pathological build order) drops
+// to the float ring — placement never guesses, the garden precedent.
+export function _placeArtworksLake(data) {
+    const plan = this._lakePlan;
+    if (!plan || plan.courts.length !== this.artworkImages.length) {
+        console.warn('[lake] plan/artwork mismatch — falling back to the float ring');
+        _placeArtworksFloating.call(this, data);
+        return;
+    }
+
+    this.artworkImages.forEach((img, i) => {
+        const c = plan.courts[i];
+        const { group } = this.makeArtworkGroup(img, data);
+        group.position.set(c.x, c.y, c.z);
+        group.rotation.y = c.facing;     // canvas front toward the walk
+        group.rotateZ(c.roll ?? 0);      // seeded roll in the canvas plane
+        group.scale.setScalar(c.scale);  // role hierarchy (hero > primary)
+        // The plan's hero berth is the venue's DECLARED focal artwork: the
+        // Arrival's focal bonus (placement.focal_wall = 'lake-hero') keys on
+        // this tag, so the composed first frame is the designed one — the
+        // hero under the moon, not merely the largest canvas.
+        if (c.role === 'hero') group.userData.wallId = 'lake-hero';
+        this.placeAndRegister(group, data);
         this.registerObstacle(group, 0.3);
     });
 }

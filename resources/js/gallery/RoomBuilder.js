@@ -26,6 +26,8 @@ import { mergeParts } from './GeometryUtils.js';
 import { addFloorEdgeFade } from './TierEffects.js';
 import { venueFillIntensity } from './Lighting.js';
 import { computeFloatFieldRadius } from './PlacementMath.js';
+// Mirror Lake v3.0.0 "The Still Shore": the pure waterfront plan.
+import { buildLakePlan } from './LakeLayout.js';
 import { buildGardenPlan } from './GardenLayout.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
 
@@ -63,6 +65,8 @@ export function buildGallery() {
     // scene's plan (stale terrain heights) or tick.
     this._gardenPlan = null;
     this._gardenTick = null;
+    this._lakePlan = null;
+    this._lakeTick = null;
     this._gardenLastT = 0;
 
     // Apply venue overrides BEFORE building
@@ -720,6 +724,24 @@ export function createRoomCircular(data) {
         // — INSIDE the central sculpture's AABB.
         const spawn = this._gardenPlan.spawn;
         this.camera.position.set(spawn.x, CONFIG.camera.height, spawn.z);
+    }
+    // ── Mirror Lake: the waterfront plan is built HERE (before floor,
+    // structure and placement) for the same one-plan contract as the garden:
+    // terrain, water, walks, pier, pavilion and artwork berths can never
+    // disagree. Declared spawn: the stone landing on the southern shore —
+    // the visitor arrives ON THE LAND looking north across the whole
+    // composition (the v1 defect — spawning mid-"lake" on the water it was
+    // named after — is structurally unreachable in this body).
+    if ((this._venueVisualConfig || {}).structure_pass === 'lake') {
+        this._venueRng = this._venueRng || createVenueRng(venueSeedSource(this._venueSlug || 'venue'));
+        this._lakePlan = buildLakePlan({
+            radius,
+            count: imageCount,
+            rng: this._venueRng,
+            config: (this._venueVisualConfig || {}).lake || {},
+        });
+        const lakeSpawn = this._lakePlan.spawn;
+        this.camera.position.set(lakeSpawn.x, CONFIG.camera.height, lakeSpawn.z);
     }
     // Walkway edge: enforced bound = radius − 0.5, set ONCE here. (The void
     // structures used to re-set the same value, and Collisions subtracted a

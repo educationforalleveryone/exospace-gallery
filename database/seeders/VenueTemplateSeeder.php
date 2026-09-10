@@ -218,7 +218,7 @@ class VenueTemplateSeeder extends Seeder
                     'ambient_intensity'      => 0.3,
                     'spot_intensity'         => 1.3,
                     'fill_intensity'         => 0.2,
-                    'tone_mapping_exposure'  => 0.9,
+                    'tone_mapping_exposure'  => 1.15,
                     'frame_override'         => null,
                     // ── Iteration 2 "Phenomena" declared identity ──────
                     'placement_mode'  => 'float',  // §10.5 — the original promise, now real
@@ -361,7 +361,7 @@ class VenueTemplateSeeder extends Seeder
                     'ambient_intensity'      => 0.55,
                     'spot_intensity'         => 2.4,
                     'fill_intensity'         => 1.1,
-                    'tone_mapping_exposure'  => 0.9,
+                    'tone_mapping_exposure'  => 1.15,
                     // Blackened-steel frames — visible against raw concrete.
                     'frame_override'         => 'black',
                     // Dark-venue artwork legibility: every piece carries a
@@ -1320,7 +1320,7 @@ class VenueTemplateSeeder extends Seeder
                     'ambient_intensity'      => 0.16,         // the hemisphere rig carries the daylight
                     'spot_intensity'         => 0.3,
                     'fill_intensity'         => 0.2,
-                    'tone_mapping_exposure'  => 0.9,
+                    'tone_mapping_exposure'  => 1.15,
                     'frame_override'         => null,
                     // Iteration 3 (§4.10): the garden is the only venue whose sky
                     // establishes a sun — high-tier-only sun shadows, config-gated
@@ -1383,72 +1383,105 @@ class VenueTemplateSeeder extends Seeder
             ],
 
             // ─────────────────────────────────────────────────────────────
-            // 11. Mirror Lake — Studio (NEW void-style venue)
+            // 11. Mirror Lake — Studio flagship (v3.0.0 "The Still Shore")
             // ─────────────────────────────────────────────────────────────
+            // The full redesign (worklog: Mirror Lake). The venue is now a
+            // PLACE, not a void: a stone landing on the southern shore, a
+            // shoreline walk, artworks hovering over the calm water along an
+            // arc (each doubled by its reflection), a timber pier out to a
+            // lantern-lit viewing pavilion, a far-shore treeline in the haze
+            // under a rising moon. LakeLayout.js is the spatial authority;
+            // this row tunes it and owns the identity keys. Rollback: flip
+            // structure_pass back to 'phenomena' → the v1.0.0 void-lake body
+            // renders (config-level, no deploy).
             [
                 'name'          => 'Mirror Lake',
                 'slug'          => 'mirror-lake',
-                'description'   => 'A still, dark lake reflects the floating artworks and the moon. Mist drifts low. Quiet, spacious, meditative.',
+                'description'   => 'A gallery at dusk on the shore of a still lake. Works hover above the calm water along the shore, doubled by their reflection. Arrive on the stone landing, follow the shoreline walk, cross the timber pier to the lantern-lit viewing pavilion, and look back as the far shore fades into mist under a rising moon.',
                 'category'      => 'abstract',
-                'tags'          => ['mirror', 'reflection', 'moonlit', 'meditative'],
+                'tags'          => ['mirror', 'reflection', 'lakeside', 'meditative'],
                 'plan_required' => 'studio',
                 'capacity_min'  => 5,
                 'capacity_max'  => 40,
                 'sort_order'    => 11,
                 'is_featured'   => true,
-                'version'       => '1.0.0',
+                'version'       => '3.0.0',
                 'default_settings' => [
                     'wall_texture'    => 'white',
-                    'floor_material'  => 'marble',
+                    'floor_material'  => 'grass',
                     'lighting_preset'  => 'moody',
                     'frame_style'     => 'minimal',
                     'room_layout'     => 'rotunda',
                 ],
                 'visual_config' => [
-                    'wall_height'            => 0,    // no walls
+                    'wall_height'            => 0,    // no walls — open shore
                     'wall_depth'             => 0,
                     'ceiling_type'           => 'none',
                     'ceiling_height'         => 0,
-                    'background_color'       => '0x0a0a18',  // deep night
-                    'fog_color'              => '0x0a0a18',
-                    'fog_near'               => 15,
-                    'fog_far'                => 45,
-                    'ambient_color'          => '0xb0c8ff',
-                    'ambient_intensity'      => 0.18,
-                    'spot_intensity'         => 0.5,
+                    'background_color'       => '0x0f1726',  // night haze blue
+                    'fog_color'              => '0x0f1726',
+                    'fog_near'               => 20,
+                    'fog_far'                => 64,
+                    'ambient_color'          => '0x93a8c8',
+                    'ambient_intensity'      => 0.26,
+                    'spot_intensity'         => 0.4,
                     'fill_intensity'         => 0.12,
-                    'tone_mapping_exposure'  => 0.55,
-                    'frame_override'         => 'silver',
-                    // ── Iteration 2 "Phenomena" declared identity ──────
-                    'placement_mode'  => 'float',  // artworks above the lake
-                    'floor_reflection'  => 'planar',  // §11.3 row 1 — reflector high / gloss mood mobile
-                    'env_intensity'  => 0.15,  // calm the moody preset's evening glow
-                    'structure_pass'  => 'phenomena',  // per-venue rollback switch (name gate kept: Mirror Lake)
-                    'open_air'        => true,
-                    'layout_shape'    => 'circular',
-                    'void_lake'       => true,   // moon + reflection + mist composition
+                    'tone_mapping_exposure'  => 1.15,   // readable night, not murk
+                    'frame_override'         => 'silver',  // silver catches moonlight
+                    // ── v3.0.0 "The Still Shore" declared identity ─────
+                    'open_air'               => true,
+                    'layout_shape'           => 'circular',
+                    'structure_pass'         => 'lake',      // the waterfront body (v1 rollback: 'phenomena')
+                    'void_lake'              => true,        // family membership (v1 flag kept)
+                    'placement_mode'         => 'lake',      // the over-water art arc
+                    'floor_reflection'       => 'planar',    // the water Reflector gate (TierResolve)
+                    'environment'            => 'none',      // the venue IS its own sky (PMREM) — no HDRI leak
+                    'env_intensity'          => 0.14,
+                    'hemisphere_intensity'   => 0.45,
+                    'hemisphere_sky_color'   => '0x3d5680',
+                    'hemisphere_ground_color'=> '0x0c0f14',
+                    'ceiling_fill_light'     => false,       // no sky-orb in the night
+                    'field_radius_bonus'     => 4,           // the lake needs shore + water + far shore
+                    'field_radius_min'       => 17,
+                    'artwork_light_base'     => 0.5,
+                    'artwork_light_pool_cap' => 12,
+                    'placement'              => [            // the arrival composes on the plan's hero berth
+                        'focal_wall'         => 'lake-hero',
+                    ],
+                    'lake'                   => [            // owned wholesale (like 'garden')
+                        'sky_environment' => true,
+                        'assets_base'     => '/assets/venues/mirror-lake/',
+                        'assets'          => [
+                            'tree_large'  => 'tree_large_01.glb',
+                            'tree_medium' => 'tree_medium_01.glb',
+                            'tree_accent' => 'tree_medium_02.glb',
+                            'shrub'       => 'shrub_01.glb',
+                            'grass'       => 'grass_clump_01.glb',
+                            'boulder'     => 'boulder_01.glb',
+                            'bench'       => 'bench_01.glb',
+                        ],
+                    ],
+                    'post_fx'                => [
+                        'bloom'             => false,   // calm, not spectacle (brief §16)
+                        'vignette'          => true,
+                        'vignette_darkness' => 0.5,
+                        'vignette_offset'   => 1.15,
+                        'vignette_blend'    => 'black',
+                    ],
                 ],
                 'material_config' => [
                     'wall_color'             => null,
                     'wall_roughness'         => 1.0,
                     'wall_metalness'         => 0.0,
                     'wall_normal_strength'   => 0.3,
-                    'floor_color'            => '0x202830',
-                    'floor_roughness'        => 0.0,    // perfect mirror
-                    'floor_metalness'        => 1.0,
-                    'floor_normal_strength'  => 0.1,
+                    'floor_color'            => '0x46523a',  // dark lakeside meadow
+                    'floor_roughness'        => 1.0,
+                    'floor_metalness'        => 0.0,
+                    'floor_normal_strength'  => 0.5,
+                    'floor_tile_meters'      => 3.0,
                 ],
-                'decorations'       => [],  // moon + mist particles are procedural
-                'lighting_fixtures' => [
-                    [
-                        'id'          => 'moonlight',
-                        'type'        => 'directional',
-                        'position'    => [12, 22, -8],
-                        'color'       => '0xb0c8ff',
-                        'intensity'   => 0.6,
-                        'cast_shadow'  => false,
-                    ],
-                ],
+                'decorations'       => [],  // shoreline, water, pier, pavilion, sky are plan-built (VenueDecorator + LakeLayout)
+                'lighting_fixtures' => [],  // the moon is plan-built (position + streak + reflection come from the lake plan)
                 'supported_layouts' => ['rotunda'],
             ],
 

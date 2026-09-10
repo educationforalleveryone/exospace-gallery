@@ -13,6 +13,17 @@ import { PostProcessing } from './PostProcessing.js';
 // Quick check that runs BEFORE renderer creation — used to decide antialias +
 // powerPreference. Returns true for low-core or low-RAM devices.
 export function earlyLowEndCheck() {
+    // QA instrumentation (Mirror Lake iteration): the visual harness runs on
+    // the SwiftShader rasterizer, whose UNMASKED_RENDERER string ALWAYS
+    // matches the software-renderer regex below — the static detector would
+    // pin every QA capture to the low tier and the shipping high-tier paths
+    // (water Reflector, PMREM sky, Standard materials) could never be
+    // render-verified. The HARNESS sets __EXOSPACE_QA_TIER via ?tier= to
+    // force the tier; the product never sets it. (The garden's ?shadows=0
+    // precedent: QA relief at the config/instrumentation level, never a
+    // product behaviour change.)
+    if (typeof window !== 'undefined' && window.__EXOSPACE_QA_TIER === 'high') return false;
+    if (typeof window !== 'undefined' && window.__EXOSPACE_QA_TIER === 'low') return true;
     if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) return true;
     if (navigator.deviceMemory && navigator.deviceMemory < 4) return true;
     return false;
@@ -114,6 +125,10 @@ export function initRenderer() {
 export function detectLowEnd() {
     let isLowEnd = earlyLowEndCheck();
     const reasons = [];
+    // QA instrumentation — see earlyLowEndCheck. The forced tier skips the
+    // static GPU-string classification (the rasterizer IS SwiftShader; the
+    // point of ?tier=high is to exercise the high-tier code on it anyway).
+    const qaTier = (typeof window !== 'undefined' && window.__EXOSPACE_QA_TIER) || null;
 
     // PERF-B7 (3D audit F7): establish the device class BEFORE textures load
     // so pickTextureUrl() and the mobile tier below take effect from the
@@ -139,9 +154,9 @@ export function detectLowEnd() {
             const isBudgetMobile = /Mali-[34567]|Mali-T|Adreno [23]|Adreno [45]0[0-5]|PowerVR SGX|PowerVR G6|VideoCore/i.test(rendererStr);
             const isOldIntel     = /Intel.*HD Graphics [234]\d{3}|Intel.*HD Graphics 5[0-4]\d|Intel.*GMA/i.test(rendererStr);
 
-            if (isSoftware)     { isLowEnd = true; reasons.push(`Software renderer: ${rendererStr}`); }
-            if (isBudgetMobile) { isLowEnd = true; reasons.push(`Budget mobile GPU: ${rendererStr}`); }
-            if (isOldIntel)     { isLowEnd = true; reasons.push(`Old Intel iGPU: ${rendererStr}`); }
+            if (isSoftware && qaTier !== 'high')     { isLowEnd = true; reasons.push(`Software renderer: ${rendererStr}`); }
+            if (isBudgetMobile && qaTier !== 'high') { isLowEnd = true; reasons.push(`Budget mobile GPU: ${rendererStr}`); }
+            if (isOldIntel && qaTier !== 'high')     { isLowEnd = true; reasons.push(`Old Intel iGPU: ${rendererStr}`); }
         }
     } catch (e) {
         reasons.push('GPU info unavailable');

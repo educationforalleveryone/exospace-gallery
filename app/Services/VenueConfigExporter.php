@@ -223,6 +223,11 @@ class VenueConfigExporter
         'field_radius_min',
         'hemisphere_sky_color',
         'hemisphere_ground_color',
+        // Mirror Lake iteration (v3.0.0 "The Still Shore"): the waterfront
+        // identity. 'lake' is the sky/asset-manifest tuning block consumed
+        // by the lake body + LakeLayout.js (owned wholesale, like 'garden').
+        // A curator override of it would recompose the shoreline itself.
+        'lake',
     ];
 
     /**

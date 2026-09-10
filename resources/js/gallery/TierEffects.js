@@ -198,6 +198,129 @@ export function addPlanarReflection(ctx, radius, { color = 0xaab4c8, resolution 
     return reflector;
 }
 
+// ── Water reflection (Mirror Lake v3.0.0 "The Still Shore") ────────────────
+// A WATER, not a chrome tile. §7 of the lake brief is explicit: a literal
+// mirror surface is not a lake. Where addPlanarReflection serves polished
+// stone (Cathedral) and moody dark glass (the v1 lake), the flagship water
+// gets its own shader on top of Reflector's projected texture:
+//
+//   • DEPTH TINT — the reflection is multiplied by a deep blue-green, the
+//     way real still water returns only a fraction of the incident light;
+//   • RIPPLE — two slow, crossing wave trains perturb the projected lookup
+//     by a couple of texels at 1024². Perceptible as life, never as waves;
+//     the amplitude ships at ~0.002 of the projected UV (uRipple);
+//   • SHEEN — a ±3% large-scale luminance breathing across the surface, so
+//     the lake is never a uniform gradient fill;
+//   • MANUAL FOG — Reflector shaders bypass scene fog, which would leave a
+//     crisp water rectangle floating in the haze at distance; the shader
+//     blends to the venue's own fog colour over the same range.
+//
+// Motion: uTime is advanced by the generic particle-system loop (the caller
+// registers the reflector as a 'void-drift' entry), which means reduced-
+// motion visitors and low-end devices automatically get the calm static
+// surface — the same vestibular contract as the void dust.
+//
+// PERFORMANCE: same cost class as addPlanarReflection — one extra scene
+// render per frame into a capped target, high tier only.
+export const WATER_REFLECTOR_SHADER = {
+    name: 'ReflectorWaterShader',
+    uniforms: {
+        color:    { value: null },   // depth tint (multiplied onto the reflection)
+        tDiffuse: { value: null },
+        textureMatrix: { value: null },
+        uTime:    { value: 0 },
+        uRipple:  { value: 0.0021 }, // projected-UV wobble amplitude
+        uFogColor: { value: null },
+        uFogNear:  { value: 18 },
+        uFogFar:   { value: 62 },
+    },
+    vertexShader: /* glsl */`
+        uniform mat4 textureMatrix;
+        varying vec4 vUv;
+        varying vec3 vWorld;
+
+        #include <common>
+        #include <logdepthbuf_pars_vertex>
+
+        void main() {
+            vUv = textureMatrix * vec4( position, 1.0 );
+            vec4 world = modelMatrix * vec4( position, 1.0 );
+            vWorld = world.xyz;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+            #include <logdepthbuf_vertex>
+        }`,
+    fragmentShader: /* glsl */`
+        uniform vec3 color;
+        uniform sampler2D tDiffuse;
+        uniform float uTime;
+        uniform float uRipple;
+        uniform vec3 uFogColor;
+        uniform float uFogNear;
+        uniform float uFogFar;
+        varying vec4 vUv;
+        varying vec3 vWorld;
+
+        #include <logdepthbuf_pars_fragment>
+
+        void main() {
+
+            #include <logdepthbuf_fragment>
+
+            // Two slow crossing wave trains, anchored to world space so the
+            // pattern does not swim with the camera. Still-water calm: the
+            // lookup moves by a couple of texels, nothing more.
+            float w1 = sin( vWorld.x * 1.6 + uTime * 0.30 ) * 0.62;
+            float w2 = sin( vWorld.z * 2.2 - vWorld.x * 0.55 + uTime * 0.19 );
+            vec2 duv = vUv.xy / max( vUv.w, 1e-4 );
+            vec4 base = texture2D( tDiffuse, duv + vec2( w1 + w2, w2 * 0.6 ) * uRipple );
+
+            // Depth tint (multiplied — the water returns a fraction of the
+            // light) + the living-surface sheen (±3%, very slow).
+            float sheen = 0.97 + 0.03 * sin( vWorld.x * 0.33 + vWorld.z * 0.26 + uTime * 0.11 );
+            vec3 water = base.rgb * color * sheen;
+
+            // Manual fog: distant water dissolves into the venue haze instead
+            // of ending at a crisp mirrored rectangle.
+            float fogF = smoothstep( uFogNear, uFogFar, length( vWorld - cameraPosition ) );
+            gl_FragColor = vec4( mix( water, uFogColor, fogF ), 1.0 );
+
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+
+        }`,
+};
+
+export function addWaterReflection(ctx, {
+    radius = 20,
+    level = -0.24,
+    color = 0x39434f,
+    resolution = 1024,
+    fogColor = 0x101826,
+    fogNear = 18,
+    fogFar = 62,
+    ripple = 0.0021,
+} = {}) {
+    const reflector = new Reflector(new THREE.CircleGeometry(radius, 72), {
+        clipBias: 0.003,
+        textureWidth: resolution,
+        textureHeight: resolution,
+        color,
+        shader: WATER_REFLECTOR_SHADER,
+    });
+    reflector.rotation.x = -Math.PI / 2;
+    reflector.position.y = level;
+    const u = reflector.material.uniforms;
+    if (u) {
+        if (u.uRipple) u.uRipple.value = ripple;
+        if (u.uFogColor) u.uFogColor.value = new THREE.Color(fogColor);
+        if (u.uFogNear) u.uFogNear.value = fogNear;
+        if (u.uFogFar) u.uFogFar.value = fogFar;
+    }
+    ctx.scene.add(reflector);
+    return reflector;
+}
+
 // ── Dark-gloss mood (mobile / low-end fallback) ─────────────────────────────
 // One light-streak plane laid on the water toward the moon direction —
 // additive, so it reads on Lambert (low-end) AND PBR (mobile) floors alike.

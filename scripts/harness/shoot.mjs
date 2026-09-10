@@ -316,6 +316,38 @@ const SCENARIOS = [
     { id: 'garden-cam-assets',    q: 'venue=sculpture-garden&shadows=0&count=12',
       cam: { p: [0, 1.6, 8.4],   t: [0, 1.9, -5] } },
     { id: 'cyber-tier-low-08',      q: 'venue=cyber-gallery&count=8', tier: 'low' },
+    // ── MIRROR LAKE — v1.0.0 FORENSIC BEFORE (never update; regression ref) ──
+    { id: 'lake-v1-08',           q: 'venue=mirror-lake-v1&count=8' },
+    { id: 'lake-v1-tier-low-08',  q: 'venue=mirror-lake-v1&count=8', tier: 'low' },
+    // ── MIRROR LAKE — "The Still Shore" (v3.0.0) ──────────────────────────
+    // Count scaling: 5 (capacity floor — a small show still composes the
+    // bay), 12 (default hang), 40 (capacity ceiling — three berths rings).
+    // The Reflector pass is minutes-per-frame under SwiftShader, so the
+    // matrix captures on the ?reflect=0 QA strip; the water's own proof
+    // lives in scripts/harness/probe-lake-water.mjs.
+    { id: 'lake-05',              q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=5' },
+    { id: 'lake-12-mixed',        q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12' },
+    { id: 'lake-40-mixed',        q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=40' },
+    // The designed walk: the landing sightline (spawn faces the bay), the
+    // shore walk mid-stride, the pier over the water, the pavilion look-back
+    // (the whole composition returned), close reading of the hero, the
+    // horizon (far shore + moon), the hero's rear presentation (backing
+    // board over water — the global artwork-backside contract), low tier.
+    { id: 'lake-cam-arrival',     q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
+      cam: { p: [0, 1.6, 12.24],  t: [0, 1.7, -6] } },
+    { id: 'lake-cam-walk',        q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
+      cam: { p: [-6, 1.62, 7.2],  t: [-8.5, 1.55, -5] } },
+    { id: 'lake-cam-pier',        q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
+      cam: { p: [8.5, 1.62, 0.5], t: [1.5, 1.7, -9] } },
+    { id: 'lake-cam-pavilion',    q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
+      cam: { p: [8.5, 1.75, -10.2], t: [0, 1.7, 12] } },
+    { id: 'lake-cam-close',       q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
+      cam: { p: [-3.9, 1.62, -3.5], t: [-4.4, 1.6, -6.5] } },
+    { id: 'lake-cam-horizon',     q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
+      cam: { p: [0, 1.62, 6.5],   t: [0, 2.6, -20] } },
+    { id: 'lake-cam-backside',    q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
+      cam: { p: [-4.4, 1.62, -9.4], t: [-4.4, 1.6, -6.5] } },
+    { id: 'lake-tier-low-12',     q: 'venue=mirror-lake&tier=low&reflect=0&assets=0&count=12', tier: 'low' },
 ];
 
 const tierInit = {
@@ -404,8 +436,8 @@ async function run() {
         // must wait for the scene to say so, never guess with a sleep.
         await page.waitForFunction(() => {
             const s = window.__exospace?.scene;
-            return !s || s._gardenAssetsSettled !== false;
-        }, { timeout: 90000 }).catch(() => errors.push('garden assets never settled'));
+            return !s || (s._gardenAssetsSettled !== false && s._lakeAssetsSettled !== false);
+        }, { timeout: 90000 }).catch(() => errors.push('venue assets never settled'));
         console.error(`[shoot] ${sc.id}: assets gate passed`);
         await page.waitForTimeout(Math.round(10000 * SETTLE));       // FPS-benchmark window closes
         await page.setViewportSize(SHOT_VIEWPORT);    // capture resolution
@@ -416,7 +448,7 @@ async function run() {
         // than on a real GPU. Give the asset layer its first rendered frames
         // before capturing — a capture raced against a shader compile ships
         // a treeless "garden" still that verifies nothing.
-        if ((sc.q || '').includes('sculpture-garden')) {
+        if ((sc.q || '').includes('sculpture-garden') || (sc.q || '').includes('mirror-lake')) {
             await page.waitForTimeout(Math.round(15000 * SETTLE));
         }
         console.error(`[shoot] ${sc.id}: capturing…`);
