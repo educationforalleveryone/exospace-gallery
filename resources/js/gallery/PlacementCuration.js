@@ -381,7 +381,7 @@ export function resolveDividerHang(placement, imageCount, fallbackSpacing, minWa
         if (linesFor(L).remaining === 0) { wallLength = L; break; }
     }
 
-    const { segs, lines, remaining } = linesFor(wallLength);
+    let { segs, lines, remaining } = linesFor(wallLength);
     // Defensive normalisation (a mis-sized config must never unplace a
     // work): top up non-hero lines by pairs — bounded greed, deterministic.
     if (remaining > 0) {
