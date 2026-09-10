@@ -24,6 +24,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as THREE from 'three';
+import gsap from 'gsap';
 import { CONFIG, parseColor } from './config.js';
 import { loadGlb } from './AssetLoader.js';
 import { mergeParts } from './GeometryUtils.js';
@@ -1940,7 +1941,10 @@ function addSculptureGardenStructure(data) {
     // 1.6 m — gently, frame-rate independently. Locomotion, not an effect:
     // reduced-motion users keep it (it is how walking downhill feels).
     this._gardenTick = function gardenGroundFollow() {
-        if (this.arrivalActive || this.isInspecting) return;
+        // _cameraScripted: the guided tour owns the camera while active — the
+        // same stand-down contract the lake shore clamp follows (its tweens
+        // pose the eye at fixed heights; the ground-follow would fight them).
+        if (this.arrivalActive || this.isInspecting || this._cameraScripted) return;
         const now = performance.now();
         const dt = Math.min(0.1, (now - (this._gardenLastT || now)) / 1000);
         this._gardenLastT = now;
@@ -4146,9 +4150,12 @@ function addMirrorLakeShore(radius, data) {
 
     // Mobile / low tiers: the designed dark-gloss mood — the moon's light
     // streak lying on the water toward the moon azimuth (the v1 fallback,
-    // retinted for the still shore).
+    // retinted for the still shore). y = water level + a hair: the plane lies
+    // ON the liquid surface, and where its tail crosses the land the terrain
+    // depth-hides it (the old land-datum y hovered it a quarter-metre above
+    // the water and grazed across the shore walk).
     if (!highFx) {
-        addMoonLightStreak(this, R, moonDir, { color: 0xa8bcd8, opacity: 0.2 });
+        addMoonLightStreak(this, R, moonDir, { color: 0xa8bcd8, opacity: 0.2, y: waterLevel + 0.012 });
     }
 
     // Sky environment — PMREM of dome + moon; no HDRI download, no wrong
@@ -4206,18 +4213,30 @@ function addMirrorLakeShore(radius, data) {
     const pier = plan.pier;
     const pav = plan.pavilion;
     const pierGroup = new THREE.Group();
+    // QA FIX (post-implementation pass): the railing runs and stanchions used
+    // to span the FULL deck length — including the stretch under the pavilion
+    // deck — so two steel rails crossed the pavilion platform at railing
+    // height (visible in the render QA as bars cutting through the hut) and
+    // their stanchions pierced its planks. The structure below the platform
+    // (deck, bed posts) still runs under — it is the pier's foundation — but
+    // the handrail vocabulary now stops where the pavilion deck begins, and
+    // the SAME span is registered as collision (Issue #2: the deck edge was
+    // walkable-through; the rails existed only visually).
+    const railZ1 = pier.footZ + 0.6;                    // start just past the bank
+    const railZ0 = pav.z + pav.size / 2 + 0.1;          // stop at the pavilion's south edge
+    const railLen = railZ1 - railZ0;
+    const railMidZ = (railZ0 + railZ1) / 2;
     {
         const deckZ0 = pav.z - pav.size / 2 - 0.2;
         const deckZ1 = pier.footZ + 0.8;               // bites into the bank
         const len = deckZ1 - deckZ0;
-        const midZ = (deckZ0 + deckZ1) / 2;
         const parts = [];
         const deck = new THREE.BoxGeometry(pier.width, 0.1, len);
         parts.push(deck);
-        // posts to the bed + rail stanchions
-        const nBays = Math.max(2, Math.round(len / 2.4));
+        // posts to the bed + rail stanchions (stanchions on the railed span)
+        const nBays = Math.max(2, Math.round(railLen / 2.4));
         for (let i = 0; i <= nBays; i++) {
-            const z = deckZ1 - (len * i) / nBays;
+            const z = railZ1 - (railLen * i) / nBays;
             for (const sx of [-1, 1]) {
                 const post = new THREE.CylinderGeometry(0.075, 0.085, 1.25, 8);
                 post.translate(sx * (pier.width / 2 - 0.14), -0.55, z);
@@ -4227,24 +4246,60 @@ function addMirrorLakeShore(radius, data) {
                 parts.push(rst);
             }
         }
+        // a few extra bed posts under the pavilion (the railed span above no
+        // longer reaches there — the under-deck stretch keeps its cadence)
+        const nUnder = Math.max(1, Math.round((deckZ1 - railZ1 + (railZ0 - deckZ0)) / 2.4));
+        for (let i = 0; i <= nUnder; i++) {
+            const z = deckZ1 - ((deckZ1 - deckZ0) * i) / (nUnder + 1);
+            if (z < railZ1 && z > railZ0) continue;     // already stanchioned above
+            for (const sx of [-1, 1]) {
+                const post = new THREE.CylinderGeometry(0.075, 0.085, 1.25, 8);
+                post.translate(sx * (pier.width / 2 - 0.14), -0.55, z);
+                parts.push(post);
+            }
+        }
         const pierMesh = new THREE.Mesh(mergeGeometries(parts, false), timberMat);
         pierMesh.castShadow = false;
         pierMesh.receiveShadow = highFx;
         pierGroup.add(pierMesh);
-        // rails — dark steel, two runs
+        // rails — dark steel, two runs, stopping at the pavilion deck
         const railParts = [];
         for (const sx of [-1, 1]) {
-            const rail = new THREE.BoxGeometry(0.045, 0.045, len - 0.2);
-            rail.translate(sx * (pier.width / 2 - 0.05), 0.64, midZ);
+            const rail = new THREE.BoxGeometry(0.045, 0.045, railLen);
+            rail.translate(sx * (pier.width / 2 - 0.05), 0.64, railMidZ);
             railParts.push(rail);
         }
         const railMesh = new THREE.Mesh(mergeGeometries(railParts, false), steelMat);
         pierGroup.add(railMesh);
         pierGroup.position.set(pier.x, 0, 0);
         this.scene.add(pierGroup);
+        // COLLISION (Issue #2): two invisible AABBs exactly on the visible
+        // rail lines. The existing movement system is AABB-based, the pier is
+        // axis-aligned, so the boxes match the geometry to the centimetre.
+        // Padding 0.25 ≈ the player radius used across Collisions.js: the
+        // visitor stops with their toes at the rail, the deck's walking
+        // surface stays fully walkable, and entry/exit at the bank foot
+        // (south, no rail across) stays open.
+        const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+        for (const sx of [-1, 1]) {
+            const railProxy = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, railLen), proxyMat);
+            railProxy.position.set(sx * (pier.width / 2 - 0.05), 0.5, railMidZ);
+            pierGroup.add(railProxy);
+            railProxy.updateWorldMatrix(true, false);
+            this.registerObstacle(railProxy, 0.25);
+        }
     }
 
     // The pavilion — stilted deck, four posts, low roof, one warm lantern.
+    // QA FIX (post-implementation pass, geometry-intersection audit):
+    //   • the four posts used to start 0.07 m ABOVE the deck top (bottom at
+    //     deckY + 0.07) — visibly floating supports; they now land exactly on
+    //     the deck surface and meet the roof soffit flush.
+    //   • the bench seat floated 0.21 m above its own skids and overhung the
+    //     deck edge by 0.10 m (the reported "plank intersecting the ledge");
+    //     the seat now rests ON the skids, fully on the platform.
+    //   • the steel fascia band clipped 0.01 m into the roof slab (and was
+    //     wider than it); it now sits flush under the roof edge.
     const pavGroup = new THREE.Group();
     {
         const s = pav.size;
@@ -4254,16 +4309,16 @@ function addMirrorLakeShore(radius, data) {
         parts.push(deck);
         for (const cx of [-1, 1]) for (const cz of [-1, 1]) {
             const post = new THREE.BoxGeometry(0.09, 2.85, 0.09);
-            post.translate(cx * (s / 2 - 0.22), pav.deckY + 0.07 + 1.425, cz * (s / 2 - 0.22));
+            post.translate(cx * (s / 2 - 0.22), pav.deckY + 1.425, cz * (s / 2 - 0.22));
             parts.push(post);
         }
-        // an interior bench facing the view
+        // an interior bench facing the view — seat resting on its skids
         const seat = new THREE.BoxGeometry(1.7, 0.055, 0.42);
-        seat.translate(-s / 2 + 0.75, pav.deckY + 0.52, 0);
+        seat.translate(-s / 2 + 0.85, pav.deckY + 0.3125, 0);
         parts.push(seat);
         for (const bz of [-0.14, 0.14]) {
             const skid = new THREE.BoxGeometry(1.6, 0.05, 0.07);
-            skid.translate(-s / 2 + 0.75, pav.deckY + 0.26, bz);
+            skid.translate(-s / 2 + 0.85, pav.deckY + 0.26, bz);
             parts.push(skid);
         }
         const body = new THREE.Mesh(mergeGeometries(parts, false), timberMat);
@@ -4273,8 +4328,8 @@ function addMirrorLakeShore(radius, data) {
         const roof = new THREE.Mesh(new THREE.BoxGeometry(s + 0.8, 0.1, s + 0.8), timberMat);
         roof.position.y = pav.deckY + 2.9;
         pavGroup.add(roof);
-        const fascia = new THREE.Mesh(new THREE.BoxGeometry(s + 0.9, 0.06, s + 0.9), steelMat);
-        fascia.position.y = pav.deckY + 2.83;
+        const fascia = new THREE.Mesh(new THREE.BoxGeometry(s + 0.72, 0.06, s + 0.72), steelMat);
+        fascia.position.y = pav.deckY + 2.82;
         pavGroup.add(fascia);
         // the lantern — one warm emissive line under the south roof edge,
         // visible (and reflected) across the whole bay
@@ -4365,17 +4420,105 @@ function addMirrorLakeShore(radius, data) {
     // never standable-on — except the pier corridor and the pavilion deck,
     // which ARE the over-water walk. Reduced-motion keeps it (locomotion,
     // not an effect — the garden ground-follow precedent).
-    const halfPier = pier.width / 2 + 0.3;
-    const halfPav = pav.size / 2 + 0.25;
+    //
+    // QA FIX (post-implementation pass — REPORTED ISSUE #1 ROOT CAUSE): the
+    // old tick answered "am I in the pier/pavilion bands?" with a boolean and
+    // otherwise snapped pos.z to the shoreline. The bands END mid-water (the
+    // pavilion's north rim, and their x-edges along the deck), so any step
+    // past a band edge — walking north to the pavilion rail, leaning over the
+    // pier edge toward a nearby artwork — triggered ONE frame that teleported
+    // the camera up to ~0.8R south (a measured 17.7 m single-frame jump) back
+    // to the south shore. That snap is the reported "walk close to an artwork
+    // ⇒ reset to spawn". The tick is now REGION-AWARE:
+    //
+    //   • three valid regions — land (z ≥ waterline toes), the pier rectangle,
+    //     the pavilion rectangle (tested in the PAVILION's rotated local frame;
+    //     the old axis-aligned square didn't even cover the rotated deck's
+    //     corners — standing on one also snapped);
+    //   • a land → water step keeps the designed slide along the shoreline
+    //     (unchanged feel, toes at the waterline);
+    //   • a timber → water step (off the deck edge / past its rim) clamps the
+    //     offending axis back INTO the region just left — a firm edge, zero
+    //     teleport, tangential sliding preserved;
+    //   • scripted-camera phases (arrival, focus inspect, guided tour) stand
+    //     down, and `_settleCamera` lets the tour LAND its final over-water
+    //     stop on the nearest legal ground instead of fighting the clamp.
+    const halfPier = 0.9;                       // rail inner face ≈ 0.74 + margin
+    const halfPav = pav.size / 2 + 0.25;        // deck edge + player radius
+    const pierZ0 = pav.z - pav.size / 2 - 0.2 + 0.05;   // deck north rim
+    const pierZ1 = pier.footZ + 0.5;                    // bank-side apron
+    const pavCos = Math.cos(pav.yaw);
+    const pavSin = Math.sin(pav.yaw);
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    this._lakeRegion = null;
+    this._lakeSafe = null;
     this._lakeTick = function lakeShoreClamp() {
-        if (this.arrivalActive || this.isInspecting) return;
+        if (this.arrivalActive || this.isInspecting || this._cameraScripted) return;
         const pos = this.camera.position;
-        const onPier = Math.abs(pos.x - pier.x) < halfPier
-            && pos.z < pier.footZ + 0.5 && pos.z > pav.z - halfPav;
-        const inPavilion = Math.abs(pos.x - pav.x) < halfPav && Math.abs(pos.z - pav.z) < halfPav;
-        if (onPier || inPavilion) return;
-        const edge = plan.shoreZ(pos.x) - 0.15;    // toes at the waterline
-        if (pos.z < edge) pos.z = edge;
+        const px = pos.x, pz = pos.z;
+
+        // Pier rectangle (axis-aligned — the pier runs along z).
+        const onPier = Math.abs(px - pier.x) < halfPier && pz < pierZ1 && pz > pierZ0;
+        // Pavilion rectangle in the pavilion's local (rotated) frame.
+        const pdx = px - pav.x, pdz = pz - pav.z;
+        const plx = pdx * pavCos - pdz * pavSin;
+        const plz = pdx * pavSin + pdz * pavCos;
+        const inPavilion = Math.abs(plx) < halfPav && Math.abs(plz) < halfPav;
+
+        if (onPier || inPavilion) {
+            this._lakeRegion = onPier ? 'pier' : 'pavilion';
+            this._lakeSafe = { x: px, z: pz };
+            return;
+        }
+        const edge = plan.shoreZ(px) - 0.15;    // toes at the waterline
+        if (pz >= edge) {                        // on land
+            this._lakeRegion = 'land';
+            this._lakeSafe = { x: px, z: pz };
+            return;
+        }
+        // Over the water, off the timber. Return to the region just left —
+        // never across the lake to the south shoreline.
+        const region = this._lakeRegion;
+        if (region === 'pier') {
+            pos.x = clamp(px, pier.x - halfPier + 0.01, pier.x + halfPier - 0.01);
+            pos.z = clamp(pz, pierZ0 + 0.01, pierZ1 - 0.01);
+            return;
+        }
+        if (region === 'pavilion') {
+            const nlx = clamp(plx, -halfPav + 0.01, halfPav - 0.01);
+            const nlz = clamp(plz, -halfPav + 0.01, halfPav - 0.01);
+            pos.x = pav.x + nlx * pavCos + nlz * pavSin;
+            pos.z = pav.z - nlx * pavSin + nlz * pavCos;
+            return;
+        }
+        // Walked into the lake from the land — the designed shoreline slide.
+        pos.z = edge;
+    };
+    // Guided-tour landing: the tour's final pose sits 1.8 m in front of an
+    // artwork — over the water by design. On stop we glide the camera to the
+    // nearest legal ground (the shoreline toe at that x) so the visitor never
+    // inherits an illegal position and never eats a snap. Venue-agnostic
+    // hook; venues without one simply don't define it.
+    this._settleCamera = () => {
+        const pos = this.camera.position;
+        const onPier = Math.abs(pos.x - pier.x) < halfPier && pos.z < pierZ1 && pos.z > pierZ0;
+        const pdx = pos.x - pav.x, pdz = pos.z - pav.z;
+        const plx = pdx * pavCos - pdz * pavSin;
+        const plz = pdx * pavSin + pdz * pavCos;
+        const inPavilion = Math.abs(plx) < halfPav && Math.abs(plz) < halfPav;
+        if (onPier || inPavilion || pos.z >= plan.shoreZ(pos.x) - 0.15) {
+            this._lakeRegion = onPier ? 'pier' : (inPavilion ? 'pavilion' : 'land');
+            this._lakeSafe = { x: pos.x, z: pos.z };
+            return;                                 // already legal — adopt it
+        }
+        const zTo = plan.shoreZ(pos.x) - 0.15;
+        if (this.reducedMotion) {
+            pos.z = zTo;
+        } else {
+            gsap.to(pos, { z: zTo, duration: 0.6, ease: 'power2.out' });
+        }
+        this._lakeRegion = 'land';
+        this._lakeSafe = { x: pos.x, z: zTo };
     };
 
     // ── 10. Camera far floor — the sky must survive the south spawn ─────

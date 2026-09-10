@@ -228,7 +228,7 @@ export class GalleryScene {
     createRoomCircular(data)                        { return createRoomCircular.call(this, data); }
     addVenueCeiling(roomWidth, roomDepth, wallH)    { return addVenueCeiling.call(this, roomWidth, roomDepth, wallH); }
     placeArtworks(data)                             { return placeArtworks.call(this, data); }
-    makeArtworkGroup(img, data)                     { return makeArtworkGroup.call(this, img, data); }
+    makeArtworkGroup(img, data, opts)               { return makeArtworkGroup.call(this, img, data, opts); }
     placeAndRegister(group, data)                   { return placeAndRegister.call(this, group, data); }
     applyArtworkTexture(img)                        { return applyArtworkTexture.call(this, img); }
     setupLighting(preset)                           { return setupLighting.call(this, preset); }

@@ -120,10 +120,15 @@ section('C. Waterfront invariants (real LakeLayout + validator)');
     // C2. The arrival composition holds at the matrix counts.
     for (const { count, plan } of sample) {
         const hero = plan.courts[0];
-        ok(`count=${count}: berth 0 is the hero, over water, WNW of centre`,
+        // Post-implementation pass: the art lines anchor to the waterline
+        // (berthOffsets), so the hero's composed first frame now reads
+        // ACROSS near water — west of the arrival axis, over open water,
+        // on the hero line's offset (not the old deep radial ring).
+        ok(`count=${count}: berth 0 is the hero, over water, west on the arrival axis`,
             hero?.role === 'hero'
             && plan.terrain.isWater(hero.x, hero.z, 1.5)
-            && hero.x < 0 && hero.z < 0);
+            && hero.x < 0
+            && (plan.shoreZ(hero.x) - hero.z) <= plan.config.berthOffsets[plan.config.heroRing] + 1.5);
         ok(`count=${count}: spawn on land, south, plaza clear of water`,
             !plan.terrain.isWater(plan.spawn.x, plan.spawn.z, 0) && plan.spawn.z > 0);
         ok(`count=${count}: pier foot on land, end over water`,
@@ -148,6 +153,27 @@ section('C. Waterfront invariants (real LakeLayout + validator)');
     const def = LAKE_DEFAULTS;
     ok('water below land datum, bed below water', def.waterLevel < 0 && def.bedDepth > Math.abs(def.waterLevel));
     ok('berth elevation is eye-ish above the land datum', def.berthElevation > 1.2 && def.berthElevation < 2.0);
+
+    // C5. Terrain bowl agrees with isWater (post-implementation regression
+    // guard). The shipped height field computed d = shoreZ − z and treated
+    // d ≥ 0 as land — the WATER side — so the bed stayed a flat plain at y=0
+    // (the water plane was hidden UNDER it) while the southern land sank into
+    // a −0.9 m basin under the spawn. Land south must sit at datum; the bed
+    // north must submerge below the water plane and reach full depth.
+    {
+        const plan = buildLakePlan({ radius: 17, count: 12, rng: rngFor('mirror-lake:qa:height') });
+        const o = plan.config;
+        let bowlOk = true;
+        for (let x = -15; x <= 15; x += 1.5) {
+            const zs = plan.shoreZ(x);
+            if (plan.terrain.height(x, zs + 1) !== 0) bowlOk = false;                 // land at datum
+            // 2 m north the bed must be submerged (1 m is still the visible
+            // wet-stone band by design — shoreDrop spreads 0.9 m over 3.2 m)
+            if (!(plan.terrain.height(x, zs - 2) < plan.waterLevel)) bowlOk = false;
+            if (Math.abs(plan.terrain.height(x, zs - 5) + o.bedDepth) > 1e-9) bowlOk = false; // full depth
+        }
+        ok('terrain bowl: land at datum, bed below the water plane', bowlOk);
+    }
 }
 
 // ── D. JS/PHP hygiene ───────────────────────────────────────────────────────
@@ -165,6 +191,13 @@ section('D. JS/PHP hygiene');
     ok('water reflector registered as void-drift (uTime rides the particle loop)', vd.includes("{ obj: reflector, type: 'void-drift' }"));
     ok('stars + mist use sprite maps (no square points)', vd.includes('makeStarSpriteTexture()') && vd.includes('makeMistSpriteTexture()'));
     ok('shore clamp tick installed', vd.includes('this._lakeTick = function lakeShoreClamp'));
+    // Post-implementation nav fixes (reported issues #1/#2):
+    ok('shore clamp is region-aware (pier/pavilion local-frame test)', vd.includes("this._lakeRegion = onPier ? 'pier' : 'pavilion'"));
+    ok('shore clamp stands down for scripted cameras (tour)', vd.includes('this.arrivalActive || this.isInspecting || this._cameraScripted'));
+    ok('pier rails registered as collision obstacles', vd.includes('this.registerObstacle(railProxy, 0.25)'));
+    ok('tour sets _cameraScripted + lands via _settleCamera',
+        read('resources/js/gallery/Tour.js').includes('_cameraScripted = true')
+        && read('resources/js/gallery/Tour.js').includes('_settleCamera'));
     ok('asset settled gate installed', vd.includes('this._lakeAssetsSettled = false'));
 
     const gs = read('resources/js/gallery/GalleryScene.js');

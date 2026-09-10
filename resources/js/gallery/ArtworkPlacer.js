@@ -637,7 +637,11 @@ export function _placeArtworksLake(data) {
 
     this.artworkImages.forEach((img, i) => {
         const c = plan.courts[i];
-        const { group } = this.makeArtworkGroup(img, data);
+        // Berth lines run at 2.7 m centres — the shared 3.0 m canvas cap
+        // would let adjacent wide landscapes intersect. 2.2 m keeps every
+        // hang gap positive (2.36 m framed width < 2.7 m) while the works
+        // stay dominant at their ~2.8–5.2 m viewing distances.
+        const { group } = this.makeArtworkGroup(img, data, { maxWidth: 2.2 });
         group.position.set(c.x, c.y, c.z);
         group.rotation.y = c.facing;     // canvas front toward the walk
         group.rotateZ(c.roll ?? 0);      // seeded roll in the canvas plane
@@ -702,10 +706,15 @@ export function _addEasel(x, z, canvasYaw, groundY = 0, scale = 1) {
 // where we are in the progressive load. The mesh is named + registered in
 // group.userData._canvasMesh so applyArtworkTexture() can find it when the
 // full-quality texture streams in.
-export function makeArtworkGroup(img, data) {
+export function makeArtworkGroup(img, data, opts = {}) {
     const aspectRatio = img.aspectRatio || 1;
     const maxHeight   = 2.0;
-    const maxWidth    = 3.0;
+    // QA FIX (post-implementation pass): the 3.0 m shared width cap let two
+    // adjacent wide landscapes on Mirror Lake's 2.7 m berth line physically
+    // intersect (frames overlapping ~0.45 m). Venues with tighter hang
+    // spacing can now pass a narrower cap via opts; the default keeps every
+    // existing venue bit-identical.
+    const maxWidth    = Number(opts.maxWidth) > 0 ? Number(opts.maxWidth) : 3.0;
     let height = maxHeight;
     let width  = height * aspectRatio;
     if (width > maxWidth) { width = maxWidth; height = width / aspectRatio; }

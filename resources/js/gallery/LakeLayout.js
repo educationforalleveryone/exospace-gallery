@@ -58,15 +58,44 @@ export const LAKE_DEFAULTS = Object.freeze({
     pavilionDeckY: 0.14,       // deck sits a plank's thickness above the land
                                // datum so it reads as lifted over the water
 
-    // ── Artwork berths (over water) ──────────────────────────────────────
-    berthRadii: [0.46, 0.60, 0.74],  // fractions of R; 3rd ring engages at
-                                     // `thirdRingFrom` works and beyond
-    thirdRingFrom: 18,
+    // ── Artwork berths (over water, ALONG THE SHORE) ─────────────────────
+    // QA FIX (post-implementation pass — artwork accessibility): the v3.0.0
+    // berths sat on RADIUS rings (0.46–0.74·R from the field centre), but the
+    // shoreline lives at ~0.30·R — every berth hung 8–16 m from the nearest
+    // walkable ground (a measured 8–16 m closest approach per work). The
+    // venue promise — the DB description and the design brief alike — is
+    // works hovering "along the shore", viewed from the walk and the pier.
+    // Berth lines now FOLLOW the meandering waterline at fixed offsets north
+    // of it: every piece is comfortably viewable from the shore walk while
+    // the over-water reflection language (the venue's identity) is untouched.
+    berthOffsets: [2.8, 5.2, 7.6, 10.0, 12.4],  // metres north of the
+                                           // waterline; line count engages by
+                                           // show size: 2 lines by default,
+                                           // the 3rd from `thirdRingFrom`,
+                                           // 4th from `fourthLineFrom`, 5th
+                                           // from `fifthLineFrom` (deep shows
+                                           // read as receding constellations)
+    heroXFrac: -0.264,              // arrival-axis hero anchor x (west, under
+                                    // the moon's glitter path — the 214°
+                                    // bearing of the radial plan)
+    heroRing: 1,                    // the hero reads ACROSS the water: one
+                                    // line out, not toe-level
+    thirdRingFrom: 12,
+    fourthLineFrom: 20,
+    fifthLineFrom: 28,
     berthGap: 2.7,             // minimum metres between berths
-    berthGapDense: 2.45,       // >30 works: the arc tightens (never < 2.4)
-    arcFromDeg: 136, arcToDeg: 292,  // the water arc between pavilion and west
-    pierClearance: 3.4,        // berth distance from the pier centreline
-    pavilionClearance: 5.2,
+    berthGapDense: 2.45,       // dense shows: the line tightens (never < 2.4)
+    arcWestXFrac: -0.80,       // the art line's x-range (fractions of R):
+    arcEastXFrac: 0.30,        // west end toward the disc edge, east end short
+                               // of the pier corridor (berthFits polices it)
+    // QA FIX (post-implementation pass): the pier corridor clearance was 3.4
+    // — a scaled canvas edge could sit ~0.8 m off the railing, crowding the
+    // walk (visible in the first render QA). 3.7 keeps the full 1..40
+    // capacity matrix green (scripts/venue-qa/check-lake-capacity.mjs) while
+    // giving the Destination structure breathing room. Pavilion bumped to
+    // match (5.4).
+    pierClearance: 3.7,        // berth distance from the pier centreline
+    pavilionClearance: 5.4,
     plazaClearance: 6.0,
     shoreMargin: 2.4,          // berths stay this far north (water side) of shore
     berthElevation: 1.56,      // hover height (land datum, eye-ish) over the water
@@ -127,6 +156,8 @@ function catmullSpline(ctrl, segs = 12) {
 }
 
 // Even-arc sample points between two azimuths (degrees), at radius r.
+// (Retained for the v3 radial-plan rollback tooling; the shore-anchored art
+// lines use lineAnchors() below.)
 function arcPoints(r, fromDeg, toDeg, step) {
     const from = fromDeg * DEG, to = toDeg * DEG;
     const n = Math.max(2, Math.ceil(Math.abs(to - from) / (step / Math.max(r, 0.01))));
@@ -169,8 +200,15 @@ export function buildLakePlan(opts) {
     };
     // Terrain: land y=0; north of the waterline the bed drops smoothly to
     // bedDepth over shoreDrop metres (the visible wet-stone band).
+    // QA FIX (post-implementation pass): the height field previously computed
+    // d = shoreZ(x) − z and treated d ≥ 0 as land — but d ≥ 0 is the WATER
+    // side (z < shore, the same predicate isWater uses). The bowl shipped
+    // INVERTED: the lakebed stayed a flat lawn-level plain at y=0 (hiding the
+    // water plane entirely), while the southern land sank into a −0.9 m
+    // basin under the spawn. The predicate below now matches isWater exactly:
+    // land is z > shoreZ(x) ⇒ height 0; water side drops to the bed.
     const height = (x, z) => {
-        const d = shoreZ(x) - z;              // >0 on land
+        const d = z - shoreZ(x);              // >0 on land (south of the line)
         if (d >= 0) return 0;
         return -o.bedDepth * smoothstep(0, o.shoreDrop, -d);
     };
@@ -236,16 +274,24 @@ export function buildLakePlan(opts) {
     pavilion.yaw = Math.atan2(spawn[0] - pavilion.x, spawn[1] - pavilion.z);
     const pier = { x: pierX, footZ: pierFootZ, endZ: pierEndZ, width: o.pierWidth };
 
-    // ── 4. Artwork berths — the over-water arc (the art walk) ───────────
+    // ── 4. Artwork berths — the over-water art lines (the art walk) ─────
     // Roles as in the garden: primaries own the sightlines (the hero sits on
-    // the arrival axis), secondaries people the arc, transitional works are
-    // discovered toward its ends. Deterministic retry per berth; a berth
+    // the arrival axis), secondaries people the lines, transitional works are
+    // discovered toward their ends. Deterministic retry per berth; a berth
     // that cannot fit after the retries is SKIPPED (validator reports the
     // shortfall — placement never wedges an illegal piece).
+    //
+    // QA FIX (post-implementation pass): berth LINES anchor to the waterline
+    // (shoreZ(x) − offset) instead of radius rings, so every work hangs at a
+    // viewable distance from the shore walk — see the berthOffsets note in
+    // LAKE_DEFAULTS. Inner lines first (nearest the walk = read first).
     const nPrimary = clamp(Math.round(count * 0.2), Math.min(1, count), 3);
     const nTransitional = Math.round(count * 0.3);
-    const radii = count >= o.thirdRingFrom ? o.berthRadii : o.berthRadii.slice(0, 2);
-    const berthGap = count > 30 ? o.berthGapDense : o.berthGap;
+    const lineCount = count >= o.fifthLineFrom ? 5
+        : count >= o.fourthLineFrom ? 4
+        : (count >= o.thirdRingFrom ? 3 : 2);
+    const offsets = o.berthOffsets.slice(0, lineCount);
+    const berthGap = count > 26 ? o.berthGapDense : o.berthGap;
 
     const berthFits = (x, z, courts) => {
         const r = Math.hypot(x, z);
@@ -260,52 +306,79 @@ export function buildLakePlan(opts) {
         return true;
     };
 
+    // Anchors along the art line: evenly spaced in x, each z pinned to the
+    // shoreline at the line's offset — the hang follows the shore's curve.
+    const lineAnchors = (offset) => {
+        const x0 = o.arcWestXFrac * R, x1 = o.arcEastXFrac * R;
+        const n = Math.max(2, Math.ceil(Math.abs(x1 - x0) / berthGap));
+        const pts = [];
+        for (let i = 0; i <= n; i++) {
+            const x = x0 + (x1 - x0) * (i / n);
+            pts.push([x, shoreZ(x) - offset]);
+        }
+        return pts;
+    };
+
     const courts = [];
     let heroPlaced = false;
-    outer:
-    for (let ring = 0; ring < radii.length; ring++) {
-        const ringR = radii[ring] * R;
-        // Hero first on ring 0: the ARRIVAL axis — west-north-west, under
-        // the moon (the composed first frame: hero + moon + arc together).
-        // The placer tags this berth's group 'lake-hero' (the venue's
-        // declared focal artwork — Arrival's focal bonus applies).
-        const heroTheta = (214 + (rng.next() - 0.5) * 8) * DEG;
-        const heroCandidates = ring === 0
-            ? [polar(ringR, heroTheta)]
-            : [];
-        // Then the arc, inner rings first (nearest the walk = read first).
-        const arcPts = ring === 0
-            ? heroCandidates.concat(arcPoints(ringR, o.arcFromDeg, o.arcToDeg, berthGap * 1.15))
-            : arcPoints(ringR, o.arcFromDeg, o.arcToDeg, berthGap * 1.15);
 
-        for (const [bx, bz] of arcPts) {
+    // The hero berth goes down FIRST (courts[0] — the plan's documented focal
+    // berth and the Arrival's composed first frame): arrival-axis anchor on
+    // the hero line's offset. A hero that cannot fit after the retries lets
+    // the lines run heroless (the placer falls back to its largest canvas —
+    // never a broken venue).
+    {
+        const heroX = o.heroXFrac * R + (rng.next() - 0.5) * (berthGap * 1.15);
+        const heroZ = shoreZ(heroX) - offsets[o.heroRing];
+        for (let a = 0; a < 10 && !heroPlaced; a++) {
+            const widen = 0.14 * a;
+            const x = heroX + (rng.next() - 0.5) * 2 * widen;
+            const z = heroZ + (rng.next() - 0.5) * 2 * widen;
+            if (!berthFits(x, z, courts)) continue;
+            const [wx, wz] = nearestWalkPoint(x, z);
+            const elev = o.berthElevation + rng.next() * o.berthElevationJitter;
+            const roll = (rng.next() - 0.5) * 2 * o.berthRollDeg * DEG;
+            courts.push({
+                x, z, y: elev,
+                facing: Math.atan2(wx - x, wz - z),
+                scale: 1.2,
+                role: 'hero',
+                ring: o.heroRing,
+            });
+            heroPlaced = true;
+        }
+    }
+
+    // Then the lines, inner lines first (nearest the walk = read first).
+    outer:
+    for (let ring = 0; ring < offsets.length; ring++) {
+        const off = offsets[ring];
+        const linePts = lineAnchors(off);
+
+        for (const [bx, bz] of linePts) {
             if (courts.length >= count) break outer;
             let placed = false;
             for (let a = 0; a < 10 && !placed; a++) {
-                // Progressive-widening retry around the arc anchor (the
+                // Progressive-widening retry around the line anchor (the
                 // garden's pattern): early attempts hug the designed spot.
                 const widen = 0.14 * a;
                 const x = bx + (rng.next() - 0.5) * 2 * widen;
                 const z = bz + (rng.next() - 0.5) * 2 * widen;
                 if (!berthFits(x, z, courts)) continue;
-                const isHero = ring === 0 && !heroPlaced;
                 const idx = courts.length;
-                const role = isHero
-                    ? 'hero'
-                    : (idx < nPrimary
-                        ? 'primary'
-                        : (idx >= count - nTransitional ? 'transitional' : 'secondary'));
+                const role = idx <= nPrimary
+                    ? 'primary'
+                    : (idx >= count - nTransitional ? 'transitional' : 'secondary');
                 const [wx, wz] = nearestWalkPoint(x, z);
                 const elev = o.berthElevation + rng.next() * o.berthElevationJitter;
                 const roll = (rng.next() - 0.5) * 2 * o.berthRollDeg * DEG;
                 courts.push({
                     x, z, y: elev,
                     facing: Math.atan2(wx - x, wz - z),
-                    scale: role === 'hero' ? 1.2 : role === 'primary' ? 1.12 : role === 'transitional' ? 0.9 : 1.0,
+                    scale: role === 'primary' ? 1.12 : role === 'transitional' ? 0.9 : 1.0,
                     role,
                     ring,
                 });
-                if (isHero) heroPlaced = true;
                 placed = true;
             }
         }

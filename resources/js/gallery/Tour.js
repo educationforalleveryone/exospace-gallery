@@ -70,6 +70,15 @@ export class GuidedTour {
         // Release pointer lock so we can tween the camera freely
         if (this.scene.controls.isLocked) this.scene.controls.unlock();
 
+        // QA FIX (post-implementation pass): the tour tweens the camera to a
+        // pose 1.8 m in front of each artwork. Venues with forbidden ground
+        // (Mirror Lake's open water) enforce their constraint in a per-frame
+        // tick, which used to fight the tween every frame and yank the camera
+        // to the shoreline mid-tour. `_cameraScripted` tells those venue ticks
+        // to stand down while a scripted camera owns the view (the same
+        // contract arrivalActive and isInspecting already follow).
+        this.scene._cameraScripted = true;
+
         this._focusCurrent();
     }
 
@@ -77,6 +86,20 @@ export class GuidedTour {
         this.active = false;
         this._clearDwell();
         this._clearCountdown();
+
+        // Hand the camera back legally: a venue with forbidden ground can
+        // glide the (over-water) tour stop onto its nearest walkable surface
+        // — see VenueDecorator._settleCamera. The in-flight hop tween is
+        // killed first — it targets an over-water pose and would fight the
+        // venue tick the moment _cameraScripted clears.
+        if (this.scene.focusTween) {
+            this.scene.focusTween.kill();
+            this.scene.focusTween = null;
+        }
+        this.scene._cameraScripted = false;
+        if (typeof this.scene._settleCamera === 'function') {
+            try { this.scene._settleCamera(); } catch (e) { /* never block stop */ }
+        }
 
         const btn = document.getElementById('in-gallery-tour-btn');
         if (btn) btn.style.display = 'flex';

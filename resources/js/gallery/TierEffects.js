@@ -326,7 +326,7 @@ export function addWaterReflection(ctx, {
 // additive, so it reads on Lambert (low-end) AND PBR (mobile) floors alike.
 // `moonDir` is the (normalised-ish) direction the venue's moon sits at; the
 // streak runs from centre toward it, like moonlight catching still water.
-export function addMoonLightStreak(ctx, radius, moonDir, { color = 0xb0c8ff, opacity = 0.16 } = {}) {
+export function addMoonLightStreak(ctx, radius, moonDir, { color = 0xb0c8ff, opacity = 0.16, y = 0.005 } = {}) {
     const dir = moonDir.clone();
     dir.y = 0;
     if (dir.lengthSq() < 1e-6) dir.set(0.8, 0, -0.5);
@@ -344,7 +344,10 @@ export function addMoonLightStreak(ctx, radius, moonDir, { color = 0xb0c8ff, opa
     const streak = new THREE.Mesh(geo, mat);
     streak.rotation.x = -Math.PI / 2;
     // Lay the plane's long axis along the moon direction, offset toward it.
-    streak.position.set(dir.x * radius * 0.3, 0.005, dir.z * radius * 0.3);
+    // `y` lets sunken-floor venues (Mirror Lake's water at −0.24) lay the
+    // streak ON the liquid surface: below the land datum the terrain depth-
+    // hides the tail, so the streak reads only where the water is.
+    streak.position.set(dir.x * radius * 0.3, y, dir.z * radius * 0.3);
     streak.rotation.z = -Math.atan2(dir.x, dir.z);
     ctx.scene.add(streak);
     return streak;
