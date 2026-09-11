@@ -30,6 +30,15 @@ use Illuminate\Support\Facades\Log;
  * Session keys:
  *   - 'impersonating_admin_id' — the original admin's user ID (set on start,
  *     cleared on stop).
+ *
+ * SESSION-ITERATION FIX (Iter-10): start() and stop() are the only
+ * authentication-state transitions in the app that did NOT rotate the
+ * session ID — every other identity change (password login, registration,
+ * OAuth callback) already regenerates via the CR-4 session-fixation fixes.
+ * Both transitions now call session()->regenerate(), which issues a fresh
+ * session ID while PRESERVING the payload (the impersonating_admin_id key
+ * and any flash state survive; only the identifier changes). This matches
+ * the canonical Laravel practice for switching users within a session.
  */
 class ImpersonationService
 {
@@ -64,6 +73,11 @@ class ImpersonationService
 
         // Log in as the target user
         Auth::login($target);
+
+        // SESSION-ITERATION FIX (Iter-10): rotate the session ID on the
+        // identity transition, same as login/registration/OAuth. The data
+        // (impersonating_admin_id) migrates to the new ID automatically.
+        session()->regenerate();
 
         // Audit log
         AdminAuditLog::record('impersonation_started', $target, [
@@ -109,6 +123,12 @@ class ImpersonationService
         // Restore the admin's session
         Auth::login($admin);
         session()->forget(self::SESSION_KEY);
+
+        // SESSION-ITERATION FIX (Iter-10): rotate the session ID on the way
+        // back to the admin identity too (same rationale as start()). The
+        // key was captured above and re-login restores the admin; only the
+        // identifier changes.
+        session()->regenerate();
 
         // Audit log
         if ($impersonatedUser) {

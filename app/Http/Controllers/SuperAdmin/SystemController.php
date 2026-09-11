@@ -439,10 +439,27 @@ class SystemController extends Controller
         //     even after their session rows are gone, so the cookie is
         //     invalidated too (by deleting its server-side series).
         //   - tokens: Sanctum bearer tokens are revoked outright.
-        try {
-            \DB::table('sessions')->where('user_id', $user->id)->delete();
-        } catch (\Throwable $e) {
-            \Log::warning('banUser: failed to purge sessions', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+        //
+        // SESSION-ITERATION FIX (Iter-10): the sessions-table purge only
+        // exists for SESSION_DRIVER=database. Production runs the redis
+        // driver (no `sessions` table at all — the delete threw a
+        // QueryException that was silently swallowed), and the audit log
+        // then claimed `sessions_purged => true` regardless — a false
+        // forensic record. Now the purge is attempted only for the
+        // database driver and the audit payload reports the truth. For the
+        // redis/file drivers the OTHER-device sessions are handled by the
+        // (Iter-10 repaired) scheduled exospace:purge-banned-sessions
+        // command plus the per-request CheckBanned middleware; the CURRENT
+        // session always dies on the banned user's next request.
+        $sessionsPurged = false;
+
+        if (config('session.driver') === 'database') {
+            try {
+                \DB::table('sessions')->where('user_id', $user->id)->delete();
+                $sessionsPurged = true;
+            } catch (\Throwable $e) {
+                \Log::warning('banUser: failed to purge sessions', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+            }
         }
         try {
             \DB::table('personal_access_tokens')
@@ -455,8 +472,8 @@ class SystemController extends Controller
 
         AdminAuditLog::record('user_banned', $user, [
             'reason'         => $request->input('reason') ?: 'No reason provided',
-            'sessions_purged' => true,
-            'tokens_revoked'  => true,
+            'sessions_purged' => $sessionsPurged,
+            'tokens_revoked' => true,
         ]);
 
         return back()->with('success', "{$user->name} has been banned.");

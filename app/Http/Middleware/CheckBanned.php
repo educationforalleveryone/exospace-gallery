@@ -79,13 +79,25 @@ class CheckBanned
                 // (audit H16) — prevents banned users from continuing to
                 // use the app from other browsers/devices for the remaining
                 // session lifetime.
-                try {
-                    DB::table('sessions')->where('user_id', $user->id)->delete();
-                } catch (\Throwable $e) {
-                    Log::warning('CheckBanned: failed to purge user sessions', [
-                        'user_id' => $user->id,
-                        'error'   => $e->getMessage(),
-                    ]);
+                //
+                // SESSION-ITERATION FIX (Iter-10): the sessions TABLE only
+                // exists for SESSION_DRIVER=database. Production runs the
+                // redis driver, so this delete used to throw a QueryException
+                // on EVERY banned request (silently caught, warning-logged
+                // each time). Only attempt it for the database driver; for
+                // every other driver the current session is invalidated below
+                // and the other-device sessions are handled by the scheduled
+                // exospace:purge-banned-sessions command (redis — repaired in
+                // Iter-10) plus this middleware's per-request enforcement.
+                if (config('session.driver') === 'database') {
+                    try {
+                        DB::table('sessions')->where('user_id', $user->id)->delete();
+                    } catch (\Throwable $e) {
+                        Log::warning('CheckBanned: failed to purge user sessions', [
+                            'user_id' => $user->id,
+                            'error'   => $e->getMessage(),
+                        ]);
+                    }
                 }
 
                 // ITERATION-1 FIX (API token escape): this middleware only
