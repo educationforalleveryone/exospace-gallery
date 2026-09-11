@@ -87,8 +87,15 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:5,1');
 
     // SEC-14: Add throttle to password update — prevents brute-force via CSRF
+    // ITERATION-8: named bucket (throttle's third arg). The unnamed
+    // throttle:5,1 keyed PUT /password and POST /login (and POST
+    // /confirm-password) into the SAME domain|ip bucket — failed logins
+    // starved legitimate password changes and vice versa. Isolating the
+    // bucket keeps the identical 5-per-minute bar for this endpoint while
+    // decoupling it from the other password-bearing routes (same pattern
+    // the MFA and profile-update endpoints already use).
     Route::put('password', [PasswordController::class, 'update'])
-        ->middleware('throttle:5,1') // 5 per minute per user
+        ->middleware('throttle:5,1,password-update') // 5 per minute per IP, own bucket
         ->name('password.update');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])

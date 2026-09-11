@@ -9,7 +9,14 @@
         </p>
     </header>
 
-    <form method="post" action="{{ route('password.update') }}" class="mt-6 space-y-6">
+    {{-- ITERATION-8: OAuth-only accounts (has_password=false) hold only an
+         unusable random placeholder hash — the "current password" check can
+         never pass for them, so the form below was a permanent dead end.
+         Point them at the app's actual set-a-password path (the forgot-
+         password flow, which issues a real credential) instead of rendering
+         a form that always fails. --}}
+    @if(auth()->user()->has_password)
+    <form method="post" action="{{ route('password.update') }}" class="mt-6 space-y-6" data-busy data-busy-label="Saving…">
         @csrf
         @method('put')
 
@@ -38,4 +45,10 @@
                  layout toast announces password-updated (humanized) once. --}}
         </div>
     </form>
+    @else
+        <p class="mt-6 text-sm text-gray-400">
+            {{ __('You sign in with a linked account, so this account does not use a password yet.') }}
+            {{ __('To add one, use the “Forgot password” link on the sign-in page with this account’s email address — you will set a password that way.') }}
+        </p>
+    @endif
 </section>
