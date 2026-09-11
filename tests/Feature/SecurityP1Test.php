@@ -86,8 +86,11 @@ class SecurityP1Test extends TestCase
 
     public function test_mfa_verify_get_route_is_accessible(): void
     {
-        // The GET route shows the verify form — no throttle needed
-        $user = User::factory()->superAdmin()->create();
+        // The GET route shows the verify form — no throttle needed.
+        // ITERATION-6: the route now requires an MFA-enabled user (a user
+        // without a secret is redirected to /profile instead of being shown
+        // a form that could only fail), so this renders for an enabled user.
+        $user = User::factory()->superAdmin()->withMfa()->create();
 
         $response = $this->actingAs($user)->get('/mfa/verify');
 

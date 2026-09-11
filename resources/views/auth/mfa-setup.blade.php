@@ -1,6 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header title="Set Up Multi-Factor Authentication" description="MFA is required for super-admin accounts. Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.)."/>
+        {{-- ITERATION-6: role-aware copy — this page is reached by regular
+             users opting in (MFA is optional for them) and by super-admins
+             mid-enforcement (MFA is required). One static "required"
+             headline read as a scare-screen for opt-in users. --}}
+        <x-page-header title="Set Up Multi-Factor Authentication"
+                       description="{{ auth()->user()->is_super_admin ? 'MFA is required for super-admin accounts. ' : 'Add an extra layer of security to your account. ' }}Scan the QR code below with your authenticator app (Google Authenticator, Authy, 1Password, etc.)."/>
     </x-slot>
 
 <div class="max-w-md mx-auto px-4 py-8">
@@ -19,7 +24,7 @@
             <code class="block bg-gray-800 text-emerald-400 text-sm font-mono p-3 rounded-lg break-all">{{ $secret }}</code>
         </div>
 
-        <form method="POST" action="{{ route('mfa.setup') }}">
+        <form method="POST" action="{{ route('mfa.setup') }}" data-busy data-busy-label="Verifying…">
             @csrf
             <label for="code" class="label-text mb-1.5">Enter the 6-digit code from your app:</label>
             <input type="text" id="code" name="code" required pattern="\d{6}" maxlength="6"
@@ -30,7 +35,7 @@
                 <p class="text-red-400 text-sm mt-2">{{ $message }}</p>
             @enderror
 
-            <button type="submit" class="w-full mt-4 btn btn-primary w-full mt-4">
+            <button type="submit" class="btn btn-primary w-full mt-4">
                 Verify & Enable MFA
             </button>
         </form>

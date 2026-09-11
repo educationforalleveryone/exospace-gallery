@@ -37,6 +37,72 @@
                         <p class="mt-3 text-xs text-gray-500">
                             MFA verification is required for billing changes. Your verified session lasts 30 minutes before re-prompting.
                         </p>
+
+                        @php
+                            $remainingBackupCodes = count(array_filter(auth()->user()->mfa_backup_codes ?? []));
+                        @endphp
+                        @if($remainingBackupCodes > 0)
+                            <p class="mt-1 text-xs text-gray-500">
+                                {{ $remainingBackupCodes }} {{ $remainingBackupCodes === 1 ? 'backup code' : 'backup codes' }} remaining.
+                                @if($remainingBackupCodes <= 3)
+                                    <span class="text-amber-400">Running low — each one works only once.</span>
+                                @endif
+                            </p>
+                        @else
+                            <p class="mt-1 text-xs text-amber-400">
+                                No unused backup codes left. If you lose your authenticator device, you'll need to disable MFA below (with your password) and re-enable it.
+                            </p>
+                        @endif
+
+                        {{-- ITERATION-6: the promised disable flow. Requires the
+                             current password (same sudo bar as account deletion),
+                             works even while the MFA session is unverified — a
+                             lost device must not lock the user out of recovery. --}}
+                        <div class="mt-4 pt-4 border-t border-gray-700/50">
+                            <x-danger-button
+                                x-data=""
+                                x-on:click.prevent="$dispatch('open-modal', 'confirm-mfa-disable')"
+                            >Disable MFA</x-danger-button>
+                        </div>
+
+                        <x-modal name="confirm-mfa-disable" :show="$errors->mfaDisable->isNotEmpty()" focusable>
+                            <form method="post" action="{{ route('mfa.disable') }}" class="p-6" data-busy data-busy-label="Disabling…">
+                                @csrf
+
+                                <h2 class="text-lg font-medium text-gray-100">
+                                    Disable Multi-Factor Authentication?
+                                </h2>
+
+                                <p class="mt-1 text-sm text-gray-400">
+                                    Your account will no longer ask for authenticator codes, and all unused backup codes will be destroyed. Your current password confirms this change — you can re-enable MFA anytime.
+                                </p>
+
+                                <div class="mt-6">
+                                    <x-input-label for="mfa-disable-password" value="Password" class="sr-only" />
+
+                                    <x-text-input
+                                        id="mfa-disable-password"
+                                        name="password"
+                                        type="password"
+                                        class="mt-1 block w-3/4"
+                                        placeholder="Password"
+                                        autocomplete="current-password"
+                                    />
+
+                                    <x-input-error :messages="$errors->mfaDisable->get('password')" class="mt-2" />
+                                </div>
+
+                                <div class="mt-6 flex justify-end">
+                                    <x-secondary-button x-on:click="$dispatch('close')">
+                                        Cancel
+                                    </x-secondary-button>
+
+                                    <x-danger-button class="ms-3">
+                                        Disable MFA
+                                    </x-danger-button>
+                                </div>
+                            </form>
+                        </x-modal>
                     @else
                         <div class="mt-4">
                             <a href="{{ route('mfa.setup') }}"

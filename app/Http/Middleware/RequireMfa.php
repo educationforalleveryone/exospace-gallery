@@ -71,8 +71,20 @@ class RequireMfa
             // Clear stale session flag
             $request->session()->forget('mfa_verified');
             $request->session()->forget('mfa_verified_at');
+            $request->session()->forget('mfa_verified_user_id');
 
             if (! $request->routeIs('mfa.verify')) {
+                // ITERATION-6: remember WHERE the user was heading so the
+                // verify controller can send them back after the challenge
+                // (deep links like /billing/upgrade/pro survive the
+                // detour). GET only — storing a POST endpoint as the
+                // intended destination would 405 on the way back. The URL
+                // is the app's own route, never user input, so this cannot
+                // become an open redirect.
+                if ($request->isMethod('GET')) {
+                    redirect()->setIntendedUrl($request->fullUrl());
+                }
+
                 return redirect()->route('mfa.verify')
                     ->with('info', 'Your MFA session has expired. Please re-enter your authenticator code.');
             }

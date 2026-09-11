@@ -269,11 +269,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // cookie can brute-force it in ~8 hours at 1000 attempts/min. 6
     // attempts per minute is ample for a human typing codes.
     Route::get('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'setup'])->name('mfa.setup');
-    Route::post('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'enable'])->middleware('throttle:6,1');
+    Route::post('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'enable'])->middleware('throttle:6,1,mfa-setup');
     Route::get('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'showVerify'])->name('mfa.verify');
-    Route::post('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'verify'])->middleware('throttle:6,1');
+    Route::post('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'verify'])->middleware('throttle:6,1,mfa-verify');
     // P3-7: One-time backup codes display after MFA enable
     Route::get('/mfa/backup-codes', [\App\Http\Controllers\MfaController::class, 'showBackupCodes'])->name('mfa.backup-codes');
+    // ITERATION-6: Self-serve MFA disablement — the /profile UI always
+    // promised "You can disable it anytime" but no implementation existed.
+    // Requires the current password (same sudo bar as profile deletion);
+    // throttled so the password check cannot be brute-forced; deliberately
+    // NOT behind the 'mfa' middleware — a user with a lost device must
+    // still be able to recover their account.
+    Route::post('/mfa/disable', [\App\Http\Controllers\MfaController::class, 'disable'])
+        ->middleware('throttle:6,1,mfa-disable')
+        ->name('mfa.disable');
 
     // ── Billing portal + upgrade flow (tasks H01 + H02) ────────────────
     // /billing shows current plan, transaction history, pending upgrades.

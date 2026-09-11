@@ -390,7 +390,13 @@
        ITERATION-9: .modal-title ends the four competing heading recipes
        (text-lg/xl × bold/semibold) — one dialog heading voice. */
     .modal-backdrop { @apply fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm; }
-    .modal-panel    { @apply w-full bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal; }
+    /* ITERATION-6: the panel must be positioned + above the backdrop.
+       As shipped it was static, so the FIXED backdrop (positioned, z-[60])
+       painted over the entire dialog — every mouse click landed on the
+       scrim (closing the modal) and no modal button was clickable; only
+       keyboard submission worked. relative + z-[70] restores the intended
+       stack: panel above backdrop, backdrop click-outside still works. */
+    .modal-panel    { @apply relative z-[70] w-full bg-gray-800 border border-gray-600/50 rounded-xl shadow-modal; }
     .modal-title    { @apply text-lg font-semibold text-gray-50; }
     /* Standard modal interior — header / body / footer bands */
     .modal-header   { @apply px-6 py-4 border-b border-gray-700/60; }

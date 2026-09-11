@@ -30,7 +30,10 @@
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <a href="{{ route('super.index') }}"
+                {{-- ITERATION-6: role-aware destination — this page previously
+                     sent regular users to /master-control (super-admin-only),
+                     which 403s. Settings is where their MFA controls live. --}}
+                <a href="{{ auth()->user()->is_super_admin ? route('super.index') : route('profile.edit') }}"
                    class="btn btn-primary">
                     I've saved my codes — Continue →
                 </a>
