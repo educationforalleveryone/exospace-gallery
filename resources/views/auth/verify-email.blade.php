@@ -46,7 +46,10 @@
                 Resend Email
             </x-primary-button>
         </form>
-        <form method="POST" action="{{ route('logout') }}">
+        {{-- LOGOUT-ITERATION: full page load (destroys the Turbo snapshot
+             cache of authenticated pages) + double-submission guard. --}}
+        <form method="POST" action="{{ route('logout') }}"
+              data-turbo="false" data-busy data-busy-label="Signing out…">
             @csrf
             <button type="submit" class="btn btn-sm btn-ghost">
                 Log out

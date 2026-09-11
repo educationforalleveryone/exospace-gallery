@@ -81,6 +81,17 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\CheckPlanExpiry::class,
         ]);
 
+        // LOGOUT-ITERATION FIX: authenticated HTML responses (and redirects
+        // sent while authenticated) are marked `Cache-Control: no-store` so
+        // the browser can never resurrect an authenticated page from its
+        // HTTP cache / bfcache after the user has signed out. Guest traffic
+        // is untouched — public pages keep their normal caching behavior.
+        // See App\Http\Middleware\PreventAuthenticatedCaching for the full
+        // rationale and scope guardrails.
+        $middleware->web(append: [
+            \App\Http\Middleware\PreventAuthenticatedCaching::class,
+        ]);
+
         // 4. Trusted proxies — restrict to the actual reverse-proxy network
         //    instead of trusting every caller. (Task C17)
         //

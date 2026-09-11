@@ -264,8 +264,14 @@
                             <svg class="w-4 h-4 mr-2.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             {{ __('My Teams') }}
                         </x-dropdown-link>
+                        {{-- LOGOUT-ITERATION: data-turbo="false" forces a full
+                             page load — the Turbo session (and its cached
+                             authenticated snapshots) is destroyed on every
+                             sign-out instead of surviving the body swap.
+                             data-busy blocks duplicate submissions. --}}
                         <div class="border-t border-gray-700/60 mt-1 pt-1">
-                        <form method="POST" action="{{ route('logout') }}">
+                        <form method="POST" action="{{ route('logout') }}"
+                              data-turbo="false" data-busy data-busy-label="Signing out…">
                             @csrf
                             <x-dropdown-link :href="route('logout')"
                                     data-logout-link>
@@ -341,7 +347,9 @@
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">{{ __('Profile') }}</x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('admin.teams.index')">{{ __('My Teams') }}</x-responsive-nav-link>
-                <form method="POST" action="{{ route('logout') }}">
+                {{-- LOGOUT-ITERATION: see desktop dropdown — full page load + busy guard. --}}
+                <form method="POST" action="{{ route('logout') }}"
+                      data-turbo="false" data-busy data-busy-label="Signing out…">
                     @csrf
                     <x-responsive-nav-link :href="route('logout')" data-logout-link>
                         {{ __('Sign out') }}

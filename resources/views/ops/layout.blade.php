@@ -57,7 +57,10 @@
             @if(auth()->user()?->is_super_admin)
                 <a href="{{ route('super.index') }}" class="px-3 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-800">Master Control</a>
             @endif
-            <form method="POST" action="{{ route('logout') }}">
+            {{-- LOGOUT-ITERATION: full page load (destroys the Turbo snapshot
+                 cache of authenticated pages) + double-submission guard. --}}
+            <form method="POST" action="{{ route('logout') }}"
+                  data-turbo="false" data-busy data-busy-label="Signing out…">
                 @csrf
                 <button class="btn btn-sm btn-ops-secondary">Sign out</button>
             </form>

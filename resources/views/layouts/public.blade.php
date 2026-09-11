@@ -118,7 +118,10 @@
                     @auth
                         <a href="{{ route('admin.dashboard') }}" class="text-sm text-gray-300 hover:text-white transition">Dashboard</a>
                         <a href="{{ route('billing.index') }}" class="text-sm text-gray-300 hover:text-white transition">Billing</a>
-                        <form method="POST" action="{{ route('logout') }}" class="inline">
+                        {{-- LOGOUT-ITERATION: full page load (kills the Turbo
+                             snapshot cache of authenticated pages) + busy guard. --}}
+                        <form method="POST" action="{{ route('logout') }}" class="inline"
+                              data-turbo="false" data-busy data-busy-label="Signing out…">
                             @csrf
                             <button type="submit" class="text-sm text-gray-300 hover:text-white transition">Log out</button>
                         </form>
@@ -154,7 +157,9 @@
                 @auth
                     <a href="{{ route('admin.dashboard') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Dashboard</a>
                     <a href="{{ route('billing.index') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Billing</a>
-                    <form method="POST" action="{{ route('logout') }}" class="inline">
+                    {{-- LOGOUT-ITERATION: see desktop nav — full page load + busy guard. --}}
+                    <form method="POST" action="{{ route('logout') }}" class="inline"
+                          data-turbo="false" data-busy data-busy-label="Signing out…">
                         @csrf
                         <button type="submit" class="block py-2 text-sm text-gray-300 hover:text-white">Log out</button>
                     </form>

@@ -154,12 +154,22 @@
             // ── CSP-safe logout links ─────────────────────────────────────
             // <a href="/logout" data-logout-link> inside a <form> submits the
             // form instead of navigating (native GET would 405).
+            //
+            // LOGOUT-ITERATION: the submit is one-shot and guarded. Native
+            // form.submit() bypasses the submit event, so the data-busy
+            // delegate never sees it — the re-entry check and the shared
+            // exospaceGuardForm() (disable controls + spinner + 60s safety
+            // net) run here instead. Prevents double POSTs that would land
+            // on a 419 after the first one already invalidated the session.
             document.addEventListener('click', (e) => {
                 const el = e.target.closest('[data-logout-link]');
                 if (!el) return;
                 e.preventDefault();
                 const form = el.closest('form');
-                if (form) form.submit();
+                if (!form) return;
+                if (form.__exospaceBusy) return;
+                window.exospaceGuardForm(form);
+                form.submit();
             });
 
             // ── Confirm-on-submit forms ───────────────────────────────────
