@@ -261,7 +261,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/profile',  [ProfileController::class, 'update'])
         ->middleware('throttle:6,1,profile-update')
         ->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // ITERATION-9: the deletion endpoint confirms the CURRENT PASSWORD —
+    // the same sudo bar as profile.update / mfa.disable — so it gets the
+    // same named throttle bucket treatment. Unthrottled, a hijacked session
+    // could brute-force the password check at line speed. Third-arg prefix
+    // keeps the bucket isolated from every other numerically throttled
+    // route (iterations 6-8 pattern).
+    Route::delete('/profile', [ProfileController::class, 'destroy'])
+        ->middleware('throttle:6,1,profile-destroy')
+        ->name('profile.destroy');
     // GDPR Art. 20 — right to data portability. Returns JSON download of
     // the user's profile, galleries, images metadata, transactions, teams,
     // and artist profiles. (Task C10.)

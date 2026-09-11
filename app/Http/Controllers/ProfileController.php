@@ -436,16 +436,36 @@ class ProfileController extends Controller
      * Delete the user's account.
      *
      * Delegates to UserDeletionService which:
+     *   - Re-assigns the user's galleries in OTHER users' teams to those
+     *     teams' owners (ITERATION-9 — shared data must survive the creator)
      *   - Deletes all gallery image / audio / logo / curtain_logo files
      *   - Deletes artist portraits created by this user
      *   - Calls PlanDowngradeService to remove Coolify custom domains
      *   - Clears current_team_id for any users pointing at owned teams
-     *   - Deletes the user row (DB cascade handles the rest)
+     *   - Anonymizes transactions and invoices (tax-retention compliance)
+     *   - Purges the password_reset_tokens row for the freed email
+     *     (ITERATION-9 — same replay class fixed for email/password change)
+     *   - Deletes the user row inside one DB transaction (DB cascade
+     *     handles the rest)
      *
      * WITHOUT the service, self-serve account deletion called $user->delete()
      * and nothing else — every uploaded file stayed on disk forever. That
      * was a GDPR violation (privacy policy promises "right to delete your
      * personal information") and a disk leak.
+     *
+     * ITERATION-9: the deletion is now audited ('user_deleted' — the same
+     * action name, payload shape, and ordering the admin path in
+     * SystemController::deleteUser has always used), so the super-admin
+     * alert listener fires for self-serve deletions too. Recording happens
+     * AFTER the password gate but BEFORE the destructive work: a failure
+     * while writing the audit row aborts the deletion (nothing destroyed),
+     * mirroring the admin path's fail-closed semantics. The actor is the
+     * deleting user themselves; admin_audit_logs.actor_id is nullOnDelete,
+     * so the forensic row survives the user's own deletion (actor_id → NULL)
+     * and the queued super-admin alert then correctly notifies every
+     * eligible super-admin (nobody to exclude). The payload carries
+     * self_serve => true so operators can tell the two paths apart; the
+     * email value passes through AdminAuditLog's established PII hashing.
      */
     public function destroy(Request $request, UserDeletionService $deletionService): RedirectResponse
     {
@@ -454,6 +474,12 @@ class ProfileController extends Controller
         ]);
 
         $user = $request->user();
+
+        AdminAuditLog::record('user_deleted', $user, [
+            'email'      => $user->email,
+            'plan'       => $user->plan,
+            'self_serve' => true,
+        ]);
 
         Auth::logout();
 
