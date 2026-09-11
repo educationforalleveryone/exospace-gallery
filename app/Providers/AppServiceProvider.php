@@ -6,8 +6,11 @@ namespace App\Providers;
 
 use App\Services\FeatureFlag;
 use App\Services\TwoCheckoutApiClient;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -39,6 +42,35 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
+
+        // ── VERIFICATION-ITERATION FIX: dedicated rate-limit buckets for
+        // the two email-verification routes ─────────────────────────────
+        //
+        // WHY: Laravel's numeric `throttle:6,1` middleware keys its counter
+        // by the AUTHENTICATED USER ID alone (ThrottleRequests::
+        // resolveRequestSignature — no route component). Every numerically
+        // throttled route therefore shares ONE per-user bucket. On the
+        // verification journey this collided in a real trap: a user who
+        // clicked "Resend Email" a few times and then clicked the FRESH
+        // verification link within the same minute hit 429 on the link
+        // click itself — the single most important action of their signup.
+        // The reverse also bit: unrelated throttled activity (password
+        // confirm, password update) could exhaust the shared bucket and
+        // block a legitimate resend.
+        //
+        // Named limiters give each half of the verification lifecycle its
+        // own deterministic bucket. The route:// GET click is idempotent
+        // and signature-bounded, so it gets a generous 10/min. The resend
+        // POST is the email-spam guard and keeps its existing budget of
+        // 6/min. Both stay per-user (auth middleware guarantees a user by
+        // the time these run; the ?: ip() branch is the documented fallback).
+        RateLimiter::for('verification-link', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('verification-resend', function (Request $request) {
+            return Limit::perMinute(6)->by($request->user()?->id ?: $request->ip());
+        });
 
         // ── SEO OS (Iteration 4): sitemap cache invalidation ────────────
         // Entities whose changes affect the public URL set bump the sitemap

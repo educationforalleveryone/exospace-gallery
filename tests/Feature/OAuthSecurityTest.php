@@ -22,11 +22,11 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\Auth\VerifyEmail; // VERIFICATION-ITERATION: branded subclass of the framework notification
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Auth\Notifications\VerifyEmail;
 use Laravel\Socialite\Contracts\User as SocialiteUserContract;
 use Laravel\Socialite\Facades\Socialite;
 use Mockery;
@@ -132,6 +132,8 @@ class OAuthSecurityTest extends TestCase
             'The user must go through the standard email verification flow.');
 
         // A verification email should have been dispatched
+        // VERIFICATION-ITERATION: the User model sends the branded subclass
+        // (the notification fake matches by exact class).
         Notification::assertSentTo($user, VerifyEmail::class);
     }
 

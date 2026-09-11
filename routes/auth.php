@@ -54,11 +54,19 @@ Route::middleware('auth')->group(function () {
         ->name('verification.notice');
 
     Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
-        ->middleware(['signed', 'throttle:6,1'])
+        // VERIFICATION-ITERATION FIX: dedicated named limiter (10/min, own
+        // bucket) — the numeric throttle:6,1 shared ONE per-user bucket with
+        // every other throttled route, so a few resends followed by the
+        // legitimate link click could 429 the click itself. See
+        // AppServiceProvider for the full rationale.
+        ->middleware(['signed', 'throttle:verification-link'])
         ->name('verification.verify');
 
     Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
-        ->middleware('throttle:6,1')
+        // VERIFICATION-ITERATION FIX: dedicated named limiter (6/min, own
+        // bucket, same budget as before) — unrelated throttled activity can
+        // no longer block a legitimate resend.
+        ->middleware('throttle:verification-resend')
         ->name('verification.send');
 
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])

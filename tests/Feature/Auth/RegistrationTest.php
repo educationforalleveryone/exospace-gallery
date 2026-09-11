@@ -6,7 +6,7 @@ use App\Mail\WelcomeEmail;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\Auth\VerifyEmail; // VERIFICATION-ITERATION: branded subclass of the framework notification
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -238,6 +238,9 @@ class RegistrationTest extends TestCase
 
         $user = User::where('email', 'mail@example.com')->first();
         // Verification link — the framework-wired listener on Registered.
+        // VERIFICATION-ITERATION: the User model now sends the branded
+        // App\Notifications\Auth\VerifyEmail subclass (framework fake
+        // matches by exact class, not instanceof).
         Notification::assertSentTo($user, VerifyEmail::class);
         // Welcome email — the discovery-wired SendWelcomeEmail listener.
         // WelcomeEmail implements ShouldQueue, so the fake records it as

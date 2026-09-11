@@ -40,7 +40,11 @@
     </div>
 
     <div class="flex items-center justify-between gap-3">
-        <form method="POST" action="{{ route('verification.send') }}" class="flex-1">
+        {{-- VERIFICATION-ITERATION: data-busy opt-in guard — a double-click
+             used to fire two POSTs (two emails). Same delegate convention
+             as the logout form on this page and every other auth form. --}}
+        <form method="POST" action="{{ route('verification.send') }}"
+              class="flex-1" data-busy data-busy-label="Resending…">
             @csrf
             <x-primary-button class="w-full justify-center">
                 Resend Email

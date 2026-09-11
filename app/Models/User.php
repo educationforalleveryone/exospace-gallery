@@ -189,6 +189,22 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Send the email-verification notification.
+     *
+     * VERIFICATION-ITERATION FIX: routes the verification email through the
+     * branded App\Notifications\Auth\VerifyEmail notification instead of the
+     * framework's generic markdown mail. The signed-URL construction
+     * (id + sha1(email) hash + expiry from config('auth.verification.expire'))
+     * is still handled 100% by Laravel's VerifyEmail notification — only the
+     * email presentation is customized, matching the project's other
+     * transactional emails (App\Mail\* + emails.partials.layout).
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new \App\Notifications\Auth\VerifyEmail());
+    }
+
+    /**
      * Store the user's current password hash in the password_histories table.
      *
      * D-4 FIX (Iter-004): Called before updating the password in both

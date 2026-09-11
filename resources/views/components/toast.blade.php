@@ -111,6 +111,9 @@ window.toast = function(message, type = 'success') {
         'profile-updated': 'Profile updated',
         'password-updated': 'Password updated',
         'verification-link-sent': 'Verification link sent!',
+        // VERIFICATION-ITERATION: flashed by VerifyEmailController after a
+        // successful link click so the landing page acknowledges it.
+        'email-verified': 'Email verified — welcome to Exospace!',
     };
     const humanize = (v) => flashLabels[v] ?? v;
 
