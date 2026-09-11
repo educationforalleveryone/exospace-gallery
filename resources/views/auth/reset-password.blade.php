@@ -1,6 +1,11 @@
 <x-guest-layout>
     <h1 class="sr-only">{{ __('Reset Password') }}</h1>
-    <form method="POST" action="{{ route('password.store') }}">
+    <!-- RESET-ITERATION FIX (UX): guard against duplicate submissions —
+         mirrors the login/register/forgot-password forms. The page fully
+         reloads on failure (validation redirect) so the state self-resets. -->
+    <form method="POST" action="{{ route('password.store') }}"
+          x-data="{ submitting: false }"
+          x-on:submit="submitting = true">
         @csrf
 
         <!-- Password Reset Token -->
@@ -28,7 +33,8 @@
         </div>
 
         <div class="flex items-center justify-end mt-6">
-            <x-primary-button>
+            <x-primary-button x-bind:disabled="submitting"
+                              x-bind:class="{ 'opacity-50 cursor-not-allowed': submitting }">
                 {{ __('Reset Password') }}
             </x-primary-button>
         </div>

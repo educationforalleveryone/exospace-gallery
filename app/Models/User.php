@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\Auth\ResetPassword;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -155,7 +156,11 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $recentHashes = \Illuminate\Support\Facades\DB::table('password_histories')
             ->where('user_id', $this->id)
-            ->orderByDesc('created_at')
+            // RESET-ITERATION FIX: order by the monotonically
+            // increasing primary key instead of created_at — the auto-
+            // increment id gives an unambiguous "most recent first" even
+            // when two entries share the same timestamp second.
+            ->orderByDesc('id')
             ->limit(5)
             ->pluck('password_hash');
 
@@ -166,6 +171,21 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return false;
+    }
+
+    /**
+     * Send the password-reset notification.
+     *
+     * RESET-ITERATION FIX: routes the reset email through the branded
+     * App\Notifications\Auth\ResetPassword notification instead of the
+     * framework's generic markdown mail. Token generation, storage, URL
+     * construction and expiry are still handled 100% by Laravel's password
+     * broker — only the email presentation is customized, matching the
+     * project's other transactional emails (App\Mail\* + emails.partials.layout).
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPassword($token));
     }
 
     /**
@@ -183,11 +203,26 @@ class User extends Authenticatable implements MustVerifyEmail
             'created_at'    => now(),
         ]);
 
-        // Prune history to last 10 entries (keep 5 for checking + buffer)
+        // RESET-ITERATION FIX: prune by primary key. The previous
+        // prune used
+        //   ->orderByDesc('created_at')->offset(10)->delete()
+        // which compiled to a PLAIN `delete from password_histories where
+        // user_id = ?`: MySQL's DELETE has no OFFSET (MySqlGrammar only
+        // appends order/limit clauses, never offset), and SQLite's grammar
+        // drops order/offset entirely when no limit is set. The result was
+        // that EVERY password change/reset wiped the user's ENTIRE history,
+        // silently disabling the D-4 reuse check (isPasswordInHistory()
+        // always found an empty table). Selecting the 10 newest ids and
+        // deleting everything else is portable and correct on every driver.
+        $keepIds = \Illuminate\Support\Facades\DB::table('password_histories')
+            ->where('user_id', $this->id)
+            ->orderByDesc('id')
+            ->limit(10)
+            ->pluck('id');
+
         \Illuminate\Support\Facades\DB::table('password_histories')
             ->where('user_id', $this->id)
-            ->orderByDesc('created_at')
-            ->offset(10)
+            ->when($keepIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $keepIds))
             ->delete();
     }
 

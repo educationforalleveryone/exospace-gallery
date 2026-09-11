@@ -7,7 +7,15 @@
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    <form method="POST" action="{{ route('password.email') }}">
+    <!-- RESET-ITERATION FIX (UX): guard against duplicate submissions —
+         double-clicks burned the route's 5/hour throttle budget and made
+         the broker's 60s per-email throttle look like a broken flow.
+         x-on:submit (not inline onsubmit=) keeps this CSP-safe; mirrors the
+         login/register forms. The page fully reloads on failure
+         (validation redirect) so the state self-resets. -->
+    <form method="POST" action="{{ route('password.email') }}"
+          x-data="{ submitting: false }"
+          x-on:submit="submitting = true">
         @csrf
 
         <!-- Email Address -->
@@ -18,7 +26,8 @@
         </div>
 
         <div class="flex items-center justify-end mt-6">
-            <x-primary-button>
+            <x-primary-button x-bind:disabled="submitting"
+                              x-bind:class="{ 'opacity-50 cursor-not-allowed': submitting }">
                 {{ __('Email Password Reset Link') }}
             </x-primary-button>
         </div>
