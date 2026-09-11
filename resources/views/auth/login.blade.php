@@ -3,7 +3,13 @@
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    <form method="POST" action="{{ route('login') }}">
+    <!-- LOGIN-ITERATION (UX): guard against confusing duplicate submissions.
+         x-on:submit (not inline onsubmit=) keeps this CSP-safe; the pattern
+         mirrors the feedback-widget's submitting state. The page fully
+         reloads on failure (validation redirect) so the state self-resets. -->
+    <form method="POST" action="{{ route('login') }}"
+          x-data="{ submitting: false }"
+          x-on:submit="submitting = true">
         @csrf
 
         <!-- Email Address -->
@@ -40,7 +46,9 @@
                 </a>
             @endif
 
-            <x-primary-button class="ms-3">
+            <x-primary-button class="ms-3"
+                              x-bind:disabled="submitting"
+                              x-bind:class="{ 'opacity-50 cursor-not-allowed': submitting }">
                 {{ __('Sign in') }}
             </x-primary-button>
         </div>

@@ -35,6 +35,23 @@ class LoginRequest extends FormRequest
     /**
      * Attempt to authenticate the request's credentials.
      *
+     * LOGIN-ITERATION FIX (banned users at login time): previously a banned
+     * user could complete a "successful" login — CheckBanned only ran on
+     * their NEXT request, so the flow was: POST /login succeeds → session
+     * created + regenerated → bounce to /dashboard → immediately logged out
+     * with the ban error. Secure, but confusing and it minted a session for
+     * a user who must never have one.
+     *
+     * Now ban status is checked the moment credentials are validated:
+     * the guard is logged out, no session auth state is kept, the rate
+     * limiter is intentionally NOT cleared (banned accounts keep counting
+     * toward the lockout), and the same sanitized ban message used by
+     * CheckBanned is returned on the email error bag.
+     *
+     * CheckBanned middleware remains the defense-in-depth layer for
+     * sessions authenticated BEFORE a ban was issued (it also purges
+     * sessions + API tokens at that point).
+     *
      * @throws \Illuminate\Validation\ValidationException
      */
     public function authenticate(): void
@@ -46,6 +63,26 @@ class LoginRequest extends FormRequest
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
+            ]);
+        }
+
+        // The credentials are valid — reject the login if the account is
+        // banned. Re-read the ban state from the DB rather than trusting
+        // the hydrated model (same reasoning as CheckBanned: the model can
+        // be stale relative to a just-issued ban).
+        $user = Auth::user();
+        $bannedAt = $user->fresh()?->banned_at;
+
+        if (! is_null($bannedAt)) {
+            Auth::guard('web')->logout();
+
+            $reason = $user->ban_reason ?: 'Your account has been suspended.';
+            // Same sanitization contract as CheckBanned: strip tags, cap
+            // at 200 chars — never reflect raw admin-entered text.
+            $reason = mb_substr(strip_tags($reason), 0, 200);
+
+            throw ValidationException::withMessages([
+                'email' => "Your account has been banned. Reason: {$reason}",
             ]);
         }
 
