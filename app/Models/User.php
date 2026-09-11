@@ -71,6 +71,12 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'remember_token',
         'google2fa_secret', // (Task H56) — never expose in JSON
+        // ITERATION-11: the backup-code HASHES are one-way, but they are
+        // still credential material — keep them out of any accidental
+        // model serialization (JSON responses, debug output, telemetry)
+        // exactly like the TOTP secret above. Attribute access in PHP
+        // (profile card, MfaController) is unaffected by $hidden.
+        'mfa_backup_codes',
     ];
 
     protected function casts(): array

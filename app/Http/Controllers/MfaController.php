@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AdminAuditLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
@@ -257,7 +258,30 @@ class MfaController extends Controller
             }
 
             if (! $valid) {
-                return back()->withErrors(['code' => 'Invalid code. Please try again.']);
+                // ITERATION-11: distinguish an EXHAUSTED recovery-code set
+                // from a merely-wrong code. The exhausted copy is shown only
+                // for the 10-character backup-code input shape, so a failed
+                // 6-digit TOTP attempt keeps the generic message, and only
+                // on this authenticated challenge screen (an attacker with
+                // the password already knows MFA is on from this very page;
+                // guessing is capped by the endpoint throttle). A user whose
+                // saved code no longer works must not be told their valid
+                // code is "invalid" — the profile page documents the same
+                // disable-and-re-enable model.
+                $errorMessage = 'Invalid code. Please try again.';
+
+                if (strlen($code) === 10) {
+                    $remaining = count(array_filter(
+                        $user->fresh()->mfa_backup_codes ?? [],
+                        fn ($c) => $c !== null
+                    ));
+
+                    if ($remaining === 0) {
+                        $errorMessage = 'All of your backup codes have been used. You can disable MFA from your settings (with your password) and re-enable it to generate a new set.';
+                    }
+                }
+
+                return back()->withErrors(['code' => $errorMessage]);
             }
 
             // Persist the replay baseline. A 6-digit TOTP success always
@@ -382,14 +406,27 @@ class MfaController extends Controller
      * Generate 10 one-time backup codes.
      * Returns ['plaintext' => [...], 'hashed' => [...]].
      * Each code is 10 characters (groups of 5 separated by dash for display).
+     *
+     * ITERATION-11 (uniqueness): each code is guaranteed unique WITHIN its
+     * set. Str::random() draws from random_bytes() (CSPRNG) over a 62-char
+     * alphabet, so a collision inside a 10-code set is negligible — but a
+     * duplicate would effectively be a TWO-USE code (consuming the first
+     * hash would leave the twin hash behind, and the same plaintext would
+     * verify again), so the guarantee is made explicitly rather than
+     * assumed statistically.
      */
     private function generateBackupCodes(): array
     {
         $plaintext = [];
         $hashed = [];
+        $raw = [];
 
         for ($i = 0; $i < 10; $i++) {
-            $code = strtoupper(\Illuminate\Support\Str::random(5).\Illuminate\Support\Str::random(5));
+            do {
+                $code = strtoupper(\Illuminate\Support\Str::random(5).\Illuminate\Support\Str::random(5));
+            } while (in_array($code, $raw, true));
+
+            $raw[] = $code;
             $plaintext[] = substr($code, 0, 5).'-'.substr($code, 5, 5);
             $hashed[] = Hash::make($code);
         }
@@ -400,38 +437,69 @@ class MfaController extends Controller
     /**
      * Try to use a backup code. If it matches, remove it from the array.
      * Returns true if a backup code matched.
+     *
+     * ITERATION-11 (REPLAY-RACE FIX): consumption is now ATOMIC. The
+     * previous implementation did an unlocked read-modify-write against
+     * the (possibly stale) in-memory user model, which broke single-use
+     * semantics under concurrency:
+     *
+     *   - the SAME code submitted twice concurrently matched the same
+     *     hash on both requests' stale reads → two MFA-verified sessions
+     *     from one code;
+     *   - two DIFFERENT codes submitted concurrently produced a lost
+     *     update — A wrote [null, B] while B wrote [A, null] from the
+     *     same pre-consumption snapshot, resurrecting the code A had
+     *     just consumed.
+     *
+     * The read-check-write now runs inside a database transaction that
+     * holds a row lock on the user (SELECT ... FOR UPDATE on the
+     * production MySQL driver; SQLite serialises writers), and the
+     * codes are re-read FRESH inside that transaction. A second request
+     * therefore serialises behind the first and sees the consumed code
+     * gone — the server, not browser state, is authoritative. The
+     * consumption write and its audit entry commit atomically.
      */
     private function tryBackupCode($user, string $code): bool
     {
-        $backupCodes = $user->mfa_backup_codes ?? [];
-        if (empty($backupCodes)) {
-            return false;
-        }
+        return DB::transaction(function () use ($user, $code) {
+            $fresh = $user->newQuery()->whereKey($user->getKey())->lockForUpdate()->first();
 
-        foreach ($backupCodes as $index => $hashedCode) {
-            if ($hashedCode && Hash::check($code, $hashedCode)) {
-                // Consume the code — set to null in the array
-                $backupCodes[$index] = null;
-                $user->forceFill(['mfa_backup_codes' => $backupCodes])->save();
-
-                // AUDIT-P1-4.3: Log backup code consumption. Each backup
-                // code is a one-time bypass of MFA — usage is security-
-                // relevant (could indicate lost device OR account takeover).
-                AdminAuditLog::record('mfa.backup_code_used', $user, [
-                    'code_index' => $index,
-                    'remaining_codes' => count(array_filter($backupCodes, fn ($c) => $c !== null)),
-                ]);
-
-                \Illuminate\Support\Facades\Log::info('MFA: backup code used', [
-                    'user_id' => $user->id,
-                    'code_index' => $index,
-                ]);
-
-                return true;
+            if (! $fresh) {
+                return false;
             }
-        }
 
-        return false;
+            $backupCodes = $fresh->mfa_backup_codes ?? [];
+            if (empty($backupCodes)) {
+                return false;
+            }
+
+            foreach ($backupCodes as $index => $hashedCode) {
+                if ($hashedCode && Hash::check($code, $hashedCode)) {
+                    // Consume the code — set to null in the array
+                    $backupCodes[$index] = null;
+                    $fresh->forceFill(['mfa_backup_codes' => $backupCodes])->save();
+
+                    // AUDIT-P1-4.3: Log backup code consumption. Each backup
+                    // code is a one-time bypass of MFA — usage is security-
+                    // relevant (could indicate lost device OR account takeover).
+                    // Recorded INSIDE the transaction so the audit entry and
+                    // the consumption commit — or roll back — together.
+                    AdminAuditLog::record('mfa.backup_code_used', $fresh, [
+                        'code_index' => $index,
+                        'remaining_codes' => count(array_filter($backupCodes, fn ($c) => $c !== null)),
+                    ]);
+
+                    \Illuminate\Support\Facades\Log::info('MFA: backup code used', [
+                        'user_id' => $fresh->id,
+                        'code_index' => $index,
+                    ]);
+
+                    return true;
+                }
+            }
+
+            return false;
+        });
     }
 
     // ── P3-8: MFA session timestamp ────────────────────────────────────
