@@ -253,7 +253,14 @@ Route::get('/dashboard', fn() => redirect()->route('admin.dashboard'))->middlewa
 // The /dashboard route above already had 'verified'; this was an inconsistency.
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile',    [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile',  [ProfileController::class, 'update'])->name('profile.update');
+    // ITERATION-7: the email-change identity gate (current password) is
+    // checked on this endpoint — throttle it like every other password-
+    // confirming route (mfa.disable uses the same bar) so the check cannot
+    // be brute-forced through the session. Named prefix keeps the bucket
+    // isolated from every other numerically throttled route.
+    Route::patch('/profile',  [ProfileController::class, 'update'])
+        ->middleware('throttle:6,1,profile-update')
+        ->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     // GDPR Art. 20 — right to data portability. Returns JSON download of
     // the user's profile, galleries, images metadata, transactions, teams,

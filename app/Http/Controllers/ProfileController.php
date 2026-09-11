@@ -3,11 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Mail\EmailChangedNoticeMail;
+use App\Models\AdminAuditLog;
 use App\Services\UserDeletionService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -26,18 +31,97 @@ class ProfileController extends Controller
 
     /**
      * Update the user's profile information.
+     *
+     * ITERATION-7: the email-address-change lifecycle is now explicit and
+     * self-consistent. The identity gate itself (current password) lives in
+     * ProfileUpdateRequest — conditional on the email actually changing, so
+     * name-only edits keep the one-step UX. This method owns everything that
+     * happens AROUND the change:
+     *
+     *   1. Race safety — the validation layer's `unique` rule is a pre-check;
+     *      the DB unique index on users.email is the real arbiter. A request
+     *      whose address gets claimed between validation and save used to
+     *      blow up as an unhandled 500; it now lands back on the form with a
+     *      clean "already in use" error and no state change.
+     *   2. Stale credentials — password_reset_tokens is keyed by EMAIL, and a
+     *      change FREES the old address. A surviving token row for the freed
+     *      address would stay valid against whoever claims that address next
+     *      (the broker resolves users by email). Rows for the old address are
+     *      deleted with the change.
+     *   3. Verification state — EXISTING product design preserved: the new
+     *      address starts unverified (email_verified_at = null), matching the
+     *      framework signed-URL structure (id + sha1(email)), which already
+     *      guarantees old links cannot verify the new address. The lifecycle
+     *      for the new address is INITIATED here (registration behaves the
+     *      same via the Registered event) — the user no longer has to hunt
+     *      for the resend button, and the verify page's "we sent a link"
+     *      copy becomes true at the moment they read it.
+     *   4. Compromise signal — the OLD address receives a link-free security
+     *      notice (EmailChangedNoticeMail). If the change was made by a
+     *      hijacked session, the real owner's inbox is the one channel the
+     *      attacker did not capture.
+     *   5. Audit — identity-critical self-service changes are audited like
+     *      mfa.enabled / mfa.disabled already are ('email_changed'; the
+     *      from/to values pass through AdminAuditLog's PII scrubbing).
+     *   6. Redirect — straight to the verification prompt (one hop). The old
+     *      /profile redirect bounced through the 'verified' middleware into a
+     *      SECOND hop, which aged out the flashed status before any page
+     *      rendered it — the user got zero acknowledgment of the change.
+     *      The prompt page renders the "A fresh verification link has been
+     *      sent." confirmation for this exact flash key.
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
+        $oldEmail = $user->email;
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $user->fill($request->validated());
+
+        // EXISTING PRODUCT DESIGN: a changed address starts unverified.
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        try {
+            $user->save();
+        } catch (UniqueConstraintViolationException $e) {
+            // Validation's unique pre-check passed, another account claimed
+            // the address before our save hit the DB unique index. Fail
+            // cleanly with no state change; the flash excludes passwords.
+            return back()
+                ->withInput()
+                ->withErrors(['email' => __('That email address is already in use by another account.')]);
+        }
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        if ($oldEmail === $user->email) {
+            // Name-only (or no-op) update — established behavior, unchanged.
+            return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        }
+
+        // --- Email changed: the lifecycle below is email-change-specific. ---
+
+        // Stale reset tokens for the FREED old address must not outlive it.
+        DB::table('password_reset_tokens')->where('email', $oldEmail)->delete();
+
+        // Initiate the verification lifecycle for the new address. (Framework
+        // notification; on deployments with the branded auth-mail override it
+        // ships the branded template — the call is identical either way.)
+        $user->sendEmailVerificationNotification();
+
+        // Security notice to the OLD address — the compromise signal channel.
+        Mail::to($oldEmail)->send(new EmailChangedNoticeMail($user, $oldEmail));
+
+        // Forensic visibility, matching the mfa.enabled/mfa.disabled precedent.
+        AdminAuditLog::record('email_changed', $user, [
+            'from' => $oldEmail,
+            'to' => $user->email,
+        ]);
+
+        // One-hop redirect to the verification prompt: correct next step AND
+        // an acknowledgment that actually renders (no double-hop flash loss).
+        return redirect()
+            ->route('verification.notice')
+            ->with('status', 'verification-link-sent');
     }
 
     /**
