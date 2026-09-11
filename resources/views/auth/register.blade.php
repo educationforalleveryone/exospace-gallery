@@ -5,7 +5,9 @@
         <p class="text-xs text-gray-500 mt-1">Build a 3D gallery in under 5 minutes — no design skills needed.</p>
     </div>
     @endif
-    <form method="POST" action="{{ route('register') }}">
+    <form method="POST" action="{{ route('register') }}"
+          x-data="{ submitting: false }"
+          x-on:submit="submitting = true">
         @csrf
 
         {{-- Pass invitation token through if present --}}
@@ -80,7 +82,14 @@
                 {{ __('Already registered?') }}
             </a>
 
-            <x-primary-button class="ms-4">
+            {{-- REGISTRATION-ITERATION (UX): same duplicate-submission guard
+                 the login form ships — x-on:submit (not inline onsubmit=)
+                 stays CSP-safe; page reload on validation failure self-resets
+                 state. Also removes the double-POST race window that could
+                 surface "email already taken" to a fast double-click. --}}
+            <x-primary-button class="ms-4"
+                              x-bind:disabled="submitting"
+                              x-bind:class="{ 'opacity-50 cursor-not-allowed': submitting }">
                 {{ isset($invitationToken) ? __('Create account & join team') : __('Create account') }}
             </x-primary-button>
         </div>
