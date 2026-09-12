@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TeamInvitationMail;
 use App\Models\AdminAuditLog;
 use App\Models\Team;
 use App\Models\TeamInvitation;
-use App\Mail\TeamInvitationMail;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
@@ -21,12 +21,12 @@ class TeamController extends Controller
     {
         $user = Auth::user();
 
-        $ownedTeams  = $user->ownedTeams()->withCount('members')->with('members')->get();
+        $ownedTeams = $user->ownedTeams()->withCount('members')->with('members')->get();
         $memberTeams = $user->teams()
-                            ->where('owner_id', '!=', $user->id)
-                            ->withCount('members')
-                            ->with('owner')
-                            ->get();
+            ->where('owner_id', '!=', $user->id)
+            ->withCount('members')
+            ->with('owner')
+            ->get();
 
         return view('admin.teams.index', compact('ownedTeams', 'memberTeams'));
     }
@@ -41,13 +41,13 @@ class TeamController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:100',
+            'name' => 'required|string|max:100',
             'description' => 'nullable|string|max:500',
         ]);
 
         $team = Team::create([
-            'owner_id'    => Auth::id(),
-            'name'        => $validated['name'],
+            'owner_id' => Auth::id(),
+            'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
         ]);
 
@@ -58,7 +58,7 @@ class TeamController extends Controller
         Auth::user()->switchTeam($team);
 
         return redirect()->route('admin.teams.show', $team)
-                         ->with('status', 'Team created! Invite your collaborators below.');
+            ->with('status', 'Team created! Invite your collaborators below.');
     }
 
     // ── Show team detail / member management ──────────────────────────────
@@ -67,7 +67,7 @@ class TeamController extends Controller
     {
         $this->authorize('view', $team);
 
-        $team->load(['members', 'owner', 'galleries' => fn($q) => $q->latest()->limit(5)]);
+        $team->load(['members', 'owner', 'galleries' => fn ($q) => $q->latest()->limit(5)]);
         $pendingInvitations = $team->invitations()->where('expires_at', '>', now())->get();
         $userRole = Auth::user()->teamRole($team);
 
@@ -83,7 +83,7 @@ class TeamController extends Controller
         $this->authorize('update', $team);
 
         $validated = $request->validate([
-            'name'        => 'required|string|max:100',
+            'name' => 'required|string|max:100',
             'description' => 'nullable|string|max:500',
         ]);
 
@@ -101,12 +101,12 @@ class TeamController extends Controller
 
         // If this was the active team for anyone, reset their current_team_id
         \App\Models\User::where('current_team_id', $team->id)
-                        ->update(['current_team_id' => null]);
+            ->update(['current_team_id' => null]);
 
         $team->delete();
 
         return redirect()->route('admin.teams.index')
-                         ->with('status', 'Team deleted.');
+            ->with('status', 'Team deleted.');
     }
 
     // ── Invite a member (owner OR editor) ────────────────────────────────
@@ -118,7 +118,7 @@ class TeamController extends Controller
 
         $validated = $request->validate([
             'email' => 'required|email|max:255',
-            'role'  => 'required|in:editor,viewer',
+            'role' => 'required|in:editor,viewer',
         ]);
 
         // Can't invite yourself
@@ -144,18 +144,18 @@ class TeamController extends Controller
         $invitation = TeamInvitation::updateOrCreate(
             ['team_id' => $team->id, 'email' => $validated['email']],
             [
-                'role'       => $validated['role'],
-                'token'      => $hashedToken, // D-6 FIX: store the HASH, not the plaintext
+                'role' => $validated['role'],
+                'token' => $hashedToken, // D-6 FIX: store the HASH, not the plaintext
                 'expires_at' => now()->addDays(7),
             ]
         );
 
         // AUDIT-P1-4.9: Log team invitation. 'email' is PII — auto-scrubbed.
         AdminAuditLog::record('team.invited', $team, [
-            'email'         => $validated['email'],
-            'role'          => $validated['role'],
+            'email' => $validated['email'],
+            'role' => $validated['role'],
             'invitation_id' => $invitation->id,
-            'expires_at'    => $invitation->expires_at->toIso8601String(),
+            'expires_at' => $invitation->expires_at->toIso8601String(),
         ]);
 
         // D-6 FIX: Attach the plaintext token as a runtime attribute so the
@@ -181,8 +181,8 @@ class TeamController extends Controller
         // AUDIT-P1-4.10: Log invitation revocation.
         AdminAuditLog::record('team.invitation_revoked', $invitation, [
             'team_id' => $team->id,
-            'email'   => $invitation->email,
-            'role'    => $invitation->role,
+            'email' => $invitation->email,
+            'role' => $invitation->role,
         ]);
 
         return back()->with('status', 'Invitation revoked.');
@@ -202,12 +202,24 @@ class TeamController extends Controller
             return back()->withErrors(['user_id' => 'Cannot remove the team owner.']);
         }
 
+        // ITER-13 (T-1): The target must actually BE a member of THIS team.
+        // Previously a valid user_id belonging to a non-member (or an
+        // already-removed member) silently no-oped at detach() but still
+        // returned "Member removed." and wrote a team.member_removed audit
+        // entry — fabricating a security event that never happened. The
+        // audit trail must only ever record membership mutations that
+        // actually occurred, so validate membership before mutating.
+        $isMember = $team->members()->where('team_user.user_id', $validated['user_id'])->exists();
+        if (! $isMember) {
+            return back()->withErrors(['user_id' => 'That user is not a member of this team.']);
+        }
+
         $team->members()->detach($validated['user_id']);
 
         // Reset their current_team_id if it was this team
         \App\Models\User::where('id', $validated['user_id'])
-                        ->where('current_team_id', $team->id)
-                        ->update(['current_team_id' => null]);
+            ->where('current_team_id', $team->id)
+            ->update(['current_team_id' => null]);
 
         // AUDIT-P1-4.11: Log team member removal.
         AdminAuditLog::record('team.member_removed', $team, [
@@ -226,22 +238,36 @@ class TeamController extends Controller
 
         $validated = $request->validate([
             'user_id' => 'required|integer|exists:users,id',
-            'role'    => 'required|in:editor,viewer',
+            'role' => 'required|in:editor,viewer',
         ]);
 
         if ($validated['user_id'] == $team->owner_id) {
             return back()->withErrors(['role' => 'Cannot change the owner\'s role.']);
         }
 
-        // AUDIT-P1-4.12: Capture old role before mutation for role-change forensics.
-        $oldRole = $team->members()->where('user_id', $validated['user_id'])->first()?->pivot->role;
+        // ITER-13 (T-2): Resolve the target's actual membership in THIS team
+        // before mutating. Previously a valid user_id belonging to a
+        // non-member no-oped at updateExistingPivot() but still returned
+        // "Member role updated." and wrote a team.member_role_changed audit
+        // entry (with old_role null) — a fabricated security event for a
+        // change that never happened.
+        //
+        // AUDIT-P1-4.12: Capture old role before mutation for role-change
+        // forensics. (Same lookup also serves the membership check above,
+        // so this stays one query instead of two.)
+        $targetMember = $team->members()->where('team_user.user_id', $validated['user_id'])->first();
+        if (! $targetMember) {
+            return back()->withErrors(['user_id' => 'That user is not a member of this team.']);
+        }
+
+        $oldRole = $targetMember->pivot->role;
 
         $team->members()->updateExistingPivot($validated['user_id'], ['role' => $validated['role']]);
 
         // AUDIT-P1-4.12: Log team member role change. Security-relevant:
         // escalating a viewer to editor grants invite/billing access.
         AdminAuditLog::record('team.member_role_changed', $team, [
-            'user_id'  => $validated['user_id'],
+            'user_id' => $validated['user_id'],
             'old_role' => $oldRole,
             'new_role' => $validated['role'],
         ]);
@@ -271,7 +297,7 @@ class TeamController extends Controller
         AdminAuditLog::record('team.left', $team);
 
         return redirect()->route('admin.teams.index')
-                         ->with('status', "You've left {$team->name}.");
+            ->with('status', "You've left {$team->name}.");
     }
 
     // ── Switch active team context ────────────────────────────────────────
@@ -283,6 +309,6 @@ class TeamController extends Controller
         Auth::user()->switchTeam($team);
 
         return redirect()->intended(route('admin.teams.show', $team))
-                         ->with('status', "Switched to team: {$team->name}");
+            ->with('status', "Switched to team: {$team->name}");
     }
 }
