@@ -27,6 +27,7 @@ class GalleryImagePolicy
         if ($user->is_super_admin) {
             return true;
         }
+
         return null;
     }
 
@@ -37,15 +38,14 @@ class GalleryImagePolicy
             return false;
         }
 
-        if ($gallery->user_id === $user->id) {
-            return true;
-        }
-
+        // ITERATION-12: mirrors GalleryPolicy::update — team images decide
+        // through team roles only; the row-level gallery user_id is the
+        // ownership anchor for personal galleries only.
         if ($gallery->team_id) {
-            return $gallery->team->canEdit($user);
+            return $gallery->team && $gallery->team->canEdit($user);
         }
 
-        return false;
+        return $gallery->user_id === $user->id;
     }
 
     public function delete(User $user, GalleryImage $image): bool

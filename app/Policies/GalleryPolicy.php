@@ -5,7 +5,6 @@ namespace App\Policies;
 use App\Models\Gallery;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
-use Illuminate\Auth\Access\Response;
 
 /**
  * Gallery authorization policy.
@@ -16,14 +15,20 @@ use Illuminate\Auth\Access\Response;
  * `@can('view', $gallery)` in Blade.
  *
  * Authorization model:
- *   - view:        owner OR team member (any role)
- *   - viewOnAdmin: owner OR team member (any role) — for admin index/show
+ *   - view:        personal → owner; team → any current team member
+ *   - viewOnAdmin: same as view — for admin index/show
  *   - create:      any authenticated user (plan limit checked separately)
- *   - update:      owner OR team editor/owner
- *   - delete:      owner OR team editor/owner
- *   - duplicate:   owner OR team editor/owner
- *   - uploadMedia: owner OR team editor/owner (audio, logo, images)
- *   - manageEvents:owner OR team editor/owner
+ *   - update:      personal → owner; team → team owner/editor (canEdit)
+ *   - delete:      same as update
+ *   - duplicate:   same as update
+ *   - uploadMedia: same as update (audio, logo, images)
+ *   - manageEvents:same as update
+ *
+ * ITERATION-12 (gallery ownership boundary): for TEAM galleries the
+ * row-level user_id (the member who created the gallery) grants nothing
+ * by itself — authority flows through CURRENT team membership/roles, so
+ * removing or demoting a member revokes their access to team galleries
+ * they once created. Personal galleries remain user_id-owned.
  *
  * Super-admins bypass all checks (see before() hook).
  *
@@ -43,23 +48,30 @@ class GalleryPolicy
         if ($user->is_super_admin) {
             return true;
         }
+
         return null;
     }
 
     /**
      * Can the user view this gallery in the admin panel?
+     *
+     * ITERATION-12 (gallery ownership boundary): the row-level user_id is
+     * the ownership anchor for PERSONAL galleries only. Team galleries
+     * resolve through team membership exclusively — previously the
+     * user_id branch matched FIRST, so a member who had once created a
+     * team gallery kept view access after being removed from the team
+     * (removeMember/leave only detach the pivot; nothing else revokes it).
      */
     public function view(User $user, Gallery $gallery): bool
     {
-        if ($gallery->user_id === $user->id) {
-            return true;
-        }
-
         if ($gallery->team_id) {
-            return $user->belongsToTeam($gallery->team);
+            // Defensive null-team guard: a dangling team_id (should not
+            // exist — team deletion nulls team_id) fails closed for
+            // non-owners instead of 500-ing on belongsToTeam(null).
+            return $gallery->team && $user->belongsToTeam($gallery->team);
         }
 
-        return false;
+        return $gallery->user_id === $user->id;
     }
 
     /**
@@ -73,19 +85,24 @@ class GalleryPolicy
 
     /**
      * Can the user update this gallery's settings?
-     * Owner OR team editor/owner.
+     *
+     * ITERATION-12 (gallery ownership boundary): team galleries decide
+     * EDIT rights through team roles only (owner or editor). Previously
+     * the user_id branch matched FIRST, so a member who had created a
+     * team gallery kept update/delete rights even after being removed
+     * from the team or demoted to viewer — contradicting this policy's
+     * documented model ("update: owner OR team editor/owner") and the
+     * role system the team owner manages. The team owner always retains
+     * access via canEdit(); a removed/demoted creator loses only what
+     * the team explicitly took away.
      */
     public function update(User $user, Gallery $gallery): bool
     {
-        if ($gallery->user_id === $user->id) {
-            return true;
-        }
-
         if ($gallery->team_id) {
-            return $gallery->team->canEdit($user);
+            return $gallery->team && $gallery->team->canEdit($user);
         }
 
-        return false;
+        return $gallery->user_id === $user->id;
     }
 
     /**
