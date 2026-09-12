@@ -813,9 +813,28 @@ class BillingController extends Controller
             abort(404, 'Invoice PDF not available.');
         }
 
-        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        // ITERATION-15 (media authorization M-1): invoice files now live on
+        // the PRIVATE 'local' disk (storage/app/private — not under the
+        // public/storage symlink nginx serves). Invoice numbers are
+        // sequential, so public-disk storage let anyone scrape every
+        // customer's financial documents at /storage/invoices/... without an
+        // account. Files are now served EXCLUSIVELY through this
+        // owner-authorized endpoint.
+        //
+        // Backward compatibility: invoices generated before this change still
+        // sit on the public disk. Until the operator runs the documented
+        // one-time migration (exospace:migrate-invoices-to-private), this
+        // endpoint falls back to the public disk for those legacy files — the
+        // authorized path keeps working, while new files are private from
+        // day one. Once migrated, the fallback simply never matches.
+        $local  = \Illuminate\Support\Facades\Storage::disk('local');
+        $public = \Illuminate\Support\Facades\Storage::disk('public');
 
-        if (! $disk->exists($invoice->pdf_path)) {
+        if ($local->exists($invoice->pdf_path)) {
+            $disk = $local;
+        } elseif ($public->exists($invoice->pdf_path)) {
+            $disk = $public;
+        } else {
             Log::warning('BillingController: invoice file missing on disk', [
                 'invoice_id' => $invoice->id,
                 'pdf_path'   => $invoice->pdf_path,

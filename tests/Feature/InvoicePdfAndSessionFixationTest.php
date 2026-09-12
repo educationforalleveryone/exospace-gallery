@@ -26,7 +26,9 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
     public function test_2co6_invoice_generator_produces_pdf_when_dompdf_installed(): void
     {
-        Storage::fake('public');
+        // ITERATION-15 (M-1): invoice files now live on the PRIVATE disk —
+        // was Storage::fake('public') + a public-disk read before this.
+        Storage::fake('local');
 
         $transaction = Transaction::factory()->create([
             'amount'   => 29.00,
@@ -47,7 +49,7 @@ class InvoicePdfAndSessionFixationTest extends TestCase
                 '2CO-6: Invoice pdf_path must end in .pdf when dompdf is installed.');
 
             // Verify the file exists and is a valid PDF (starts with %PDF)
-            $content = Storage::disk('public')->get($invoice->pdf_path);
+            $content = Storage::disk('local')->get($invoice->pdf_path);
             $this->assertStringStartsWith('%PDF', $content,
                 '2CO-6: Invoice file must be a valid PDF (starts with %PDF).');
         } else {

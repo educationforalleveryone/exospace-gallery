@@ -209,7 +209,17 @@ class InvoiceGenerator
      * Previously: rendered the Blade view to HTML and stored it as a .html
      * file. Now: renders to PDF via dompdf and stores as .pdf.
      *
-     * Returns the relative path on the public disk (e.g. "invoices/2026/INV-2026-00001.pdf").
+     * Returns the relative path on the private disk (e.g. "invoices/2026/INV-2026-00001.pdf").
+     *
+     * ITERATION-15 (media authorization M-1): invoices are PRIVATE financial
+     * documents (name, address, VAT number, amounts) and invoice numbers are
+     * sequential (INV-2026-00001, INV-2026-00002, …). They used to be written
+     * to the PUBLIC disk, which nginx serves unauthenticated at
+     * /storage/invoices/{year}/{invoice_number}.pdf — anyone could scrape
+     * every customer's invoices without an account. Invoice files now go to
+     * the PRIVATE 'local' disk (storage/app/private — NOT under the
+     * public/storage symlink) and are served exclusively through the
+     * owner-authorized BillingController::downloadInvoice endpoint.
      */
     private function generatePdf(Invoice $invoice): string
     {
@@ -218,8 +228,8 @@ class InvoiceGenerator
         $filename = "{$invoice->invoice_number}.pdf";
         $relativePath = "{$directory}/{$filename}";
 
-        // Ensure the directory exists
-        Storage::disk('public')->makeDirectory($directory);
+        // Ensure the directory exists (private disk — see M-1 above)
+        Storage::disk('local')->makeDirectory($directory);
 
         // Render the Blade view to HTML
         $html = view('invoices.pdf', ['invoice' => $invoice])->render();
@@ -246,7 +256,7 @@ class InvoiceGenerator
             $dompdf->render();
 
             $pdfContent = $dompdf->output();
-            Storage::disk('public')->put($relativePath, $pdfContent);
+            Storage::disk('local')->put($relativePath, $pdfContent);
 
             Log::info('InvoiceGenerator: PDF generated via dompdf', [
                 'invoice_id'  => $invoice->id,
@@ -257,7 +267,7 @@ class InvoiceGenerator
             // Fallback: store as HTML (backward compatibility during transition)
             $filename = "{$invoice->invoice_number}.html";
             $relativePath = "{$directory}/{$filename}";
-            Storage::disk('public')->put($relativePath, $html);
+            Storage::disk('local')->put($relativePath, $html);
 
             Log::warning('InvoiceGenerator: dompdf not installed — falling back to HTML. Run: composer require dompdf/dompdf', [
                 'invoice_id'  => $invoice->id,
