@@ -112,7 +112,18 @@ class SessionLifecycleTest extends TestCase
 
         $user = User::factory()->create();
         $guardKey = Auth::guard('web')->getName();
-        $authPayload = base64_encode(serialize([$guardKey => $user->id]));
+
+        // SESSION-ITERATION FIX: the payload must be written in the app's
+        // REAL at-rest format. SEC-11 made SESSION_ENCRYPT=true the default
+        // (config/session.php), so sessions persist through EncryptedStore,
+        // and the database handler stores base64(encrypt(serialize($attrs)))
+        // — see DatabaseSessionHandler::write() (base64_encode) and
+        // EncryptedStore::prepareForStorage(). The previous
+        // base64_encode(serialize(...)) seed decrypted to an empty attribute
+        // bag, the guard never resolved the user, and the logout request was
+        // answered as a guest — a false-red caused by the seed deviating
+        // from the framework contract, not by the logout flow.
+        $authPayload = base64_encode(app('encrypter')->encrypt(serialize([$guardKey => $user->id])));
 
         // Session A (the one that will log out) and session B (a sibling
         // browser of the SAME user, still signed in).

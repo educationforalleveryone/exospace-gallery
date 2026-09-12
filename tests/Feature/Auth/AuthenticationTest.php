@@ -4,6 +4,8 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
+use ReflectionProperty;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -334,5 +336,87 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    // ── LOGIN-ITERATION: remember-me end-to-end behavior ────────────────
+    //
+    // The login form exposes a "remember me" checkbox, so the suite must
+    // pin BOTH halves of its contract:
+    //   checked  → a recaller cookie is issued and a later request whose
+    //              server-side session is GONE is still re-authenticated
+    //              from the remember token (the core promise of the box);
+    //   unchecked → no recaller is issued and losing the session really
+    //              logs the user out.
+    // LogoutTest already covers the logout-side remember handling (cookie
+    // expiry + token cycling); these tests cover the login-side restore.
+
+    public function test_checked_remember_me_restores_authentication_after_server_side_session_loss(): void
+    {
+        $user = User::factory()->create();
+        $rememberCookie = Auth::guard('web')->getRecallerName();
+
+        $login = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+            'remember' => true,
+        ]);
+        $this->assertAuthenticated();
+
+        $recaller = $login->getCookie($rememberCookie, decrypt: false)?->getValue();
+        $this->assertNotNull($recaller, 'A remember-me login must issue the recaller cookie.');
+
+        // Simulate the server-side session being gone (TTL expiry / redis
+        // eviction): flush the store's records AND forget the in-process
+        // singletons, so the next request starts from a brand-new empty
+        // session. The recaller cookie is the ONLY credential carried over.
+        $this->flushServerSideSession();
+
+        // Replay the recaller exactly as the browser holds it (raw wire
+        // value — the client would double-encrypt it via withCookie()).
+        $this->withUnencryptedCookie($rememberCookie, $recaller)
+            ->get('/profile')
+            ->assertOk();
+
+        // assertAuthenticatedAs's second arg is the GUARD name, not a message.
+        $this->assertAuthenticatedAs($user, 'web');
+    }
+
+    public function test_unchecked_remember_me_issues_no_recaller_and_survives_no_session_loss(): void
+    {
+        $user = User::factory()->create();
+        $rememberCookie = Auth::guard('web')->getRecallerName();
+
+        $login = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+        $this->assertAuthenticated();
+
+        $login->assertCookieMissing($rememberCookie,
+            'A login without remember-me must not issue the recaller cookie.');
+
+        // Losing the session really logs the user out — there is no way
+        // back in without the checkbox.
+        $this->flushServerSideSession();
+
+        $this->get('/profile')->assertRedirect(route('login', absolute: false));
+        $this->assertGuest();
+    }
+
+    /**
+     * Drop everything the session stack could use to resolve authenticated
+     * state: stored session records (array driver storage) and the cached
+     * session/auth singletons, the way a request on a NEW worker with a
+     * fresh empty session would start.
+     */
+    private function flushServerSideSession(): void
+    {
+        $handler = $this->app['session.store']->getHandler();
+        $storageProperty = new ReflectionProperty($handler, 'storage');
+        $storageProperty->setValue($handler, []);
+
+        $this->app->forgetInstance('session.store');
+        $this->app->forgetInstance('session');
+        $this->app['auth']->forgetGuards();
     }
 }
