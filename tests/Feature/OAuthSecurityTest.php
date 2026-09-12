@@ -2,23 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-001: OAuth security regression tests (audit CR-3 + CR-4 + C-2).
- *
- * These tests verify the three Critical OAuth fixes:
- *   1. CR-3: Account-takeover via unverified-email merge is blocked.
- *      An attacker who registers a GitHub account with the victim's email
- *      as primary (unverified) must NOT be able to log in as the victim.
- *   2. CR-3: New OAuth users only get email_verified_at if the provider
- *      explicitly verified the email. GitHub primary email ≠ verified.
- *   3. CR-4: Session ID is regenerated on every OAuth login (no session
- *      fixation).
- *   4. C-2: has_password column is used for the unlink guard (not the
- *      broken bcrypt comparison).
- *
- * Run: php artisan test --filter=OAuthSecurityTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\User;
@@ -39,9 +22,6 @@ class OAuthSecurityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // ITERATION-1 FIX: the OAuth controller gates on configured client
-        // IDs; .env.testing leaves them empty so every callback redirected
-        // to login with "not available" before reaching the logic under test.
         config([
             'services.google' => [
                 'client_id'     => 'test-google-client-id',
@@ -88,8 +68,6 @@ class OAuthSecurityTest extends TestCase
         $response = $this->withSession(['oauth_action' => 'login'])
             ->get('/auth/github/callback?code=test-code');
 
-        // CR-3 FIX: The OAuth controller must NOT merge by email.
-        // The victim's account must not be compromised.
         $victim->refresh();
         $this->assertNull($victim->github_id,
             'CR-3 REGRESSION: Victim\'s github_id must remain null — attacker must not be able to link their GitHub to victim\'s account.');
@@ -131,9 +109,6 @@ class OAuthSecurityTest extends TestCase
             'CR-3 REGRESSION: email_verified_at must be null when GitHub did not verify the email. '.
             'The user must go through the standard email verification flow.');
 
-        // A verification email should have been dispatched
-        // VERIFICATION-ITERATION: the User model sends the branded subclass
-        // (the notification fake matches by exact class).
         Notification::assertSentTo($user, VerifyEmail::class);
     }
 
@@ -224,8 +199,6 @@ class OAuthSecurityTest extends TestCase
 
     public function test_c2_oauth_only_user_cannot_unlink_last_login_method(): void
     {
-        // C-2 FIX: an OAuth-only user (has_password=false) must NOT be able to
-        // unlink their only OAuth provider.
         $user = User::factory()->create([
             'email' => 'oauth-only@example.com',
             'password' => Hash::make(\Illuminate\Support\Str::random(32)), // random placeholder
@@ -296,8 +269,6 @@ class OAuthSecurityTest extends TestCase
 
     public function test_cr3_link_refused_when_provider_email_does_not_match_account_email(): void
     {
-        // CR-3 defense-in-depth: an authenticated user linking a provider whose
-        // email differs from their account email should be refused.
         $user = User::factory()->create([
             'email' => 'account@example.com',
             'github_id' => null,
@@ -326,9 +297,6 @@ class OAuthSecurityTest extends TestCase
             'CR-3: Provider should NOT be linked when emails do not match.');
     }
 
-    /**
-     * Mock a Socialite user with the given attributes.
-     */
     private function mockSocialiteUser(array $attrs): SocialiteUserContract
     {
         $user = Mockery::mock(SocialiteUserContract::class)->shouldIgnoreMissing();
@@ -342,10 +310,6 @@ class OAuthSecurityTest extends TestCase
             'verified' => $attrs['email_verified'] ?? false,        // GitHub's key
         ];
 
-        // ITERATION-1 FIX: Mockery mocks REJECT unexpected method calls.
-        // The controller may call any subset of getters depending on flow
-        // path — allow all of them (and any others) to return sensible
-        // values instead of hard expectations.
         $user->shouldReceive('getId')->andReturn($attrs['id'])->byDefault();
         $user->shouldReceive('getEmail')->andReturn($attrs['email'])->byDefault();
         $user->shouldReceive('getName')->andReturn($attrs['name'])->byDefault();

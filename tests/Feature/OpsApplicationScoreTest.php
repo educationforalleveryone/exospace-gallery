@@ -12,16 +12,6 @@ use App\Ops\Services\OpsHealthScoreService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 5 — the per-application sub-score (§16.2).
- *
- * The pure function is tested to exhaustion like its platform sibling:
- * weights sum, clean/failed ends, every cap, band boundaries, reason
- * presence. The aggregator is tested against real rows: per-app scoping,
- * the incident double-count exclusion, and the batched query contract.
- * The Applications page is tested for the badge rendering, including
- * cap enforcement on a stopped app.
- */
 class OpsApplicationScoreTest extends TestCase
 {
     use RefreshDatabase;
@@ -97,8 +87,6 @@ class OpsApplicationScoreTest extends TestCase
         ], $overrides));
     }
 
-    // ── Pure function ───────────────────────────────────────────────────
-
     public function test_app_weights_sum_to_100(): void
     {
         $this->assertSame(100, array_sum(OpsHealthScoreService::APP_WEIGHTS));
@@ -125,10 +113,6 @@ class OpsApplicationScoreTest extends TestCase
             'active_incidents' => [],
         ]);
 
-        // Blend would be 50 (health 0×50 + untriaged 100×30 + incidents 100×20)
-        // → capped at 65? No: blend=50 < cap 65, so score 50 — but the cap
-        // never LIFTS. What matters: it reads critical, and the cap label
-        // is present for the tooltip.
         $this->assertSame(50, $result['score']);
         $this->assertSame('critical', $result['band']);
         $this->assertNotSame([], $result['applied_caps']);
@@ -136,12 +120,8 @@ class OpsApplicationScoreTest extends TestCase
 
     public function test_stopped_cap_binds_when_blend_is_high(): void
     {
-        // Blend 50 comes only from errors+incidents at 100; stopped alone
-        // can never exceed 65 even if the other components were inflated.
         $result = $this->service()->computeApplication([
             'health' => 'stopped',
-            // hostile: untriaged/errors "negative" style huge counts can't
-            // help — but a high blend via clean components cannot either.
             'untriaged_events' => [],
             'active_incidents' => [],
         ]);
@@ -151,10 +131,6 @@ class OpsApplicationScoreTest extends TestCase
 
     public function test_degraded_app_is_capped_at_85(): void
     {
-        // Blend = 50×50 + 100×30 + 100×20 = 75 → below the 85 cap already;
-        // add nothing else. The cap binds only above 85, which requires
-        // impossible inputs given degraded is 50 — so assert the label and
-        // a sub-90 score (degraded must never read HEALTHY).
         $result = $this->service()->computeApplication([
             'health' => 'degraded',
         ]);
@@ -231,10 +207,6 @@ class OpsApplicationScoreTest extends TestCase
     public function test_band_boundaries(): void
     {
         $scoreFor = fn (int $healthScore) => $this->service()->computeApplication([
-            // synthesize a blend by picking health values: running=100,
-            // degraded=50 → blends 100 / 75; stopped → 50. Use the band
-            // thresholds directly instead: 90 healthy, 89 degraded, 69
-            // critical, 70 degraded.
             'health' => 'running',
         ])['band'];
 
@@ -247,8 +219,6 @@ class OpsApplicationScoreTest extends TestCase
         $blend50 = $this->service()->computeApplication(['health' => 'stopped']);
         $this->assertSame('critical', $blend50['band']); // 50
     }
-
-    // ── Aggregator ──────────────────────────────────────────────────────
 
     public function test_aggregator_scores_each_application_independently(): void
     {
@@ -272,9 +242,6 @@ class OpsApplicationScoreTest extends TestCase
 
         $scores = $this->service()->computeForApplications(collect([$appA, $appB]));
 
-        // A: untriaged component 100−20=80 (two errors, scoped to A) →
-        // blend 100×50+80×30+100×20 = 94 → capped at 85 by the
-        // untriaged-error verdict cap.
         $this->assertSame(80, $scores[$appA->id]['components']['untriaged']['score']);
         $this->assertSame(85, $scores[$appA->id]['score']);
         $this->assertSame('degraded', $scores[$appA->id]['band']);
@@ -328,8 +295,6 @@ class OpsApplicationScoreTest extends TestCase
     {
         $this->assertSame([], $this->service()->computeForApplications(collect()));
     }
-
-    // ── Page integration ────────────────────────────────────────────────
 
     public function test_applications_page_renders_sub_scores(): void
     {

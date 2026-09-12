@@ -2,37 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration 4 "ARRIVAL" regression tests (3D venue roadmap, P1.4).
- *
- * Pins the first-ten-seconds contract so future changes cannot silently
- * break the composed first frame or its rollback switches:
- *
- *   - Payload contract: the gallery viewer, the venue preview, and the
- *     admin live preview all expose `arrival_enabled` to the 3D runtime,
- *     driven by the `arrival_choreography` flag (FEATURE_FLAG_ARRIVAL).
- *   - Deep-link precedence stays intact: `?artwork=<id>` still reaches the
- *     runtime alongside the arrival key — the JS gives the deep link the
- *     camera (roadmap §17 testing row); the payload must never drop it.
- *   - Rollback: flag off ⇒ every payload reports false ⇒ the runtime keeps
- *     the classic inert spawn (1:1 pre-IT4 behaviour).
- *   - Determinism: the hero selector is pure and RNG-free — same gallery,
- *     same hero, every load (DoD #4). ArrivalMath/Arrival contain zero
- *     venue slugs and zero Math.random (DoD #7).
- *   - Runtime wiring: main.js calls playArrival on Enter; Movement ignores
- *     input while the dolly owns the camera; FocusMode stays quiet during
- *     the reveal; the GuidedTour starts from the hero (start-position
- *     alignment); the choreography constants match the roadmap contract
- *     (1.5 s ease-out dolly).
- *
- * The pure choreography math itself (hero ranking, sight-lines, pose
- * clamping) is executed and pinned by scripts/verify_iteration4.mjs —
- * ArrivalMath.js is dependency-free by design so Node can run it without
- * three.js.
- *
- * Run: php artisan test --filter=VenueArrivalIterationTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Gallery;
@@ -47,10 +16,6 @@ class VenueArrivalIterationTest extends TestCase
 
     private const ARRIVAL_JS    = 'resources/js/gallery/Arrival.js';
     private const ARRIVAL_MATH  = 'resources/js/gallery/ArrivalMath.js';
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Payload contract — the flag reaches every runtime surface
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_payloads_carry_arrival_enabled_by_default(): void
     {
@@ -111,10 +76,6 @@ class VenueArrivalIterationTest extends TestCase
             '…alongside the arrival key — precedence is enforced in the runtime (deep link wins the camera).');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Flag registration — the rollback switch exists and is wired
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_arrival_flag_is_registered_and_documented(): void
     {
         $config = file_get_contents(base_path('config/feature_flags.php'));
@@ -128,10 +89,6 @@ class VenueArrivalIterationTest extends TestCase
         $this->assertStringContainsString('FEATURE_FLAG_ARRIVAL=true', $env,
             '.env.example must document the rollback switch.');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Runtime wiring — Enter hands the camera to the arrival, safely
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_main_js_hands_the_camera_to_the_arrival_on_enter(): void
     {
@@ -170,10 +127,6 @@ class VenueArrivalIterationTest extends TestCase
         $this->assertStringContainsString('atIndex === 0', $tour,
             'Alignment applies to the default entry point; explicit indices win.');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // DoD rules #4 + #7 — determinism, zero slugs, roadmap constants
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_arrival_modules_contain_zero_venue_slugs(): void
     {
@@ -235,8 +188,6 @@ class VenueArrivalIterationTest extends TestCase
 
     public function test_classic_spawn_is_retired_by_nothing(): void
     {
-        // Rollback invariant: RoomBuilder still owns the spawn points; the
-        // arrival only READS the camera position as its dolly end pose.
         $roomBuilder = file_get_contents(base_path('resources/js/gallery/RoomBuilder.js'));
         $arrival     = file_get_contents(base_path(self::ARRIVAL_JS));
 
@@ -252,14 +203,6 @@ class VenueArrivalIterationTest extends TestCase
             'Frame 1 poses from the composed start; the dolly ends at the untouched classic spawn.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * A published gallery with one artwork, owned by a Pro user (venue
-     * access without tripping Studio-only surfaces).
-     */
     private function liveGallery(): Gallery
     {
         $user = User::factory()->create([
@@ -275,8 +218,6 @@ class VenueArrivalIterationTest extends TestCase
 
         GalleryImage::factory()->create(['gallery_id' => $gallery->id]);
 
-        // The publish handler returns back() (stay-on-page UX, Iteration 2
-        // TTFE) â the edit page is the referer in the real admin UI.
         $this->actingAs($user)
             ->withHeaders(['referer' => url("/admin/galleries/{$gallery->id}/edit")])
             ->post("/admin/galleries/{$gallery->id}/publish")

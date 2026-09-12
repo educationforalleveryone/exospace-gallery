@@ -8,13 +8,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 1 — dashboard authorization.
- *
- * The control plane sees errors, infrastructure state and context across
- * the whole platform: it is a high-value target and must sit behind the
- * SAME bar as Master Control (auth + verified + super_admin + mfa).
- */
 class OpsDashboardAccessTest extends TestCase
 {
     use RefreshDatabase;
@@ -62,8 +55,6 @@ class OpsDashboardAccessTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
-        // Authenticated, but the mfa_verified session flag is absent — the
-        // RequireMfa middleware must gate the dashboard.
         $response = $this->actingAs($admin)->get('/ops');
 
         $this->assertNotSame(200, $response->status());

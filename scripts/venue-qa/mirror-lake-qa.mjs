@@ -1,16 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// mirror-lake-qa.mjs — the Mirror Lake v3.0.0 "The Still Shore" QA gate.
-//
-//   node scripts/venue-qa/mirror-lake-qa.mjs
-//
-// Sections:
-//   A. Seeder contract (mirror-lake row: v3 identity keys, rollback key)
-//   B. DB ↔ harness sync (the harness 'mirror-lake' row byte-mirrors the
-//      seeder; drift means screenshots stop meaning anything)
-//   C. Waterfront invariants (real LakeLayout + validator, all capacities,
-//      determinism, asset manifest resolution)
-//   D. JS/PHP hygiene (pure module purity, exporter owned key, guarded
-//      migration shape, QA instrumentation confined to the harness)
 import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { buildLakePlan, validateLakePlan, LAKE_DEFAULTS } from '../../resources/js/gallery/LakeLayout.js';
@@ -47,7 +34,6 @@ function mulberry32(a) {
 }
 const rngFor = (seed) => ({ next: mulberry32(xmur3(seed)()) });
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (mirror-lake row)');
 {
     const seed = read('database/seeders/VenueTemplateSeeder.php');
@@ -71,7 +57,6 @@ section('A. Seeder contract (mirror-lake row)');
     ok('capacity 5-40 kept', row.includes("'capacity_min'  => 5") && row.includes("'capacity_max'  => 40"));
 }
 
-// ── B. DB ↔ harness sync ────────────────────────────────────────────────────
 section('B. DB ↔ harness sync (harness mirror-lake row)');
 {
     const h = read('scripts/harness/harness.html');
@@ -99,7 +84,6 @@ section('B. DB ↔ harness sync (harness mirror-lake row)');
     ok('harness ?tier= QA strip exists', h.includes("window.__EXOSPACE_QA_TIER = qaTier"));
 }
 
-// ── C. Waterfront invariants ────────────────────────────────────────────────
 section('C. Waterfront invariants (real LakeLayout + validator)');
 {
     // C1. All capacities validate + deterministic.
@@ -120,10 +104,6 @@ section('C. Waterfront invariants (real LakeLayout + validator)');
     // C2. The arrival composition holds at the matrix counts.
     for (const { count, plan } of sample) {
         const hero = plan.courts[0];
-        // Post-implementation pass: the art lines anchor to the waterline
-        // (berthOffsets), so the hero's composed first frame now reads
-        // ACROSS near water — west of the arrival axis, over open water,
-        // on the hero line's offset (not the old deep radial ring).
         ok(`count=${count}: berth 0 is the hero, over water, west on the arrival axis`,
             hero?.role === 'hero'
             && plan.terrain.isWater(hero.x, hero.z, 1.5)
@@ -154,12 +134,6 @@ section('C. Waterfront invariants (real LakeLayout + validator)');
     ok('water below land datum, bed below water', def.waterLevel < 0 && def.bedDepth > Math.abs(def.waterLevel));
     ok('berth elevation is eye-ish above the land datum', def.berthElevation > 1.2 && def.berthElevation < 2.0);
 
-    // C5. Terrain bowl agrees with isWater (post-implementation regression
-    // guard). The shipped height field computed d = shoreZ − z and treated
-    // d ≥ 0 as land — the WATER side — so the bed stayed a flat plain at y=0
-    // (the water plane was hidden UNDER it) while the southern land sank into
-    // a −0.9 m basin under the spawn. Land south must sit at datum; the bed
-    // north must submerge below the water plane and reach full depth.
     {
         const plan = buildLakePlan({ radius: 17, count: 12, rng: rngFor('mirror-lake:qa:height') });
         const o = plan.config;
@@ -167,8 +141,6 @@ section('C. Waterfront invariants (real LakeLayout + validator)');
         for (let x = -15; x <= 15; x += 1.5) {
             const zs = plan.shoreZ(x);
             if (plan.terrain.height(x, zs + 1) !== 0) bowlOk = false;                 // land at datum
-            // 2 m north the bed must be submerged (1 m is still the visible
-            // wet-stone band by design — shoreDrop spreads 0.9 m over 3.2 m)
             if (!(plan.terrain.height(x, zs - 2) < plan.waterLevel)) bowlOk = false;
             if (Math.abs(plan.terrain.height(x, zs - 5) + o.bedDepth) > 1e-9) bowlOk = false; // full depth
         }
@@ -176,7 +148,6 @@ section('C. Waterfront invariants (real LakeLayout + validator)');
     }
 }
 
-// ── D. JS/PHP hygiene ───────────────────────────────────────────────────────
 section('D. JS/PHP hygiene');
 {
     const lakeSrc = read('resources/js/gallery/LakeLayout.js')

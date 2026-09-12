@@ -7,32 +7,6 @@ namespace App\Console\Commands;
 use App\Http\Controllers\SitemapController;
 use Illuminate\Console\Command;
 
-/**
- * ITERATION 4 — sitemap cache warming.
- *
- * Why this exists: a cold sitemap cache key rebuilds synchronously inside
- * the CRAWLER's request (Cache::flexible's cold path computes inline, with
- * no lock). At scale that means Googlebot pays a multi-second quality-gate
- * COUNT + up-to-2,000-row query + Blade XML render, and any entity write
- * (observer version bump) re-colds every key at once. A bulk upload of 200
- * artworks used to leave the crawler path rebuilding all day.
- *
- * What it does: pre-populates every sitemap cache key — index, per-group
- * counts + lastmods, group sub-sitemap pages, and the RSS feed — inside a
- * scheduled window (daily 04:15, before the 04:30 seo:audit health check).
- * Crawler requests become pure cache reads.
- *
- * Design notes:
- *   - Key/TTL construction is NOT duplicated here: warmCaches() on
- *     SitemapController routes through the same private cache accessors
- *     the request path uses, so a warmed key can never diverge from the
- *     key a crawler would read.
- *   - --max-pages caps work per group (default 25 pages × 2,000 URLs =
- *     50k URLs per group); deeper pages stay lazy. Run with a higher cap
- *     manually if needed.
- *   - The controller has no constructor dependencies, so container
- *     resolution is trivial and stateless.
- */
 class WarmSitemap extends Command
 {
     protected $signature = 'sitemap:warm
@@ -46,11 +20,6 @@ class WarmSitemap extends Command
         $group = $this->option('group');
         $maxPages = max(1, (int) $this->option('max-pages'));
 
-        // ITERATION-6 FIX (Iteration-5 regression): the events group was
-        // added to SitemapController::GROUPS but not to this allowlist —
-        // `sitemap:warm --group=events` failed with "Unknown group" and
-        // the daily 04:15 run only warmed it via the default all-groups
-        // path. Single source of truth now.
         $validGroups = ['static', 'galleries', 'artists', 'artworks', 'events', 'content'];
 
         if ($group !== null && $group !== '' && ! in_array($group, $validGroups, true)) {
@@ -71,9 +40,6 @@ class WarmSitemap extends Command
             $this->warn("  Page cap ({$maxPages}) reached for at least one group — deeper pages stay lazy-warmed.");
         }
 
-        // ITERATION 6: cadence proof for the per-job heartbeat monitor —
-        // crawler-facing warmth going silently stale is exactly the kind
-        // of drift the heartbeat exists to catch.
         app(\App\Services\JobHeartbeatService::class)->stamp('sitemap:warm');
 
         return self::SUCCESS;

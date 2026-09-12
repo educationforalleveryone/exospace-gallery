@@ -11,22 +11,6 @@ use App\Ops\Models\OpsEvent;
 use App\Ops\Services\CoolifyApiClient;
 use Throwable;
 
-/**
- * OpsCenter — DeploymentDiagnostics (Iteration 3).
- *
- * deployment.recent
- *
- * Answers the operator's "did something change right before it broke?" by
- * combining two sources:
- *   1) the LIVE deployments list from the Coolify API (status, commit,
- *      duration — tolerant of version differences, every field optional);
- *   2) the DEPLOYMENT/BUILD events the control plane has captured (these
- *      are the failures that already became incidents/events).
- *
- * Read-only: GETs only. Deploying or rolling back happens through Coolify —
- * this control plane never triggers deployments (restart of the CURRENT
- * image is the only infrastructure action it exposes, on the Actions page).
- */
 class DeploymentDiagnostics implements RunsDiagnostics
 {
     public function __construct(
@@ -172,10 +156,6 @@ class DeploymentDiagnostics implements RunsDiagnostics
         }
     }
 
-    /**
-     * Coolify timestamps appear in several shapes across versions — describe
-     * them best-effort, never fail.
-     */
     private function describeTimestamp(string $value): string
     {
         try {

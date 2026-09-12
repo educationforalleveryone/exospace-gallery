@@ -1,16 +1,14 @@
 @php
     $isEmbed = request()->boolean('embed');
-    // (Task H50) — if ?artwork=<id> is in the URL, generate a per-artwork
-    // OG image that shows the artwork's image + title + artist.
     $artworkParam = request()->integer('artwork');
     $ogImageUrl = $artworkParam
         ? route('gallery.og-image', $gallery->slug) . '?artwork=' . $artworkParam
         : route('gallery.og-image', $gallery->slug);
     $publicUrl = $gallery->public_url;
 
-    // SEO OS (Iteration 2) — controller-provided SeoData with canonical,
-    // robots (embed/empty rules) and profile overrides applied.
-    /** @var \App\Support\Seo\SeoData $gallerySeo */
+    /**
+ * @var \App\Support\Seo\SeoData $gallerySeo
+ */
     $publicArtists = $gallery->images
         ->filter(fn ($img) => $img->artist?->name)
         ->map(fn ($img) => $img->artist)
@@ -22,20 +20,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    {{-- (Task H35 / audit M9) — removed maximum-scale=1.0, user-scalable=no.
-         WCAG 2.1 AA (1.4.4 Resize Text) requires users be able to zoom.
-         The 3D canvas intercepts touch events regardless; the curtain UI
-         (title, description, "Enter" button) should be zoomable. --}}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    {{-- SEO OS (Iteration 2): full meta layer from SeoData — title,
-         description (with factual fallback), CANONICAL (was missing —
-         audit C3), robots, OG/Twitter with image dimensions + alt. --}}
     <x-seo :seo="$gallerySeo" />
-
-    {{-- P2-11 → SEO OS (Iteration 3): the ExhibitionEvent/ItemList graphs
-         are now built by SchemaBuilder in the controller and rendered from
-         SeoData->jsonLd inside <x-seo> — no inline JSON-LD in the template. --}}
 
     @vite(['resources/css/app.css', 'resources/js/gallery/main.js'])
 
@@ -50,14 +37,6 @@
         }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
 
-        /* ── SEO OS (Iteration 2): crawlable semantic layer ─────────────
-           The 3D experience is JS/WebGL-only; search engines and users
-           without WebGL need a meaningful HTML representation. This
-           slide-over panel carries the exhibition's full semantic content:
-           description, dates, artists (linked), artwork list (linked to
-           artwork pages), venue, events. It is ALWAYS in the DOM (crawlable
-           + screen-reader accessible) and opens on demand — the immersive
-           experience is untouched. */
         #exhibition-details {
             position: fixed; top: 0; right: 0; bottom: 0;
             width: min(520px, 92vw); z-index: 150;
@@ -101,7 +80,6 @@
         .low-end-device #exhibition-details { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(5, 5, 12, 0.99); }
         #exhibition-details-btn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
 
-        /* ── Entrance curtain ────────────────────────────────────────────── */
         #entrance-curtain {
             position: fixed; inset: 0; z-index: 200;
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
@@ -130,7 +108,6 @@
         }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
 
-        /* ── UI overlay ──────────────────────────────────────────────────── */
         #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
         .ui-interactive { pointer-events: auto; }
 
@@ -165,11 +142,6 @@
             background: rgba(0, 0, 0, 0.92);
         }
 
-        /* ── Crosshair ───────────────────────────────────────────────────── */
-        /* A11Y-9: The crosshair is a visual-only affordance (indicates where
-           the camera is pointing). It is hidden from screen readers via
-           aria-hidden on the element, and an sr-only span provides a text
-           alternative for AT users who navigate by focus rather than sight. */
         #crosshair {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
@@ -188,7 +160,6 @@
             box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
         }
 
-        /* ── Tour overlay ────────────────────────────────────────────────── */
         #tour-overlay {
             position: absolute; inset: 0; pointer-events: none; display: none; z-index: 50;
         }
@@ -229,14 +200,6 @@
         #tour-title-display { font-size: 0.9rem; color: white; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .tour-exit-btn { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
 
-        /* ── A11Y-10: Keyboard focus indicator ────────────────────────────
-           All interactive elements inside the gallery view show a clear
-           2px purple outline when they receive keyboard focus (:focus-visible).
-           Mouse clicks don't trigger this — only keyboard navigation does.
-           This covers: tour buttons, audio toggle, artwork info panel
-           close button, and any future keyboard-accessible controls. The
-           canvas-container has tabindex=-1 so it isn't in the tab order;
-           if it ever receives programmatic focus, it also gets the outline. */
         #tour-hud button:focus-visible,
         #audio-toggle:focus-visible,
         #in-gallery-tour-btn:focus-visible,
@@ -248,7 +211,6 @@
             border-radius: 6px;
         }
 
-        /* ── Mobile overlay ──────────────────────────────────────────────── */
         @media (pointer: coarse), (hover: none) {
             #desktop-controls { display: none !important; }
         }
@@ -270,23 +232,11 @@
             background: rgba(139,92,246,0.6); border: 2px solid rgba(255,255,255,0.4);
             pointer-events: none; transform: translate(-50%, -50%);
         }
-        /* UX-4 FIX: The look-zone covers the right 50% of the screen on mobile
-           with pointer-events:auto, which intercepts taps on the tour button +
-           audio toggle (top-right). Lower the look-zone z-index so the buttons
-           (z-index: 30 via #ui-layer) sit above it and receive taps first.
-           The look-zone still receives drag gestures for camera look — the
-           buttons are small enough that they don't meaningfully reduce the
-           drag area. */
         #look-zone {
             position: absolute; right: 0; top: 0; width: 50%; height: 100%;
             pointer-events: auto;
             z-index: 10; /* below #ui-layer (z-index: 30) so buttons are tappable */
         }
-        /* UX-5 FIX: WCAG 2.5.5 (Level AAA) requires touch targets ≥ 44×44 CSS
-           pixels. The tour buttons + audio toggle + sprint/speed buttons were
-           36×36 / 60×36 — barely meeting Level AA (24×24) but not AAA. Bumped
-           to 44×44 minimum. The tour button gets extra horizontal padding so
-           the "TOUR" label + icon hit the 44px height target. */
         #sprint-btn, #speed-dial {
             position: absolute; right: 24px; pointer-events: auto;
             min-height: 44px; min-width: 44px;
@@ -319,11 +269,6 @@
     @endif
 </head>
 <body @if($isEmbed) class="embed-mode" @endif>
-    {{-- GSAP is now bundled by Vite as an ES module via the gallery entry
-         point (resources/js/gallery/main.js). The previous hand-placed
-         <script src="js/gsap.min.js" defer> was redundant — `import gsap
-         from 'gsap'` in Tour.js / FocusMode.js does NOT read window.gsap,
-         it expects an ES module export. (Task C12 / audit L15.) --}}
 
     {{-- (Task H35 / audit C4) — noscript fallback for users without JS --}}
     <noscript>
@@ -339,8 +284,6 @@
         </div>
     </noscript>
 
-    {{-- (Task H35 / audit C4) — WebGL fallback div (hidden by default,
-         shown by JS if WebGL is unavailable) --}}
     <div id="webgl-fallback" style="display:none; max-width: 600px; margin: 4rem auto; padding: 2rem; text-align: center; color: #e2e8f0; font-family: system-ui, sans-serif;">
         <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">WebGL Not Available</h2>
         <p style="color: #94a3b8; margin-bottom: 1.5rem;">
@@ -356,7 +299,6 @@
         <a href="{{ route('discover') }}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600;">Browse Other Galleries →</a>
     </div>
 
-    {{-- ── Entrance curtain ──────────────────────────────────────────────────── --}}
     <div id="entrance-curtain"
          @if($gallery->user->plan === 'studio' && $gallery->curtain_bg_color)
          style="background: {{ $gallery->curtain_bg_color }};"
@@ -422,26 +364,17 @@
                 Use WASD to move • Mouse to look around • Press T for guided tour
             </p>
 
-            {{-- (Task H48 / audit MX6) — "Skip Intro" link. Lets visitors
-                 enter the gallery without waiting for 100% load. The
-                 button is always visible (not gated by loading progress)
-                 so visitors on slow connections aren't held hostage. --}}
             <a href="#" id="skip-intro-link"
                style="display: block; margin-top: 1rem; font-size: 0.8rem; color: rgba(255,255,255,0.35); text-decoration: none; transition: color 0.2s;">
                 Skip intro →
             </a>
 
-            {{-- SEO OS (Iteration 2): curtain entry to the crawlable
-                 details panel — artwork list, artists, dates. --}}
             <a href="#exhibition-details" id="curtain-details-link"
                data-ed-open="1"
                style="display: block; margin-top: 0.5rem; font-size: 0.8rem; color: rgba(195,180,255,0.7); text-decoration: none; transition: color 0.2s;">
                 Exhibition details &amp; artwork list
             </a>
 
-            {{-- (PERF-C15 / 3D audit F15) — uses the $hasUpcomingEvents variable
-                 computed once in the controller instead of re-running the
-                 exists() query a second time per page view. --}}
             @if($hasUpcomingEvents)
             <a href="{{ route('gallery.events.index', $gallery->slug) }}"
                style="display: inline-flex; align-items: center; gap: 8px; margin-top: 1.5rem; padding: 8px 16px; background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.4); border-radius: 999px; color: rgba(195,180,255,0.95); font-size: 0.8rem; font-weight: 500; text-decoration: none; transition: all 0.2s ease;">
@@ -465,8 +398,6 @@
                     </button>
                 </div>
                 <p class="newsletter-msg" style="font-size: 0.75rem; margin-top: 0.5rem; min-height: 1rem;"></p>
-                {{-- P3-19: Cloudflare Turnstile captcha (invisible when enabled).
-                     Renders nothing in dev (TurnstileService disabled). --}}
                 @if(app('App\Services\TurnstileService')->isEnabled())
                     <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.site_key') }}" style="margin-top: 0.5rem;"></div>
                     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -476,10 +407,6 @@
         </div>
     </div>
 
-    {{-- ── 3D canvas ──────────────────────────────────────────────────────────── --}}
-    {{-- A11Y-1: ARIA role + label for screen readers. The canvas is an
-         interactive 3D application — screen readers announce it as such
-         and keyboard users can skip past it. --}}
     <div id="canvas-container"
          role="application"
          aria-label="Interactive 3D gallery: {{ $gallery->title }} — Use WASD to move, mouse to look, E to view artwork info, T for guided tour. Press Escape to exit pointer lock."
@@ -489,11 +416,6 @@
         This is an interactive 3D art gallery. Use keyboard: W A S D or arrow keys to move, mouse to look around, E to view artwork information, T for a guided tour, Escape to close dialogs. On mobile, use the on-screen joystick.
     </div>
 
-    {{-- ── SEO OS (Iteration 2): crawlable semantic layer ───────────────────
-         Full HTML representation of the exhibition that complements the 3D
-         experience: title, description, artists (linked), artwork list
-         (linked to artwork pages), dates, venue, events. Always in the DOM;
-         opened via the "Details" button. See docs/SEO_AUDIT.md H1. --}}
     @unless($isEmbed)
     <section id="exhibition-details" aria-label="Exhibition details and artwork list">
         <button type="button" class="ed-close" aria-label="Close exhibition details">&times;</button>
@@ -541,8 +463,6 @@
             </ol>
         @endif
 
-        {{-- SEO OS (Iteration 3): related exhibitions (relevance-based
-             internal linking — shared artists, then shared venue). --}}
         @if($relatedGalleries->isNotEmpty())
             <p class="ed-section-title">Related exhibitions</p>
             <ul class="ed-artists" style="flex-direction: column; align-items: stretch; gap: 0.375rem;">
@@ -574,14 +494,6 @@
     <noscript><style>#exhibition-details { transform: none; visibility: visible; position: static; width: auto; box-shadow: none; border-left: none; border-top: 1px solid rgba(139,92,246,0.3); max-width: 720px; margin: 0 auto; }</style></noscript>
     @endunless
 
-    {{-- ── Tour overlay ──────────────────────────────────────────────────────── --}}
-    {{-- A11Y-8 FIX: Tour HUD now has role="group" + aria-label so screen
-         readers announce "Tour controls, Previous Pause Next" when focus
-         enters the HUD. Each button also has an aria-label (in addition to
-         the existing title attribute) because title is not reliably
-         announced by screen readers. The tour-counter and tour-title-display
-         spans have aria-live="polite" so screen readers announce progress
-         as the tour advances. --}}
     <div id="tour-overlay" aria-hidden="true">
         <div id="tour-progress-bar" aria-hidden="true"></div>
         <div id="tour-hud" role="group" aria-label="Guided tour controls">
@@ -609,7 +521,6 @@
         </div>
     </div>
 
-    {{-- ── UI overlay ─────────────────────────────────────────────────────────── --}}
     <div id="ui-layer">
         {{-- Header --}}
         <div class="absolute top-6 left-6">
@@ -665,8 +576,6 @@
         </div>
 
         {{-- Artwork info panel --}}
-        {{-- A11Y-2: aria-live="polite" so screen readers announce artwork
-             title/description changes when the visitor focuses a new artwork. --}}
         <div id="info-panel" aria-live="polite" aria-atomic="true">
             <h3 id="artwork-title">Artwork Title</h3>
             <p id="artwork-description">Description will appear here</p>
@@ -688,9 +597,6 @@
             </div>
 
             <div class="mt-3 pt-3 border-t border-white/10">
-                {{-- (Task H45 / audit MX8) — Share this artwork button.
-                     Generates a deep-link URL with ?artwork=<id> that
-                     auto-focuses this artwork when visited. --}}
                 <button id="share-artwork-btn" class="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition mb-2" style="display:none;">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                     Share this artwork
@@ -701,10 +607,6 @@
         </div>
 
         {{-- Crosshair --}}
-        {{-- A11Y-9: Crosshair is purely visual — pointer-events:none so it
-             doesn't intercept clicks, aria-hidden so screen readers skip
-             the empty div, and an sr-only text alternative is provided
-             below for AT users who want to know what the crosshair is. --}}
         <div id="crosshair" aria-hidden="true"></div>
         <span class="sr-only" aria-hidden="false" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">
             A center crosshair indicates where the camera is pointing. The crosshair turns purple when an artwork is in focus.
@@ -736,7 +638,6 @@
         </div>
     </div>
 
-    {{-- ── Mobile overlay (joystick + look pad + buttons) ────────────────────── --}}
     <div id="mobile-overlay">
         <div id="joystick-zone">
             <div id="joystick-base"><div id="joystick-thumb"></div></div>
@@ -747,11 +648,7 @@
         <div id="mobile-hint">Left: move • Right: look • Double-tap: focus</div>
     </div>
 
-    {{-- ── Gallery data injection (consumed by main.js) ──────────────────────── --}}
     <script nonce="@nonce">
-        // (Task H35 / audit C4) — WebGL detection. If WebGL is unavailable,
-        // show the fallback div and hide the curtain. The 3D viewer won't
-        // try to boot.
         (function() {
             var canvas = document.createElement('canvas');
             var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -763,27 +660,14 @@
             }
         })();
 
-        // PERF-E29 (3D audit — iteration 5): register the service worker on
-        // the GALLERY view. It was only registered on the marketing layout,
-        // but this page is where the heavy engine assets live (three.js
-        // chunk, DRACO/Basis wasm, HDRIs, artwork textures). The SW caches
-        // them stale-while-revalidate, so a visitor's second gallery opens
-        // with the engine served from disk instantly. Registered after
-        // window load so it never competes with the 3D boot for CPU, and
-        // failures are silent (progressive enhancement).
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/sw.js').catch(function() {});
             });
         }
 
-        // (Task H35 / audit C4) — expose prefers-reduced-motion for the
-        // 3D viewer's main.js to consume. When true, the viewer should
-        // disable bloom, vignette, camera lean, and tour tweens.
         window.EXOSPACE_REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        // (Task H35 / audit C4) — hide PerformanceControls panel unless
-        // ?debug=1 is in the URL. Previously visible to every visitor.
         window.EXOSPACE_DEBUG = new URLSearchParams(window.location.search).has('debug');
 
         window.GALLERY_DATA = @json($galleryData);
@@ -868,11 +752,6 @@
             if (data.year)       parts.push(data.year);
             if (data.dimensions) parts.push(data.dimensions);
             if (data.edition)    parts.push(data.edition);
-            // ITERATION-1 FIX (stored XSS): these four fields are
-            // curator-controlled free-text (medium/year/dimensions/edition)
-            // and were interpolated into innerHTML — a malicious curator
-            // could inject script into every visitor's page. Build DOM
-            // nodes with textContent instead (same output, zero parsing).
             if (parts.length) {
                 for (const p of parts) {
                     const div = document.createElement('div');
@@ -895,9 +774,6 @@
                 externalLink.style.display = 'inline-flex';
             }
 
-            // (Task H45 / audit MX8) — show the "Share this artwork" button
-            // with the deep-link URL. Uses the native Web Share API on
-            // mobile (opens the share sheet); falls back to clipboard copy.
             const shareBtn = document.getElementById('share-artwork-btn');
             if (shareBtn && data.id) {
                 shareBtn.style.display = 'inline-flex';
@@ -930,8 +806,6 @@
                         window.toast('Link copied', 'success');
                     }
                 }).catch(() => {
-                    // ITERATION-7: final fallback without native prompt (banned
-                    // dialog) — legacy select-and-copy for non-secure contexts.
                     const ta = document.createElement('textarea');
                     ta.value = shareUrl;
                     ta.style.position = 'fixed';
@@ -949,10 +823,6 @@
             }
         };
 
-        // ── CSP-safe event wiring (replaces inline onclick / onsubmit / onmouseover) ──
-        // All UI buttons in the gallery viewer used to use inline event
-        // handlers (onclick="toggleAudioMute()", etc.) which CSP blocks.
-        // Wire them up here via addEventListener on DOMContentLoaded.
         document.addEventListener('DOMContentLoaded', () => {
             // Audio mute toggle
             const audioBtn = document.getElementById('audio-toggle');
@@ -991,10 +861,6 @@
                 });
             }
 
-            // SEO OS (Iteration 2): exhibition-details slide-over panel.
-            // The panel content is always in the DOM (crawlable); this only
-            // toggles visibility. Escape closes it; focus moves into the
-            // panel on open and back to the trigger on close.
             const edPanel = document.getElementById('exhibition-details');
             const edBtn = document.getElementById('exhibition-details-btn');
             const edClose = edPanel ? edPanel.querySelector('.ed-close') : null;
@@ -1021,8 +887,6 @@
                 }
             });
 
-            // Curtain link opens the same panel (progressive enhancement —
-            // without JS the href still anchors to the section).
             const curtainDetailsLink = document.getElementById('curtain-details-link');
             if (curtainDetailsLink && edPanel) {
                 curtainDetailsLink.addEventListener('click', (e) => {

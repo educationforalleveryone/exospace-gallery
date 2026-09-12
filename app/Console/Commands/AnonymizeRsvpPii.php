@@ -9,35 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * ITERATION-5 (AUDIT-P1-5.2): PII retention for the event_rsvps table.
- *
- * The event_rsvps table stores RSVP submissions from visitors who want to
- * attend gallery events. Each entry has:
- *   - name: the visitor's name (PII)
- *   - email: the visitor's email (PII — used for event reminders)
- *   - ip_address: the visitor's IP (PII — used for spam analysis)
- *   - schedule_event_id: FK to the event (preserved for analytics)
- *
- * Without this command, PII is retained indefinitely — a GDPR violation.
- * Event organizers need the email + name to send reminders, but once the
- * event is long past, there's no legitimate business reason to keep the PII.
- *
- * This command anonymizes PII on event_rsvps rows older than the retention
- * window (default: 18 months):
- *   - email → 'anonymized:' + hash (preserves "same person RSVP'd to multiple
- *     events" correlation for analytics)
- *   - name → null
- *   - ip_address → null
- *
- * The schedule_event_id + confirmed_at + timestamps are preserved for
- * aggregate analytics ("how many RSVPs did this gallery get last year?").
- *
- * Schedule: monthly (1st of each month) via routes/console.php, running
- * after exospace:anonymize-feedback-pii.
- *
- * Idempotent: re-running on already-anonymized rows is a no-op.
- */
 class AnonymizeRsvpPii extends Command
 {
     protected $signature = 'exospace:anonymize-rsvp-pii

@@ -9,24 +9,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
-/**
- * Plan expiry + team invitation tests.
- *
- * (Task H17) — covers:
- *   - CheckPlanExpiry middleware: expired plan → downgrade to free
- *   - CheckPlanExpiry middleware: non-expired plan → no change
- *   - CheckBanned middleware: banned user → logged out
- *   - Team invitation: accept with matching email
- *   - Team invitation: accept with non-matching email → error
- *   - Team invitation: decline requires auth
- *   - Team invitation: decline requires email match
- *   - Team invitation: expired invitation → error
- */
 class PlanExpiryTeamTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ── Plan expiry ──────────────────────────────────────────────────────
 
     public function test_expired_plan_downgrades_to_free(): void
     {
@@ -77,8 +62,6 @@ class PlanExpiryTeamTest extends TestCase
         $this->assertEquals('free', $user->plan);
     }
 
-    // ── Banned user ──────────────────────────────────────────────────────
-
     public function test_banned_user_is_logged_out_on_next_request(): void
     {
         $user = User::factory()->banned()->create();
@@ -100,14 +83,7 @@ class PlanExpiryTeamTest extends TestCase
         $response->assertOk(); // not redirected
     }
 
-    // ── Team invitations ─────────────────────────────────────────────────
 
-
-    /**
-     * ITERATION-1 FIX: team-invitation routes use the `signed` middleware —
-     * the old tests hit raw URLs and received 403 before any controller
-     * logic ran. Build properly signed URLs instead.
-     */
     private function signedInvitationUrl(string $token, bool $accept = true): string
     {
         return \Illuminate\Support\Facades\URL::signedRoute(

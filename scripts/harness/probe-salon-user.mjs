@@ -1,17 +1,3 @@
-// probe-salon-user.mjs — post-deploy user report forensics (screenshot 1/2/3):
-//   S1: "wall or curtain?" — a full-width tan surface with a vertical seam;
-//       the visitor walks THROUGH it.
-//   S2: door narrow / needs better design.
-//   S3: far view — general polish.
-//
-// The probe boots the REAL salon build, captures reproduction shots, and
-// (a) raycasts through screen-space grids to NAME the surface under the
-//     camera (merged geometry keeps names: 'merged:<group>'),
-// (b) drives the REAL movement pipeline (velocity → moveForward/moveRight →
-//     enforceRoomBounds → obstacle push-out) into the suspect surface and
-//     reports whether the visitor passes.
-//
-//   node scripts/harness/probe-salon-user.mjs [count] [tier]
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -64,7 +50,6 @@ for (let i = 0; i < 5; i++) {
 }
 await page.waitForTimeout(1500);
 
-// ── Scene report ─────────────────────────────────────────────────────────────
 const report = await page.evaluate(() => {
     const s = window.__exospace.scene;
     const b = s.roomBounds;
@@ -197,7 +182,6 @@ for (const z of [L / 2 - 2.5, 0]) {
     for (const h of hits) console.log(`  ray FRONT z=${z} ndc(${h.nx},${h.ny}) →`, h.named.map(n => `${n.name}@${n.dist}`).join(' | '));
 }
 
-// ── S2: door close-up reproduction ──────────────────────────────────────────
 await page.evaluate(() => {
     const s = window.__exospace.scene;
     const L = window.__L;
@@ -209,10 +193,6 @@ await page.evaluate(() => {
 });
 await capture('s2-door-close');
 
-// ── Movement pass-through tests — the REAL pipeline ─────────────────────────
-// Drive from mid-room toward the back wall at several x offsets; report the
-// resting z. If the resting z is BEYOND the room bound (or beyond the inner
-// face), we have pass-through.
 const walkTests = await page.evaluate(() => {
     const s = window.__exospace.scene;
     const L = s._layoutMeta.wallLength;

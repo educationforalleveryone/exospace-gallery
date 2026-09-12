@@ -6,26 +6,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * A-5 FIX (Iter-006): GDPR data-subject-request workflow.
- *
- * Creates a `gdpr_deletion_requests` table to track right-to-be-forgotten
- * requests. This provides:
- *   - Proof of compliance for auditors (when was the request made, when was
- *     it completed, who processed it)
- *   - A 30-day grace period before permanent deletion (common SaaS pattern)
- *   - An admin UI to view/manage pending requests
- *
- * When a user requests deletion:
- *   1. A gdpr_deletion_requests row is created (status=pending).
- *   2. The user's account is soft-deleted (or deactivated) but data is retained.
- *   3. After 30 days (or admin approval), UserDeletionService::deleteUser()
- *      is called to permanently delete the data.
- *   4. The request status is updated to 'completed'.
- *
- * If the user logs in within the 30-day window, the request is cancelled
- * (status=cancelled) and the account is reactivated.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -36,9 +16,6 @@ return new class extends Migration
 
         Schema::create('gdpr_deletion_requests', function (Blueprint $table) {
             $table->id();
-            // The user who requested deletion. Nullable because the user may
-            // be deleted before the request is completed (the request row
-            // survives as the audit trail).
             $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
             // The email of the user (preserved even after user_id is nulled)
             $table->string('email');

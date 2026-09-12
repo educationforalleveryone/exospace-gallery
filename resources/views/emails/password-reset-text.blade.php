@@ -1,6 +1,3 @@
-{{-- RESET-ITERATION FIX: plain-text alternative for the branded password-reset
-    email. Ships alongside emails/password-reset.blade.php as the text part of
-    App\Mail\PasswordResetMail (multipart/alternative for deliverability). --}}
 Hi {{ $user->name }},
 
 We received a request to reset the password for your Exospace account ({{ $user->email }}).

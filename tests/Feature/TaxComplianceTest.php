@@ -15,30 +15,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * Iteration-008 regression tests for audit 2CO-7 (TaxService compliance)
- * and O-10 (VAT invoice fields).
- *
- * Verifies:
- *   1. TaxService accepts (string $ip, float $amount, ?string $country, ?string $vat)
- *      instead of (Request $request, ...) — the L-4 / F-4 code-smell fix.
- *   2. EU B2C: VAT charged based on customer's country (destination rule).
- *   3. EU B2B: reverse charge (0% VAT) when VIES-validated VAT number provided.
- *   4. UK B2C: 20% VAT.
- *   5. UK B2B: reverse charge when valid UK VAT format.
- *   6. Australia B2C: 10% GST.
- *   7. Singapore B2C: 9% GST.
- *   8. India B2C: 18% IGST.
- *   9. Non-VAT country (e.g. US): 0% tax.
- *  10. VIES validation: cached for 24h.
- *  11. VIES validation: graceful fallback to format-only on VIES outage.
- *  12. InvoiceGenerator: now produces invoices with non-zero tax_amount
- *      for EU customers (audit 2CO-7 critical fix — every invoice was
- *      previously tax_amount=0).
- *  13. Invoice PDF: renders VAT fields + reverse-charge notation.
- *  14. Invoice migration: new columns (customer_vat_number, supplier_vat_number,
- *      tax_country_code, reverse_charge) exist on the invoices table.
- */
 class TaxComplianceTest extends TestCase
 {
     use RefreshDatabase;
@@ -53,7 +29,6 @@ class TaxComplianceTest extends TestCase
         Http::preventStrayRequests();
     }
 
-    /** @test */
     public function tax_service_accepts_ip_string_instead_of_request(): void
     {
         // L-4 / F-4 fix: TaxService must not depend on Illuminate\Http\Request.
@@ -70,7 +45,6 @@ class TaxComplianceTest extends TestCase
         }
     }
 
-    /** @test */
     public function eu_b2c_charges_vat_based_on_customer_country(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'DE', null);
@@ -82,7 +56,6 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['is_reverse_charge']);
     }
 
-    /** @test */
     public function eu_b2b_reverse_charge_when_vies_validates_vat_number(): void
     {
         // Mock VIES API response: valid.
@@ -102,7 +75,6 @@ class TaxComplianceTest extends TestCase
         $this->assertTrue($result['vat_number_valid']);
     }
 
-    /** @test */
     public function eu_b2b_charges_vat_when_vies_invalidates_vat_number(): void
     {
         Http::fake([
@@ -120,7 +92,6 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['vat_number_valid']);
     }
 
-    /** @test */
     public function vies_results_are_cached_for_24_hours(): void
     {
         $callCount = 0;
@@ -135,7 +106,6 @@ class TaxComplianceTest extends TestCase
             },
         ]);
 
-        // First call hits VIES.
         $this->tax->calculateTax('1.2.3.4', 100.00, 'FR', 'FR12345678901');
         $this->tax->calculateTax('1.2.3.4', 100.00, 'FR', 'FR12345678901');
         $this->tax->calculateTax('1.2.3.4', 100.00, 'FR', 'FR12345678901');
@@ -143,7 +113,6 @@ class TaxComplianceTest extends TestCase
         $this->assertSame(1, $callCount, 'VIES should be hit only once — subsequent validations come from cache');
     }
 
-    /** @test */
     public function vies_unreachable_falls_back_to_format_only(): void
     {
         // VIES returns 500.
@@ -161,7 +130,6 @@ class TaxComplianceTest extends TestCase
         $this->assertSame(19.0, $result2['rate']);
     }
 
-    /** @test */
     public function uk_b2c_charges_20_percent_vat(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'GB', null);
@@ -170,18 +138,14 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['is_eu']);
     }
 
-    /** @test */
     public function uk_b2b_reverse_charge_with_valid_uk_vat_format(): void
     {
-        // UK VAT: 9 digits. HMRC's API requires OAuth (out of scope); we use
-        // format-only validation for UK.
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'GB', 'GB123456789');
 
         $this->assertSame(0.0, $result['rate']);
         $this->assertTrue($result['is_reverse_charge']);
     }
 
-    /** @test */
     public function uk_b2b_charges_vat_when_vat_format_invalid(): void
     {
         // UK VAT must be 9 or 12 digits.
@@ -191,7 +155,6 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['is_reverse_charge']);
     }
 
-    /** @test */
     public function australia_b2c_charges_10_percent_gst(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'AU', null);
@@ -199,21 +162,18 @@ class TaxComplianceTest extends TestCase
         $this->assertSame(10.00, $result['amount']);
     }
 
-    /** @test */
     public function singapore_b2c_charges_9_percent_gst(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'SG', null);
         $this->assertSame(9.0, $result['rate']);
     }
 
-    /** @test */
     public function india_b2c_charges_18_percent_igst(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'IN', null);
         $this->assertSame(18.0, $result['rate']);
     }
 
-    /** @test */
     public function non_vat_country_charges_zero_tax(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'US', null);
@@ -223,7 +183,6 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['is_reverse_charge']);
     }
 
-    /** @test */
     public function invoice_generator_now_uses_tax_service_for_eu_customers(): void
     {
         // Audit 2CO-7 critical fix: previously every invoice had tax_amount=0.
@@ -249,7 +208,6 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse((bool) $invoice->reverse_charge);
     }
 
-    /** @test */
     public function invoice_generator_handles_eu_b2b_reverse_charge(): void
     {
         Storage::fake('public');
@@ -283,7 +241,6 @@ class TaxComplianceTest extends TestCase
         $this->assertSame('FR12345678901', $invoice->customer_vat_number);
     }
 
-    /** @test */
     public function invoice_supplier_vat_number_snapshot_stored_when_configured(): void
     {
         config(['app.supplier_vat_number' => 'GB999999999']);
@@ -306,7 +263,6 @@ class TaxComplianceTest extends TestCase
         $this->assertSame('GB999999999', $invoice->supplier_vat_number);
     }
 
-    /** @test */
     public function invoice_pdf_renders_vat_fields_for_b2b_eu_reverse_charge(): void
     {
         Http::fake([
@@ -338,7 +294,6 @@ class TaxComplianceTest extends TestCase
         $this->assertStringContainsString('Article 194', $rendered); // EU directive reference
     }
 
-    /** @test */
     public function invoice_pdf_renders_tax_line_for_b2c_vat_charged(): void
     {
         $invoice = Invoice::factory()->create([
@@ -357,7 +312,6 @@ class TaxComplianceTest extends TestCase
         $this->assertStringNotContainsString('Reverse charge', $rendered);
     }
 
-    /** @test */
     public function invoice_pdf_hides_tax_block_when_no_tax_and_no_reverse_charge(): void
     {
         $invoice = Invoice::factory()->create([
@@ -374,7 +328,6 @@ class TaxComplianceTest extends TestCase
         $this->assertStringNotContainsString('Reverse charge', $rendered);
     }
 
-    /** @test */
     public function invoices_table_has_vat_columns(): void
     {
         $this->assertTrue(\Schema::hasColumn('invoices', 'customer_vat_number'));

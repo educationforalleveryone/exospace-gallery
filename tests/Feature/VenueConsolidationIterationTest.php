@@ -6,43 +6,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Iteration 6 "Consolidation" (roadmap P2.2 + P2.3) — the one-source-of-truth
- * contract as CI.
- *
- * Pins:
- *   1. Every seeded venue declares the consolidation keys (structure_pass
- *      selectors, ceiling colours, open_air / layout_shape, void flags) —
- *      the byte-equivalent replacements for the deleted JS strata.
- *   2. The migration union-merges without clobbering admin edits, is
- *      idempotent, and down() removes exactly what up() added (only while
- *      unmodified) — the IT6 rollback story as executable proof.
- *   3. The exporter payload carries the declared identity end-to-end
- *      (DB → forVenue → client visual_config).
- *   4. The placement curation contract (P2.3 §6.3–§6.5): validated keys,
- *      payload pass-through, DEFAULT ABSENT — no seeded venue declares a
- *      placement block ("default galleries unchanged" is IT6's own promise).
- *   5. DoD rule #7 at its STRONGEST: zero venue slugs anywhere in
- *      resources/js/gallery/*.js (IT3 scanned one file; consolidation scans
- *      them all — the JS is now fully config-interpreted).
- *
- * These tests run in CI / the developer environment (IT6-T3). They use the
- * same portable patterns as the IT2/IT3/IT5 suites (sqlite-safe JSON
- * read-modify-write, migrations invoked directly).
- */
 class VenueConsolidationIterationTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The equivalence table — seeder ⇔ deleted JS strata, as data
-    // ─────────────────────────────────────────────────────────────────────
-
     public const PASS_SELECTORS = [
         'white-cube'       => 'cube',
-        // Zen v2 "Quiet Procession": the venue outgrew the descriptor rooms
-        // pass — the framed-bay architecture selects the dedicated 'bays'
-        // interpreter (still config-selected; still the rollback switch).
         'zen-gallery'      => 'bays',
         'luxury-penthouse' => 'rooms',
         'cyber-gallery'    => 'rooms',
@@ -67,10 +36,6 @@ class VenueConsolidationIterationTest extends TestCase
         'industrial-loft'  => '0x1a1a18',
         'zen-gallery'      => '0xe9e2d0', // deepened by the zen iteration (was 0x1e1c14 pre-v2)
     ];
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Declared identity — the config contract the JS interpreter consumes
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_every_venue_declares_its_interpreter_selector(): void
     {
@@ -115,8 +80,6 @@ class VenueConsolidationIterationTest extends TestCase
             );
         }
 
-        // Venues absent from the table default to white in the interpreter —
-        // they must NOT declare a colour (absence IS the default).
         foreach (array_diff(array_keys(self::PASS_SELECTORS), array_keys(self::CEILING_COLORS)) as $slug) {
             $this->assertArrayNotHasKey('ceiling_color', $this->visualConfig($slug), "[{$slug}] must not declare a ceiling colour.");
         }
@@ -143,11 +106,6 @@ class VenueConsolidationIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // Venue deepening iterations opted these in: the museum's composed
-        // darkness, the void's depth bands, zen v2's procession rhythm
-        // (generous density, focal front wall, pairing) and the cathedral's
-        // depth-band hang (2026-09-07 arcade iteration — 40-work shows stay
-        // inside the arcade instead of sprawling past it).
         $curated = ['dark-museum', 'infinite-void', 'zen-gallery', 'crystal-cathedral'];
         foreach (array_keys(self::PASS_SELECTORS) as $slug) {
             if (in_array($slug, $curated, true)) {
@@ -165,10 +123,6 @@ class VenueConsolidationIterationTest extends TestCase
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The migration — union merge, guarded update, idempotent, reversible
-    // ─────────────────────────────────────────────────────────────────────
-
     private function consolidationMigration(): object
     {
         return require database_path('migrations/2026_09_01_000005_consolidation.php');
@@ -178,8 +132,6 @@ class VenueConsolidationIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // A super-admin has re-tuned the museum: their ceiling colour and a
-        // custom pass must survive the consolidation.
         DB::table('venue_templates')->where('slug', 'dark-museum')->update([
             'visual_config' => json_encode([
                 'background_color' => '0x010101',
@@ -259,10 +211,6 @@ class VenueConsolidationIterationTest extends TestCase
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Exporter + curation pass-through
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_exporter_payload_carries_the_declared_identity(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -338,15 +286,6 @@ class VenueConsolidationIterationTest extends TestCase
         $this->assertTrue($v->fails(), 'Malformed ceiling colour is rejected.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // DoD rule #7 at full strength — the WHOLE gallery JS is slug-free
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * Strip JS comments so the slug/symbol pins read CODE, not history
-     * notes. A comment may legitimately record which incident produced a
-     * key; a venue branch in executable logic may not.
-     */
     private function jsCodeOnly(string $contents): string
     {
         $noBlock = preg_replace('/\/\*.*?\*\//s', '', $contents);
@@ -389,8 +328,6 @@ class VenueConsolidationIterationTest extends TestCase
             }
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
 
     private function visualConfig(string $slug): array
     {

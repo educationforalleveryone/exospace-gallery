@@ -1,5 +1,3 @@
-// LakeLayout plan smoke test — capacities 1..40, determinism, validator.
-// Run: node scripts/venue-qa/lake-plan-smoke.mjs
 import { buildLakePlan, validateLakePlan } from '../../resources/js/gallery/LakeLayout.js';
 
 // xmur3 + mulberry32 (same construction as Rng.js)

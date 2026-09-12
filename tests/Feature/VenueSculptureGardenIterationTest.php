@@ -2,35 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Outdoor Sculpture Garden iteration tests.
- *
- * v3.0.0 "The Curated Walk" (landscape-first identity) and v4.0.0 "The
- * Sculpture Park" (the ASSET-DRIVEN environment reset).
- *
- * Pins the contract so future changes cannot silently break the venue:
- *
- *   - Declared identity: the seeder row carries visual_config.placement_mode
- *     'garden' (the curated courts), the field sizing (bonus + floor), the
- *     declared environment absence + sky IBL strength, the hemisphere
- *     sky/ground daylight tints, the ceiling-orb opt-out, the garden tuning
- *     block (sky_environment + the v4 ASSET MANIFEST), bloom-off post_fx,
- *     the artwork standing glow, and the sun_shadows gate.
- *   - Honesty matrix: the copy promises the gravel walk + museum stands, and
- *     the superseded v2/v3 wording is gone.
- *   - The migrations are safe, guarded rewrites: exact-match guards keep a
- *     super-admin's custom values, absent keys are added only when missing,
- *     the run is idempotent, and down() reverses each rewrite under the same
- *     guard (the v3 identity chain AND the v4 asset-manifest chain).
- *   - The landscape is venue-owned: 'garden', 'ceiling_fill_light',
- *     'field_radius_bonus', 'field_radius_min', 'hemisphere_sky_color' and
- *     'hemisphere_ground_color' ship on the exporter's VENUE_OWNED_VISUAL_KEYS.
- *   - Preview/gallery payload parity: the declaration reaches the client on
- *     both the public view and the editor preview (the shared exporter).
- *
- * Run: php artisan test --filter=VenueSculptureGardenIterationTest
- */
-
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
@@ -53,10 +24,6 @@ class VenueSculptureGardenIterationTest extends TestCase
         'boulder'     => 'boulder_01.glb',
         'bench'       => 'bench_01.glb',
     ];
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Declared identity — the seeder contract the JS interpreter consumes
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_seeded_row_declares_the_asset_park(): void
     {
@@ -100,10 +67,6 @@ class VenueSculptureGardenIterationTest extends TestCase
         $this->assertSame('4.0.0', (string) DB::table('venue_templates')->where('slug', 'sculpture-garden')->value('version'), '[sculpture-garden] version must pin 4.0.0 (The Sculpture Park).');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Honesty matrix — the copy promises exactly what renders
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_the_copy_promise_matches_the_delivered_landscape(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -118,10 +81,6 @@ class VenueSculptureGardenIterationTest extends TestCase
         $this->assertMatchesRegularExpression('/centrepiece/i', (string) $row->description, 'The copy must name the central bronze court.');
         $this->assertMatchesRegularExpression('/treeline/i', (string) $row->description, 'The copy must promise the distant treeline (the horizon must not be a void).');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The migration — guarded, idempotent, reversible, admin-respecting
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_migration_upgrades_a_v200_production_row(): void
     {
@@ -146,13 +105,10 @@ class VenueSculptureGardenIterationTest extends TestCase
         $this->assertSame('3.0.0', (string) $row->version);
     }
 
-    /** The v3.0.0 row exactly as production holds it pre-pass. */
     private function seedV3GardenRow(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // Rewind the row to the exact v3.0.0 state (what migration 000011
-        // produced and production holds before the v4 pass).
         $config = $this->visualConfig('sculpture-garden');
         $config['background_color'] = '0xd6e0e2';
         $config['fog_color'] = '0xd6e0e2';
@@ -213,8 +169,6 @@ class VenueSculptureGardenIterationTest extends TestCase
     {
         $this->seedV3GardenRow();
 
-        // A super-admin retuned the haze, owns the garden block (their own
-        // asset library), the field sizing and the lawn colour BEFORE the pass.
         $config = $this->visualConfig('sculpture-garden');
         $config['background_color'] = '0x223344';
         $config['fog_color'] = '0x112233';
@@ -293,8 +247,6 @@ class VenueSculptureGardenIterationTest extends TestCase
     {
         $this->seedLegacyGardenRow();
 
-        // A super-admin retuned the rig and declared their own landscape
-        // block BEFORE the pass.
         $adminConfig = [
             'wall_height'            => 0,
             'open_air'               => true,
@@ -372,10 +324,6 @@ class VenueSculptureGardenIterationTest extends TestCase
         $this->assertSame(['sky_environment' => false, 'terrain_scale' => 0.5], $config['garden'] ?? null, 'down() must preserve an admin post-pass edit of the landscape block.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Ownership + payload parity
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_the_landscape_declaration_is_venue_owned(): void
     {
         $exporter = \Illuminate\Support\Facades\File::get(app_path('Services/VenueConfigExporter.php'));
@@ -409,10 +357,6 @@ class VenueSculptureGardenIterationTest extends TestCase
         $this->assertSame('0x5e7a46', $config['material_config']['floor_color'] ?? null);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────
-
     private function migration(): object
     {
         return require database_path('migrations/2026_09_09_000011_sculpture_garden_curated_walk.php');
@@ -423,7 +367,6 @@ class VenueSculptureGardenIterationTest extends TestCase
         return require database_path('migrations/2026_09_09_000012_sculpture_garden_asset_park.php');
     }
 
-    /** The v2.0.0 row exactly as production holds it pre-pass. */
     private function seedLegacyGardenRow(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);

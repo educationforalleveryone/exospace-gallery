@@ -2,29 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration 1 "THE REHEARSAL" regression tests (3D venue roadmap, P1.1).
- *
- * Pins the walkable-venue-preview contract so the chooser test (every venue
- * walkable pre-commit) can never silently regress:
- *
- *   - Preview route renders for ALL 11 seeded venues, guest-accessible
- *     (DO NOT DO #10: previews are the funnel — never signup-gated).
- *   - Draft/inactive/unknown venues 404 (Iteration 0's selection-integrity
- *     contract extends to previews).
- *   - NOINDEX: X-Robots-Tag header + meta robots on the preview page.
- *   - Rate-limited: 21st request within a minute from one IP → 429.
- *   - Feature flag off → 404 route + no "Walk through" affordances.
- *   - SAMPLE-DATA ISOLATION: a preview can never contain real gallery or
- *     artwork data; artwork ids are namespaced sample-*.
- *   - forVenuePreview() filters decorations by the VENUE's plan_required
- *     (preview honesty: render the venue at the tier that unlocks it).
- *   - Sample exhibitions cover every seeded venue with 6–8 art-type-matched
- *     works, all resolvable in the shared collection.
- *
- * Run: php artisan test --filter=VenuePreviewIterationTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Gallery;
@@ -47,15 +24,10 @@ class VenuePreviewIterationTest extends TestCase
         'cyber-gallery', 'sculpture-garden', 'mirror-lake',
     ];
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The chooser test, as CI — every seeded venue walkable pre-commit
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_preview_renders_for_every_seeded_venue_as_guest(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // NOTE: no actingAs() — the preview must work signed out.
         foreach (self::SEEDED_SLUGS as $slug) {
             $response = $this->get(route('venues.preview', $slug));
 
@@ -81,9 +53,6 @@ class VenuePreviewIterationTest extends TestCase
         $response->assertOk();
 
         $response->assertViewHas('galleryData', function ($data) {
-            // Fields the 3D runtime REQUIRES (RoomBuilder/AssetLoader/
-            // GalleryScene read these unconditionally or with null-fallbacks
-            // that must at least be present for the legacy-switch path).
             foreach (['id', 'title', 'venue_slug', 'venueConfig', 'images',
                       'wall_texture', 'floor_material', 'frame_style',
                       'lighting_preset', 'room_layout', 'imageCount'] as $key) {
@@ -92,8 +61,6 @@ class VenuePreviewIterationTest extends TestCase
                 }
             }
 
-            // Each sample artwork must carry the texture-tier map the
-            // loader's pickTextureUrl() expects (plus url fallback).
             foreach ($data['images'] as $img) {
                 if (!isset($img['id'], $img['url'], $img['textures']['large'], $img['aspectRatio'])) {
                     return false;
@@ -106,10 +73,6 @@ class VenuePreviewIterationTest extends TestCase
             return $data['imageCount'] === count($data['images']);
         });
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Selection integrity — drafts/inactive/unknown are not walkable
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_draft_and_inactive_venues_are_not_walkable(): void
     {
@@ -129,10 +92,6 @@ class VenuePreviewIterationTest extends TestCase
         $this->get(route('venues.preview', 'not-a-real-venue'))->assertNotFound();
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // NOINDEX — previews must never compete with /venues/{slug} in search
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_preview_is_noindex(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -143,10 +102,6 @@ class VenuePreviewIterationTest extends TestCase
         $response->assertHeader('X-Robots-Tag', 'noindex, nofollow');
         $response->assertSee('<meta name="robots" content="noindex, nofollow">', false);
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Rate limiting — throttle:20,1 at the route layer
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_preview_is_rate_limited(): void
     {
@@ -159,10 +114,6 @@ class VenuePreviewIterationTest extends TestCase
         $this->get(route('venues.preview', 'white-cube'))
             ->assertStatus(429, 'The 21st preview request in one minute must be throttled.');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Feature flag — the rollback path ("route stays harmless")
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_flag_off_404s_the_route_and_hides_walkthrough_affordances(): void
     {
@@ -180,10 +131,6 @@ class VenuePreviewIterationTest extends TestCase
         config(['feature_flags.flags.venue_previews' => true]);
         $this->get(route('venues.preview', 'white-cube'))->assertOk();
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Sample-data isolation — no user data can reach a preview payload
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_preview_never_contains_real_gallery_or_artwork_data(): void
     {
@@ -217,8 +164,6 @@ class VenuePreviewIterationTest extends TestCase
 
         $response->assertViewHas('galleryData', function ($data) {
             foreach ($data['images'] as $img) {
-                // Namespaced ids only — a numeric id would mean a real
-                // images-table row reached the preview.
                 if (!str_starts_with((string) $img['id'], 'sample-')) {
                     return false;
                 }
@@ -242,10 +187,6 @@ class VenuePreviewIterationTest extends TestCase
             'Preview pages must never reference the tracking endpoint.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // forVenuePreview() — the preview honesty rule (tier-correct rendering)
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_for_venue_preview_filters_decorations_to_the_venue_plan(): void
     {
         $exporter = app(VenueConfigExporter::class);
@@ -267,8 +208,6 @@ class VenuePreviewIterationTest extends TestCase
             'A free-tier venue preview must render free decorations only — '
             .'showing studio props would promise what the tier cannot deliver.');
 
-        // The standalone admin export intentionally does NOT filter —
-        // document the difference so it cannot be "fixed" by accident.
         $raw = $exporter->forVenue($venue);
         $this->assertCount(3, $raw['decorations']);
 
@@ -277,10 +216,6 @@ class VenuePreviewIterationTest extends TestCase
         $proConfig = $exporter->forVenuePreview($venue);
         $this->assertSame(['bench', 'neon'], array_column($proConfig['decorations'], 'type'));
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Curation coverage — the chooser test needs a real hang everywhere
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_sample_exhibitions_cover_every_seeded_venue_with_6_to_8_works(): void
     {
@@ -346,10 +281,6 @@ class VenuePreviewIterationTest extends TestCase
             'Sample hangs must be deterministic (same venue → same order).'
         );
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The route must never read/write Gallery rows for a preview
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_preview_issues_no_gallery_queries(): void
     {

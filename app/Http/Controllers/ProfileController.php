@@ -19,9 +19,6 @@ use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
-    /**
-     * Display the user's profile form.
-     */
     public function edit(Request $request): View
     {
         return view('profile.edit', [
@@ -29,47 +26,6 @@ class ProfileController extends Controller
         ]);
     }
 
-    /**
-     * Update the user's profile information.
-     *
-     * ITERATION-7: the email-address-change lifecycle is now explicit and
-     * self-consistent. The identity gate itself (current password) lives in
-     * ProfileUpdateRequest — conditional on the email actually changing, so
-     * name-only edits keep the one-step UX. This method owns everything that
-     * happens AROUND the change:
-     *
-     *   1. Race safety — the validation layer's `unique` rule is a pre-check;
-     *      the DB unique index on users.email is the real arbiter. A request
-     *      whose address gets claimed between validation and save used to
-     *      blow up as an unhandled 500; it now lands back on the form with a
-     *      clean "already in use" error and no state change.
-     *   2. Stale credentials — password_reset_tokens is keyed by EMAIL, and a
-     *      change FREES the old address. A surviving token row for the freed
-     *      address would stay valid against whoever claims that address next
-     *      (the broker resolves users by email). Rows for the old address are
-     *      deleted with the change.
-     *   3. Verification state — EXISTING product design preserved: the new
-     *      address starts unverified (email_verified_at = null), matching the
-     *      framework signed-URL structure (id + sha1(email)), which already
-     *      guarantees old links cannot verify the new address. The lifecycle
-     *      for the new address is INITIATED here (registration behaves the
-     *      same via the Registered event) — the user no longer has to hunt
-     *      for the resend button, and the verify page's "we sent a link"
-     *      copy becomes true at the moment they read it.
-     *   4. Compromise signal — the OLD address receives a link-free security
-     *      notice (EmailChangedNoticeMail). If the change was made by a
-     *      hijacked session, the real owner's inbox is the one channel the
-     *      attacker did not capture.
-     *   5. Audit — identity-critical self-service changes are audited like
-     *      mfa.enabled / mfa.disabled already are ('email_changed'; the
-     *      from/to values pass through AdminAuditLog's PII scrubbing).
-     *   6. Redirect — straight to the verification prompt (one hop). The old
-     *      /profile redirect bounced through the 'verified' middleware into a
-     *      SECOND hop, which aged out the flashed status before any page
-     *      rendered it — the user got zero acknowledgment of the change.
-     *      The prompt page renders the "A fresh verification link has been
-     *      sent." confirmation for this exact flash key.
-     */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $user = $request->user();
@@ -85,9 +41,6 @@ class ProfileController extends Controller
         try {
             $user->save();
         } catch (UniqueConstraintViolationException $e) {
-            // Validation's unique pre-check passed, another account claimed
-            // the address before our save hit the DB unique index. Fail
-            // cleanly with no state change; the flash excludes passwords.
             return back()
                 ->withInput()
                 ->withErrors(['email' => __('That email address is already in use by another account.')]);
@@ -103,9 +56,6 @@ class ProfileController extends Controller
         // Stale reset tokens for the FREED old address must not outlive it.
         DB::table('password_reset_tokens')->where('email', $oldEmail)->delete();
 
-        // Initiate the verification lifecycle for the new address. (Framework
-        // notification; on deployments with the branded auth-mail override it
-        // ships the branded template — the call is identical either way.)
         $user->sendEmailVerificationNotification();
 
         // Security notice to the OLD address — the compromise signal channel.
@@ -117,42 +67,11 @@ class ProfileController extends Controller
             'to' => $user->email,
         ]);
 
-        // One-hop redirect to the verification prompt: correct next step AND
-        // an acknowledgment that actually renders (no double-hop flash loss).
         return redirect()
             ->route('verification.notice')
             ->with('status', 'verification-link-sent');
     }
 
-    /**
-     * Export the user's personal data as a JSON download (GDPR Art. 20 —
-     * right to data portability).
-     *
-     * Returns a JSON document containing:
-     *   - User profile (name, email, plan, created_at)
-     *   - All galleries (with images metadata, not file contents)
-     *   - All transactions (invoice history)
-     *   - All team memberships
-     *   - All artist profiles created by this user
-     *
-     * File contents (uploaded artwork, audio, logos) are NOT included in
-     * the JSON. Users who want the actual files can download them from
-     * the admin UI individually, or contact support for a bulk export.
-     *
-     * NOTE: This endpoint streams the JSON directly. For users with
-     * thousands of galleries, consider dispatching a queued job that
-     * generates a ZIP and emails a download link. Future enhancement.
-     *
-     * M-26 FIX: Now generates a ZIP archive containing:
-     *   - profile.json  (the full structured data, same as before)
-     *   - profile.csv   (a flat CSV summary for spreadsheet import)
-     *   - galleries.csv (gallery metadata in CSV format)
-     *   - transactions.csv (transaction history in CSV format)
-     *   - README.txt    (explains what's in the ZIP)
-     *
-     * The ZIP is streamed directly to the browser (no temp file on disk).
-     * Uses PHP's ZipArchive (available in all PHP 8.2+ installations).
-     */
     public function export(Request $request)
     {
         $user = $request->user()->load([
@@ -319,9 +238,6 @@ class ProfileController extends Controller
         ]);
     }
 
-    /**
-     * M-26: Build a CSV string of the user's galleries.
-     */
     private function buildGalleriesCsv($user): string
     {
         $headers = ['ID', 'Title', 'Slug', 'Description', 'Active', 'View Count', 'Created At', 'Image Count'];
@@ -343,9 +259,6 @@ class ProfileController extends Controller
         return $this->arrayToCsv($headers, $rows);
     }
 
-    /**
-     * M-26: Build a CSV string of the user's transactions.
-     */
     private function buildTransactionsCsv($transactions): string
     {
         $headers = ['ID', 'Invoice ID', 'Plan', 'Amount', 'Currency', 'Status', 'Date'];
@@ -366,9 +279,6 @@ class ProfileController extends Controller
         return $this->arrayToCsv($headers, $rows);
     }
 
-    /**
-     * M-26: Build a CSV summary of the user's profile.
-     */
     private function buildProfileCsv($user): string
     {
         $headers = ['Field', 'Value'];
@@ -388,9 +298,6 @@ class ProfileController extends Controller
         return $this->arrayToCsv($headers, $rows);
     }
 
-    /**
-     * M-26: Build a README.txt explaining the ZIP contents.
-     */
     private function buildReadme($user): string
     {
         return "Exospace GDPR Data Export\n" .
@@ -410,9 +317,6 @@ class ProfileController extends Controller
                "For questions about your data, contact support@exospace.gallery\n";
     }
 
-    /**
-     * M-26: Convert an array to a CSV string.
-     */
     private function arrayToCsv(array $headers, array $rows): string
     {
         $output = fopen('php://temp', 'r+');
@@ -432,41 +336,6 @@ class ProfileController extends Controller
         return $csv;
     }
 
-    /**
-     * Delete the user's account.
-     *
-     * Delegates to UserDeletionService which:
-     *   - Re-assigns the user's galleries in OTHER users' teams to those
-     *     teams' owners (ITERATION-9 — shared data must survive the creator)
-     *   - Deletes all gallery image / audio / logo / curtain_logo files
-     *   - Deletes artist portraits created by this user
-     *   - Calls PlanDowngradeService to remove Coolify custom domains
-     *   - Clears current_team_id for any users pointing at owned teams
-     *   - Anonymizes transactions and invoices (tax-retention compliance)
-     *   - Purges the password_reset_tokens row for the freed email
-     *     (ITERATION-9 — same replay class fixed for email/password change)
-     *   - Deletes the user row inside one DB transaction (DB cascade
-     *     handles the rest)
-     *
-     * WITHOUT the service, self-serve account deletion called $user->delete()
-     * and nothing else — every uploaded file stayed on disk forever. That
-     * was a GDPR violation (privacy policy promises "right to delete your
-     * personal information") and a disk leak.
-     *
-     * ITERATION-9: the deletion is now audited ('user_deleted' — the same
-     * action name, payload shape, and ordering the admin path in
-     * SystemController::deleteUser has always used), so the super-admin
-     * alert listener fires for self-serve deletions too. Recording happens
-     * AFTER the password gate but BEFORE the destructive work: a failure
-     * while writing the audit row aborts the deletion (nothing destroyed),
-     * mirroring the admin path's fail-closed semantics. The actor is the
-     * deleting user themselves; admin_audit_logs.actor_id is nullOnDelete,
-     * so the forensic row survives the user's own deletion (actor_id → NULL)
-     * and the queued super-admin alert then correctly notifies every
-     * eligible super-admin (nobody to exclude). The payload carries
-     * self_serve => true so operators can tell the two paths apart; the
-     * email value passes through AdminAuditLog's established PII hashing.
-     */
     public function destroy(Request $request, UserDeletionService $deletionService): RedirectResponse
     {
         $request->validateWithBag('userDeletion', [

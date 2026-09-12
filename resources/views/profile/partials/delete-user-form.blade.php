@@ -9,15 +9,6 @@
         </p>
     </header>
 
-    {{-- ITERATION-9: OAuth-only accounts (has_password=false) hold only an
-         unusable random placeholder hash — the "current password" gate below
-         can never pass for them, so this UI was a permanent dead end: they
-         could never delete their own account. The app's established model
-         for password-confirming actions on OAuth-only accounts (mirrors the
-         Iteration-8 password form) is "set a password first" via the
-         forgot-password flow, so point at that instead of rendering a form
-         that always fails. The endpoint itself still refuses them
-         server-side (defense in depth). --}}
     @if(auth()->user()->has_password)
         <x-danger-button
             x-data=""

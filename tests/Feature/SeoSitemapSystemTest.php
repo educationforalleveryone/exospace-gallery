@@ -2,25 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * SEO OPERATING SYSTEM — Iteration 4 (sitemaps / robots / redirects) tests.
- *
- * Covers:
- *   - Grouped sitemap index (static, galleries, artists, artworks listed)
- *   - Gallery group: public galleries in, PIN/closed/scheduled/banned out,
- *     cover image extension, custom-domain URLs as loc
- *   - Artist group: only artists with public works
- *   - Artwork group: quality-gated artworks only
- *   - Legacy /sitemap-{page}.xml → 301 to /sitemap-galleries-{page}.xml
- *   - Out-of-range sitemap pages → 404 (Search Console hygiene)
- *   - Dynamic robots.txt: primary host rules + sitemap; custom-domain rules
- *   - SeoRedirects middleware: 301/302 application, unknown paths pass through
- *   - Sitemap version bumps on gallery edits (cache invalidation)
- *   - ?artwork= deep link canonicalizes to the artwork page
- *
- * Run: php artisan test --filter=SeoSitemapSystemTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Artist;
@@ -42,8 +23,6 @@ class SeoSitemapSystemTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
-        // ITERATION-1 FIX: force the URL generator root so url()-built
-        // canonicals match the asserted absolute URLs (see SeoEntityPagesTest).
         \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
         \Illuminate\Support\Facades\URL::forceScheme('https');
     }
@@ -76,8 +55,6 @@ class SeoSitemapSystemTest extends TestCase
         ], $attrs));
     }
 
-    // ── Sitemap index ───────────────────────────────────────────────────
-
     public function test_sitemap_index_lists_all_groups(): void
     {
         $gallery = $this->makePublicGallery();
@@ -109,8 +86,6 @@ class SeoSitemapSystemTest extends TestCase
         $this->assertStringContainsString('<lastmod>', $xml);
         $this->assertStringContainsString(now()->subDays(3)->format('Y-m-d'), $xml, 'lastmod reflects the real max(updated_at), not now().');
     }
-
-    // ── Gallery group ───────────────────────────────────────────────────
 
     public function test_gallery_sitemap_includes_public_and_excludes_private(): void
     {
@@ -184,8 +159,6 @@ class SeoSitemapSystemTest extends TestCase
         $this->assertStringNotContainsString('banned-show', $response->getContent());
     }
 
-    // ── Artist group ────────────────────────────────────────────────────
-
     public function test_artist_sitemap_only_lists_artists_with_public_works(): void
     {
         $withWork = Artist::create(['name' => 'Listed Artist']);
@@ -203,8 +176,6 @@ class SeoSitemapSystemTest extends TestCase
         $this->assertStringNotContainsString('invisible-artist', $xml);
     }
 
-    // ── Artwork group ───────────────────────────────────────────────────
-
     public function test_artwork_sitemap_applies_quality_gate(): void
     {
         $artist = Artist::create(['name' => 'Gate Artist']);
@@ -221,8 +192,6 @@ class SeoSitemapSystemTest extends TestCase
         $this->assertStringContainsString("/artwork/{$rich->id}", $xml);
         $this->assertStringNotContainsString("/artwork/{$thin->id}", $xml, 'Thin artworks stay out of the sitemap.');
     }
-
-    // ── Legacy + bounds ─────────────────────────────────────────────────
 
     public function test_legacy_sitemap_route_redirects_to_galleries_group(): void
     {
@@ -246,8 +215,6 @@ class SeoSitemapSystemTest extends TestCase
         $response->assertNotFound();
     }
 
-    // ── robots.txt ──────────────────────────────────────────────────────
-
     public function test_robots_txt_serves_primary_host_rules(): void
     {
         $response = $this->get('/robots.txt');
@@ -270,8 +237,6 @@ class SeoSitemapSystemTest extends TestCase
             'custom_domain_verified_at' => now(),
         ]);
 
-        // Simulate the DetectCustomDomain middleware resolution by calling
-        // the controller with a request carrying the resolved gallery.
         $request = Request::create('https://show.janedoe.com/robots.txt', 'GET');
         $request->attributes->set('resolved_gallery', $gallery->fresh());
 
@@ -301,8 +266,6 @@ class SeoSitemapSystemTest extends TestCase
         $this->assertStringContainsString('gallery/' . $mine->slug, $xml);
         $this->assertStringNotContainsString('gallery/' . $other->slug, $xml, 'Custom-domain sitemap lists ONLY the resolved gallery.');
     }
-
-    // ── Redirects ───────────────────────────────────────────────────────
 
     public function test_seo_redirect_301_applies(): void
     {
@@ -377,14 +340,9 @@ class SeoSitemapSystemTest extends TestCase
         $this->assertNotSame(301, $response->getStatusCode(), 'POST must not redirect via SEO map.');
     }
 
-    // ── Cache invalidation ──────────────────────────────────────────────
-
     public function test_gallery_edit_bumps_sitemap_version(): void
     {
         $gallery = $this->makePublicGallery();
-        // ITERATION-1 FIX: creating a public gallery (a new sitemap URL)
-        // legitimately bumps the version — reset the counter AFTER setup
-        // so the assertion measures only the edit's effect.
         \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 5);
 
         $gallery->update(['title' => 'Renamed Show']);
@@ -406,16 +364,12 @@ class SeoSitemapSystemTest extends TestCase
     public function test_gallery_deletion_bumps_version(): void
     {
         $gallery = $this->makePublicGallery();
-        // ITERATION-1 FIX: creation bumps once (new URL) — reset AFTER setup
-        // so the assertion measures only the deletion's effect.
         \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 5);
 
         $gallery->delete();
 
         $this->assertSame(6, (int) \Illuminate\Support\Facades\Cache::get('seo:sitemap:version'));
     }
-
-    // ── Deep-link canonical ─────────────────────────────────────────────
 
     public function test_artwork_deep_link_canonicalizes_to_artwork_page(): void
     {

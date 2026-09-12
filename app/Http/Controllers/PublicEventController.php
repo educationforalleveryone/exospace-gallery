@@ -11,23 +11,6 @@ use Illuminate\View\View;
 use App\Services\TurnstileService;
 use Illuminate\Http\RedirectResponse;
 
-/**
- * Public-facing gallery events page + RSVP form.
- *
- * Routes:
- *   GET  /gallery/{slug}/events          — list upcoming events
- *   POST /gallery/{slug}/events/{event}/rsvp — submit RSVP
- *
- * ITERATION-3 FIX (P0 leak): both routes previously served PIN-protected
- * galleries to anyone — event titles, dates, capacities and the RSVP form
- * were fully public even though the exhibition itself sits behind the PIN
- * gate, and a POST could submit an RSVP without ever entering the PIN.
- * Both now demand the same session PIN verification the gallery view
- * uses. A closed exhibition redirects to its own "closed" page, matching
- * the gallery view's time-gate behaviour. (Not-yet-open exhibitions keep
- * their events page public on purpose: openings and artist talks are the
- * pre-opening marketing surface — that is what RSVPs are FOR.)
- */
 class PublicEventController extends Controller
 {
     public function __construct(
@@ -49,8 +32,6 @@ class PublicEventController extends Controller
             return redirect()->route('gallery.view', $gallery->slug);
         }
 
-        // ITERATION-3: PIN gate — mirrors the gallery view (events data is
-        // exhibition content; the PIN screen is the single entry point).
         if ($gallery->hasPinProtection() && ! session("pin_verified_{$gallery->id}")) {
             return redirect()->route('gallery.pin', $gallery->slug);
         }
@@ -58,8 +39,6 @@ class PublicEventController extends Controller
         $upcoming = $gallery->scheduleEvents->filter(fn ($e) => $e->isUpcoming());
         $past = $gallery->scheduleEvents->filter(fn ($e) => $e->isPast())->take(5);
 
-        // SEO OS (Iteration 2): unique title/canonical; noindex when there
-        // is nothing to see (empty events page = thin content).
         $hasContent = $upcoming->isNotEmpty() || $past->isNotEmpty();
         $title = ($gallery->title ?: 'Exhibition') . ' — Events & Openings';
         $description = $upcoming->isNotEmpty()
@@ -99,10 +78,6 @@ class PublicEventController extends Controller
         $gallery = Gallery::where('slug', $slug)->where('is_active', true)->firstOrFail();
         if ($event->gallery_id !== $gallery->id) abort(404);
 
-        // ITERATION-3: PIN gate on the write path too — without this, a
-        // POST could reserve a seat at a private event without ever
-        // entering the exhibition PIN (the GET redirect alone was not
-        // enforcement, just UI).
         if ($gallery->hasPinProtection() && ! session("pin_verified_{$gallery->id}")) {
             return redirect()->route('gallery.pin', $gallery->slug);
         }

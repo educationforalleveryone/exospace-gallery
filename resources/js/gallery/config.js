@@ -1,11 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Exospace gallery — runtime configuration
-//
-// All tunable constants for the 3D viewer live here. Edit values, not logic.
-// Loaded by main.js as a singleton; do not mutate at runtime — write a new
-// constants file per venue if a venue needs bespoke tuning.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 
 export const CONFIG = {
@@ -36,9 +28,6 @@ export const CONFIG = {
         wallDepth: 0.3,
     },
 
-    // ── Lighting presets ────────────────────────────────────────────────────
-    // These tune the THREE.AmbientLight + key/fill ratio + HDRI strength.
-    // The actual PointLights are added per-room in RoomBuilder.js.
     lighting: {
         bright: {
             ambient: 0.20,
@@ -72,21 +61,6 @@ export const CONFIG = {
         },
     },
 
-    // ── Stock environments (s4 environment authority) ───────────────────────
-    // The runtime-side half of the environment vocabulary. The VENUE DECLARES
-    // which environment it is via visual_config.environment (a stock NAME —
-    // see VenueTemplate::ENVIRONMENTS on the PHP side); this map resolves the
-    // name to an HDRI file. CODE PROVIDES CAPABILITIES (the file map);
-    // VENUE CONFIGURATION DECLARES THE VENUE (which entry it is).
-    //
-    // Keep the keys in lockstep with VenueTemplate::ENVIRONMENTS and the
-    // venue editor's Environment select. 'none' → null: the venue wants no
-    // environment at all (the HDRI download is skipped entirely — same as
-    // env_intensity: 0, but declarative about the sky itself).
-    //
-    // The lighting presets below keep their own `hdri` entries ONLY as the
-    // fallback for venue-LESS (legacy) galleries, which have no venue to
-    // declare an environment. A gallery WITH a venue never reaches them.
     environments: {
         studio:        '/assets/textures/env/studio.hdr',
         rural_evening: '/assets/textures/env/rural_evening.hdr',
@@ -101,8 +75,6 @@ export const CONFIG = {
         shadowsEnabled: false, // globally off — venue can opt-in via visual_config
     },
 
-    // ── Post-processing ─────────────────────────────────────────────────────
-    // Off on low-end. Tuned per venue by VenueDecorator.
     postFx: {
         bloom: true,
         bloomStrength: 0.6,
@@ -115,12 +87,6 @@ export const CONFIG = {
     },
 };
 
-// ── Texture path map ────────────────────────────────────────────────────────
-// Each entry is a directory under public/assets/textures/<surface>/<material>/.
-// The Materials.js module loads color.jpg, normal.jpg, roughness.jpg, ao.jpg
-// from each directory (any missing file is silently skipped).
-//
-// To add a new wall material: drop a new folder under walls/ and add a key here.
 export const TEXTURE_PATHS = {
     walls: {
         white:    '/assets/textures/walls/white',
@@ -149,8 +115,6 @@ export const TEXTURE_PATHS = {
     },
 };
 
-// Per-material PBR fallback values used when no texture map is present
-// (or when running on low-end where textures are skipped).
 export const MATERIAL_PRESETS = {
     walls: {
         white:    { color: 0xf5f5f5, roughness: 0.85, metalness: 0.00, normalStrength: 0.30 },
@@ -183,23 +147,6 @@ export const FRAME_STYLES = {
     black:   { color: 0x0a0a0a, roughness: 0.50, metalness: 0.20 },
 };
 
-// ── Iteration 6 "Consolidation" (P2.2): the slug-keyed venue sets are GONE.
-// OPEN_AIR_VENUES / CIRCULAR_VENUES were the last slug-keyed strata in this
-// file. A venue now declares `visual_config.open_air` and
-// `visual_config.layout_shape` (DB JSON) — the interpreter reads config,
-// never venue names (§10.2: the DB is the sole source of venue identity;
-// §17 IT6 outcome: "zero venue knowledge in JS maps").
-
-// ── Color parsing helper ────────────────────────────────────────────────────
-// Venue configs from the database store colors as strings like '0x87ceeb'.
-// Three.js r182's Color constructor treats strings as CSS color names, so
-// `new THREE.Color('0x87ceeb')` fails with "Unknown color".
-// This helper converts '0xRRGGBB' strings to numbers before passing to THREE.Color.
-//
-// Usage:
-//   import { parseColor } from './config.js';
-//   const c = parseColor(vc.background_color); // handles string, number, or null
-//   if (c) this.scene.background = c;
 export function parseColor(value) {
     if (value === null || value === undefined || value === '') return null;
     if (typeof value === 'number') return new THREE.Color(value);

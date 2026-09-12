@@ -1,59 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// luxury-penthouse-qa.mjs — the venue QA gate for Luxury Penthouse v3.0.0
-// ("The Double Volume", 2026-09-09 full redesign; predecessors: 000003
-// "Rooms" → 000005 "The Collector's Floor" → 000006 "Evening Light").
-//
-//   node scripts/venue-qa/luxury-penthouse-qa.mjs
-//
-// Same layering as the other venue gates: this file pins CONTRACTS
-// (config authority, geometry invariants, parity, determinism),
-// tests/Feature/VenuePenthouseIterationTest.php pins the DB side, and
-// scripts/harness/shoot.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the row declares the v3.0.0 identity: the DOUBLE
-//      VOLUME (wing_heights 3.55/6.3 under a 6.3 nominal), the GLASS CORNER
-//      (glazing_walls wing_b_end + wing_b_north), the lit SEAM (fascia +
-//      full-width slot + junction sculpture), the fireplace pier with the
-//      hangable above-the-fire surface, the walnut art wall
-//      (wall_left_high), bronze frames, the evening rig, the declared-
-//      absent environment, artwork legibility base 0.5, black-blend
-//      vignette, dusk-haze fog, the honed floor, the cheap-class glazing.
-//   B. DB ↔ harness sync — the PHP-less harness renders the same JSON a
-//      fresh install seeds (same pairs, equal values, 61 descriptors), the
-//      v2.1.0 rollback body (47) and the v1.0.0 legacy body (17) are
-//      carried for bisect.
-//   C. Composition invariants — driven through the REAL StructureBuilder +
-//      real three.js (no GL):
-//        • the v3 descriptor list validates; the v2.1/v1 lists still
-//          validate (rollback bodies render).
-//        • the v3 anchors resolve against the real layout meta at 12 and
-//          40 works (junction, glazing_north, wall_left_high; wall_left
-//          splits at jZ ONLY under declared heights), and the UNDECLARED
-//          meta resolves exactly as v2.1 (cross-version safety) while
-//          square/corridor anchors are UNCHANGED (cross-venue safety).
-//        • hangable surfaces register with their hang heights (fireplace
-//          3.25, art wall 2.6) and the shared bay planner caps the take.
-//        • the build emits a sane draw-call count (≤ 72), the seam slot is
-//          one merged draw at the step height, the gallery coves sit at
-//          the 3.55 m reveal, the base trim stands proud of the wall face,
-//          the fireplace pier spans 0..6.3 with the warm fire line, BOTH
-//          glazing faces render the cheap open-air class, the skyline is
-//          six grounded depth layers (two faces) with the afterglow bands
-//          beyond, the slab joints tile the wing-A floor.
-//        • collision: every obstacle-registered structure part lies inside
-//          the walk domain (furniture never traps the visitor).
-//        • low-end tier: the SAME composition in Lambert (degradation
-//          parity — the residence survives the weakest device).
-//        • determinism: two builds from the same seed are
-//          transform-identical (the P0.3 contract).
-//   D. JS/PHP hygiene — zero venue slugs in the shared modules, the
-//      exporter owns every key the row uses INCLUDING the v3 architecture
-//      keys (schema s7), the guarded migration chain exists and pins the
-//      same identities, the harness carries the rollback bodies, shoot.mjs
-//      carries the scenarios.
-// ─────────────────────────────────────────────────────────────────────────────
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -68,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (luxury-penthouse row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -177,7 +121,6 @@ ok('version 3.0.0', /'version'\s*=>\s*'3\.0\.0'/.test(chunk));
 ok('l-shape remains the supported hang (supported_layouts square + l-shape)',
     /'supported_layouts'\s*=>\s*\['square',\s*'l-shape'\]/.test(chunk));
 
-// ── B. DB ↔ harness sync ────────────────────────────────────────────────────
 section('B. DB ↔ harness sync (luxury-penthouse bodies)');
 const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
 
@@ -242,9 +185,6 @@ section('C. Composition invariants (real StructureBuilder, real three, no GL)');
 const StructureBuilder = await import(pathToFileURL(rel('resources/js/gallery/StructureBuilder.js')));
 const { validateStructure, resolveAnchor, buildStructure, SB_MATERIALS } = StructureBuilder;
 const THREE = (await import('three')).default ?? (await import('three'));
-// Mirror the runtime path: VenueDecorator applies the venue's declared
-// wall_height to CONFIG BEFORE the room builds — the anchor heights and the
-// at:'ceiling' cove derive from it.
 const { CONFIG } = await import(pathToFileURL(rel('resources/js/gallery/config.js')));
 CONFIG.room.wallHeight = 6.3;
 
@@ -259,8 +199,6 @@ ok('existing material presets untouched (fabric_warm / bronze / steel_dark exact
     SB_MATERIALS.fabric_warm.color === '0x6a5a48' && SB_MATERIALS.bronze.roughness === 0.35 &&
     SB_MATERIALS.steel_dark.metalness === 0.85 && SB_MATERIALS.wood_dark.color === '0x4a3826');
 
-// Layout meta — the EXACT createRoomLShape math (RoomBuilder), + the v3
-// declared heights the builder rides on _layoutMeta.
 function layoutMetaFor(count, heights) {
     const spacing = 3.5, wingW = 6;
     const estCountA = Math.ceil(count * 0.6);
@@ -316,8 +254,6 @@ for (const count of [12, 40]) {
     ok(`count=${count}: glazing anchor (east face) resolves at the volume height`,
         resolveAnchor(ctx, 'glazing').fwd[0] === -1);
 
-    // CROSS-VERSION SAFETY: WITHOUT declared heights every anchor must
-    // resolve exactly as v2.1.0 (bit-identical rollback path).
     const legacyMeta = layoutMetaFor(count);
     const lctx = { _layoutMeta: legacyMeta, _glazing: { cx: 0, cz: 0, inward: [-1, 0], width: meta.wingW, height: 5.2, wallId: 'wing_b_end' } };
     const lwl = resolveAnchor(lctx, 'wall_left');
@@ -369,8 +305,6 @@ try {
     draws = buildStructure(ctx, hvc.structure);
     ok(`build emits a sane draw-call count (${draws} ≤ 72)`, draws > 10 && draws <= 72, `got ${draws}`);
 
-    // ── Hangable surfaces: the fireplace pier + the art wall register with
-    // their declared hang heights (the l-shape bay mechanism consumes them).
     const hangs = ctx._hangableSurfaces || [];
     ok('hangable surfaces registered: fireplace (y 3.25) + art wall (y 2.6)',
         hangs.length === 2 &&
@@ -389,18 +323,10 @@ try {
     ok('bay planner refuses short hangs (<6 works → null)',
         _planBayHangs(5, hangs, 3.5) === null);
 
-    // ── Placement probe (real placer, stubbed registrar): the spill run
-    // must stay INSIDE the building on every count — with the north face
-    // glazed the run concentrates on the solid face and must spread
-    // centred (lenB was sized for two faces), and the statement works must
-    // land on their declared hang heights.
     {
         const ArtworkPlacer = await import(pathToFileURL(rel('resources/js/gallery/ArtworkPlacer.js')));
         for (const count of [6, 12, 40]) {
             const m = layoutMetaFor(count, [H_A, H_B]);
-            // Hangable surfaces are layout-derived (registered by the build
-            // for THAT layout) — rebuild the structure per count so the bay
-            // surfaces match the building the placer hangs into.
             const mScene = new THREE.Scene();
             const mCtx = {
                 scene: mScene, _layoutMeta: m,
@@ -437,8 +363,6 @@ try {
                     `n=${salon.length} centre ${((Math.min(...salon.map(g => g.position.x)) + Math.max(...salon.map(g => g.position.x))) / 2).toFixed(1)} vs ${(m.wingW + m.lenB / 2).toFixed(1)} span ${span.toFixed(1)}`);
             }
         }
-        // Cross-version safety: NO glazing + NO hangables ⇒ the historic
-        // two-face alternation positions, byte-for-byte.
         const m12 = layoutMetaFor(12);
         const placed = [];
         const stub2 = {
@@ -456,8 +380,6 @@ try {
             spill.length === 8 && historicOk);
     }
 
-    // ── THE SEAM: fascia at the gallery roofline + the lit slot at the
-    // step height, merged into ONE draw.
     const fascia = sceneA.children.find(o => /structure:step-fascia/.test(o.name || ''));
     ok('step fascia exists at the seam', !!fascia);
     if (fascia) {
@@ -571,8 +493,6 @@ try {
             return Math.abs(a - Math.PI) < 0.01 || Math.abs(a - Math.PI / 2) < 0.01 || Math.abs(a - 3 * Math.PI / 2) < 0.01;
         }));
 
-    // ── The anchored fire-glow fixture resolves against the wall_end
-    // anchor (the shared anchored-fixtures grammar) inside the volume.
     {
         const anchor = resolveAnchor({ _layoutMeta: meta, _glazing: null }, 'wall_end');
         const o = [0, 0.95, 1.1];
@@ -688,7 +608,6 @@ try {
     ok('determinism probe', false, err.message);
 }
 
-// ── D. JS/PHP hygiene ───────────────────────────────────────────────────────
 section('D. JS/PHP hygiene + authority/parity');
 const exporterSrc = readFileSync(rel('app/Services/VenueConfigExporter.php'), 'utf8');
 const decoratorSrc = readFileSync(rel('resources/js/gallery/VenueDecorator.js'), 'utf8');

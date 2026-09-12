@@ -8,24 +8,6 @@ use App\Ops\Services\OpsWeeklyReviewService;
 use Illuminate\Console\Command;
 use Throwable;
 
-/**
- * OpsCenter — SendWeeklyReviewCommand (Iteration 8).
- *
- * ops:send-weekly-review — the Monday deep-dive (08:30, fifteen minutes
- * after the daily digest, still inside the morning-briefing block and
- * ahead of the 08:45 watchdog + the 09:00 credential reminder): the
- * trailing-7-day trends the daily cadence cannot show — error volume by
- * category, incident throughput with MTTA/MTTR, deployment activity,
- * the sweep's finding history, current backup freshness and the week's
- * operator activity.
- *
- * NOT a dead-man's switch: the daily digest + the watchdog carry the
- * silence contract; this is the long view. Kill switch
- * OPS_WEEKLY_REVIEW_ENABLED=false stops the scheduled send only — the
- * /ops/digest preview and the manual button keep working.
- *
- * Never fatal: a review failure must never break the schedule chain.
- */
 class SendWeeklyReviewCommand extends Command
 {
     protected $signature = 'ops:send-weekly-review';

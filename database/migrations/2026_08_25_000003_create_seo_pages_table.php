@@ -4,25 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * SEO Operating System (Iteration 5) — landing + editorial pages.
- *
- * Content model for future keyword-strategy work: operators (or a future
- * AI/dev with a keyword strategy) create pages with structured blocks —
- * no developer needed per page, no new routes, no template changes.
- *
- * Design:
- *  - type: 'landing' (root URL /{slug}) or 'editorial' (/{prefix}/{slug},
- *    prefix from config seo.pages.editorial_prefix, default 'resources')
- *  - blocks: validated JSON array of typed content blocks (see
- *    SeoPageRenderer). Live-data blocks (exhibitions/artists/venues) pull
- *    REAL content, which structurally prevents pure keyword-spam pages.
- *  - status: draft (default; always noindex) / published / scheduled via
- *    published_at.
- *  - SEO fields live on the page itself (purpose-built surface; the
- *    seo_profiles override system applies to entities, not pages).
- *  - Slug allow-list cached for the fallback route lookup.
- */
 return new class extends Migration
 {
     public function up(): void

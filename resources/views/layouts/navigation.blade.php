@@ -34,8 +34,6 @@
                         {{ __('Teams') }}
                     </x-nav-link>
 
-                    {{-- ITERATION 4: Master Control was reachable only by typing
-                         the URL — no nav link existed for super-admins. --}}
                     @if(auth()->check() && auth()->user()->is_super_admin)
                         <x-nav-link :href="route('super.index')" :active="request()->routeIs('super.*')">
                             <svg class="w-4 h-4 mr-1.5 opacity-70" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
@@ -154,13 +152,6 @@
                     $allTeams    = auth()->user()->ownedTeams->merge(auth()->user()->teams)->unique('id');
                 @endphp
                 @if($allTeams->isNotEmpty())
-                {{--
-                    FIX: Added style="display:none" so the dropdown panel is hidden before Alpine.js
-                    loads — without it the panel flashes open on every page load because x-cloak
-                    alone requires the [x-cloak]{display:none} CSS rule to already be parsed, which
-                    can race against the JS bundle.  The style attr is the guaranteed no-flash guard.
-                    Also added @keydown.escape.window so the dropdown closes when pressing Escape.
-                --}}
                 <div x-data="{ teamOpen: false }" class="relative" @keydown.escape.window="teamOpen = false">
                     <button @click="teamOpen = !teamOpen"
                             class="inline-flex items-center gap-2 px-3 h-9 bg-white/[0.04] hover:bg-white/[0.08] border border-gray-700/80 rounded-lg text-sm text-gray-300 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/80"
@@ -264,11 +255,6 @@
                             <svg class="w-4 h-4 mr-2.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             {{ __('My Teams') }}
                         </x-dropdown-link>
-                        {{-- LOGOUT-ITERATION: data-turbo="false" forces a full
-                             page load — the Turbo session (and its cached
-                             authenticated snapshots) is destroyed on every
-                             sign-out instead of surviving the body swap.
-                             data-busy blocks duplicate submissions. --}}
                         <div class="border-t border-gray-700/60 mt-1 pt-1">
                         <form method="POST" action="{{ route('logout') }}"
                               data-turbo="false" data-busy data-busy-label="Signing out…">
@@ -317,17 +303,12 @@
                 {{ __('Teams') }}
             </x-responsive-nav-link>
 
-            {{-- ITERATION-1 FIX: Master Control was missing from the mobile menu —
-                 super-admins could not reach /master-control from a phone. --}}
             @if(auth()->check() && auth()->user()->is_super_admin)
                 <x-responsive-nav-link :href="route('super.index')" :active="request()->routeIs('super.*')">
                     {{ __('Master Control') }}
                 </x-responsive-nav-link>
             @endif
 
-            {{-- ITERATION-2 FIX: Billing + plan upgrade were desktop-only
-                 (user dropdown / nav chip). On a phone there was no way to
-                 reach billing or upgrade at all. --}}
             <x-responsive-nav-link :href="route('billing.index')">
                 {{ __('Billing') }}
             </x-responsive-nav-link>

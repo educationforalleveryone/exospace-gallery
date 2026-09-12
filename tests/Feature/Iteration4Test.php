@@ -2,17 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * ITERATION-4 regression tests.
- *
- * Verifies:
- *   - AdminAuditLog::record() calls are present for security-relevant operations
- *     that previously lacked audit logging (AUDIT-P1-4.1 through AUDIT-P1-4.15)
- *   - AffiliateDashboardController::index() no longer fires N+1 queries (AUDIT-P1-4.16)
- *
- * Run: php artisan test --filter=Iteration4Test
- */
-
 namespace Tests\Feature;
 
 use App\Models\AdminAuditLog;
@@ -29,11 +18,6 @@ class Iteration4Test extends TestCase
 {
     use RefreshDatabase;
 
-    // ── Audit logging tests ─────────────────────────────────────────────
-
-    /**
-     * AUDIT-P1-4.1: OAuth provider unlink creates an audit log entry.
-     */
     public function test_audit_p14_1_oauth_unlink_creates_audit_log_entry(): void
     {
         $user = User::factory()->create([
@@ -53,10 +37,6 @@ class Iteration4Test extends TestCase
         ]);
     }
 
-    /**
-     * AUDIT-P1-4.14: Gallery deletion creates an audit log entry.
-     * 'name' in the payload should be PII-scrubbed (hashed to pii: prefix).
-     */
     public function test_audit_p14_14_gallery_delete_creates_audit_log_entry(): void
     {
         $user = User::factory()->pro()->create();
@@ -75,22 +55,13 @@ class Iteration4Test extends TestCase
             'target_id'   => $gallery->id,
         ]);
 
-        // Verify the gallery 'title' was PII-scrubbed in the payload
-        // ITERATION-1 FIX: galleries use `title` (the old assertion read the
-        // nonexistent 'name' key — null — and fatalled).
         $log = AdminAuditLog::where('action', 'gallery.deleted')
             ->where('target_id', $gallery->id)
             ->first();
         $this->assertNotNull($log);
-        // 'title' is not a PII key (it's public exhibition content) — the
-        // scrubber intentionally leaves it readable for forensics.
         $this->assertNotEmpty($log->payload['title'], 'Gallery title should be recorded for forensics');
     }
 
-    /**
-     * AUDIT-P1-4.9: Team invitation creates an audit log entry.
-     * 'email' in the payload should be PII-scrubbed (hashed to pii: prefix).
-     */
     public function test_audit_p14_9_team_invite_creates_audit_log_entry_with_scrubbed_email(): void
     {
         $owner = User::factory()->create();
@@ -115,9 +86,6 @@ class Iteration4Test extends TestCase
         $this->assertStringStartsWith('pii:', $log->payload['email'], 'Email should be hashed with pii: prefix');
     }
 
-    /**
-     * AUDIT-P1-4.12: Team member role change captures old role + creates audit log entry.
-     */
     public function test_audit_p14_12_team_role_change_captures_old_and_new_role(): void
     {
         $owner = User::factory()->create();
@@ -142,22 +110,9 @@ class Iteration4Test extends TestCase
 
     // ── AffiliateDashboardController N+1 fix ────────────────────────────
 
-    /**
-     * AUDIT-P1-4.16: The affiliate dashboard should return correct aggregated
-     * data using only 2 queries (not 1+2N). Verifies both correctness AND
-     * query count.
-     *
-     * Calls the controller directly (bypasses super-admin/MFA middleware) —
-     * same pattern as PerformanceHotfixesTest::e5_nps_dashboard_calculates_correct_scores.
-     */
     public function test_audit_p14_16_affiliate_dashboard_aggregates_correctly_with_fixed_query_count(): void
     {
         $user = User::factory()->create();
-
-        // Create test data: 3 affiliates with known conversions
-        // Affiliate A: 2 converted ($29 + $99 = $128), 1 pending
-        // Affiliate B: 1 converted ($29), 0 pending
-        // Affiliate C: 0 converted, 1 pending
 
         // Affiliate A
         $txA1 = Transaction::factory()->create(['amount' => 29.00, 'status' => 'completed']);
@@ -202,10 +157,6 @@ class Iteration4Test extends TestCase
         $controller = app(\App\Http\Controllers\AffiliateDashboardController::class);
         $request = \Illuminate\Http\Request::create('/master-control/affiliates', 'GET');
 
-        // Count queries — the fix should produce 2 aggregate queries (+ a few
-        // for view rendering). The old code would produce 1 + 2*3 = 7 queries
-        // for 3 affiliates. We assert <10 to be generous (the View factory
-        // adds a few queries for view paths).
         $queryCount = 0;
         DB::listen(function () use (&$queryCount) {
             $queryCount++;
@@ -224,9 +175,6 @@ class Iteration4Test extends TestCase
         $this->assertEquals(157.00, (float) $totals['revenue'], 'Total revenue = 29 + 99 + 29 = 157');
         $this->assertGreaterThan(0, $totals['conversion_rate'], 'Conversion rate should be > 0');
 
-        // Verify query count — the N+1 fix should produce a fixed number of
-        // queries regardless of affiliate count. Old code: 1 + 2*3 = 7.
-        // New code: 2 aggregate queries. With view rendering overhead, <10.
         $this->assertLessThan(
             10,
             $queryCount,
@@ -249,10 +197,6 @@ class Iteration4Test extends TestCase
         $this->assertEquals(0.00, (float) $affiliates[2]['revenue']);
     }
 
-    /**
-     * AUDIT-P1-4.16: With zero affiliates, the dashboard should return empty
-     * data gracefully (no crash, no division-by-zero).
-     */
     public function test_audit_p14_16_affiliate_dashboard_handles_empty_data_gracefully(): void
     {
         $controller = app(\App\Http\Controllers\AffiliateDashboardController::class);

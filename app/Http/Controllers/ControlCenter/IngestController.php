@@ -11,27 +11,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * POST /api/control-center/runs
- *
- * Ingestion endpoint for CI runners / remote executors that push JUnit
- * results INTO the Control Center so history, flaky detection and release
- * readiness have data even when execution happens off-app.
- *
- * Fail-closed conventions (mirroring /api/ops/ingest):
- *   - QA_INGEST_TOKEN unset     → 404 (endpoint "does not exist")
- *   - wrong X-QA-Token          → 401
- *   - malformed artifact        → 422 (nothing is recorded)
- *
- * Request shape (multipart/form-data preferred for artifacts):
- *   junit             : file upload (JUnit XML)              [required]
- *   profile           : string key                           [required]
- *   environment       : ci|local|staging                     [default ci]
- *   git_branch/commit : strings
- *   trigger           : manual|ci|api|schedule               [default ci]
- *   runner            : string label
- *   ci_run_url        : link to the pipeline run
- */
 class IngestController extends Controller
 {
     public function store(Request $request): JsonResponse
@@ -82,7 +61,9 @@ class IngestController extends Controller
             'duration_ms' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        /** @var \Illuminate\Http\UploadedFile|null $artifact */
+        /**
+ * @var \Illuminate\Http\UploadedFile|null $artifact
+ */
         $artifact = $request->file('junit');
 
         if ($artifact === null || ! $artifact->isValid()) {
@@ -105,8 +86,6 @@ class IngestController extends Controller
                 return response()->json(['message' => 'Unreadable artifact upload path.'], 422);
             }
 
-            // RunRecorder refuses zero-case artifacts by design — nothing is
-            // ever recorded as "passed" without an artifact saying so.
             $run = app(RunRecorder::class)->record([
                 'profile'     => $profileKey,
                 'environment' => $validated['environment'] ?? 'ci',

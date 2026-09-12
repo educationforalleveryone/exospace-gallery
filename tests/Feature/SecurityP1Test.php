@@ -6,15 +6,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * P1-5 / P1-7 / P1-8 security regression tests.
- *
- * Covers:
- *   - P1-5: MFA verify endpoint is throttled (6 req/min)
- *   - P1-5: MFA controller does not leak $e->getMessage() to the user
- *   - P1-7: /profile and /billing routes require verified email
- *   - P1-8: CheckBanned middleware fails closed on DB exception (503)
- */
 class SecurityP1Test extends TestCase
 {
     use RefreshDatabase;
@@ -82,14 +73,8 @@ class SecurityP1Test extends TestCase
         $response->assertOk();
     }
 
-    // ── P1-5: MFA throttle ──────────────────────────────────────────────
-
     public function test_mfa_verify_get_route_is_accessible(): void
     {
-        // The GET route shows the verify form — no throttle needed.
-        // ITERATION-6: the route now requires an MFA-enabled user (a user
-        // without a secret is redirected to /profile instead of being shown
-        // a form that could only fail), so this renders for an enabled user.
         $user = User::factory()->superAdmin()->withMfa()->create();
 
         $response = $this->actingAs($user)->get('/mfa/verify');
@@ -99,13 +84,8 @@ class SecurityP1Test extends TestCase
 
     public function test_mfa_verify_post_is_throttled(): void
     {
-        // The POST route should be throttled at 6 req/min.
-        // We send 7 requests rapidly; the 7th should get 429 (Too Many Requests).
         $user = User::factory()->superAdmin()->create();
 
-        // Send 6 requests (all will fail with validation error because the
-        // user has no google2fa_secret, but that's fine — the throttle
-        // runs before the controller logic).
         for ($i = 0; $i < 6; $i++) {
             $this->actingAs($user)
                 ->post('/mfa/verify', ['code' => '123456']);
@@ -133,8 +113,6 @@ class SecurityP1Test extends TestCase
 
         $response->assertStatus(429);
     }
-
-    // ── P1-8: CheckBanned fails closed ──────────────────────────────────
 
     public function test_banned_user_is_still_blocked(): void
     {

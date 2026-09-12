@@ -9,13 +9,6 @@ use App\Ops\Services\OpsEventIngestor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 1 — the ingestion pipeline.
- *
- * Covers: deduplication (the storm-of-37 = one row contract), episode
- * reset on reopen, redaction at the pipeline level, and classification
- * enrichment — the four behaviors every source depends on.
- */
 class OpsEventIngestTest extends TestCase
 {
     use RefreshDatabase;
@@ -68,8 +61,6 @@ class OpsEventIngestTest extends TestCase
 
     public function test_different_numbers_group_into_same_event(): void
     {
-        // "Failed for order 12345" and "order 99999" are ONE operational
-        // problem — normalization must group them.
         $this->ingestor()->record(['source' => 'app_log', 'severity' => 'error',
             'message' => 'Payment failed for order 12345']);
         $this->ingestor()->record(['source' => 'app_log', 'severity' => 'error',
@@ -81,8 +72,6 @@ class OpsEventIngestTest extends TestCase
 
     public function test_different_messages_same_title_dont_explode(): void
     {
-        // Title (classifier-driven) drives the fingerprint, so the same
-        // problem with different messages groups together.
         $this->ingestor()->record(['source' => 'app_log', 'severity' => 'error',
             'message' => 'SQLSTATE[HY000] [2002] Connection refused']);
         $this->ingestor()->record(['source' => 'app_log', 'severity' => 'error',

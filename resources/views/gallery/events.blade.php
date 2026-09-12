@@ -1,9 +1,3 @@
-{{--
-    Gallery events page (SEO OS Iteration 2): moved from x-guest-layout
-    (which emitted noindex,nofollow) to the public layout with proper
-    title/description/canonical. Indexable only when events exist —
-    controller sets noindex for empty event calendars.
---}}
 @extends('layouts.public')
 
 @section('content')
@@ -24,9 +18,6 @@
             <x-breadcrumbs :crumbs="$breadcrumbs" />
         </div>
 
-
-        {{-- ITERATION-3: session flash banners removed — the public layout's
-             <x-toast> announces these flashes; showing both duplicated every message. --}}
 
         {{-- Upcoming events --}}
         @if($upcoming->count() > 0)

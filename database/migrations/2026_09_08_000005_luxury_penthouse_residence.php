@@ -3,84 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * LUXURY PENTHOUSE — "The Collector's Floor" identity pass (v1.0.0 → 2.0.0).
- * (2026-09-08. Predecessors: 2026_09_01_000003 "Rooms" — the pass that gave
- * the venue its glazing + lounge and has been its ONLY identity work since;
- * every other room-family venue received a deepening pass after it.)
- *
- * WHY
- * ---
- * The forensic audit found the venue answering the name test with
- * "a white gallery box with a sofa at one end" — the brief's exact failure
- * state (§5, a rich person's room bolted onto a generic gallery). Every
- * defect below is fixed at the CONFIG layer (the DB stays the only
- * identity source); the renderer grows one additive, backward-compatible
- * extension (l-shape wall anchors in StructureBuilder — no shipped
- * descriptor referenced them, so every other venue renders bit-identically)
- * plus two additive material preset keys (walnut, basalt).
- *
- *  P1  COPY/RENDER MISMATCH. The description promised "dark walls and gold
- *      frames"; the venue rendered warm-white walls. The identity is
- *      re-declared as a warm evening residence and the copy now names what
- *      renders (the honesty-pass promise matrix).
- *  P2  NO GRAND VOLUME. wingW is a 6 m corridor with a 4.5 m flat dark
- *      ceiling — apartment scale at "penthouse" pricing. Wall height
- *      4.5 → 5.2 (believable residential double-height feel) and the
- *      ceiling warms from grave-black to dark bronze-brown.
- *  P3  SHIPPING THE GREY-VEIL DEFECT. No post_fx declared → stock bloom
- *      0.6 + the legacy GREY vignette blend — the EXACT defect class the
- *      Crystal Cathedral deploy review fixed (every frame edge lifted by
- *      1−0.62 grey). Declared: bloom 0.32 @ threshold 0.85 + BLACK-blend
- *      vignette.
- *  P4  ENVIRONMENT 404 BY DRIFT. No environment declared → the preset
- *      fallback downloaded rural_evening.hdr (absent from the repo AND
- *      from production) on every load, for a venue whose sky is a CITY
- *      DUSK, not a rural evening. Declared environment 'none' — the
- *      ~10 MB miss disappears from time-to-walk and the 404 log.
- *  P5  SKYLINE = GLOWING BOXES IN A VOID. Uniform-emissive towers +
- *      fog 8–25 m at near-black erased every mid/far tower. Rebuilt as
- *      three depth layers (far ghost silhouettes @ emissive 0.10, mid
- *      towers @ 0.22–0.28, warm layer) + a dim horizon glow band, fog
- *      retuned 16–55 m so the city reads as depth, not confetti.
- *  P6  NO MATERIAL HIERARCHY. Flat white walls, flat plastic "marble"
- *      (the floor texture never existed), no trim anywhere. Declared:
- *      warm mineral-white walls (texture_tint authority), honed
- *      warm-stone floor with LARGE-FORMAT DARK SLAB JOINTS (procedural
- *      instance-grid — the material-scale cue §14 demands with zero new
- *      assets), full-height basalt fireplace volume + walnut mantel on
- *      the wing-A end wall, bronze base trim, walnut terrace deck.
- *  P7  NO ARCHITECTURAL LIGHT. Three invisible fills + a cool ambient at
- *      exposure 0.55 = murk. A warm perimeter COVE reveal (emissive
- *      strips — zero new dynamic lights, the pooled-light budget is
- *      untouched), a floor lamp + fire line as visible warm sources,
- *      exposure 0.55 → 0.78, ambient warmed, rig all venue-declared.
- *  P8  LOUNGE UNDER-CURATED. Adds a lounge chair, a floor lamp, a plinth
- *      sculpture at the wing junction and a walnut bench in the gallery
- *      wing — FEWER and more intentional beats MORE (§20).
- *  P9  ARTWORK LEGIBILITY FLOOR. artwork_light_base 0.15 (wall-family
- *      default) + no cap → far pieces sink toward dark rectangles in a
- *      5.2 m room. Declared base 0.22 + pool cap 12 + spot 0.62.
- *  P10 CONFIG AUTHORITY. Every key used is already in the s6 venue-owned
- *      sets — no exporter change, no schema bump, sibling venues untouched.
- *
- * SAFETY (production data protection — the guarded pattern of every venue
- * pass; see 2026_09_07_000001 for the full rationale)
- * ---------------------------------------------------------------------
- *   • Changed values swap ONLY from the seeded v1.0.0 value to the new one
- *     — a super-admin retune survives.
- *   • Added keys are UNION-added (absent key only).
- *   • The structure array swaps only on an EXACT match with the seeded
- *     v1.0.0 descriptor list; the legacy list is preserved verbatim in
- *     down() (rollback = this migration's down, or the config revert).
- *   • The description and version swap only on exact matches with the
- *     seeded v1.0.0 values.
- *   • Portable PHP read-modify-write; idempotent; down() restores the
- *     exact previous state under the same guards.
- *   • The venue_config cache re-keys from the row contents + SCHEMA, so
- *     the pass is live on the next render after migrate — no manual
- *     cache clear.
- */
 return new class extends Migration
 {
     private const SLUG = 'luxury-penthouse';
@@ -93,11 +15,6 @@ return new class extends Migration
     private const NEW_DESCRIPTION =
         'A private collector\'s floor at dusk — a walnut-and-stone gallery wing warming into a lounge at the glass, the city glowing beyond it, art hung the way a residence lives with it.';
 
-    /**
-     * The seeded v1.0.0 structure array (verbatim from
-     * VenueTemplateSeeder + 2026_09_01_000003). The swap guard compares
-     * against THIS — a super-admin's edited structure is respected.
-     */
         private const OLD_STRUCTURE = [
         ['id' => 'terrace-deck', 'primitive' => 'box', 'at' => ['from' => 'glazing_outside', 'offset' => [0, 0.04, 2.6]], 'turn' => 'out', 'fit' => 'glazing', 'fit_pad' => 0.1, 'size' => [1, 0.08, 5.0], 'material' => 'dark_trim'],
         ['id' => 'glazing-glass', 'primitive' => 'plane', 'at' => ['from' => 'glazing', 'offset' => [0, 2.2, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.06, 'size' => [1, 4.4], 'material' => ['glass' => true, 'tint' => '0xc4d8ea', 'opacity' => 0.18]],
@@ -118,11 +35,6 @@ return new class extends Migration
         ['id' => 'table-pedestal', 'primitive' => 'box', 'at' => ['from' => 'glazing', 'offset' => [0, 0.15, 0.9]], 'turn' => 'in', 'size' => [0.5, 0.3, 0.35], 'material' => 'dark_trim', 'collide' => true],
     ];
 
-    /**
-     * The v2.0.0 structure — "The Collector's Floor". Every entry stays
-     * inside the shipped descriptor vocabulary (≤10 primitives, no
-     * scripting); the new wall_* l-shape anchors carry the architecture.
-     */
         private const NEW_STRUCTURE = [
         ['id' => 'terrace-deck', 'primitive' => 'box', 'at' => ['from' => 'glazing_outside', 'offset' => [0, 0.04, 2.6]], 'turn' => 'out', 'fit' => 'glazing', 'fit_pad' => 0.1, 'size' => [1, 0.08, 5.0], 'material' => 'wood_warm'],
         ['id' => 'glazing-glass', 'primitive' => 'plane', 'at' => ['from' => 'glazing', 'offset' => [0, 2.45, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.06, 'size' => [1, 4.9], 'material' => ['glass' => true, 'tint' => '0xc4d8ea', 'opacity' => 0.18]],
@@ -210,8 +122,6 @@ return new class extends Migration
             'vignette_blend'    => 'black',
         ];
 
-        // Structure swap (P2/P5/P6/P7/P8) — EXACT match with the seeded
-        // v1.0.0 descriptor list only.
         if (($visual['structure'] ?? null) === self::OLD_STRUCTURE) {
             $visual['structure'] = self::NEW_STRUCTURE;
         }
@@ -233,9 +143,6 @@ return new class extends Migration
             'material_config' => json_encode($material),
         ];
 
-        // The fire becomes real light (P7) — exact-match swap of the seeded
-        // v1.0.0 (empty) fixture list; the anchored fixture resolves
-        // post-layout through the NEW wall_front anchor.
         $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
         if ($fixtures === []) {
             $update['lighting_fixtures'] = json_encode(self::NEW_FIXTURES);
@@ -382,8 +289,6 @@ return new class extends Migration
                 'floor_normal_strength' => ['from' => 0.5, 'to' => 0.35],
             ],
             'added' => [
-                // texture_tint: the declared colours ARE the identity (the
-                // documented museum/void authority rule); slab scale cue.
                 'texture_tint'      => true,
                 'floor_tile_meters' => 2.4,
             ],

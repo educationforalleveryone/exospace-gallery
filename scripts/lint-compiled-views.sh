@@ -1,25 +1,4 @@
 #!/usr/bin/env bash
-# scripts/lint-compiled-views.sh
-#
-# BUILD-TIME GUARD (added 2026-08-31) — run AFTER `php artisan view:cache`.
-#
-# WHY THIS EXISTS:
-#   `php artisan view:cache` compiles every Blade template to PHP but does
-#   NOT syntax-check the generated PHP. A template that compiles to invalid
-#   PHP (unclosed @if, a non-self-closing <x-tag> inside a JS comment, an
-#   @yield() inside a component attribute, directives glued to word chars…)
-#   bakes silently into the image and only 500s at runtime — this is exactly
-#   how production shipped a broken edit.blade.php and a broken
-#   abandoned-cart-text email on 2026-08-31.
-#
-# WHAT THIS DOES:
-#   Runs `php -l` on every compiled view in storage/framework/views and
-#   fails the build (exit 1) on the first invalid one, with the parse error
-#   printed for the offending template.
-#
-# Usage: bash scripts/lint-compiled-views.sh [viewsDir]
-#        (viewsDir defaults to storage/framework/views, which view:cache
-#         has just wiped and repopulated)
 set -u
 
 VIEWS_DIR="${1:-storage/framework/views}"

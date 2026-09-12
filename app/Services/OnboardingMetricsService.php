@@ -9,41 +9,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
-/**
- * ITERATION 4 — onboarding funnel + TTFE metrics, shared source of truth.
- *
- * History: this logic lived only inside the weekly exospace:onboarding-analytics
- * console command (console output + a log line), so the product's headline
- * metric — time-to-first-exhibition — was invisible between Monday reports.
- * This service extracts it for continuous display on the Master Control
- * dashboard while keeping the command as a thin consumer, so the two can
- * never drift apart.
- *
- * Scale notes (why these query shapes):
- *   - Funnel stages aggregate in SQL (whereExists subqueries) — one count
- *     query per stage, bounded work at any table size.
- *   - TTFE/TTFG select per-user FIRST-event rows (one row per user who
- *     published / created a gallery in the window — publishers, not all
- *     users) and compute min/avg/max in PHP with portable Carbon math.
- *     This mirrors the Iteration-3 fix (no MySQL-only TIMESTAMPDIFF) and
- *     avoids loading user×gallery cartesian rows like the command's old
- *     join-everything diffStats did.
- *   - Everything is wrapped in Cache::flexible (30/60 min) — the numbers
- *     move on publish events, not on dashboard refreshes, and the Master
- *     Control page is not a hot path worth 10 queries for.
- */
 class OnboardingMetricsService
 {
-    /**
-     * @param  int  $days  lookback window for the registered cohort
-     * @return array{
-     *     days: int,
-     *     registered: int, created_gallery: int, uploaded_image: int,
-     *     published: int, got_views: int,
-     *     ttfg_hours: ?array{min: float, avg: float, max: float},
-     *     ttfe_hours: ?array{min: float, avg: float, max: float}
-     * }
-     */
     public function snapshot(int $days = 30): array
     {
         $days = max(1, min(365, $days));
@@ -55,12 +22,6 @@ class OnboardingMetricsService
         );
     }
 
-    /**
-     * Uncached computation — command consumers that want fresh numbers
-     * (weekly report) call this directly.
-     *
-     * @return array<string, mixed>
-     */
     public function compute(int $days = 30): array
     {
         $days = max(1, min(365, $days));
@@ -115,16 +76,6 @@ class OnboardingMetricsService
         ];
     }
 
-    /**
-     * Per-user FIRST event timing (hours) for users registered since the
-     * cutoff. SQL aggregates the per-user MIN(event column) — the result set
-     * is one row per acting user, not one row per event — and the hour math
-     * happens in PHP (portable; see Iteration-3 TIMESTAMPDIFF removal).
-     *
-     * @param  string  $eventColumn  qualified column inside galleries
-     * @param  bool  $requireNotNull  skip rows where the event never happened
-     * @return null|array{min: float, avg: float, max: float}
-     */
     private function firstEventDiffHours(\DateTimeInterface $cutoff, string $eventColumn, bool $requireNotNull): ?array
     {
         $rows = DB::table('users')
@@ -159,27 +110,6 @@ class OnboardingMetricsService
         ];
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // ITERATION 5 — snapshot persistence + trend read model
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * ITERATION 5 — persist a point-in-time snapshot of one window.
-     *
-     * Written weekly by exospace:onboarding-analytics for every dashboard
-     * window (7/30/90). The live cohort erodes over time (GDPR deletions,
-     * PII anonymization, analytics rollup pruning), so this table is the
-     * only faithful TTFE history.
-     *
-     * Idempotency: captured_at is truncated to the start of the hour and
-     * the row is updateOrCreate'd on (window_days, captured_at) — a
-     * schedule retry or manual re-run within the hour updates the same
-     * point instead of polluting the trend with duplicates.
-     *
-     * Bypasses the snapshot() cache deliberately: a persisted history row
-     * must reflect the moment it was captured, not a possibly-stale
-     * dashboard cache entry.
-     */
     public function persistSnapshot(int $days = 30): OnboardingSnapshot
     {
         $days = max(1, min(365, $days));
@@ -204,29 +134,6 @@ class OnboardingMetricsService
         );
     }
 
-    /**
-     * ITERATION 5 — trend rows for the Master Control chart, oldest first.
-     *
-     * The table is tiny (≈3 windows × 52 rows/year, 2-year retention) so
-     * this is a cheap indexed read — no cache layer; a chart refresh should
-     * not show a stale trend while the funnel tiles above it are fresh.
-     *
-     * ITERATION 9 — the trend now exposes the full per-stage funnel
-     * counts (created_gallery, uploaded_image, got_views) alongside the
-     * registered/published counts it already returned. These were always
-     * in the snapshot table (migration 2026_08_25_140000); the trend was
-     * just narrow. The new fields back the per-stage conversion-rate
-     * series + anomaly rings on the Master Control funnel-conversion
-     * tile (workstream A) without a second query — the trend read stays
-     * a single indexed SELECT against a tiny table.
-     *
-     * @return array<int, array{
-     *     captured_at: string, captured_on: string,
-     *     registered: int, created_gallery: int, uploaded_image: int,
-     *     published: int, got_views: int,
-     *     ttfe_avg: ?float, ttfg_avg: ?float
-     * }>
-     */
     public function trend(int $days = 30, int $limit = 26): array
     {
         $days = max(1, min(365, $days));
@@ -236,15 +143,8 @@ class OnboardingMetricsService
             ->get()
             ->map(fn (OnboardingSnapshot $row) => [
                 'captured_at'    => $row->captured_at?->format('M j'),
-                // ITERATION 6: raw capture date for release-annotation
-                // matching on the Master Control chart (the 'M j' label
-                // is ambiguous across years; the chart script maps each
-                // release to the first capture at/after its date).
                 'captured_on'    => $row->captured_at?->toDateString(),
                 'registered'     => (int) $row->registered,
-                // ITERATION 9: per-stage counts backfill the trend so
-                // workstream A can compute conversion rates per snapshot
-                // without a second query against the snapshot table.
                 'created_gallery'=> (int) $row->created_gallery,
                 'uploaded_image' => (int) $row->uploaded_image,
                 'published'      => (int) $row->published,

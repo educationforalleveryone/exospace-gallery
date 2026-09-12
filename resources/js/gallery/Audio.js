@@ -1,9 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Audio — ambient music + footstep/click SFX
-//
-// Audio is bundled via Three.js's Audio/AudioLoader. No CDN involved.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 
 export function initAudio() {
@@ -13,29 +7,10 @@ export function initAudio() {
     this.listener = new THREE.AudioListener();
     this.camera.add(this.listener);
 
-    // PERF-A6 (3D audit F6): SFX + music buffers are NOT fetched here anymore.
-    // They used to download at page load — competing for bandwidth with the
-    // artwork textures that gate the Enter button, even though autoplay
-    // policies mean nothing can play before the first user gesture anyway.
-    // loadAudioAssets() is now called from main.js on the Enter click /
-    // tour start — the first moment audio is actually reachable.
-    // Consumers already guard on `this.sfx.footstep` / `this.audioReady`
-    // being undefined, so the gap between gesture and buffer-ready is safe.
     this._audioLoadStarted = false;
     this._audioUrl = galleryData.audioUrl || null;
 }
 
-// Fetch SFX buffers + set up streaming background music. Idempotent — safe
-// to call from every gesture handler (Enter button, tour start).
-//
-// PERF-E26 (3D audit): background music used to download the ENTIRE track
-// into an AudioBuffer before a single note could play — a multi-MB blocking
-// fetch competing with artwork textures, for a feature most visitors hear
-// for a few seconds before focusing on the art. Music now streams through
-// an HTMLAudioElement: playback starts as soon as the first seconds arrive,
-// the browser manages buffering, and nothing is held in memory as a decoded
-// PCM buffer. SFX (footstep/click, a few KB) stay as buffers — they need
-// low-latency replay.
 export function loadAudioAssets() {
     if (this._audioLoadStarted) return;
     this._audioLoadStarted = true;
@@ -63,26 +38,17 @@ export function loadAudioAssets() {
     const el = new Audio(this._audioUrl);
     el.loop   = true;
     el.volume = 0.5;
-    // Fetching begins at the first play() — which is always inside a user
-    // gesture (Enter click / tour start), so autoplay policy is satisfied
-    // and zero music bytes compete with the pre-Enter texture downloads.
     el.preload = 'none';
     this._musicEl = el;
 }
 
 export function playAudio() {
-    // PERF-E26: streaming music — element.play() starts buffering + playback
-    // immediately; no full-track download, no audioReady gate.
     if (this._musicEl) {
         this._musicEl.play().catch((e) => {
-            // Autoplay rejections (rare — always gesture-driven here) and
-            // network stalls are non-fatal: the gallery stays silent.
             if (e?.name !== 'AbortError') console.warn('Music playback failed:', e?.name || e);
         });
         return;
     }
-    // Legacy path (music loaded as buffer before this iteration) — kept for
-    // admin preview iframes that never re-fetch after a hot rebuild.
     if (!this.audioReady || !this.sound) {
         if (this.sound) this._autoplayWhenReady = true;
         return;

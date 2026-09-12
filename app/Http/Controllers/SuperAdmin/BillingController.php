@@ -12,46 +12,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * ITERATION 4 — Billing Review (super-admin).
- *
- * The gap this closes: refunds, chargebacks and webhook-driven plan
- * changes had NO admin surface. The evidence lived in three disconnected
- * places (transactions.status flips, a PII-redacted log channel, and —
- * until this iteration — no stored webhook payload at all), so a support
- * conversation like "the customer says they refunded in March, why are
- * they still billed?" required grepping logs.
- *
- * This page joins the three sources of truth:
- *   - transactions (completed / refunded / partial_refund / chargeback)
- *   - the webhook ledger (what 2CO sent, when, and whether we handled it)
- *   - admin_audit_logs (webhook.* records written by the handlers since
- *     Iteration 4, plus manual admin actions like plan_changed)
- *
- * Replay: a stored webhook can be re-dispatched through the exact same
- * processing pipeline (WebhookController::processReplay) — guarded by
- * password.confirm, audited with the admin as actor, and safe because
- * every handler is idempotent (unique invoice_id + SELECT FOR UPDATE +
- * status guards + per-invoice locks).
- */
 class BillingController extends Controller
 {
-    /**
-     * ITERATION 6: the export column sets / row mappers moved into
-     * BillingExportService so the weekly scheduled digest command
-     * produces byte-identical CSVs from the same code path. The page +
-     * streamed export behavior is unchanged.
-     */
     private function exportService(): BillingExportService
     {
         return app(BillingExportService::class);
     }
 
-    /**
-     * Money-event statuses surfaced by default. 'completed' is excluded
-     * from the default view (it's every purchase ever) but reachable via
-     * the filter.
-     */
     private const MONEY_STATUSES = ['refunded', 'partial_refund', 'chargeback'];
 
     public function index(Request $request)
@@ -78,8 +45,6 @@ class BillingController extends Controller
             ->paginate(20, ['*'], 'webhooks_page')
             ->withQueryString();
 
-        // 90-day money-event snapshot (small aggregate queries; the page is
-        // super-admin + MFA gated and not hot).
         $since = now()->subDays(90);
         $stats = [
             'refunds'        => Transaction::where('status', 'refunded')->where('created_at', '>=', $since)->count(),
@@ -92,11 +57,6 @@ class BillingController extends Controller
                 ->sum('amount'),
         ];
 
-        // ITERATION 7 — digest recipient management surface. The page
-        // shows BOTH the UI-managed list AND the env fallback so an
-        // operator is never surprised by which source is currently
-        // effective. resolveRecipients() (in SendBillingExport) uses
-        // the same precedence: DB list non-empty → DB; empty → env.
         $digestRecipients = Schema::hasTable('billing_digest_recipients')
             ? BillingDigestRecipient::with('addedBy')->orderBy('email')->get()
             : collect();
@@ -105,28 +65,6 @@ class BillingController extends Controller
         return view('super-admin.billing.index', compact('transactions', 'webhooks', 'stats', 'status', 'digestRecipients', 'envDigestRecipients'));
     }
 
-    /**
-     * ITERATION 5 — streamed CSV export of the billing review data.
-     *
-     * The gap: refunds/chargebacks/webhook-ledger data could only leave
-     * the system via pagination and copy-paste — useless for finance
-     * reconciliation ("give me every refund since March for the 2CO
-     * statement match") or for attaching evidence to a dispute.
-     *
-     * Two exports, same filters as the page:
-     *   ?export=transactions (default) — money events, ?status= filter
-     *   ?export=webhooks             — the ledger, ?webhook_status= filter
-     *   &days=90 (default, max 730)  — time window; days=all → everything
-     *                                    (bounded by the 90-day webhook
-     *                                    retention for the ledger)
-     *
-     * Streamed via cursor() + fputcsv so a full-history export never
-     * loads the result set into memory. BOM prefix for Excel UTF-8.
-     * Every export is audit-logged (billing.exported, actor = exporter)
-     * — the CSV contains customer PII (email/name on transactions), so
-     * data leaving the system must be attributable, same trust bar the
-     * page itself sits behind (super-admin + MFA).
-     */
     public function export(Request $request)
     {
         $type = (string) $request->query('export', 'transactions');
@@ -176,8 +114,6 @@ class BillingController extends Controller
         return response()->streamDownload(function () use ($query, $headers, $row) {
             $out = fopen('php://output', 'w');
 
-            // BOM for Excel UTF-8 compatibility (same convention as the
-            // user-facing GDPR export).
             fwrite($out, "\xEF\xBB\xBF");
 
             fputcsv($out, $headers);
@@ -191,10 +127,6 @@ class BillingController extends Controller
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    /**
-     * Replay a stored webhook through the live processing pipeline.
-     * Route is password.confirm-gated (see routes/web.php).
-     */
     public function replayWebhook(Request $request, int $webhook)
     {
         $row = ProcessedWebhook::find($webhook);
@@ -206,18 +138,11 @@ class BillingController extends Controller
             return back()->with('error', 'Webhook #' . $row->id . ' has no stored payload (pre-Iteration-4 row, or the payload was oversized) — replay is not possible. Use the 2Checkout merchant dashboard instead.');
         }
 
-        // Normalize the payload shape: the array cast decodes model-read
-        // rows, but rows written through DB::table (the webhook ingress)
-        // may surface as pre-encoded strings depending on how the model was
-        // hydrated. Both shapes mean "the stored IPN body".
         $payload = is_string($row->payload) ? json_decode($row->payload, true) : $row->payload;
         if (! is_array($payload)) {
             return back()->with('error', 'Webhook #' . $row->id . ' has a corrupted stored payload — replay is not possible.');
         }
 
-        // The stored payload is already the signature-VERIFIED bytes from
-        // the original ingress; replay deliberately skips re-verification
-        // and dedupe (see WebhookController::processReplay docblock).
         $synthetic = \Illuminate\Http\Request::create('/webhooks/2checkout', 'POST', $payload);
 
         try {
@@ -256,25 +181,6 @@ class BillingController extends Controller
         );
     }
 
-    // ── Digest recipients (ITERATION 7) ───────────────────────────────────
-    //
-    // The weekly billing digest emails a CSV of money events to every
-    // recipient on this list. Managed here (not env-only) so changes
-    // are attributable to an admin and survive across deploys without
-    // touching Coolify env vars. Precedence: DB list non-empty → DB;
-    // empty → BILLING_EXPORT_EMAIL env fallback.
-
-    /**
-     * Add a recipient. Validates, de-dupes (case-insensitive on
-     * insert via the model mutator + the unique index), audit-logs.
-     *
-     * ITERATION 8: the explicit `where(...)->exists()` check is a
-     * TOCTOU race window — two super-admins submitting the same
-     * email in the same ~50ms both pass the exists check, the loser
-     * throws a QueryException on the unique index that propagates as
-     * a 500. The race is now caught: a UniqueConstraintViolationException
-     * is re-routed to the same withErrors path (audit-fix B-2).
-     */
     public function storeRecipient(Request $request)
     {
         $data = $request->validate([
@@ -292,11 +198,6 @@ class BillingController extends Controller
                 ->withErrors(['email' => '"' . $email . '" is already a recipient.']);
         }
 
-        // ITERATION 8: catch the (rare) race where two super-admins
-        // submit the same email within the TOCTOU window — the unique
-        // index throws UniqueConstraintViolationException (Laravel 10+)
-        // or QueryException; both are re-routed to the same friendly
-        // error so the form doesn't blow up as a 500.
         $recipient = null;
         try {
             $recipient = Schema::hasTable('billing_digest_recipients')
@@ -316,19 +217,6 @@ class BillingController extends Controller
                 'recipients_total' => BillingDigestRecipient::count(),
             ]);
 
-            // ITERATION 9 — fire an outbound webhook so a security team
-            // subscribing to "who is receiving the weekly financial
-            // digest" can page on changes instead of polling the audit
-            // log. The OutboundWebhookService infrastructure exists
-            // (HMAC-SHA256 signature, 3 retries with exponential
-            // backoff, sync dispatch — low-volume security-page event
-            // is the right fit for sync; a fresh install with no
-            // OUTBOUND_WEBHOOK_URL configured silently skips, same as
-            // the existing gallery.published / user.upgraded events).
-            // Payload shape mirrors the audit row's: actor + recipient
-            // email + recipients_total count — enough for the subscriber
-            // to alert on "an admin added a new mailbox to the financial
-            // digest distribution list" without leaking additional PII.
             \App\Services\OutboundWebhookService::dispatch(
                 'billing.recipient_added',
                 [
@@ -343,19 +231,8 @@ class BillingController extends Controller
         return back()->with('success', 'Added ' . $email . ' to the billing digest recipient list.');
     }
 
-    /**
-     * Remove a recipient. Audited BEFORE the delete so the audit row
-     * captures the target row's id + email (scrubbed in payload as
-     * PII, but target_id preserves the attribution). If the removal
-     * empties the list, warn the operator about the env-fallback
-     * state so a silent change to "nobody receives the digest" can't
-     * happen by accident.
-     */
     public function destroyRecipient(Request $request, BillingDigestRecipient $recipient)
     {
-        // Audit before the delete — the target_id will then point at
-        // a no-longer-existing row, which is fine for audit log
-        // attribution (same pattern as a deleted webhook row).
         AdminAuditLog::record('billing.digest_recipient_removed', $recipient, [
             'recipients_remaining' => max(0, BillingDigestRecipient::count() - 1),
         ]);
@@ -364,12 +241,6 @@ class BillingController extends Controller
         $remainingAfter = max(0, BillingDigestRecipient::count() - 1);
         $recipient->delete();
 
-        // ITERATION 9 — mirror the add-side outbound webhook (above).
-        // Dispatched AFTER the delete so recipients_remaining reflects
-        // the post-deletion state (matches the warning flash copy:
-        // "the recipient list is now empty" is a post-deletion fact).
-        // Same sync-dispatch + HMAC + retry path; same silent-skip when
-        // no OUTBOUND_WEBHOOK_URL is configured.
         \App\Services\OutboundWebhookService::dispatch(
             'billing.recipient_removed',
             [
@@ -394,22 +265,6 @@ class BillingController extends Controller
         return back()->with('success', 'Removed ' . $email . ' from the billing digest recipient list.');
     }
 
-    /**
-     * Parse the BILLING_EXPORT_EMAIL env var the same way the
-     * SendBillingExport command does — comma-separated, validated
-     * and de-duped. Surfaces the fallback state in the UI.
-     *
-     * ITERATION 8: env recipients are now LOWERCASED (audit-fix A-5)
-     * so the Billing Review page displays them in the same form the
-     * UI-managed list does — an operator comparing the two columns
-     * can't tell whether mixed-case `Finance@Example.com` is a
-     * duplicate of UI-managed `finance@example.com` (it is, but the
-     * case difference obscured it). The model mutator lowercases UI-
-     * managed entries; this method now does the same for env entries
-     * so the comparison is apples-to-apples.
-     *
-     * @return list<string>
-     */
     private function parseEnvRecipients(): array
     {
         $raw = (string) (config('services.billing_export.email') ?? '');
@@ -419,9 +274,6 @@ class BillingController extends Controller
 
         $out = [];
         foreach (explode(',', $raw) as $email) {
-            // lowercase + trim BEFORE validation/dedupe so the
-            // case-insensitive comparison below actually catches
-            // case-different duplicates.
             $email = trim(strtolower($email));
             if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && ! in_array($email, $out, true)) {
                 $out[] = $email;

@@ -1,26 +1,4 @@
 @php
-    /**
-     * Admin Live Preview iframe target.
-     *
-     * Loaded by /admin/galleries/{gallery}/preview. Renders the same Three.js
-     * gallery as the public view, but:
-     *   - No entrance curtain (auto-enters on load)
-     *   - No PIN gate / time-gate / view-count bump
-     *   - Hides newsletter + share UI (curator preview, not a visitor session)
-     *   - Loads an extra <script nonce="@nonce"> block that listens for postMessage patches
-     *     from the parent window and forwards them to GalleryScene.applyLiveOverride()
-     *
-     * The parent window (admin/galleries/edit page) sends two message types:
-     *   { type: 'exospace-preview-patch', patch: { visual_config: {...}, ... } }
-     *     → live, no reload. Used for sliders like ambient_intensity, fog, etc.
-     *   { type: 'exospace-preview-reload', overrides: {...} }
-     *     → reloads the iframe with ?override=<base64> so structural changes
-     *       (wall_height, room_layout) take effect.
-     *
-     * The blade is intentionally minimal — it reuses the public view's
-     * window.GALLERY_DATA shape so GalleryScene doesn't need a separate
-     * preview code path.
-     */
     $galleryData['isPreview'] = true;
 @endphp
 <!DOCTYPE html>
@@ -43,8 +21,6 @@
         #canvas-container { width: 100vw; height: 100vh; }
         #canvas-container canvas { display: block; }
 
-        /* Preview-mode badge — visible top-right so it's obvious this is a
-           curator preview, not the public view. */
         #preview-badge {
             position: fixed; top: 12px; right: 12px;
             background: rgba(139, 92, 246, 0.85);
@@ -61,10 +37,6 @@
         /* Hide visitor-only UI that doesn't make sense in preview */
         #newsletter-form, #share-btn, #events-link { display: none !important; }
 
-        /* Compact loading bar so the curator sees the scene is still booting.
-           ITERATION-5: z-index 999 (magic number) → z-[60], the ladder's
-           full-screen overlay tier — covers site chrome (z-40) and the
-           badge (z-30) during boot, sits under toasts/command palette. */
         #preview-loading {
             position: fixed; inset: 0;
             background: #0a0a0a;
@@ -101,20 +73,12 @@
 
     <div id="canvas-container"></div>
 
-    {{-- Pass gallery data to the 3D viewer.
-        Same shape as view.blade.php so GalleryScene doesn't need a special path. --}}
     <script nonce="@nonce">
         window.GALLERY_DATA = @json($galleryData);
         window.EXOSPACE_PREVIEW_MODE = true;
-        // PREVIEW/PUBLIC PARITY: publish the same accessibility global the
-        // public gallery view and the venue walk-through publish. With the
-        // old asymmetry a curator with reduced motion saw the full-quality
-        // venue here while the public view rendered the reduced stand-in.
         window.EXOSPACE_REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     </script>
 
-    {{-- Preview client: listens for postMessage patches from the parent
-        window and forwards them to the running GalleryScene. --}}
     <script nonce="@nonce">
     (function () {
         const ALLOWED_ORIGIN = window.location.origin;
@@ -137,9 +101,6 @@
         }
 
         function reloadWithOverrides(overrides) {
-            // Build a URL with ?override=<base64-json> and reload.
-            // The controller decodes this and merges it on top of the
-            // gallery's stored visual_overrides before rendering.
             const url = new URL(window.location.href);
             const json = JSON.stringify(overrides);
             // URL-safe base64 (no +/= so it survives in a query param)
@@ -168,8 +129,6 @@
             }
         });
 
-        // Once the scene is ready + first frame rendered, hide the loading
-        // overlay and ping the parent so it knows patches can flow.
         let _readyPinged = false;
         function hideLoadingAndPing() {
             const loading = document.getElementById('preview-loading');
@@ -182,8 +141,6 @@
             }
         }
 
-        // The scene fires window.__exospaceReady (set by main.js once boot completes)
-        // — but main.js doesn't currently fire it, so we poll.
         let _pollCount = 0;
         const _poll = setInterval(() => {
             _pollCount++;

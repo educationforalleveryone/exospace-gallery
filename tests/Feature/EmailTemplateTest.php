@@ -2,12 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-004 regression tests for B-9 (email table layout) and B-10 (preheader).
- *
- * Run: php artisan test --filter=EmailTemplateTest
- */
-
 namespace Tests\Feature;
 
 use App\Mail\WelcomeEmail;
@@ -29,9 +23,6 @@ class EmailTemplateTest extends TestCase
 
         $layout = file_get_contents($layoutPath);
 
-        // Strip Blade comments before scanning: the layout's docblock explains
-        // the B-9 rules and mentions "linear-gradient" in prose. Only real
-        // markup/CSS may trip these assertions. (QA-Control-Center fix)
         $layoutWithoutComments = trim(preg_replace('~\{\{--.*?--\}\}~s', '', $layout));
 
         $this->assertStringContainsString('<table role="presentation"', $layoutWithoutComments,
@@ -44,9 +35,6 @@ class EmailTemplateTest extends TestCase
 
     public function test_b9_email_layout_has_inline_css(): void
     {
-        // B-9 FIX: CSS should be inline (style="" attributes), not in <style> blocks
-        // (Gmail strips <style> tags in <head>). The layout CAN have a <style> block
-        // for dark mode (Apple Mail only), but the main styling must be inline.
         $layout = file_get_contents(resource_path('views/emails/partials/layout.blade.php'));
 
         // Check that the body has inline style
@@ -81,15 +69,9 @@ class EmailTemplateTest extends TestCase
         // B-10 FIX: the preheader text should be a meaningful preview (not empty)
         $welcome = file_get_contents(resource_path('views/emails/welcome.blade.php'));
 
-        // Extract the preheader text.
-        // ITERATION-1 FIX: the original regex had an unescaped ')' inside the
-        // alternation group — preg_match failed to COMPILE ("unmatched closing
-        // parenthesis") on every run. Escape the paren properly.
         preg_match('/@section\(\'preheader\'\)(.*?)(?:@endsection|@stop)/s', $welcome, $matches);
         $this->assertNotEmpty($matches, 'B-10: Preheader section must exist.');
 
-        // ITERATION-1 FIX: capture group 1 holds the section body (group 2
-        // was the now non-capturing alternation).
         $preheaderContent = $matches[1] ?? '';
         // The preheader should contain actual text (not just empty div tags)
         $this->assertStringContainsString('Your 3D gallery', $preheaderContent,

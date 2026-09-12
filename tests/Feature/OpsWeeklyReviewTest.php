@@ -17,25 +17,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 8, Feature C — the weekly review digest.
- *
- * These tests pin:
- *
- *   1. compose(): all six sections present on an empty platform (honest
- *      empty states); every section derives from the control plane's
- *      own tables; error volume by category; incident throughput with
- *      real MTTA/MTTR math; deployment failures; sweep finding history
- *      with the still-open slice; backups framed as CURRENT state.
- *   2. Fail-soft per section: a throwing tiles service degrades exactly
- *      its own section.
- *   3. send(): scheduled posts once + deduplicates within the info TTL;
- *      manual bypasses; both stamp; records NO ops_events rows.
- *   4. The command: sends + exits 0; kill switch = clean no-op.
- *   5. Routes: the /ops/digest preview (daily + weekly blocks) is
- *      viewer-visible; the weekly manual send is super-admin-only,
- *      throttled, audited as ops.weekly_review.sent.
- */
 class OpsWeeklyReviewTest extends TestCase
 {
     use RefreshDatabase;
@@ -59,8 +40,6 @@ class OpsWeeklyReviewTest extends TestCase
             'slack.test/*' => Http::response(['ok' => true]),
         ]);
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
 
     private function service(): OpsWeeklyReviewService
     {
@@ -155,8 +134,6 @@ class OpsWeeklyReviewTest extends TestCase
 
     private function slackMessages(): array
     {
-        // Http::recorded(), NOT assertSent: the silent paths send ZERO
-        // requests and assertSent would fail on the absence itself.
         $messages = [];
         foreach (Http::recorded() as [$request, $response]) {
             if (str_contains((string) $request->url(), 'slack.test')) {
@@ -187,23 +164,17 @@ class OpsWeeklyReviewTest extends TestCase
         $this->event(['category' => 'DATABASE', 'occurrence_count' => 5]);
         $this->event(['category' => 'DATABASE', 'occurrence_count' => 1]);
         $this->event(['category' => 'REDIS', 'occurrence_count' => 3]);
-        // First seen OUTSIDE the 7-day window — must not count.
         $this->event(['category' => 'QUEUE', 'first_seen_at' => now()->subDays(9)]);
 
         $section = $this->section($this->service()->compose(), 'errors');
 
         $this->assertSame('3 new event(s) across 2 categories', $section['title']);
-        // Iteration 9: every flow line now carries its week-over-week
-        // delta. The fixture's previous window holds only the QUEUE event
-        // (9 days old), so both current categories rose from zero.
         $this->assertContains('DATABASE: 2 event(s) (6 occurrences) — ▲ +2 vs last week', $section['lines']);
         $this->assertContains('REDIS: 1 event(s) (3 occurrences) — ▲ +1 vs last week', $section['lines']);
     }
 
     public function test_incident_section_computes_mtta_and_mttr(): void
     {
-        // Opened AND resolved inside the window: first event 10 h ago,
-        // acknowledged 8 h ago (MTTA 2 h), resolved 6 h ago (MTTR 4 h).
         $this->incident([
             'status' => 'resolved',
             'first_event_at' => now()->subHours(10),
@@ -235,8 +206,6 @@ class OpsWeeklyReviewTest extends TestCase
 
         $section = $this->section($this->service()->compose(), 'incidents');
 
-        // All three in-window incidents OPENED this week (two went on to
-        // resolve) — "opened" is throughput, not "still open".
         $this->assertSame('3 opened, 2 resolved', $section['title']);
 
         $mttrLine = collect($section['lines'])->first(fn ($line) => str_starts_with($line, 'MTTR'));
@@ -335,8 +304,6 @@ class OpsWeeklyReviewTest extends TestCase
         $this->assertTrue(collect($section['lines'])->contains(fn ($line) => str_contains($line, 'most by')));
     }
 
-    // ── 2. Fail-soft per section ────────────────────────────────────────
-
     public function test_a_throwing_tiles_service_degrades_exactly_the_backups_section(): void
     {
         $this->mock(OpsStatusTilesService::class)
@@ -397,8 +364,6 @@ class OpsWeeklyReviewTest extends TestCase
         $this->assertSame('scheduled', $lastSent['trigger']);
     }
 
-    // ── 4. The command ──────────────────────────────────────────────────
-
     public function test_command_sends_and_exits_zero(): void
     {
         $this->artisan('ops:send-weekly-review')
@@ -427,8 +392,6 @@ class OpsWeeklyReviewTest extends TestCase
         // weeklyOn(1, '08:30') compiles to cron: minute 30, hour 8, Mondays.
         $this->assertSame('30 8 * * 1', (string) $review->expression);
     }
-
-    // ── 5. Routes + page ────────────────────────────────────────────────
 
     public function test_digest_page_renders_both_blocks_for_all_read_tiers(): void
     {

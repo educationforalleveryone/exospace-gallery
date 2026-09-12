@@ -1,16 +1,3 @@
-{{-- OpsCenter (Iteration 6): the Sentry error-trend sparkline — 24 hourly
-     buckets from the events-stats endpoint, rendered as a pure inline-SVG
-     bar chart. NO JavaScript, NO npm dependency, NO chart library: the
-     discovery audit's "pure Blade UI" rule holds. Receives the $sentryTrend
-     array from SentryApiClient::trend() (fail-soft shape):
-       configured=false → renders nothing (tile shows its not-configured note)
-       error            → one honest line, headlines above still render
-       series           → the bars; total/peak/peak_hour caption underneath
-     Bars: 2px wide with 3px pitch inside a 120×36 viewBox, stretched to
-     the tile width via preserveAspectRatio="none". Peak bar highlighted
-     (amber); quiet hours slate; zero-count hours get a 1px baseline stub
-     so the timeline itself stays visible. --}}
-
 @php
     $trend = $sentryTrend ?? [];
     $usable = ! empty($trend['configured'])
@@ -23,8 +10,6 @@
         $series = $trend['series'];
         $max = max(1, (int) $trend['peak']); // avoid divide-by-zero on an all-zero day
         $n = count($series);
-        // Pitch: 120 units across N buckets (min 3 so 24 bars = 72/120 width
-        // — centered; single buckets don't stretch absurdly).
         $pitch = $n > 0 ? min(5.0, 120 / $n) : 5.0;
         $barW = max(1.0, $pitch * 0.66);
         $offset = (120 - ($pitch * $n)) / 2;
@@ -69,7 +54,5 @@
         </div>
     </div>
 @elseif(! empty($trend['configured']) && ! empty($trend['error']))
-    {{-- Honest degradation: the trend endpoint failed (e.g. token without
-         event:read scope) — say so in one line, never hide the headlines. --}}
     <p class="text-xs text-slate-600 mt-3" title="{{ $trend['error'] }}">Error trend unavailable — {{ \Illuminate\Support\Str::limit($trend['error'], 80) }}</p>
 @endif

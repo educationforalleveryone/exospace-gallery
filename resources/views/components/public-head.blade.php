@@ -1,28 +1,3 @@
-{{--
-    Public page head (Task H09 / audit H34).
-
-    Replaces cdn.tailwindcss.com + cdn.jsdelivr.net Alpine on standalone
-    marketing/legal pages with the Vite-built CSS + JS from the admin app.
-
-    Usage (at the top of a standalone page's <head>):
-        <x-public-head
-            title="Pricing — Exospace"
-            description="..."
-        />
-
-    This component outputs:
-      - charset, viewport, csrf-token
-      - <x-seo> for title/description/canonical/OG/Twitter
-      - Inter font from Bunny Fonts
-      - @vite(['resources/css/app.css', 'resources/js/app.js'])
-      - favicon + theme-color
-      - global styles (smooth scroll, reduced-motion, focus-visible)
-
-    It does NOT output the <nav>, <footer>, or <main> wrapper — those
-    are page-specific. Use <x-public-layout> for the full shell, or
-    include this component in a standalone page that manages its own
-    nav/footer.
---}}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -46,7 +21,4 @@
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
     }
-    /* ITERATION-4: the *:focus-visible rule here duplicated (and slightly
-       diverged from) app.css — the stylesheet is the single owner of the
-       global focus ring. */
 </style>

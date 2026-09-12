@@ -10,20 +10,6 @@ use App\Ops\Models\OpsApplication;
 use Illuminate\Support\Facades\Redis;
 use Throwable;
 
-/**
- * OpsCenter — RedisDiagnostics (Iteration 3).
- *
- * redis.connectivity
- *
- * Redis carries cache, sessions AND queues in this deployment, so a Redis
- * outage is a full-stack event. This diagnostic distinguishes unreachable /
- * authentication failure / write-rejections (MISCONF, read-only replica) and
- * reports latency + memory pressure where the server offers them.
- *
- * Read-only: the probe writes a single throwaway key with a 10-second TTL
- * and deletes it — the same probe /health and OpsHealthService already use —
- * plus PING and INFO. No config changes, no flushes, ever.
- */
 class RedisDiagnostics implements RunsDiagnostics
 {
     public function runDiagnostic(string $id, ?OpsApplication $application): DiagnosticResult

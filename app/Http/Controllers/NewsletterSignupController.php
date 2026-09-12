@@ -7,18 +7,6 @@ use App\Models\NewsletterSignup;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
-/**
- * Newsletter signup endpoint.
- *
- * Route: POST /gallery/{slug}/newsletter
- *
- * Called from the entrance curtain in view.blade.php before the visitor
- * enters the gallery. Captures email + optional name, attributed to the
- * gallery so the curator can see their audience in analytics.
- *
- * Idempotent: unique on (gallery_id, email) — repeat signups are silent
- * successes (no error to the visitor, no duplicate row).
- */
 class NewsletterSignupController extends Controller
 {
     public function __construct(
@@ -36,8 +24,6 @@ class NewsletterSignupController extends Controller
             'name'  => ['nullable', 'string', 'max:100'],
         ]);
 
-        // P3-19: Verify Turnstile captcha if enabled. When TURNSTILE_SITE_KEY
-        // is not set, TurnstileService::verify() returns true (dev mode).
         if (! $this->turnstile->verify($request->input('cf-turnstile-response'), $request->ip())) {
             return response()->json([
                 'success' => false,

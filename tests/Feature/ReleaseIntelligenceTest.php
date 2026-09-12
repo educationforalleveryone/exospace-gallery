@@ -13,21 +13,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * Iteration 3 self-verification: the DECISION layer.
- *
- * Honest-release contract tested here:
- *  - missing / stale / failing blocking gate ⇒ BLOCKED with actionable reasons
- *  - advisory failure ⇒ warning that never blocks
- *  - flaky detection distinguishes alternation from perma-red
- *  - smoke probes assert only publicly observable truth (Http::fake-able)
- *  - notifications route through OperationalAlertService once per dedup window
- */
 class ReleaseIntelligenceTest extends TestCase
 {
     use RefreshDatabase;
-
-    /* ── Release readiness ─────────────────────────────────────────────── */
 
     public function test_fresh_all_green_blocking_and_advisory_is_ready(): void
     {
@@ -103,8 +91,6 @@ class ReleaseIntelligenceTest extends TestCase
         $this->assertContains($result['verdict'], ['blocked', 'unproven']);
     }
 
-    /* ── Flaky detector semantics ──────────────────────────────────────── */
-
     public function test_alternating_test_flagged_flaky_and_failing_tail_separately(): void
     {
         $flakyId = 'Tests\Feature\WebhookDeliveryLedgerTest::test_retry_exhausted';
@@ -148,8 +134,6 @@ class ReleaseIntelligenceTest extends TestCase
             'message'         => $green ? null : 'synthetic boom',
         ]);
     }
-
-    /* ── Smoke executor ────────────────────────────────────────────────── */
 
     public function test_smoke_verifies_deployed_surface_end_to_end(): void
     {

@@ -15,45 +15,9 @@ class ImageProcessingService
 
     public function __construct()
     {
-        // K-1 FIX (Iter-005): Removed the Imagick branch entirely.
-        //
-        // nixpacks.toml documents that phpPackages.imagick was removed from
-        // the pinned nixpkgs archive. The production Docker image does NOT
-        // have imagick installed. But CI (.github/workflows/ci.yml) DOES
-        // install imagick — so CI tests exercise the Imagick code path while
-        // production exercises the GD code path. This environmental drift
-        // means CI cannot catch GD-specific bugs.
-        //
-        // FIX: Commit to GD-only. Remove the Imagick import + branch. CI
-        // should also remove imagick (see the .github/workflows/ci.yml fix
-        // in this iteration). Add ext-gd to composer.json require block
-        // (see the composer.json fix in this iteration).
-        //
-        // GD has different memory behavior than Imagick (GD allocates the
-        // full uncompressed RGBA buffer for imagecreatefrom*), but the
-        // 50MP cap in process() accounts for this. GD doesn't support
-        // animated GIF or TIFF decode — acceptable for an art gallery SaaS
-        // (artists upload JPEG/PNG/WebP, not GIF/TIFF).
         $this->manager = new ImageManager(new GdDriver());
     }
 
-    /**
-     * Process uploaded image: resize, thumbnail, and save.
-     *
-     * PERF-9 FIX: Previously read the image TWICE — once for the main
-     * image, once for the thumbnail. Now reads once and clones for the
-     * thumbnail, halving peak memory usage for large images.
-     *
-     * P3-12 FIX: Pre-decode dimension check via getimagesize(). A 12000×9000
-     * PNG from a modern camera decodes to ~432MB of RGBA pixels in memory —
-     * enough to OOM a 256MB PHP-FPM worker before Intervention can even
-     * scaleDown() it. We cap total pixel area at 50MP (≈ 7000×7000) and
-     * reject larger images with a clear error before decoding. The cap is
-     * deliberately generous — the 2048px output cap means anything larger
-     * than ~2048×2048 is wasted detail, but we accept up to 50MP so
-     * high-res photographers don't get rejected unnecessarily; the resize
-     * step brings it down to 2048px for storage.
-     */
     public function process(UploadedFile $file, int $galleryId): array
     {
         $filename = \Illuminate\Support\Str::random(40) . '.jpg';
@@ -62,21 +26,6 @@ class ImageProcessingService
         Storage::disk('public')->makeDirectory($path);
         Storage::disk('public')->makeDirectory("{$path}/thumbnails");
 
-        // P3-12: Pre-decode dimension check.
-        //
-        // getimagesize() reads only the image header (a few KB) — it doesn't
-        // decode the full pixel buffer. This lets us reject oversized images
-        // BEFORE Intervention::read() allocates hundreds of MB of memory.
-        //
-        // The 50 megapixel cap is generous: a 7000×7000 image (49MP) is well
-        // above what any 3D gallery texture needs (Three.js caps at 2048
-        // anyway), but well below the OOM threshold for a 256MB worker.
-        // 50MP × 4 bytes/pixel (RGBA) = 200MB peak decode buffer — leaves
-        // ~56MB for the rest of the request, which is enough for the resize
-        // + thumbnail + save operations.
-        //
-        // If you need to raise this (e.g. for a "raw upload" feature), also
-        // raise PHP's memory_limit and the Imagick policy.xml.
         $maxPixels = 50_000_000; // 50 megapixels
         $imageInfo = @getimagesize($file->getRealPath());
 
@@ -108,15 +57,6 @@ class ImageProcessingService
         $mainData = (string) $image->toJpeg(85);
         Storage::disk('public')->put($mainPath, $mainData);
 
-        // PERF-9: Clone the already-read image for the thumbnail
-        // (was: $this->manager->read($file) — second read from disk)
-        //
-        // ITERATION-1 FIX: Intervention Image v3 has no clone() method —
-        // the call threw "undefined method" and EVERY artwork upload 500'd
-        // at the thumbnail step (the main image saved, then the request
-        // died — leaving an orphaned file and a Dropzone error). PHP's
-        // native `clone` uses Image::__clone(), which deep-copies the
-        // driver and core exactly as needed.
         $thumbnail = clone $image;
         $thumbnail->cover(400, 400);
 
@@ -135,10 +75,6 @@ class ImageProcessingService
         ];
     }
 
-    /**
-     * Register an uploaded file with Spatie Media Library.
-     * (P0-4: EXIF stripping — reads the re-encoded main image, not the raw upload)
-     */
     public function registerMedia(GalleryImage $image, UploadedFile $file): void
     {
         try {
@@ -155,13 +91,6 @@ class ImageProcessingService
                 $sourceFile = $file->getRealPath();
             }
 
-            // ITERATION-1 P0 FIX (upload data loss): Spatie's FileAdder
-            // DELETES the source file after copying it into the media
-            // collection (unlink unless preservingOriginal()). The source
-            // here IS the artwork's main JPEG — process() saved it to
-            // galleries/{id}/ earlier on the SAME disk — so every upload
-            // silently lost its primary image file right after it was
-            // written. Keep the original on disk.
             $image->addMedia($sourceFile)
                   ->preservingOriginal()
                   ->usingFileName($image->filename)

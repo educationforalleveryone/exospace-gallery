@@ -1,17 +1,8 @@
-{{--
-    Venue detail (SEO OS Iteration 2): venue template + the live public
-    exhibitions built with it. Internal links flow both ways — every
-    exhibition card links out, and exhibitions link back via breadcrumbs.
---}}
 @extends('layouts.public')
 
 @section('content')
     <div class="bg-gradient-to-br from-gray-900 via-brand-950/30 to-gray-900 border-b border-gray-800">
         <div class="max-w-page mx-auto px-4 py-14">
-            {{-- Iteration 7 "Frontier" (roadmap P2.4): the venue page earns
-                 its keep as a storefront — the hero still (the SAME image
-                 the picker card shows, so still and page never disagree)
-                 sits beside the pitch instead of a bare gradient. --}}
             <div class="grid lg:grid-cols-5 gap-10 lg:gap-14 items-center">
                 <div class="lg:col-span-3">
                     <p class="text-brand-400 text-sm font-semibold tracking-widest uppercase mb-2">
@@ -32,14 +23,6 @@
                         @endif
                     </div>
 
-                    {{-- Iteration 1 "The Rehearsal" (roadmap P1.1) → Iteration 7
-                         "Frontier" (roadmap P2.4): the walkthrough is now EMBEDDED
-                         — a click-to-load poster that swaps to the live sample
-                         exhibition in place. Same no-signup contract (roadmap
-                         DO NOT DO #10: previews are the funnel); the 3D runtime
-                         boots only on click so the page itself stays fast for
-                         crawlers and phones alike. No-JS visitors keep the
-                         direct link via <noscript>. --}}
                     @featureFlag('venue_previews')
                     <div class="mt-8" data-venue-walkthrough>
                         <div data-walkthrough-poster
@@ -146,11 +129,6 @@
         </nav>
     </div>
 
-    {{-- Iteration 7 "Frontier" (P2.4): click-to-load embed wiring. The poster
-         swaps to the preview iframe (same-origin, no-signup, rate-limited at
-         the route). Keyboard parity: Enter/Space activate the poster. The
-         iframe only ever exists AFTER an explicit user action, so the page
-         itself stays light for crawlers and mobile. --}}
     @featureFlag('venue_previews')
     <script>
         (function () {

@@ -3,9 +3,6 @@
         <x-page-header :title="'Analytics — '.$gallery->title" :back="route('admin.galleries.edit', $gallery)" backLabel="Back to gallery"/>
     </x-slot>
 
-    {{-- ITERATION-2 (AUDIT-P1-2.2): Replaced 40 lines of hand-coded animate-pulse
-         divs with <x-skeleton> component calls. Same visual result, 80% less
-         template code, and the skeleton pattern is now reusable across pages. --}}
     <div id="analytics-skeleton" class="page-shell space-y-6">
             {{-- Skeleton stat cards (5 cards in a responsive grid) --}}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -49,7 +46,6 @@
     <div id="analytics-content" style="display:none;" class="page-shell space-y-6">
 
 
-            {{-- ── Overview stat cards ─────────────────────────────── --}}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                 @php
                     $stats = [
@@ -82,7 +78,6 @@
                 @endforeach
             </div>
 
-            {{-- ── Views chart ──────────────────────────────────────── --}}
             <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
                 <h3 class="text-base font-semibold text-gray-100 mb-5">Views — last 30 days</h3>
                 <canvas id="views-chart" height="80"></canvas>
@@ -90,7 +85,6 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                {{-- ── Top artworks ─────────────────────────────────── --}}
                 <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
                     <h3 class="text-base font-semibold text-gray-100 mb-5">Most-Focused Artworks</h3>
                     @if($topArtworks->isEmpty())
@@ -129,7 +123,6 @@
                     @endif
                 </div>
 
-                {{-- ── Traffic sources ───────────────────────────────── --}}
                 <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
                     <h3 class="text-base font-semibold text-gray-100 mb-5">Traffic Sources</h3>
                     @if($referrers->isEmpty())
@@ -163,16 +156,8 @@
 
     </div><!-- end #analytics-content -->
 
-    {{-- Chart.js ──────────────────────────────────────────────────────── --}}
     @vite(['resources/js/admin-vendor.js'])
     <script nonce="@nonce">
-        // Show skeleton briefly then reveal real content.
-        // FIX (Iter-002): Chart.js is loaded async via @@vite('resources/js/admin-vendor.js'),
-        // a <script type="module">. Under Turbo Drive, that module script can
-        // still be fetching/evaluating when this classic script runs after a
-        // page swap, so `new Chart(...)` was sometimes called before
-        // window.Chart existed ("Chart is not defined"). Poll for window.Chart
-        // instead of assuming a fixed delay is always enough.
         function waitForChartThenInit(attemptsLeft) {
             if (window.Chart) { initChart(); return; }
             if (attemptsLeft <= 0) {

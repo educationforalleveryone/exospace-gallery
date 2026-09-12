@@ -10,33 +10,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 9 — per-cohort retention curve W0..W7.
- *
- * Coverage: workstream D closes the "which week did churn happen?"
- * loop. The Master Control matrix trends only W1 + W2 (the headline
- * retention metric); the drill-down page now shows the cohort's full
- * W0..W7 retention curve on one canvas with W{weekIndex} highlighted.
- * Data comes from the same retention_snapshots table the weekly
- * exospace:cohort-retention command persists; cohortCurve() returns
- * the latest complete snapshot per (cohort × week_index).
- *
- * Tests:
- *   - cohortCurve() returns [] for a non-Monday "cohort" date
- *     (caller's bug — the page renders the no-data state cleanly).
- *   - cohortCurve() returns [] for a future cohort (no snapshots
- *     persisted yet).
- *   - cohortCurve() returns [] for an in-range cohort with zero
- *     snapshots persisted (the weekly command hasn't run yet).
- *   - cohortCurve() returns 8 rows for an in-range cohort with
- *     snapshots persisted — one per week_index 0..7.
- *   - The drill-down page renders the curve chart canvas when
- *     snapshots exist; hidden when curve is empty.
- *   - The drill-down page embeds the curve JSON payload for the
- *     inline Chart.js init script.
- *
- * Run: php artisan test --filter=RetentionCohortCurveTest
- */
 class RetentionCohortCurveTest extends TestCase
 {
     use RefreshDatabase;
@@ -79,9 +52,6 @@ class RetentionCohortCurveTest extends TestCase
     {
         $service = app(\App\Services\CohortRetentionMetricsService::class);
 
-        // Future Monday — no snapshots persisted (and the cohort hasn't
-        // even started). The controller's cohortDrilldown already 404s
-        // this input; cohortCurve() returns [] for defense-in-depth.
         $futureMonday = \Carbon\CarbonImmutable::now()->addWeeks(2)->startOfWeek();
         $this->assertSame([], $service->cohortCurve($futureMonday->toDateString()));
     }
@@ -90,16 +60,12 @@ class RetentionCohortCurveTest extends TestCase
     {
         $service = app(\App\Services\CohortRetentionMetricsService::class);
 
-        // A real Monday 4 weeks ago — in-range but the weekly command
-        // hasn't persisted any snapshots for it yet.
         $monday = \Carbon\CarbonImmutable::now()->subWeeks(4)->startOfWeek();
         $this->assertSame([], $service->cohortCurve($monday->toDateString()));
     }
 
     public function test_cohort_curve_returns_eight_rows_for_populated_cohort(): void
     {
-        // Seed retention_snapshots for W0..W7 of an in-range cohort.
-        // Use a Monday 8 weeks ago so all 8 weeks have closed (complete=true).
         $cohortStart = \Carbon\CarbonImmutable::now()->subWeeks(8)->startOfWeek();
         for ($w = 0; $w < 8; $w++) {
             RetentionSnapshot::create([
@@ -128,8 +94,6 @@ class RetentionCohortCurveTest extends TestCase
 
     public function test_cohort_curve_returns_latest_snapshot_per_week_index(): void
     {
-        // Seed two captures for the same week_index — the LATER one
-        // should win (the older snapshot is a stale capture).
         $cohortStart = \Carbon\CarbonImmutable::now()->subWeeks(8)->startOfWeek();
         RetentionSnapshot::create([
             'cohort_week_start' => $cohortStart->toDateString(),
@@ -155,8 +119,6 @@ class RetentionCohortCurveTest extends TestCase
         $w1Row = collect($curve)->firstWhere('week_index', 1);
         $this->assertSame(80.0, $w1Row['retained_pct']);
     }
-
-    // ── Drill-down page embed ─────────────────────────────────────────
 
     public function test_drill_down_page_renders_curve_chart_when_snapshots_exist(): void
     {
@@ -184,9 +146,6 @@ class RetentionCohortCurveTest extends TestCase
 
     public function test_drill_down_page_hides_curve_chart_when_curve_is_empty(): void
     {
-        // Size-0 cohort — no curve. cohortCurve() returns [] for the
-        // no-snapshots case (and the controller's cohortDrilldown
-        // returns valid data with size=0).
         $cohortStart = \Carbon\CarbonImmutable::now()->subWeeks(2)->startOfWeek();
 
         $response = $this->actingAsMfaSuperAdmin()

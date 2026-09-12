@@ -13,23 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 7 — monitored backup wrapper.
- *
- * The wrapper calls spatie's backup:run / backup:clean through an
- * injectable ArtisanCommandRunner so it is unit-testable without
- * needing mysqldump + writable disk + zip in the sandbox. The
- * behavior under test:
- *
- *   - success → heartbeat stamped, exit 0
- *   - failure → Slack alert (critical for db/files, warning for
- *     clean), no heartbeat stamp, exit 1 (heartbeat monitor =
- *     second net)
- *   - invalid type → exit 1, no underlying call
- *
- * The schedule swap (raw spatie commands → exospace:backup wrapper)
- * is covered by InfrastructureTest::test_a1_backup_schedule_exists.
- */
 class MonitoredBackupTest extends TestCase
 {
     use RefreshDatabase;
@@ -47,11 +30,10 @@ class MonitoredBackupTest extends TestCase
 
     private function fakeRunner(int $exitCode): object
     {
-        // Extends ArtisanCommandRunner so the anonymous class satisfies
-        // the strict type-hint on RunMonitoredBackup::handle() when the
-        // container method-injects it.
         return new class ($exitCode) extends ArtisanCommandRunner {
-            /** @var list<array{0:string, 1:array}> */
+            /**
+ * @var list<array{0:string, 1:array}>
+ */
             public array $calls = [];
 
             public function __construct(private readonly int $exitCode)
@@ -171,8 +153,6 @@ class MonitoredBackupTest extends TestCase
         $this->artisan('exospace:backup', ['type' => 'clean'])
             ->assertExitCode(1);
 
-        // Warning severity for clean — disk-usage check is the
-        // independent second net for accumulation.
         Http::assertSent(function ($request) {
             return str_contains((string) $request->body(), 'Backup cleanup')
                 && str_contains((string) $request->body(), 'warning');
@@ -199,8 +179,6 @@ class MonitoredBackupTest extends TestCase
         $this->assertArrayHasKey('exospace:backup:files', $monitored);
         $this->assertArrayHasKey('exospace:backup:clean', $monitored);
 
-        // Cadence sanity — daily db/clean get 36h (1 full missed run
-        // + jitter headroom); weekly files gets 8 days.
         $this->assertSame(36, $monitored['exospace:backup:db']);
         $this->assertSame(192, $monitored['exospace:backup:files']);
         $this->assertSame(36, $monitored['exospace:backup:clean']);
@@ -208,9 +186,6 @@ class MonitoredBackupTest extends TestCase
 
     public function test_runner_class_is_injectable_via_container(): void
     {
-        // The testable seam itself — proves the container resolves
-        // the concrete (so the wrapper's app(ArtisanCommandRunner)
-        // resolves, and tests can $this->app->instance(...) it).
         $this->assertInstanceOf(
             ArtisanCommandRunner::class,
             $this->app->make(ArtisanCommandRunner::class),
@@ -221,14 +196,6 @@ class MonitoredBackupTest extends TestCase
 
     public function test_backup_failure_writes_audit_row_targeting_newest_transaction(): void
     {
-        // ITERATION 8 FIX (audit-finding C-1): the previous
-        // implementation read config('exospace.system_audit_email',
-        // 'system@exospace.gallery') and looked up that User row —
-        // but no config/exospace.php exists and the fallback email
-        // isn't seeded, so the audit row NEVER wrote on a default
-        // install. The fix mirrors SendBillingExport's convention of
-        // targeting Transaction::orderByDesc('id')->first() (a real
-        // row, with an empty-install skip path).
         $fake = $this->fakeRunner(1);
         $this->app->instance(ArtisanCommandRunner::class, $fake);
 
@@ -249,9 +216,6 @@ class MonitoredBackupTest extends TestCase
 
     public function test_backup_failure_skips_audit_row_on_empty_install(): void
     {
-        // No transactions on a fresh install → no real row to target.
-        // The audit row is skipped (the absence is explainable in
-        // the laravel.log) — same convention as SendBillingExport.
         $fake = $this->fakeRunner(1);
         $this->app->instance(ArtisanCommandRunner::class, $fake);
 
@@ -269,12 +233,6 @@ class MonitoredBackupTest extends TestCase
 
     public function test_spatie_diagnostic_appended_to_alert_message(): void
     {
-        // ITERATION 8 FIX (audit-finding C-2): the Slack alert copy
-        // previously said "exited with code N. Check logs." The
-        // operator had to log in and tail the scheduler log to see
-        // WHY. The ArtisanCommandRunner now captures the underlying
-        // command's stdout via the $outputBuffer parameter, and the
-        // wrapper appends the last ~300 chars of it to the alert.
         $fake = new class (1, 'mysqldump: command not found — aborting after 3 retries') extends ArtisanCommandRunner {
             public function __construct(
                 private readonly int $exitCode,

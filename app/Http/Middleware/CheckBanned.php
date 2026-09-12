@@ -11,34 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 class CheckBanned
 {
-    /**
-     * (Task H07 / audit H15) — previously this middleware had an empty
-     * `catch (\Throwable $e) {}` which fail-OPENED: if the DB was briefly
-     * unreachable or a model cast threw, banned users were allowed through.
-     *
-     * P1-8 FIX: CheckBanned now FAILS CLOSED. If the DB is unreachable or
-     * any exception occurs while checking ban status, the middleware returns
-     * 503 (Service Unavailable) rather than letting the request through.
-     * This prevents banned users from accessing the application during a
-     * DB outage window.
-     *
-     * NOTE: CheckPlanExpiry middleware intentionally stays fail-OPEN — a
-     * transient DB error should NOT downgrade a paying user. The two
-     * middlewares have different security vs. availability tradeoffs:
-     *   - CheckBanned: security > availability (fail closed)
-     *   - CheckPlanExpiry: availability > security (fail open)
-     *
-     * (Task H07 / audit H16) — ban now purges ALL of the user's sessions,
-     * not just the current one. Previously a banned user's other browser
-     * sessions (laptop, mobile) remained valid until their next request
-     * hit this middleware. Now we DELETE all rows from the `sessions`
-     * table for this user_id immediately.
-     */
     public function handle(Request $request, Closure $next)
     {
-        // If not authenticated, skip ban check entirely — the auth middleware
-        // will handle redirecting to login. This avoids a DB query for
-        // anonymous requests (e.g. public gallery views).
         if (! Auth::check()) {
             return $next($request);
         }
@@ -46,10 +20,6 @@ class CheckBanned
         try {
             $user = Auth::user();
 
-            // Re-read the user's banned_at from the DB to ensure we have
-            // the freshest value (the Auth::user() model may be cached from
-            // the session). Use a raw query to avoid model hydration
-            // overhead on every request.
             $bannedAt = DB::table('users')
                 ->where('id', $user->id)
                 ->value('banned_at');
@@ -57,38 +27,8 @@ class CheckBanned
             if (! is_null($bannedAt)) {
                 $reason = $user->ban_reason ?: 'Your account has been suspended.';
 
-                // SEC-16 FIX: Sanitize the ban_reason before reflecting it
-                // into the session error message. The ban_reason is set by
-                // a super-admin via the ban form (free-text up to 500 chars)
-                // and was previously reflected verbatim into the login
-                // error bag. Laravel's Blade escaping would neutralize HTML
-                // in the rendered view, but the error bag is also exposed
-                // via:
-                //   - $errors->all() in JSON for AJAX login attempts
-                //   - session: regenerate → flash data → next request
-                //   - any future API endpoint that surfaces auth errors
-                // Stripping tags + controlling the format prevents a malicious
-                // admin (or a compromised admin account) from injecting
-                // markup into the error message, and it normalizes the
-                // display so the user sees a clean reason string.
-                // We also cap the length to 200 chars to prevent the error
-                // message from being used as a data exfiltration channel.
                 $reason = mb_substr(strip_tags($reason), 0, 200);
 
-                // Purge ALL of the user's sessions, not just the current one.
-                // (audit H16) — prevents banned users from continuing to
-                // use the app from other browsers/devices for the remaining
-                // session lifetime.
-                //
-                // SESSION-ITERATION FIX (Iter-10): the sessions TABLE only
-                // exists for SESSION_DRIVER=database. Production runs the
-                // redis driver, so this delete used to throw a QueryException
-                // on EVERY banned request (silently caught, warning-logged
-                // each time). Only attempt it for the database driver; for
-                // every other driver the current session is invalidated below
-                // and the other-device sessions are handled by the scheduled
-                // exospace:purge-banned-sessions command (redis — repaired in
-                // Iter-10) plus this middleware's per-request enforcement.
                 if (config('session.driver') === 'database') {
                     try {
                         DB::table('sessions')->where('user_id', $user->id)->delete();
@@ -100,14 +40,6 @@ class CheckBanned
                     }
                 }
 
-                // ITERATION-1 FIX (API token escape): this middleware only
-                // inspects the session guard, so a banned user's Sanctum
-                // Bearer tokens kept working on /api/v1/* indefinitely
-                // (tokens never expire — see config/sanctum.php). Revoke
-                // all personal access tokens at ban time as well. Public
-                // listing endpoints additionally filter banned owners, but
-                // authenticated read endpoints (/me, /me/galleries) and any
-                // future write scopes must not outlive a ban.
                 try {
                     DB::table('personal_access_tokens')
                         ->where('tokenable_type', User::class)
@@ -132,12 +64,6 @@ class CheckBanned
                                  ->withErrors(['email' => "Your account has been banned. Reason: {$reason}"]);
             }
         } catch (\Throwable $e) {
-            // P1-8 FIX: FAIL CLOSED. Previously this block was empty (fail-open),
-            // meaning banned users could access the app during a DB outage.
-            // Now we return 503 so no user (banned or not) can access the app
-            // when we can't verify their ban status. This is the correct
-            // security tradeoff: better to temporarily deny all users than to
-            // allow banned users through.
             Log::error('CheckBanned: exception while checking ban status — FAILING CLOSED (503)', [
                 'user_id' => Auth::id(),
                 'error'   => $e->getMessage(),
@@ -149,9 +75,6 @@ class CheckBanned
                 ], 503);
             }
 
-            // Use a plain HTML response rather than a view — avoids
-            // ViewNotFoundException if resources/views/errors/503.blade.php
-            // doesn't exist. The response is minimal but functional.
             return response(
                 '<!DOCTYPE html><html><head><meta charset="UTF-8">'
                 . '<title>Service Temporarily Unavailable</title>'

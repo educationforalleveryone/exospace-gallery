@@ -1,25 +1,9 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Exospace gallery — entry point
-//
-// This file is the Vite input declared in vite.config.js. The slim Blade
-// template loads this via @vite('resources/js/gallery/main.js').
-//
-// Boot sequence:
-//   1. main.js is imported by the browser.
-//   2. On DOMContentLoaded, we create a GalleryScene instance.
-//   3. The scene starts the silent preload (textures, HDRIs, artworks).
-//   4. The entrance curtain's "Enter" button is wired here.
-//   5. Pressing T starts the GuidedTour.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { GalleryScene } from './GalleryScene.js';
 import { GuidedTour }   from './Tour.js';
 import { Analytics }    from './Analytics.js';
 import { playArrival }  from './Arrival.js';
 import { initTryOn }    from './TryOn.js';
 
-// Global singleton — GuidedTour needs a reference, and the Enter button
-// handler needs to reach into the scene to resume the AudioContext.
 let galleryScene = null;
 let guidedTour   = null;
 
@@ -27,8 +11,6 @@ window.startGuidedTour = function startGuidedTour() {
     if (!galleryScene) return;
     if (!guidedTour) guidedTour = new GuidedTour(galleryScene);
 
-    // PERF-A6: first user gesture — start fetching audio buffers (deferred
-    // from page load so they never compete with texture bandwidth).
     galleryScene.loadAudioAssets?.();
 
     // Resume audio context on first user gesture (browser autoplay policy)
@@ -82,22 +64,14 @@ window.submitNewsletterSignup = async function submitNewsletterSignup(form) {
     return false;
 };
 
-// ── Silent preload ──────────────────────────────────────────────────────────
-// Start loading the moment the page is ready. The entrance curtain shows a
-// progress bar that the scene updates via updateProgress().
 document.addEventListener('DOMContentLoaded', () => {
     galleryScene = new GalleryScene();
 });
 
-// ── Enter button ────────────────────────────────────────────────────────────
-// Wired after DOMContentLoaded so the button is guaranteed to exist.
 document.addEventListener('DOMContentLoaded', () => {
     const enterBtn = document.getElementById('enter-btn');
     if (!enterBtn) return;
 
-    // (Task H48 / audit MX6) — "Skip Intro" link. Fires the same enter
-    // handler as the Enter button, but doesn't wait for 100% load progress.
-    // The enter handler already enables the button if it's still disabled.
     const skipLink = document.getElementById('skip-intro-link');
     if (skipLink) {
         skipLink.addEventListener('click', (e) => {
@@ -112,16 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     enterBtn.addEventListener('click', () => {
-        // PERF-A6 (3D audit F6): audio buffers are fetched on this first
-        // gesture instead of at page load — frees bandwidth for the artwork
-        // textures while the curtain is up.
         galleryScene?.loadAudioAssets?.();
 
-        // PERF-F31 (3D audit — iteration 6): start real-user perf sampling at
-        // the moment of engagement. performance.now() here = ms from navigation
-        // start to Enter (curtain + boot + asset gate) — the load-time metric
-        // in the beacon. Sampler sends ONE 'perf' event after 15 s (or a
-        // partial flush on pagehide) through the existing track pipeline.
         galleryScene?.startPerfSampling?.(Math.round(performance.now()));
 
         // Resume audio context — browsers block autoplay until a gesture
@@ -152,30 +118,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fire analytics view event (once)
         Analytics.trackView();
 
-        // Iteration 7 "Frontier" (roadmap P3.1 spike): personal try-on,
-        // behind the venue_try_on flag (default OFF). The flag arrives via
-        // GALLERY_DATA.tryOnEnabled — only the sample-only preview payload
-        // ever sets it. Client-side only: nothing uploads (see TryOn.js).
-        // Applies lazily on file selection; scene.artworks is re-read at
-        // apply-time, so initializing here is safe even if textures are
-        // still streaming.
         if (window.GALLERY_DATA?.tryOnEnabled) {
             initTryOn(galleryScene);
         }
 
-        // Iteration 4 "Arrival" (roadmap P1.4): the composed first frame.
-        // Opens on the hero artwork, 1.5 s ease-out dolly into the classic
-        // spawn pose, then control handoff. Skips itself when: the flag is
-        // off, the page is an embed, the gallery is empty, reduced motion is
-        // on (instant composed cut instead), or a deep-link (?artwork=) is
-        // present — deep-link precedence is the roadmap contract, and the
-        // deep-link block below owns the camera in that case.
         playArrival(galleryScene);
 
-        // (Task H41, H44 / audit MX8) — deep-link to a specific artwork.
-        // If the URL has ?artwork=<id>, auto-focus that artwork after
-        // the scene is ready. Uses the sceneReady event instead of a
-        // fixed timer (Task H44) — more reliable on slow connections.
         const deepLinkArtworkId = window.GALLERY_DATA?.deepLinkArtworkId;
         if (deepLinkArtworkId) {
             const focusArtwork = () => {
@@ -189,8 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // If the scene is already ready (artworks loaded), focus now.
-            // Otherwise, poll until artworks are available (max 10s).
             if (galleryScene?.artworks?.length > 0) {
                 setTimeout(focusArtwork, 500); // small delay for camera settle
             } else {
@@ -208,7 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, { once: true });
 
-    // ── Tour keyboard shortcut ──────────────────────────────────────────────
     document.addEventListener('keydown', (e) => {
         if (e.code === 'KeyT') {
             if (guidedTour?.active) {
@@ -236,10 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // Expose for debugging in the browser console
 window.__exospace = { get scene() { return galleryScene; }, get tour() { return guidedTour; } };
 
-// S-6: Dispose GPU resources when the page is hidden or unloaded.
-// Prevents memory leaks in the admin Live Preview iframe (which reloads
-// on structural changes) and in the public gallery viewer when the
-// visitor navigates away.
 window.addEventListener('pagehide', () => {
     if (galleryScene) {
         galleryScene.dispose();
@@ -255,10 +196,6 @@ window.addEventListener('beforeunload', () => {
     }
 }, { once: true });
 
-// PERF-B10 (3D audit F10): if the page is restored from the back/forward
-// cache AFTER dispose() ran on pagehide, the scene is gone and the canvas
-// would stay black. The only correct recovery is a reload — cheap now that
-// static assets are cached immutably (iteration 1, PERF-A4).
 window.addEventListener('pageshow', (e) => {
     if (e.persisted && galleryScene === null) {
         window.location.reload();

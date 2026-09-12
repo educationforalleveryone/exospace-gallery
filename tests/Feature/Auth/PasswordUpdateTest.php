@@ -14,8 +14,6 @@ class PasswordUpdateTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ── Successful change ────────────────────────────────────────────────
-
     public function test_password_can_be_updated(): void
     {
         $user = User::factory()->create();
@@ -48,8 +46,6 @@ class PasswordUpdateTest extends TestCase
                 'password_confirmation' => 'brand-new-pw-456',
             ])->assertSessionHasNoErrors();
 
-        // The authenticated client must sign out before the login endpoint
-        // (guest middleware) is reachable again.
         $this->post('/logout');
 
         // Old password is rejected at the login endpoint…
@@ -157,8 +153,6 @@ class PasswordUpdateTest extends TestCase
         $this->assertTrue($user->refresh()->password_set_at->gt(now()->subDay()));
     }
 
-    // ── Rejection ────────────────────────────────────────────────────────
-
     public function test_correct_password_must_be_provided_to_update_password(): void
     {
         $user = User::factory()->create();
@@ -246,8 +240,6 @@ class PasswordUpdateTest extends TestCase
     {
         $user = User::factory()->create();
 
-        // First change: "password" → "brand-new-pw-456". The old hash is
-        // stored in password_histories on the way.
         $this->actingAs($user)
             ->from('/profile')
             ->put('/password', [
@@ -256,10 +248,6 @@ class PasswordUpdateTest extends TestCase
                 'password_confirmation' => 'brand-new-pw-456',
             ])->assertSessionHasNoErrors();
 
-        // Second change: attempting to reuse the FIRST password is rejected,
-        // and the rejection lands in the 'updatePassword' bag the profile
-        // form actually renders — historically it landed in the default bag
-        // and the user got no feedback at all (ITERATION-8 regression test).
         $this->actingAs($user->refresh())
             ->from('/profile')
             ->put('/password', [
@@ -289,8 +277,6 @@ class PasswordUpdateTest extends TestCase
         Mail::fake();
         Mail::assertNothingQueued();
     }
-
-    // ── Security ─────────────────────────────────────────────────────────
 
     public function test_password_is_hashed_and_plaintext_is_never_persisted(): void
     {
@@ -367,8 +353,6 @@ class PasswordUpdateTest extends TestCase
         $this->assertNotNull($fresh->mfa_enabled_at);
     }
 
-    // ── UX surface ───────────────────────────────────────────────────────
-
     public function test_profile_page_renders_the_password_form_with_submit_guard(): void
     {
         $user = User::factory()->create();
@@ -388,8 +372,6 @@ class PasswordUpdateTest extends TestCase
 
     public function test_oauth_only_account_sees_guidance_instead_of_a_dead_form(): void
     {
-        // OAuth-only users hold an unusable random placeholder hash — the
-        // current-password check can never pass for them.
         $user = User::factory()->create([
             'password' => Hash::make(\Illuminate\Support\Str::random(32)),
             'has_password' => false,
@@ -412,8 +394,6 @@ class PasswordUpdateTest extends TestCase
                 'password_confirmation' => 'brand-new-pw-456',
             ])->assertSessionHasErrorsIn('updatePassword', 'current_password');
     }
-
-    // ── Throttling ───────────────────────────────────────────────────────
 
     public function test_password_update_is_rate_limited_in_its_own_bucket(): void
     {
@@ -441,8 +421,6 @@ class PasswordUpdateTest extends TestCase
 
         $this->assertTrue(Hash::check('password', $user->refresh()->password));
 
-        // ITERATION-8: the bucket is named — the shared login bucket is
-        // untouched by the password-update attempts above.
         $this->post('/logout');
         $this->post('/login', [
             'email' => $user->email,

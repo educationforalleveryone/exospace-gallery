@@ -21,10 +21,6 @@ class ProfileTest extends TestCase
 
     protected function tearDown(): void
     {
-        // The race-simulation test registers a one-off User::saving closure on
-        // the static model dispatcher; flush it so it cannot leak into other
-        // tests in the same process. (Boot-time hooks re-register on the next
-        // test's fresh application instance, so this is safe.)
         User::flushEventListeners();
 
         parent::tearDown();
@@ -145,10 +141,6 @@ class ProfileTest extends TestCase
 
     public function test_uppercase_email_submission_is_rejected_by_the_existing_lowercase_rule(): void
     {
-        // The app's existing validation convention (shared with registration)
-        // REJECTS uppercase input outright instead of silently normalizing it,
-        // so a case-variant submission is a clean validation error — not a
-        // change, and not a verification reset.
         $user = User::factory()->create(['email' => 'same@example.com']);
 
         $response = $this
@@ -194,8 +186,6 @@ class ProfileTest extends TestCase
     {
         User::factory()->create(['email' => 'dupe@example.com']);
 
-        // The application-level pre-check is not the last line of defense —
-        // the schema itself must arbitrate duplicates (race safety).
         $this->expectException(UniqueConstraintViolationException::class);
 
         User::create([
@@ -209,11 +199,6 @@ class ProfileTest extends TestCase
     {
         $user = User::factory()->create(['email' => 'actor@example.com']);
 
-        // Simulate a concurrent request winning the window between the
-        // validation layer's unique pre-check and this request's save: a
-        // rival row with the SAME target address is inserted the moment the
-        // actor's save begins. The DB unique index must reject the update and
-        // the endpoint must fail cleanly instead of erroring with a 500.
         User::saving(function () {
             DB::table('users')->insert([
                 'name' => 'Racer',
@@ -264,8 +249,6 @@ class ProfileTest extends TestCase
                 'password' => 'password',
             ]);
 
-        // One-hop redirect to the verification prompt with an acknowledgment
-        // that actually renders (no double-hop flash loss).
         $response
             ->assertRedirect(route('verification.notice'))
             ->assertSessionHas('status', 'verification-link-sent');
@@ -277,11 +260,6 @@ class ProfileTest extends TestCase
         // Stale reset token for the freed old address is gone.
         $this->assertSame(0, DB::table('password_reset_tokens')->where('email', 'before@example.com')->count());
 
-        // Verification lifecycle initiated for the NEW address. The
-        // NotificationFake indexes by EXACT class, and the class this app
-        // sends differs between codebases (framework default here, a branded
-        // subclass on deployments that override the sender) — so read the
-        // raw store and assert on the recorded INSTANCE instead.
         $store = \Closure::bind(
             fn () => $this->notifications,
             Notification::getFacadeRoot(),
@@ -332,8 +310,6 @@ class ProfileTest extends TestCase
     {
         $user = User::factory()->create(['email' => 'before@example.com']);
 
-        // A signed verification link minted while the OLD address was current
-        // (framework structure: id + sha1(email)).
         $oldLink = URL::temporarySignedRoute('verification.verify', now()->addMinutes(60), [
             'id' => $user->getKey(),
             'hash' => sha1('before@example.com'),
@@ -348,8 +324,6 @@ class ProfileTest extends TestCase
 
         $response = $this->actingAs($user)->get($oldLink);
 
-        // The link is bound to the address it was minted for — it must not
-        // verify the account's NEW address, and the account stays unverified.
         $response->assertForbidden();
         $this->assertNull($user->refresh()->email_verified_at);
     }
@@ -365,8 +339,6 @@ class ProfileTest extends TestCase
                 'password' => 'password',
             ]);
 
-        // The authenticated session survives the change and still resolves
-        // to the same user account.
         $this->assertAuthenticatedAs($user);
 
         // The user can reach the verification prompt for the new address.
@@ -387,8 +359,6 @@ class ProfileTest extends TestCase
         $this->post('/logout');
         auth()->logout();
 
-        // Login uses email as the credential: the old address must no longer
-        // match the account; the new address must.
         $this->post('/login', [
             'email' => 'before@example.com',
             'password' => 'password',
@@ -411,8 +381,6 @@ class ProfileTest extends TestCase
                 'name' => $user->name,
                 'email' => 'mass@example.com',
                 'password' => 'password',
-                // Unsafe parameters that must never reach the model through
-                // the validated() payload.
                 'is_super_admin' => '1',
                 'plan' => 'pro',
                 'max_galleries' => '9999',
@@ -435,9 +403,6 @@ class ProfileTest extends TestCase
     {
         $user = User::factory()->create();
 
-        // The current-password identity check must not be brute-forceable
-        // through the session: 6 attempts per minute, then 429 (the same bar
-        // as the MFA disable endpoint).
         for ($i = 0; $i < 6; $i++) {
             $this->actingAs($user)
                 ->patch('/profile', [

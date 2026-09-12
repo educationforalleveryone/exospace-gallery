@@ -1,7 +1,3 @@
-{{-- SEO OS (Iteration 2): metadata now comes from the controller via $seoData
-     (canonical policy for pagination/filters, prev/next, robots for filtered
-     views). The old @section title/description lines are gone — single
-     source of truth is DiscoverController. --}}
 @extends('layouts.public')
 
 @section('content')
@@ -17,12 +13,6 @@
             </div>
         </div>
 
-    {{-- CONV-7 FIX: Loading overlay shown when user clicks a pagination link,
-         filter dropdown, or sort link. Without this, the page appears frozen
-         during the navigation delay (especially on slow connections), and
-         users often click pagination links multiple times thinking the first
-         click didn't register. The overlay uses role="status" + aria-live="polite"
-         so screen readers announce "Loading exhibitions" when navigation starts. --}}
     <div id="discover-loading-overlay"
          role="status"
          aria-live="polite"
@@ -30,28 +20,16 @@
          style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.7); backdrop-filter:blur(4px); align-items:center; justify-content:center;"
          class="z-[45]">
         <div style="text-align:center;">
-            {{-- ITERATION-9: kit spinner + brand tokens replace the inline hex
-                 loader (the "no hex in Blade" rule). Reduced-motion users get
-                 a static ring via the global override in app.css. --}}
             <span class="btn-spinner text-brand-400" style="width:40px;height:40px;border-width:3px;" aria-hidden="true"></span>
             <p style="margin-top:12px; font-size:14px; font-weight:500;" class="text-brand-400">Loading exhibitions&hellip;</p>
         </div>
     </div>
     <script nonce="@nonce">
-        // Show the overlay whenever an in-page navigation happens (pagination
-        // link, sort link, or venue filter form submit). Hide it on page load
-        // (which only fires once per full page load — the next navigation
-        // will show it again).
         (function() {
             function showLoading() {
                 var el = document.getElementById('discover-loading-overlay');
                 if (el) el.style.display = 'flex';
             }
-            // ITERATION-3 FIX: the selectors here were malformed ('aref^="?"],' — a
-            // SyntaxError at parse time), so the listeners never attached and the
-            // overlay never showed; bindings also lived in DOMContentLoaded,
-            // which never re-fires after a Turbo navigation. Delegated + guarded
-            // now, with correct selectors.
             if (!window.__discoverOverlayInit) {
                 window.__discoverOverlayInit = true;
                 document.addEventListener('click', function(e) {
@@ -67,8 +45,6 @@
             });
         })();
 
-        // ITERATION-3: the page-local submitForm was removed — the canonical
-        // helper lives in resources/js/app.js and survives Turbo navigation.
     </script>
 
     <div class="max-w-page mx-auto px-4 py-10">
@@ -91,9 +67,6 @@
                 <a href="?sort=featured{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'featured' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Featured</a>
                 <a href="?sort=views{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'views' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Most viewed</a>
                 <a href="?sort=newest{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'newest' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Newest</a>
-                {{-- ITERATION-3: ordering by first-publish time, not creation time —
-                     an exhibition drafted for weeks before its opening ranks as
-                     new when it actually goes live. --}}
                 <a href="?sort=published{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'published' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Recently published</a>
                 <a href="?sort=updated{{ $venueId ? '&venue='.$venueId : '' }}" class="px-3 py-1.5 rounded-lg {{ $sort === 'updated' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }} transition">Recently updated</a>
             </div>
@@ -151,11 +124,7 @@
         @endif
     </div>
 
-{{-- I-2 FIX (Iter-013): ItemList JSON-LD for the discover page.
-    Renders the top 10 featured galleries as a structured list in Google
-    search results. Improves discoverability and CTR from SERPs. --}}
 @if($galleries->isNotEmpty())
-    {{-- SEO OS (Iteration 3): CollectionPage + ItemList graph now built by SchemaBuilder in the controller and rendered via SeoData. --}}
 @endif
 
 @endsection

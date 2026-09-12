@@ -14,23 +14,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 5 — the RBAC viewer role.
- *
- * These tests pin the delegation model end to end:
- *
- *   1. The gate: no grant → 403 (unchanged); super-admin → unchanged;
- *      active viewer grant + MFA + verified email → READ access.
- *   2. The ROUTE-LEVEL read/write split: viewers can never POST
- *      anything, never see the Actions hub, the Credentials page or
- *      the Access management page — even with a direct URL.
- *   3. Viewer policy: MFA required (redirect to setup), MFA session
- *      TTL enforced (redirect to verify), email verification required.
- *   4. Fail-closed edges: revoked grant, kill switch, unknown level.
- *   5. Grant management: only super-admins grant/revoke; every change
- *      audited + announced; duplicate/super-admin grants rejected.
- *   6. UI honesty: viewers see no action buttons, operators see them.
- */
 class OpsAccessControlTest extends TestCase
 {
     use RefreshDatabase;
@@ -47,8 +30,6 @@ class OpsAccessControlTest extends TestCase
         ]);
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────
-
     private function asMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
@@ -62,10 +43,6 @@ class OpsAccessControlTest extends TestCase
         ]);
     }
 
-    /**
-     * A regular, verified, MFA-enabled user holding an active viewer
-     * grant, already MFA-verified in-session.
-     */
     private function asViewer(array $userOverrides = [], array $grantOverrides = [])
     {
         $user = User::factory()->withMfa()->create(array_merge([
@@ -114,8 +91,6 @@ class OpsAccessControlTest extends TestCase
             'last_event_at' => now(),
         ]);
     }
-
-    // ── 1. The gate ─────────────────────────────────────────────────────
 
     public function test_guest_is_redirected_to_login(): void
     {
@@ -173,8 +148,6 @@ class OpsAccessControlTest extends TestCase
         $this->asViewer()->get('/ops/incidents/'.$incident->id)->assertOk();
     }
 
-    // ── 2. Route-level read/write split ─────────────────────────────────
-
     public function test_viewer_cannot_run_diagnostics(): void
     {
         $this->asViewer()->post('/ops/diagnostics/run', ['diagnostic' => 'database.connectivity'])->assertStatus(403);
@@ -206,8 +179,6 @@ class OpsAccessControlTest extends TestCase
         $this->asViewer()->get('/ops/access')->assertStatus(403);
         $this->asViewer()->post('/ops/access/grant', ['user_id' => 1])->assertStatus(403);
     }
-
-    // ── 3. Viewer policy: MFA + verification ────────────────────────────
 
     public function test_viewer_without_mfa_is_sent_to_mfa_setup(): void
     {
@@ -259,8 +230,6 @@ class OpsAccessControlTest extends TestCase
 
         $this->actingAs($user)->get('/ops')->assertRedirect(route('verification.notice'));
     }
-
-    // ── 4. Fail-closed edges ────────────────────────────────────────────
 
     public function test_revoked_grant_loses_access_immediately(): void
     {
@@ -333,8 +302,6 @@ class OpsAccessControlTest extends TestCase
             ->get('/ops')
             ->assertStatus(403);
     }
-
-    // ── 5. Grant management ─────────────────────────────────────────────
 
     public function test_super_admin_can_grant_viewer_access(): void
     {
@@ -453,8 +420,6 @@ class OpsAccessControlTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->url(), 'hooks.example.test')
             && str_contains((string) $request->data()['text'] ?? '', 'GRANTED'));
     }
-
-    // ── 6. UI honesty ───────────────────────────────────────────────────
 
     public function test_viewer_ui_hides_every_write_surface(): void
     {

@@ -12,20 +12,8 @@ use App\Support\Seo\Breadcrumb;
 use App\Support\Seo\SeoData;
 use Illuminate\Support\Collection;
 
-/**
- * SEO page renderer (Iteration 5).
- *
- * Turns a SeoPage's typed `blocks` JSON into rendered HTML views + page
- * SEO. Block types are a CLOSED allow-list — no arbitrary view inclusion,
- * no raw HTML passthrough (CSP-safe, injection-safe).
- *
- * Anti-spam by construction: the "live content" blocks (exhibitions,
- * artists, venues) render REAL platform content, so a landing page can't
- * be a wall of keyword copy with no substance.
- */
 class SeoPageRenderer
 {
-    /** Supported block types → view partials. */
     private const BLOCK_TYPES = [
         'hero', 'text', 'features', 'faq', 'cta',
         'exhibitions', 'artists', 'venues',
@@ -45,11 +33,6 @@ class SeoPageRenderer
         return $html;
     }
 
-    /**
-     * Build the page's SeoData (metadata engine integration). Drafts and
-     * noindex pages are never indexable; canonical defaults to the clean
-     * page URL unless overridden.
-     */
     public function seoFor(SeoPage $page, bool $isPreview = false): SeoData
     {
         $indexable = $page->isIndexable() && !$isPreview;
@@ -100,11 +83,6 @@ class SeoPageRenderer
         return $seo;
     }
 
-    /**
-     * Breadcrumbs for the page.
-     *
-     * @return array<int, \App\Support\Seo\Breadcrumb>
-     */
     public function breadcrumbsFor(SeoPage $page): array
     {
         $trail = [['Home', url('/')]];
@@ -117,12 +95,6 @@ class SeoPageRenderer
         return Breadcrumb::trail($trail);
     }
 
-    /**
-     * Validate + normalize the blocks payload. Unknown types are dropped
-     * (never rendered), malformed entries skipped.
-     *
-     * @return array<int, array{type: string, data: array<string, mixed>}>
-     */
     public function validatedBlocks(SeoPage $page): array
     {
         $blocks = $page->blocks;
@@ -147,11 +119,6 @@ class SeoPageRenderer
         return $valid;
     }
 
-    /**
-     * Live context for the real-content blocks, cached briefly.
-     *
-     * @return array<string, mixed>
-     */
     private function blockContext(string $type): array
     {
         return match ($type) {
@@ -189,8 +156,6 @@ class SeoPageRenderer
     private function liveVenues(): Collection
     {
         return \Illuminate\Support\Facades\Cache::remember('seo:page:venues', 900, fn () =>
-            // ITERATION-1 FIX (portable SQL): see PublicVenueController::index —
-            // HAVING on the withCount alias breaks SQLite; whereHas is portable.
             VenueTemplate::active()
                 ->published()
                 ->whereHas('galleries', fn ($q) => $q->publiclyViewable()->has('images', '>=', 1))
@@ -200,9 +165,6 @@ class SeoPageRenderer
                 ->get());
     }
 
-    /**
-     * First text-ish content for description fallback.
-     */
     private function firstTextBlock(SeoPage $page): ?string
     {
         foreach ($this->validatedBlocks($page) as $block) {
@@ -217,9 +179,6 @@ class SeoPageRenderer
         return null;
     }
 
-    /**
-     * @return array<int, array{question: string, answer: string}>
-     */
     private function faqItems(SeoPage $page): array
     {
         foreach ($this->validatedBlocks($page) as $block) {

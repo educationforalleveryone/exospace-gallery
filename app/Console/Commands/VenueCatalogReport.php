@@ -8,48 +8,8 @@ use App\Models\Gallery;
 use App\Models\VenueTemplate;
 use Illuminate\Console\Command;
 
-/**
- * Iteration 7 "Frontier" (roadmap P2.4): the catalog review instrument.
- *
- * "Data decides venue #12 candidacy and any retirement" — but data is only
- * a decision when it is ONE command away. This command rolls up, per venue:
- *
- *   - adoption:        total galleries created with the venue, and how many
- *                      are publicly viewable with at least one artwork
- *   - demand:          view_count (venue-attributed exhibition views, the
- *                      counter IncrementGalleryViews queues)
- *   - resonance:       conversionRate() — galleries per 1,000 venue views
- *                      (the model accessor is THE source of truth; null when
- *                      views = 0, because a ratio against zero is a lie)
- *   - tier demand:     views and galleries grouped by plan_required, so the
- *                      ladder's demand shape is visible, not assumed
- *   - register map:    which emotional registers (§3.3) the catalog covers
- *                      and which it does not — today: grandeur (intimacy
- *                      was covered by The Salon, Iteration 8 / P3.2)
- *
- * The output is the INPUT to the venue #12 brief (docs/VENUE_12_BRIEF.md).
- * The brief pre-commits the decision rule; this command supplies the numbers
- * the rule consumes. Run it before any venue #12 build:
- *
- *   php artisan venues:catalog-report            # human table
- *   php artisan venues:catalog-report --json     # machine-readable (briefs, CI)
- *
- * RETIREMENT NOTE (roadmap DO NOT DO #2): the rollup reports per-venue
- * weakness honestly, but retirement is closed by roadmap commitment — the
- * migration cost (pricing copy, plan arithmetic, SEO pages, customer
- * galleries) exceeds maintenance savings. Analytics may reopen this later;
- * today the data informs GROWTH decisions only.
- *
- * Determinism: pure read-only aggregation; writes nothing, caches nothing.
- */
 class VenueCatalogReport extends Command
 {
-    /**
-     * §3.3 register coverage — interpretive mapping of the roadmap's
-     * covered emotional registers to the seeded catalog. One venue may
-     * legitimately express two registers; the FIRST match wins so the
-     * coverage table stays one-row-per-register.
-     */
     private const REGISTER_MAP = [
         'clean'           => 'white-cube',
         'warm-industrial' => 'industrial-loft',
@@ -62,13 +22,9 @@ class VenueCatalogReport extends Command
         'cosmic'          => 'nebula-drift',
         'reflective'      => 'mirror-lake',
         'natural'         => 'sculpture-garden',
-        // Iteration 8 "The Salon" (P3.2): the intimacy register is COVERED.
-        // Kept in the map (not deleted) so the coverage table still shows
-        // the register→venue pairing explicitly.
         'intimacy'        => 'the-salon',
     ];
 
-    /** §3.3: the last uncovered register — the remaining venue #13+ field. */
     private const UNCOVERED_REGISTERS = ['grandeur'];
 
     protected $signature = 'venues:catalog-report
@@ -144,12 +100,6 @@ class VenueCatalogReport extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * One rollup row per venue. conversion_per_1k reuses the model accessor
-     * so the report can never drift from what the admin table shows.
-     *
-     * @return array<string, mixed>
-     */
     private function venueRow(VenueTemplate $venue): array
     {
         return [
@@ -166,14 +116,6 @@ class VenueCatalogReport extends Command
         ];
     }
 
-    /**
-     * Views + adoption grouped by the venue's plan tier — the shape of
-     * demand across the ladder. The venue #12 rule reads the Studio share
-     * of views off this table.
-     *
-     * @param  \Illuminate\Support\Collection<int, VenueTemplate>  $venues
-     * @return array<int, array<string, mixed>>
-     */
     private function tierDemand($venues): array
     {
         $totalViews = (int) $venues->sum(fn (VenueTemplate $v) => (int) ($v->view_count ?? 0));
@@ -193,15 +135,6 @@ class VenueCatalogReport extends Command
         })->all();
     }
 
-    /**
-     * Coverage table for every covered register plus the remaining
-     * uncovered ones (always listed, always MISSING — the gap IS the
-     * message). Intimacy joined the covered set in Iteration 8 (The
-     * Salon); grandeur remains the open register.
-     *
-     * @param  \Illuminate\Support\Collection<int, VenueTemplate>  $venues
-     * @return array<int, array<string, mixed>>
-     */
     private function registerCoverage($venues): array
     {
         $bySlug = $venues->keyBy('slug');
@@ -226,13 +159,6 @@ class VenueCatalogReport extends Command
         return $rows;
     }
 
-    /**
-     * The pre-committed decision inputs, printed verbatim so the command
-     * output and the brief can never disagree about what the rule IS.
-     *
-     * @param  \Illuminate\Support\Collection<int, VenueTemplate>  $venues
-     * @return array<int, string>|list<string>
-     */
     private function decisionInputs($venues): array
     {
         $studioShare = collect($this->tierDemand($venues))

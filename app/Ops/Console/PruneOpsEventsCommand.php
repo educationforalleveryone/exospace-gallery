@@ -9,34 +9,6 @@ use App\Ops\Models\OpsEvent;
 use App\Ops\Models\OpsReviewSnapshot;
 use Illuminate\Console\Command;
 
-/**
- * OpsCenter — ops:prune-events (retention).
- *
- * The documented retention policy for ops_events (see config/ops.php):
- *
- *   1. AUTO-RESOLVE: events with no recurrence for auto_resolve_days
- *      (default 7) are marked resolved. The problem stopped happening —
- *      the control plane should stop counting it as active.
- *
- *   2. DELETE: resolved events older than resolved_retention_days
- *      (default 90) are deleted. Resolved history is useful for trend
- *      questions but not forever.
- *
- *   3. OPEN EVENTS ARE NEVER DELETED. An ongoing problem must not vanish
- *      silently — resolve it first (auto-resolve handles the stale ones).
- *
- * ITERATION 3: also prunes ops_diagnostic_runs older than
- * ops.diagnostics.retention_days (default 30). Runs are point-in-time
- * snapshots, reproducible on demand, so short retention loses nothing.
- *
- * ITERATION 9: also prunes ops_review_snapshots older than
- * ops.weekly_review.snapshot_retention_days (default 365 — the long
- * memory is the point; one row per week keeps it trivially small).
- *
- * Scheduled daily at 03:35 (off-peak, deliberately after the 03:17
- * webhook-ledger prune and before the 04:00 maintenance batch — same
- * slotting convention as routes/console.php).
- */
 class PruneOpsEventsCommand extends Command
 {
     protected $signature = 'ops:prune-events';

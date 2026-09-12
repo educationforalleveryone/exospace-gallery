@@ -2,24 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * ITERATION-5 regression tests.
- *
- * Verifies the 3 new PII anonymization commands:
- *   - AUDIT-P1-5.1: exospace:anonymize-feedback-pii
- *   - AUDIT-P1-5.2: exospace:anonymize-rsvp-pii
- *   - AUDIT-P1-5.3: exospace:anonymize-newsletter-pii
- *
- * Each test verifies:
- *   1. Old rows (> retention window) get PII anonymized.
- *   2. Recent rows (< retention window) are untouched.
- *   3. Already-anonymized rows are skipped (idempotency).
- *   4. Non-PII fields (category, status, gallery_id, etc.) are preserved.
- *   5. --dry-run flag doesn't modify data.
- *
- * Run: php artisan test --filter=Iteration5Test
- */
-
 namespace Tests\Feature;
 
 use App\Models\Gallery;
@@ -34,10 +16,6 @@ class Iteration5Test extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * ITERATION-1 FIX: Schedule::assertScheduled() does not exist in
-     * Laravel 11/12 (imaginary API). Inspect the scheduler's events.
-     */
     private function assertCommandScheduled(string $needle, string $message = ''): void
     {
         $commands = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
@@ -51,9 +29,6 @@ class Iteration5Test extends TestCase
 
     // ── AUDIT-P1-5.1: exospace:anonymize-feedback-pii ──────────────────
 
-    /**
-     * AUDIT-P1-5.1: Old feedback rows get PII anonymized; recent rows untouched.
-     */
     public function test_audit_p15_1_feedback_pii_anonymized_for_old_rows_only(): void
     {
         $user = User::factory()->create();
@@ -106,9 +81,6 @@ class Iteration5Test extends TestCase
         $this->assertSame($user->id, $recentRow->user_id, 'Recent user_id should be untouched.');
     }
 
-    /**
-     * AUDIT-P1-5.1: --dry-run doesn't modify data.
-     */
     public function test_audit_p15_1_feedback_dry_run_makes_no_changes(): void
     {
         $user = User::factory()->create();
@@ -133,9 +105,6 @@ class Iteration5Test extends TestCase
         $this->assertSame($user->id, $row->user_id, 'Dry-run should not modify user_id.');
     }
 
-    /**
-     * AUDIT-P1-5.1: Re-running is idempotent (already-anonymized rows are skipped).
-     */
     public function test_audit_p15_1_feedback_idempotent_on_second_run(): void
     {
         $user = User::factory()->create();
@@ -152,12 +121,10 @@ class Iteration5Test extends TestCase
             'updated_at' => $oldDate,
         ]);
 
-        // First run — anonymizes
         Artisan::call('exospace:anonymize-feedback-pii', ['--retention-months' => 18]);
         $firstRunRow = DB::table('user_feedback')->where('id', $feedbackId)->first();
         $firstAnonymizedMessage = $firstRunRow->message;
 
-        // Second run — should be a no-op
         Artisan::call('exospace:anonymize-feedback-pii', ['--retention-months' => 18]);
         $secondRunRow = DB::table('user_feedback')->where('id', $feedbackId)->first();
 
@@ -166,9 +133,6 @@ class Iteration5Test extends TestCase
 
     // ── AUDIT-P1-5.2: exospace:anonymize-rsvp-pii ────────────────────────
 
-    /**
-     * AUDIT-P1-5.2: Old RSVP rows get PII anonymized; recent rows untouched.
-     */
     public function test_audit_p15_2_rsvp_pii_anonymized_for_old_rows_only(): void
     {
         $gallery = Gallery::factory()->create();
@@ -224,9 +188,6 @@ class Iteration5Test extends TestCase
         $this->assertSame('198.51.100.7', $recentRow->ip_address, 'Recent RSVP ip_address should be untouched.');
     }
 
-    /**
-     * AUDIT-P1-5.2: --dry-run doesn't modify data.
-     */
     public function test_audit_p15_2_rsvp_dry_run_makes_no_changes(): void
     {
         $gallery = Gallery::factory()->create();
@@ -259,9 +220,6 @@ class Iteration5Test extends TestCase
 
     // ── AUDIT-P1-5.3: exospace:anonymize-newsletter-pii ────────────────
 
-    /**
-     * AUDIT-P1-5.3: Old newsletter signup rows get PII anonymized; recent rows untouched.
-     */
     public function test_audit_p15_3_newsletter_pii_anonymized_for_old_rows_only(): void
     {
         $gallery = Gallery::factory()->create();
@@ -313,9 +271,6 @@ class Iteration5Test extends TestCase
         $this->assertSame('https://twitter.com/post/123', $recentRow->referrer, 'Recent newsletter referrer should be untouched.');
     }
 
-    /**
-     * AUDIT-P1-5.3: --dry-run doesn't modify data.
-     */
     public function test_audit_p15_3_newsletter_dry_run_makes_no_changes(): void
     {
         $gallery = Gallery::factory()->create();
@@ -341,18 +296,12 @@ class Iteration5Test extends TestCase
         $this->assertSame('https://example.com', $row->referrer, 'Dry-run should not modify referrer.');
     }
 
-    /**
-     * AUDIT-P1-5.3: Newsletter signup with no rows — handles gracefully.
-     */
     public function test_audit_p15_3_newsletter_handles_empty_table_gracefully(): void
     {
         $exitCode = Artisan::call('exospace:anonymize-newsletter-pii', ['--retention-months' => 18]);
         $this->assertSame(0, $exitCode, 'Command should succeed with empty table.');
     }
 
-    /**
-     * Schedule verification: all 3 new commands are scheduled monthly.
-     */
     public function test_audit_p15_schedule_includes_all_3_new_anonymization_commands(): void
     {
         $this->assertCommandScheduled('exospace:anonymize-feedback-pii');

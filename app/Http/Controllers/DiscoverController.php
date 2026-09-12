@@ -9,43 +9,11 @@ use App\Support\Seo\CanonicalUrl;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/**
- * Public directory of featured / open exhibitions.
- *
- * Route: GET /discover
- *
- * Shows galleries that are:
- *   - is_active = true
- *   - Not PIN-protected (publicly viewable)
- *   - Currently open (within their schedule window, or unscheduled)
- *   - Have at least one image (no empty exhibitions in the directory)
- *
- * Supports sorting by: featured (default), views, newest, recently
- * published (ITERATION-3: first-publish time via galleries.published_at),
- * recently updated.
- * Supports filtering by venue_template.
- *
- * SEO OS (Iteration 2):
- *   - Canonical policy: /discover?sort=…&venue=… canonicalize to the clean
- *     /discover URL (they are alternate VIEWS of the same content — audit
- *     C4/M4). Paginated pages self-canonicalize with only ?page= preserved.
- *   - rel=prev/next emitted for the default (unfiltered) pagination.
- *   - Filtered/sorted variants are noindex,follow: crawlable graph links
- *     remain usable, but search engines keep a single indexable copy.
- */
 class DiscoverController extends Controller
 {
     public function index(Request $request): View
     {
         $sort = $request->string('sort', 'featured')->toString();
-        // ITERATION-1 P0 FIX (SEO): cast the Stringable to a plain string.
-        // $request->string('venue') returns a Stringable OBJECT; the strict
-        // comparison `$venueId !== ''` compared object vs string and was
-        // therefore ALWAYS true — every /discover request, including the
-        // clean default hub view, was treated as a "filtered alternate
-        // view" and emitted <meta name="robots" content="noindex,follow">.
-        // The entire Discover hub — the centerpiece of the SEO growth
-        // strategy — was invisible to search engines.
         $venueId = $request->string('venue')->toString();
 
         // Any non-default sort/venue makes this an alternate view.
@@ -61,17 +29,11 @@ class DiscoverController extends Controller
             $query->where('venue_template_id', $venueId);
         }
 
-        // Sort. NULLs sort last on both drivers (NULL < any value, so
-        // orderByDesc puts them at the tail) — pre-iteration rows without a
-        // published_at never outrank a freshly published exhibition.
         $query->when($sort === 'views', fn($q) => $q->orderByDesc('view_count'))
               ->when($sort === 'newest', fn($q) => $q->orderByDesc('created_at'))
               ->when($sort === 'published', fn($q) => $q->orderByDesc('published_at'))
               ->when($sort === 'updated', fn($q) => $q->orderByDesc('updated_at'))
               ->unless(in_array($sort, ['views', 'newest', 'published', 'updated']), function ($q) {
-                  // Default: featured galleries first (Round 4 — is_featured column
-                  // on galleries, controlled via super-admin /master-control/featured),
-                  // then by view_count.
                   return $q->orderByDesc('is_featured')
                            ->orderByDesc('view_count');
               });
@@ -84,7 +46,6 @@ class DiscoverController extends Controller
             ->orderBy('sort_order')
             ->pluck('name', 'id');
 
-        // ── SEO (Iteration 2) ─────────────────────────────────────────────
         $baseUrl = CanonicalUrl::path('/discover');
         $page = max(1, (int) $request->input('page', 1));
 
@@ -117,9 +78,6 @@ class DiscoverController extends Controller
             nextUrl: $next,
         );
 
-        // Iteration 3: CollectionPage graph (replaces the template-level
-        // ItemList component usage — one graph, built centrally, real data
-        // only, first page of results).
         if (!$isFilteredView && $page === 1) {
             $schema = app(SchemaBuilder::class);
             $seo = $seo->with(['jsonLd' => [

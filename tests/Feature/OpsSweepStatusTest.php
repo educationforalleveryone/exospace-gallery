@@ -12,26 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 7 — the sweep-cadence measurement surface.
- *
- * The cadence MECHANISM shipped in Iteration 6 untuned by design
- * ("measure, then set cadences"). OpsSweepStatusService is the measure
- * half — these tests pin:
- *
- *   1. Every configured sweep check appears with honest defaults
- *      (no cadence = every sweep; no stamp = never probed).
- *   2. Configured cadences surface, including the below-interval
- *      rejection (a cadence finer than the sweep itself is noise).
- *   3. The last-probe stamp: age from the cache, garbage-safe.
- *   4. Open-finding detection via the same title the sweep command
- *      writes; resolved findings stop flagging.
- *   5. Config mistakes (unknown ids, application-scoped ids) stay
- *      VISIBLE as ignored rows — a typo must not silently shrink
- *      the watch.
- *   6. The Diagnostics page panel renders for every read tier, with
- *      the disabled-sweep banner when the watch is off.
- */
 class OpsSweepStatusTest extends TestCase
 {
     use RefreshDatabase;
@@ -81,8 +61,6 @@ class OpsSweepStatusTest extends TestCase
         ]);
     }
 
-    // ── Rows + defaults ─────────────────────────────────────────────────
-
     public function test_every_configured_check_appears_with_honest_defaults(): void
     {
         $status = $this->service()->status();
@@ -115,14 +93,9 @@ class OpsSweepStatusTest extends TestCase
         $this->assertSame(60, $disk['cadence_minutes']);
         $this->assertSame('every 60 min while healthy', $disk['cadence_label']);
 
-        // A cadence finer than the sweep itself cannot be honored —
-        // rendered as the every-sweep default, exactly what the sweep
-        // command would do with it.
         $database = $this->row($status, 'database.connectivity');
         $this->assertNull($database['cadence_minutes']);
     }
-
-    // ── The last-probe stamp ────────────────────────────────────────────
 
     public function test_last_probe_age_comes_from_the_cache_stamp(): void
     {
@@ -143,8 +116,6 @@ class OpsSweepStatusTest extends TestCase
         $this->assertNull($disk['last_probe_at']);
         $this->assertNull($disk['last_probe_minutes']);
     }
-
-    // ── Open findings ───────────────────────────────────────────────────
 
     public function test_an_open_sweep_event_flags_the_check_until_resolved(): void
     {
@@ -176,8 +147,6 @@ class OpsSweepStatusTest extends TestCase
         $this->assertFalse($this->row($this->service()->status(), 'server.disk')['has_open_event']);
     }
 
-    // ── Config mistakes stay visible ────────────────────────────────────
-
     public function test_unknown_and_application_scoped_ids_render_as_ignored(): void
     {
         config(['ops.sweeps.diagnostics' => [
@@ -199,8 +168,6 @@ class OpsSweepStatusTest extends TestCase
             $this->assertNotSame('', (string) $ignored['reason']);
         }
     }
-
-    // ── The Diagnostics page panel ──────────────────────────────────────
 
     public function test_the_panel_renders_on_the_diagnostics_page(): void
     {

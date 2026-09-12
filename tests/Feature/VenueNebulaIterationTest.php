@@ -2,35 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Nebula Drift identity tests — v2.2.0 "the nebula owns the sky"
- * (2026-09-08; the Deep Field audit pass + the arch/deploy-review pass +
- * the identity pass).
- *
- * Pins the v2.2.0 contract so the venue can never silently regress:
- *
- *   - Declared identity: the seeder baseline AND the FULL guarded migration
- *     chain (2026_09_08_000002 → _000003 → _000004) are THE SAME final row
- *     (byte-parity of content, key-order insensitive) — production
- *     galleries migrate through the chain, fresh installs seed, and both
- *     roads must end at one identity.
- *   - The double purple centre light is gone: one declared cold key light.
- *   - Artwork colour honesty: the ambient is neutral moon-slate, never the
- *     purple that tinted every lit canvas; the ONLY warm light is the
- *     artwork pool lighting.
- *   - The v2.2.0 identity keys: island-grade standing glow (0.72), the
- *     elevation-step hang (a suspended constellation), the exact-black
- *     sky/floor meet (no stage line), the floor fade span.
- *   - The promise matrix: the copy names what renders (nebula, arch,
- *     drift, thread, pools) and promises no reflection (there is none).
- *   - The palette is venue-owned (s6): a stale gallery override can never
- *     recolour the sky.
- *   - Every migration in the chain is guarded, idempotent, and reversible;
- *     admin edits survive up() and down() at every link.
- *
- * Run: php artisan test --filter=VenueNebulaIterationTest
- */
-
 namespace Tests\Feature;
 
 use App\Services\VenueConfigExporter;
@@ -41,10 +12,6 @@ use Tests\TestCase;
 class VenueNebulaIterationTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The seeder baseline — the fresh-install identity
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_seeded_row_is_the_deep_field(): void
     {
@@ -62,8 +29,6 @@ class VenueNebulaIterationTest extends TestCase
         $this->assertSame('none', $config['environment'], 'environment none — the sky is procedural, the night.hdr download disappears (N9).');
         $this->assertSame(0, $config['env_intensity'], 'env_intensity 0 — the environment is silenced at the source.');
 
-        // Artwork colour honesty (N2): the v1.0.0 purple ambient tinted
-        // every lit canvas.
         $this->assertSame('0x7a86b8', $config['ambient_color'], 'Ambient is neutral moon-slate — artwork canvases stay visually honest (§12).');
         $this->assertSame(0.62, $config['ambient_intensity'], 'The base wash carries unlit canvases at spawn distance (12–20 m).');
         $this->assertSame(0.35, $config['hemisphere_intensity'], 'Vertical fill keeps unlit far canvases legible.');
@@ -74,8 +39,6 @@ class VenueNebulaIterationTest extends TestCase
         $this->assertSame(0.72, $config['artwork_light_base'], 'Floating artworks read as lit islands beyond the proximity radius.');
         $this->assertSame(12, $config['artwork_light_pool_cap'], 'The desktop pool lights a typical 12-piece hang at once.');
 
-        // Spatial composition keys (N5/N7/N10 + the v2.1.0 horizon fix +
-        // the v2.2.0 suspended constellation).
         $this->assertTrue($config['void_depth_gradient'] ?? false, 'The shared zenith depth cue is declared.');
         $this->assertTrue($config['floor_edge_fade'] ?? false, 'The floor disc dissolves into the void — no hard geometric seam.');
         $this->assertSame(1.16, $config['floor_fade_span'], 'The phantom ground plane ends at the dissolve — the void wraps beneath (no stage edge).');
@@ -128,18 +91,10 @@ class VenueNebulaIterationTest extends TestCase
         $this->assertMatchesRegularExpression('/float|drift|hover/', $desc, 'Copy must promise the float placement the config declares.');
         $this->assertStringNotContainsStringIgnoringCase('reflect', $desc, 'Copy must NOT promise a reflection — the venue declares none.');
 
-        // Every noun the copy promises is a rendered element of the body
-        // (v2.2.0 copy: the arch with its core, the silhouettes, the
-        // stardrift, the meridian thread, the suspended constellation, the
-        // pools, the dissolving floor).
         foreach (['nebula', 'arch', 'drift', 'thread', 'pools'] as $noun) {
             $this->assertStringContainsStringIgnoringCase($noun, $desc, "Copy promises the noun '{$noun}' — the Deep Field body must render it.");
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The guarded migration chain — production roads converge on one identity
-    // ─────────────────────────────────────────────────────────────────────
 
     private function nebulaMigrations(): array
     {
@@ -150,7 +105,6 @@ class VenueNebulaIterationTest extends TestCase
         ];
     }
 
-    /** The v1.0.0 row exactly as production holds it pre-chain. */
     private function seedLegacyNebulaRow(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -206,10 +160,6 @@ class VenueNebulaIterationTest extends TestCase
 
     public function test_the_migration_chain_lands_the_exact_seeder_state(): void
     {
-        // Production path: the v1.0.0 row is transformed by the FULL chain
-        // (Deep Field → arch → identity); a fresh install is seeded straight
-        // to the final state. Both roads MUST end at the same identity
-        // (drift here means previews and production diverge).
         $this->seedLegacyNebulaRow();
         foreach ($this->nebulaMigrations() as $migration) {
             $migration->up();
@@ -220,10 +170,6 @@ class VenueNebulaIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         $seeded = DB::table('venue_templates')->where('slug', 'nebula-drift')->first();
 
-        // Canonical comparison: JSON object key ORDER legitimately differs
-        // (each migration appends its added keys; the seeder ships the
-        // composed literal). Identity = same keys, same values, same types —
-        // order-insensitive by design.
         $this->assertSame(
             $this->canonicalJson($seeded->visual_config),
             $this->canonicalJson($migrated->visual_config),
@@ -246,16 +192,11 @@ class VenueNebulaIterationTest extends TestCase
 
     public function test_each_migration_link_is_guarded_idempotent_and_reversible(): void
     {
-        // The FINAL link (2026_09_08_000004) under an admin-retuned v2.1.0
-        // row — the link the deployed production rows will meet first.
         $this->seedLegacyNebulaRow();
         [$deepfield, $arch, $identity] = $this->nebulaMigrations();
         $deepfield->up();
         $arch->up();
 
-        // An admin retune that must survive the identity pass (guarded swap):
-        // artwork_light_base differs from the seeded v2.1.0 0.62 — the admin
-        // owns it now.
         DB::table('venue_templates')->where('slug', 'nebula-drift')->update([
             'visual_config' => json_encode(array_merge($this->visualConfig('nebula-drift'), [
                 'artwork_light_base' => 0.9, // differs from the seeded 0.62 — the admin owns it
@@ -280,8 +221,6 @@ class VenueNebulaIterationTest extends TestCase
         $after = DB::table('venue_templates')->where('slug', 'nebula-drift')->first();
         $this->assertSame($before->visual_config, $after->visual_config, 'Re-running the migration rewrites nothing.');
 
-        // Reversibility: down() restores every value it changed (only where
-        // still equal) and removes the nested key it added.
         $identity->down();
         $rolled = $this->visualConfig('nebula-drift');
         $this->assertSame(0.9, $rolled['artwork_light_base'] ?? null, 'down() preserves the admin edit — only migration-owned values revert.');
@@ -306,10 +245,6 @@ class VenueNebulaIterationTest extends TestCase
         $this->assertSame($pristine->version, $restored->version, 'Untouched rows restore exactly (version).');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The client payload — the Deep Field must reach preview AND public
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_the_payload_carries_the_deep_field_to_the_client(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -332,15 +267,11 @@ class VenueNebulaIterationTest extends TestCase
 
     public function test_the_nebula_palette_is_venue_owned(): void
     {
-        // s6: the palette is colour IDENTITY — a stale gallery visual
-        // override can never recolour the sky.
         $this->assertContains('nebula', VenueConfigExporter::VENUE_OWNED_VISUAL_KEYS,
             '[nebula] is venue-owned colour identity — a stale gallery override cannot recolour the sky.');
         $this->assertSame('s6', VenueConfigExporter::SCHEMA,
             'The s6 bump re-keys every cached payload on deploy.');
 
-        // End-to-end: a gallery carrying a saved override layer renders the
-        // VENUE's palette, not the override.
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $venue   = \App\Models\VenueTemplate::where('slug', 'nebula-drift')->firstOrFail();
@@ -364,8 +295,6 @@ class VenueNebulaIterationTest extends TestCase
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-
     private function visualConfig(string $slug): array
     {
         return json_decode((string) DB::table('venue_templates')->where('slug', $slug)->value('visual_config'), true) ?: [];
@@ -376,7 +305,6 @@ class VenueNebulaIterationTest extends TestCase
         return json_decode((string) DB::table('venue_templates')->where('slug', $slug)->value('material_config'), true) ?: [];
     }
 
-    /** Recursively key-sort a JSON blob so identity comparisons ignore order. */
     private function canonicalJson(mixed $json): string
     {
         $data = is_string($json) ? (json_decode((string) $json, true) ?: []) : $json;

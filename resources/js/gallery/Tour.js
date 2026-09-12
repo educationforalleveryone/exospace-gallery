@@ -1,11 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Tour — GuidedTour
-//
-// Cycles through every artwork, tweening the camera to each, dwelling for
-// a few seconds, then advancing. Keyboard: T to start/stop, arrows to nav,
-// space to pause.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { CONFIG } from './config.js';
@@ -23,10 +15,6 @@ export class GuidedTour {
         this._countdownRaf = null;
         this._circumference = 2 * Math.PI * 15.9;
 
-        // (Task H37 / audit C4) — if the user prefers reduced motion,
-        // shorten the camera tween duration to near-zero (instant cut
-        // instead of smooth fly) and reduce dwell time. The tour still
-        // works, just without the cinematic camera movement.
         this._reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
         this._tweenDuration = this._reducedMotion ? 0.1 : 2.0;
         if (this._reducedMotion) {
@@ -42,10 +30,6 @@ export class GuidedTour {
             return;
         }
 
-        // Iteration 4 "Arrival" — tour start-position alignment (roadmap
-        // §17): the hero artwork is the orientation anchor, so a tour
-        // launched from the default entry point begins on the SAME frame
-        // the arrival composed. Explicit indices (resume points) win.
         if (atIndex === 0 && this.scene.arrivalHeroId != null) {
             const heroIdx = this.artworks.findIndex(
                 a => a.userData?.id === this.scene.arrivalHeroId
@@ -70,13 +54,6 @@ export class GuidedTour {
         // Release pointer lock so we can tween the camera freely
         if (this.scene.controls.isLocked) this.scene.controls.unlock();
 
-        // QA FIX (post-implementation pass): the tour tweens the camera to a
-        // pose 1.8 m in front of each artwork. Venues with forbidden ground
-        // (Mirror Lake's open water) enforce their constraint in a per-frame
-        // tick, which used to fight the tween every frame and yank the camera
-        // to the shoreline mid-tour. `_cameraScripted` tells those venue ticks
-        // to stand down while a scripted camera owns the view (the same
-        // contract arrivalActive and isInspecting already follow).
         this.scene._cameraScripted = true;
 
         this._focusCurrent();
@@ -87,11 +64,6 @@ export class GuidedTour {
         this._clearDwell();
         this._clearCountdown();
 
-        // Hand the camera back legally: a venue with forbidden ground can
-        // glide the (over-water) tour stop onto its nearest walkable surface
-        // — see VenueDecorator._settleCamera. The in-flight hop tween is
-        // killed first — it targets an over-water pose and would fight the
-        // venue tick the moment _cameraScripted clears.
         if (this.scene.focusTween) {
             this.scene.focusTween.kill();
             this.scene.focusTween = null;

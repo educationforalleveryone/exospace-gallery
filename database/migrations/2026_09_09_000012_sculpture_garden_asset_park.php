@@ -3,50 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * OUTDOOR SCULPTURE GARDEN v4.0.0 — "The Sculpture Park" (asset-driven reset).
- *
- * WHAT THE USER'S SCREENSHOT VERDICT FOUND (design reset, not taste):
- *   • The procedural asset vocabulary itself failed: icosahedron/cone
- *     primitive trees, cylinder stepping stones, box hedge ring — the garden
- *     read as a procedural game level, not a premium exhibition landscape.
- *   • The tripod easels read as yard-sale signage, not exhibition hardware.
- *   • The tall pedestal read as a trophy plinth, not a sculpture-park plinth.
- *
- * THE SIGNATURE (ships in the JS bundle — GardenAssets.js + the rebuilt
- * VenueDecorator garden body + GardenLayout role-tagged anchors +
- * ArtworkPlacer's museum panel stands; this migration carries only the DB
- * half, the same split every deepening iteration uses):
- *   the garden becomes ASSET-DRIVEN. The v3 landscape plan (terrain, walks,
- *   courts, clearances, validator) is kept; every living element is now a
- *   NAMED EXTERNAL GLB the owner supplies under
- *   public/assets/venues/sculpture-garden/. Missing files skip their layer
- *   gracefully — the base environment (gravel walks, panel stands, hero
- *   travertine court, sky) stands alone.
- *
- * THIS MIGRATION (DB side only):
- *   visual_config.garden : the asset manifest (assets_base + 7 role
- *                          filenames) added beside sky_environment.
- *   visual_config        : horizon haze retune (background/fog).
- *   material_config      : lawn colour retune + calmer tile scale.
- *   description          : verifiable copy (stone promenade → gravel walk).
- *   version              : 3.0.0 → 4.0.0 under guard.
- *
- * GUARDING (same contract as the v3 garden / cyber / zen migrations):
- *   every rewrite fires ONLY while the stored value still equals the
- *   previously seeded value (strings strictly, numbers numerically). A
- *   super-admin's custom value is never touched; the garden asset manifest
- *   is added only when the garden block carries no assets_base yet.
- *   Idempotent; down() reverses each rewrite under the same exact-match
- *   guard. Paired with the seeder (fresh-install baseline).
- */
 return new class extends Migration
 {
-    /**
-     * Exact-match guard: strings strictly, numbers numerically (null never
-     * matches). Keeps an admin's custom value from ever matching the seeded
-     * "from" value the rewrite is guarded on.
-     */
     private function guardedEquals($current, $from): bool
     {
         if ($current === null) {
@@ -80,15 +38,11 @@ return new class extends Migration
             return; // venue removed by the operator — respect that
         }
 
-        // ── visual_config ────────────────────────────────────────────────
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
             'background_color' => ['from' => '0xd6e0e2', 'to' => '0xdfe2d1'],
             'fog_color'        => ['from' => '0xd6e0e2', 'to' => '0xdfe2d1'],
-            // The v4 landscape needs a larger field: the asset-driven gate
-            // pair + protected arrival corridor consume lawn the v3 courts
-            // used. A bigger field also serves the brief's "spacious" read.
             'field_radius_bonus' => ['from' => 2.2, 'to' => 2.6],
             'field_radius_min'   => ['from' => 12.5, 'to' => 14],
         ];
@@ -98,8 +52,6 @@ return new class extends Migration
             }
         }
 
-        // Garden block: add the asset manifest only while the owner has not
-        // declared one (an existing assets_base is never overwritten).
         if (is_array($vc['garden'] ?? null) && !isset($vc['garden']['assets_base'])) {
             $vc['garden']['assets_base'] = '/assets/venues/sculpture-garden/';
             $vc['garden']['assets'] = $this->gardenAssets();
@@ -109,7 +61,6 @@ return new class extends Migration
             ->where('id', $row->id)
             ->update(['visual_config' => json_encode($vc)]);
 
-        // ── material_config (lawn retune) ────────────────────────────────
         if ($row->material_config) {
             $mc = json_decode((string) $row->material_config, true) ?: [];
             $mcRewrites = [
@@ -139,7 +90,6 @@ return new class extends Migration
                 ->update(['description' => $v4Description]);
         }
 
-        // ── version ──────────────────────────────────────────────────────
         if ($this->guardedEquals($row->version, '3.0.0')) {
             DB::table('venue_templates')->where('id', $row->id)->update(['version' => '4.0.0']);
         }

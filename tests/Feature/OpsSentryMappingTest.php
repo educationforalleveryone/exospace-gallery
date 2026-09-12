@@ -13,28 +13,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 8, Feature A — the Coolify-app ↔ Sentry-project
- * mapping and the per-application trend column.
- *
- * These tests pin:
- *
- *   1. The migration: the nullable sentry_project_slug column exists
- *      (null by default — zero day-one behavior change).
- *   2. The mapping write path: super-admin-only at the ROUTE level
- *      (viewer AND operator 403), validated (slug shape, length),
- *      case-normalized, audited as ops.sentry.mapping with old → new,
- *      clearable via empty input, idempotent on unchanged input.
- *   3. SentryApiClient::trendFor(): per-project cache key (a failing
- *      project must not poison the org trend or siblings), the project
- *      query parameter is sent, unconfigured/empty-slug short-circuits
- *      without a network call, errors cached.
- *   4. The Applications page: the Sentry column renders a sparkline for
- *      a mapped+configured app, "API error" for a failing project,
- *      honest muted states for unmapped/unconfigured, and the mapping
- *      panel renders for super-admins ONLY (viewers see neither the
- *      panel nor any form markup).
- */
 class OpsSentryMappingTest extends TestCase
 {
     use RefreshDatabase;
@@ -53,13 +31,8 @@ class OpsSentryMappingTest extends TestCase
             'ops.sentry.projects' => [],
         ]);
 
-        // Cache isolation: trendFor()/trend() cache per key, and the
-        // SAME slug may be exercised by a unit test and a page test with
-        // different fakes — a stale cache entry would leak across.
         Cache::flush();
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
 
     private function app(array $overrides = []): OpsApplication
     {
@@ -116,8 +89,6 @@ class OpsSentryMappingTest extends TestCase
         ]);
     }
 
-    // ── 1. Migration ────────────────────────────────────────────────────
-
     public function test_migration_adds_nullable_sentry_project_slug_column(): void
     {
         $application = $this->app();
@@ -137,8 +108,6 @@ class OpsSentryMappingTest extends TestCase
             'sentry_project_slug must be fillable and persistable.',
         );
     }
-
-    // ── 2. The mapping write path ───────────────────────────────────────
 
     public function test_super_admin_can_set_a_mapping_and_it_is_audited(): void
     {
@@ -235,8 +204,6 @@ class OpsSentryMappingTest extends TestCase
         );
     }
 
-    // ── 3. SentryApiClient::trendFor() ──────────────────────────────────
-
     public function test_trend_for_sends_the_project_parameter_and_uses_its_own_cache_key(): void
     {
         $this->configureSentry();
@@ -263,12 +230,9 @@ class OpsSentryMappingTest extends TestCase
                 return false;
             }
 
-            // The project filter must arrive as the mapped slug — not the
-            // config-wide list, not org-wide.
             return in_array('exospace-production', (array) ($request->data()['project'] ?? []), true);
         });
 
-        // Second call: served from the per-project cache — no new request.
         $client->trendFor('exospace-production');
         Http::assertSentCount(1);
     }
@@ -338,8 +302,6 @@ class OpsSentryMappingTest extends TestCase
         Http::assertSentCount(1, 'A failing project must not hammer Sentry on every page load.');
     }
 
-    // ── 4. The Applications page ────────────────────────────────────────
-
     public function test_applications_page_renders_a_trend_for_a_mapped_app(): void
     {
         $this->configureSentry();
@@ -362,9 +324,6 @@ class OpsSentryMappingTest extends TestCase
             ->assertSee('Mapped App', false)
             // The mapped app's total (9 events) renders as its cell total.
             ->assertSee('9', false)
-            // The unmapped app gets the honest muted state (the tooltip
-            // points at the mapping panel), not an error and not a fake
-            // trend.
             ->assertSee('Map this application to a Sentry project below', false);
     }
 
@@ -390,10 +349,6 @@ class OpsSentryMappingTest extends TestCase
 
         $response = $this->asTier('viewer')->get(route('ops.applications'));
 
-        // The cell must say WHY it is empty — a mapped app with no API
-        // token is NOT a zero-error day. (The page footer legitimately
-        // mentions the words “API error” in its legend, so the assertion
-        // targets the cell's own tooltip instead.)
         $response->assertOk()
             ->assertSee('Sentry (24 h)', false)
             ->assertSee('no trend until it is set', false);

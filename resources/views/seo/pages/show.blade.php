@@ -1,8 +1,3 @@
-{{--
-    SEO page shell (Iteration 5): landing + editorial pages render here.
-    Block partials are a CLOSED allow-list validated by SeoPageRenderer —
-    no raw HTML passthrough, CSP-safe.
---}}
 @extends('layouts.public')
 
 @section('content')

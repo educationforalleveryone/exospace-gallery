@@ -12,17 +12,6 @@ use App\Services\TestCenter\ProbeRunner;
 use App\Services\TestCenter\TestProfileRegistry;
 use Illuminate\Http\RedirectResponse;
 
-/**
- * Starts a profile run from the dashboard.
- *
- * Capability detection keeps this honest:
- *   - On machines that actually have a runner (phpunit present, not the
- *     production image): creates run row QUEUED and dispatches RunQaProfile
- *     through the queue → status flips RUNNING → final state recorded.
- *   - On production (no dev deps, policy forbids suites anyway): the UI does
- *     not pretend — it hands the operator the pre-filled GitHub Actions
- *     dispatch link, which is where execution is *designed* to happen.
- */
 class StartController extends Controller
 {
     public function __construct(
@@ -39,8 +28,6 @@ class StartController extends Controller
 
         $profile = $this->registry->profile($profileKey);
 
-        // Safe-read probes (smoke / production health) run INLINE — seconds,
-        // read-only, and exactly the checks that SHOULD be runnable from prod.
         if (in_array($profile['strategy'] ?? '', ['http-smoke', 'in-process-checks'], true)) {
             $target = app()->isProduction() ? 'production' : ($profile['target_environments'][0] ?? 'production');
 

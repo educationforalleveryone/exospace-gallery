@@ -9,15 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
-/**
- * ITERATION 4 — onboarding funnel + TTFE surfaced on Master Control.
- *
- * OnboardingMetricsService is now the single source of truth shared by the
- * weekly console report and the live dashboard panel; these tests pin the
- * computation (cohort funnel counts, per-user FIRST-event TTFE/TTFG in
- * hours) and the dashboard surface (panel renders for super-admins with
- * the period selector; platform stats are cached).
- */
 class OnboardingMetricsTest extends TestCase
 {
     use RefreshDatabase;
@@ -47,10 +38,6 @@ class OnboardingMetricsTest extends TestCase
     {
         $service = app(OnboardingMetricsService::class);
 
-        // Cohort of 3 users in the window:
-        //   A: registered 5d ago, gallery 4d ago, PUBLISHED 2d ago → TTFE 72h
-        //   B: registered 5d ago, gallery 3d ago, never published   → funnel stops at stage 2
-        //   C: registered 40d ago (OUTSIDE the 30d window)          → not counted at all
         $a = User::factory()->create(['created_at' => now()->subDays(5)]);
         $b = User::factory()->create(['created_at' => now()->subDays(5)]);
         User::factory()->create(['created_at' => now()->subDays(40)]);

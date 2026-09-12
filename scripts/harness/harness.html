@@ -1,28 +1,5 @@
 <!doctype html>
-<!-- ─────────────────────────────────────────────────────────────────────────────
-  harness.html — PHP-less visual verification harness for the Exospace viewer.
 
-  WHY: the production preview pages (/venues/{slug}/preview) need Laravel +
-  a database. This page mounts the SAME viewer runtime (resources/js/gallery/
-  main.js) on a static DOM skeleton with a synthetic GALLERY_DATA payload,
-  so venue work can be visually verified (and screenshot-regressed) without
-  a PHP stack — e.g. in CI or a build sandbox.
-
-  It mirrors the DOM contract of resources/views/venues/preview.blade.php
-  (only the ids the viewer actually touches) and builds GALLERY_DATA the way
-  GalleryViewController + VenueConfigExporter do for a seeded venue.
-
-  Query params drive the artwork scenarios:
-    count=8            number of artworks (default 8, max 60)
-    orient=mixed       mixed | portrait | landscape | square | extreme
-    layout=square      square | corridor | l-shape | rotunda
-    frame=minimal      any FRAME_STYLES key
-    exposure=off       skip EXOSPACE_FORCE_* (unused placeholder)
-  The page is built by scripts/harness/vite.harness.config.mjs into
-  public/harness/ and served from the Laravel public/ root (asset paths like
-  /assets/sample/artworks/*.jpg resolve from there; missing PBR texture sets
-  are handled by the viewer's own fallbacks).
-───────────────────────────────────────────────────────────────────────────── -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -76,11 +53,6 @@
     const orient     = q.get('orient') || 'mixed';
     const layout     = q.get('layout') || 'square';
 
-    // ── Cyber Gallery QA: ?motion=still|slow|walk|fast|<m/s> ──────────────
-    // Drives the SAME normalized movement signal the live system computes
-    // (ArtworkReactive reads window.EXOSPACE_QA_MOTION when present), so
-    // screenshots of each movement state are deterministic — the QA script
-    // exercises the real math, not a separate effect preview.
     const MOTION_PRESETS = { still: 0, stop: 0, slow: 0.9, walk: 3.0, fast: 6.0 };
     const motionParam = q.get('motion');
     if (motionParam !== null) {
@@ -139,14 +111,7 @@
         });
     }
 
-    // ── Venue templates (kept in sync with database/seeders/VenueTemplateSeeder.php
-    //    + the guarded migrations). `?venue=` selects the venue under test;
-    //    default white-cube preserves the historical harness behaviour. ──────
     const VENUES = {
-        // Crystal Cathedral — "The Luminous Arcade" (2026-09-07 audit body).
-        // Mirrors the seeder row + the guarded migration
-        // 2026_09_07_000001_crystal_cathedral_architecture byte-for-byte:
-        // drift here means screenshots stop meaning anything (QA gate B).
         'crystal-cathedral': {
             id: 6, slug: 'crystal-cathedral', name: 'Crystal Cathedral', category: 'abstract',
             visual_config: {
@@ -178,8 +143,6 @@
             },
             version: '2.1.0',
         },
-        // Crystal Cathedral — forensic variant WITHOUT the planar reflector
-        // (isolates Reflector+transmission interaction under SwiftShader).
         'crystal-cathedral-noflect': {
             id: 6, slug: 'crystal-cathedral', name: 'Crystal Cathedral', category: 'abstract',
             visual_config: {
@@ -241,8 +204,6 @@
             },
             version: '2.0.0',
         },
-        // Crystal Cathedral — bisect variant: no transmission glass
-        // (glass_material 'none' → tier-resolved flat Lambert).
         'crystal-cathedral-noglass': {
             id: 6, slug: 'crystal-cathedral', name: 'Crystal Cathedral', category: 'abstract',
             visual_config: {
@@ -273,8 +234,6 @@
             },
             version: '2.0.0',
         },
-        // Crystal Cathedral — IT2 rollback body (void_colonnade glass tubes).
-        // Forensic variant: proves the rollback chain still renders.
         'crystal-cathedral-legacy': {
             id: 6, slug: 'crystal-cathedral', name: 'Crystal Cathedral', category: 'abstract',
             visual_config: {
@@ -324,9 +283,6 @@
         },
         'infinite-void': {
             id: 2, slug: 'infinite-void', name: 'Infinite Void', category: 'abstract',
-            // Void Deepening end state — keep in sync with
-            // VenueTemplateSeeder + 2026_09_05_000001_infinite_void_deepening
-            // (scripts/venue-qa/infinite-void-qa.mjs pins the pair).
             visual_config: {
                 wall_height: 20, wall_depth: 0.3, ceiling_type: 'none', ceiling_height: 0,
                 background_color: '0x000000', fog_color: null, fog_near: 0, fog_far: 0,
@@ -355,9 +311,6 @@
             },
             version: '2.0.0',
         },
-        // Industrial Loft — the concrete/steel pro venue. Kept in sync with
-        // VenueTemplateSeeder + 2026_09_06_000001_industrial_loft_deepening
-        // (scripts/venue-qa/industrial-loft-qa.mjs pins the pair).
         'industrial-loft': {
             id: 3, slug: 'industrial-loft', name: 'Industrial Loft', category: 'warehouse',
             visual_config: {
@@ -384,9 +337,6 @@
             },
             version: '2.0.0',
         },
-        // Dark Museum — the night wing (v2.0.0 deepening). Kept in sync with
-        // VenueTemplateSeeder + 2026_09_06_000002_dark_museum_deepening
-        // (scripts/venue-qa/dark-museum-qa.mjs pins the pair).
         'dark-museum': {
             id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
             visual_config: {
@@ -416,10 +366,6 @@
             version: '2.0.0',
         },
 
-        // Japanese Zen Gallery — "The Quiet Procession" (v2.0.0 deepening).
-        // Kept in sync with VenueTemplateSeeder +
-        // 2026_09_07_000002_zen_gallery_deepening
-        // (scripts/venue-qa/zen-gallery-qa.mjs pins the pair).
         'zen-gallery': {
             id: 5, slug: 'zen-gallery', name: 'Japanese Zen Gallery', category: 'minimal',
             visual_config: {
@@ -454,13 +400,6 @@
             version: '2.0.0',
         },
 
-        // FORENSIC REPRO (deployed-screenshot incident, 2026-09-06): the v2
-        // venue row with a STALE gallery override layer merged on top — the
-        // exact merge the exporter performs (only background_color is
-        // stripped; every other key the gallery column carries wins).
-        // Layer simulates the documented incident class: violet fog from the
-        // purple-belt era, the pre-polish dim rig, plus undeclared void keys
-        // (open_air, floor_reflection) that the normalizer keeps as-is.
         'dark-museum-overridden': {
             id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
             visual_config: {
@@ -493,8 +432,6 @@
             },
             version: '2.0.0',
         },
-        // ISOLATION: same layer WITHOUT open_air — proves whether the open
-        // vista needs the void key or the fog alone explains it.
         'dark-museum-fogonly': {
             id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
             visual_config: {
@@ -527,19 +464,6 @@
             version: '2.0.0',
         },
 
-        // FORENSIC REPRO #2 (post-hotfix residual, 2026-09-06): the state the
-        // user's second screenshot shows. The s2 hotfix healed the owned
-        // visual keys (venue fog/rig/walls ARE back on the live site), but
-        // TWO buckets still merge through unguarded:
-        //   • material_config — VENUE_OWNED_MATERIAL_KEYS covers ONLY
-        //     texture_tint, so a stale floor PBR layer (Mirror-Lake-era
-        //     chrome: rough 0.06 / metal 0.85) defeats the museum's polished
-        //     stone (0.3/0.15) → broad envMap mirror sheen with light
-        //     streaks.
-        //   • visual_config.post_fx — a nested object key, not in the owned
-        //     list; array_merge replaces the venue's whole post-fx object,
-        //     so a stale {bloom:true} re-arms bloom and falls the blend back
-        //     to the stock grey glow.
         'dark-museum-residual': {
             id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
             visual_config: {
@@ -650,9 +574,6 @@
             },
             version: '2.0.0',
         },
-        // Dark Museum DIAGNOSTIC body — every dynamic light source off
-        // (ambient 0, hemisphere 0, fill 0, spot→pool 0). Anything still
-        // visible is emissive geometry or a non-light pipeline artifact.
         'dm-dark': {
             id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
             visual_config: {
@@ -679,10 +600,6 @@
             },
             version: '2.0.0',
         },
-        // Dark Museum v1.0.0 — FORENSIC BEFORE body (pre-deepening bytes).
-        // Kept so scripts/harness/shoot.mjs can capture the "before" state
-        // for the audit evidence set. The live 'dark-museum' body tracks the
-        // seeded v2 row; this one must NOT be updated.
         'dark-museum-v1': {
             id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
             visual_config: {
@@ -705,10 +622,6 @@
             },
             version: '1.0.0',
         },
-        // Nebula Drift — "The Deep Field" (2026-09-08 audit pass, v2.0.0).
-        // Mirrors the seeder row byte-for-byte (the QA gate asserts the sync).
-        // The v1.0.0 row is preserved below as 'nebula-drift-legacy' for
-        // forensic bisect, exactly like the cathedral rollback chain.
         'nebula-drift': {
             id: 7, slug: 'nebula-drift', name: 'Nebula Drift', category: 'abstract',
             visual_config: {
@@ -744,9 +657,6 @@
             },
             version: '2.2.0',
         },
-        // Nebula Drift — the v1.0.0 row (forensic rollback body: config-revert
-        // target for the Deep Field; kept here so screenshots of the legacy
-        // look stay reproducible for bisect).
         'nebula-drift-legacy': {
             id: 7, slug: 'nebula-drift', name: 'Nebula Drift (v1 legacy)', category: 'abstract',
             visual_config: {
@@ -774,11 +684,6 @@
             },
             version: '1.0.0',
         },
-    // ── Cyber Gallery — "Signal Room" (2026-09-09 v2.0.0) ─────────────────
-    // Mirrors the seeder row + guarded migration 2026_09_09_000010
-    // byte-for-byte (QA gate B): the movement-reactive artwork declaration
-    // rides in visual_config.artwork_reactive; drift here means screenshots
-    // stop meaning anything.
     'cyber-gallery': {
         id: 9, slug: 'cyber-gallery', name: 'Cyber Gallery', category: 'futuristic',
         description: 'A signal room for digital natives: dark anodized walls, a floor traced in light, neon ringing every edge — and artworks that behave like living media. Stand still and they hold still. Move, and they react to you.',
@@ -827,12 +732,6 @@
         },
         version: '2.0.0',
     },
-    // ── Outdoor Sculpture Garden — "The Sculpture Park" (2026-09-09 v4.0.0) ──
-    // Mirrors the seeder row + guarded migration 2026_09_09_000012
-    // byte-for-byte (QA gate B): the landscape declaration rides in
-    // visual_config (placement_mode 'garden', field sizing, hemisphere
-    // tints, sky environment, ASSET MANIFEST) — drift here means
-    // screenshots stop meaning anything.
     'sculpture-garden': {
         id: 10, slug: 'sculpture-garden', name: 'Outdoor Sculpture Garden', category: 'outdoor',
         description: 'A curated open-air exhibition. A gravel walk leads from the tree-lined gate to a bronze centrepiece on a travertine court, then on to works presented on outdoor museum stands across lawns and sculpture clearings, framed by mature trees and a distant treeline.',
@@ -880,12 +779,6 @@
         },
         version: '4.0.0',
     },
-        // ── Mirror Lake — v1.0.0 "Phenomena" (FORENSIC BEFORE body) ────────
-        // Mirrors the seeder row byte-for-byte (QA gate B). This is the
-        // pre-redesign body: a dark void disc with a planar Reflector floor,
-        // moon + mist. Kept as the rollback/regression reference while the
-        // flagship redesign iterates; the live 'mirror-lake' row below it
-        // tracks the new seeder.
         'mirror-lake-v1': {
             id: 11, slug: 'mirror-lake', name: 'Mirror Lake', category: 'abstract',
             description: 'A still, dark lake reflects the floating artworks and the moon. Mist drifts low. Quiet, spacious, meditative.',
@@ -920,13 +813,6 @@
             },
             version: '1.0.0',
         },
-        // ── Mirror Lake — "The Still Shore" (2026-09-10 v3.0.0) ────────────
-        // Mirrors the seeder row + guarded migration 2026_09_09_000013
-        // byte-for-byte (QA gate B): the waterfront identity rides in
-        // visual_config (structure_pass 'lake', placement_mode 'lake',
-        // environment 'none' + PMREM sky, hemisphere tints, field sizing,
-        // the lake asset manifest, post_fx) — drift here means screenshots
-        // stop meaning anything.
         'mirror-lake': {
             id: 11, slug: 'mirror-lake', name: 'Mirror Lake', category: 'abstract',
             description: 'A gallery at dusk on the shore of a still lake. Works hover above the calm water along the shore, doubled by their reflection. Arrive on the stone landing, follow the shoreline walk, cross the timber pier to the lantern-lit viewing pavilion, and look back as the far shore fades into mist under a rising moon.',
@@ -978,10 +864,6 @@
             },
             version: '3.0.0',
         },
-        // The Salon — v2.0.0 "The Collector's Salon" (production pass).
-        // Mirrors the seeder row (VenueTemplateSeeder.php entry #12) +
-        // guarded migration byte-for-byte: drift here means screenshots
-        // stop meaning anything (QA gate B).
         'the-salon': {
             id: 12, slug: 'the-salon', name: 'The Salon', category: 'classic',
             description: 'A warm collector\u2019s suite of two rooms: a full-height olive velvet curtain, tied back over a brass rod, divides the receiving room from the gallery room — both hung salon-style, large at eye level and smaller above, between walnut trim and a picture rail under a coved warm light. The arrival frames its hero through the curtain opening; the wide walnut double door closes the enfilade behind you. Made for studies, prints, photography and portrait formats.',
@@ -1016,20 +898,10 @@
                     wall_length_cap: 12.6,
                     salon_rows: 2,
                     upper_row_y: 2.98,
-                    // v3 "two rooms": the full-height curtain splits the salon
-                    // into TWO hang rooms (receiving room at the spawn, gallery
-                    // room at the hero wall). Six wall segments, both rooms
-                    // filled at every count; the hero keeps a dead-centre slot
-                    // on the front wall so the arrival reads it THROUGH the
-                    // opening. keep_clear is superseded — the door keep lives
-                    // in room_divider.door_keep now.
                     room_divider: { at: 0.5, opening: 2.4, keep: 0.55, door_keep: 1.15, spacing: 2.4 },
                     row_caps: [{ maxWidth: 2.0, maxHeight: 1.45 }, { maxWidth: 1.7, maxHeight: 0.84 }],
                 },
                 structure: [
-                    // ── Per-wall architectural trim (fit: wall — adapts to
-                    // any room the admin configures). Baseboard + hanging
-                    // field + picture rail + cornice + cove light line.
                     { id: 'base-front', primitive: 'box', at: { from: 'wall_front', offset: [0, 0.09, 0.0] }, size: [1, 0.18, 0.024], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
                     { id: 'base-back',  primitive: 'box', at: { from: 'wall_back',  offset: [0, 0.09, 0.0] }, size: [1, 0.18, 0.024], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
                     { id: 'base-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 0.09, 0.0] }, turn: 'in', size: [1, 0.18, 0.024], fit: 'wall', fit_pad: 0.02, material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
@@ -1050,12 +922,6 @@
                     { id: 'cove-back',  primitive: 'box', at: { from: 'wall_back',  offset: [0, 3.615, 0.0] }, size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
                     { id: 'cove-left',  primitive: 'box', at: { from: 'wall_left',  offset: [0, 3.615, 0.0] }, turn: 'in', size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
                     { id: 'cove-right', primitive: 'box', at: { from: 'wall_right', offset: [0, 3.615, 0.0] }, turn: 'in', size: [1, 0.045, 0.028], fit: 'wall', fit_pad: 0.06, material: { color: '0xffe8cc', emissive: '0xffd9a8', emissiveIntensity: 0.85 }, merge: 'salon-cove', tier_floor: 'low' },
-                    // ── The threshold — a wide classical double-leaf walnut
-                    // doorcase on the entry wall (portes à deux vantaux,
-                    // v3: 2 × 0.92 m leaves = 1.84 m clear under a 2.06 m
-                    // entablature, two raised panels per leaf, bronze knobs
-                    // and backplates at BOTH meeting stiles, the ivory
-                    // overdoor above; room_divider.door_keep holds its wall).
                     { id: 'door-leaf-l', primitive: 'box', at: { from: 'wall_back', offset: [-0.46, 1.31, 0.05] }, size: [0.92, 2.62, 0.045], material: { color: '0x35281a', roughness: 0.85, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
                     { id: 'door-leaf-r', primitive: 'box', at: { from: 'wall_back', offset: [0.46, 1.31, 0.05] }, size: [0.92, 2.62, 0.045], material: { color: '0x35281a', roughness: 0.85, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
                     { id: 'door-panel-ll', primitive: 'box', at: { from: 'wall_back', offset: [-0.46, 0.71, 0.085] }, size: [0.56, 0.92, 0.012], material: { color: '0x463623', roughness: 0.75, metalness: 0.0 }, merge: 'salon-door', tier_floor: 'low' },
@@ -1070,21 +936,10 @@
                     { id: 'door-knob-r',   primitive: 'sphere', at: { from: 'wall_back', offset: [0.08, 1.16, 0.095] }, size: [0.052, 0.052, 0.052], material: 'bronze', tier_floor: 'low' },
                     { id: 'door-plate-l',  primitive: 'cylinder', at: { from: 'wall_back', offset: [-0.08, 1.16, 0.078] }, rot: [1.5707963, 0, 0], size: [0.07, 0.012], params: { seg: 14 }, material: 'bronze', tier_floor: 'low' },
                     { id: 'door-plate-r',  primitive: 'cylinder', at: { from: 'wall_back', offset: [0.08, 1.16, 0.078] }, rot: [1.5707963, 0, 0], size: [0.07, 0.012], params: { seg: 14 }, material: 'bronze', tier_floor: 'low' },
-                    // ── The curtain — THE salon v3 identity moment: a
-                    // full-height olive velvet wall of fabric, tied back over
-                    // a brass rod, dividing the two rooms. Parametric
-                    // 'curtain' primitive (StructureBuilder): sine folds,
-                    // gathered waist, hem wave; collision hugs the panels so
-                    // the 2.4 m opening is the walk gap. Renders on every tier.
                     { id: 'salon-curtain', primitive: 'curtain', at: { from: 'center', offset: [0, 0, 0] }, params: { opening: 2.4, rod_y: 3.12, top_y: 3.04, hem_y: 0.02, amplitude: 0.085, folds: 6, tie_y: 1.12, gather: 0.15, hem_gather: 0.06, bracket: 0.16, hardware: 'bronze', seed: 'salon-two-rooms' }, material: { color: '0x565c49', roughness: 0.96, metalness: 0.0, side: 'double' }, collide: true, tier_floor: 'low' },
-                    // ── The hero bench — the museum habit in domestic dress:
-                    // sit (or stand) one pace from the hero wall.
                     { id: 'bench-top',  primitive: 'box', at: { from: 'wall_front', offset: [0, 0.34, 0.85] }, size: [1.7, 0.1, 0.46], material: 'wood_warm', collide: true, merge: 'salon-bench', tier_floor: 'low' },
                     { id: 'bench-leg-l', primitive: 'box', at: { from: 'wall_front', offset: [-0.72, 0.145, 0.85] }, size: [0.1, 0.29, 0.42], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
                     { id: 'bench-leg-r', primitive: 'box', at: { from: 'wall_front', offset: [0.72, 0.145, 0.85] }, size: [0.1, 0.29, 0.42], material: 'wood_dark', merge: 'salon-trim', tier_floor: 'low' },
-                    // ── The conversation corner — two chairs and a round
-                    // table on a rug, off the arrival sightline. The social
-                    // read, not a living room.
                     { id: 'rug', primitive: 'plane', at: { from: 'center', offset: [2.2, 0.012, 2.2] }, rot: [-1.5707963, 0, 0], size: [2.6, 2.6], material: { color: '0x74604a', roughness: 1.0, metalness: 0.0 }, tier_floor: 'low' },
                     { id: 'chair-a-seat', primitive: 'box', at: { from: 'center', offset: [2.75, 0.275, 1.75] }, rot: [0, -0.785398, 0], size: [0.7, 0.35, 0.7], material: { color: '0x6a5a48', roughness: 1.0, metalness: 0.0 }, collide: true, merge: 'salon-chair-a', tier_floor: 'low' },
                     { id: 'chair-a-back', primitive: 'box', at: { from: 'center', offset: [3.0, 0.7, 1.5] }, rot: [0, -0.785398, 0], size: [0.7, 0.6, 0.14], material: { color: '0x6a5a48', roughness: 1.0, metalness: 0.0 }, merge: 'salon-chair-a', tier_floor: 'low' },
@@ -1097,8 +952,6 @@
                     { id: 'table-top',  primitive: 'cylinder', at: { from: 'center', offset: [2.25, 0.52, 2.25] }, size: [0.64, 0.05], params: { seg: 20 }, material: 'wood_warm', collide: true, merge: 'salon-table', tier_floor: 'low' },
                     { id: 'table-stem', primitive: 'cylinder', at: { from: 'center', offset: [2.25, 0.26, 2.25] }, size: [0.07, 0.46], params: { seg: 10 }, material: 'wood_dark', merge: 'salon-table', tier_floor: 'low' },
                     { id: 'table-base', primitive: 'cylinder', at: { from: 'center', offset: [2.25, 0.015, 2.25] }, size: [0.36, 0.03], params: { seg: 16 }, material: 'wood_dark', merge: 'salon-table', tier_floor: 'low' },
-                    // ── The ceiling roses — one plaster + bronze moment per
-                    // room (the v2 single rose would sit ON the curtain line).
                     { id: 'rose-disc-a', primitive: 'cylinder', at: { from: 'center', offset: [0, 3.78, 2.4] }, size: [1.0, 0.04], params: { seg: 24 }, material: { color: '0xd0c3a8', roughness: 0.9, metalness: 0.0 }, tier_floor: 'low' },
                     { id: 'rose-ring-a', primitive: 'torus', at: { from: 'center', offset: [0, 3.755, 2.4] }, rot: [1.5707963, 0, 0], size: [0.5, 0.05], params: { seg: 24, seg2: 32 }, material: 'bronze', tier_floor: 'low' },
                     { id: 'rose-glow-a', primitive: 'cylinder', at: { from: 'center', offset: [0, 3.768, 2.4] }, size: [0.32, 0.02], params: { seg: 20 }, material: { color: '0xfff1dc', emissive: '0xffe2b8', emissiveIntensity: 0.9 }, tier_floor: 'low' },
@@ -1136,10 +989,6 @@
             },
             version: '3.0.0',
         },
-        // Luxury Penthouse — "The Double Volume" (2026-09-09 full redesign,
-       // v3.0.0). Mirrors the seeder row + guarded migration
-        // 2026_09_09_000007 byte-for-byte: drift here means screenshots stop
-        // meaning anything (QA gate B).
         'luxury-penthouse': {
             id: 8, slug: 'luxury-penthouse', name: 'Luxury Penthouse', category: 'luxury',
             description: "A private collector's floor in two volumes — a low, coved gallery procession that lifts at a lit seam into a double-height living room glazed to the dusk city on two faces, the largest work living above the stone fireplace, the terrace wrapping the glass corner.",
@@ -2768,10 +2617,6 @@
             version: '3.0.0',
         },
 
-        // Luxury Penthouse — the v2.1.0 row ("Evening Light", forensic rollback
-        // body: the config-revert target for The Double Volume via the guarded
-        // migration's down(); kept here so rollback-chain screenshots stay
-        // reproducible for bisect).
         'luxury-penthouse-v21': {
             id: 8, slug: 'luxury-penthouse', name: 'Luxury Penthouse (v2.1 rollback)', category: 'luxury',
             description: "A private collector's floor at dusk — a walnut-and-stone gallery wing warming into a lounge at the glass, the city glowing beyond it, art hung the way a residence lives with it.",
@@ -4018,9 +3863,6 @@
             version: '2.1.0',
         },
 
-        // Luxury Penthouse — the v1.0.0 row (forensic rollback body: the
-        // config-revert target for The Collector's Floor; kept here so
-        // screenshots of the legacy look stay reproducible for bisect).
         'luxury-penthouse-legacy': {
             id: 8, slug: 'luxury-penthouse', name: 'Luxury Penthouse (v1 legacy)', category: 'luxury',
             visual_config: {
@@ -4065,17 +3907,6 @@
             },
             version: '1.0.0',
         },
-        // ── FORENSIC REGRESSION BODY (deployed-screenshot incident) ────────
-        // What the exporter NOW produces for the gallery that broke on
-        // 2026-09-05 (curator-saved Live-Preview overrides on top of the
-        // healthy infinite-void row). VENUE-OWNED ATMOSPHERE: the saved
-        // purple background 0x6D0DA0 is STRIPPED by VenueConfigExporter
-        // (floor_edge_fade ramps to the venue's own 0x000000 → no violet
-        // band, forever, for any saved value). The non-structural curator
-        // deviations ride on top unchanged: dim rig (ambient 0.11 / spot
-        // 0.48 / exposure 0.55 → murk, the "Reset all" manual task), PBR
-        // detune, fog_far 60 with a null colour. This body pins the healed
-        // merge: purple saved ⇒ venue black rendered.
         'infinite-void-overridden': {
             id: 2, slug: 'infinite-void', name: 'Infinite Void', category: 'abstract',
             visual_config: {
@@ -4106,12 +3937,6 @@
             version: '2.0.0',
         },
     };
-    // ── 'luxury-penthouse-v31' — DERIVED, not hand-authored ─────────────
-    // Clones the pinned v3.0.0 penthouse body and applies exactly the
-    // 2026_09_09_000009_luxury_penthouse_media_wall deltas (lamp move,
-    // bench walnut, knot rest, media console/bezel, picture bar, fixtures,
-    // media_wall key). Mirror-of-the-migration: drift here means the
-    // after-screenshots stop meaning anything (QA gate D3).
     const derivePenthouseMediaWall = () => {
         const base = VENUES['luxury-penthouse'];
         const v = JSON.parse(JSON.stringify(base));
@@ -4142,20 +3967,9 @@
     const venueSlug = q.get('venue') || 'white-cube';
     const venueConfig = VENUES[venueSlug] || VENUES['white-cube'];
 
-    // ?shadows=0 — QA-only renderer relief. The garden's sun-shadow pass over
-    // hundreds of thousands of alpha-tested canopy vertices is minutes per
-    // frame under SwiftShader (the QA software rasterizer); on any real GPU
-    // it is a trivial load. The strip happens at the CONFIG level (the same
-    // rollback key the venue declares), never via a code branch, so the
-    // capture still exercises the shipping interpreter paths.
     if (q.get('shadows') === '0' && venueConfig.visual_config?.sun_shadows === true) {
         venueConfig.visual_config.sun_shadows = false;
     }
-    // ?assets=0 — QA-only: capture the BASE ENVIRONMENT without the GLB
-    // layer (the graceful-degradation path a gallery owner sees before
-    // dropping assets in). Software rasterizers cannot push the full
-    // alpha-blended canopy set in QA time; the asset layer's visual proof
-    // lives in scripts/harness/probe-garden-asset-render.mjs.
     if (q.get('assets') === '0' && (venueConfig.visual_config?.garden || venueConfig.visual_config?.lake)) {
         for (const key of ['garden', 'lake']) {
             if (venueConfig.visual_config?.[key]?.assets) {
@@ -4166,23 +3980,10 @@
         }
     }
 
-    // ?reflect=0 — QA-only: force the designed NON-reflector water path (the
-    // mobile/low gloss mood). The planar Reflector renders the scene one
-    // extra time per frame — minutes per frame under SwiftShader — so the
-    // composition matrix captures on this strip; the reflector's own proof
-    // lives in the dedicated water probe. Config-level (floor_reflection),
-    // never a code branch — the same rollback key the migration guards.
     if (q.get('reflect') === '0' && venueConfig.visual_config?.floor_reflection === 'planar') {
         venueConfig.visual_config.floor_reflection = 'gloss';
     }
 
-    // ?tier= — QA-only tier override. The QA rasterizer's GPU string always
-    // matches the product's software-renderer regex, which would pin every
-    // capture to the low tier; ?tier=high forces the SHIPPING high-tier
-    // path (water Reflector, PMREM sky, Standard materials) to render on
-    // the rasterizer, ?tier=low pins the low tier explicitly. Consumed by
-    // Renderer.js earlyLowEndCheck (window.__EXOSPACE_QA_TIER). The
-    // product never sets that flag — QA instrumentation only.
     const qaTier = q.get('tier');
     if (qaTier === 'high' || qaTier === 'low') {
         window.__EXOSPACE_QA_TIER = qaTier;

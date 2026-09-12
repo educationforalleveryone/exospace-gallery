@@ -18,14 +18,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * P2-23: Tests for the 7 mailables that previously had no test coverage.
- *
- * Each test verifies:
- *   - The mailable has both HTML and text views
- *   - The mailable implements ShouldQueue (where applicable)
- *   - The envelope subject is correct
- */
 class MailableCoverageTest extends TestCase
 {
     use RefreshDatabase;

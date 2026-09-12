@@ -1,17 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// zen-transitions.mjs — state-isolation evidence (brief §15).
-//
-// Walks the REAL harness boot path in sequence — zen → white-cube → zen and
-// zen → dark-museum → zen — one fresh page load per venue (exactly how the
-// production app transitions between venues: a full scene boot, never an
-// in-place mutation). After each boot, snapshot the venue-identity state
-// from the live scene. The two zen snapshots in each sequence must be
-// IDENTICAL: no fog/lighting/exposure/geometry state may survive a page
-// boundary, and nothing from the intermediate venue may ride along.
-//
-//   node scripts/harness/zen-transitions.mjs
-// ─────────────────────────────────────────────────────────────────────────────
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -145,8 +132,6 @@ for (const [name, seq] of [
     section(`Transition: ${name}`);
     const runs = [];
     for (const q of seq) {
-        // Sandbox SwiftShader sometimes starves the stats evaluate — the
-        // boot itself is what must not fail; retry a starved snapshot once.
         let { snap, errors } = await bootScene(browser, q);
         if (!snap) { ({ snap, errors } = await bootScene(browser, q)); }
         runs.push(snap);

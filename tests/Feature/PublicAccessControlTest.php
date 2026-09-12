@@ -2,29 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * ITERATION-3 — Public-experience hardening: access-control tests.
- *
- * The artwork page and the public events page previously leaked gated
- * exhibition content with only a noindex meta tag as mitigation:
- *   - artwork pages rendered in FULL for PIN-protected, unpublished and
- *     not-yet-opened galleries (noindex stops crawlers, not humans);
- *   - the events page + RSVP form were fully public for PIN galleries.
- *
- * These tests pin the gating matrix that now mirrors the gallery view's
- * own visibility rules:
- *
- *   gallery state            artwork page        events page
- *   ───────────────────      ──────────────      ─────────────
- *   draft / unpublished      404                 404 (is_active query)
- *   not yet open             redirect → gallery  public (RSVP surface)
- *   closed                   redirect → gallery  redirect → gallery
- *   PIN, session unverified  redirect → PIN      redirect → PIN
- *   PIN, session verified    full page noindex   full page
- *
- * Run: php artisan test --filter=PublicAccessControlTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Artist;
@@ -84,8 +61,6 @@ class PublicAccessControlTest extends TestCase
         ], $attrs));
     }
 
-    // ── Artwork page: state matrix ───────────────────────────────────────
-
     public function test_artwork_page_is_public_for_open_gallery(): void
     {
         $gallery = $this->makeGallery();
@@ -108,9 +83,6 @@ class PublicAccessControlTest extends TestCase
 
     public function test_artwork_page_404s_after_unpublish(): void
     {
-        // The Iteration-2 promise: unpublishing must withdraw the public
-        // URL. Before Iteration-3 the gallery page 404'd but the artwork
-        // deep link kept serving the content.
         $gallery = $this->makeGallery();
         $artwork = $this->addArtwork($gallery);
 
@@ -140,8 +112,6 @@ class PublicAccessControlTest extends TestCase
             ->assertRedirect(route('gallery.view', $gallery->slug));
     }
 
-    // ── Artwork page: PIN gating ─────────────────────────────────────────
-
     public function test_artwork_page_redirects_to_pin_screen_for_pin_gallery(): void
     {
         $gallery = $this->pinGallery();
@@ -166,12 +136,8 @@ class PublicAccessControlTest extends TestCase
         $html = $response->getContent();
         $this->assertStringContainsString('Hidden Masterpiece', $html, 'PIN-verified visitor must see the artwork.');
         $this->assertStringContainsString('noindex,nofollow', $html, 'PIN galleries are never publiclyViewable — stay out of the index even post-unlock.');
-        // Structured data would describe gated content to machines — a
-        // second leak of what the PIN protects.
         $this->assertStringNotContainsString('"@type":"VisualArtwork"', $html);
     }
-
-    // ── Events page: PIN + time gating ───────────────────────────────────
 
     public function test_events_page_redirects_to_pin_screen_for_pin_gallery(): void
     {
@@ -218,8 +184,6 @@ class PublicAccessControlTest extends TestCase
 
     public function test_events_page_stays_public_before_opening(): void
     {
-        // Deliberate: openings and artist talks are the pre-opening
-        // marketing surface — that is what RSVPs are for.
         $gallery = $this->makeGallery(['opens_at' => now()->addDays(7)]);
         GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
@@ -233,8 +197,6 @@ class PublicAccessControlTest extends TestCase
             ->assertOk()
             ->assertSee('Opening Night');
     }
-
-    // ── RSVP write path: PIN gating ──────────────────────────────────────
 
     public function test_rsvp_cannot_be_submitted_to_pin_gallery_without_pin(): void
     {

@@ -1,16 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// ArtworkPlacer — places artworks on walls (square/corridor/l-shape/rotunda),
-// on easels (circular — sculpture garden), or FLOATING in space (void venues).
-//
-// Iteration 2 "Phenomena" (roadmap P1.2 / §10.5): the hang style is a
-// PLACEMENT MODE read from the venue's config (visual_config.placement_mode),
-// not slug membership. "Floating artworks in an endless environment" becomes
-// literally true for the void family; the sculpture garden keeps its easels
-// BY IDENTITY (§4.10) because it declares no mode. No new slug knowledge is
-// introduced here (DoD rule #7 — the CIRCULAR_VENUES slug set is DELETED in
-// the Iteration 6 consolidation; layout is config-declared).
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
@@ -18,12 +5,6 @@ import { computeFloatLayout } from './PlacementMath.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
 import { pairByOrientation, focalWallOf, isFocalHero, FOCAL, resolveSquareHang, resolveDividerHang } from './PlacementCuration.js';
 
-// ── Shared placeholder texture (PERF-C9) ─────────────────────────────────────
-// A 1×1 dark-tinted texture used when neither the real artwork nor a
-// thumbnail has arrived yet. Every canvas material is created WITH a map so
-// that later swapping in the real texture never changes the shader program
-// (map presence is part of the program cache key — creating materials
-// map-less and adding maps later would recompile once per artwork).
 let _placeholderTexture = null;
 function getPlaceholderTexture() {
     if (!_placeholderTexture) {
@@ -34,18 +15,11 @@ function getPlaceholderTexture() {
     return _placeholderTexture;
 }
 
-// ── Top-level dispatcher ────────────────────────────────────────────────────
 export function placeArtworks(data) {
     if (this.artworkImages.length === 0) return;
 
     const layout = (this._layoutMeta || {}).type || 'square';
 
-    // Circular venues (sculpture garden + void venues) — DECLARED via
-    // visual_config.layout_shape since Iteration 6 (the CIRCULAR_VENUES
-    // slug set is deleted; §10.5 placement modes unchanged: config-declared
-    // 'float' hovers the canvases, 'garden' composes the CURATED WALK
-    // (courts, hierarchy, approaches — see GardenLayout.js), and the legacy
-    // default keeps the easel ring).
     if (this._venueLayoutShape === 'circular' || layout === 'circular') {
         if (this._venuePlacementMode === 'float') {
             _placeArtworksFloating.call(this, data);
@@ -63,30 +37,14 @@ export function placeArtworks(data) {
     else if (layout === 'l-shape')  { _placeArtworksLShape.call(this, data);   return; }
     else if (layout === 'rotunda')  { _placeArtworksRotunda.call(this, data);  return; }
 
-    // ── SQUARE ────────────────────────────────────────────────────────────
     _placeArtworksSquare.call(this, data);
 }
 
-// ── Centered wall-run offset (pure, shared by square + corridor) ─────────
-// A run of `runCount` works on a wall spans `spacing` between neighbours; the
-// RUN CENTRE belongs on the wall centre. The old fixed offset (spacing from
-// the corner) centred only FULL runs — a 1-work wall hung its piece 0.5–1.75 m
-// off centre (a one-artwork show looked accidental). Extracted so the QA
-// suite can pin the invariant (scripts/venue-qa).
 export function wallRunOffset(runCount, posInRun, spacing, wallLength) {
     if (runCount <= 0) return 0;
     return (wallLength / 2) - ((runCount - 1) * spacing) / 2 + posInRun * spacing;
 }
 
-// ── Square run plan (pure, shared by the square placer AND structure passes)
-// ─────────────────────────────────────────────────────────────────────────────
-// The framed-bay architecture (VenueDecorator 'bays' pass) must frame the
-// hang it serves: fins stand exactly at the run boundaries, so STRUCTURE and
-// PLACEMENT consume one split math — they can never disagree (the loft
-// precedent, generalised). `distribute` = works placed on outer walls (the
-// placer passes outerCount — imageCount when no bay surfaces exist; a
-// structure pass passes imageCount). Byte-identical to the historic inline
-// math of _placeArtworksSquare.
 export function squareRunPlan(imageCount, distribute, spacing, wallCount,
                               minWallLength = CONFIG.room.minWallLength) {
     const imagesPerWall = Math.ceil(imageCount / wallCount);
@@ -96,14 +54,6 @@ export function squareRunPlan(imageCount, distribute, spacing, wallCount,
     return { wallLength, imagesPerWall, runCounts };
 }
 
-// ── Square LINE plan (Salon iteration — rows-aware sizing, pure) ─────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// The rows-aware counterpart of squareRunPlan: `hang` is resolveSquareHang's
-// output ({ rows, perLine, keep } — or null for the historic single line).
-// Sizing and the per-LINE run counts (hang order: wall by wall, row 0 before
-// row 1) come from ONE math, so RoomBuilder's room and the placer's hang can
-// never disagree. With rows = 1 the plan reduces exactly to squareRunPlan's
-// sizing (bit-identical rooms for venues that declare nothing).
 export function squareLinePlan(imageCount, spacing, wallCount, minWallLength, hang) {
     const rows    = (hang && hang.rows > 1) ? hang.rows : 1;
     const perLine = (hang && hang.perLine > 0)
@@ -121,14 +71,6 @@ export function squareLinePlan(imageCount, spacing, wallCount, minWallLength, ha
     return { wallLength, rows, perLine, lines };
 }
 
-// ── L-shape row plan (pure, shared by the l-shape placer AND structure passes)
-// ─────────────────────────────────────────────────────────────────────────────
-// Mirrors the alternating-face walk: rows step zStart→zLimit by `spacing`,
-// two faces per row in wing A (outer wall face 0, inner wall face 1), the
-// remainder spills into wing B along the x axis the same way. Face row
-// counts derive from the same alternation (face f holds rows floor to
-// ceil of half the wing's works), so a bay pass can frame both wings
-// without a second placement implementation.
 export function lshapeRowPlan(imageCount, zStart, zLimit, spacing) {
     let spillFrom = imageCount, sideA = 0, rowA = 0;
     for (let i = 0; i < imageCount; i++) {
@@ -147,52 +89,10 @@ export function lshapeRowPlan(imageCount, zStart, zLimit, spacing) {
     };
 }
 
-// ── Wall-face standoff (pure, shared by every wall layout) ────────────────
-// ARTWORK-BURIAL FIX (Industrial Loft forensic audit): the hang used to
-// measure its standoff from the wall CENTRE plane with a constant 0.2 m —
-// correct only for the historical wall_depth 0.3 (0.15 half + 0.05 gap).
-// wall_depth is venue-configurable (visual_config.wall_depth), and the one
-// venue that changed it — Industrial Loft, 0.5 m walls — buried every
-// artwork 5 cm INSIDE the wall box: the venue hung glowing rectangles of
-// pool light on visibly empty walls in preview AND public.
-//
-// The standoff is now derived from the wall geometry itself:
-//   wallDepth/2 (centre → inner face) + 0.05 m clearance to the frame back.
-// depth 0.3 → 0.20 (byte-identical to the historic constant, so White Cube
-// and every 0.3-wall venue render unchanged); depth 0.5 → 0.30. The same
-// helper is consumed by VenueDecorator's structure code so columns, coves
-// and props always share ONE definition of "the wall face".
 export function wallInset(depth = CONFIG.room.wallDepth) {
     return (depth || 0.3) / 2 + 0.05;
 }
 
-// ── SQUARE placement ─────────────────────────────────────────────────────────
-// Iteration 3 additions (both config-driven, zero slug knowledge):
-//   1. A glazing wall (visual_config.glazing_wall — RoomBuilder removed the
-//      wall and sized the room for three) holds NO artworks; the same 3-wall
-//      math is mirrored here so placement and room can never disagree.
-//   2. Bay redistribution (§4.4): surfaces registered by structure as
-//      `hangable` (Museum divider faces — StructureBuilder/VenueDecorator)
-//      receive the LAST portion of the hang, so the bays gain works instead
-//      of holding none while the outer walls hold thirty.
-// Iteration 6 curation (P2.3 §6.3–§6.5, all opt-in — no keys ⇒ identity):
-//   3. Orientation pairing (placement.pair_orientation) interleaves
-//      portrait/landscape inside wall runs so mixed walls read composed.
-//   4. Focal wall (placement.focal_wall) gives the FIRST outer-wall piece on
-//      that wall the hero treatment (scale + stronger pool, FOCAL consts);
-//      every other piece stays equal. Bay pieces never qualify.
-// Salon iteration (all opt-in — no keys ⇒ the legacy path byte-identical):
-//   5. placement.salon_rows + placement.wall_length_cap — the square hang
-//      wraps onto a SECOND line (large works at eye, smaller works above —
-//      the classic salon hang) whenever the one-row room would breach the
-//      declared wall-length cap. Room sizing shares ONE line plan with the
-//      placer (squareLinePlan) so they can never disagree.
-//   6. placement.keep_clear { wall, width } — no column may fall within
-//      width/2 of that wall's centre: the architectural threshold (a
-//      doorcase) keeps its wall. The nearest centre slot is dropped and the
-//      displaced work re-hangs on the last line with spare capacity.
-//   7. placement.row_caps / placement.upper_row_y — per-line canvas caps
-//      and the upper line's hang height (sane salon defaults).
 export function _placeArtworksSquare(data) {
     const imageCount = this.artworkImages.length;
     const spacing    = CONFIG.room.artworkSpacing;
@@ -200,25 +100,15 @@ export function _placeArtworksSquare(data) {
     const wallCount  = glazingWallId ? 3 : 4;
     const curation  = this._venuePlacement || {};
     const focalWall = focalWallOf(curation);
-    // Orientation pairing (§6.4): a stable index permutation. With the key
-    // absent this is the identity — hang order untouched (default unchanged).
     const order = curation.pair_orientation === true
         ? pairByOrientation(this.artworkImages)
         : this.artworkImages.map((_, i) => i);
 
-    // ── DIVIDER PATH (Salon v3 "two rooms") — engaged only by the declared
-    // room_divider key: the square hang becomes six wall segments split by a
-    // full-height curtain (PlacementCuration.resolveDividerHang owns the one
-    // math RoomBuilder sizes from). Every other square venue resolves exactly
-    // as before (§11.3 rule 2: the config is the only on-switch).
     if (curation.room_divider && typeof curation.room_divider === 'object' && !glazingWallId) {
         _placeArtworksSquareDivider.call(this, data, { order, focalWall });
         return;
     }
 
-    // ── ROWS PATH — engaged only by declared keys (hang.rows > 1 or an
-    // active keep_clear). Every other square venue resolves exactly as
-    // before (§11.3 rule 2: the config is the only on-switch).
     const hang = resolveSquareHang(curation, imageCount, wallCount, spacing,
                                    CONFIG.room.minWallLength);
     if ((hang.rows > 1 || hang.keep) && !glazingWallId) {
@@ -226,9 +116,6 @@ export function _placeArtworksSquare(data) {
         return;
     }
 
-    // Room sizing comes from the SHARED pure helper — the 'bays' structure
-    // pass consumes the same plan, so the framed architecture always wraps
-    // the real hang (one math, never two).
     const { wallLength } = squareRunPlan(imageCount, imageCount, spacing, wallCount);
     const eyeLevel = CONFIG.camera.height;
 
@@ -245,10 +132,6 @@ export function _placeArtworksSquare(data) {
     const bayPlan = _planBayHangs(imageCount, this._hangableSurfaces, spacing);
     const outerCount = imageCount - (bayPlan ? bayPlan.length : 0);
 
-    // Per-wall run counts from the shared helper (the ceil split gives every
-    // wall except the last a full run; the LAST wall receives the remainder,
-    // and the offset math below centres EACH wall's ACTUAL run). Outer
-    // distribution respects any bay take; the bays pass passes imageCount.
     const { runCounts } = squareRunPlan(imageCount, outerCount, spacing, hangWalls.length);
 
     let bayIdx = 0;
@@ -265,24 +148,15 @@ export function _placeArtworksSquare(data) {
         } else {
             const wall = hangWalls[wi];
             const runLen  = runCounts[wi];
-            // Centered run: the run's midpoint sits on the wall's centreline.
-            // wallRunOffset measures from the wall CORNER; wall.start already
-            // embeds corner + spacing, so the delta is (c − spacing) — which
-            // reduces to the historic `pos * spacing` for full runs.
             const off = wallRunOffset(runLen, pos, spacing, wallLength) - spacing;
             group.position.set(wall.start[0]+wall.dir[0]*off, wall.start[1], wall.start[2]+wall.dir[2]*off);
             group.lookAt(group.position.x+wall.normal[0], group.position.y, group.position.z+wall.normal[2]);
-            // Wall metadata (Iteration 6): consumed by ArrivalMath's focal
-            // hero bias and useful to studio tooling. Pure metadata — zero
-            // rendering impact without a declared focal wall.
             group.userData.wallId = wall.id;
             pos++;
             if (pos >= runLen) { pos = 0; wi = Math.min(wi+1, hangWalls.length-1); }
         }
         this.placeAndRegister(group, data);
 
-        // Focal hero treatment (§6.5) — exactly ONE piece per hang: the
-        // first outer-wall piece on the declared focal wall.
         if (!focalHeroTaken && imgIdx < outerCount &&
             isFocalHero(focalWall, group.userData.wallId, false)) {
             group.scale.multiplyScalar(FOCAL.scaleBoost);
@@ -294,20 +168,11 @@ export function _placeArtworksSquare(data) {
     }
 }
 
-// ── Per-line canvas caps (Salon rows) ────────────────────────────────────────
-// Large works at eye, smaller works above — the salon hang's size hierarchy
-// is what keeps a two-line wall legible (and what keeps the two lines from
-// ever touching). Declared override: placement.row_caps (an array of
-// { maxWidth, maxHeight } entries; the last entry covers further rows).
 export const SALON_ROW_CAPS = Object.freeze([
     { maxWidth: 2.4, maxHeight: 1.45 },   // eye line
     { maxWidth: 1.7, maxHeight: 0.84 },   // upper line
 ]);
 
-// ── ROWS-path square hang (Salon iteration) ──────────────────────────────────
-// ctx = { hang: resolveSquareHang output, order: hang permutation, focalWall }
-// Hang order: wall by wall, row 0 before row 1 (salon walls fill bottom-up).
-// Sizing already agreed with RoomBuilder through squareLinePlan.
 export function _placeArtworksSquareRows(data, ctx) {
     const { hang, order, focalWall } = ctx;
     const imageCount = this.artworkImages.length;
@@ -329,24 +194,9 @@ export function _placeArtworksSquareRows(data, ctx) {
         ? Number(curation.upper_row_y) : 2.98;
     const rowCaps = (Array.isArray(curation.row_caps) && curation.row_caps.length)
         ? curation.row_caps : SALON_ROW_CAPS;
-    // A keep_clear wall may cap the WIDTH of works hung BESIDE its
-    // architecture (keep_clear.max_width) — the doorcase stays visible
-    // instead of being walled behind a wide canvas. 0/absent = no cap.
     const keepMaxWidth = hang.keep
         ? Math.max(0, Number(curation.keep_clear?.max_width) || 0) : 0;
 
-    // ── Keep-line reserve (v2.1 field report): the rhythm's nearest slot
-    // stands at ±spacing/2 from the wall centre, and a wide canvas + its
-    // frame reaches BACK into the doorcase — a 2.38 m frame covered the
-    // jamb and interpenetrated the door leaves in 3D. Two guards, keep
-    // lines only:
-    //   1. SHIFT — the run slides outward so the innermost frame clears
-    //      the reserved zone by a visible reveal (assembly half + reveal +
-    //      frame pad + the capped canvas half, minus the rhythm's ±s/2).
-    //   2. NEAR CAP — works within one spacing of the centre take the
-    //      keep width cap; outer slots keep the row's full cap.
-    // Both are pure arithmetic on (n, p, spacing) — deterministic, and
-    // venues without keep_clear are untouched (bit-identical).
     const KEEP_FRAME_PAD = 0.09;   // classic frame border (measured on builds)
     const KEEP_REVEAL    = 0.30;   // wall reveal between assembly and frame
     let keepShift = 0;
@@ -363,8 +213,6 @@ export function _placeArtworksSquareRows(data, ctx) {
         return { maxWidth: mw, maxHeight: c.maxHeight };
     };
 
-    // Keep-clear lines (the door wall's lines): back wall = wall index 1 →
-    // lines 1 and 1+4. An ODD run drops its centre slot.
     const keepLines = new Set();
     if (hang.keep) {
         const kw = walls.findIndex(w => w.id === hang.keep.wall);
@@ -376,15 +224,11 @@ export function _placeArtworksSquareRows(data, ctx) {
     for (const li of keepLines) {
         if (li < counts.length && counts[li] % 2 === 1) { counts[li] -= 1; displaced += 1; }
     }
-    // Displaced works re-hang on the last line with spare capacity — never a
-    // keep line (its dropped centre must stay dropped). Deterministic scan.
     for (let d = 0; d < displaced; d++) {
         for (let i = counts.length - 1; i >= 0; i--) {
             if (!keepLines.has(i) && counts[i] < plan.perLine + 1) { counts[i] += 1; break; }
         }
     }
-    // Defensive normalisation (a mis-sized config must never unplace a
-    // work): top up non-keep lines until every work has a slot.
     let total = counts.reduce((a, b) => a + b, 0);
     for (let guard = 0; total < imageCount && guard < 16; guard++) {
         let best = -1;
@@ -408,9 +252,6 @@ export function _placeArtworksSquareRows(data, ctx) {
                 let off = off0;
                 let nearKeep = false;
                 if (isKeep && keepShift > 0) {
-                    // the slot's tangential offset from the wall centre —
-                    // wallRunOffset is L/2 − t for every wall, so t =
-                    // ((n−1)/2 − p)·spacing; shifting outward = off − sign(t)·Δ.
                     const t = ((n - 1) / 2 - p) * spacing;
                     off = off0 - Math.sign(t) * keepShift;
                     nearKeep = Math.abs(t) < spacing;
@@ -437,17 +278,11 @@ export function _placeArtworksSquareRows(data, ctx) {
             group.userData.row = s.row;
             si++;
         } else {
-            // Unreachable with the shared plan (the normalisation above
-            // guarantees slots ≥ works); if a pathological build ever lands
-            // here the work still hangs — room centre, eye level — instead
-            // of vanishing.
             console.warn('[placer] square rows: slot shortfall — work hung centre');
             group.position.set(0, eyeLevel, 0);
         }
         this.placeAndRegister(group, data);
 
-        // Focal hero treatment (§6.5) — same one-shot contract as the
-        // legacy path; the hero is the first piece on the focal wall.
         if (!focalHeroTaken && isFocalHero(focalWall, group.userData.wallId, false)) {
             group.scale.multiplyScalar(FOCAL.scaleBoost);
             const ud = group.userData;
@@ -458,12 +293,6 @@ export function _placeArtworksSquareRows(data, ctx) {
     }
 }
 
-// ── DIVIDER-path square hang (Salon v3 "two rooms") ──────────────────────────
-// ctx = { order: hang permutation, focalWall }
-// Consumes the ONE plan RoomBuilder sized from (resolveDividerHang): six wall
-// segments, two rows, deterministic greedy fill (PlacementCuration owns the
-// counts). Slots reuse wallRunOffset so the run-centring invariant the QA
-// suite pins stays the single math — measured from each SEGMENT's centre.
 export function _placeArtworksSquareDivider(data, ctx) {
     const { order, focalWall } = ctx;
     const imageCount = this.artworkImages.length;
@@ -476,8 +305,6 @@ export function _placeArtworksSquareDivider(data, ctx) {
 
     const inset = wallInset();
     const h = plan.wallLength / 2;
-    // Wall frames — identical convention to the rows path (start = wall face
-    // centre; tangent offset measured from the wall centre by the caller).
     const walls = {
         front: { start: [0, 0, -h + inset],          dir: [1, 0, 0], normal: [0, 0, 1] },
         back:  { start: [0, 0,  h - inset],          dir: [1, 0, 0], normal: [0, 0, -1] },
@@ -494,16 +321,12 @@ export function _placeArtworksSquareDivider(data, ctx) {
         return { maxWidth: c.maxWidth, maxHeight: c.maxHeight };
     };
 
-    // Slots in hang order: the plan's lines are already in fill order
-    // (row 0 before row 1, DIVIDER_FILL_ORDER inside each row).
     const slots = [];
     for (const ln of plan.lines) {
         const seg = plan.segs[ln.seg];
         if (!seg || seg.len <= 0 || ln.count <= 0) continue;
         const y = ln.row === 0 ? eyeLevel : upperY;
         for (let p = 0; p < ln.count; p++) {
-            // wallRunOffset measures from the segment corner; re-centring on
-            // the SEGMENT (not the wall) is the delta − seg.len/2.
             const off = wallRunOffset(ln.count, p, plan.spacing, seg.len) - seg.len / 2;
             slots.push({ wall: walls[seg.wall], row: ln.row, y, tOff: seg.center + off, segId: ln.seg });
         }
@@ -531,18 +354,11 @@ export function _placeArtworksSquareDivider(data, ctx) {
             group.userData.room = s.segId.endsWith('-a') ? 'a' : 'b';
             si++;
         } else {
-            // Unreachable with the shared plan (the normalisation above
-            // guarantees slots ≥ works); a pathological build still hangs —
-            // room centre, eye level — instead of vanishing.
             console.warn('[placer] square divider: slot shortfall — work hung centre');
             group.position.set(0, eyeLevel, 0);
         }
         this.placeAndRegister(group, data);
 
-        // Focal hero treatment (§6.5) — same one-shot contract as every
-        // square path; the hero is the first piece on the focal wall (with
-        // the divider's odd-front rule that is the dead-centre slot, seen
-        // through the curtain opening from the spawn).
         if (!focalHeroTaken && isFocalHero(focalWall, group.userData.wallId, false)) {
             group.scale.multiplyScalar(FOCAL.scaleBoost);
             const ud = group.userData;
@@ -553,11 +369,6 @@ export function _placeArtworksSquareDivider(data, ctx) {
     }
 }
 
-// ── Bay-hang planner (Iteration 3, pure) ─────────────────────────────────────
-// Round-robin over registered hangable surfaces (capacity per surface =
-// floor(width / spacing)); offsets spread slots evenly across each face.
-// Deterministic: surface registration order + fixed assignment pattern.
-// Keeps the MAJORITY of the hang on the outer walls (≤30% into the bays).
 export function _planBayHangs(n, surfaces, spacing) {
     if (!n || !Array.isArray(surfaces) || surfaces.length === 0 || n < 6) return null;
     const caps = surfaces.map(s => Math.max(1, Math.floor((s.width || 0) / spacing)));
@@ -579,9 +390,6 @@ export function _planBayHangs(n, surfaces, spacing) {
                     x: surf.x + tx * off + surf.nx * 0.02,
                     z: surf.z + tz * off + surf.nz * 0.02,
                     nx: surf.nx, nz: surf.nz,
-                    // v3: a surface may declare its own hang centre height
-                    // (the above-the-fire hang on the double-height pier).
-                    // Null ⇒ the placer's eye level (historic behaviour).
                     y: Number.isFinite(Number(surf.y)) ? Number(surf.y) : null,
                 });
                 assigned++;
@@ -594,7 +402,6 @@ export function _planBayHangs(n, surfaces, spacing) {
     return plan.length ? plan : null;
 }
 
-// ── CORRIDOR placement ───────────────────────────────────────────────────────
 export function _placeArtworksCorridor(data) {
     const { length, width } = this._layoutMeta;
     const spacing = CONFIG.room.artworkSpacing;
@@ -605,8 +412,6 @@ export function _placeArtworksCorridor(data) {
         { start: [-length/2+spacing, eyeLevel, -width/2+inset], dir:[1,0,0],  normal:[0,0,1]  },
         { start: [ length/2-spacing, eyeLevel,  width/2-inset], dir:[-1,0,0], normal:[0,0,-1] },
     ];
-    // Per-wall run counts (wall B receives the odd remainder) — each run is
-    // centred on its wall so an odd-count hang does not skew toward one end.
     const runCounts = [Math.min(half, this.artworkImages.length),
                        Math.max(0, this.artworkImages.length - half)];
     let wi = 0, pos = 0;
@@ -622,7 +427,6 @@ export function _placeArtworksCorridor(data) {
     });
 }
 
-// ── L-SHAPE placement ────────────────────────────────────────────────────────
 export function _placeArtworksLShape(data) {
     const { wingW, lenA, lenB, jZ, zStart, zLimit } = this._layoutMeta;
     const spacing  = CONFIG.room.artworkSpacing;
@@ -635,9 +439,6 @@ export function _placeArtworksLShape(data) {
         { x: wingW - inset,  normal: [-1,0,0] },
     ];
 
-    // Spill math from the SHARED pure helper (the 'bays' pass frames both
-    // wings from the same plan). Artwork i sits on face i%2, row floor(i/2)
-    // — identical to the historic mutating walk.
     const plan = lshapeRowPlan(all.length, zStart, zLimit, spacing);
     for (let i = 0; i < plan.spillFrom; i++) {
         const sideA = i % 2, rowA = Math.floor(i / 2);
@@ -652,17 +453,6 @@ export function _placeArtworksLShape(data) {
     const remaining = all.slice(plan.spillFrom);
     if (remaining.length === 0) return;
 
-    // ── v3 "The Double Volume" (generic, two independent opt-ins) ─────────
-    // 1. A glazed spill face holds NO artworks: the wing B north face is
-    //    skipped when the venue opened it as the second glass face
-    //    (this._glazingNorth) — the spill concentrates on the remaining
-    //    solid face(s) instead of back lighting itself against the city.
-    // 2. Hangable surfaces registered by structure (the double-height
-    //    fireplace wall, an art wall) receive the LAST portion of the spill
-    //    — the same bay mechanics the square placer has run since Iteration
-    //    3, now on l-shape too (parity; ≤30% cap, ≥6-work hang). Venues
-    //    without hangable surfaces and without the second glazing resolve
-    //    EXACTLY as before (§11.3 rule 2).
     const wB = [
         { z: jZ + inset,     normal: [0,0,1]  },   // wing B south wall (solid)
         { z: lenA/2 - inset, normal: [0,0,-1] },   // wing B north face (skipped when glazed)
@@ -678,9 +468,6 @@ export function _placeArtworksLShape(data) {
     remaining.forEach((img, k) => {
         const { group } = this.makeArtworkGroup(img, data);
         if (k >= wallShare && bayPlan) {
-            // Statement work into a registered hangable surface (its own
-            // hang centre height — the above-the-fire hang on the tall
-            // pier, the art wall in the volume).
             const b = bayPlan[k - wallShare];
             const y = b.y ?? eyeLevel;
             group.position.set(b.x, y, b.z);
@@ -688,16 +475,9 @@ export function _placeArtworksLShape(data) {
         } else {
             let candidateX;
             if (faceCount === 2) {
-                // Historic alternation — lenB is SIZED for two faces, so the
-                // row math always lands inside the wing (bit-identical).
                 const rowB = Math.floor(k / 2);
                 candidateX = xStart + rowB * spacing;
             } else {
-                // GLAZED-FACE CASE: with a face removed the run would double
-                // its length and overflow the wing (lenB was sized against
-                // two faces). Spread the run evenly and CENTRED across the
-                // wing's usable span instead — the salon-wall read, always
-                // inside the building.
                 const per = Math.ceil(wallShare / faceCount);
                 const start = wingW + 1.5;
                 const end = wingW + lenB - 1.5;
@@ -713,7 +493,6 @@ export function _placeArtworksLShape(data) {
     });
 }
 
-// ── ROTUNDA placement ────────────────────────────────────────────────────────
 export function _placeArtworksRotunda(data) {
     const radius   = this._rotundaRadius;
     const n        = this.artworkImages.length;
@@ -727,9 +506,6 @@ export function _placeArtworksRotunda(data) {
     });
 }
 
-// ── CIRCULAR placement (NEW — sculpture garden + void venues) ────────────────
-// Artworks are placed on easels along the perimeter of the circle, facing inward.
-// Each easel is a tripod + canvas frame built procedurally — no GLB required.
 export function _placeArtworksCircular(data) {
     const radius   = this._layoutMeta.radius;
     const n        = this.artworkImages.length;
@@ -745,31 +521,10 @@ export function _placeArtworksCircular(data) {
         group.lookAt(0, eyeLevel, 0);
         this.placeAndRegister(group, data);
 
-        // Add an easel under the artwork (procedural — tripod + crossbar).
-        // canvasYaw from the lookAt above = polar angle + π; the easel leans
-        // away from the viewer (v3 geometry contract).
         _addEasel.call(this, x, z, angle + Math.PI, 0, 1);
     });
 }
 
-// ── GARDEN placement (Sculpture Garden v4.0.0 — "The Sculpture Park") ─────
-// Every artwork stands on its own COURT — a clearing the pure GardenLayout
-// planner composed with a role (primary / secondary / transitional), an
-// approach (the nearest walk) and a facing (the panel turns toward the
-// visitor's arrival, not mechanically toward the centre). The pieces sit on
-// the TERRAIN (ground height from the plan's own field) and are PHYSICAL:
-// each registers a collision obstacle, so a visitor brushes up against a
-// sculpture court instead of clipping through it (float-mode precedent).
-//
-// v4 PRESENTATION: the v2/v3 artist's tripod easel (three brown sticks)
-// read as yard-sale signage — fatal to the "premium exhibition" read. Each
-// work now stands on a MUSEUM PANEL STAND: two slim charcoal-steel posts, a
-// grounded sled foot and a rear lean strut, plus a small label plaque —
-// the architecture of an outdoor exhibition, not a painting prop. All
-// stands share ONE unit geometry per part and render as 4 InstancedMeshes
-// total (n artworks → 4 draw calls, was n merged easel meshes).
-// If the plan and the artwork list ever disagree (a pathological build
-// order), the legacy ring takes over — placement never guesses.
 export function _placeArtworksGarden(data) {
     const plan = this._gardenPlan;
     if (!plan || plan.courts.length !== this.artworkImages.length) {
@@ -788,8 +543,6 @@ export function _placeArtworksGarden(data) {
         group.rotation.y = c.facing;          // canvas front toward the approach
         group.scale.setScalar(c.scale);       // role hierarchy (§8), carefully
         this.placeAndRegister(group, data);
-        // Physical presence — the padded AABB stops the visitor ~0.35 m
-        // short of the canvas, exactly like the float venues.
         this.registerObstacle(group, 0.35);
         // Panel stand dims (same sizing contract as makeArtworkGroup)
         const aspect = img.aspectRatio || 1;
@@ -801,14 +554,6 @@ export function _placeArtworksGarden(data) {
     _addPanelStands.call(this, standData);
 }
 
-// ── Museum panel stands — instanced outdoor exhibition hardware ─────────
-// Parts (unit geometry, composed per instance):
-//   • 2 posts  — slim charcoal cylinders behind the canvas (±0.36·w),
-//     leaning back 3° like real gallery stands
-//   • 1 sled   — grounded foot bar spanning the posts
-//   • 1 plaque — small label plate mounted on the right post
-// n artworks → 4n instances across 3 draw calls. Low tier: Lambert, no
-// shadows — silhouette identical.
 export function _addPanelStands(standData) {
     if (!standData.length) return;
     const low = this.isLowEnd;
@@ -877,39 +622,13 @@ export function _addPanelStands(standData) {
     }
 }
 
-// ── FLOAT placement (Iteration 2 — void family; depth bands since the
-//    Infinite Void deepening) ─────────────────────────────────────────────
-// Artworks hover in space — no easel, no stand, no wires. Each piece gets a
-// seeded radial wander, a seeded hover height inside the legibility band
-// (1.6 m ± 0.45) and a seeded roll around its view axis, all from the
-// venue's seeded rng — the composition is identical on every load
-// (Iteration 0's determinism contract extends to placement).
-//
-// Depth bands (visual_config.placement.depth_bands, interpreted by the pure
-// PlacementMath module): larger collections compose in DEPTH — an outer ring
-// plus inner rings stepping toward the centre — so walking reveals parallax
-// and the hang reads as a constellation rather than a fence. The radius was
-// sized for the same band count (RoomBuilder via computeFloatFieldRadius);
-// the two can never disagree.
-//
-// Floating pieces register as collision obstacles: in a wall gallery the
-// wall stops the visitor; in a void the artwork itself is the only physical
-// thing at eye height, and gliding THROUGH a canvas shatters the fiction.
-// Gated on float mode — wall/easel venues keep their historic behaviour.
 export function _placeArtworksFloating(data) {
     const radius = this._layoutMeta.radius;
 
-    // addVenueStructure created this._venueRng BEFORE placement runs
-    // (RoomBuilder calls it for every circular venue first). The fallback
-    // only exists so a pathological call order can never crash — it draws
-    // from the same seed and is therefore still deterministic.
     const rng = this._venueRng || createVenueRng(venueSeedSource(this._venueSlug));
     const bandsWanted = Math.max(1, Math.floor(this._venuePlacement?.depth_bands || 1));
     const layout = computeFloatLayout(this.artworkImages.length, radius, rng, {
         depthBands: bandsWanted,
-        // v2.2.0 (generic): visual_config.placement.elevation_step lifts each
-        // inner band (metres) — the hang composes vertically as well as in
-        // depth. Undeclared ⇒ 0 ⇒ every existing venue is bit-identical.
         elevationStep: Number(this._venuePlacement?.elevation_step) || 0,
     });
 
@@ -920,29 +639,10 @@ export function _placeArtworksFloating(data) {
         group.lookAt(0, p.y, 0);   // face the centre at its own hover height
         group.rotateZ(p.roll);     // seeded roll in the canvas plane
         this.placeAndRegister(group, data);
-        // Physical presence: the padded AABB (Collisions) blocks the visitor
-        // ~0.3 m short of the frame — walking up to a floating work still
-        // feels close (focus distance is 1.8 m); walking through is gone.
         this.registerObstacle(group, 0.3);
     });
 }
 
-// ── MIRROR LAKE — the over-water art arc (v3.0.0 "The Still Shore") ────────
-// The plan's courts carry EVERYTHING: position (over the water along the
-// shoreline arc), hover height (eye-ish, land datum), facing (toward the
-// nearest point of the shore walk — each work turns to its visitor), scale
-// (role hierarchy), seeded roll (the float heritage, calmed to ±2.6°).
-//
-// Why keep hovering: the venue's promise is "artworks suspended over still
-// water, every piece doubled by its reflection". Stands would plant the
-// show on the shore and kill the reflection language; hovering over the
-// water IS the curated presentation. Same collision contract as float mode
-// (obstacle 0.3) — plus the shoreline clamp (VenueDecorator._lakeTick)
-// means the pieces are approached from the walk or the pier, never walked
-// through.
-//
-// Fallback: plan/artwork count mismatch (a pathological build order) drops
-// to the float ring — placement never guesses, the garden precedent.
 export function _placeArtworksLake(data) {
     const plan = this._lakePlan;
     if (!plan || plan.courts.length !== this.artworkImages.length) {
@@ -953,36 +653,17 @@ export function _placeArtworksLake(data) {
 
     this.artworkImages.forEach((img, i) => {
         const c = plan.courts[i];
-        // Berth lines run at 2.7 m centres — the shared 3.0 m canvas cap
-        // would let adjacent wide landscapes intersect. 2.2 m keeps every
-        // hang gap positive (2.36 m framed width < 2.7 m) while the works
-        // stay dominant at their ~2.8–5.2 m viewing distances.
         const { group } = this.makeArtworkGroup(img, data, { maxWidth: 2.2 });
         group.position.set(c.x, c.y, c.z);
         group.rotation.y = c.facing;     // canvas front toward the walk
         group.rotateZ(c.roll ?? 0);      // seeded roll in the canvas plane
         group.scale.setScalar(c.scale);  // role hierarchy (hero > primary)
-        // The plan's hero berth is the venue's DECLARED focal artwork: the
-        // Arrival's focal bonus (placement.focal_wall = 'lake-hero') keys on
-        // this tag, so the composed first frame is the designed one — the
-        // hero under the moon, not merely the largest canvas.
         if (c.role === 'hero') group.userData.wallId = 'lake-hero';
         this.placeAndRegister(group, data);
         this.registerObstacle(group, 0.3);
     });
 }
 
-// ── Easel — two front legs, a leaning rear leg + a crossbar BEHIND the
-// canvas, merged. Pure geometry — no external GLB dependency.
-// PERF-D21 (3D audit F21): was 4 separate Meshes per easel (3 legs + bar) —
-// a 30-artwork sculpture garden paid 120 draw calls for easels alone. Now
-// one merged mesh per easel = 30 draw calls, identical silhouette.
-//
-// Sculpture Garden v3: the easel STANDS ON THE TERRAIN (groundY) and leans
-// AWAY from the viewer (local +z points opposite the canvas front), with
-// the crossbar behind the canvas plane — the canvas rests against the
-// frame instead of the old bar poking through its plane at oblique ring
-// angles (a latent v2 geometry defect this rebuild fixes).
 export function _addEasel(x, z, canvasYaw, groundY = 0, scale = 1) {
     const woodMat = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: 0x6b4a2a })
@@ -992,11 +673,6 @@ export function _addEasel(x, z, canvasYaw, groundY = 0, scale = 1) {
     const barGeo = new THREE.BoxGeometry(0.8, 0.055, 0.055);
 
     const parts = [];
-    // Local +z faces the SAME way as the canvas front (rotation.y =
-    // canvasYaw below) — so every part lives at z <= 0, BEHIND the canvas
-    // plane: two splayed legs just under the canvas, one rear leg leaning
-    // back, and the crossbar the canvas rests on. The depth spread stays
-    // small so an edge-on easel still reads as one legged stand.
     parts.push({ geo: legGeo, pos: [-0.3, 0.98, -0.04], rot: [-0.04, 0, 0.13] });
     parts.push({ geo: legGeo, pos: [ 0.3, 0.98, -0.04], rot: [-0.04, 0, -0.13] });
     parts.push({ geo: legGeo, pos: [ 0,    0.98, -0.3],  rot: [-0.2, 0, 0] });
@@ -1016,23 +692,9 @@ export function _addEasel(x, z, canvasYaw, groundY = 0, scale = 1) {
     this.scene.add(easel);
 }
 
-// ── Build a single artwork group (canvas + frame + light) ────────────────────
-// PERF-C9 (3D audit F9): the canvas material may be created from the real
-// texture, the blur-up thumbnail, or the dark placeholder — depending on
-// where we are in the progressive load. The mesh is named + registered in
-// group.userData._canvasMesh so applyArtworkTexture() can find it when the
-// full-quality texture streams in.
 export function makeArtworkGroup(img, data, opts = {}) {
     const aspectRatio = img.aspectRatio || 1;
-    // Salon iteration: a per-call HEIGHT cap joins the width cap (the upper
-    // salon line hangs smaller works; defaults keep every existing caller
-    // at the historic 2.0 m).
     const maxHeight   = Number(opts.maxHeight) > 0 ? Number(opts.maxHeight) : 2.0;
-    // QA FIX (post-implementation pass): the 3.0 m shared width cap let two
-    // adjacent wide landscapes on Mirror Lake's 2.7 m berth line physically
-    // intersect (frames overlapping ~0.45 m). Venues with tighter hang
-    // spacing can now pass a narrower cap via opts; the default keeps every
-    // existing venue bit-identical.
     const maxWidth    = Number(opts.maxWidth) > 0 ? Number(opts.maxWidth) : 3.0;
     let height = maxHeight;
     let width  = height * aspectRatio;
@@ -1043,13 +705,6 @@ export function makeArtworkGroup(img, data, opts = {}) {
 
     const canvasGeo = new THREE.PlaneGeometry(width, height);
 
-    // ── Cyber Gallery iteration: movement-reactive canvas material ──────
-    // When the venue declares visual_config.artwork_reactive, the canvas is
-    // built as LIVING DIGITAL MEDIA: the SAME material class (Standard /
-    // Basic per tier) with the glitch language injected via onBeforeCompile.
-    // Keeping the class preserves PBR lighting, the focus highlight and the
-    // progressive texture swap (applyArtworkTexture); undeclared venues take
-    // the historic path byte-identically.
     const reactive = !!this._reactive;
     const canvasMat = this.isLowEnd
         ? new THREE.MeshBasicMaterial({ map: tex })
@@ -1069,18 +724,10 @@ export function makeArtworkGroup(img, data, opts = {}) {
     canvas.castShadow    = !this.isLowEnd;
     canvas.receiveShadow = !this.isLowEnd;
 
-    // Luminous bezel — the display-methodology boundary: a thin emissive
-    // plate slightly larger than the canvas, sitting just behind it, so the
-    // artwork reads as an integrated digital display surface. One shared
-    // material for the whole build (its quiet breathing is one color write
-    // per frame — see ArtworkReactive.updateArtworkReactive).
     let bezel = null;
     if (reactive) {
         const bezelMat = this.makeReactiveBezelMaterial();
         if (bezelMat) {
-            // Thin luminous rim — 0.045 m reads as a hairline of light around
-            // the canvas at every viewing distance (0.075 read as a glowing
-            // slab up close and its bloom halo washed the artwork out).
             const margin = 0.045;
             bezel = new THREE.Mesh(
                 new THREE.PlaneGeometry(width + margin, height + margin),
@@ -1095,35 +742,6 @@ export function makeArtworkGroup(img, data, opts = {}) {
     // Frame
     const frame = this.createFrame(width, height, data.frame_style);
 
-    // ── REAR PRESENTATION FIX (garden-iteration-5) ──────────────────────────
-    // The artwork used to be a single FrontSide plane inside a closed frame
-    // ring: from the FRONT everything read correctly, but from the REAR the
-    // canvas was backface-CULLED, so the frame showed an empty hole — an
-    // accidental-looking broken object. Wall venues hide the rear against
-    // the wall, but any venue where a visitor can legitimately walk around
-    // a piece (the sculpture garden's panel stands, the floating void
-    // placements, easel rings) exposed the hole. This is a GLOBAL artwork
-    // pipeline property, so the fix lives here — in the shared artwork
-    // group builder — NOT in any venue.
-    //
-    // What real exhibition practice does: a framed 2D work is backed. The
-    // rear shows the frame + a neutral backing board, never the image and
-    // never a void. So we add a backing plane just behind the canvas:
-    //   • sized canvas+1.2 cm so it fully fills the frame's inner opening
-    //     with a hairline overlap margin (no grazing-angle gaps)
-    //   • 6 mm behind the canvas plane, inside the frame's 8 cm depth
-    //   • rotated π so its face points REARWARD (FrontSide material, no
-    //     culling surprises, no lighting flip)
-    //   • ONE shared material for the whole scene (archival warm grey,
-    //     fully matte) — 2 triangles and zero texture memory per artwork
-    //
-    // Deliberately NOT done instead: making the canvas DoubleSide would
-    // mirror the artwork (wrong for anything containing text/signatures),
-    // double-light the surface, and contradict exhibition practice. The
-    // canvas stays FrontSide — its front presentation is untouched, the
-    // progressive texture swap (applyArtworkTexture) is untouched, and the
-    // Cyber Gallery reactive material/bezel path is untouched (the bezel
-    // faces forward as before; from the rear it is occluded by the backing).
     let backingMat = this._artworkBackingMat;
     if (!backingMat) {
         backingMat = this._artworkBackingMat = this.isLowEnd
@@ -1151,8 +769,6 @@ export function makeArtworkGroup(img, data, opts = {}) {
         id: img.id,
         title: img.title || img.original_name || 'Untitled',
         description: img.description,
-        // Lookup handles for progressive swaps (AssetLoader phase B) and
-        // the focus highlight (FocusMode)
         _canvasMesh: canvas,
         _frameMesh: frame,
         // Round-trip metadata for the info panel
@@ -1162,10 +778,6 @@ export function makeArtworkGroup(img, data, opts = {}) {
     return { group };
 }
 
-// ── Progressive texture swap (PERF-C9) ───────────────────────────────────────
-// Called by AssetLoader when a background-streamed artwork texture arrives.
-// Swaps the map on the existing canvas material — same material class, same
-// map slot → no shader recompile, the artwork simply sharpens into place.
 export function applyArtworkTexture(img) {
     if (!img || !img.texture || !this.artworks) return;
 
@@ -1174,15 +786,8 @@ export function applyArtworkTexture(img) {
     if (!canvasMesh || !canvasMesh.material) return;
 
     canvasMesh.material.map = img.texture;
-    // Safe no-op when a map was already present (thumb/placeholder); forces
-    // uniform rebind if the placeholder path ever changes.
     canvasMesh.material.needsUpdate = true;
 
-    // PERF-D22 (3D audit F22): the blur-up thumbnail was uploaded to the GPU
-    // while it served as the material map. Once the full-quality texture
-    // replaces it, nothing references it — but a THREE.Texture keeps its GPU
-    // copy until disposed. Free it now: on a 30-artwork gallery that's 30
-    // ~400px textures returned to the browser's GPU memory pool.
     if (img.thumbTexture) {
         img.thumbTexture.dispose();
         img.thumbTexture = null;

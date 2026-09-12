@@ -8,101 +8,18 @@ use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
-    /**
-     * Handle 2Checkout IPN (Instant Payment Notification).
-     *
-     * 2Checkout Documentation: https://www.2checkout.com/documentation/notifications/ins
-     *
-     * SECURITY MODEL (P0-2 — HMAC now MANDATORY in production)
-     * -------------------------------------------------------
-     * 1. The legacy `md5_hash` field is verified using `hash_equals()` (timing-safe).
-     *    This proves the IPN originated from 2Checkout but only covers
-     *    `sale_id + vendor_id + invoice_id + secret_word` — it does NOT cover
-     *    `customer_email`, `item_id_1`, `item_list_amount_1`, `message_type`, or
-     *    `external-reference`. MD5 alone is INSUFFICIENT — anyone who captures
-     *    one valid IPN can tamper with the unsigned fields and re-post it.
-     *
-     * 2. HMAC SHA-256 signature (`signature` field) is MANDATORY in production.
-     *    It covers `customer_email`, `item_id_1`, `message_type`, `item_list_amount_1`,
-     *    and 12 other security-critical fields. This closes the replay-tamper
-     *    attack where a buyer re-signs a captured IPN with a different
-     *    `customer_email` / `item_id_1` / `message_type` to upgrade arbitrary
-     *    accounts or forge refund/chargeback notifications.
-     *
-     *    If `TWOCHECKOUT_BUY_LINK_SECRET_WORD` is not set:
-     *    - In production: the webhook FAILS CLOSED (403 on every IPN).
-     *    - In testing/local: accepts MD5-only IF `TWOCHECKOUT_ALLOW_MD5_ONLY=true`
-     *      is explicitly set (escape hatch for 2Checkout account migration).
-     *
-     * 3. When `TWOCHECKOUT_WEBHOOK_IP_ALLOWLIST` is configured, only requests
-     *    from those IPs are accepted. When NOT configured in production, a
-     *    CRITICAL warning is logged on every webhook (but the request is not
-     *    rejected — HMAC is the primary defense, IP allowlist is defense-in-depth).
-     *    2Checkout publishes their INS IP ranges in their merchant documentation.
-     *
-     * 4. PII (customer_email, customer_name) is redacted from logs.
-     *
-     * TRANSACTION BOUNDARY (P1-1 / P1-2)
-     * ----------------------------------
-     * External side effects (Mail::send, CoolifyDomainManager::removeDomain,
-     * file deletes) are dispatched via DB::afterCommit() so they only execute
-     * if the DB transaction commits. This prevents state drift where the DB
-     * rolls back but the email/file/Coolify change has already happened.
-     */
     public function handle2Checkout(Request $request)
     {
         // Log the incoming webhook for debugging — PII redacted.
         Log::info('2Checkout Webhook Received', $this->redactedPayload($request));
 
-        // ================================
-        // STEP 1: Security Verification
-        // ================================
         if (! $this->verify2CheckoutSignature($request)) {
             return response('Hash verification failed', 403);
         }
 
-        // ================================
-        // STEP 1b: Replay Protection (SEC-9 + 2CO-4)
-        // ================================
-        // Check if this message_id + message_type has already been processed.
-        // Prevents replay attacks where a captured IPN is re-POSTed with
-        // a different message_type (only works in MD5-only mode, but
-        // defense-in-depth).
-        //
-        // 2CO-4 FIX (Iter-002): The exists() + insert() pattern had a race
-        // window — two concurrent requests could both pass the exists() check
-        // and both attempt insert(). The unique index on [message_id,
-        // message_type] would reject the second insert with a duplicate-key
-        // exception, but the code didn't catch it — the exception bubbled up
-        // and the webhook returned 500. 2Checkout retries 500s, producing a
-        // third request that hits the exists() check and returns 200.
-        // Functionally correct, but noisy (spurious 500s in logs and Sentry).
-        //
-        // New approach: use insertOrIgnore() which atomically inserts OR
-        // silently no-ops on duplicate. Check the return value (1 = inserted,
-        // 0 = already existed → duplicate → return 200).
-        //
-        // ITERATION-1 P0 FIX (lost upgrades): the dedupe row was inserted
-        // BEFORE processing and NEVER removed on failure. If processing threw
-        // (e.g. a DB deadlock during the upgrade transaction → 500),
-        // 2Checkout's automatic retry hit the dedupe row, got a 200 OK, and
-        // the paid upgrade was permanently swallowed — the customer paid,
-        // stayed on Free, and the abandoned-cart email told them to buy
-        // again. Every failure path below now calls forgetProcessedWebhook()
-        // to remove the marker BEFORE returning a 5xx, so the retry can
-        // reprocess the event. Idempotency within the processing logic
-        // (transactions.invoice_id unique + SELECT FOR UPDATE) makes the
-        // retry safe.
         $messageId = $request->input('message_id');
         $messageType = $request->input('message_type');
         if ($messageId && $messageType) {
-            // ITERATION 4 (webhook ledger): the dedupe marker now also
-            // persists the full payload and a status. Failure paths mark
-            // the row 'failed' instead of deleting it — 2CO retries remain
-            // reprocessable (a 'failed' row is claimable below) while the
-            // payload survives for the super-admin billing review page
-            // and replay tooling. Payload PII is retention-bounded to 90
-            // days by exospace:cleanup-stale.
             $inserted = \DB::table('processed_webhooks')->insertOrIgnore([
                 'message_id'   => $messageId,
                 'message_type' => $messageType,
@@ -114,13 +31,6 @@ class WebhookController extends Controller
             ]);
 
             if (! $inserted) {
-                // insertOrIgnore returned 0 rows — the row already existed
-                // (unique constraint hit). Normally a duplicate/replay, EXCEPT
-                // when the previous attempt failed (status='failed') or
-                // crashed mid-processing (status='processing' with no progress
-                // for 10+ minutes) — those rows are claimable so 2CO's retry
-                // can reprocess, replacing Iteration-1's delete-on-failure
-                // marker with an equivalent, evidence-preserving transition.
                 if (! $this->claimExistingWebhook($messageId, $messageType)) {
                     Log::info('2Checkout: Duplicate message_id+type, skipping (replay protection)', [
                         'message_id'   => $messageId,
@@ -137,31 +47,8 @@ class WebhookController extends Controller
         return $response;
     }
 
-    /**
-     * ITERATION 4 — admin replay entry point (super-admin billing review).
-     *
-     * Re-dispatches a STORED webhook payload through the exact same
-     * processing pipeline as live ingress. Trusted-caller contract:
-     *
-     *   - The caller is a route behind auth + verified + super_admin + mfa
-     *     + password.confirm (SuperAdmin\BillingController::replayWebhook),
-     *     and the payload was signature-verified at its ORIGINAL ingress
-     *     (2CO MD5 + HMAC) before being stored — re-verification is neither
-     *     possible (secrets may have rotated) nor required (the stored bytes
-     *     are already the verified bytes).
-     *   - Dedupe is deliberately NOT re-run: the row exists and the replay
-     *     is intentional. Safety comes from the handlers' own idempotency
-     *     (unique transactions.invoice_id + SELECT FOR UPDATE, status
-     *     guards, per-invoice locks) — the same properties that make 2CO's
-     *     own retries safe.
-     *   - Every replay is audited (webhook.replayed) with the admin as
-     *     actor, so the audit trail shows WHO replayed WHAT.
-     */
     public function processReplay(Request $request)
     {
-        // The message_type routes the dispatch — it MUST come from the
-        // stored payload (the caller hands us a synthetic request built
-        // from the ledger row, so there is no other source).
         return $this->processVerifiedWebhook(
             $request,
             null,
@@ -169,22 +56,9 @@ class WebhookController extends Controller
         );
     }
 
-    /**
-     * Shared dispatch for verified ingress and admin replay. $messageId /
-     * $messageType are null on replay (no dedupe lifecycle to manage).
-     */
     private function processVerifiedWebhook(Request $request, ?string $messageId, ?string $messageType)
     {
-        // ================================
-        // STEP 2: Route by message_type
-        // ================================
 
-        // ITERATION-1 P0 FIX (lost refunds/chargebacks): the refund,
-        // chargeback and recurring handlers previously ran OUTSIDE any
-        // failure-aware wrapper — an exception in any of them returned a
-        // 500 while the dedupe marker stayed behind, permanently blocking
-        // 2Checkout's retry (same lost-upgrade hole as above, but for
-        // refunds: a refunded customer would never be downgraded).
         try {
             if ($messageType === 'REFUND_ISSUED') {
                 return $this->applyRefund($request);
@@ -196,8 +70,6 @@ class WebhookController extends Controller
                 return $this->reverseChargeback($request);
             }
 
-            // M-1: Recurring (subscription) webhook events.
-            // These are sent by 2Checkout for recurring billing lifecycle events.
             if ($messageType === 'RECURRING_INSTALLMENT_SUCCESS') {
                 return $this->handleRecurringSuccess($request);
             }
@@ -208,10 +80,6 @@ class WebhookController extends Controller
                 return $this->handleRecurringCancelled($request);
             }
         } catch (\Throwable $e) {
-            // ITERATION-4: failure now MARKS the ledger row 'failed' (payload
-            // preserved for the billing review page / replay) instead of
-            // deleting the marker — the row stops blocking 2CO's retry either
-            // way (failed rows are claimable at ingress).
             $this->markWebhookFailed($messageId, $messageType);
             Log::error('2Checkout: Webhook handler failed — ledger row marked failed so retry can reprocess', [
                 'message_type' => $messageType,
@@ -221,8 +89,6 @@ class WebhookController extends Controller
             return response('Internal error', 500);
         }
 
-        // Other message types (FRAUD_STATUS_CHANGED, REFUND_REQUESTED,
-        // INVOICE_STATUS_CHANGED, etc.) are logged but do not mutate state.
         if ($messageType !== 'ORDER_CREATED') {
             Log::info('2Checkout: Non-mutating message type', [
                 'type'       => $messageType,
@@ -231,9 +97,6 @@ class WebhookController extends Controller
             return response('OK', 200);
         }
 
-        // ================================
-        // STEP 3: Validate & extract payload
-        // ================================
         $customerEmail = $request->input('customer_email');
         $customerName  = $request->input('customer_name');
         $invoiceId     = $request->input('invoice_id');
@@ -248,17 +111,9 @@ class WebhookController extends Controller
         $pendingUpgrade = null;
 
         if (! empty($externalReference)) {
-            // AUDIT-P1-8.1: Look up by hashed token. Previously the column
-            // stored the plaintext + matched directly. Now the column stores
-            // a sha256 hash, so we use findByToken() (which hashes the
-            // incoming plaintext before querying). We keep the status='pending'
-            // constraint inline — findByToken() intentionally doesn't filter
-            // by status so it can be reused for non-pending lookups elsewhere.
             $pendingUpgrade = \App\Models\PendingUpgrade::findByToken($externalReference);
 
             if ($pendingUpgrade && $pendingUpgrade->status !== 'pending') {
-                // Found by token but already converted/expired — treat as not found
-                // so we fall through to the customer_email lookup below.
                 $pendingUpgrade = null;
             }
 
@@ -287,9 +142,6 @@ class WebhookController extends Controller
             $customerEmail = $user->email;
         }
 
-        // ================================
-        // STEP 4: Map Product ID → Plan
-        // ================================
         $productMap = [
             config('services.2checkout.product_id_pro')    => ['plan' => 'pro'],
             config('services.2checkout.product_id_studio') => ['plan' => 'studio'],
@@ -306,35 +158,6 @@ class WebhookController extends Controller
             return response('Unknown product - flagged for review', 200);
         }
 
-        // ================================
-        // STEP 5: Idempotent upgrade (atomic)
-        // ================================
-        // P1-2 FIX: Mail::send is now dispatched via DB::afterCommit()
-        // so the email is only sent if the DB transaction commits. If the
-        // transaction rolls back (deadlock, query error), the email is NOT
-        // sent — preventing the "email says Pro but DB says Free" drift.
-        //
-        // S-9 FIX: Lock TTL bumped from 60s to 120s. The worst-case DB
-        // transaction here includes:
-        //   - SELECT ... FOR UPDATE on transactions (idempotency check)
-        //   - UPDATE users SET plan=pro (fast)
-        //   - INSERT INTO transactions (fast)
-        //   - UPDATE pending_upgrades SET status=converted (fast)
-        //   - DB::afterCommit dispatches PlanUpgradedEmail to queue (fast)
-        //
-        // Under normal conditions the whole transaction is <100ms. But under
-        // contention (many concurrent webhooks from a 2Checkout batch), MySQL
-        // row-lock waits can stack up. A 60s lock would expire if the
-        // transaction took >60s due to lock waits, allowing a retry to
-        // acquire the lock and start a duplicate upgrade. 120s gives 2×
-        // headroom — generous enough to absorb lock waits, still short enough
-        // that a crashed holder doesn't block retries for too long.
-        //
-        // The block(5) call still waits up to 5 seconds to acquire the lock.
-        // If the lock is held by an in-flight webhook for the same invoice_id,
-        // the retry sees the lock busy and returns 200 (deferred) — the
-        // in-flight webhook's idempotency check (SELECT FOR UPDATE on
-        // transactions.invoice_id) ensures the retry is a no-op anyway.
         $lock = \Illuminate\Support\Facades\Cache::lock("2co:upgrade:{$invoiceId}", 120);
 
         try {
@@ -346,7 +169,6 @@ class WebhookController extends Controller
                     $user, $planConfig, $invoiceId, $productId, $amount,
                     $request, $customerEmail, $customerName, $pendingUpgrade
                 ) {
-                    // ── Idempotency check FIRST ──────────────────────────
                     $existing = \DB::table('transactions')
                         ->where('invoice_id', $invoiceId)
                         ->lockForUpdate()
@@ -360,12 +182,6 @@ class WebhookController extends Controller
                         return false; // signal "already processed"
                     }
 
-                    // ── Upgrade the user ─────────────────────────────────
-                    // M-1: Detect if this is a recurring (subscription) purchase.
-                    // 2Checkout sends recurring_order_id for recurring products.
-                    // If present, set subscription fields + plan_expires_at to
-                    // the first billing cycle end. If absent, it's a one-time
-                    // purchase (lifetime access, plan_expires_at = null).
                     $recurringOrderId = $request->input('recurring_order_id');
                     $nextBillingDate  = $request->input('item_billing_cycle_next_date');
 
@@ -392,7 +208,6 @@ class WebhookController extends Controller
                         ])->save();
                     }
 
-                    // ── Insert transaction record ───────────────────────
                     $transactionId = \DB::table('transactions')->insertGetId([
                         'user_id'        => $user->id,
                         'invoice_id'     => $invoiceId,
@@ -420,10 +235,6 @@ class WebhookController extends Controller
                         'matched_by' => $pendingUpgrade ? 'external-reference' : 'customer_email',
                     ]);
 
-                    // ITERATION 4 (billing audit trail): webhook-driven
-                    // money mutations are now first-class audit records with
-                    // a system actor — previously only transactions.status
-                    // flips + log lines existed.
                     $this->auditWebhook('webhook.order_processed', $user, [
                         'invoice_id'   => $invoiceId,
                         'plan'         => $planConfig['plan'],
@@ -432,13 +243,6 @@ class WebhookController extends Controller
                         'matched_by'   => $pendingUpgrade ? 'external-reference' : 'customer_email',
                     ]);
 
-                    // ── P1-2 FIX: Send confirmation email AFTER commit ──
-                    // Previously, Mail::send was called inside the transaction.
-                    // If the transaction rolled back, the email was still sent
-                    // ("Your Pro plan is active" — but the DB says Free).
-                    // PlanUpgradedEmail implements ShouldQueue, so the queue
-                    // dispatch happens after commit — the queue worker will
-                    // see the committed user state.
                     \DB::afterCommit(function () use ($user, $planConfig, $invoiceId, $transactionId, $recurringOrderId) {
                         try {
                             \Illuminate\Support\Facades\Mail::to($user->email)
@@ -450,24 +254,12 @@ class WebhookController extends Controller
                             ]);
                         }
 
-                        // M-10: Generate an invoice for this transaction.
-                        // Done afterCommit so the transaction row is visible.
                         try {
                             $transaction = \App\Models\Transaction::find($transactionId);
                             if ($transaction) {
-                                // ITERATION-1 FIX: pass explicit billing_type —
-                                // the invoice PDF previously mislabelled every
-                                // subscription purchase as a lifetime purchase.
                                 app(\App\Services\InvoiceGenerator::class)
                                     ->generateForTransaction($transaction, $user, [
                                         'billing_type' => $recurringOrderId ? 'subscription' : 'one_time',
-                                        // ITERATION-1 FIX (VAT correctness):
-                                        // 2Checkout reports the buyer's billing
-                                        // country in the IPN payload — use it
-                                        // instead of request()->ip() (which in
-                                        // webhook context is 2Checkout's server,
-                                        // and previously produced 0% VAT for
-                                        // every EU buyer).
                                         'customer_country' => strtoupper((string) (
                                             $request->input('customer_country')
                                             ?? $request->input('country')
@@ -502,12 +294,6 @@ class WebhookController extends Controller
             ]);
             return response('OK', 200);
         } catch (\Throwable $e) {
-            // ITERATION-1 P0 FIX (lost upgrades): mark the ledger row failed
-            // BEFORE returning 500 — otherwise 2Checkout's retry of this
-            // exact message_id would hit the row and get a bogus 200,
-            // permanently swallowing a paid upgrade. (ITERATION-4: the row
-            // is now marked 'failed' rather than deleted, preserving the
-            // payload as evidence; failed rows are claimable at ingress.)
             $this->markWebhookFailed($messageId, $messageType);
             Log::error('2Checkout: Upgrade failed — ledger row marked failed so retry can reprocess', [
                 'invoice_id' => $invoiceId,
@@ -524,9 +310,6 @@ class WebhookController extends Controller
         return response('OK', 200);
     }
 
-    /**
-     * Handle the legacy /webhooks/2checkout/refund route.
-     */
     public function handleRefund(Request $request)
     {
         Log::info('2Checkout Refund Route Received', $this->redactedPayload($request));
@@ -554,22 +337,6 @@ class WebhookController extends Controller
         return response('OK', 200);
     }
 
-    /**
-     * Apply a confirmed refund (REFUND_ISSUED).
-     *
-     * P1-1 FIX: External side effects (CoolifyDomainManager::removeDomain,
-     * file deletes via PlanDowngradeService) are now dispatched via
-     * DB::afterCommit() so they only execute if the DB transaction commits.
-     * Previously, if the transaction rolled back, the user's plan reverted
-     * to Pro/Studio but their custom domain was already removed from Traefik
-     * and their logo files were already deleted — state drift.
-     *
-     * P1-4 FIX: Parse the refund amount from the IPN. Only downgrade if the
-     * refund is full (≥90% of the original transaction amount). A $5 courtesy
-     * refund on a $99 Studio purchase no longer wipes the user's branding.
-     * Partial refunds mark the transaction as 'partial_refund' and leave the
-     * plan intact.
-     */
     private function applyRefund(Request $request)
     {
         $invoiceId = $request->input('invoice_id');
@@ -578,8 +345,6 @@ class WebhookController extends Controller
             return response('OK', 200);
         }
 
-        // S-9 FIX: Lock TTL bumped from 60s to 120s - see upgrade path above
-        // for rationale. Same worst-case DB transaction shape applies.
         $lock = \Illuminate\Support\Facades\Cache::lock("2co:refund:{$invoiceId}", 120);
 
         try {
@@ -604,43 +369,12 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    // ── P1-4 FIX + 2CO-5 FIX (Iter-002): Parse the refund amount ──
-                    // 2Checkout's REFUND_ISSUED IPN includes item_list_amount_1.
-                    // The original audit (P1-4) assumed this is the REFUND amount
-                    // (not the original amount). 2CO-5 flags this assumption as
-                    // unverified — if wrong, the 90% threshold check classifies
-                    // every refund as full (because item_list_amount_1 on a
-                    // refund IPN is actually the original sale amount), and a
-                    // $5 courtesy refund on a $99 Studio purchase would trigger
-                    // a full plan downgrade.
-                    //
-                    // 2CO-5 FIX: Add debug logging of both amounts so the
-                    // assumption can be verified in production via a sandbox
-                    // refund test. Once verified, update this comment with the
-                    // doc URL as evidence. If the assumption is wrong, fix the
-                    // field name (likely `refund_value` or `item_refunded_amount_1`
-                    // per 2Checkout INS 6.0 docs) and add a regression test.
-                    //
-                    // The defensive fallback (treat as full refund if amount
-                    // can't be determined) is preserved — better to downgrade
-                    // than to let a refunded user keep access.
                     $rawRefundField = $request->input('item_list_amount_1', 0);
                     $refundAmount = (float) $rawRefundField;
                     $originalAmount = (float) $transaction->amount;
-                    // ITERATION-1 FIX (floating-point threshold): 89.10/99.00
-                    // computes as 0.8999999999999999 in IEEE-754 doubles, so a
-                    // refund at EXACTLY the 90% boundary classified as partial
-                    // and the refunded user kept their plan. Compare with an
-                    // epsilon; also compute in cents (integers) first for the
-                    // exact cases.
                     $ratio = $originalAmount > 0 ? $refundAmount / $originalAmount : 0.0;
                     $isFullRefund = $originalAmount > 0 && ($ratio >= 0.90 - 0.000001);
 
-                    // 2CO-5 FIX: debug logging for assumption verification.
-                    // This log line is INFO level so it appears in production
-                    // logs without enabling DEBUG. Once the assumption is
-                    // verified via a sandbox refund test, this log can be
-                    // downgraded to DEBUG or removed.
                     Log::info('2Checkout: REFUND_ISSUED amount analysis', [
                         'invoice_id'           => $invoiceId,
                         'raw_refund_field'     => $rawRefundField,
@@ -651,11 +385,6 @@ class WebhookController extends Controller
                         'note'                 => 'Verify item_list_amount_1 is the refund amount (not original). See audit 2CO-5.',
                     ]);
 
-                    // Defensive: if we can't determine the refund amount
-                    // (e.g. item_list_amount_1 is missing or 0), OR if the
-                    // original amount was 0, treat it as a full refund.
-                    // Better to downgrade than to let a refunded user keep
-                    // access — the refund IPN was sent for a reason.
                     if ($originalAmount <= 0 || $refundAmount <= 0) {
                         $isFullRefund = true;
                     }
@@ -679,9 +408,6 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    // ITERATION 4 (billing audit trail): full vs partial
-                    // refund classification, amounts, and the transaction
-                    // status flip are now auditable events.
                     $this->auditWebhook(
                         $isFullRefund ? 'webhook.refund_applied' : 'webhook.partial_refund_applied',
                         $user,
@@ -719,13 +445,6 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    // ── P1-1 FIX: External side effects AFTER commit ────
-                    // PlanDowngradeService::downgradeToFree calls
-                    // CoolifyDomainManager::removeDomain (HTTP to Coolify)
-                    // and Storage::disk('public')->delete() (filesystem).
-                    // These MUST NOT run inside the DB transaction — if the
-                    // transaction rolls back, the DB says "Studio" but the
-                    // domain is gone and the files are deleted.
                     $userId = $user->id;
                     \DB::afterCommit(function () use ($userId, $invoiceId) {
                         $user = User::find($userId);
@@ -756,22 +475,6 @@ class WebhookController extends Controller
         return response('Refund processed', 200);
     }
 
-    /**
-     * Apply a chargeback (CHARGEBACK_REPORTED).
-     *
-     * P1-1 FIX: External side effects now dispatched via DB::afterCommit().
-     *
-     * P1-3 FIX: Only downgrade if the user's current plan matches the
-     * transaction's plan — mirroring the refund path. Previously,
-     * applyChargeback unconditionally downgraded regardless of which
-     * transaction's invoice was being charged back. Scenario: user buys
-     * Pro (invoice A) → refunds (downgraded to Free) → buys Studio
-     * (invoice B) → 6 months later CHARGEBACK_REPORTED for invoice A.
-     * The old code saw plan='studio' and downgraded to Free, losing the
-     * Studio purchase. The fix only downgrades if user.plan ===
-     * transaction.plan, so a chargeback on an old Pro invoice doesn't
-     * affect a current Studio subscription.
-     */
     private function applyChargeback(Request $request)
     {
         $invoiceId = $request->input('invoice_id');
@@ -780,8 +483,6 @@ class WebhookController extends Controller
             return response('OK', 200);
         }
 
-        // S-9 FIX: Lock TTL bumped from 60s to 120s - see upgrade path above
-        // for rationale. Same worst-case DB transaction shape applies.
         $lock = \Illuminate\Support\Facades\Cache::lock("2co:chargeback:{$invoiceId}", 120);
 
         try {
@@ -825,12 +526,6 @@ class WebhookController extends Controller
                         'amount'           => $transaction->amount,
                     ]);
 
-                    // ── P1-3 FIX: Only downgrade if plan matches ────────
-                    // Previously, chargebacks unconditionally downgraded.
-                    // Now we mirror the refund path: only downgrade if the
-                    // user's current plan matches the charged-back
-                    // transaction's plan. A chargeback on an old Pro
-                    // invoice does NOT downgrade a current Studio user.
                     if ($user->plan !== $transaction->plan) {
                         Log::info('2Checkout: CHARGEBACK_REPORTED not downgrading — plan changed since purchase', [
                             'invoice_id'        => $invoiceId,
@@ -876,33 +571,6 @@ class WebhookController extends Controller
         return response('Chargeback processed', 200);
     }
 
-    /**
-     * Reverse a chargeback (CHARGEBACK_REVERSED).
-     *
-     * The cardholder won the chargeback dispute (or 2Checkout overturned it).
-     * Restore the user's plan to the transaction's plan, and mark the
-     * transaction back to 'completed'.
-     *
-     * ITERATION-3 FIX (lifetime-grant edge case): the restore previously
-     * force-filled plan_expires_at = null unconditionally — for a SUBSCRIPTION
-     * purchase that granted an INFINITE subscription from a single reversed
-     * charge (real revenue loss, silently, on the happiest path: the merchant
-     * winning the dispute). The restore now distinguishes:
-     *   - one-time purchase → lifetime restore (plan_expires_at = null),
-     *     exactly as before;
-     *   - subscription purchase → finite restore: now + 1 month, the
-     *     shortest billing cycle, corrected by the next
-     *     RECURRING_INSTALLMENT_SUCCESS webhook (2CO resumes charging) or
-     *     trapped by CheckPlanExpiry / the reconciliation job if it doesn't.
-     * Source of truth for "was it a subscription": invoices.billing_type
-     * (stamped by InvoiceGenerator since Iteration-1), with the user still
-     * holding a subscription_id as the fallback heuristic for pre-invoice
-     * purchases. When in doubt the restore errs SHORT-LIVED, never infinite.
-     *
-     * This is the only path that re-grants a paid plan outside of an
-     * ORDER_CREATED webhook. No external side effects here (no email, no
-     * Coolify call, no file delete) — so no DB::afterCommit needed.
-     */
     private function reverseChargeback(Request $request)
     {
         $invoiceId = $request->input('invoice_id');
@@ -911,8 +579,6 @@ class WebhookController extends Controller
             return response('OK', 200);
         }
 
-        // S-9 FIX: Lock TTL bumped from 60s to 120s - see upgrade path above
-        // for rationale. Same worst-case DB transaction shape applies.
         $lock = \Illuminate\Support\Facades\Cache::lock("2co:cb_reverse:{$invoiceId}", 120);
 
         try {
@@ -950,18 +616,10 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    // Only restore if the user is currently on a lower plan.
-                    // If they've since re-purchased, leave them alone.
                     $restoredToPlan = null;
                     $restoredBilling = null;
                     $planRank = ['free' => 0, 'pro' => 1, 'studio' => 2];
                     if (($planRank[$user->plan] ?? 0) < ($planRank[$transaction->plan] ?? 0)) {
-                        // ITERATION-3: was the charged-back purchase a
-                        // subscription? Invoices carry billing_type since
-                        // Iteration-1; fall back to the user holding a
-                        // subscription reference (imperfect for ancient rows,
-                        // but the failure mode is a SHORT restore, never an
-                        // infinite one).
                         $invoice = \DB::table('invoices')
                             ->where('transaction_id', $transaction->id)
                             ->value('billing_type');
@@ -974,8 +632,6 @@ class WebhookController extends Controller
                             'plan'            => $transaction->plan,
                             'plan_started_at' => now(),
                             'plan_expires_at' => $expiresAt,
-                            // Subscription bookkeeping only when a reference
-                            // actually exists — never invent one.
                             ...( $wasSubscription && ! empty($user->subscription_id) ? [
                                 'subscription_status'     => 'active',
                                 'subscription_ends_at'    => $expiresAt,
@@ -994,9 +650,6 @@ class WebhookController extends Controller
                         $restoredBilling = $wasSubscription ? 'subscription' : 'one_time';
                     }
 
-                    // ITERATION 4 (billing audit trail): record the reversal
-                    // outcome regardless of whether the plan was re-granted
-                    // (a later re-purchase legitimately skips the restore).
                     $this->auditWebhook('webhook.chargeback_reversed', $user, [
                         'invoice_id'    => $invoiceId,
                         'restored_plan' => $restoredToPlan,
@@ -1020,31 +673,11 @@ class WebhookController extends Controller
         return response('Chargeback reversal processed', 200);
     }
 
-    /**
-     * Downgrade a user to 'free' and clean up Studio-only resources.
-     *
-     * @param  User    $user
-     * @param  string  $reason  Short reason for log context (e.g. "Refund issued")
-     */
     private function downgradeUserAndCleanupStudioResources(User $user, string $reason): void
     {
         app(\App\Services\PlanDowngradeService::class)->downgradeToFree($user, $reason);
     }
 
-    // ====================================================================
-    // Private helpers — signature verification & log redaction
-    // ====================================================================
-
-    /**
-     * Verify the 2Checkout webhook signature.
-     *
-     * Three layers (any failure → 403):
-     *  1. Legacy MD5 hash (always required) — proves IPN origin.
-     *  2. HMAC SHA-256 signature — MANDATORY in production.
-     *  3. IP allowlist (optional, env-gated) — limits sender IPs.
-     *
-     * @return bool  true if all enabled layers pass, false otherwise.
-     */
     private function verify2CheckoutSignature(Request $request): bool
     {
         $secretWord = config('services.2checkout.secret_word');
@@ -1063,7 +696,6 @@ class WebhookController extends Controller
             return false;
         }
 
-        // ── Layer 1: Legacy MD5 ─────────────────────────────────────────
         $stringToHash = strlen((string) $request->input('sale_id', ''))   . $request->input('sale_id', '')
                       . strlen((string) $request->input('vendor_id', '')) . $request->input('vendor_id', '')
                       . strlen((string) $request->input('invoice_id', '')) . $request->input('invoice_id', '')
@@ -1108,15 +740,6 @@ class WebhookController extends Controller
             ]);
             return false;
         } else {
-            // 2CO-3 FIX (Iter-002): Use an explicit env allowlist instead of
-            // APP_ENV === 'production'. The old gate was:
-            //     if ($isProduction && ! $allowMd5Only) { ... fail closed ... }
-            // which meant any non-'production' env (staging, prod, live,
-            // production-eu) accepted MD5-only — a forgery risk.
-            //
-            // New gate: MD5-only is accepted ONLY in 'local' and 'testing'
-            // environments. Every other environment (including staging) fails
-            // closed unless TWOCHECKOUT_ALLOW_MD5_ONLY=true is explicitly set.
             $md5OnlyAllowedEnvs = ['local', 'testing'];
             $md5OnlyAllowed = in_array(app()->environment(), $md5OnlyAllowedEnvs, true)
                 || $allowMd5Only;
@@ -1157,9 +780,6 @@ class WebhookController extends Controller
         return true;
     }
 
-    /**
-     * Build the HMAC SHA-256 payload per 2Checkout INS 6.0 documented format.
-     */
     private function build2CheckoutHmacPayload(Request $request): string
     {
         $fields = [
@@ -1190,9 +810,6 @@ class WebhookController extends Controller
         return $payload;
     }
 
-    /**
-     * Return a redacted copy of the webhook payload for logging.
-     */
     private function redactedPayload(Request $request): array
     {
         return [
@@ -1209,33 +826,6 @@ class WebhookController extends Controller
         ];
     }
 
-    // ── M-1: Recurring (subscription) handlers ───────────────────────────
-    //
-    // 2Checkout sends these message types for recurring billing lifecycle:
-    //
-    //   RECURRING_INSTALLMENT_SUCCESS — a recurring payment succeeded
-    //     (monthly/yearly renewal). Extends the user's subscription_ends_at
-    //     to the next billing date + records a transaction row.
-    //
-    //   RECURRING_INSTALLMENT_FAILED — a recurring payment failed
-    //     (expired card, insufficient funds, etc.). Sets subscription_status
-    //     to 'past_due'. 2Checkout will retry per their dunning schedule;
-    //     if all retries fail, they send RECURRING_ORDER_CANCELLED.
-    //
-    //   RECURRING_ORDER_CANCELLED — the subscription was cancelled (by the
-    //     user via BillingController::cancelSubscription, by the system
-    //     after all dunning retries failed, or by the admin in the 2Checkout
-    //     dashboard). Sets subscription_status to 'cancelled'. The user
-    //     keeps access until subscription_ends_at (the end of the
-    //     already-paid-for period), then is downgraded by CheckPlanExpiry.
-
-    /**
-     * Handle RECURRING_INSTALLMENT_SUCCESS — a recurring payment succeeded.
-     *
-     * Extends the user's subscription_ends_at to the next billing date
-     * (from the webhook's item_billing_cycle_next_date field) and records
-     * a transaction row for the renewal payment.
-     */
     private function handleRecurringSuccess(Request $request)
     {
         $invoiceId = $request->input('invoice_id');
@@ -1243,9 +833,6 @@ class WebhookController extends Controller
         $productId = $request->input('item_id_1');
         $amount    = $request->input('item_list_amount_1', 0);
 
-        // The next billing date tells us when the subscription's access
-        // expires (i.e. when the NEXT payment is due). 2Checkout sends
-        // this as item_billing_cycle_next_date in YYYY-MM-DD format.
         $nextBillingDate = $request->input('item_billing_cycle_next_date');
         $subscriptionId  = $request->input('recurring_order_id') ?? $saleId;
 
@@ -1257,8 +844,6 @@ class WebhookController extends Controller
             'next_billing'    => $nextBillingDate,
         ]);
 
-        // Find the user by subscription_id (most reliable) or by
-        // customer_email (fallback).
         $user = $this->findUserForRecurringEvent($request, $subscriptionId);
 
         if (! $user) {
@@ -1302,8 +887,6 @@ class WebhookController extends Controller
                         'subscription_status' => 'active',
                         'subscription_ends_at' => $endsAt,
                         'plan_expires_at'     => $endsAt, // sync plan_expires_at for CheckPlanExpiry
-                        // M-9: Reset dunning tracking — payment succeeded,
-                        // so the user is no longer in the dunning window.
                         'dunning_step'         => null,
                         'dunning_last_sent_at' => null,
                     ])->save();
@@ -1347,8 +930,6 @@ class WebhookController extends Controller
                             if ($transaction) {
                                 app(\App\Services\InvoiceGenerator::class)
                                     ->generateForTransaction($transaction, $user, [
-                                        // ITERATION-1 FIX: renewals are always
-                                        // subscription invoices.
                                         'billing_type' => 'subscription',
                                     ]);
                             }
@@ -1370,15 +951,6 @@ class WebhookController extends Controller
         return response('OK', 200);
     }
 
-    /**
-     * Handle RECURRING_INSTALLMENT_FAILED — a recurring payment failed.
-     *
-     * Sets subscription_status to 'past_due'. 2Checkout will retry per
-     * their dunning schedule; if all retries fail, they send
-     * RECURRING_ORDER_CANCELLED. The user keeps access during the
-     * dunning period (subscription_ends_at is NOT changed — it stays
-     * at the end of the last successful billing period).
-     */
     private function handleRecurringFailure(Request $request)
     {
         $invoiceId       = $request->input('invoice_id');
@@ -1413,10 +985,6 @@ class WebhookController extends Controller
             'subscription_id' => $subscriptionId,
         ]);
 
-        // M-9: Send dunning step 1 email immediately (if not already sent).
-        // Only send if this is the first failure (dunning_step is null or 0)
-        // — subsequent failures within the same dunning window don't re-send
-        // step 1 (the user already knows their payment is failing).
         if (! $user->dunning_step || $user->dunning_step < 1) {
             $user->forceFill([
                 'dunning_step'         => 1,
@@ -1451,19 +1019,6 @@ class WebhookController extends Controller
         return response('OK', 200);
     }
 
-    /**
-     * Handle RECURRING_ORDER_CANCELLED — the subscription was cancelled.
-     *
-     * Sets subscription_status to 'cancelled'. The user keeps access until
-     * subscription_ends_at (the end of the already-paid-for period), then
-     * is downgraded by CheckPlanExpiry middleware on their next request.
-     *
-     * Cancellation can be triggered by:
-     *   - The user via BillingController::cancelSubscription (which calls
-     *     2Checkout's cancel API → 2Checkout sends this webhook)
-     *   - The system after all dunning retries failed
-     *   - An admin in the 2Checkout merchant dashboard
-     */
     private function handleRecurringCancelled(Request $request)
     {
         $subscriptionId = $request->input('recurring_order_id') ?? $request->input('sale_id');
@@ -1484,9 +1039,6 @@ class WebhookController extends Controller
         $user->forceFill([
             'subscription_status'      => 'cancelled',
             'subscription_cancelled_at' => now(),
-            // subscription_ends_at is NOT changed — it stays at the end of
-            // the last paid period. CheckPlanExpiry will downgrade when it
-            // passes.
         ])->save();
 
         Log::info('2Checkout: Subscription cancelled', [
@@ -1514,13 +1066,6 @@ class WebhookController extends Controller
         return response('OK', 200);
     }
 
-    /**
-     * Find the user associated with a recurring webhook event.
-     *
-     * Tries (in order):
-     *   1. subscription_id match (most reliable — set on initial purchase)
-     *   2. customer_email match (fallback if subscription_id wasn't stored)
-     */
     private function findUserForRecurringEvent(Request $request, ?string $subscriptionId): ?User
     {
         if ($subscriptionId) {
@@ -1536,33 +1081,6 @@ class WebhookController extends Controller
         return null;
     }
 
-    // ====================================================================
-    // ITERATION 4 — webhook ledger (payload persistence + status lifecycle)
-    // ====================================================================
-    //
-    // Lifecycle of a processed_webhooks row:
-    //
-    //   insert ──► 'processing' ──► 'processed'   (success)
-    //                 │
-    //                 └─► 'failed'                (exception → 500)
-    //                          │
-    //                          └─► 'processing'   (2CO retry claims it, or
-    //                                             admin replays it)
-    //
-    //   A 'processing' row untouched for >10 minutes is also claimable —
-    //   crash recovery for a worker that died mid-processing without
-    //   reaching either catch block.
-    //
-    // Semantics vs Iteration 1: 'failed' replaces delete-on-failure. The
-    // blocking property for 2CO retries is identical (failed rows never
-    // swallow a retry), but the payload and the fact-of-arrival survive
-    // for the billing review page and replay tooling.
-
-    /**
-     * Serialize the payload for ledger storage. Guarded against
-     * pathological sizes — a 2CO IPN is a few KB; anything beyond 256KB
-     * is stored as null (replay unavailable, processing unaffected).
-     */
     private function storablePayload(Request $request): ?string
     {
         try {
@@ -1579,12 +1097,6 @@ class WebhookController extends Controller
         return $json;
     }
 
-    /**
-     * Atomically claim an EXISTING ledger row for reprocessing: only rows
-     * marked 'failed', or 'processing' rows that have made no progress for
-     * 10+ minutes (crashed worker), transition back to 'processing'. The
-     * conditional UPDATE is the mutex — exactly one caller wins.
-     */
     private function claimExistingWebhook(string $messageId, string $messageType): bool
     {
         try {
@@ -1602,8 +1114,6 @@ class WebhookController extends Controller
 
             return (bool) $claimed;
         } catch (\Throwable $e) {
-            // DB unavailable during the claim check — treat as duplicate
-            // (fail safe: never double-process on infra doubt).
             Log::warning('2Checkout: failed to inspect ledger row for claim', [
                 'message_id'   => $messageId,
                 'message_type' => $messageType,
@@ -1613,12 +1123,6 @@ class WebhookController extends Controller
         }
     }
 
-    /**
-     * Mark a ledger row failed — the Iteration-4 replacement for deleting
-     * the dedupe marker. Same retry semantics (the row stops blocking
-     * 2CO's automatic retry), but the payload is preserved as evidence
-     * and becomes replayable from the billing review page.
-     */
     private function markWebhookFailed(?string $messageId, ?string $messageType): void
     {
         if (! $messageId || ! $messageType) {
@@ -1631,8 +1135,6 @@ class WebhookController extends Controller
                 ->where('message_type', $messageType)
                 ->update(['status' => 'failed', 'updated_at' => now()]);
         } catch (\Throwable $e) {
-            // Best-effort, same contract as Iteration-1's marker removal:
-            // the 500 response still tells 2Checkout to retry.
             Log::warning('2Checkout: failed to mark ledger row failed after processing error', [
                 'message_id'   => $messageId,
                 'message_type' => $messageType,
@@ -1641,12 +1143,6 @@ class WebhookController extends Controller
         }
     }
 
-    /**
-     * Post-dispatch ledger finalization: 'processed' on a 2xx outcome,
-     * 'failed' on 5xx (belt-and-braces — the catch blocks already marked
-     * failures; this catches handlers that returned a 500 Response without
-     * throwing). No-op on replay (null ids) — the caller owns the row.
-     */
     private function finalizeWebhook(?string $messageId, ?string $messageType, $response): void
     {
         if (! $messageId || ! $messageType) {
@@ -1672,14 +1168,6 @@ class WebhookController extends Controller
         }
     }
 
-    /**
-     * ITERATION 4: record a webhook outcome in the admin audit log with a
-     * SYSTEM actor (actor_id = null — no authenticated admin in IPN
-     * context). These actions are NOT on the SendSuperAdminActionAlert
-     * destructive whitelist, so they never email super-admins; they surface
-     * on the billing review page instead. Audit failure must never break
-     * billing processing.
-     */
     private function auditWebhook(string $action, ?User $user, array $payload = []): void
     {
         if (! $user) {

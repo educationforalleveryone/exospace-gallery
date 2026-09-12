@@ -9,21 +9,9 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Gallery CRUD authorization + PIN access tests.
- *
- * (Task H16) — covers:
- *   - Gallery creation plan limits (Free=1, Pro=5, Studio=unlimited)
- *   - Gallery edit/delete authorization (owner-only for personal galleries)
- *   - Team gallery authorization (team members can view, editors can edit)
- *   - PIN protection (correct PIN → access, wrong PIN → error, lockout after 5 fails)
- *   - Public gallery view (is_active, PIN-gated, scheduled)
- */
 class GalleryAuthorizationTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ── Gallery creation plan limits ─────────────────────────────────────
 
     public function test_free_user_can_create_one_gallery(): void
     {
@@ -70,8 +58,6 @@ class GalleryAuthorizationTest extends TestCase
         $user = User::factory()->create();
         $gallery = Gallery::factory()->create(['user_id' => $user->id]);
 
-        // ITERATION-1 FIX: show() authorizes then redirects to the edit
-        // page (it has no view of its own) — assert the redirect.
         $response = $this->actingAs($user)
             ->get("/admin/galleries/{$gallery->id}");
 
@@ -102,8 +88,6 @@ class GalleryAuthorizationTest extends TestCase
         $response->assertRedirect(route('admin.galleries.edit', $gallery));
     }
 
-    // ── Gallery edit authorization ───────────────────────────────────────
-
     public function test_owner_can_edit_their_gallery(): void
     {
         $user = User::factory()->create();
@@ -126,8 +110,6 @@ class GalleryAuthorizationTest extends TestCase
 
         $response->assertForbidden();
     }
-
-    // ── Team gallery authorization ───────────────────────────────────────
 
     public function test_team_member_can_view_team_gallery(): void
     {
@@ -162,8 +144,6 @@ class GalleryAuthorizationTest extends TestCase
         $response->assertForbidden();
     }
 
-    // ── Gallery deletion ─────────────────────────────────────────────────
-
     public function test_owner_can_delete_their_gallery(): void
     {
         $user = User::factory()->create();
@@ -172,8 +152,6 @@ class GalleryAuthorizationTest extends TestCase
         $response = $this->actingAs($user)
             ->delete("/admin/galleries/{$gallery->id}");
 
-        // ITERATION-1 FIX: galleries use SoftDeletes — assert the tombstone
-        // instead of a missing row.
         $response->assertRedirect();
         $this->assertSoftDeleted('galleries', ['id' => $gallery->id]);
     }
@@ -191,8 +169,6 @@ class GalleryAuthorizationTest extends TestCase
         $this->assertDatabaseHas('galleries', ['id' => $gallery->id]);
     }
 
-    // ── Image upload authorization ───────────────────────────────────────
-
     public function test_non_owner_cannot_upload_images_to_other_users_gallery(): void
     {
         $owner = User::factory()->create();
@@ -207,8 +183,6 @@ class GalleryAuthorizationTest extends TestCase
         $response->assertForbidden();
     }
 
-    // ── Image deletion authorization ─────────────────────────────────────
-
     public function test_non_owner_cannot_delete_other_users_images(): void
     {
         $owner = User::factory()->create();
@@ -222,8 +196,6 @@ class GalleryAuthorizationTest extends TestCase
         $response->assertForbidden();
         $this->assertDatabaseHas('gallery_images', ['id' => $image->id]);
     }
-
-    // ── Public gallery view ──────────────────────────────────────────────
 
     public function test_public_gallery_is_viewable(): void
     {
@@ -243,8 +215,6 @@ class GalleryAuthorizationTest extends TestCase
 
         $response->assertNotFound();
     }
-
-    // ── PIN protection ───────────────────────────────────────────────────
 
     public function test_pin_protected_gallery_shows_pin_page(): void
     {
@@ -292,8 +262,6 @@ class GalleryAuthorizationTest extends TestCase
         $response->assertRedirect(route('gallery.view', $gallery->slug));
     }
 
-    // ── Artist authorization (C16) ───────────────────────────────────────
-
     public function test_artist_creator_can_edit_their_artist(): void
     {
         $user = User::factory()->create();
@@ -328,8 +296,6 @@ class GalleryAuthorizationTest extends TestCase
 
         $response->assertOk();
     }
-
-    // ── Banned user access ───────────────────────────────────────────────
 
     public function test_banned_user_is_redirected_to_login(): void
     {

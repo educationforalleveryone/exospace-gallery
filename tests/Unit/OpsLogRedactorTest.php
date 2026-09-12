@@ -7,13 +7,6 @@ namespace Tests\Unit;
 use App\Ops\Support\LogRedactor;
 use PHPUnit\Framework\TestCase;
 
-/**
- * OpsCenter — Iteration 1 — log redaction.
- *
- * The control plane aggregates errors from every source; without server-
- * side redaction it would become the richest secret store on the platform.
- * These tests attack the redactor with realistic leak vectors.
- */
 class OpsLogRedactorTest extends TestCase
 {
     private LogRedactor $redactor;
@@ -130,8 +123,6 @@ class OpsLogRedactorTest extends TestCase
 
     public function test_truncates_oversized_messages(): void
     {
-        // Sentence-like content (no single 32+ char blob — those get fully
-        // redacted by the blob rule instead of truncated).
         $out = $this->redactor->redactString(str_repeat('The quick brown fox jumps over the lazy dog. ', 200));
 
         $this->assertLessThanOrEqual(4020, strlen($out));

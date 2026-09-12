@@ -9,27 +9,12 @@ use App\Services\Seo\SeoPageRenderer;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/**
- * Public SEO page rendering (Iteration 5).
- *
- * Resolved via the FALLBACK route: real product routes always win; only
- * otherwise-unmatched paths are checked against the cached seo_pages slug
- * allow-list. Landing pages live at /{slug}, editorial content at
- * /{prefix}/{slug}.
- *
- * Preview: append ?preview={token} (page-specific HMAC token, see
- * SeoPage::previewToken()). Previews render with noindex regardless of
- * status.
- */
 class SeoPageController extends Controller
 {
     public function __construct(
         private SeoPageRenderer $renderer,
     ) {}
 
-    /**
-     * Fallback handler: render the matching seo_page or 404.
-     */
     public function __invoke(Request $request)
     {
         if (!$request->isMethod('get') && !$request->isMethod('head')) {
@@ -39,8 +24,6 @@ class SeoPageController extends Controller
         $path = trim($request->path(), '/');
         $isPreview = false;
 
-        // Two candidate shapes: '{slug}' (landing) or '{prefix}/{slug}'
-        // (editorial). The slug map carries both.
         $map = SeoPage::cachedSlugMap();
 
         $pageId = $map[$path] ?? null;
@@ -59,8 +42,6 @@ class SeoPageController extends Controller
                 abort(404);
             }
 
-            // Published in the map but maybe scheduled for the future —
-            // visible only with a valid preview token.
             if ($page->isScheduled()) {
                 if ($page->isValidPreviewToken($request->query('preview'))) {
                     $isPreview = true;
@@ -85,9 +66,6 @@ class SeoPageController extends Controller
         ]);
     }
 
-    /**
-     * Uncached path lookup for previews of unpublished pages.
-     */
     private function findByPath(string $path): ?SeoPage
     {
         $editorialPrefix = (string) config('seo.pages.editorial_prefix', 'resources');

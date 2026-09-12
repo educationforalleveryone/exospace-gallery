@@ -1,8 +1,3 @@
-// probe-salon-poses.mjs — DETERMINISTIC forensic captures: stop the RAF
-// chain, set the pose on the owned camera, render ONE frame synchronously,
-// capture. No loop interference, no stale presentations.
-//
-//   node scripts/harness/probe-salon-poses.mjs [count]
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -24,11 +19,6 @@ const server = createServer((req, res) => {
 });
 await new Promise(r => server.listen(PORT, r));
 
-// v3 "two rooms" poses — the room spans ±L/2 (L 8.0–12.6 by count), the
-// curtain stands at z=0 with its 2.4 m opening, the hero wall is at z=−L/2
-// (front), the walnut double door on z=+L/2 (back). Poses use count-24
-// geometry (L=11.2, half 5.6) unless noted; the camera-space checks in the
-// walk probe cover the rest.
 const POSES = [
     { id: 'spawn-view',    p: [0, 1.6, 4.9],      t: [0, 1.5, -5.4] },   // arrival: hero THROUGH the opening
     { id: 'opening',       p: [0, 1.58, 1.6],     t: [0, 1.5, -5.4] },   // the opening sightline
@@ -72,9 +62,6 @@ for (let i = 0; i < 5; i++) {
 await page.waitForTimeout(1500); // capture BEFORE the fps benchmark downgrades
 
 const cdp = await page.context().newCDPSession(page);
-// Room-size the poses: they are authored against count-24 geometry
-// (half-depth 5.9); scale the horizontal components so every count's
-// camera stands INSIDE its room.
 const scale = await page.evaluate(() => {
     const s = window.__exospace.scene;
     const L = s._layoutMeta?.wallLength || 11.8;
@@ -88,8 +75,6 @@ for (const pose of POSES) {
     };
     await page.evaluate((pose) => {
         const s = window.__exospace.scene;
-        // stop the RAF chain — the loop is the only thing that overwrites
-        // the camera (movement/lean normalization). One manual render below.
         if (s._rafId) cancelAnimationFrame(s._rafId);
         s._rafActive = false;
         s.camera.position.set(...pose.p);

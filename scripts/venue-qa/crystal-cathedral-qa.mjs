@@ -1,34 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// crystal-cathedral-qa.mjs — the venue QA gate for Crystal Cathedral.
-//
-//   node scripts/venue-qa/crystal-cathedral-qa.mjs
-//
-// Same layering as infinite-void-qa.mjs (plain Node over the repo checkout;
-// the geometry probe additionally uses the repo's `three` dependency):
-// pins CONTRACTS while tests/Feature pins the DB side and
-// scripts/harness/shoot.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the crystal-cathedral row declares the Luminous
-//      Arcade identity (void_arcade body, declared environment, standing
-//      glow, restrained bloom, planar reflection, depth-band placement) and
-//      NOT the superseded bodies.
-//   B. DB ↔ harness sync — the PHP-less harness renders the same JSON a
-//      fresh install seeds (drift here means screenshots stop meaning
-//      anything).
-//   C. Architecture invariants — driven through the REAL VenueDecorator body
-//      + three.js (no GL): adaptive bay plan (chord/apex always under the
-//      pier crown), arch arcs meeting their springers and each other at the
-//      apex, piers outside the walk bound, vault ribs converging on the boss
-//      ring, no NaNs — plus the REAL float placement modules (bound
-//      containment, depth bands, determinism).
-//   D. JS/PHP hygiene — the rainbow pastel palette is gone from the
-//      decorator, the rollback chain (void_colonnade/void_shards) still
-//      dispatches, zero venue slugs in the shared modules, the ENVIRONMENTS
-//      constant exists (it was referenced-but-undefined before the audit),
-//      and the parity fix ships on the public controller.
-// ─────────────────────────────────────────────────────────────────────────────
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (crystal-cathedral row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -117,14 +86,11 @@ ok('copy promises the reflection (reflection matrix)',
 ok('no pastel-rainbow light palette in the row (the nightclub is gone)',
     !/0xffaaaa|0xaaffaa|0xaaaaff|0xffffaa|0xffaaff|0xaaffff/.test(row));
 
-// ── B. DB ↔ harness sync ────────────────────────────────────────────────────
 section('B. DB ↔ harness sync (crystal-cathedral body)');
 const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
 function harnessVenue(key) {
     const i = harnessSrc.indexOf(`'${key}': {`);
     if (i === -1) return null;
-    // The next venue entry starts at a line with EXACTLY 8 spaces + quote;
-    // matching "8 spaces" alone would stop at the first 12-space body line.
     const rest = harnessSrc.slice(i + 10);
     const next = rest.search(/\n        '/);
     return rest.slice(0, next === -1 ? undefined : next + 1);
@@ -230,14 +196,6 @@ try {
             const spring = Math.min(7.4, 12.9 - chord * 0.866);
             const apexY = spring + chord * 0.866;
             ok('apex stays under the 13.0 pier crown', apexY < 13, `apex ${apexY.toFixed(2)}`);
-            // The instance quaternion is Ry(yaw)·Rz(sweep): the sweep turns
-            // the 0°→60° arc WITHIN its own plane, then the yaw orients the
-            // plane along the chord. Construction order: torusArcs[0] = arcsL
-            // (centred on B = pier i+1, sweep 120°), torusArcs[1] = arcsR
-            // (centred on A = pier i, sweep 0). Landmarks in the arc's OWN
-            // frame:
-            //   arcsL (centred B, sweep 120°): 0° → apex, 60° → A (pier i)
-            //   arcsR (centred A, sweep 0):    0° → B (pier i+1), 60° → apex
             const g0  = new THREE.Vector3(chord, 0, 0);
             const g60 = new THREE.Vector3(chord * Math.cos(Math.PI / 3), chord * Math.sin(Math.PI / 3), 0);
             const near = (a, b, eps = 0.25) => a.distanceTo(b) < eps;
@@ -296,12 +254,6 @@ try {
             added.filter((o) => o.isSpotLight).length === 1 &&
             added.filter((o) => o.isPointLight).length === 0);
 
-        // DEPLOY REVIEW (2026-09-08): the planar reflector must use the
-        // MULTIPLY blend — the stock overlay blend brightened reflection
-        // midtones and left emissive whites at full luminance, so the
-        // deployed floor read as a duplicated world (user-reported) and the
-        // reflected frames re-entered bloom. Multiply caps reflected whites
-        // at the tint (≈0.35 < 0.82 bloom threshold) — polished stone.
         const reflector = added.find((o) => o.material?.uniforms?.tDiffuse);
         ok('planar reflector built on the declared path', !!reflector);
         if (reflector) {
@@ -312,8 +264,6 @@ try {
                 reflector.material.uniforms.color.value.getHex() === 0x5a6a85,
                 reflector.material.uniforms.color.value.getHexString());
         }
-        // Dressed-stone trim: the bay framing must be lighter than the wall
-        // field (the "framed bays of stone" the copy promises must render).
         const trims = added.filter((o) => o.geometry?.type === 'BoxGeometry');
         ok('bay trim instanced meshes present (pilasters + headers)', trims.length === 2);
         const trimMat = trims[0]?.material;
@@ -352,9 +302,6 @@ try {
             if (pt.y < 0.6 || pt.y > 3.2) inside = false;                // hover band
         }
         ok(`[${count} works] all works inside the bound + hover band`, inside, `radius ${radius.toFixed(2)}`);
-        // Depth bands pay off at scale: past ~20 works the banded radius is
-        // strictly tighter than the legacy linear ring (40 works: 16.6 vs
-        // 22.3 m); small shows stay at or near the composed 10–11.5 m floor.
         const linear = Math.max(10, (count * 3.5) / (2 * Math.PI));
         if (count >= 20) ok(`[${count} works] banded radius tighter than linear`, radius < linear, `${radius.toFixed(2)} vs ${linear.toFixed(2)}`);
         else ok(`[${count} works] radius stays walkable (≤ linear + 2 m)`, radius <= linear + 2, `${radius.toFixed(2)} vs ${linear.toFixed(2)}`);
@@ -363,7 +310,6 @@ try {
     ok('architecture probe (requires the repo three dependency)', false, err.message);
 }
 
-// ── D. JS / PHP hygiene ─────────────────────────────────────────────────────
 section('D. JS / PHP hygiene');
 const decoratorSrc = readFileSync(rel('resources/js/gallery/VenueDecorator.js'), 'utf8');
 ok('rainbow pastel palette removed from the decorator',

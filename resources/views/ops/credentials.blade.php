@@ -12,7 +12,6 @@
     </p>
 </div>
 
-{{-- ── Summary + §15 banner ───────────────────────────────────────────── --}}
 <div class="grid sm:grid-cols-4 gap-3 mb-6">
     <div class="rounded-lg border {{ $counts['rotate_now'] > 0 ? 'border-red-700/60 bg-red-950/30' : 'border-slate-800 bg-slate-900/40' }} px-4 py-3">
         <div class="text-2xl font-bold {{ $counts['rotate_now'] > 0 ? 'text-red-300' : 'text-slate-300' }}">{{ $counts['rotate_now'] }}</div>
@@ -40,7 +39,6 @@
 </div>
 @endif
 
-{{-- ── Inventory table ─────────────────────────────────────────────────── --}}
 <div class="overflow-x-auto rounded-lg border border-slate-800">
     <table class="w-full text-sm">
         <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
@@ -113,11 +111,6 @@
                     </td>
                 </tr>
             @empty
-                {{-- ITERATION-4: defensive empty branch. The inventory is
-                    config-driven (OpsCredentialInventoryService) so this is
-                    not expected to fire, but a blank tbody under a full
-                    header row would read as a broken page if the catalog
-                    ever returns empty. --}}
                 <tr>
                     <td colspan="5" class="px-4 py-6 text-center text-xs text-slate-400">
                         No credentials are being tracked. Check the credential inventory catalog configuration.

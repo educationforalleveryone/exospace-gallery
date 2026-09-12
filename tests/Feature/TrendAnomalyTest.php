@@ -12,15 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 7 — >2σ anomaly annotations on the TTFE trend.
- *
- * Coverage: the TrendAnomalies detector math (flat baseline guard,
- * high/low direction, null-gap tolerance, min-priors floor) + the
- * Master Control chart embeds the {index, label, z, direction}
- * payload as a JSON list so the inline Chart.js plugin can ring
- * the right points without re-deriving the math in JS.
- */
 class TrendAnomalyTest extends TestCase
 {
     use RefreshDatabase;
@@ -49,12 +40,8 @@ class TrendAnomalyTest extends TestCase
         ]);
     }
 
-    // ── Detector math ─────────────────────────────────────────────────
-
     public function test_detect_flags_a_clear_high_outlier(): void
     {
-        // Four flat baseline points + a clear spike — the spike is
-        // >2σ above the trailing mean.
         $series = [10.0, 10.0, 10.0, 10.0, 18.0];
 
         $anomalies = \App\Services\TrendAnomalies::detect($series);
@@ -80,8 +67,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_detect_requires_min_four_priors(): void
     {
-        // Three priors then an outlier — under the MIN_PRIORS floor
-        // (σ is meaningless on weekly samples with <4 baseline points).
         $series = [10.0, 10.0, 10.0, 30.0];
 
         $this->assertSame([], \App\Services\TrendAnomalies::detect($series));
@@ -89,9 +74,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_detect_skips_null_points_in_window(): void
     {
-        // Null weeks are not 0h TTFEs — they're weeks with no
-        // publisher. The detector looks back through PRIOR non-null
-        // points only; a null in the window doesn't dilute the mean.
         $series = [10.0, null, 10.0, 10.0, 10.0, 20.0];
 
         $anomalies = \App\Services\TrendAnomalies::detect($series);
@@ -103,9 +85,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_detect_flat_baseline_guard_needs_meaningful_jump(): void
     {
-        // A flat window then a noise-level blip (0.1h resolution) must
-        // NOT flag — the σ-floor keeps noise below the 2σ threshold.
-        // threshold = max(2σ, 2×0.25) = max(0, 0.5) = 0.5h.
         $series = [10.0, 10.0, 10.0, 10.0, 10.2];
 
         $this->assertSame([], \App\Services\TrendAnomalies::detect($series));
@@ -124,12 +103,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_detect_trailing_window_caps_at_eight_priors(): void
     {
-        // A regime shift long ago shouldn't inflate σ forever — the
-        // window caps at the 8 most recent priors so old samples
-        // fall out of the calculation as the trend ages.
-        // Build: 12 baseline @ 10.0, then 8 @ 10.0 + a spike at 50.
-        // With a flat 8-window the spike clearly flags regardless
-        // of the older 4 baseline points.
         $series = array_merge(
             array_fill(0, 12, 10.0),  // very old regime
             array_fill(0, 8, 10.0),   // recent baseline
@@ -149,8 +122,6 @@ class TrendAnomalyTest extends TestCase
 
         $this->assertSame([], \App\Services\TrendAnomalies::detect($series));
     }
-
-    // ── Master Control embed ──────────────────────────────────────────
 
     private function seedSnapshot(string $captured, ?float $ttfeAvg, int $window = 30): void
     {
@@ -173,8 +144,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_master_control_embeds_anomaly_payload_when_trend_has_outlier(): void
     {
-        // 5 snapshots: flat baseline + spike — TTFE chart will draw
-        // (>=2 points) and the spike should flag.
         $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
         $this->seedSnapshot('2026-07-14 06:30:00', 10.0);
         $this->seedSnapshot('2026-07-21 06:30:00', 10.0);
@@ -204,10 +173,6 @@ class TrendAnomalyTest extends TestCase
             ->get(route('super.index'));
 
         $response->assertStatus(200);
-        // Empty payload embedded as [] (the chart plugin is conditional
-        // on anomalies.length > 0 so a clean trend renders with no rings).
-        // We don't assert the absence of the substring 'anomal' — the JS
-        // variable name itself contains it (var anomalies = []).
         $response->assertSee('var anomalies = [];', false);
     }
 
@@ -227,15 +192,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_detect_null_immediately_before_spike_still_flags(): void
     {
-        // Existing null-gap test puts the null in the middle of the
-        // baseline. This pins the edge case where the null sits
-        // IMMEDIATELY before the spike (the trailing window must
-        // skip the null and reach back to the priors before it).
-        // Series: [10, 10, 10, 10, null, 20] — index 4 is null,
-        // index 5 is the spike. The window for index 5 looks back
-        // at indices [4 (null, skipped), 3, 2, 1, 0] = 4 priors.
-        // σ over [10,10,10,10] = 0; sigma_eff = 0.25; z = (20-10)/0.25 = 40
-        // → flags at index 5, direction high.
         $result = TrendAnomalies::detect([10.0, 10.0, 10.0, 10.0, null, 20.0]);
 
         $this->assertCount(1, $result);
@@ -259,8 +215,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_retention_w1_trend_embeds_anomaly_payload_when_outlier(): void
     {
-        // 5 W1 snapshots — flat 30% baseline, then a drop to 10% (a
-        // >2σ low outlier — churn up).
         $this->seedRetentionSnapshot('2026-07-07 06:00:00', 30.0);
         $this->seedRetentionSnapshot('2026-07-14 06:00:00', 30.0);
         $this->seedRetentionSnapshot('2026-07-21 06:00:00', 30.0);
@@ -270,9 +224,6 @@ class TrendAnomalyTest extends TestCase
         $response = $this->actingAsMfaSuperAdmin()->get(route('super.index'));
 
         $response->assertStatus(200);
-        // The retention chart's W1 anomaly payload embeds JSON with
-        // direction=low (churn-up → worse → amber ring per the
-        // inverted color convention).
         $response->assertSee('var w1Anomalies =', false);
         $response->assertSee('"direction":"low"', false);
         // Header count line on the retention chart gains the suffix.
@@ -281,8 +232,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_retention_w1_trend_embeds_empty_payload_on_clean_trend(): void
     {
-        // 5 W1 snapshots — flat 30% baseline with a noise-level blip
-        // (under the >2σ threshold; should not flag).
         $this->seedRetentionSnapshot('2026-07-07 06:00:00', 30.0);
         $this->seedRetentionSnapshot('2026-07-14 06:00:00', 30.0);
         $this->seedRetentionSnapshot('2026-07-21 06:00:00', 30.0);
@@ -298,12 +247,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_canvas_has_role_img_and_aria_label_for_accessibility(): void
     {
-        // WCAG 1.1.1 — canvas needs a text alternative. The aria-label
-        // is computed server-side from the trend + annotation counts so
-        // a screen reader announces point count + release markers +
-        // anomaly count (audit-fix D-1).
-        // Both charts need >= 2 weekly snapshots to render the canvas
-        // (the @if guard draws a placeholder when there's <2 points).
         $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
         $this->seedSnapshot('2026-07-14 06:30:00', 10.0);
         $this->seedRetentionSnapshot('2026-07-07 06:00:00', 30.0);
@@ -322,10 +265,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_ttfe_anomaly_payload_includes_sigma_and_sigma_eff(): void
     {
-        // audit-fix D-4: the payload now carries sigma + sigma_eff
-        // alongside z so the operator can sanity-check the threshold
-        // by hand (a future tooltip can surface them; for now they're
-        // available in the JS variable for the operator's console).
         $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
         $this->seedSnapshot('2026-07-14 06:30:00', 10.0);
         $this->seedSnapshot('2026-07-21 06:30:00', 10.0);
@@ -342,15 +281,6 @@ class TrendAnomalyTest extends TestCase
 
     // ── ITERATION 9 (workstream C) — per-shape tooltip override plugin ──
 
-    /**
-     * The Iter-8 codified aria-label made the canvas accessible; the
-     * per-shape data (mean, sigma_eff, z, direction) is in the JS
-     * payload but only renders as a static ±Nsigma label on the
-     * canvas. Iter-9 ships an inline tooltip override plugin that
-     * augments the default Chart.js tooltip when hovering a ringed
-     * point. The plugin is conditional on anomalies.length > 0 so a
-     * clean trend renders with the default tooltip behavior.
-     */
     public function test_master_control_embeds_anomaly_tooltip_override_script_when_anomalies_exist(): void
     {
         $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
@@ -386,11 +316,6 @@ class TrendAnomalyTest extends TestCase
 
     public function test_anomaly_tooltip_override_reuses_payload_vars_per_chart_canvas_id(): void
     {
-        // The plugin is shared across all 3 charts (TTFE + W1 + W2).
-        // The guard maps the chart canvas ID → the matching anomaly
-        // list, so hovering a TTFE ring reads the TTFE anomaly's mean
-        // / sigma_eff / z, not the retention W1's. Test pin: the
-        // plugin references each canvas ID in its dispatch logic.
         $this->seedSnapshot('2026-07-07 06:30:00', 10.0);
         $this->seedSnapshot('2026-07-14 06:30:00', 10.0);
         $this->seedSnapshot('2026-07-21 06:30:00', 10.0);

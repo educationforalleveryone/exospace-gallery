@@ -14,63 +14,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
-/**
- * M-24: OAuth/SSO controller (Google + GitHub).
- *
- * ITERATION-001 SECURITY FIXES (audit CR-3 + CR-4 + C-2):
- *
- *   CR-3 — OAuth account-takeover via unverified-email merge + auto-verification.
- *     Removed the email-merge path entirely. If no provider-ID match exists,
- *     create a new user with email_verified_at = null (unless the provider
- *     explicitly verified the email) and dispatch a verification email.
- *
- *   CR-4 — Session fixation on OAuth login paths.
- *     $request->session()->regenerate() is called after every Auth::login().
- *
- *   C-2 — OAuth unlink hasPassword check is provably broken.
- *     Use the has_password boolean column (from Iter-001 migration) instead
- *     of the broken bcrypt comparison.
- *
- * ITERATION-004 SECURITY FIX (audit D-2):
- *
- *   D-2 — PKCE on OAuth flows.
- *     Socialite::driver($provider)->withPkce()->redirect() is now called.
- *     PKCE (Proof Key for Code Exchange) protects against authorization-code
- *     interception attacks. Socialite 5.x supports ->withPkce() on Google
- *     and GitHub providers. The code verifier is stored in the session by
- *     Socialite; the ->user() call picks it up automatically.
- *
- * Handles 3 flows:
- *   1. Login/Register: User clicks "Continue with Google" → OAuth redirect →
- *      callback → find-or-create user → login.
- *   2. Link: Authenticated user clicks "Link Google" on profile → OAuth
- *      redirect → callback → store provider_id on existing user.
- *   3. Unlink: Authenticated user clicks "Unlink Google" → remove provider_id.
- *
- * Security model (post-CR-3):
- *   - Provider ID match: login as that user (returning user).
- *   - No provider ID match + email match: NEVER auto-merge. Create a new
- *     user with email_verified_at = null (or = now() if the provider
- *     explicitly verified the email). The victim's existing account is
- *     untouched.
- *   - No provider ID match + no email match: create new user.
- *
- * Email verification (post-CR-3):
- *   - Google: the ID token's email_verified claim is authoritative.
- *   - GitHub: the user's "primary" email is NOT the same as "verified".
- *     Check $socialUser->user['verified'] before trusting.
- */
 class OAuthController extends Controller
 {
     private const SUPPORTED_PROVIDERS = ['google', 'github'];
 
-    /**
-     * Redirect to the OAuth provider for authentication.
-     *
-     * Route: GET /auth/{provider}/redirect
-     *
-     * D-2 FIX (Iter-004): Added ->withPkce() for PKCE protection.
-     */
     public function redirect(Request $request, string $provider): RedirectResponse
     {
         if (! $this->isProviderConfigured($provider)) {
@@ -80,28 +27,9 @@ class OAuthController extends Controller
         // Store the intended action: 'login' (default) or 'link'
         session(['oauth_action' => $request->query('action', 'login')]);
 
-        // D-2 FIX (Iter-004): Enable PKCE (Proof Key for Code Exchange).
-        // PKCE protects against authorization-code interception attacks.
-        // Socialite generates a random code verifier, stores it in the
-        // session, and sends a code challenge (S256) with the authorization
-        // request. The token endpoint requires the code verifier to match
-        // the original challenge — an attacker who intercepts the code
-        // can't exchange it without the verifier.
-        //
-        // The ->user() call in callback() picks up the verifier from the
-        // session automatically — no extra code needed.
-        //
-        // Socialite 5.x supports withPkce() on Google and GitHub providers.
-        // If a future provider doesn't support PKCE, the ->withPkce() call
-        // is a no-op (Socialite checks provider capability).
         return Socialite::driver($provider)->withPkce()->redirect();
     }
 
-    /**
-     * Handle the OAuth provider callback.
-     *
-     * Route: GET /auth/{provider}/callback
-     */
     public function callback(Request $request, string $provider): RedirectResponse
     {
         if (! $this->isProviderConfigured($provider)) {
@@ -109,10 +37,6 @@ class OAuthController extends Controller
         }
 
         try {
-            // D-2 FIX: Socialite picks up the PKCE verifier from the session
-            // automatically. No code change needed here — the ->user() call
-            // sends the verifier to the token endpoint as part of the
-            // code-for-token exchange.
             $socialUser = Socialite::driver($provider)->user();
         } catch (\Throwable $e) {
             Log::warning('OAuth: provider callback failed', [
@@ -132,12 +56,6 @@ class OAuthController extends Controller
         return $this->handleLogin($request, $provider, $socialUser);
     }
 
-    /**
-     * Login/Register flow: find-or-create user from OAuth data.
-     *
-     * CR-3 FIX: Removed the email-merge path entirely.
-     * CR-4 FIX: $request->session()->regenerate() after every Auth::login().
-     */
     private function handleLogin(Request $request, string $provider, $socialUser): RedirectResponse
     {
         $providerColumn = "{$provider}_id";
@@ -158,9 +76,6 @@ class OAuthController extends Controller
             return redirect()->intended(route('admin.dashboard'));
         }
 
-        // 2. CR-3 FIX: REMOVED the email-merge path.
-        //    See the Iter-001 Iteration_Report for full rationale.
-
         // 3. Check if a user with this email already exists (for a clear error message).
         $existingByEmail = User::where('email', strtolower($socialUser->getEmail()))->first();
 
@@ -179,20 +94,8 @@ class OAuthController extends Controller
                 ));
         }
 
-        // 4. Create new user.
-        //    CR-3 FIX: only set email_verified_at if the provider explicitly
-        //    verified the email.
         $emailVerified = $this->isEmailVerifiedByProvider($provider, $socialUser);
 
-        // ITERATION-1 P0 FIX (broken OAuth registration): google_id/github_id,
-        // avatar_url and email_verified_at are NOT in User::$fillable (they
-        // are deliberately guarded billing/auth fields) — User::create()
-        // silently DROPPED them. Consequences: every OAuth signup stored no
-        // provider link (so the next login with the same provider could not
-        // find the user), no avatar, and an unverified email even when
-        // Google had verified it (the CR-3 guarantee never took effect).
-        // Create with the fillable subset, then attach the guarded fields
-        // via forceFill() — the documented pattern for trusted callers.
         $user = User::create([
             'name'         => $socialUser->getName() ?? $socialUser->getNickname() ?? 'User',
             'email'        => strtolower($socialUser->getEmail()),
@@ -212,8 +115,6 @@ class OAuthController extends Controller
             'email_verified'    => $emailVerified,
         ]);
 
-        // If the provider did not verify the email, dispatch the standard
-        // verification email so the user can verify their email address.
         if (! $emailVerified) {
             $user->sendEmailVerificationNotification();
             Log::info('OAuth: dispatched verification email (provider did not verify)', [
@@ -221,9 +122,6 @@ class OAuthController extends Controller
             ]);
         }
 
-        // Fire Registered event for welcome email (only if email is verified —
-        // otherwise the welcome email would arrive before verification, which
-        // is confusing). The SendWelcomeEmail listener checks email_verified_at.
         event(new \Illuminate\Auth\Events\Registered($user));
 
         // CR-4 FIX: regenerate session ID to prevent session fixation.
@@ -238,12 +136,6 @@ class OAuthController extends Controller
             ->with('status', $statusMessage);
     }
 
-    /**
-     * Link flow: authenticated user links a provider to their account.
-     *
-     * CR-3 (defense-in-depth): verify the OAuth email matches the user's
-     * account email. If they differ, refuse the link.
-     */
     private function handleLink(string $provider, $socialUser): RedirectResponse
     {
         $user = Auth::user();
@@ -256,8 +148,6 @@ class OAuthController extends Controller
                 ->with('error', 'This ' . ucfirst($provider) . ' account is already linked to another Exospace user.');
         }
 
-        // CR-3 (defense-in-depth): verify the OAuth email matches the user's
-        // account email. If they differ, refuse the link.
         $oauthEmail = strtolower($socialUser->getEmail() ?? '');
         $userEmail = strtolower($user->email ?? '');
         if ($oauthEmail && $userEmail && $oauthEmail !== $userEmail) {
@@ -292,14 +182,6 @@ class OAuthController extends Controller
             ->with('status', ucfirst($provider) . ' account linked successfully. You can now log in with ' . ucfirst($provider) . '.');
     }
 
-    /**
-     * Unlink a provider from the authenticated user's account.
-     *
-     * Route: POST /auth/{provider}/unlink
-     *
-     * C-2 FIX: Use the has_password boolean column instead of the provably-
-     * broken bcrypt comparison.
-     */
     public function unlink(Request $request, string $provider): RedirectResponse
     {
         if (! in_array($provider, self::SUPPORTED_PROVIDERS, true)) {
@@ -313,9 +195,6 @@ class OAuthController extends Controller
             return redirect()->route('profile.edit')->with('error', ucfirst($provider) . ' is not linked to your account.');
         }
 
-        // C-2 FIX: use the has_password column (set by migration
-        // 2026_07_10_000001_add_has_password_to_users_table.php) instead of
-        // the broken bcrypt comparison.
         $hasPassword = (bool) $user->has_password;
 
         $otherProviders = array_filter(
@@ -330,9 +209,6 @@ class OAuthController extends Controller
 
         $user->forceFill([$providerColumn => null])->save();
 
-        // AUDIT-P1-4.1: Log OAuth provider unlink — security-relevant because
-        // unlinking OAuth + forcing a password reset is an account-takeover
-        // vector. Logging gives forensic visibility.
         AdminAuditLog::record('oauth.unlinked', $user, [
             'provider'           => $provider,
             'has_password'       => $hasPassword,
@@ -349,9 +225,6 @@ class OAuthController extends Controller
             ->with('status', ucfirst($provider) . ' account unlinked.');
     }
 
-    /**
-     * Is the given OAuth provider configured (client_id set)?
-     */
     private function isProviderConfigured(string $provider): bool
     {
         if (! in_array($provider, self::SUPPORTED_PROVIDERS, true)) {
@@ -361,9 +234,6 @@ class OAuthController extends Controller
         return ! empty(config("services.{$provider}.client_id"));
     }
 
-    /**
-     * CR-3 FIX: Determine if the OAuth provider has verified the user's email.
-     */
     private function isEmailVerifiedByProvider(string $provider, $socialUser): bool
     {
         $userRaw = $socialUser->user ?? [];

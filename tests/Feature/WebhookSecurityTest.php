@@ -2,13 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-002 regression tests for audit 2CO-3 (webhook env gate),
- * 2CO-4 (replay protection race), and 2CO-5 (refund amount logging).
- *
- * Run: php artisan test --filter=WebhookSecurityTest
- */
-
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,9 +16,6 @@ class WebhookSecurityTest extends TestCase
 
     public function test_2co3_md5_only_webhook_rejected_in_staging_env(): void
     {
-        // 2CO-3 FIX: the old gate was APP_ENV === 'production', so staging
-        // (APP_ENV=staging) accepted MD5-only. The new gate uses an allowlist
-        // ['local', 'testing'] — staging should now fail closed.
         $this->app['env'] = 'staging';
         config()->set('services.2checkout.secret_word', 'TESTSECRET');
         config()->set('services.2checkout.buy_link_secret_word', null); // HMAC not configured
@@ -84,10 +74,6 @@ class WebhookSecurityTest extends TestCase
 
     public function test_2co4_replay_protection_handles_duplicate_concurrent_inserts(): void
     {
-        // 2CO-4 FIX: the old exists() + insert() pattern had a race window.
-        // The new insertOrIgnore() is atomic — duplicate inserts return 0
-        // (no exception, no 500). This test verifies the behavior by
-        // simulating a duplicate message_id.
         config()->set('services.2checkout.secret_word', 'TESTSECRET');
         config()->set('services.2checkout.buy_link_secret_word', null);
         $this->app['env'] = 'testing';
@@ -110,12 +96,9 @@ class WebhookSecurityTest extends TestCase
             'md5_hash'     => $md5Hash,
         ];
 
-        // First request — should be accepted (200)
         $response1 = $this->postJson('/webhooks/2checkout', $payload);
         $response1->assertStatus(200);
 
-        // Second request with the SAME message_id — should be a no-op (200, not 500)
-        // 2CO-4 FIX: previously this would throw a duplicate-key exception → 500.
         $response2 = $this->postJson('/webhooks/2checkout', $payload);
         $response2->assertStatus(200);
 
@@ -128,18 +111,12 @@ class WebhookSecurityTest extends TestCase
 
     public function test_2co5_refund_amount_logging_emits_info_log(): void
     {
-        // 2CO-5 FIX: the refund amount assumption (item_list_amount_1 is the
-        // refund amount, not the original) is now logged at INFO level for
-        // verification. This test verifies the log is emitted.
         Log::spy();
 
         config()->set('services.2checkout.secret_word', 'TESTSECRET');
         config()->set('services.2checkout.buy_link_secret_word', null);
         $this->app['env'] = 'testing';
 
-        // Create a transaction to be refunded
-        // ITERATION-1 FIX: transactions.user_id is FK-constrained on SQLite
-        // — user id 1 never existed in this test.
         $refundUser = User::factory()->create();
         $transaction = DB::table('transactions')->insertGetId([
             'user_id'        => $refundUser->id,

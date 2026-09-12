@@ -13,18 +13,6 @@ use App\Support\Seo\SeoManager;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/**
- * Public directory of artists with publicly-viewable works.
- *
- * Route: GET /artists
- *
- * This is the crawlable HUB for the artist layer (SEO OS Iteration 2):
- * every artist profile is at most one internal link away. Artists with
- * zero public works are excluded entirely (they would be thin pages).
- *
- * Pagination: self-canonical with the page param preserved; rel=prev/next
- * emitted via SeoData. Sort/filter params canonicalize to the clean URL.
- */
 class ArtistDirectoryController extends Controller
 {
     private const PER_PAGE = 24;
@@ -46,10 +34,6 @@ class ArtistDirectoryController extends Controller
             ->paginate(self::PER_PAGE)
             ->withQueryString();
 
-        // Cover image per artist card (first public work). NOTE: eager
-        // loading with ->limit(1) would limit the TOTAL set across all
-        // parents (classic Eloquent gotcha) — fetch first-per-artist in
-        // PHP instead: one query, no N+1.
         $artistIds = $artists->getCollection()->pluck('id');
         $covers = GalleryImage::query()
             ->whereIn('artist_id', $artistIds)

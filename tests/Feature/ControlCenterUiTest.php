@@ -10,13 +10,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
-/**
- * Self-verification for the Testing Control Center UI (QA Iteration 2).
- *
- * These tests are deliberately honest: they PROVE the gate, the pages and
- * the queued execution path — including the fail-closed behavior that makes
- * the whole section invisible without configuration.
- */
 class ControlCenterUiTest extends TestCase
 {
     use RefreshDatabase;
@@ -31,15 +24,10 @@ class ControlCenterUiTest extends TestCase
         config()->set('test-center.admin_emails', [$this->admin]);
     }
 
-    /* ── Access gate ───────────────────────────────────────────────────── */
-
     public function test_gate_is_fail_closed_when_allowlist_empty(): void
     {
         config()->set('test-center.admin_emails', []);
 
-        // Guests are bounced by `auth` first (normal Laravel layering), but an
-        // authenticated user must still see the section VANISH (404) — proving
-        // an empty allowlist disables everything rather than locking everyone out.
         $user = \App\Models\User::factory()->create(['email' => 'someone@example.com']);
         $this->actingAs($user)->get('/control-center')->assertStatus(404);
         $this->actingAs($user)->get('/control-center/runs')->assertStatus(404);
@@ -68,8 +56,6 @@ class ControlCenterUiTest extends TestCase
         $this->actingAs($user)->get('/control-center')->assertOk();
     }
 
-    /* ── Overview wall ─────────────────────────────────────────────────── */
-
     public function test_overview_lists_all_profiles_with_latest_status(): void
     {
         $user  = \App\Models\User::factory()->create(['email' => $this->admin]);
@@ -95,8 +81,6 @@ class ControlCenterUiTest extends TestCase
              // safety labels visible per card
              ->assertSee('prod-safe-read', false);
     }
-
-    /* ── Runs index + filters ──────────────────────────────────────────── */
 
     public function test_runs_index_filters_by_profile_and_status(): void
     {
@@ -169,8 +153,6 @@ class ControlCenterUiTest extends TestCase
             ->assertOk()
             ->assertSee('first known appearance', false);
     }
-
-    /* ── Artifact download ─────────────────────────────────────────────── */
 
     public function test_artifact_downloads_when_stored_and_404s_otherwise(): void
     {

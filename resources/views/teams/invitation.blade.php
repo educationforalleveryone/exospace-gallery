@@ -78,8 +78,6 @@
                                 Please log in with the correct account.
                             </p>
                         </div>
-                        {{-- LOGOUT-ITERATION: full page load (destroys the Turbo
-                             snapshot cache of authenticated pages) + guard. --}}
                         <form method="POST" action="{{ route('logout') }}"
                               data-turbo="false" data-busy data-busy-label="Switching account…">
                             @csrf

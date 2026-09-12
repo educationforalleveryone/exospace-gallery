@@ -3,12 +3,6 @@
         <x-page-header title="MFA Backup Codes" description="One-time codes that restore access if you lose your authenticator device." />
     </x-slot>
 
-    {{-- ITERATION-9: this page was the last light-surface remnant in the
-         product (a documented legacy defect since iteration 1) — white card
-         on the dark canvas, raw max-w-2xl container with no mobile px-4,
-         double py-12 padding, and a hand-rolled brand button. Now speaks
-         the kit: .page-shell-narrow + .card .card-pad + .alert-warning +
-         .well code chips + .btn.btn-primary. --}}
     <div class="page-shell-narrow">
         <div class="card card-pad">
             <div class="alert alert-warning mb-6">
@@ -30,9 +24,6 @@
             </div>
 
             <div class="flex flex-wrap gap-3">
-                {{-- ITERATION-6: role-aware destination — this page previously
-                     sent regular users to /master-control (super-admin-only),
-                     which 403s. Settings is where their MFA controls live. --}}
                 <a href="{{ auth()->user()->is_super_admin ? route('super.index') : route('profile.edit') }}"
                    class="btn btn-primary">
                     I've saved my codes — Continue →

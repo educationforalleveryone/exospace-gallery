@@ -13,43 +13,16 @@ use App\Ops\Diagnostics\Runners\RedisDiagnostics;
 use App\Ops\Diagnostics\Runners\ServerDiagnostics;
 use App\Ops\Support\ErrorClassifier;
 
-/**
- * OpsCenter — DiagnosticRegistry (Iteration 3).
- *
- * THE allow-list. A diagnostic exists if and only if it is declared here —
- * the engine rejects anything else. This is the "no arbitrary command
- * execution" guarantee from the brief: there is no free-form diagnostic
- * language anywhere; the surface is a fixed catalog of read-only checks,
- * each backed by a hard-coded PHP runner.
- *
- * The ids are the SAME ids ErrorClassifier recommends on classified events
- * (enforced by OpsDiagnosticRegistryTest via reflection, so a classifier rule
- * can never recommend a diagnostic that doesn't exist).
- *
- * Scope:
- *   self        — inspects the control plane's own subsystems (its database,
- *                 Redis, queue, filesystem, scheduler). Running it against
- *                 another application returns an honest inconclusive result.
- *   application — meaningful per application (defaults to the control plane
- *                 itself when no target is given).
- */
 final class DiagnosticRegistry
 {
-    /**
-     * Scope: the check applies to the control plane host only.
-     */
     public const SCOPE_SELF = 'self';
 
-    /**
-     * Scope: the check is per-application (self when no target given).
-     */
     public const SCOPE_APPLICATION = 'application';
 
     /**
-     * @var array<string, array{label: string, group: string, description: string, scope: string, runner: string}>
-     */
+      * @var array<string, array{label: string, group: string, description: string, scope: string, runner: string}>
+      */
     private const DIAGNOSTICS = [
-        // ── Database ──────────────────────────────────────────────────────
         'database.connectivity' => [
             'label' => 'Database connectivity',
             'group' => 'Database',
@@ -79,7 +52,6 @@ final class DiagnosticRegistry
             'runner' => DatabaseDiagnostics::class,
         ],
 
-        // ── Redis / Cache ─────────────────────────────────────────────────
         'redis.connectivity' => [
             'label' => 'Redis connectivity & latency',
             'group' => 'Cache & Queue',
@@ -95,7 +67,6 @@ final class DiagnosticRegistry
             'runner' => ApplicationDiagnostics::class,
         ],
 
-        // ── Queue / Workers ───────────────────────────────────────────────
         'queue.health' => [
             'label' => 'Queue & worker health',
             'group' => 'Cache & Queue',
@@ -111,7 +82,6 @@ final class DiagnosticRegistry
             'runner' => QueueDiagnostics::class,
         ],
 
-        // ── Containers & Deployments ──────────────────────────────────────
         'container.health' => [
             'label' => 'Container health',
             'group' => 'Containers & Deployments',
@@ -134,7 +104,6 @@ final class DiagnosticRegistry
             'runner' => DeploymentDiagnostics::class,
         ],
 
-        // ── Server ────────────────────────────────────────────────────────
         'server.disk' => [
             'label' => 'Disk usage',
             'group' => 'Server',
@@ -150,7 +119,6 @@ final class DiagnosticRegistry
             'runner' => ServerDiagnostics::class,
         ],
 
-        // ── Application ───────────────────────────────────────────────────
         'app.health' => [
             'label' => 'Application health',
             'group' => 'Application',
@@ -181,37 +149,21 @@ final class DiagnosticRegistry
         ],
     ];
 
-    /**
-     * Does the id exist in the allow-list?
-     */
     public static function has(string $id): bool
     {
         return isset(self::DIAGNOSTICS[$id]);
     }
 
-    /**
-     * @return array{label: string, group: string, description: string, scope: string, runner: string}|null
-     */
     public static function get(string $id): ?array
     {
         return self::DIAGNOSTICS[$id] ?? null;
     }
 
-    /**
-     * All definitions keyed by id (for the catalog UI).
-     *
-     * @return array<string, array{label: string, group: string, description: string, scope: string, runner: string}>
-     */
     public static function all(): array
     {
         return self::DIAGNOSTICS;
     }
 
-    /**
-     * Group labels in display order (catalog UI groups cards under these).
-     *
-     * @return array<int, string>
-     */
     public static function groups(): array
     {
         $groups = [];
@@ -224,22 +176,11 @@ final class DiagnosticRegistry
         return $groups;
     }
 
-    /**
-     * Every diagnostic id the ErrorClassifier may recommend on classified
-     * events. Used by tests to guarantee the classifier and the engine can
-     * never drift apart — a recommended chip that isn't runnable is a broken
-     * promise to the operator.
-     *
-     * @return array<int, string>
-     */
     public static function classifierRecommendedIds(): array
     {
         return ErrorClassifier::recommendedDiagnosticIds();
     }
 
-    /**
-     * Human label for an id (UI fallback).
-     */
     public static function label(string $id): string
     {
         return self::DIAGNOSTICS[$id]['label'] ?? $id;

@@ -1,8 +1,3 @@
-{{-- OpsCenter (Iteration 4): platform health score breakdown — the formula
-     in human form. The score is never shown without its components and
-     reasons (brief rule: no meaningless numbers). Formula documented in
-     docs/MASTER_MANUAL_OPERATIONS.md §16 and in OpsHealthScoreService. --}}
-
 @php
     $bandStyles = [
         'healthy'  => ['text' => 'text-emerald-300', 'bar' => 'bg-emerald-400'],
@@ -49,9 +44,6 @@
         @endforeach
     </div>
 
-    {{-- Verdict caps: the anti-rose-colored-glasses rules currently in force.
-         Empty on a clean platform; never empty when the label is worse than
-         the blend would suggest. --}}
     @if(! empty($healthScore['applied_caps']))
         <div class="mt-4 rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-3">
             <div class="text-xs font-semibold uppercase tracking-wider text-amber-300 mb-1.5">Verdict caps applied</div>

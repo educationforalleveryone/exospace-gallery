@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// forensic_shots.mjs — targeted forensic matrix for the Luxury Penthouse
-// investigation: venue body (v3 / v2.1 / legacy) × tier (high / low) × pose.
-// Reuses the shoot.mjs boot recipe (SwiftShader + tier pinning + rAF hop).
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';

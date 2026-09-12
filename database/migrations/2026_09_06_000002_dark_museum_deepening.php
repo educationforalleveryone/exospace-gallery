@@ -3,64 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * DARK MUSEUM DEEPENING — forensic-audit remediation for the museum venue
- * (slug: dark-museum). v1.0.0 → v2.0.0 ("the night wing").
- *
- * WHAT THE AUDIT FOUND (screenshot-verified, not taste):
- *   • The rig was the pre-polish profile (exposure 0.5, ambient 0.15,
- *     spot 0.55, fill 0.08) under r155+ physical light units — the venue
- *     rendered as a fog-crushed grey void; artworks were smudges.
- *   • fog 5→18 m dissolved a 10 m+ room into murk at mid-distance: the
- *     far wall was unreadable from the spawn. "Museum" needs architecture
- *     you can see; "dark" must be composed, not near-blind.
- *   • material_config declared wall_color 0x1a1a1a but NEVER the
- *     texture_tint flag — on every textured build the declared colour was
- *     silently replaced by 0xffffff (the Infinite Void preview/product
- *     split, unfixed here): desktop walls rendered White-Cube WHITE while
- *     low-end devices rendered the declared charcoal. The two tiers
- *     disagreed about the venue's own walls.
- *   • floor_color null → the bright marble preset (0xe8e8e8) — the FLOOR
- *     was the brightest surface in the "dark" museum, inverting the visual
- *     hierarchy away from the artwork.
- *   • post_fx was never declared, so the runtime default ran BLOOM ON in a
- *     dark venue of gold frames and bright canvases (halo class).
- *   • The dark venue kept the generic 0.15 artwork standing glow and the
- *     default 6-light pool — at its 15–50 capacity most of the hang sat in
- *     the dark (the "no artwork sits in the dark" exhibition rule).
- *   • The shared 0.15 hemisphere wash (not venue-declarable before this
- *     iteration) flattened the darkness hierarchy from above.
- *   • No placement curation: a venue whose entire concept is curation in
- *     darkness shipped the metronome default (3.5 m, no focal wall, no
- *     orientation pairing).
- *
- * THIS MIGRATION (DB side only — the JS identity ships in the bundle):
- *   visual_config : rig in physical-but-dark units, fog reach that covers
- *                   the room, post_fx restraint, artwork_light_base + pool
- *                   cap, env_intensity, hemisphere_intensity, placement
- *                   curation, ceiling/background/fog colours to the night
- *                   wing palette.
- *   material_config: texture_tint (THE fix), charcoal wall, dark stone
- *                   floor, floor_tile_meters 3.0.
- *   description   : verifiable copy for the rendered identity.
- *
- * GUARDING (same contract as the IT3/IT6/white-cube/loft migrations):
- * every rewrite fires ONLY while the stored value still equals the
- * previously seeded value (strings strictly, numbers numerically, explicit
- * nulls via array_key_exists). A super-admin's custom value is never
- * touched. Absent keys are added only when missing. Idempotent; down()
- * reverses each rewrite under the same exact-match guard.
- *
- * NOTE: paired with the seeder (fresh-install baseline). Version stays
- * seeder-owned (the loft migration contract).
- */
 return new class extends Migration
 {
-    /**
-     * Exact-match guard: strings strictly, numbers numerically (null never
-     * matches). Keeps an admin's custom value from ever matching the seeded
-     * "from" value the rewrite is guarded on.
-     */
     private function guardedEquals($current, $from): bool
     {
         if ($current === null) {
@@ -81,7 +25,6 @@ return new class extends Migration
             return; // venue removed by the operator — respect that
         }
 
-        // ── visual_config ────────────────────────────────────────────────
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
@@ -112,8 +55,6 @@ return new class extends Migration
                 'vignette_offset'   => 1.15,
             ];
         } elseif (is_array($vc['post_fx']) && !array_key_exists('vignette_blend', $vc['post_fx'])) {
-            // A saved post_fx without the blend key keeps every curated
-            // value and adds ONLY the dark-scene blend fix.
             $vc['post_fx']['vignette_blend'] = 'black';
         }
         if (!array_key_exists('artwork_light_base', $vc)) {
@@ -140,7 +81,6 @@ return new class extends Migration
             ->where('id', $row->id)
             ->update(['visual_config' => json_encode($vc)]);
 
-        // ── material_config ──────────────────────────────────────────────
         $mc = json_decode((string) $row->material_config, true) ?: [];
 
         if ($this->guardedEquals($mc['wall_color'] ?? null, '0x1a1a1a')) {
@@ -152,8 +92,6 @@ return new class extends Migration
         if ($this->guardedEquals($mc['wall_normal_strength'] ?? null, 0.6)) {
             $mc['wall_normal_strength'] = 0.5;
         }
-        // The v1 floor colour was an explicit null (→ bright preset marble).
-        // Rewrite only while it is still null/absent.
         if (!array_key_exists('floor_color', $mc) || $mc['floor_color'] === null) {
             $mc['floor_color'] = '0x3a3835';
         }
@@ -180,9 +118,6 @@ return new class extends Migration
                 ->update(['description' => $v2Description]);
         }
 
-        // ── version ──────────────────────────────────────────────────────
-        // Same guarded stamp the infinite-void deepening uses: a row
-        // deepened by THIS migration must not stay labelled 1.0.0.
         if ($this->guardedEquals($row->version, '1.0.0')) {
             DB::table('venue_templates')->where('id', $row->id)->update(['version' => '2.0.0']);
         }
@@ -228,8 +163,6 @@ return new class extends Migration
         } elseif (is_array($vc['post_fx'])
             && ($vc['post_fx']['vignette_blend'] ?? null) === 'black'
             && count($vc['post_fx']) === 1) {
-            // The elseif-add path (curated post_fx + blend key only): remove
-            // exactly the added key.
             unset($vc['post_fx']['vignette_blend']);
         }
         foreach ([

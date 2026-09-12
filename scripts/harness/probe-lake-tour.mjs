@@ -1,10 +1,3 @@
-// probe-lake-tour.mjs — verifies the scripted-camera contract on Mirror Lake:
-//   1. starting the guided tour must NOT fight the shore clamp (camera
-//      reaches the over-water tour poses smoothly, no yank)
-//   2. stopping the tour must LAND the camera on legal ground (no inherited
-//      over-water position, no snap afterwards)
-//   3. focus mode (E) over a water-side artwork tweens in and back cleanly
-//   4. walking afterwards produces no teleport (region state is consistent)
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
@@ -77,9 +70,6 @@ const report = await page.evaluate(async () => {
     await new Promise(r => setTimeout(r, 2500));   // enter tween 1.5s + margin
     out.steps.push({ step: 'focus entered', ...enterState, posAfter: s.camera.position.toArray().map(n => +n.toFixed(2)), region: legal(), inspecting: !!s.isInspecting });
     s.toggleArtworkInfo();                          // exit
-    // SwiftShader note: gsap's lagSmoothing caps tween progress per rAF
-    // tick, so a 1.2 s exit tween can take ~20 s of wall time on the software
-    // rasterizer. Real devices run 60 fps and complete on schedule. Poll long.
     for (let k = 0; k < 120 && s.isInspecting; k++) await new Promise(r => setTimeout(r, 250));
     out.steps.push({ step: 'focus exited', pos: s.camera.position.toArray().map(n => +n.toFixed(2)), region: legal(), inspecting: !!s.isInspecting });
 

@@ -7,41 +7,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * JAPANESE ZEN GALLERY v2 — "The Quiet Procession" — as CI.
- *
- * Pins:
- *   1. The seeded zen-gallery row IS the v2 identity: structure_pass 'bays'
- *      + the bays proportion block, the warm-paper atmosphere, the
- *      procession rig, texture_tint authority over declared colours, the
- *      DECLARED-ABSENT environment ('none' + env_intensity 0 — the venue is
- *      a sealed interior and no sky can ever leak in), artwork legibility,
- *      placement curation, post-fx restraint, sumi-ink frames, and the
- *      linear-only supported_layouts (rotunda dropped — the procession is
- *      linear).
- *   2. The guarded deepening migration (2026_09_07_000002) is the second
- *      delivery path for the SAME identity: run against a hand-rewound
- *      v1.0.0 baseline row it produces the v2 values the seeder writes;
- *      on an already-v2 row it is a byte-exact no-op; down() reverses;
- *      hand-tuned values survive both directions; the v1 structure props
- *      are removed ONLY under the three-way baseline guard.
- *   3. A legacy gallery row holding room_layout 'rotunda' clamps to the
- *      venue default through layoutForGallery (the venue no longer
- *      advertises rotunda; no gallery can force a circular shell into the
- *      bay procession).
- *   4. Authority: 'bays' and 'structure' are venue-owned exporter keys
- *      (architecture cannot be recomposed by a stale gallery override),
- *      shipped in the payload lists so the runtime patch guard mirrors
- *      them; the exporter schema is bumped so cached payloads re-key.
- *   5. The super-admin request vocabulary admits the 'bays' pass.
- *
- * Run: php artisan test --filter=VenueZenIterationTest
- */
 class VenueZenIterationTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** The exact v1.0.0 baseline row (pre-deepening), for migration tests. */
     private function v1BaselineRow(): array
     {
         return [
@@ -122,13 +91,6 @@ class VenueZenIterationTest extends TestCase
         return require database_path('migrations/2026_09_07_000002_zen_gallery_deepening.php');
     }
 
-    /** Order-insensitive, type-normalising deep comparison payload. Two
-     *  normalisations per the Task-3 test-infra convention:
-     *  - ksort: the migration adds keys in a different insertion order than
-     *    the seeder (JSON objects are maps);
-     *  - int/float: PHP json_encode drops zero fractions (0.0 → 0), so a
-     *    row that round-tripped through the DB reads int where the seeder
-     *    literal is float — JSON has no int/float distinction anyway. */
     private function canonical($v)
     {
         if (is_array($v)) {
@@ -139,10 +101,6 @@ class VenueZenIterationTest extends TestCase
         }
         return $v;
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. The seeded v2 identity
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_seeded_row_is_the_quiet_procession_identity(): void
     {
@@ -210,10 +168,6 @@ class VenueZenIterationTest extends TestCase
             'The v1 descriptor props must not coexist with the bays architecture.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. The deepening migration — one identity, two delivery paths
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_migration_transforms_the_v1_baseline_into_the_seeded_v2(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -275,8 +229,6 @@ class VenueZenIterationTest extends TestCase
         $this->assertSame(1.23, $this->zenVisual()['tone_mapping_exposure'],
             'A hand-tuned exposure must never be overwritten by the deepening.');
 
-        // (b) An admin-tuned structure row keeps its descriptors (the
-        //     three-way baseline guard): version tuned away → props stay.
         DB::table('venue_templates')->where('slug', 'zen-gallery')->update([
             'version'       => '9.9.9',
             'description'   => 'Admin bespoke zen',
@@ -338,10 +290,6 @@ class VenueZenIterationTest extends TestCase
             'down() must never revert a value the admin hand-tuned.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. Legacy layout clamp — no circular shell in the procession
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_legacy_rotunda_gallery_clamps_to_the_venue_default(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -368,10 +316,6 @@ class VenueZenIterationTest extends TestCase
         $this->assertSame('l-shape', $exporter->layoutForGallery($gallery));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. Authority — the architecture cannot be recomposed by a gallery
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_bays_and_structure_are_venue_owned_and_shipped(): void
     {
         foreach (['bays', 'structure'] as $key) {
@@ -394,17 +338,11 @@ class VenueZenIterationTest extends TestCase
             'The payload ships venue_owned_visual so the runtime patch guard mirrors this file.');
         $this->assertContains('structure', $payload['venue_owned_visual'] ?? []);
 
-        // The venue's own bays block still reaches the payload (owned keys
-        // are stripped from GALLERY overrides, never from the venue).
         $this->assertSame(3.12, $payload['visual_config']['bays']['fin_top'] ?? null,
             'The venue bay proportions reach the runtime.');
         $this->assertSame('none', $payload['visual_config']['environment'] ?? null,
             'The declared-absent environment reaches the runtime.');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. The super-admin editor can express the venue
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_venue_request_vocabulary_admits_the_bays_pass(): void
     {

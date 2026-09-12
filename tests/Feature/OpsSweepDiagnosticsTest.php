@@ -13,16 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 4 — the autonomous diagnostic sweep.
- *
- * The sweep turns Iteration 3's pull-only diagnostics into a push watch:
- * probes run on a schedule, degraded/failed findings become DEDUPLICATED
- * control-plane events plus dedup-keyed Slack alerts, recoveries resolve
- * their events, and probes themselves persist NOTHING (no run rows, no
- * audit noise — the machine's routine checks must not bury the human
- * trail). Every guarantee is pinned here.
- */
 class OpsSweepDiagnosticsTest extends TestCase
 {
     use RefreshDatabase;
@@ -70,8 +60,6 @@ class OpsSweepDiagnosticsTest extends TestCase
     {
         return OpsEvent::where('source', 'sweep');
     }
-
-    // ── Contract basics ──────────────────────────────────────────────────
 
     public function test_kill_switch_makes_the_sweep_a_noop(): void
     {
@@ -130,8 +118,6 @@ class OpsSweepDiagnosticsTest extends TestCase
             'Probes must not write audit entries — they are machine routine, not operator action',
         );
     }
-
-    // ── The healthy path: silence ────────────────────────────────────────
 
     public function test_all_healthy_sweep_records_no_events_alerts_nothing_and_exits_clean(): void
     {
@@ -209,11 +195,6 @@ class OpsSweepDiagnosticsTest extends TestCase
 
     public function test_redis_refusal_becomes_a_classified_redis_failure_event(): void
     {
-        // Point the default Redis connection at a port nothing listens on —
-        // the fresh-connection probe gets refused, the runner CLASSIFIES
-        // the failure mode (refused), and the sweep surfaces it as an
-        // error event in the REDIS category. This is exactly the
-        // "Redis is down" scenario from the brief, end to end.
         config([
             'database.redis.client' => 'predis',
             'database.redis.default.host' => '127.0.0.1',
@@ -316,8 +297,6 @@ class OpsSweepDiagnosticsTest extends TestCase
         $this->runSweep()->assertExitCode(0);
         $this->assertSame(1, $this->sweepEvents()->count());
 
-        // The cached event id evaporates (deploy, Redis restart) — the
-        // sweep must still find and resolve the open event by its title.
         \Illuminate\Support\Facades\Cache::flush();
         \DB::table('failed_jobs')->delete();
 
@@ -326,8 +305,6 @@ class OpsSweepDiagnosticsTest extends TestCase
         $event = $this->sweepEvents()->first();
         $this->assertSame('resolved', $event->status, 'Title fallback must resolve the event after a cache flush');
     }
-
-    // ── Never fatal ──────────────────────────────────────────────────────
 
     public function test_sweep_output_summarizes_and_always_exits_zero(): void
     {
@@ -349,8 +326,6 @@ class OpsSweepDiagnosticsTest extends TestCase
             ->assertExitCode(0);
     }
 
-    // ── Per-check cadence (Iteration 6) ──────────────────────────────────
-
     public function test_healthy_check_within_cadence_is_skipped(): void
     {
         $this->stampAllHeartbeats();
@@ -368,15 +343,10 @@ class OpsSweepDiagnosticsTest extends TestCase
         );
 
         $this->runSweep()
-            // NOTE: ordered — expectsOutputToContain expectations consume
-            // output lines in order, so the more specific string (which
-            // only the skip line carries) must be asserted first.
             ->expectsOutputToContain('cadence 60 min not yet elapsed')
             ->expectsOutputToContain('skipped')
             ->assertExitCode(0);
 
-        // The skip must NOT refresh the last-probe stamp (otherwise a
-        // skipped check would never come due).
         $this->assertEquals(
             now()->subMinutes(10)->timestamp,
             \Illuminate\Support\Facades\Cache::get('ops:sweep:last:queue.health')->timestamp,
@@ -405,8 +375,6 @@ class OpsSweepDiagnosticsTest extends TestCase
             ->expectsOutputToContain('healthy')
             ->assertExitCode(0);
 
-        // The probe refreshed the stamp to NOW (the next hour of silence
-        // starts here).
         $stamp = \Illuminate\Support\Facades\Cache::get('ops:sweep:last:queue.health');
         $this->assertNotNull($stamp);
         $this->assertGreaterThan(now()->subMinutes(2)->timestamp, $stamp->timestamp);
@@ -414,8 +382,6 @@ class OpsSweepDiagnosticsTest extends TestCase
 
     public function test_a_check_without_cadence_is_probed_every_sweep(): void
     {
-        // The Iteration-4 behavior is the default: no cadence entry, no
-        // throttling, no cache bookkeeping consulted.
         $this->stampAllHeartbeats();
 
         config([
@@ -452,8 +418,6 @@ class OpsSweepDiagnosticsTest extends TestCase
             now()->addDay(),
         );
 
-        // ...but an OPEN sweep event exists for the check: the sweep must
-        // re-probe EVERY run so recovery is detected within one sweep.
         OpsEvent::create([
             'fingerprint' => sha1(uniqid('', true)),
             'source' => 'sweep',
@@ -507,9 +471,6 @@ class OpsSweepDiagnosticsTest extends TestCase
 
     public function test_cadence_bookkeeping_survives_a_cache_flush(): void
     {
-        // No last-probe stamp at all (cache flushed / first deploy):
-        // the check is simply due NOW — a flush costs one probe, nothing
-        // more, and cadence behavior resumes from the fresh stamp.
         $this->stampAllHeartbeats();
 
         config([

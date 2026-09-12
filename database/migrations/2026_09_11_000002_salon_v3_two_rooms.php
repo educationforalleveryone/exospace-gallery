@@ -3,77 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * THE SALON v3.0.0 — "two rooms" (second field pass: the curtain, done right)
- * ===========================================================================
- *
- * WHY (the field reports, verbatim anchors)
- * -----------------------------------------
- *   • v2.1 report: "i can walk past through it" — the phantom the visitor
- *     photographed turned out to be the mis-yawed side trim (fixed in v2.1).
- *     But the SAME report loved the accidental two-room read: "i liked the
- *     two room kind structure better even if it was a bug, the rooms
- *     separated by a curtain not wall … both rooms contains artworks, the
- *     curtain was the only problem though it was not looking like the
- *     curtain … it also make this venue unique because none of the other
- *     venues has two rooms".
- *   • v2.1 deploy report: "problem 2 about door still exists its width is
- *     still same and it does not look like a door" — while the browser
- *     console proved the NEW bundle was live and the payload was NOT:
- *     "[structure] base-left … auto-aligned to the wall tangent. Fix the
- *     payload." The v2.1 door lives in the DB payload; the bundle cannot
- *     invent it.
- *
- * THE LESSON OF v2.1 (why this migration is shaped differently)
- * -------------------------------------------------------------
- *   v2.1 rewrote the payload under BYTE-EXACT v2.0 element guards. The
- *   production row never matched every guard, the migration silently wrote
- *   nothing (migrations DO run at container start — the guards simply did
- *   not match), and the site kept serving the stale v2.0 payload. Exact-
- *   form guards are the wrong tool for a product-owned template row: they
- *   cannot tell "operator edit" from "historical drift", and every mismatch
- *   is a silent no-op.
- *
- *   This migration therefore rewrites the salon template row FORCIBLY,
- *   guarded only by the payload VERSION:
- *     • version < 3.0.0 (v1 stub, v2.0.0, drifted v2.1, anything else) and
- *       ≠ 3.0.0 → rewritten to the canonical v3.0.0 payload;
- *     • version === '3.0.0' → no-op (idempotent re-run);
- *     • down() restores the canonical v2.1.0 payload only from an exact
- *       '3.0.0' row (a well-defined reversal).
- *   The venue_templates row is product-owned: galleries re-skin
- *   curator-lane keys through the exporter's venue-authority merge and can
- *   never carry venue structure, so a forced rewrite cannot destroy user
- *   content. An operator who hand-edited the template row itself owns
- *   re- applying it — that is what the version column now documents.
- *
- * THE v3 IDENTITY (payload summary)
- * ---------------------------------
- *   • placement.room_divider { at 0.5, opening 2.4, keep 0.55,
- *     door_keep 1.15, spacing 2.4 } — the square hang becomes SIX wall
- *     segments split by the curtain plane; both rooms receive works at
- *     every count 5–30; the hero keeps a dead-centre slot on the front
- *     wall so the arrival reads it THROUGH the opening. keep_clear is
- *     superseded (the door keep lives in room_divider).
- *   • structure 'salon-curtain' — the new parametric 'curtain' primitive:
- *     two tied-back velvet panels (sine folds, gathered waist, hem wave),
- *     brass rod, brackets, finials, heading rings, tie bands. collide:
- *     true — each panel registers a tight world AABB, so the 2.4 m
- *     opening IS the walk gap. You cannot walk through the fabric; you
- *     walk through the opening.
- *   • Door, third attempt: 2 × 0.92 m leaves (1.84 m clear, +24 % over
- *     v2.1, +100 % over v2.0), 2.62 m tall, two raised panels per leaf,
- *     2.06 m entablature, bronze knobs AND backplates at both meeting
- *     stiles, ivory overdoor. room_divider.door_keep = 1.15 holds the
- *     wall so the hang cannot crowd it.
- *   • Two ceiling roses (one per room — the v2 single rose would sit on
- *     the curtain line).
- *   • Fresh installs: the seeder ships v3.0.0 directly; this migration
- *     no-ops there (version already 3.0.0).
- *   • Payloads stay pinned byte-equal (seeder ↔ this file) by
- *     VenueSalonIterationTest.
- */
-
 return new class extends Migration
 {
     public function up(): void
@@ -107,10 +36,6 @@ return new class extends Migration
             return; // nothing this migration owns
         }
 
-        // Reversal target: the canonical v2.1.0 payload (the version of
-        // record immediately before v3). Rebuilt from the canonical v3 row
-        // by reversing the v3 deltas — well-defined because the guard is
-        // an exact version match.
         $vc = json_decode((string) $row->visual_config, true);
         if (is_array($vc)) {
             // 1. placement: room_divider → keep_clear
@@ -177,7 +102,6 @@ return new class extends Migration
         return 'A warm collector’s salon in the domestic tradition: a doorcase behind you, a hero wall ahead, works hung salon-style — large at eye level, smaller above — between walnut trim and a picture rail, under a coved warm light. Made for studies, prints, photography and portrait formats.';
     }
 
-    // ── v2.1 reversal parts ─────────────────────────────────────────────
     private function v21Door(): array
     {
         return [

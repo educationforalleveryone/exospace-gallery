@@ -11,26 +11,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
-/**
- * Focused password-reset lifecycle coverage (RESET ITERATION).
- *
- * Covers: request-time enumeration resistance, the branded reset email with
- * a correct framework-generated link, token lifecycle (fresh / superseded /
- * expired / reused / not-burned-by-validation-failures), secure password
- * update (hash, history, remember-token cycling, plaintext never stored),
- * the D-4 reuse-prevention rule through the HTTP flow, and the post-reset
- * product behavior (fresh login required).
- *
- * NOTE: assertions target App\Notifications\Auth\ResetPassword (the app's
- * branded notification) — Notification::fake() matches notification classes
- * exactly, so tests must never assert against the framework's
- * Illuminate\Auth\Notifications\ResetPassword.
- */
 class PasswordResetTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ── Request flow ──────────────────────────────────────────────────────
 
     public function test_reset_password_link_screen_can_be_rendered(): void
     {
@@ -51,8 +34,6 @@ class PasswordResetTest extends TestCase
             ->assertSessionHasNoErrors()
             ->assertSessionHas('status', 'If an account exists for that email address, a password reset link is on its way.');
 
-        // Unknown account — EXACTLY the same status, no errors, no
-        // "We can't find a user" hint anywhere in the session.
         $this->post('/forgot-password', ['email' => 'ghost-who-does-not-exist@example.com'])
             ->assertRedirect()
             ->assertSessionHasNoErrors()
@@ -86,8 +67,6 @@ class PasswordResetTest extends TestCase
             $this->assertSame('Reset your Exospace password', $mailable->envelope()->subject);
             $this->assertSame($user->email, $mailable->to[0]['address']);
 
-            // The reset URL is framework-generated: correct route + token +
-            // pre-fill email query parameter, no host weirdness.
             $this->assertStringContainsString('/reset-password/', $mailable->resetUrl);
             $this->assertStringContainsString('email='.urlencode($user->email), $mailable->resetUrl);
 
@@ -102,8 +81,6 @@ class PasswordResetTest extends TestCase
             $this->assertStringContainsString('60 minutes', $html);
             $this->assertStringContainsString($mailable->resetUrl, $html);
 
-            // The rendered email must NOT echo the plaintext token anywhere
-            // outside the reset URL itself.
             $withoutUrl = str_replace($mailable->resetUrl, '', $html);
             $this->assertStringNotContainsString($notification->token, $withoutUrl);
 
@@ -128,12 +105,8 @@ class PasswordResetTest extends TestCase
 
         $response = $this->post('/forgot-password', ['email' => $user->email]);
 
-        // The token only ever travels inside the email — never in the
-        // application response.
         $this->assertStringNotContainsString('reset-password/', $response->getContent());
     }
-
-    // ── Reset link / token lifecycle ──────────────────────────────────────
 
     public function test_reset_password_screen_can_be_rendered(): void
     {
@@ -195,8 +168,6 @@ class PasswordResetTest extends TestCase
                 'password_confirmation' => 'NewSecret456!',
             ])->assertSessionHasNoErrors();
 
-            // Replay the same token — clean validation error, no exception,
-            // no second password change.
             $this->post('/reset-password', [
                 'token' => $notification->token,
                 'email' => $user->email,
@@ -220,8 +191,6 @@ class PasswordResetTest extends TestCase
 
         $this->post('/forgot-password', ['email' => $user->email]);
 
-        // Defeat the broker's 60s per-email throttle so a second request
-        // actually mints a new token.
         DB::table('password_reset_tokens')
             ->where('email', $user->email)
             ->update(['created_at' => now()->subMinutes(5)]);
@@ -283,8 +252,6 @@ class PasswordResetTest extends TestCase
         });
     }
 
-    // ── Password update ───────────────────────────────────────────────────
-
     public function test_reset_persists_securely_and_cycles_remember_token(): void
     {
         Notification::fake();
@@ -323,8 +290,6 @@ class PasswordResetTest extends TestCase
             $this->assertTrue($user->has_password);
             $this->assertNotNull($user->password_set_at);
 
-            // D-4: the PREVIOUS password hash was preserved in history —
-            // this is what makes the reuse check work (see the prune fix).
             $history = DB::table('password_histories')->where('user_id', $user->id)->get();
             $this->assertCount(1, $history);
             $this->assertTrue(Hash::check('OldSecret123!', $history[0]->password_hash));
@@ -343,8 +308,6 @@ class PasswordResetTest extends TestCase
         $this->post('/forgot-password', ['email' => $user->email]);
 
         Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
-            // Below the Password::defaults() floor (min 8) — clean validation
-            // error, no exception, password untouched.
             $this->post('/reset-password', [
                 'token' => $notification->token,
                 'email' => $user->email,
@@ -355,8 +318,6 @@ class PasswordResetTest extends TestCase
             $user->refresh();
             $this->assertTrue(Hash::check('OldSecret123!', $user->password));
 
-            // A validation failure must NOT burn the token — the user can
-            // retry with a compliant password using the same link.
             $this->post('/reset-password', [
                 'token' => $notification->token,
                 'email' => $user->email,
@@ -400,7 +361,6 @@ class PasswordResetTest extends TestCase
 
         $user = User::factory()->create(['password' => Hash::make('OldSecret123!')]);
 
-        // First reset: OldSecret123! → RotatePass11! (history records OldSecret123!)
         $this->post('/forgot-password', ['email' => $user->email]);
         Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
             $this->post('/reset-password', [
@@ -412,13 +372,8 @@ class PasswordResetTest extends TestCase
 
             return true;
         });
-        // Notification::fake() again — the fake has no clear method, and we
-        // need the next assertSentTo to see only the second request's mail.
         Notification::fake();
 
-        // Second reset attempt, back to the JUST-ABANDONED password — must
-        // be rejected by the reuse rule (this silently passed before the
-        // history-prune fix).
         DB::table('password_reset_tokens')
             ->where('email', $user->email)
             ->update(['created_at' => now()->subMinutes(5)]);
@@ -435,8 +390,6 @@ class PasswordResetTest extends TestCase
                 'password' => 'You cannot reuse one of your last 5 passwords. Please choose a different password.',
             ]);
 
-            // Password unchanged and the token is preserved for a retry
-            // with a compliant password.
             $user->refresh();
             $this->assertTrue(Hash::check('RotatePass11!', $user->password));
             $this->assertTrue(DB::table('password_reset_tokens')->where('email', $user->email)->exists());
@@ -469,8 +422,6 @@ class PasswordResetTest extends TestCase
                 'Old password still authenticates after reset.'
             );
 
-            // …new credentials live (the reset redirects to /login — no
-            // auto-login: the user signs in fresh with the new password).
             $response = $this->post('/login', [
                 'email' => $user->email,
                 'password' => 'NewSecret456!',

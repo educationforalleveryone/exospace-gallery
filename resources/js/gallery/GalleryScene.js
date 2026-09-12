@@ -1,32 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// GalleryScene — top-level orchestrator
-//
-// This is the slimmed-down version of the old 4,560-line GalleryScene class.
-// It owns the THREE.Scene, camera, renderer, and delegates to:
-//   - Renderer.js        for renderer init + low-end detection
-//   - Controls.js        for keyboard / pointer-lock / mobile touch
-//   - AssetLoader.js     for textures, HDRIs, GLBs, audio
-//   - VenueDecorator.js  for venue-specific overrides (fog, decorations, lights)
-//   - RoomBuilder.js     for the room shell (walls, floor, ceiling)
-//   - ArtworkPlacer.js   for placing artworks on walls/easels
-//   - Lighting.js        for ambient + proximity lighting
-//   - Materials.js       for wall / floor / frame materials
-//   - Collisions.js      for player collision against bounds + obstacles
-//   - Movement.js        for WASD physics + cinematic lean
-//   - FocusMode.js       for click-to-focus camera tween
-//   - Tour.js            for GuidedTour
-//   - PostProcessing.js  for bloom / SSAO / vignette
-//   - Audio.js           for ambient music + SFX
-//   - Mobile.js          for touch joystick + look pad
-//   - Analytics.js       for view / focus / dwell tracking
-//
-// The class itself only holds state and dispatches.
-//
-// NEW (Live Preview): applyLiveOverride(patch) — accepts a partial config
-// patch and applies it to the running scene without rebuilding the room.
-// Used by the admin preview iframe to reflect slider tweaks in real time.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 import gsap from 'gsap';
 
@@ -46,8 +17,6 @@ import { toggleArtworkInfo, checkArtworkFocus, focusNearestArtwork } from './Foc
 import { setupMobileControls } from './Mobile.js';
 import { PostProcessing } from './PostProcessing.js';
 import { PerformanceControls } from './PerformanceControls.js';
-// Cyber Gallery iteration: movement-reactive artwork media — config-declared
-// (visual_config.artwork_reactive), zero slug knowledge, TierResolve pattern.
 import {
     initArtworkReactive,
     patchReactiveMaterial,
@@ -64,7 +33,6 @@ export class GalleryScene {
             return;
         }
 
-        // ── State ──────────────────────────────────────────────────────────
         this.loadingProgress = 0;
         this.textures        = {};
         this.artworks        = [];
@@ -103,15 +71,8 @@ export class GalleryScene {
         this.roomBounds     = null;
         this._layoutMeta    = null;
         this._obstacles     = []; // registered collision boxes (walls, dividers, props)
-        // Iteration 3 "Rooms": artwork-hang surfaces registered by structure
-        // (Museum divider faces / StructureBuilder `hangable` entries) and
-        // the glazing frame (RoomBuilder, visual_config.glazing_wall).
         this._hangableSurfaces = [];
         this._glazing          = null;
-        // v3 "The Double Volume": the second (wing B north) glazed face —
-        // set by RoomBuilder when the venue declares glazing_walls with
-        // 'wing_b_north'; read by StructureBuilder anchors
-        // 'glazing_north'/'glazing_north_outside' and by the ArtworkPlacer.
         this._glazingNorth     = null;
 
         // Venue state (set by VenueDecorator)
@@ -126,15 +87,11 @@ export class GalleryScene {
         this._venuePostFx         = null;
         this._customHdriUrl       = null;
 
-        // Iteration 2 "Phenomena" — declared venue identity (config-read,
-        // never slug-keyed; populated by VenueDecorator.applyVenueConfig):
         this._venueVisualConfig  = null; // raw visual_config (structure_pass etc.)
         this._venuePlacementMode = null; // 'float' | null (null = legacy easel/wall)
         this._venueEnvIntensity  = null; // venue-level scene.environment strength
         this._venueHemisphereIntensity = null; // venue-declared hemisphere fill (museum legibility audit)
         this._circularFloor      = null; // floor handle for tier-aware treatments
-        // Cyber Gallery iteration: movement-reactive artwork identity state
-        // (registry built per buildGallery; null for non-declaring venues)
         this._reactive = null;
 
         // SFX state
@@ -148,15 +105,9 @@ export class GalleryScene {
         // Visibility (pause render loop when tab hidden)
         this._isVisible = true;
 
-        // Mobile flag (set by setupMobileControls — and earlier by
-        // detectLowEnd's coarse-pointer check, PERF-B7)
         this.isMobile = false;
-        // PERF-B10 (3D audit F10): init() can run again after a WebGL
-        // context restore. Document-level listeners survive that rebuild —
-        // guard them so they're registered exactly once.
         this._docListenersBound = false;
 
-        // ── Boot ───────────────────────────────────────────────────────────
         this.init();
         initAudio.call(this);
     }
@@ -190,18 +141,11 @@ export class GalleryScene {
             });
         }
 
-        // Performance controls (FPS counter + quality toggle)
-        // Initialized after detectLowEnd so it knows the auto-detected tier.
-        // PERF-B10: never re-create on context-restore re-init — the
-        // constructor wraps scene.animate, and a second instance would
-        // double-count frames in the FPS meter.
         this._perfControls = this._perfControls || new PerformanceControls(this);
 
         // Controls (keyboard + pointer lock + mobile)
         setupControls.call(this);
 
-        // Start silent preload
-        // UX-2: Check for empty gallery before loading 3D scene
         if (window.GALLERY_DATA && window.GALLERY_DATA._isEmpty) {
             this.showEmptyState();
             return;
@@ -260,10 +204,6 @@ export class GalleryScene {
     toggleMute()                                    { return toggleMute.call(this); }
     showLoadError(err)                              { return showLoadError.call(this, err); }
 
-    // UX-2: Show empty-state overlay for galleries with zero images.
-    // Replaces the previous behavior of loading an empty 3D room with
-    // no explanation. The visitor sees a clear message + a link back
-    // to Discover.
     showEmptyState() {
         const curtain = document.getElementById('entrance-curtain');
         if (!curtain) return;
@@ -289,19 +229,6 @@ export class GalleryScene {
         curtain.style.display = 'flex';
     }
 
-    // S-6: Dispose all GPU resources to prevent memory leaks.
-    // Traverses the scene and disposes every geometry, material, and texture.
-    // Called on pagehide/beforeunload and before scene rebuilds.
-    //
-    // PERF-B10 (3D audit F10) hardening:
-    //   • re-entry safe (this._disposed guard)
-    //   • CANCELS the rAF loop first — previously animate() kept firing after
-    //     dispose and threw on the null scene every frame
-    //   • kills in-flight gsap camera tweens (focus mode / tour)
-    //   • stops audio sources
-    //   • forceContextLoss() so the browser frees the GL context immediately
-    //     (renderer.dispose() alone does not release GPU memory in all
-    //     browsers)
     dispose() {
         if (this._disposed || ! this.scene) return;
         this._disposed = true;
@@ -323,8 +250,6 @@ export class GalleryScene {
 
         // 3. Stop audio
         try {
-            // PERF-E26: streaming music element — pause releases the
-            // browser's buffered media + the network stream
             this._musicEl?.pause();
             this._musicEl = null;
             this.sound?.stop?.();
@@ -358,8 +283,6 @@ export class GalleryScene {
             });
         });
 
-        // Dispose the renderer — and force the browser to actually let go of
-        // the GL context (see PERF-B10 note above).
         if (this.renderer) {
             this.renderer.dispose();
             try { this.renderer.forceContextLoss?.(); } catch (e) { /* ignore */ }
@@ -370,9 +293,6 @@ export class GalleryScene {
             this.controls.dispose();
         }
 
-        // Dispose PostProcessing — the composer lives on this._postFx (the
-        // old `this.composer` read was always undefined, so EffectComposer
-        // render targets were silently never disposed).
         if (this._postFx) {
             this._postFx.dispose();
             this._postFx = null;
@@ -390,18 +310,9 @@ export class GalleryScene {
         console.log('GalleryScene: disposed all GPU resources');
     }
 
-    // ── Main animation loop ─────────────────────────────────────────────────
     animate() {
-        // PERF-B10: stop scheduling after dispose() — the old loop kept
-        // requesting frames forever (and crashed on the null scene).
         if (this._disposed) return;
 
-        // PERF-D20 (3D audit F20): a WebGL context restore calls init() →
-        // loadAssets() → buildGallery() → animate() while the ORIGINAL rAF
-        // chain is still alive — the old code silently ran TWO render loops
-        // (double renders, double lighting updates, half the frame budget).
-        // The guard admits exactly one chain; the chain is late-bound to
-        // `this`, so it survives scene rebuilds with fresh camera/renderer.
         if (this._rafActive) return;
         this._rafActive = true;
         this._rafId = requestAnimationFrame(() => {
@@ -409,9 +320,6 @@ export class GalleryScene {
             this.animate();
         });
 
-        // PERF-D24: renderer.info autoReset is disabled (Renderer.js) so the
-        // debug panel can report TRUE per-frame draw calls across all composer
-        // passes. Reset the counters at the top of each frame ourselves.
         if (this.renderer?.info) this.renderer.info.reset();
 
         // S-7: Skip rendering when context is lost
@@ -437,20 +345,10 @@ export class GalleryScene {
         if (this.isMobile) this.updateMovementMobile();
         else                this.updateMovement();
 
-        // Movement-reactive artwork signal (Cyber Gallery identity —
-        // config-declared; runs AFTER movement integration so the velocity
-        // is fresh). Null registry (undeclared venues) ⇒ zero cost.
         if (this._reactive) this.updateArtworkReactive();
 
-        // Sculpture Garden: ground-follow tick (the visitor walks the
-        // TERRAIN, not a plane). Runs AFTER movement — Movement pins the
-        // camera to flat 1.6 m every frame, this settles it onto the
-        // plan's height field. Null tick (non-garden venues) ⇒ zero cost.
         if (this._gardenTick) this._gardenTick();
 
-        // Mirror Lake: shoreline clamp (the visitor walks the LAND and the
-        // pier — never the water). Same slot contract as the garden tick.
-        // Null tick (non-lake venues) ⇒ zero cost.
         if (this._lakeTick) this._lakeTick();
 
         // Throttle expensive per-frame work
@@ -459,12 +357,6 @@ export class GalleryScene {
         if (this._lightingFrameCount % lightThrottle === 0) this.updateProximityLighting();
         if (this._lightingFrameCount % focusThrottle === 0) this.checkArtworkFocus();
 
-        // PERF-C16 (3D audit F16): animate the registered particle systems.
-        // VenueDecorator has pushed _particleSystems entries since the void
-        // venues shipped — but nothing ever consumed them, so void-venue dust,
-        // nebula clouds, mirror-lake mist and cathedral shards rendered
-        // perfectly STATIC. Two cheap motion types, skipped for reduced-motion
-        // users (vestibular safety) and low-end devices (frame budget).
         if (this._particleSystems?.length && !this.reducedMotion && !this.isLowEnd) {
             const t = performance.now() * 0.001;
             for (let i = 0; i < this._particleSystems.length; i++) {
@@ -473,17 +365,9 @@ export class GalleryScene {
                     // Gentle vertical bob — the whole Points object floats
                     ps.obj.position.y = Math.sin(t * 0.35 + ps.phase) * 0.35;
                 } else if (ps.type === 'void-drift') {
-                    // Infinite Void dust + the Nebula Drift stardrift current:
-                    // per-mote drift happens in the vertex shader — one
-                    // uniform write per frame, no per-particle CPU work, no
-                    // allocations.
                     const u = ps.obj.material.uniforms?.uTime;
                     if (u) u.value = t;
                 } else if (ps.type === 'drift-rotate') {
-                    // Nebula Drift deep-field shells: slow precession around
-                    // the band's own axis (ps.speed carries the signed rate —
-                    // opposite senses on the two shells give layered
-                    // parallax). One property write per frame.
                     ps.obj.rotation.y += ps.speed ?? 0.002;
                 } else if (ps.type === 'rotate-slow') {
                     ps.obj.rotation.y += 0.0025;
@@ -500,10 +384,6 @@ export class GalleryScene {
         }
     }
 
-    // ── Progress bar (called by AssetLoader) ────────────────────────────────
-    // PERF-C9 (3D audit F9): the Enter button unlocks at 100% OR as soon as
-    // AssetLoader sets _enterReady (phase-A complete — room built, first
-    // artworks loaded, rest streaming in the background).
     updateProgress(percent, text) {
         this.loadingProgress = percent;
 
@@ -523,8 +403,6 @@ export class GalleryScene {
                 enterBtn.style.animation    = 'pulse 2s ease-in-out infinite';
             }
             if (percent >= 100 && statusTxt) statusTxt.textContent = 'Ready to enter';
-            // Embeds auto-enter as soon as the room is walkable (phase A) —
-            // not at 100% — since embeds skip the curtain experience anyway.
             if (window.EXOSPACE_EMBED_MODE && !this._embedAutoEntered) {
                 this._embedAutoEntered = true;
                 setTimeout(() => enterBtn?.click(), 400);
@@ -533,19 +411,7 @@ export class GalleryScene {
     }
 
     hideLoader() {
-        // No separate loader — the curtain is the loader
-        // POST-DEPLOY HOTFIX (2026-09-05): marks the moment ALL assets
-        // finished. Renderer._scheduleFpsBenchmark waits for this flag
-        // before measuring, so the benchmark can no longer sample frames
-        // DURING loading (that measured shader-compile + texture-upload
-        // stalls, not the GPU — a healthy RX 580 was falsely downgraded
-        // to low-end at "13.1 fps").
         this._assetsSettledAt = performance.now();
-        // v3.0.0 field diagnosability: one line that names the venue payload
-        // actually SERVED (window.GALLERY_DATA is embedded per page load by
-        // the blade view). A stale deployment (migrations not yet run) shows
-        // the old version here even on a brand-new bundle — the exact
-        // failure mode that hid the salon v2.1 door fix in production.
         const servedVersion = window.GALLERY_DATA?.venueConfig?.version;
         if (servedVersion || this._venueSlug) {
             console.info(`[venue] slug="${this._venueSlug || 'unknown'}" payload_version="${servedVersion || 'n/a'}"`);
@@ -553,38 +419,9 @@ export class GalleryScene {
         console.log('✅ Loading complete — gallery ready');
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Live Preview — apply a partial config patch to the running scene
-    // ─────────────────────────────────────────────────────────────────────────
-    //
-    //  Used by the admin preview iframe (resources/views/admin/galleries/
-    //  preview.blade.php). The parent window sends a postMessage with a
-    //  patch shape like:
-    //
-    //      {
-    //        visual_config:   { ambient_intensity: 0.32, fog_color: '0x1a1a1a' },
-    //        material_config: { wall_roughness: 0.4 },
-    //        post_fx:         { bloom_strength: 0.8 }
-    //      }
-    //
-    //  Each key is OPTIONAL — only the keys present in the patch are applied;
-    //  others stay at their current value. A null value reverts to the venue
-    //  default (read from window.GALLERY_DATA.venueConfig).
-    //
-    //  IMPORTANT: structural changes (wall_height, room_layout) are NOT
-    //  supported here — they require a full room rebuild. The parent window
-    //  handles those by reloading the iframe with a `?override=` query param
-    //  so the scene is built fresh with the new structural config.
-    //
-    //  The patch is also forwarded to applyVisualPatch() in VenueDecorator
-    //  so venue-specific state (ambient color, spot intensity, etc.) stays
-    //  in sync with what the Lighting.js module reads next frame.
     applyLiveOverride(patch) {
         if (!patch || typeof patch !== 'object') return;
 
-        // PERF-4 FIX: Throttle scene.traverse to max 1 call per 100ms.
-        // Previously, every slider drag in the admin Live Preview triggered
-        // a full scene.traverse — could jank on large galleries.
         const now = performance.now();
         if (this._lastTraverseTime && (now - this._lastTraverseTime) < 100) {
             // Queue the patch for the next throttle window
@@ -594,13 +431,6 @@ export class GalleryScene {
         this._lastTraverseTime = now;
         this._pendingPatch = null;
 
-        // ── Auto-tag floors + fill lights on first call ──────────────────
-        // The Live Preview's material/fill-intensity patchers need to find
-        // these meshes cheaply. Rather than modify RoomBuilder.js (which
-        // would mean delivering a 450-line file just for 5 one-line tags),
-        // we scan the scene once and tag everything that looks like a floor
-        // (horizontal plane/circle at y≈0) or a fill light (warm-coloured
-        // PointLight placed high up). Subsequent calls skip the scan.
         if (!this._lpTagged) {
             this.scene.traverse(obj => {
                 if (obj.isMesh && obj.geometry) {
@@ -612,13 +442,9 @@ export class GalleryScene {
                     }
                 }
                 if (obj.isPointLight && obj.position.y > 1) {
-                    // Fill lights created by RoomBuilder use 0xfff8e8 (warm)
-                    // or 0xffffff (white) and sit near the ceiling.
                     const c = obj.color;
                     if (c && ((c.r === 1 && c.g > 0.95 && c.b > 0.85) || (c.r === 1 && c.g === 1 && c.b === 1))) {
                         obj.userData._lpFillLight = true;
-                        // Store the original multiplier so fill_intensity
-                        // patches can rescale correctly.
                         obj.userData._lpFillMult = obj.intensity / Math.max(0.001, (this.lightingConfig?.fillLight ?? 0.12));
                     }
                 }
@@ -630,19 +456,6 @@ export class GalleryScene {
         const m = patch.material_config || {};
         let  p = patch.post_fx         || {};
 
-        // ── RUNTIME PATCH GUARD (s4) ────────────────────────────────────
-        // The exporter ships the venue-owned key lists INSIDE the payload
-        // (VenueConfigExporter::ownedKeyPayload → venue_owned_visual /
-        // venue_owned_material) so this guard can mirror the PHP authority
-        // sets without a second hardcoded copy that could drift. Keys listed
-        // there are dropped here BEFORE any handler sees them — closing the
-        // last state-leak door: a stale parent postMessage (old panel build,
-        // replayed 'exospace-preview-ready' state) could otherwise re-apply
-        // an identity key live, even though the exporter and the save-side
-        // normalizer already strip it.
-        //
-        // Venue-less (legacy) galleries have no venueConfig → no lists →
-        // historical patch behaviour untouched.
         const vcMeta = window.GALLERY_DATA?.venueConfig;
         if (vcMeta) {
             const ownedVisual = Array.isArray(vcMeta.venue_owned_visual)
@@ -651,40 +464,20 @@ export class GalleryScene {
                 ? vcMeta.venue_owned_material : [];
             for (const k of ownedVisual) delete v[k];
             for (const k of ownedMaterial) delete m[k];
-            // The void_* prefix rule is part of the venue-owned vocabulary
-            // (PHP enforces it via isVenueOwnedKey; a venue that never
-            // declared a void effect can never grow one from a patch).
             for (const k of Object.keys(v)) {
                 if (typeof k === 'string' && k.startsWith('void_')) delete v[k];
             }
-            // post_fx + placement are venue-owned NESTED objects (s3): bloom
-            // on/off is the venue's restraint declaration. Drop the whole
-            // bucket — no panel control and no stale parent may re-arm it.
             if ('post_fx' in v) delete v.post_fx;
             if ('placement' in v) delete v.placement;
             p = {}; // the legacy sibling bucket is venue-owned presentation
         }
 
-        // Background color — VENUE-OWNED ATMOSPHERE: patches that try to
-        // set it are dropped BEFORE any handler sees them. The venue's
-        // bodies (floor_edge_fade, fog ramp, void dome) derive from the
-        // background, so a patched background recomposes the venue (the
-        // purple-belt incident) instead of tuning it. Legacy saved values
-        // are already dropped by the exporter; this closes the last door
-        // (stale panel builds re-sending state.visual_config on
-        // 'exospace-preview-ready'). Redundant with the guard above when
-        // the payload ships the owned list — kept as a belt-and-braces
-        // floor for payloads built before the s4 schema bump.
         delete v.background_color;
 
         // ── Visual config (atmosphere — all live) ────────────────────────
         if (Object.keys(v).length > 0) {
-            // Forward to VenueDecorator so internal state (_venueAmbientIntensity,
-            // _venueSpotIntensity, etc.) stays in sync.
             this.applyVisualPatch(v);
 
-            // Fog — any of color/near/far can be patched; missing keys fall
-            // back to the current fog's values.
             if ('fog_color' in v || 'fog_near' in v || 'fog_far' in v) {
                 const venueCfg = window.GALLERY_DATA?.venueConfig?.visual_config || {};
                 const fogColor = ('fog_color' in v ? v.fog_color : (this.scene.fog?.color ? '#' + this.scene.fog.color.getHexString() : venueCfg.fog_color)) ?? null;
@@ -699,11 +492,6 @@ export class GalleryScene {
                 }
             }
 
-            // Ambient intensity — update the existing AmbientLight objects.
-            // The first one is the white key ambient; the second (if present)
-            // is the venue-tinted ambient. We scale both by the same factor
-            // so the curator's intent ("brighter overall ambient") holds
-            // regardless of venue tinting.
             if ('ambient_intensity' in v) {
                 const newI = v.ambient_intensity;
                 const baseAmbientBoost = this.isLowEnd ? 3.5 : 1;
@@ -714,20 +502,12 @@ export class GalleryScene {
                 });
             }
 
-            // Spot intensity — update the per-artwork lightMax so the next
-            // proximity-lighting frame boosts them by the new factor.
             if ('spot_intensity' in v) {
                 const newMax = (v.spot_intensity ?? 0) * 3.5;
                 this.artworks.forEach(a => {
                     if (a.userData.lightMax !== undefined) {
                         const base = a.userData.lightBase;
                         a.userData.lightMax = newMax;
-                        // If currently boosted, snap to the new max so the
-                        // change is visible immediately rather than waiting
-                        // for the next proximity update.
-                        // PERF-B2: artwork lights are pooled now — there is no
-                        // per-artwork light object to poke; the pool follows
-                        // lightCurrent on its next tick (≤ ~33 ms).
                         if (a.userData.lightCurrent > base) {
                             a.userData.lightCurrent = newMax;
                         }
@@ -735,9 +515,6 @@ export class GalleryScene {
                 });
             }
 
-            // Fill intensity — update the ceiling PointLights (created by
-            // RoomBuilder as fill-light grid). We tag them at creation time
-            // so we can find them cheaply here.
             if ('fill_intensity' in v) {
                 this.scene.children.forEach(c => {
                     if (c.isPointLight && c.userData._lpFillLight) {
@@ -783,7 +560,6 @@ export class GalleryScene {
             });
         }
 
-        // ── Post-FX (bloom / vignette — live) ────────────────────────────
         if (Object.keys(p).length > 0 && this._postFx) {
             if (typeof this._postFx.applyPatch === 'function') {
                 this._postFx.applyPatch(p);
@@ -806,8 +582,6 @@ export class GalleryScene {
     }
 }
 
-// ── Local color parser (mirrors config.parseColor but doesn't need the import)
-// ─────────────────────────────────────────────────────────────────────────────
 function _parseColor(value) {
     if (value === null || value === undefined || value === '') return null;
     if (typeof value === 'number') return new THREE.Color(value);

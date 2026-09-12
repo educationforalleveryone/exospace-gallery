@@ -24,7 +24,6 @@
             @endforeach
         </nav>
 
-        {{-- ── Health tab ───────────────────────────────────────────────--}}
         @if($tab === 'health')
             <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                 @foreach([
@@ -67,7 +66,6 @@
             </p>
         @endif
 
-        {{-- ── Galleries tab ─────────────────────────────────────────────--}}
         @if($tab === 'galleries')
             <form method="GET" class="mb-5 flex gap-3">
                 <input type="hidden" name="tab" value="galleries">
@@ -190,7 +188,6 @@
             {{ $galleries->links() }}
         @endif
 
-        {{-- ── Artists tab ────────────────────────────────────────────────--}}
         @if($tab === 'artists')
             <form method="GET" class="mb-5">
                 <input type="hidden" name="tab" value="artists">
@@ -261,7 +258,6 @@
             {{ $artists->links() }}
         @endif
 
-        {{-- ── Redirects tab ──────────────────────────────────────────────--}}
         @if($tab === 'redirects')
             <form method="POST" action="{{ route('super.seo.redirects.store') }}" class="mb-6 bg-gray-800 rounded-xl border border-gray-700 p-5 grid sm:grid-cols-4 gap-3 items-end">
                 @csrf
@@ -325,7 +321,6 @@
             {{ $redirects->links() }}
         @endif
 
-        {{-- ── Content pages tab ──────────────────────────────────────────--}}
         @if($tab === 'pages')
             <p class="text-gray-500 text-sm mb-4">
                 Create pages with <code class="text-gray-400">php artisan seo:make-page &#123;slug&#125;</code>. Full block editing via tinker.
@@ -376,7 +371,6 @@
             </div>
             {{ $seoPages->links() }}
         @endif
-        {{-- ── Acquisition tab ─────────────────────────────────────────────--}}
         @if($tab === 'acquisition')
             <div class="flex items-center justify-between mb-6">
                 <div>
@@ -450,8 +444,6 @@
     </div>
 
     {{-- Toggle inline SEO forms (CSP-safe, no inline handlers) --}}
-    {{-- ITERATION-3: one-time guard — Turbo re-executes this script on every
-         visit, stacking duplicate listeners; two toggles = no visible change. --}}
     <script nonce="@nonce">
         if (!window.__seoToggleInit) {
             window.__seoToggleInit = true;

@@ -1,7 +1,3 @@
-{{--
-    Artist directory (SEO OS Iteration 2) — the crawlable hub for the
-    artist layer. Every public artist profile is one internal link away.
---}}
 @extends('layouts.public')
 
 @section('content')

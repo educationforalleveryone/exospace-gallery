@@ -6,13 +6,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Testing Control Center — per-test-case results for a run.
- *
- * Populated from the JUnit XML artifact. `test_identifier` is the stable
- * key used across runs for failure intelligence and flaky detection
- * ("Tests\Feature\WebhookBillingTest::test_hmac_rejects_tampered_payload").
- */
 return new class extends Migration
 {
     public function up(): void

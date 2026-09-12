@@ -4,16 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Creates two new tables for the event calendar feature:
- *
- *   - gallery_schedule_events: actual calendar events (opening reception,
- *     artist talk, walkthrough, etc.) — NOT to be confused with
- *     analytics_events (which was renamed from gallery_events in
- *     migration 2026_06_22_000001)
- *
- *   - event_rsvps: email captures from visitors who want to attend
- */
 return new class extends Migration
 {
     public function up(): void

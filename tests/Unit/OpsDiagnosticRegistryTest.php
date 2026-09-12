@@ -10,16 +10,6 @@ use App\Ops\Diagnostics\RunsDiagnostics;
 use App\Ops\Support\ErrorClassifier;
 use PHPUnit\Framework\TestCase;
 
-/**
- * OpsCenter — Iteration 3 — the allow-list integrity tests.
- *
- * These pin the invariant that makes the "no arbitrary execution" promise
- * real: the ErrorClassifier may only recommend diagnostics that exist in
- * the registry, and the registry may only point at runner classes that
- * exist and implement the runner contract. If any of these fail, a button
- * on the dashboard is either dead or unimplemented — both are broken
- * promises to the operator.
- */
 class OpsDiagnosticRegistryTest extends TestCase
 {
     public function test_every_classifier_recommendation_is_a_real_diagnostic(): void
@@ -82,8 +72,6 @@ class OpsDiagnosticRegistryTest extends TestCase
 
     public function test_runnable_recommendations_filter_out_unknown_ids(): void
     {
-        // Defense against future drift: even if the classifier recommended a
-        // bogus id, the UI helper must refuse to render it as runnable.
         $runnable = DiagnosticEngine::runnableRecommended([
             'database.connectivity',   // real
             'totally.made.up',         // bogus

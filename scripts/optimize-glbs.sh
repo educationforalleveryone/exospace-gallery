@@ -1,18 +1,4 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# optimize-glbs.sh — DRACO + KTX2 compression for every GLB in public/assets/models/
-#
-# Why: uncompressed GLBs ship ~5MB each. After DRACO + KTX2, the same GLB
-# is ~500KB — 10× smaller, loads 10× faster on mobile, no visual quality loss.
-#
-# Prereqs (one-time):
-#   npm install  (this installs @gltf-transform/cli as a dev dep)
-#
-# Usage:
-#   npm run optimize-glbs
-#   bash scripts/optimize-glbs.sh
-#   bash scripts/optimize-globs.sh --verbose
-# ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 VERBOSE=""

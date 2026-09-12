@@ -1,5 +1,3 @@
-// check-lake-capacity.mjs — verify berth capacity across 1..40 with proposed
-// clearance values, before touching LakeLayout (pure module — runs in Node).
 import { buildLakePlan, validateLakePlan } from '../../resources/js/gallery/LakeLayout.js';
 
 function xmur3(str) {

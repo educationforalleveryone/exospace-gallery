@@ -1,35 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// sculpture-garden-qa.mjs — the venue QA gate for Outdoor Sculpture Garden
-// (v4.0.0, "The Sculpture Park": the ASSET-DRIVEN environment).
-//
-//   node scripts/venue-qa/sculpture-garden-qa.mjs
-//
-// Same layering as cyber-gallery-qa.mjs (plain Node over the repo checkout;
-// section C additionally imports the repo's real GardenLayout/GardenAssets/Rng
-// modules): pins CONTRACTS while tests/Feature pins the DB side and
-// scripts/harness/shoot.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the sculpture-garden row declares the landscape
-//      identity AND the v4 asset manifest (garden.assets_base + 7 role
-//      filenames the owner fills under public/assets/venues/sculpture-garden/).
-//   B. DB ↔ harness sync — the PHP-less harness renders the same JSON a
-//      fresh install seeds (drift here means the screenshots stop meaning
-//      anything), and shoot.mjs carries the garden scenario set + the
-//      deterministic async-asset gate.
-//   C. Landscape invariants — driven through the REAL modules: determinism,
-//      validator across the full capacity range, role hierarchy, terrain
-//      finiteness + flat courts, reachability, PANEL-STAND geometry (all
-//      parts behind the canvas plane), the PRIMITIVE BAN (no Cone/Icosahedron/
-//      box-hedge vegetation may return), the gravel ribbon/disc vocabulary,
-//      asset resolution + graceful-missing + instancing math, PMREM sky env,
-//      radius-aware fog, the far-clip floor, the ground-follow tick.
-//   D. JS/PHP hygiene — zero venue slugs in the pure modules, no Math.random,
-//      exporter owns the keys, animate order, RoomBuilder build order, the
-//      guarded migrations (v3 identity + v4 asset manifest), root-relative
-//      asset URLs, the settled gate the harness polls.
-// ─────────────────────────────────────────────────────────────────────────────
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (sculpture-garden row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -102,7 +70,6 @@ function arrayLiteral(source, key) {
     ok('calmer grass tile scale (3 m)', material.includes("'floor_tile_meters'     => 3.0,"));
 }
 
-// ── B. DB ↔ harness sync ────────────────────────────────────────────────────
 section('B. DB ↔ harness sync (sculpture-garden body)');
 {
     const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
@@ -183,8 +150,6 @@ section('C. Landscape invariants (real GardenLayout + GardenAssets modules)');
     ok('role mix at 30: 3 primary / 18 secondary / 9 transitional',
         roles30.primary === 3 && roles30.secondary === 18 && roles30.transitional === 9, JSON.stringify(roles30));
 
-    // C2b. The vegetation carries ASSET ROLES (the v4 contract) and the
-    // designed ensembles exist: a gate pair, a backdrop, a horizon treeline.
     {
         const plan = buildGardenPlan({ radius: gardenRadius(12), count: 12, rng: createVenueRng('sculpture-garden:roles') });
         const treeRoles = new Set(plan.trees.map(t => t.role));
@@ -240,9 +205,6 @@ section('C. Landscape invariants (real GardenLayout + GardenAssets modules)');
         ok('every court reachable from the walk network (≤ 8.5 m)', reachable && v.ok);
     }
 
-    // C5. Panel-stand geometry: every part sits BEHIND the canvas plane
-    // (z ≤ 0 in stand-local space — the v3 easel orientation contract,
-    // carried by the v4 instanced museum stands).
     {
         const placerSrc = readFileSync(rel('resources/js/gallery/ArtworkPlacer.js'), 'utf8');
         const fnStart = placerSrc.indexOf('export function _addPanelStands');
@@ -282,8 +244,6 @@ section('C. Landscape invariants (real GardenLayout + GardenAssets modules)');
         ok('async asset gate exposed (QA harness polls it)', fn.includes('_gardenAssetsSettled'));
     }
 
-    // C7. Asset resolution: root-relative normalization + manifest defaults
-    // + explicit opt-out + graceful missing handling.
     {
         const { resolveGardenAssetRequests, GARDEN_ASSET_MANIFEST, groupAnchorsByRole } = assets;
         // Relative bases normalize to root-relative (the page-relative bug).
@@ -319,7 +279,6 @@ section('C. Landscape invariants (real GardenLayout + GardenAssets modules)');
         GARDEN_DEFAULTS.walkClearance === 1.55 && GARDEN_DEFAULTS.minCourtGap === 3.4 && GARDEN_DEFAULTS.spawnClearance === 3.2);
 }
 
-// ── D. JS/PHP hygiene ───────────────────────────────────────────────────────
 section('D. JS/PHP hygiene');
 {
     const gardenSrc = readFileSync(rel('resources/js/gallery/GardenLayout.js'), 'utf8');

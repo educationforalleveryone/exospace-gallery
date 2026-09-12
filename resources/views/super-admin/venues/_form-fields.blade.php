@@ -1,10 +1,7 @@
 @php
-    // Shared form fields partial for venue template create + edit.
-    // Expects: $venue (VenueTemplate instance, may be new/unfilled), $categories, $layouts
     $isEdit = isset($venue) && $venue->exists;
 @endphp
 
-{{-- ─────────────── Section: Identity ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-4 flex items-center gap-2">
         <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">1</span>
@@ -72,7 +69,6 @@
     </div>
 </div>
 
-{{-- ─────────────── Section: Capacity & status ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-4 flex items-center gap-2">
         <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">2</span>
@@ -117,7 +113,6 @@
     </div>
 </div>
 
-{{-- ─────────────── Section: 3D Assets ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-4 flex items-center gap-2">
         <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">3</span>
@@ -175,11 +170,7 @@
     </div>
 </div>
 
-{{-- ─────────────── Section: Visual config ─────────────── --}}
 @php
-    // Iteration 5 "Authoring" (§9.3): structured inputs for the stable flat
-    // keys, raw-JSON textarea for everything else. Per-key old() keeps the
-    // admin's typed values across validation failures.
     $vc = $venue->visual_config ?? [];
     $mc = $venue->material_config ?? [];
     $vcv = fn (string $key) => old('visual_config.'.$key, $vc[$key] ?? '');
@@ -188,10 +179,6 @@
     $pl = $vc['placement'] ?? [];
     $plv = fn (string $key) => old('visual_config.placement.'.$key, $pl[$key] ?? '');
 
-    // Advanced prefill: existing keys the structured form does not model
-    // (structure descriptors, gates, placement, tier_fallbacks…). After a
-    // validation failure the posted JSON string (or decoded array) wins so
-    // nothing the admin typed is lost.
     $advancedOld = old('visual_config_advanced');
     $advancedJson = is_string($advancedOld)
         ? $advancedOld
@@ -357,7 +344,6 @@
     </div>
 </div>
 
-{{-- ─────────────── Section: Material config ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-1 flex items-center gap-2">
         <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">5</span>
@@ -416,7 +402,6 @@
     </div>
 </div>
 
-{{-- ─────────────── Section: Decorations & lighting ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-1 flex items-center gap-2">
         <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">6</span>
@@ -442,7 +427,6 @@
     </div>
 </div>
 
-{{-- ─────────────── Section: Layouts & defaults ─────────────── --}}
 <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-5">
     <h3 class="text-gray-200 font-semibold mb-4 flex items-center gap-2">
         <span class="w-5 h-5 rounded-full bg-brand-600/30 text-brand-400 text-xs flex items-center justify-center font-bold">7</span>

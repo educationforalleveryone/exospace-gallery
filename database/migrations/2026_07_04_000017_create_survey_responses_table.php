@@ -4,17 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * M-18: NPS/CSAT survey responses table.
- *
- * Stores Net Promoter Score (NPS) responses:
- *   - score: 0-10 (0-6 = detractor, 7-8 = passive, 9-10 = promoter)
- *   - feedback: optional text feedback
- *   - triggered_at: when the survey was shown to the user
- *   - responded_at: when the user submitted a response
- *
- * NPS = % promoters - % detractors (range: -100 to +100)
- */
 return new class extends Migration
 {
     public function up(): void

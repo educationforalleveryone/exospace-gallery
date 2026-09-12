@@ -15,11 +15,6 @@ Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
-    // (Task H08 / audit H21) — there was previously a DUPLICATE POST
-    // /register route: line 18 (no throttle) and line 25 (throttled).
-    // Last-registered wins, but reordering would silently unthrottle
-    // registration. Removed the duplicate; keeping only the throttled
-    // version below.
     Route::post('register', [RegisteredUserController::class, 'store'])
         ->middleware('throttle:10,1');
 
@@ -32,11 +27,6 @@ Route::middleware('guest')->group(function () {
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
-    // (Task H08 / audit H22) — add throttle to forgot-password. The
-    // underlying Password::sendResetLink has a 60s throttle per email
-    // (config/auth.php), but a botnet rotating IPs can still spam reset
-    // emails. 5 per hour per IP is generous for legitimate users and
-    // stops the spam.
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
         ->middleware('throttle:5,60')
         ->name('password.email');
@@ -54,46 +44,20 @@ Route::middleware('auth')->group(function () {
         ->name('verification.notice');
 
     Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
-        // VERIFICATION-ITERATION FIX: dedicated named limiter (10/min, own
-        // bucket) — the numeric throttle:6,1 shared ONE per-user bucket with
-        // every other throttled route, so a few resends followed by the
-        // legitimate link click could 429 the click itself. See
-        // AppServiceProvider for the full rationale.
         ->middleware(['signed', 'throttle:verification-link'])
         ->name('verification.verify');
 
     Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
-        // VERIFICATION-ITERATION FIX: dedicated named limiter (6/min, own
-        // bucket, same budget as before) — unrelated throttled activity can
-        // no longer block a legitimate resend.
         ->middleware('throttle:verification-resend')
         ->name('verification.send');
 
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 
-    // D-3 FIX (Iter-004): Add throttle to POST /confirm-password.
-    // Previously: no throttle. An attacker with a stolen session cookie
-    // could brute-force the password-confirmation endpoint. Once successful,
-    // the session is marked auth.password_confirmed_at = time(), granting
-    // 3 hours of sudo-mode access to every password.confirm-gated route —
-    // including plan changes, user bans, super-admin toggles, and impersonation.
-    // 5 per minute per IP is generous for legitimate users (who rarely
-    // confirm more than once per session) and stops brute-force.
-    // ITERATION-1 FIX: name the POST route so middleware can be asserted
-    // (the GET route owns the canonical 'password.confirm' name).
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
         ->name('password.confirm.submit')
         ->middleware('throttle:5,1');
 
-    // SEC-14: Add throttle to password update — prevents brute-force via CSRF
-    // ITERATION-8: named bucket (throttle's third arg). The unnamed
-    // throttle:5,1 keyed PUT /password and POST /login (and POST
-    // /confirm-password) into the SAME domain|ip bucket — failed logins
-    // starved legitimate password changes and vice versa. Isolating the
-    // bucket keeps the identical 5-per-minute bar for this endpoint while
-    // decoupling it from the other password-bearing routes (same pattern
-    // the MFA and profile-update endpoints already use).
     Route::put('password', [PasswordController::class, 'update'])
         ->middleware('throttle:5,1,password-update') // 5 per minute per IP, own bucket
         ->name('password.update');

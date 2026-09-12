@@ -17,7 +17,6 @@
 </div>
 @endif
 
-{{-- ── Risk none: refresh ─────────────────────────────────────────────── --}}
 <section class="mb-8">
     <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Safe — no confirmation needed</h2>
     <div class="grid md:grid-cols-2 gap-4">

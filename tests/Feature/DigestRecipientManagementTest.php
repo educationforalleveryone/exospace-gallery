@@ -12,16 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
-/**
- * ITERATION 7 — digest recipient management (DB-backed).
- *
- * Coverage: the Billing Review UI add/remove flow + the precedence
- * contract in SendBillingExport::resolveRecipients (--to > DB list
- * > env fallback). Removing the last UI recipient falls back to the
- * env var (or the digest is disabled when env is also empty) — the
- * UI surfaces the active source explicitly so the operator is never
- * surprised by who is receiving the financial digest.
- */
 class DigestRecipientManagementTest extends TestCase
 {
     use RefreshDatabase;
@@ -32,17 +22,9 @@ class DigestRecipientManagementTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        // Operational alerts enabled — empty-DB-list removal path may
-        // page; assert it doesn't surprise the operator.
         config(['services.operational_alerts.webhook_url' => self::WEBHOOK]);
-        // Same setUp pattern as ScheduledBillingExportTest (iter-6):
-        // Mail + Http faked at setUp so console + HTTP paths both
-        // see the fakes without per-test ceremony.
         Mail::fake();
         \Illuminate\Support\Facades\Http::fake();
-        // No withoutExceptionHandling — Laravel's ValidationException
-        // handler converts to a redirect with session errors, which is
-        // the actual production behavior we want to assert against.
     }
 
     private function actingAsMfaSuperAdmin()
@@ -64,8 +46,6 @@ class DigestRecipientManagementTest extends TestCase
         return $this->actingAs($user);
     }
 
-    // ── Access control ────────────────────────────────────────────────
-
     public function test_guests_cannot_add_recipient(): void
     {
         $response = $this->post(route('super.billing.recipients.store'), ['email' => 'someone@example.com']);
@@ -80,8 +60,6 @@ class DigestRecipientManagementTest extends TestCase
         $response->assertForbidden();
         $this->assertSame(0, BillingDigestRecipient::count());
     }
-
-    // ── Add / remove flow ─────────────────────────────────────────────
 
     public function test_add_recipient_creates_row_and_audits(): void
     {
@@ -176,8 +154,6 @@ class DigestRecipientManagementTest extends TestCase
         $this->assertSame(1, BillingDigestRecipient::count());
     }
 
-    // ── Billing Review page ───────────────────────────────────────────
-
     public function test_billing_review_page_shows_recipients_card(): void
     {
         BillingDigestRecipient::create(['email' => 'finance@example.com', 'added_by' => null]);
@@ -212,8 +188,6 @@ class DigestRecipientManagementTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('digest is effectively disabled', false);
     }
-
-    // ── resolveRecipients precedence ──────────────────────────────────
 
     public function test_command_uses_db_list_when_non_empty(): void
     {
@@ -267,13 +241,6 @@ class DigestRecipientManagementTest extends TestCase
 
     public function test_env_recipients_are_lowercased_for_consistent_display(): void
     {
-        // ITERATION 8 FIX: the Billing Review page previously showed
-        // mixed-case env recipients (Finance@Example.com) alongside
-        // lowercased UI-managed ones (finance@example.com) — an
-        // operator comparing the two lists couldn't tell whether the
-        // mixed-case env entry was a duplicate of the UI entry (it
-        // was, but the case difference obscured it). Env recipients
-        // are now lowercased by parseEnvRecipients.
         config(['services.billing_export.email' => 'Finance@Example.com,ops@example.com']);
 
         $admin = $this->actingAsMfaSuperAdmin();
@@ -283,18 +250,11 @@ class DigestRecipientManagementTest extends TestCase
 
         // The env-fallback column shows the lowercased forms.
         $response->assertSee('finance@example.com', false);
-        // Mixed-case form must NOT appear — the operator would see
-        // it as a duplicate of a UI-managed entry.
         $response->assertDontSee('Finance@Example.com', false);
     }
 
     public function test_resolve_recipients_dedupes_case_different_env_entries(): void
     {
-        // ITERATION 8 FIX (audit-fix A-5): the previous case-sensitive
-        // in_array(...) comparison let both Finance@Example.com AND
-        // finance@example.com survive, sending the same CSV twice to
-        // the same mailbox. The lowercased dedupe collapses them to
-        // one recipient.
         config(['services.billing_export.email' => 'Finance@Example.com,finance@example.com']);
 
         // Seed a money event so the audit row has a target.
@@ -302,8 +262,6 @@ class DigestRecipientManagementTest extends TestCase
 
         $this->artisan('exospace:send-billing-export')->assertExitCode(0);
 
-        // Only ONE Mail queued — both env entries resolved to the
-        // same lowercased address and the dedupe caught the dup.
         Mail::assertQueued(BillingExportEmail::class, 1);
     }
 
@@ -311,22 +269,9 @@ class DigestRecipientManagementTest extends TestCase
 
     public function test_concurrent_dup_add_returns_friendly_error_not_500(): void
     {
-        // ITERATION 8 FIX: the explicit where(...)->exists() check
-        // is a TOCTOU race window — two super-admins submitting the
-        // same email in the same ~50ms both pass the exists check,
-        // the loser throws a QueryException on the unique index
-        // that previously propagated as a 500. The race is now
-        // caught: a UniqueConstraintViolationException is re-routed
-        // to the same withErrors path. We simulate the race by
-        // inserting the row between the exists() check and create().
         $admin = $this->actingAsMfaSuperAdmin();
 
-        // Hijack BillingDigestRecipient::create to insert a duplicate
-        // first — simulating a concurrent super-admin's write landing
-        // between our exists() and create().
         BillingDigestRecipient::creating(function ($r) {
-            // Insert the same email directly so our subsequent create
-            // hits the unique index.
             BillingDigestRecipient::withoutEvents(function () use ($r) {
                 BillingDigestRecipient::create([
                     'email'   => $r->email,

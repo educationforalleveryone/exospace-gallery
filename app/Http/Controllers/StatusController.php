@@ -9,27 +9,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
-/**
- * M-20: Public status page.
- *
- * Shows a human-friendly status page at /status that mirrors the /health
- * JSON endpoint but renders an HTML page. Uses the same subsystem checks
- * as HealthController (P3-3) but caches the result for 60 seconds to
- * avoid hammering the DB/Redis on every page load.
- *
- * The status page is public (no auth) so users can check if Exospace is
- * down before contacting support. It shows:
- *   - Overall status (All Systems Operational / Partial Degradation / Outage)
- *   - Per-subsystem status (Database, Cache, Queue, Storage)
- *   - Last checked timestamp
- *
- * Intentionally does NOT show:
- *   - Error details (could leak infrastructure info)
- *   - Coolify API status (internal)
- *   - Failed job counts (internal)
- *   - Disk space numbers (internal)
- * Only shows "Operational" / "Degraded" / "Down" per subsystem.
- */
 class StatusController extends Controller
 {
     public function show(Request $request): View

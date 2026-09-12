@@ -17,40 +17,16 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
-/**
- * Iteration-007 regression tests for audit issues 9 + 10
- * (RFC 8058 one-click unsubscribe + CAN-SPAM postal address).
- *
- * Verifies:
- *   1. Every marketing mailable emits the List-Unsubscribe + List-Unsubscribe-Post
- *      headers required by Gmail/Yahoo (RFC 8058) since Feb 2024.
- *   2. The List-Unsubscribe URL points at the one-click unsubscribe route
- *      (NOT the two-step confirmation route).
- *   3. The List-Unsubscribe-Post value is exactly the RFC 8058-mandated literal.
- *   4. Each marketing mailable passes $unsubscribeUrl to the view so the
- *      visible footer "Unsubscribe" link renders.
- *   5. The one-click POST endpoint returns HTTP 200 (RFC 8058 §3).
- *   6. The one-click POST endpoint unsets marketing_consent.
- *   7. The one-click POST endpoint succeeds WITHOUT a CSRF token (the
- *      whole point of RFC 8058 — Gmail's request has no CSRF token).
- *   8. The one-click POST endpoint rejects unsigned URLs (403).
- *   9. The email layout renders the postal address when configured.
- */
 class Rfc8058UnsubscribeTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
     public function welcome_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
 
         $mail = new WelcomeEmail($user);
 
-        // ITERATION-1 FIX: the old test read $mail->envelope()->headers —
-        // a property that does not exist on Envelope. Laravel applies a
-        // Mailable's headers(): Headers method to the Symfony message at
-        // send time; assert on that object directly.
         $headers = $mail->headers();
 
         $this->assertArrayHasKey('List-Unsubscribe', $headers->text);
@@ -62,7 +38,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertStringContainsString('signature=', $headers->text['List-Unsubscribe']);
     }
 
-    /** @test */
     public function first_gallery_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create();
@@ -75,7 +50,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
-    /** @test */
     public function inactive_nudge_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create();
@@ -87,7 +61,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
-    /** @test */
     public function abandoned_cart_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create();
@@ -100,7 +73,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
-    /** @test */
     public function plan_upgraded_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create();
@@ -112,7 +84,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
-    /** @test */
     public function plan_expiring_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create([
@@ -127,7 +98,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
-    /** @test */
     public function marketing_mailables_pass_unsubscribe_url_to_view(): void
     {
         $user = User::factory()->create();
@@ -141,12 +111,8 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertStringContainsString('/unsubscribe/one-click/', $content->with['unsubscribeUrl']);
     }
 
-    /** @test */
     public function one_click_post_endpoint_returns_200_without_csrf(): void
     {
-        // RFC 8058 §3: response MUST be 2xx. RFC 8058 §2: the POST comes
-        // from the email provider's machinery, not a browser — it will NOT
-        // have a CSRF token. Our route must accept it.
         $user = User::factory()->create(['marketing_consent' => true]);
 
         $url = URL::signedRoute('unsubscribe.one-click.post', ['user' => $user->id]);
@@ -158,7 +124,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertFalse($user->fresh()->marketing_consent, 'marketing_consent should be false after one-click unsubscribe');
     }
 
-    /** @test */
     public function one_click_post_endpoint_rejects_unsigned_url(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
@@ -170,7 +135,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertTrue($user->fresh()->marketing_consent, 'marketing_consent should be unchanged on rejected request');
     }
 
-    /** @test */
     public function one_click_get_endpoint_unsubscribes_and_shows_confirmation(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
@@ -183,11 +147,8 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertFalse($user->fresh()->marketing_consent, 'GET to one-click URL should also unsubscribe');
     }
 
-    /** @test */
     public function one_click_endpoint_is_idempotent(): void
     {
-        // Gmail may retry the POST on transient failures. The endpoint must
-        // be idempotent — repeated POSTs after unsubscribe should still 200.
         $user = User::factory()->create(['marketing_consent' => true]);
 
         $url = URL::signedRoute('unsubscribe.one-click.post', ['user' => $user->id]);
@@ -199,7 +160,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertFalse($user->fresh()->marketing_consent);
     }
 
-    /** @test */
     public function email_layout_renders_postal_address_when_configured(): void
     {
         config(['app.business_address' => "Exospace Gallery\n123 Main St\nSan Francisco, CA 94101"]);
@@ -215,7 +175,6 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertStringContainsString('San Francisco', $rendered);
     }
 
-    /** @test */
     public function email_layout_renders_unsubscribe_link_when_url_provided(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
@@ -228,13 +187,8 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertStringContainsString('/unsubscribe/one-click/', $rendered);
     }
 
-    /** @test */
     public function csrf_middleware_excludes_one_click_route(): void
     {
-        // ITERATION-1 FIX: Laravel 11+ applies `validateCsrfTokens(except: ...)`
-        // from bootstrap/app.php to VerifyCsrfToken::$neverVerify (static),
-        // not the instance's protected $except property — the old reflection
-        // check read the wrong source and always failed. Use the public API.
         $middleware = $this->app->make(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
         $except = $middleware->getExcludedPaths();
 

@@ -6,9 +6,6 @@
 @section('content')
 
 <style>
-    /* ITERATION-4: the old-brand (#667eea→#764ba2) .gradient-text override
-       is deleted — the kit definition applies. .hero-gradient moves from the
-       retired navy ramp to the brand/ink token ramp. */
     .hero-gradient {
         background: radial-gradient(ellipse at top, #3b0764 0%, #0f1117 50%, #08090d 100%);
     }

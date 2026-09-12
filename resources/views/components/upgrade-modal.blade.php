@@ -1,7 +1,5 @@
 @props(['trigger' => 'upgrade-modal'])
 
-{{-- ITERATION-3: z-[60] modal tier (was z-50 — same tier as dropdowns); close
-     control is a proper 32px hit target. --}}
 <div id="{{ $trigger }}"
      class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[60] hidden items-center justify-center overflow-y-auto p-4"
      role="dialog" aria-modal="true" aria-labelledby="{{ $trigger }}-heading">
@@ -19,10 +17,6 @@
         <p class="text-sm text-gray-400 mb-4">Pro gives you more galleries, more images, background music, exhibition scheduling, and no watermark.</p>
 
         <div class="well p-3 mb-5 text-left space-y-2">
-            {{-- (Task H04 / audit H6) — fixed copy. Previous version said
-                 "Unlimited galleries, 50 images per gallery" which was
-                 wrong on both counts: Pro is 5 galleries / 100 images
-                 TOTAL (across all personal galleries, not per-gallery). --}}
             @foreach(['5 galleries · 100 images total', '7 venues including Industrial Loft & Dark Museum', 'Background music & exhibition scheduling', 'No Exospace watermark'] as $feat)
             <div class="flex items-center gap-2 text-xs text-gray-300">
                 <svg class="w-3.5 h-3.5 text-brand-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -32,9 +26,6 @@
         </div>
 
         @php
-            // ITERATION-5 (billing truth): surface the monthly alternative from
-            // the same config the billing portal uses (M-1), and stop styling
-            // this CTA with a hand-rolled gradient — the kit owns buttons.
             $hasRecurringPro   = config('services.2checkout.recurring_product_id_pro');
             $recurringProPrice = config('services.2checkout.recurring_price_pro_monthly', '4.99');
         @endphp
@@ -55,7 +46,6 @@
     </div>
 </div>
 
-{{-- CSP-safe helper for disabled quick-action links (replaced onclick="return false;") --}}
 <script nonce="@nonce">
 window.noopDisabled = function(e) { if (e && e.preventDefault) e.preventDefault(); };
 </script>

@@ -43,8 +43,6 @@
         @error('bio')<p id=\"bio-error\" class=\"text-sm text-red-400 mt-1\">{{ $message }}</p>@enderror
     </div>
 
-    {{-- SEO OS (Iteration 6): curator-facing SEO overrides. Leave blank to
-         use the automatic title/description generated from real data. --}}
     <div>
         <label class="label-text mb-1.5">
             SEO title <span class="text-gray-500 font-normal text-xs">(optional — auto-generated when empty)</span>

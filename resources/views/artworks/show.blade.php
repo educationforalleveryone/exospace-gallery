@@ -1,16 +1,3 @@
-{{--
-    Artwork landing page (SEO OS Iteration 2).
-
-    The indexable leaf node of the public web graph:
-      artwork → artist profile
-      artwork → exhibition (3D)
-      artwork → sibling artworks
-      breadcrumbs back to Discover
-
-    Quality gate: the controller marks thin artworks noindex. The visual
-    presentation is identical either way — noindex is an indexing signal,
-    not a content change.
---}}
 @extends('layouts.public')
 
 @section('content')
@@ -145,8 +132,6 @@
     </section>
     @endif
 
-    {{-- More by this artist in other exhibitions (Iteration 3: cross-gallery
-         internal linking from the artwork leaf node) --}}
     @if($alsoByArtist->isNotEmpty())
     <section class="max-w-6xl mx-auto px-4 py-12 border-t border-gray-800" aria-label="More by {{ $artwork->artist?->name }}">
         <h2 class="text-xl font-bold text-white mb-6">More by {{ $artwork->artist->name }}</h2>

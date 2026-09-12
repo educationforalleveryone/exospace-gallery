@@ -6,34 +6,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * WHITE CUBE POLISH iteration — the forensic-audit remediation as CI.
- *
- * Pins:
- *   1. The seeded white-cube row declares the remediated identity (gallery-
- *      white fog, physical-unit light rig, exposure ≥ 1.0, post_fx restraint,
- *      polished-concrete floor, charcoal default frame) — a white cube that
- *      can no longer render as a soot-grey box on a fresh install.
- *   2. The guarded migration rewrites ONLY the previously seeded values
- *      (admin customisations survive), is idempotent, and down() reverses
- *      each rewrite under the same exact-match guard.
- *   3. The fog/exposure contract is generic: no venue may declare a fog
- *      colour darker than its own identity can survive on a "bright" preset
- *      without declaring intent (the audit's core finding: the default free
- *      venue shipped void-black fog by copy-paste, not by decision).
- *   4. The harness venue payload stays in sync with the seeder row (the
- *      PHP-less visual harness renders the same JSON a fresh install gets).
- *
- * Portable patterns per the IT2–IT6 suites: sqlite-safe JSON
- * read-modify-write, migrations invoked directly.
- */
 class VenueWhiteCubePolishIterationTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The remediated identity (mirrors the seeder + harness payload)
-    // ─────────────────────────────────────────────────────────────────────
 
     public const POLISHED = [
         'background_color'      => '0xf2f1ee',
@@ -75,10 +50,6 @@ class VenueWhiteCubePolishIterationTest extends TestCase
         ) ?: [];
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. The fresh-install baseline IS the polished identity
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_seeded_white_cube_declares_the_polished_identity(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -118,9 +89,6 @@ class VenueWhiteCubePolishIterationTest extends TestCase
 
         $vc = $this->visualConfig('white-cube');
 
-        // The audit's core finding: a bright venue whose fog was darker than
-        // its own walls. The fog colour must be LIGHTER than mid-grey — a
-        // white cube's atmosphere is light, not void.
         $fog = hexdec(substr((string) $vc['fog_color'], 2));
         $this->assertGreaterThan(
             0xB0B0B0,
@@ -128,14 +96,8 @@ class VenueWhiteCubePolishIterationTest extends TestCase
             '[white-cube] fog must dissolve toward gallery white (audit: 0x0f0f0f sooted every far wall).'
         );
 
-        // And the fog must not reach into normal viewing distances: at the
-        // default 10.5 m wall nothing should be hazy yet.
         $this->assertGreaterThanOrEqual(14, $vc['fog_near']);
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. The migration — guarded rewrite, idempotent, reversible
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_migration_rewrites_seeded_values_and_survives_reruns(): void
     {
@@ -205,8 +167,6 @@ class VenueWhiteCubePolishIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // A super-admin has hand-tuned the venue after the polish: every
-        // guarded rewrite must leave their values alone.
         DB::table('venue_templates')->where('slug', 'white-cube')->update([
             'visual_config' => json_encode([
                 'fog_color'             => '0xe8e4da',
@@ -285,10 +245,6 @@ class VenueWhiteCubePolishIterationTest extends TestCase
             'A deleted venue stays deleted (archive-not-delete is the operator path).'
         );
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. The visual-harness payload mirrors the fresh-install row
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_visual_harness_payload_matches_the_seeded_identity(): void
     {

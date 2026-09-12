@@ -2,50 +2,8 @@ import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
 
 /**
- * Exospace — Design Token Configuration (single source of truth).
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * DESIGN LANGUAGE (canonical — see docs/DESIGN-SYSTEM.md)
- * ─────────────────────────────────────────────────────────────────────────────
- * One dark theme, one accent, four status hues. Premium = clarity +
- * hierarchy + restraint, not decoration.
- *
- * COLOR ROLES
- *   brand-*     The single accent (purple family). CTAs, active states,
- *               selection, focus. If a second hue starts fighting with it,
- *               remove the second hue.
- *   ink-*       The page canvas ramp (near-black, slightly blue).
- *               ink-900 is THE page background — never hardcode hex again.
- *   surface-*   Card / panel tints (used by skeletons, command palette).
- *   gray-*      Neutral surface + text ramp (Tailwind default, kept so the
- *               thousands of existing `bg-gray-800` cards stay valid).
- *
- *   Status mapping (semantic, used by .badge-* / .alert-* / .btn-danger):
- *   success = emerald · warning = amber · danger = red · info = blue.
- *   Legacy `green-*` usages migrate to emerald incrementally.
- *
- * ELEVATION LADDER (dark UI elevates by lightness, not by shadow alone)
- *   ink-950   #08090d  tooltips, toast surfaces (highest contrast zones)
- *   ink-900   #0f1117  page canvas + nav chrome
- *   gray-800  #1f2937  cards, panels, form wells on canvas
- *   gray-900/50       inset wells (table headers, code, input fills)
- *   + border-gray-600/60 + shadow-menu/modal for floating layers
- *
- * RADII (only these three for controls/surfaces; full/pill for badges)
- *   rounded-md 6px   small chips, dense controls
- *   rounded-lg 8px   buttons, inputs, selects, table wrappers
- *   rounded-xl 12px  cards, panels, menus, modals
- *   rounded-2xl is reserved for large marketing surfaces — not admin UI.
- *
- * LEGACY NOTE
- *   `bg-[#0f1117]`, `bg-[#0a0a0f]` etc. are replaced by `bg-ink-900` /
- *   `bg-surface-900`. The commented "ITERATION-2" notes from the previous
- *   token pass are preserved in git history; this phase (ITERATION-1 of the
- *   premium-SaaS rework) finalizes the token set and puts the shared
- *   component classes in resources/css/app.css.
+ * @type {import('tailwindcss').Config}
  */
-
-/** @type {import('tailwindcss').Config} */
 export default {
     darkMode: 'class',
 
@@ -63,9 +21,6 @@ export default {
             },
 
             colors: {
-                // The brand accent — one purple family, nothing else.
-                // brand-600 is the canonical CTA surface, brand-400 the
-                // canonical accent-text color (AA on gray-800/900).
                 brand: {
                     50:  '#f5f3ff',
                     100: '#ede9fe',
@@ -97,8 +52,6 @@ export default {
                 },
             },
 
-            // Elevation shadows — soft, ambient, never colored glows except
-            // the brand one reserved for .card-lift hover.
             boxShadow: {
                 'menu':  '0 10px 38px -10px rgba(0, 0, 0, 0.55), 0 4px 12px -4px rgba(0, 0, 0, 0.4)',
                 'modal': '0 24px 64px -12px rgba(0, 0, 0, 0.6), 0 8px 20px -8px rgba(0, 0, 0, 0.45)',
@@ -127,23 +80,12 @@ export default {
                 },
             },
 
-            // Standard page container (1280px) — replaces ad-hoc max-w-7xl
-            // in layouts; pages may still use max-w-5xl / max-w-3xl for
-            // narrow content, documented in docs/DESIGN-SYSTEM.md.
             maxWidth: {
                 page: '80rem',
             },
         },
     },
 
-    // The design-system component classes (resources/css/app.css) live in
-    // @layer components, so Tailwind purges any of them that no template
-    // references yet. That is correct for one-off classes but wrong for a
-    // design SYSTEM: a page migrated to `.btn-ghost` / `.page-title` /
-    // `.table-head-cell` in a future iteration must never deploy with the
-    // class silently missing from the compiled CSS. The full UI kit is
-    // therefore safelisted — it costs ~3 KB gzipped and removes an entire
-    // class of "adopted class didn't compile" regressions.
     safelist: [
         // Buttons
         'btn', 'btn-sm', 'btn-lg', 'btn-icon', 'btn-primary', 'btn-secondary',
@@ -175,9 +117,6 @@ export default {
         // Operational status language (OpsCenter / Control Center / Master Control)
         'status', 'status-dot', 'status-healthy', 'status-warning',
         'status-critical', 'status-info', 'status-unknown',
-        // Z-index ladder (iteration 3) — the only sanctioned floating tiers.
-        // Safelisted so helpers that build class strings in JS (app.js
-        // exospaceConfirm, modal system) can never ship without them.
         'z-30', 'z-40', 'z-[45]', 'z-50', 'z-[55]', 'z-[60]', 'z-[70]', 'z-[71]', 'z-[100]',
     ],
 

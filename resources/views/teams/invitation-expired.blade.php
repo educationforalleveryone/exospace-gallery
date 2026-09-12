@@ -8,9 +8,6 @@
 </head>
 <body class="bg-gray-900 min-h-screen flex items-center justify-center px-4">
     <div class="max-w-md w-full text-center">
-        {{-- ITERATION-6: retired pre-iteration-1 purple→indigo logo gradient —
-             this page was missed by iteration 4's public sweep (only its
-             sibling teams/invitation was converted). .logo-text is canonical. --}}
         <a href="/" class="logo-text text-3xl mb-8 inline-block">
             Exospace
         </a>

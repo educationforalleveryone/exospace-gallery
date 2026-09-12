@@ -7,9 +7,6 @@ namespace Database\Factories;
 use App\Models\QaTestRun;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends Factory<QaTestRun>
- */
 class QaTestRunFactory extends Factory
 {
     protected $model = QaTestRun::class;

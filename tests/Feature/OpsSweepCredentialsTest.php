@@ -10,24 +10,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 6 — the credential-rotation reminder sweep.
- *
- * ops:sweep-credentials makes cadence lapses find the operator the way
- * the diagnostic sweep makes broken subsystems find them: daily, in
- * Slack, with a deduplicated SECURITY event that resolves itself once
- * the page is worked. These tests pin:
- *
- *   1. ROTATE NOW / OVERDUE → exactly ONE warning alert + ONE SECURITY
- *      event (source 'sweep'), listing the affected credentials.
- *   2. Recurrence: a second sweep bumps occurrence_count, never a
- *      second row.
- *   3. Recovery: an all-clean sweep resolves the event and announces it
- *      exactly once (idempotent on later sweeps).
- *   4. DUE SOON only → a WEEKLY-gated info nudge, never an event.
- *   5. All clean + nothing due → complete silence.
- *   6. Kill switch + never-fatal contract (exit 0 always).
- */
 class OpsSweepCredentialsTest extends TestCase
 {
     use RefreshDatabase;
@@ -84,12 +66,8 @@ class OpsSweepCredentialsTest extends TestCase
         return $texts;
     }
 
-    // ── 1. The overdue path ─────────────────────────────────────────────
-
     public function test_exposed_never_rotated_credentials_alert_and_record_one_security_event(): void
     {
-        // Default state: nothing rotated → every §15-exposed credential
-        // reads ROTATE NOW, the optional tokens read UNTRACKED.
         $this->runSweep()->assertExitCode(0);
 
         $event = $this->rotationEvents()->first();
@@ -130,8 +108,6 @@ class OpsSweepCredentialsTest extends TestCase
 
     public function test_one_event_total_even_with_many_lapses(): void
     {
-        // Every exposed credential is in some bad state — still ONE
-        // event, ONE Slack warning (the list rides inside them).
         OpsCredential::create(['key' => 'db-password', 'last_rotated_at' => now()->subDays(200)]);
         OpsCredential::create(['key' => 'coolify-token', 'last_rotated_at' => now()->subDays(150)]);
 
@@ -139,8 +115,6 @@ class OpsSweepCredentialsTest extends TestCase
 
         $this->assertSame(1, $this->rotationEvents()->count());
     }
-
-    // ── 2. Recurrence ───────────────────────────────────────────────────
 
     public function test_recurrence_bumps_the_counter_never_a_second_row(): void
     {
@@ -152,17 +126,12 @@ class OpsSweepCredentialsTest extends TestCase
         $this->assertSame(2, (int) $events->first()->occurrence_count);
     }
 
-    // ── 3. Recovery ─────────────────────────────────────────────────────
-
     public function test_clean_sweep_resolves_the_prior_event_and_announces_once(): void
     {
-        // First: a lapse (nothing rotated at all).
         $this->runSweep()->assertExitCode(0);
         $event = $this->rotationEvents()->first();
         $this->assertNotNull($event);
 
-        // Now the operator works the list: record rotations far inside
-        // every cadence (10 days beats 90/180 everywhere).
         foreach (['db-password', 'app-key', 'coolify-token', 'slack-webhooks', 'r2-keys',
             'backup-password', 'twocheckout-secrets', 'sentry-dsn', 'resend-key', 'metrics-webhook-tokens', ] as $key) {
             OpsCredential::create(['key' => $key, 'last_rotated_at' => now()->subDays(10)]);
@@ -199,12 +168,8 @@ class OpsSweepCredentialsTest extends TestCase
         $this->assertSame([], $this->slackTexts());
     }
 
-    // ── 4. Due-soon nudge ───────────────────────────────────────────────
-
     public function test_due_soon_only_sends_weekly_nudge_without_event(): void
     {
-        // Rotate everything freshly EXCEPT one credential 80 days into
-        // its 90-day cadence → DUE SOON, not overdue.
         foreach (['app-key', 'coolify-token', 'slack-webhooks', 'r2-keys',
             'backup-password', 'twocheckout-secrets', 'sentry-dsn', 'resend-key', 'metrics-webhook-tokens', ] as $key) {
             OpsCredential::create(['key' => $key, 'last_rotated_at' => now()->subDays(10)]);
@@ -237,7 +202,6 @@ class OpsSweepCredentialsTest extends TestCase
         }
         OpsCredential::create(['key' => 'db-password', 'last_rotated_at' => now()->subDays(80)]);
 
-        // First run: nudge sent, gate set.
         $this->runSweep()->assertExitCode(0);
         $this->assertNotEmpty($this->slackTexts());
 
@@ -249,12 +213,8 @@ class OpsSweepCredentialsTest extends TestCase
         $this->assertCount($count + 1, $this->slackTexts());
     }
 
-    // ── 5. Untracked stays invisible ────────────────────────────────────
-
     public function test_untracked_optional_tokens_never_trigger_anything(): void
     {
-        // All §15-exposed credentials rotated; the two optional OpsCenter
-        // tokens (ingest, sentry-api) remain never-rotated → UNTRACKED.
         foreach (['db-password', 'app-key', 'coolify-token', 'slack-webhooks', 'r2-keys',
             'backup-password', 'twocheckout-secrets', 'sentry-dsn', 'resend-key', 'metrics-webhook-tokens', ] as $key) {
             OpsCredential::create(['key' => $key, 'last_rotated_at' => now()->subDays(10)]);
@@ -265,8 +225,6 @@ class OpsSweepCredentialsTest extends TestCase
         $this->assertSame(0, OpsEvent::where('source', 'sweep')->count());
         $this->assertSame([], $this->slackTexts());
     }
-
-    // ── 6. Kill switch + robustness ─────────────────────────────────────
 
     public function test_kill_switch_makes_the_sweep_a_noop(): void
     {
@@ -300,8 +258,6 @@ class OpsSweepCredentialsTest extends TestCase
 
     public function test_security_category_is_available_to_the_error_inventory(): void
     {
-        // The sweep's events must be groupable in the events UI like every
-        // other domain — SECURITY joined the category allow-list.
         $this->assertContains('SECURITY', OpsEvent::CATEGORIES);
     }
 }

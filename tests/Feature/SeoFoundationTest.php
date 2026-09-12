@@ -2,21 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * SEO OPERATING SYSTEM — Iteration 1 (foundation) tests.
- *
- * Covers:
- *   - SeoData value object behaviour (with/override, robots resolution)
- *   - CanonicalUrl normalizer (tracking params, pagination, unknown params)
- *   - Breadcrumb trail + JSON-LD generation
- *   - SeoManager title templates, description limits, real-data fallbacks,
- *     and seo_profiles override layering
- *   - <x-seo> v2 emission (robots, og:image metadata, canonical cleaning)
- *   - seo_profiles migration + HasSeoProfile relation on Gallery/Artist
- *
- * Run: php artisan test --filter=SeoFoundationTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Artist;
@@ -40,14 +25,10 @@ class SeoFoundationTest extends TestCase
     {
         parent::setUp();
         $this->seo = app(SeoManager::class);
-        // ITERATION-1 FIX: several assertions compare absolute URLs built
-        // by url() — force the root so they aren't rendered as localhost.
         config(['app.url' => 'https://exospace.gallery']);
         \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
         \Illuminate\Support\Facades\URL::forceScheme('https');
     }
-
-    // ── SeoData ─────────────────────────────────────────────────────────
 
     public function test_seo_data_with_layers_overrides_without_mutating(): void
     {
@@ -77,8 +58,6 @@ class SeoFoundationTest extends TestCase
         $blocked = new SeoData(robots: 'noindex,follow');
         $this->assertFalse($blocked->isIndexable());
     }
-
-    // ── CanonicalUrl ────────────────────────────────────────────────────
 
     public function test_canonical_url_strips_tracking_params(): void
     {
@@ -149,8 +128,6 @@ class SeoFoundationTest extends TestCase
         );
     }
 
-    // ── Breadcrumb ──────────────────────────────────────────────────────
-
     public function test_breadcrumb_trail_marks_last_as_current_page(): void
     {
         $crumbs = Breadcrumb::trail([
@@ -179,8 +156,6 @@ class SeoFoundationTest extends TestCase
         $this->assertSame('https://exospace.gallery/discover', $jsonLd['itemListElement'][0]['item']);
         $this->assertArrayNotHasKey('item', $jsonLd['itemListElement'][1], 'Current page ListItem has no item URL.');
     }
-
-    // ── SeoManager ──────────────────────────────────────────────────────
 
     public function test_gallery_seo_uses_title_template_and_custom_domain_canonical(): void
     {
@@ -341,8 +316,6 @@ class SeoFoundationTest extends TestCase
         $this->assertSame('noindex', $gallery->effectiveRobotsDirective('noindex'));
     }
 
-    // ── <x-seo> v2 emission ─────────────────────────────────────────────
-
     public function test_x_seo_v2_renders_full_meta_layer_from_seo_data(): void
     {
         config(['app.url' => 'https://exospace.gallery']);
@@ -399,8 +372,6 @@ class SeoFoundationTest extends TestCase
         $this->assertStringNotContainsString('name="robots"', $html, 'Indexable pages emit no robots tag (default).');
     }
 
-    // ── Public layout integration ───────────────────────────────────────
-
     public function test_public_layout_accepts_seo_data_object(): void
     {
         config(['app.url' => 'https://exospace.gallery']);
@@ -420,8 +391,6 @@ class SeoFoundationTest extends TestCase
         $this->assertStringContainsString('<title>Object Title</title>', $html);
         $this->assertStringContainsString('<link rel="canonical" href="https://exospace.gallery/obj">', $html);
     }
-
-    // ── Migration sanity ────────────────────────────────────────────────
 
     public function test_seo_profiles_table_exists_with_expected_columns(): void
     {

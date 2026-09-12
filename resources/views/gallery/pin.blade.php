@@ -14,9 +14,6 @@
             display: flex; align-items: center; justify-content: center;
             font-family: system-ui, -apple-system, sans-serif;
         }
-        /* ITERATION-5: renamed .card → .pin-card — this standalone document
-           loads app.css, and the old name collided with the design system's
-           .card component class (different recipe, same selector). */
         .pin-card {
             width: 100%; max-width: 400px; padding: 2.5rem;
             background: rgba(255,255,255,0.04);
@@ -94,17 +91,6 @@
             @csrf
             <input type="hidden" name="pin" id="pin-hidden">
 
-            {{-- (Task H11 / audit H43) — accessible PIN input.
-                 Previously 4 unlabeled <input type="text"> elements with
-                 no aria-label, no role, visible to shoulder-surfers, and
-                 auto-submitting 200ms after the 4th digit (yanking screen
-                 reader users mid-announcement).
-
-                 Now: 4 inputs with proper aria-labels, type="password" to
-                 mask from shoulder-surfers, autocomplete="one-time-code"
-                 for iOS SMS-code autofill affordance, aria-describedby
-                 linking to the error message, and NO auto-submit (user
-                 presses Enter or clicks Submit). --}}
             <div class="pin-row" role="group" aria-label="4-digit gallery PIN">
                 <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="0" autocomplete="one-time-code" aria-label="PIN digit 1" aria-describedby="pin-error">
                 <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="1" autocomplete="off" aria-label="PIN digit 2" aria-describedby="pin-error">
@@ -145,8 +131,6 @@
                     digits[i - 1].focus();
                     sync();
                 }
-                // Enter on the last digit submits (accessible alternative
-                // to the removed auto-submit). (Task H11)
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     if (!submit.disabled) document.getElementById('pin-form').submit();
@@ -174,8 +158,6 @@
             submit.disabled = pin.length < 4;
         }
 
-        // (Task H11) Auto-submit removed — it yanked screen reader users
-        // mid-announcement. Users now press Enter or click "Enter Gallery".
     </script>
 </body>
 </html>

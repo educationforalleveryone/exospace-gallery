@@ -93,11 +93,6 @@
                         @endif
                     </td>
                     <td class="px-4 py-3">
-                        {{-- Iteration 8: the per-app Sentry trend cell. Mapped
-                             apps get a compact sparkline; unmapped/apps with
-                             the token unset get an honest muted state — the
-                             mapping panel below is where the operator wires
-                             them up (super-admin). --}}
                         @include('ops.partials.app-sentry-trend', [
                             'trend' => $sentryTrends[$app->id] ?? [],
                             'mapped' => filled($app->sentry_project_slug),
@@ -106,7 +101,6 @@
                     <td class="px-4 py-3 text-slate-500 text-xs">{{ $app->status_checked_at?->diffForHumans() ?? '—' }}</td>
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-1.5">
-                            {{-- Iteration 6: operators can run the read-only checks; restart/sync stay super-admin-only. --}}
                             @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
                                 <a href="{{ route('ops.diagnostics.index', ['app' => $app->id]) }}" class="btn btn-sm btn-ops-emerald-ghost" title="Run read-only diagnostics for this application">Run checks</a>
                                 @if(auth()->user()?->is_super_admin && config('ops.actions.enabled', true) && ($app->provider === 'coolify' || $app->is_self))
@@ -138,14 +132,6 @@
     <p>The Sentry column shows each application's own 24 h error trend once it is mapped to a Sentry project below (cache-first, 10-minute refresh; “API error” means the mapped project's stats call failed — hover for the reason).</p>
 </div>
 
-{{-- ── Sentry issue headlines (Iteration 9) ─────────────────────────────
-     The follow-through for the trend column: one card per MAPPED app
-     with its top unresolved issues by frequency + permalinks. Read-only
-     data → visible to every /ops tier (viewers included); the mapping
-     panel below stays super-admin-only because it is the write path.
-     Fails soft per app: a broken project slug dims exactly its own
-     card, never the section. --}}
-
 @php
     $mappedApps = $applications->filter(fn ($a) => trim((string) $a->sentry_project_slug) !== '')->values();
 @endphp
@@ -170,11 +156,6 @@
     </div>
 @endif
 
-{{-- ── Sentry project mapping (Iteration 8) ─────────────────────────────
-     The AD-9 prerequisite made operator-owned: which Coolify app is
-     which Sentry project. Super-admin-only write (route-enforced); the
-     rest of the page is read-only for viewers/operators, so the panel
-     itself is hidden from them rather than just disabled. --}}
 @if(auth()->user()?->is_super_admin)
     <div class="mt-6 rounded-lg border border-slate-800 bg-slate-900/40">
         <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">

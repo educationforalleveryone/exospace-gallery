@@ -4,17 +4,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    {{-- LOGOUT-ITERATION FIX: branded 419 page. Previously a stale,
-         expired, or double-submitted logout (or any other CSRF-guarded
-         form submitted with a dead session) hit Laravel's default
-         "419 | Page Expired" screen — a bare white page with no links, a
-         confusing dead end on mobile. This view renders the same HTTP
-         semantics in the product's own visual language and always offers
-         a way forward (home / log in).
-
-         Deliberately self-contained: inline CSS only, no Vite bundle, no
-         external fonts — error pages must render even when the app
-         bundle, CDN, or session that would provide them is unavailable. --}}
     <meta name="robots" content="noindex">
     <title>Page Expired — {{ config('app.name', 'Exospace') }}</title>
     <style>

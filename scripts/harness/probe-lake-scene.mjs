@@ -1,6 +1,3 @@
-// probe-lake-scene.mjs — dump the live scene state of the Mirror Lake build:
-// camera, lights, sky, water, moon screen-projection, artwork count.
-// Run: node scripts/harness/probe-lake-scene.mjs [count]
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
@@ -32,8 +29,6 @@ page.on('console', m => { if (m.type() === 'error' && !m.text().includes('404'))
 
 await page.goto(`http://127.0.0.1:${PORT}/harness/harness.html?venue=mirror-lake&reflect=0&count=${count}`, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#enter-btn', { timeout: 60000 });
-// The curtain can dismiss itself as assets finish (the button detaches) —
-// click if it is still there, otherwise the scene is already entered.
 await page.click('#enter-btn', { force: true, timeout: 8000 }).catch(() => {});
 await page.waitForTimeout(14000);
 

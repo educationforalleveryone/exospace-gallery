@@ -8,20 +8,6 @@ use App\Services\TestCenter\EnvironmentSafety;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 
-/**
- * qa:smoke — post-deployment SAFE READ-ONLY verification of a deployed build.
- *
- * No mutation verbs, no credentials required beyond reachability. Every check
- * is a GET with expectations of publicly observable truth.
- *
- * Default check-set (order matters for failure clarity):
- *   1. /up                 — framework alive (Coolify convention)
- *   2. /health             — subsystem JSON (200 or 503-degraded tolerated but reported)
- *   3. /robots.txt         — 200 + mentions Sitemap (SEO alive)
- *   4. /sitemap.xml        — 200 + starts with xml marker
- *   5. /login, /register   — 200 (auth surfaces reachable)
- *   6. first manifest asset— built frontend actually served (catches broken deploys)
- */
 class QaSmoke extends Command
 {
     protected $signature = 'qa:smoke
@@ -32,7 +18,9 @@ class QaSmoke extends Command
 
     protected $description = 'Run safe read-only smoke checks against a deployed Exospace instance';
 
-    /** @var array<int, array<string,mixed>> */
+    /**
+ * @var array<int, array<string,mixed>>
+ */
     private array $cases = [];
 
     public function handle(EnvironmentSafety $safety): int
@@ -102,7 +90,6 @@ class QaSmoke extends Command
         return $problems === 0 ? self::SUCCESS : self::FAILURE;
     }
 
-    /** @return list<array{0:string,1:callable}> each returns [bool ok, string detail] */
     private function buildChecks(string $base): array
     {
         $get = fn (string $path) => Http::timeout((int) $this->option('timeout'))

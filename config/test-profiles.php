@@ -2,49 +2,7 @@
 
 declare(strict_types=1);
 
-/*
-|--------------------------------------------------------------------------
-| Testing Control Center — Test Profiles & Taxonomy
-|--------------------------------------------------------------------------
-|
-| PROFILES are what a human asks for ("Run Pre-Release"). Each profile maps
-| to one or more TAXONOMY GROUPS; each group maps to concrete test files
-| and/or directories. This indirection is deliberate:
-|
-|   Profile  →  Groups  →  Files / directories / PHPUnit groups
-|
-| To add a new profile tomorrow (e.g. "MEDIA") you only edit this file —
-| no controller or command changes. Add a group with path globs, then a
-| profile referencing that group, and it appears on the dashboard & CLI
-| automatically.
-|
-| Path patterns support glob() semantics resolved against base_path().
-|
-
-|--------------------------------------------------------------------------
-| STRATEGIES
-|--------------------------------------------------------------------------
-|
-| phpunit           Runs the PHPUnit binary against a generated suite XML
-|                   (temp file) built from this profile's resolved paths.
-| http-smoke        Executes App\Console\Commands\QaSmoke (read-only HTTP
-|                   probes) against a target environment URL.
-| in-process-checks Runs read-only health/connectivity checks inside this
-|                   application instance (used by production-health).
-|
-*/
-
 return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Taxonomy groups
-    |--------------------------------------------------------------------------
-    |
-    | Group keys are stable identifiers derived from the Phase-0 audit of all
-    | 123 test files / ~1,388 tests. Extend freely.
-    |
-    */
 
     'groups' => [
 
@@ -225,23 +183,7 @@ return [
             'danger'      => 'test-only',
         ],
 
-        // Extensibility example (left minimal): add real globs when media
-        // conversion coverage lands, then reference `media` from a profile.
-        /*
-        'media' => [
-            'label'       => 'Media Pipeline',
-            'description' => 'Image conversions, EXIF stripping, RegenerateImageMedia job.',
-            'paths'       => [],
-            'danger'      => 'test-only',
-        ],
-        */
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Profiles
-    |--------------------------------------------------------------------------
-    */
 
     'profiles' => [
 
@@ -381,20 +323,6 @@ return [
             'artifacts'         => ['json'],
         ],
 
-        /*
-        |----------------------------------------------------------------------
-        | Adding a profile later (example from the docs):
-        |----------------------------------------------------------------------
-        | 'media' => [
-        |     'label'   => 'Media', 'safety' => 'test-only', 'strategy' => 'phpunit',
-        |     'groups'  => ['media'], 'database' => 'sqlite',
-        |     'conflicts_with' => [], 'estimated_minutes' => 3,
-        |     'artifacts' => ['junit'], 'icon' => '🖼️', 'color' => 'pink',
-        |     'description' => 'Media pipeline validation.',
-        | ],
-        |
-        | It appears on `qa:run --list`, the dashboard and gates immediately.
-        */
     ],
 
 ];

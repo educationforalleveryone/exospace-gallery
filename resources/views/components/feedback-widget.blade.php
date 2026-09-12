@@ -1,16 +1,9 @@
-{{-- M-19: In-app feedback widget.
-    Floating "Feedback" button (bottom-right) that opens a modal form.
-    Included in layouts/app.blade.php so it appears on all admin pages.
-    Uses Alpine.js for show/hide + fetch() for AJAX submission. --}}
-
 @auth
 <div x-data="{ open: false, submitting: false, success: false, category: 'bug', message: '' }"
      x-cloak
      x-effect="document.body.classList.toggle('overflow-y-hidden', open); if (open) $nextTick(() => $refs.panel && $refs.panel.focus())"
      class="fixed bottom-6 right-6 z-[45]">
 
-    {{-- Floating button — z-[45] persistent-overlay tier: sits above chrome,
-         under dropdowns/modals/toasts so it can never bury feedback. --}}
     <button @click="open = true; success = false; message = ''"
             x-show="!open"
             x-transition
@@ -22,9 +15,6 @@
     </button>
 
     {{-- Modal --}}
-    {{-- data-focus-trap: delegated Tab containment from app.js (this dialog
-         has no Alpine Tab handler of its own). Panel takes focus on open so
-         Escape/Tab work immediately without an extra click. --}}
     <div x-show="open"
          x-transition
          data-focus-trap

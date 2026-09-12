@@ -43,7 +43,6 @@ await page.waitForFunction(() => {
 }, { timeout: 45000 });
 await page.$eval('#enter-btn', el => el.click());
 await page.waitForTimeout(12000);
-// second pass: list every object inside the corridor slab between camera and artwork
 const info2 = await page.evaluate(() => {
     const s = window.__exospace?.scene;
     const out = { cam: { x: s.camera.position.x, y: s.camera.position.y, z: s.camera.position.z }, hits: [] };

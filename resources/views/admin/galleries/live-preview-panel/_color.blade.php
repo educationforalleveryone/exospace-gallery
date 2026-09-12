@@ -1,19 +1,4 @@
 @php
-    /**
-     * Color picker row for the Live Preview panel.
-     *
-     * Vars:
-     *   $id       string  — control id (also the JSON key)
-     *   $label    string  — human label
-     *   $value    string  — current value, in '0xRRGGBB' form (from venue/override)
-     *   $default  string  — venue default, in '0xRRGGBB' form
-     *   $group    string  — 'visual_config' | 'material_config' | 'post_fx'
-     *   $hint     string  — one-line explanation
-     *
-     * The HTML <input type="color"> needs '#RRGGBB' form, so we convert here.
-     * The parent JS converts back to '0xRRGGBB' before storing in the state
-     * (and before posting to the iframe).
-     */
     $toHex = fn($v) => $v && str_starts_with($v, '0x')
         ? '#' . substr($v, 2)
         : ($v && str_starts_with($v, '#') ? $v : '#0a0a0a');

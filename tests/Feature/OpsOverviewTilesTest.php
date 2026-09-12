@@ -11,14 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 4 — the overview's quantified surfaces.
- *
- * Covers the backup tile (fresh/stale/missing per disk), the webhook
- * ledger tile (failed counts + replay link), and the health score badge
- * + breakdown card on the overview — the "no meaningless numbers" rule
- * made visible: every number renders WITH its explanation.
- */
 class OpsOverviewTilesTest extends TestCase
 {
     use RefreshDatabase;
@@ -35,8 +27,6 @@ class OpsOverviewTilesTest extends TestCase
         ]);
         Storage::fake('backups');
 
-        // Sentry bridge unconfigured — its tile state is covered by
-        // OpsSentrySummaryTest; here it just must not break the page.
         config([
             'ops.sentry.api_token' => null,
             'ops.sentry.org' => null,
@@ -67,8 +57,6 @@ class OpsOverviewTilesTest extends TestCase
         }
     }
 
-    // ── Backup tile facts ────────────────────────────────────────────────
-
     public function test_fresh_backup_is_ok(): void
     {
         $this->putBackup('backup-fresh.zip', time() - 3600);
@@ -85,8 +73,6 @@ class OpsOverviewTilesTest extends TestCase
 
     public function test_stale_backup_is_critical(): void
     {
-        // Newest archive 30 h old — past the 26 h threshold the alerting
-        // service already uses.
         $this->putBackup('backup-old.zip', time() - 30 * 3600);
 
         $status = app(OpsStatusTilesService::class)->backupStatus();
@@ -129,8 +115,6 @@ class OpsOverviewTilesTest extends TestCase
         $this->assertSame('degraded', $status['status']);
         $this->assertSame('unreadable', $status['disks'][0]['status']);
     }
-
-    // ── Webhook tile facts ───────────────────────────────────────────────
 
     public function test_clean_ledger_is_healthy(): void
     {
@@ -186,8 +170,6 @@ class OpsOverviewTilesTest extends TestCase
         $this->assertSame('critical', $status['status']);
         $this->assertSame(7, $status['failed_count']);
     }
-
-    // ── The overview page renders it all ─────────────────────────────────
 
     public function test_overview_renders_score_badge_and_breakdown_with_reasons(): void
     {
@@ -252,11 +234,6 @@ class OpsOverviewTilesTest extends TestCase
 
     public function test_overview_score_reflects_a_missing_backup_situation(): void
     {
-        // No backups at all: the tile says MISSING and the score must sit
-        // at the backup verdict cap (65) or below — never a rosy number
-        // over a platform that has no backups. (The host subsystem check
-        // reads the same empty disks, so its cap may push even lower —
-        // both caps are legitimate; rosiness is what's forbidden.)
         $response = $this->asMfaSuperAdmin()->get('/ops');
 
         $content = $response->getContent();

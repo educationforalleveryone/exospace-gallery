@@ -1,5 +1,3 @@
-{{-- Block: exhibitions — LIVE public exhibitions (real data, internal
-     linking from landing pages into the content graph). --}}
 <section class="max-w-6xl mx-auto px-4 py-14">
     <h2 class="text-2xl md:text-3xl font-bold text-white mb-3 text-center">{{ $data['heading'] ?? 'Live 3D exhibitions' }}</h2>
     @if(!empty($data['subtitle']))

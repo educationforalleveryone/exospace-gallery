@@ -15,51 +15,9 @@ use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Tests\TestCase;
 
-/**
- * ITERATION 15 — Media & private file authorization boundary tests.
- *
- * The storage/architecture facts this suite pins down (traced before any
- * change was made):
- *
- *   - Exospace uses Spatie Media Library ONLY on GalleryImage (artwork);
- *     the media + conversions live on the PUBLIC disk and are public BY
- *     DESIGN (public gallery presentation, 3D renderer texture loading).
- *     Section D pins that property so it can never be "fixed" into private.
- *
- *   - Laravel 12 registers GET/PUT /storage/{path} routes for local disks
- *     with serve=true; the vendor ServeFile/ReceiveFile handlers require a
- *     VALID RELATIVE SIGNATURE for private disks (default visibility), so
- *     private-disk files are not retrievable by guessing URLs.
- *
- *   - The ONE private-file defect found: invoice PDFs were written to the
- *     PUBLIC disk at sequential, guessable paths
- *     (invoices/{year}/INV-2026-00001.pdf …), so anyone could scrape every
- *     customer's financial documents directly at /storage/invoices/… while
- *     the owner-only BillingController::downloadInvoice endpoint was
- *     bypassed entirely. Sections A + B pin the fix: invoice files are
- *     written to the PRIVATE disk and served exclusively through the
- *     owner-authorized endpoint; a safe copy→verify→delete command retires
- *     the legacy public copies.
- *
- *   - Gallery media uploads (artwork, audio, branding logos) must be
- *     authorized server-side BEFORE any file lands on disk or is replaced
- *     (Section C — the audio/branding endpoints were policy-gated but had
- *     no regression coverage).
- *
- * NOTE ON LIVEWIRE (brief Section 10): verified during the trace that NO
- * Livewire components exist in this codebase (no app/Livewire directory,
- * no WithFileUploads usage) — all media interactions are classic Blade
- * form uploads and AJAX POSTs, covered by the HTTP tests in this file.
- *
- * NOTE ON RunInSeparateProcess: same PERF-19 precedent as iterations
- * 12-14 — tests that reach Team::memberRole() (memoized in a PHP static)
- * run in their own process to avoid cross-test memo poisoning.
- */
 class MediaAuthorizationBoundaryTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ── Fixture helpers ──────────────────────────────────────────────────
 
     private function invoiceFor(User $user, string $path): Invoice
     {
@@ -69,10 +27,6 @@ class MediaAuthorizationBoundaryTest extends TestCase
             'issued_at' => now(),
         ]);
     }
-
-    // ═════════════════════════════════════════════════════════════════════
-    // A. INVOICE FILE STORAGE BOUNDARY (M-1 fix)
-    // ═════════════════════════════════════════════════════════════════════
 
     public function test_new_invoice_files_are_written_to_private_disk_not_public_disk(): void
     {
@@ -87,7 +41,6 @@ class MediaAuthorizationBoundaryTest extends TestCase
         $this->assertNotNull($invoice);
         $this->assertNotNull($invoice->pdf_path);
 
-        // The file exists on the PRIVATE disk and nowhere on the PUBLIC disk.
         Storage::disk('local')->assertExists($invoice->pdf_path);
         Storage::disk('public')->assertMissing($invoice->pdf_path);
 
@@ -114,8 +67,6 @@ class MediaAuthorizationBoundaryTest extends TestCase
         $response->assertOk();
         $this->assertStringContainsString('private-invoice-bytes', $response->getContent());
         $response->assertHeader('Content-Type', 'application/pdf');
-        // Symfony normalizes Cache-Control directive order — assert the
-        // no-store semantics, not the exact string ordering.
         $cacheControl = (string) $response->headers->get('Cache-Control');
         $this->assertStringContainsString('no-store', $cacheControl);
         $this->assertStringContainsString('private', $cacheControl);
@@ -123,9 +74,6 @@ class MediaAuthorizationBoundaryTest extends TestCase
 
     public function test_owner_can_still_download_legacy_invoice_on_public_disk(): void
     {
-        // Backward compatibility: invoices generated BEFORE the iteration-15
-        // fix sit on the public disk. The authorized endpoint serves them
-        // until the operator runs the documented migration command.
         Storage::fake('local');
         Storage::fake('public');
 
@@ -187,17 +135,10 @@ class MediaAuthorizationBoundaryTest extends TestCase
         // The direct-URL shape an attacker would scrape (sequential numbers).
         $response = $this->get('/storage/'.$invoice->pdf_path);
 
-        // In the test environment the unsigned request is rejected by the
-        // framework's private-file handler (403); behind the production
-        // nginx the file is simply absent (404). Both mean: not retrievable.
         $this->assertContains($response->status(), [403, 404], 'Direct public URL must not serve private invoice files.');
         $this->assertStringNotContainsString('%PDF', (string) $response->getContent());
         Storage::disk('public')->assertMissing($invoice->pdf_path);
     }
-
-    // ═════════════════════════════════════════════════════════════════════
-    // B. LEGACY MIGRATION COMMAND (exospace:migrate-invoices-to-private)
-    // ═════════════════════════════════════════════════════════════════════
 
     public function test_migration_dry_run_reports_without_moving_files(): void
     {
@@ -252,8 +193,6 @@ class MediaAuthorizationBoundaryTest extends TestCase
 
     public function test_migration_never_touches_non_invoice_public_files(): void
     {
-        // Gallery images / branding / venue assets are public BY DESIGN —
-        // the migration must only ever see files referenced by pdf_path.
         Storage::fake('local');
         Storage::fake('public');
 
@@ -287,10 +226,6 @@ class MediaAuthorizationBoundaryTest extends TestCase
 
     public function test_migration_retires_duplicate_public_copies_of_migrated_files(): void
     {
-        // Edge case: a file already on the private disk with a leftover
-        // public duplicate (e.g. an earlier migration run interrupted before
-        // its cleanup). The redundant public copy must be retired too —
-        // otherwise /storage/… URLs stay live forever for that invoice.
         Storage::fake('local');
         Storage::fake('public');
 
@@ -305,10 +240,6 @@ class MediaAuthorizationBoundaryTest extends TestCase
         Storage::disk('local')->assertExists($invoice->pdf_path);
         $this->assertSame('%PDF-1.4 already-migrated', Storage::disk('local')->get($invoice->pdf_path));
     }
-
-    // ═════════════════════════════════════════════════════════════════════
-    // C. GALLERY MEDIA UPLOAD / REPLACE BOUNDARY (audio + branding)
-    // ═════════════════════════════════════════════════════════════════════
 
     public function test_pro_owner_can_upload_gallery_audio(): void
     {
@@ -414,16 +345,8 @@ class MediaAuthorizationBoundaryTest extends TestCase
         $this->assertFalse(Storage::disk('public')->exists('audio/track.mp3'));
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    // D. PUBLIC MEDIA PRESERVATION (public-by-design must stay public)
-    // ═════════════════════════════════════════════════════════════════════
-
     public function test_artwork_upload_remains_publicly_stored_and_renderable(): void
     {
-        // Artwork images intentionally live on the PUBLIC disk — the 3D
-        // renderer and public gallery pages load them without auth. This
-        // test fails if anyone ever "privatizes" artwork storage by
-        // accident (the inverse failure mode of M-1).
         Storage::fake('public');
 
         $owner = User::factory()->create();
@@ -443,20 +366,8 @@ class MediaAuthorizationBoundaryTest extends TestCase
         Storage::disk('public')->assertExists(\Illuminate\Support\Str::after($image->path, 'storage/'));
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    // E. MEDIA IDENTIFIER SURFACE (no direct Spatie-Media endpoints exist)
-    // ═════════════════════════════════════════════════════════════════════
-
     public function test_there_is_no_direct_media_identifier_endpoint(): void
     {
-        // Spatie Media records are never bound to routes — a leaked media
-        // table ID alone grants nothing through the application layer.
-        // (Artwork-row identifiers are gallery-policy-gated — see
-        // ArtworkAuthorizationBoundaryTest, Iteration 14.)
-        //
-        // 404 = no route; 405 = a catch-all GET pattern matches the path
-        // but no handler serves the requested method. Both prove there is
-        // no media-by-identifier endpoint behind either verb.
         $this->get('/media/1/original.jpg')->assertNotFound();
         $this->assertContains(
             $this->delete('/media/1')->status(),

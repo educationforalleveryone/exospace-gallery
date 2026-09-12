@@ -7,31 +7,6 @@ use App\Models\VenueTemplate;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * preflight:assets — verifies that every asset referenced by every venue
- * template and every gallery actually exists on disk.
- *
- * Run this:
- *   - Locally after pulling changes
- *   - In CI before a deploy
- *   - On the server after `php artisan storage:link` if uploads start 404'ing
- *   - Whenever you suspect a venue's decorations / HDRI / audio are missing
- *
- * Exit code is non-zero only if a REQUIRED asset is missing — wire this
- * into your CI to block deploys that reference non-existent files.
- *
- * Optional directories (thumbnails/venues, models/venue-props, models/frames)
- * are auto-created if missing and downgraded to warnings, because they're
- * legitimately empty by default — venue thumbnails have gradient fallbacks
- * in the venue picker, and all current venue decorations are procedural
- * (no GLBs needed until you start adding AI-generated 3D props).
- *
- * Usage:
- *   php artisan preflight:assets
- *   php artisan preflight:assets --fix   (creates empty placeholder files
- *                                          for missing core textures — use
- *                                          as a last resort)
- */
 class PreflightAssets extends Command
 {
     protected $signature = 'preflight:assets
@@ -47,9 +22,6 @@ class PreflightAssets extends Command
         $errors   = 0;
         $warnings = 0;
 
-        // ── 1. Public asset directories ───────────────────────────────────────
-        // Required directories: must exist (errors if missing).
-        // Optional directories: auto-create + warn (no errors).
         $this->info('Checking public asset directories...');
 
         $requiredDirs = [
@@ -76,8 +48,6 @@ class PreflightAssets extends Command
             }
         }
 
-        // Optional directories — auto-create + warn. These are legitimately
-        // empty until the user adds venue thumbnails or AI-generated GLB props.
         $optionalDirs = [
             'public/assets/thumbnails/venues',  // venue preview thumbnails (gradient fallback in UI)
             'public/assets/models/venue-props', // GLB decoration models (currently procedural)
@@ -95,7 +65,6 @@ class PreflightAssets extends Command
         }
         $this->newLine();
 
-        // ── 2. Storage symlink must be valid ─────────────────────────────────
         $this->info('Checking storage symlink...');
         $publicStorage = public_path('storage');
         if (! is_link($publicStorage)) {
@@ -160,9 +129,6 @@ class PreflightAssets extends Command
         }
         $this->newLine();
 
-        // ── 4. Per-gallery: check audio, logos, curtain assets ───────────────
-        // S-3 FIX: Use chunkById instead of limit(100) — checks ALL galleries,
-        // not just the first 100. Processes in batches of 50 to avoid memory issues.
         $this->info('Checking galleries...');
         Gallery::with('user')->chunkById(50, function ($galleries) use (&$errors) {
             foreach ($galleries as $gallery) {
@@ -210,7 +176,6 @@ class PreflightAssets extends Command
         }
         $this->newLine();
 
-        // ── Summary ──────────────────────────────────────────────────────────
         if ($errors === 0 && $warnings === 0) {
             $this->info('✅ All assets present. Gallery will load without 404s.');
             return Command::SUCCESS;

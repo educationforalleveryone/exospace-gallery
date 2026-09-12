@@ -1,51 +1,10 @@
 @php
-/**
- * ITERATION-2 (AUDIT-P1-2.5): Unified toast component.
- *
- * Previously the toast HTML container + the `window.toast()` function were
- * inlined in BOTH `layouts/app.blade.php` and `layouts/public.blade.php`,
- * and the two copies had drifted:
- *   - app.blade.php    had Turbo-safe `__exospaceImgFallbackInit` guard + keyboard shortcut wiring
- *   - public.blade.php had simpler `DOMContentLoaded`-bound handlers (older pattern)
- *
- * This component is the single source of truth. Both layouts include it via:
- *   <x-toast />
- *
- * The component renders:
- *   1. The empty `#toast-container` div (positioned bottom-right, ARIA live region).
- *   2. The `window.toast(message, type)` function (CSP-safe via `@nonce`).
- *   3. Auto-toasts for Laravel flash session keys (success/error/info/status/warning).
- *
- * Accessibility:
- *   - `aria-live="polite"` on the container so screen readers announce toasts
- *     without interrupting the user.
- *   - Error toasts use `role="alert"` (assertive) instead of `role="status"`,
- *     per WCAG ARIA-11. Other toasts use `role="status"` (polite).
- *   - Each toast auto-dismisses after 3.5s (success/info) or 7s (error /
- *     warning — errors must outlive a glance) with a 300ms exit animation.
- *
- * Turbo Drive compatibility:
- *   - The `window.toast` function is defined on `window` (not inside an IIFE)
- *     so it survives Turbo Drive body-swaps. The function is idempotent —
- *     re-defining it on every page load is safe (overwrites the previous).
- *   - The auto-toast calls read Laravel flash session data at render time,
- *     so they fire on the initial page load AND on Turbo Drive navigations
- *     (because Turbo Drive replaces the <body> including this script).
- *
- * CSP safety:
- *   - The <script> tag carries `nonce="@nonce"` — required by the CSP policy
- *     `script-src 'self' 'nonce-<random>' 'strict-dynamic'`.
- */
 @endphp
 
 <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
 
 <script nonce="@nonce">
-// Global toast utility — defined on `window` so it survives Turbo Drive
-// body-swaps. Re-defining it is safe (idempotent overwrite).
 window.toast = function(message, type = 'success') {
-    // ITERATION-3: suppress identical toasts fired within 900ms of each
-    // other (double-fired delegates used to duplicate notifications).
     window.__exospaceLastToast = window.__exospaceLastToast || {};
     const key = type + '::' + message;
     const now = Date.now();
@@ -70,8 +29,6 @@ window.toast = function(message, type = 'success') {
         console.warn('[toast] #toast-container not found');
         return;
     }
-    // ITERATION-3: error + warning toasts are assertive (role=alert);
-    // success/info stay polite (role=status).
     const assertive = type === 'error' || type === 'warning';
     const el = document.createElement('div');
     el.setAttribute('role', assertive ? 'alert' : 'status');
@@ -80,8 +37,6 @@ window.toast = function(message, type = 'success') {
     el.querySelector('span').textContent = message; // XSS-safe (textContent, not innerHTML)
     container.appendChild(el);
     requestAnimationFrame(() => { el.classList.remove('translate-y-2', 'opacity-0'); });
-    // ITERATION-9: per-type durations — errors/warnings used to vanish at the
-    // same 3.5s as successes, the shortest-lived messages in the product.
     const TTL = (type === 'error' || type === 'warning') ? 7000 : 3500;
     setTimeout(() => {
         el.classList.add('translate-y-2', 'opacity-0');
@@ -89,37 +44,15 @@ window.toast = function(message, type = 'success') {
     }, TTL);
 };
 
-// ITERATION-3: controllers flash raw locale keys for a few success paths
-// (e.g. 'profile-updated'). The pages that own those keys render their own
-// contextual feedback, so the toast would show the LITERAL key string —
-// translate the known ones to human text instead of leaking internals.
-//
-// BUGFIX (console SyntaxError on Turbo navigation): `const` / `let`
-// declared directly in this <script> become part of the page's single
-// global lexical scope — they are NOT re-scoped per <script> tag. Turbo
-// Drive re-executes this whole script block on every body-swap (that's
-// how the flash-message auto-toast below fires on navigation), so a
-// second execution tried to redeclare `__exospaceFlashLabels` in a scope
-// where it already existed → "Identifier has already been declared",
-// which aborted the ENTIRE Turbo render (that's also why the page
-// sometimes looked half-updated). `window.toast = function(){}` above is
-// safe to repeat because it's a plain property assignment, not a lexical
-// declaration — everything else in this file is now wrapped in an IIFE so
-// its internals are function-scoped and safe to re-run every navigation.
 (function () {
     const flashLabels = {
         'profile-updated': 'Profile updated',
         'password-updated': 'Password updated',
         'verification-link-sent': 'Verification link sent!',
-        // VERIFICATION-ITERATION: flashed by VerifyEmailController after a
-        // successful link click so the landing page acknowledges it.
         'email-verified': 'Email verified — welcome to Exospace!',
     };
     const humanize = (v) => flashLabels[v] ?? v;
 
-    // Auto-toast Laravel flash messages — read at render time so they fire
-    // on both initial page load AND Turbo Drive navigations (Turbo
-    // re-executes this <script> when the <body> is swapped).
     @if(session('success')) toast(humanize(@json(session('success'))), 'success'); @endif
     @if(session('error'))   toast(humanize(@json(session('error'))), 'error'); @endif
     @if(session('info'))    toast(humanize(@json(session('info'))), 'info'); @endif

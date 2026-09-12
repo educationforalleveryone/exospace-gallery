@@ -14,23 +14,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
-/**
- * OpsCenter — ApplicationDiagnostics (Iteration 3).
- *
- * app.health | app.recent-errors | app.filesystem | app.cache | app.scheduler
- *
- * app.health: for the control plane host, the EXISTING OpsHealthService
- * rollup (reuse, not duplication — it already aggregates DB/Redis/queue/
- * storage/heartbeats with reasons); for other applications, a bounded HTTP
- * probe of their health endpoint (only URLs the platform sync recorded —
- * no free-form URLs, so no SSRF surface).
- *
- * app.scheduler: the freshness of scheduler.log — the Coolify scheduled
- * task's heartbeat, which is THE signal that background work runs at all
- * in this deployment (the operator's own scheduled task writes it).
- *
- * Read-only: probes write only throwaway cache keys with short TTLs.
- */
 class ApplicationDiagnostics implements RunsDiagnostics
 {
     public function runDiagnostic(string $id, ?OpsApplication $application): DiagnosticResult
@@ -48,8 +31,6 @@ class ApplicationDiagnostics implements RunsDiagnostics
         };
     }
 
-    // ── app.health ──────────────────────────────────────────────────────
-
     private function health(?OpsApplication $application): DiagnosticResult
     {
         $target = $application ?? $this->selfApplication();
@@ -61,8 +42,6 @@ class ApplicationDiagnostics implements RunsDiagnostics
             );
         }
 
-        // Self: the existing subsystem rollup (DB, cache, queue, storage,
-        // heartbeats, backups, disk) — with its reasons, reused verbatim.
         if ($target->is_self) {
             try {
                 $rollup = app(OpsHealthService::class)->selfChecks();
@@ -196,8 +175,6 @@ class ApplicationDiagnostics implements RunsDiagnostics
         }
     }
 
-    // ── app.recent-errors ───────────────────────────────────────────────
-
     private function recentErrors(?OpsApplication $application): DiagnosticResult
     {
         $target = $application ?? $this->selfApplication();
@@ -279,8 +256,6 @@ class ApplicationDiagnostics implements RunsDiagnostics
         );
     }
 
-    // ── app.filesystem ──────────────────────────────────────────────────
-
     private function filesystem(): DiagnosticResult
     {
         $findings = [];
@@ -352,8 +327,6 @@ class ApplicationDiagnostics implements RunsDiagnostics
         );
     }
 
-    // ── app.cache ───────────────────────────────────────────────────────
-
     private function cache(): DiagnosticResult
     {
         $store = (string) config('cache.default');
@@ -401,8 +374,6 @@ class ApplicationDiagnostics implements RunsDiagnostics
             ['redis.connectivity'],
         );
     }
-
-    // ── app.scheduler ───────────────────────────────────────────────────
 
     private function scheduler(): DiagnosticResult
     {

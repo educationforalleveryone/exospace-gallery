@@ -1,8 +1,3 @@
-{{-- P1-14 FIX (audit): Converted from standalone HTML to @extends('layouts.public').
-    Previously this page had its own <html>, <head>, <nav>, no SEO meta, no
-    shared footer, no cookie banner, no toast system, no PWA service worker.
-    Now it inherits all of those from the public layout while keeping the
-    custom pricing card CSS inline in the content section. --}}
 @extends('layouts.public')
 
 @section('title', 'Pricing — Exospace 3D Gallery')
@@ -12,13 +7,6 @@
     // CONV-3: Determine the current user's plan for "already on this plan" state
     $currentPlan = auth()->check() ? auth()->user()->plan : null;
 
-    // ITERATION-5 (billing truth): monthly subscription options are a real
-    // product (M-1: cancel/reactivate routes, dunning emails, webhook
-    // recurring lifecycle). Surface the monthly alternative from the SAME
-    // config the billing portal uses — and only when the recurring 2Checkout
-    // products are actually configured. Until iteration 5 this page claimed
-    // "No subscription. No recurring charges.", which contradicted the
-    // welcome page and the billing portal.
     $recurringProPrice    = config('services.2checkout.recurring_price_pro_monthly', '4.99');
     $recurringStudioPrice = config('services.2checkout.recurring_price_studio_monthly', '14.99');
     $hasRecurringPro      = config('services.2checkout.recurring_product_id_pro');
@@ -27,7 +15,6 @@
 
 @section('content')
 <style>
-    /* ── Pricing page custom styles ─────────────────────── */
     .pricing-hero {
         text-align: center; padding: 5rem 2rem 3rem;
         max-width: 800px; margin: 0 auto;
@@ -104,9 +91,6 @@
     .feat-label { font-weight: 600; color: #f3f4f6; }
     .feat-detail { font-size: 0.75rem; color: #6b7280; }
 
-    /* ITERATION-4: page-local .btn/.btn-primary/.btn-outline deleted — they
-       shadowed the design-system kit so .btn-primary never actually rendered
-       here. CTAs below use the shared kit (btn-primary / btn-secondary). */
     .trust-footer {
         text-align: center; padding: 2.5rem 2rem;
         border-top: 1px solid rgba(139, 92, 246, 0.08);
@@ -144,8 +128,6 @@
         font-size: 0.82rem; color: #9ca3af; line-height: 1.7; padding-top: 0.6rem;
     }
 
-    /* ITERATION-5: monthly alternative under the card price (rendered only
-       when the recurring product is configured). */
     .card-cycle {
         font-size: 0.78rem; color: #9ca3af; text-align: center;
         margin: -0.6rem 0 0.9rem;
@@ -264,9 +246,6 @@
         <button type="button" class="btn btn-primary w-full" disabled>Included in Studio ✓</button>
         @else
         <button type="button" class="btn btn-primary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-pro">Upgrade to Pro — $29</button>
-        {{-- ITERATION-2 (trial wiring): surface the 14-day trial backend
-             (2CO-8 — rate-limited, one per user, no card) to eligible
-             logged-in Free users. Guests get the register deep-link. --}}
         @auth
             @if(auth()->user()->plan === 'free' && ! auth()->user()->hasUsedTrial())
             <form action="{{ route('billing.start-trial', 'pro') }}" method="POST" style="margin-top:0.6rem;">
@@ -350,9 +329,6 @@
     </p>
 </div>
 
-{{-- CONV-2: Feature comparison table. Lets visitors scan all features at a
-     glance without re-reading each card. Mobile-friendly: table scrolls
-     horizontally on narrow screens via overflow-x:auto wrapper. --}}
 <section style="max-width: 1100px; margin: 4rem auto; padding: 0 2rem;">
     <h2 style="font-size:1.6rem; font-weight:700; text-align:center; margin-bottom:2rem; color:#f3f4f6;">
         Compare All Features
@@ -369,8 +345,6 @@
             </thead>
             <tbody>
                 @php
-                    // Helper: renders a checkmark, dash, or value cell.
-                    // $val can be: true (check), false (dash), or a string (literal).
                     $cell = function($val) {
                         if ($val === true) {
                             return '<span style="color:#8b5cf6;" aria-label="Yes">&#10003;</span>';
@@ -483,8 +457,6 @@
         <p>Yes — the Free plan lets you build a real gallery with the full 3D viewer (1 gallery, 10 images, two venues), and registered Free users can start a <strong>14-day Pro trial</strong> with no card required. You can also explore Pro and Studio anytime with the paid one-time or monthly plans.</p>
     </details>
     <details class="faq-item">
-        {{-- ITERATION-5: subscriptions are a real product (M-1) — the page
-             needs an explicit answer instead of claiming they don't exist. --}}
         <summary>Do I have to subscribe? <span class="plus">+</span></summary>
         <p>No. Every plan is available as a <strong>one-time purchase with lifetime access</strong>. If you prefer a lower upfront cost, Pro and Studio are also available as optional monthly subscriptions — same features, cancel anytime from your billing page.</p>
     </details>
@@ -508,7 +480,6 @@
 
 <!-- Pro Upgrade Modal -->
 <div id="upgrade-modal-pro" role="dialog" aria-modal="true" aria-labelledby="modal-pro-title" style="display:none;" class="fixed inset-0 z-[60] items-center justify-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
-    {{-- ITERATION-4: panel converted from inline styles to kit-aligned utilities. --}}
     <div class="bg-ink-900 border border-gray-700/60 rounded-2xl p-8 sm:p-10 max-w-[440px] w-[90%] text-center">
 
         <h3 id="modal-pro-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Pro — $29</h3>
@@ -531,10 +502,6 @@
         </a>
         @endif
         @else
-        {{-- CONV-6: Direct deep-link to register with ?redirect=billing/upgrade/pro.
-             After registration + email verification, the user lands directly on
-             the 2Checkout checkout page — 1 fewer step than the previous flow
-             (register → log in → find pricing → click upgrade). --}}
         <a href="{{ route('register') }}?redirect={{ urlencode('billing/upgrade/pro') }}" class="btn btn-primary w-full mb-3">
             Sign up to Upgrade →
         </a>
@@ -581,18 +548,10 @@
     </div>
 </div>
 
-{{-- openModalAnchor moved into the canonical bundle (resources/js/app.js,
-    ITERATION-4) — it is a generic data-click helper, not pricing-specific. --}}
-
-{{-- I-2 FIX (Iter-013): Product + FAQPage JSON-LD for rich results in Google SERPs.
-    Renders price snippets (Free/Pro/Studio) + FAQ accordion directly in
-    search results. Without these schemas, Google won't show the FAQ
-    accordion or the price range in SERPs. --}}
 <x-json-ld type="product" :product="['name' => 'Pro', 'price' => 29.00, 'currency' => 'USD', 'description' => 'Exospace Pro plan — 5 galleries with 100 images total, 8 venues, background music, exhibition scheduling, watermark-free galleries.']" />
 <x-json-ld type="product" :product="['name' => 'Studio', 'price' => 99.00, 'currency' => 'USD', 'description' => 'Exospace Studio plan — everything in Pro plus priority support and white-label branding.']" />
 {{-- ITERATION-1 FIX: the escaped quotes inside the inline :faqs attribute --}}
 {{-- silently broke the component's expression evaluation — the FAQPage --}}
-{{-- schema never rendered. Build the array in a PHP block and pass the variable. --}}
 @php
     $pricingFaqs = [
         ['question' => 'Is there a free trial for Pro?', 'answer' => 'The Free plan lets you build a real gallery with the full 3D viewer, and registered Free users can start a 14-day Pro trial with no card required.'],

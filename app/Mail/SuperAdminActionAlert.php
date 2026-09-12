@@ -11,13 +11,6 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-/**
- * Email alert sent to all super-admins when a destructive super-admin
- * action is performed. (Task H52 / audit H18)
- *
- * This is a security notification — it lets the super-admin team
- * monitor for compromised accounts or unauthorized actions.
- */
 class SuperAdminActionAlert extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;

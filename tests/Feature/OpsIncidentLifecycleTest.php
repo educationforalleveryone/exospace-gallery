@@ -12,14 +12,6 @@ use App\Ops\Services\OpsEventIngestor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 2 — incident lifecycle + authorization.
- *
- * Acknowledge / resolve / reopen are the module's FIRST write paths.
- * These tests pin: the auth bar (super-admin + MFA), the audit trail
- * (AdminAuditLog ops.* actions), the state machine, and that the
- * timeline/detail pages render.
- */
 class OpsIncidentLifecycleTest extends TestCase
 {
     use RefreshDatabase;
@@ -130,8 +122,6 @@ class OpsIncidentLifecycleTest extends TestCase
     {
         $incident = $this->createIncident();
 
-        // Resolve an open incident directly is allowed, then re-resolving
-        // is rejected.
         $this->asMfaSuperAdmin()->post('/ops/incidents/'.$incident->id.'/resolve');
         $this->asMfaSuperAdmin()
             ->post('/ops/incidents/'.$incident->id.'/resolve')

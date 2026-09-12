@@ -1,13 +1,4 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# fetch-polyhaven.sh — download CC0 Poly Haven vegetation models + repack GLB
-#
-# Downloads the .gltf scene + all referenced textures for each asset into
-# /home/z/my-project/assets-src/<name>/, then converts to a single compressed
-# GLB (DRACO geometry + KTX2 textures) into the garden asset directory.
-#
-# All Poly Haven assets are CC0 (public domain) — no attribution required.
-# ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
 SRC=/home/z/my-project/assets-src
@@ -61,9 +52,6 @@ open(os.path.join(outdir, "scene.gltf.path"), "w").write(
 open(os.path.join(outdir, "download.list"), "w").write(
     "\n".join(f"{u}\t{d}" for u, d in tasks) + "\n")
 PY
-  # 2. download all referenced files (3 attempts each)
-  #    NOTE: curl reads stdin — without </dev/null it swallows the rest of
-  #    download.list and the while loop dies after the first big file.
   while IFS=$'\t' read -r url dst || [ -n "$url" ]; do
     [ -z "$url" ] && continue
     if [ ! -s "$dst" ]; then
@@ -75,8 +63,6 @@ PY
   done < "$DIR/download.list"
   SCENE=$(cat "$DIR/scene.gltf.path")
   if [ ! -s "$SCENE" ]; then echo "    ⚠ scene missing — skip"; continue; fi
-  # 3. convert → single compressed GLB (webp textures: KTX2 needs the toktx
-  #    binary which this environment lacks; EXT_texture_webp is universal)
   cd /home/z/my-project/exospace
   npx @gltf-transform/cli optimize "$SCENE" "$DEST/$NAME" \
       --texture-compress webp \

@@ -1,18 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// shoot.mjs — drive the static viewer harness (public/harness/harness.html)
-// with headless Chromium and capture deterministic screenshots per scenario.
-//
-//   node scripts/harness/shoot.mjs --out shots [--scenarios default] [--stats]
-//
-// Requirements: `vite build --config scripts/harness/vite.harness.config.mjs`
-// and a static server rooted at public/ (script starts one itself).
-//
-// Tier control WITHOUT touching app code: addInitScript overrides the
-// navigator signals the viewer's own detectors read (hardwareConcurrency,
-// deviceMemory, WEBGL_debug_renderer_info availability, prefers-reduced-motion).
-// high → full quality; low → software-renderer-shaped environment.
-// ─────────────────────────────────────────────────────────────────────────────
 import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -85,11 +71,6 @@ const SCENARIOS = [
     { id: 'void-08-extreme',      q: 'venue=infinite-void&count=8&orient=extreme' },
     // Infinite Void — tier degradation
     { id: 'void-tier-low-06',     q: 'venue=infinite-void&count=6', tier: 'low' },
-    // Nebula Drift — "The Deep Field" (2026-09-08 audit pass, v2.0.0).
-    // Count scaling: 6 (capacity floor), 12 (depth-band threshold), 40
-    // (capacity ceiling — the two-band hang at full radius), plus the
-    // walk-through poses: spawn arrival, eye-level at the rim looking
-    // across the pools, and the look-up (band + meridian ring).
     { id: 'nebula-06',            q: 'venue=nebula-drift&count=6' },
     { id: 'nebula-12-mixed',      q: 'venue=nebula-drift&count=12' },
     { id: 'nebula-40-mixed',      q: 'venue=nebula-drift&count=40' },
@@ -97,24 +78,11 @@ const SCENARIOS = [
       cam: { p: [0, 1.6, 9],   t: [0, 2.0, 0] } },
     { id: 'nebula-cam-up',        q: 'venue=nebula-drift&count=12',
       cam: { p: [0, 1.6, 0],   t: [0, 7.2, 11] } },
-    // v2.2.0 identity pose — the arch CROWN. bandYaw is seeded per venue;
-    // for the harness seed the crown sits toward -Z + X, so this forensic
-    // pose frames the luminous core (the composition's hierarchy evidence).
     { id: 'nebula-cam-crown',     q: 'venue=nebula-drift&count=12',
       cam: { p: [0, 1.6, 0],   t: [5, 10, -8] } },
-    // Tier degradation: the Deep Field must read on Lambert (low) —
-    // composition carries the identity, motion does not.
     { id: 'nebula-tier-low-06',   q: 'venue=nebula-drift&count=6', tier: 'low' },
     // Rollback chain: the v1.0.0 starfield body must still render by config.
     { id: 'nebula-legacy-12',     q: 'venue=nebula-drift-legacy&count=12' },
-    // Luxury Penthouse — "The Double Volume" (2026-09-09 full redesign,
-    // v3.0.0). Count scaling: 6 (capacity floor), 12 (default hang), 40
-    // (capacity ceiling — the full two-wing gallery). Walk-through poses
-    // follow the new sequence: arrival down the LOW coved procession (the
-    // sculpture + the lit seam ahead), the fireplace TERMINUS from the
-    // seam, the double-height CORNER (glass wrapping two faces + terrace),
-    // the seam shot (procession → volume lift), the lounge at the glass,
-    // and the city depth through the north face.
     { id: 'pent-06',              q: 'venue=luxury-penthouse&count=6' },
     { id: 'pent-12-mixed',        q: 'venue=luxury-penthouse&count=12' },
     { id: 'pent-40-mixed',        q: 'venue=luxury-penthouse&count=40' },
@@ -139,14 +107,9 @@ const SCENARIOS = [
     // Tier degradation: the residence must read on Lambert (low).
     { id: 'pent-tier-low-06',     q: 'venue=luxury-penthouse&count=6', tier: 'low' },
     { id: 'pent-tier-low-12',     q: 'venue=luxury-penthouse&count=12', tier: 'low' },
-    // Rollback chain: the v2.1.0 "Evening Light" body must still render by
-    // config (the guarded migration's down() target).
     { id: 'pent-v21-12',          q: 'venue=luxury-penthouse-v21&count=12' },
     // Rollback chain: the v1.0.0 "Rooms" body must still render by config.
     { id: 'pent-legacy-12',       q: 'venue=luxury-penthouse-legacy&count=12' },
-    // Crystal Cathedral — "The Luminous Arcade" (2026-09-07 audit).
-    // Count scaling: 5 (capacity floor), 12 (depth-band threshold), 30 and
-    // 40 (capacity ceiling — arcade bay plan + two-ring hang at scale).
     { id: 'cathedral-05',         q: 'venue=crystal-cathedral&count=5' },
     { id: 'cathedral-12-mixed',   q: 'venue=crystal-cathedral&count=12' },
     { id: 'cathedral-30-mixed',   q: 'venue=crystal-cathedral&count=30' },
@@ -155,11 +118,7 @@ const SCENARIOS = [
     { id: 'cathedral-08-portrait',  q: 'venue=crystal-cathedral&count=8&orient=portrait' },
     { id: 'cathedral-08-landscape', q: 'venue=crystal-cathedral&count=8&orient=landscape' },
     { id: 'cathedral-08-extreme',   q: 'venue=crystal-cathedral&count=8&orient=extreme' },
-    // Tier degradation: the arcade must read on Lambert + gloss floor (low),
-    // and the walkable interior must read at eye level on every tier.
     { id: 'cathedral-tier-low-06',  q: 'venue=crystal-cathedral&count=6', tier: 'low' },
-    // Forensic poses: (a) the look-up shot — vault, boss ring, oculus;
-    // (b) eye-level down the art-bay wall; (c) the crossing from the rim.
     { id: 'cathedral-cam-up',     q: 'venue=crystal-cathedral&count=12',
       cam: { p: [0, 1.6, 0],   t: [0, 18.8, 0] } },
     { id: 'cathedral-cam-wall',   q: 'venue=crystal-cathedral&count=12',
@@ -168,8 +127,6 @@ const SCENARIOS = [
       cam: { p: [0, 1.6, 13],  t: [0, 2.2, 0] } },
     // Rollback chain: the IT2 colonnade body must still render by config.
     { id: 'cathedral-legacy-12',  q: 'venue=crystal-cathedral-legacy&count=12' },
-    // Deployed-screenshot incident regression: the exact overridden-gallery
-    // config (purple background + dim rig) vs the restored venue defaults.
     { id: 'void-overridden-12',   q: 'venue=infinite-void-overridden&count=12' },
     // Industrial Loft — default corridor layout + declared alternatives
     { id: 'loft-corridor-08',     q: 'venue=industrial-loft&count=8' },
@@ -199,8 +156,6 @@ const SCENARIOS = [
     { id: 'zen-corridor-16',        q: 'venue=zen-gallery&count=16&layout=corridor' },
     { id: 'zen-lshape-08',          q: 'venue=zen-gallery&count=8&layout=l-shape' },
     { id: 'zen-tier-low-08',        q: 'venue=zen-gallery&count=8', tier: 'low' },
-    // Zen — elevated corner view across the room (procession read: fins,
-    // bays, clerestory and rafter rhythm in one frame).
     { id: 'zen-live-wide-30',
       q: 'venue=zen-gallery&count=30',
       cam: { p: [-13, 2.1, 13], t: [6, 1.3, -10] } },
@@ -225,56 +180,29 @@ const SCENARIOS = [
     { id: 'museum-rotunda-08',        q: 'venue=dark-museum&count=8&layout=rotunda' },
     { id: 'museum-rotunda-16',        q: 'venue=dark-museum&count=16&layout=rotunda' },
     { id: 'museum-tier-low-08',       q: 'venue=dark-museum&count=8', tier: 'low' },
-    // Dark Museum — FORENSIC REPRO of the deployed override incident
-    // (v2 venue + stale gallery override layer: violet fog, dim rig,
-    //  open_air, planar floor) + isolation variant without open_air.
     { id: 'museum-overridden-08',     q: 'venue=dark-museum-overridden&count=8' },
     { id: 'museum-fogonly-08',        q: 'venue=dark-museum-fogonly&count=8' },
-    // Dark Museum — live-deployed framing parity: elevated corner view across
-    // the room (matches the user's post-hotfix screenshot) so the polished
-    // stone floor can be compared at the same grazing angle as production.
     { id: 'museum-live-wide-30',
       q: 'venue=dark-museum&count=30',
       cam: { p: [-13, 2.1, 13], t: [6, 1.3, -10] } },
-    // Dark Museum — post-hotfix RESIDUAL repro: healed owned keys + surviving
-    // material/post_fx layer, framed like the user's second screenshot.
     { id: 'museum-residual-wide-30',
       q: 'venue=dark-museum-residual&count=30',
       cam: { p: [-13, 2.1, 13], t: [6, 1.3, -10] } },
-    // Cyber Gallery — "Signal Room" (2026-09-09 v2.0.0). The movement states
-    // are driven through the ?motion= QA override, which feeds the SAME
-    // normalized signal the live movement system produces (ArtworkReactive),
-    // so each still verifies the real steady-state shader response.
     { id: 'cyber-corridor-08',      q: 'venue=cyber-gallery&count=8' },
     { id: 'cyber-corridor-16',      q: 'venue=cyber-gallery&count=16' },
     { id: 'cyber-square-08',        q: 'venue=cyber-gallery&count=8&layout=square' },
     { id: 'cyber-square-30',        q: 'venue=cyber-gallery&count=30&layout=square' },
     { id: 'cyber-square-01',        q: 'venue=cyber-gallery&count=1&layout=square' },
-    // Artwork-type stress: portrait / landscape / extreme aspects under the
-    // reactive material (UV math must hold on every shape).
     { id: 'cyber-corridor-portrait',  q: 'venue=cyber-gallery&count=8&orient=portrait' },
     { id: 'cyber-corridor-landscape', q: 'venue=cyber-gallery&count=8&orient=landscape' },
     { id: 'cyber-corridor-extreme',   q: 'venue=cyber-gallery&count=8&orient=extreme' },
-    // Movement states — stationary / slow walk / walking / fast. The
-    // stationary still doubles as the CLEAN-STATE contract evidence (it must
-    // be pixel-identical in character to a venue without the effect).
     { id: 'cyber-motion-slow',      q: 'venue=cyber-gallery&count=8&motion=slow' },
     { id: 'cyber-motion-walk',      q: 'venue=cyber-gallery&count=8&motion=walk' },
     { id: 'cyber-motion-fast',      q: 'venue=cyber-gallery&count=8&motion=fast' },
     { id: 'cyber-motion-fast-sq',   q: 'venue=cyber-gallery&count=12&layout=square&motion=fast' },
     // Eye-level close reading — artwork readability at inspection distance.
     { id: 'cyber-cam-close',        q: 'venue=cyber-gallery&count=8&motion=walk',
-      // Eye-level inspection distance, square-on to the back-wall landscape
-      // piece (it faces −z from z=2.75 — probe-cyber-ray), 1.8 m out.
       cam: { p: [1.75, 1.6, 0.95], t: [1.75, 1.6, 2.75] } },
-    // Tier degradation: the identity must read on Lambert (low).
-    // Sculpture Garden — "The Curated Walk" (2026-09-09 v3.0.0).
-    // Count scaling (a 5-piece show still composes as a garden; the 30-piece
-    // ceiling exercises the full court plan), then the designed walk:
-    // arrival at the gate (first reveal: promenade → knot → lawn piece),
-    // the promenade mid-way, the central court, close viewing, distance,
-    // vegetation framing, the boundary (hedge + distant landscape) and the
-    // horizon, plus the low tier.
     { id: 'garden-05',            q: 'venue=sculpture-garden&shadows=0&assets=0&count=5' },
     { id: 'garden-12-mixed',      q: 'venue=sculpture-garden&shadows=0&assets=0&count=12' },
     { id: 'garden-30-mixed',      q: 'venue=sculpture-garden&shadows=0&assets=0&count=30' },
@@ -293,13 +221,6 @@ const SCENARIOS = [
     { id: 'garden-cam-horizon',   q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [4, 1.6, -1],   t: [0.5, 4.2, -20] } },
     { id: 'garden-tier-low-12',   q: 'venue=sculpture-garden&shadows=0&assets=0&count=12', tier: 'low' },
-    // ── Artwork REAR-PRESENTATION matrix (garden-iteration-5) ────────────────
-    // The primary court artwork sits at ≈(0.1, −5.0) on the promenade axis
-    // (facing the spawn). These four framings walk around ONE piece the way
-    // the visual tests demand: directly in front, oblique from the side,
-    // directly behind (backing board must read as intentional — never an
-    // empty frame), and a rear three-quarter. Void backside proves the fix
-    // is GLOBAL (floating artwork, no stand, nothing but the artwork itself).
     { id: 'garden-cam-front',     q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
       cam: { p: [0.1, 1.62, -2.9],  t: [0.1, 1.6, -5.0] } },
     { id: 'garden-cam-oblique',   q: 'venue=sculpture-garden&shadows=0&assets=0&count=12',
@@ -310,29 +231,15 @@ const SCENARIOS = [
       cam: { p: [-1.9, 1.62, -7.1], t: [0.1, 1.6, -5.0] } },
     { id: 'void-cam-behind',      q: 'venue=infinite-void&count=1',
       cam: { behind: 0, behindDist: 2.6 } },
-    // Full-asset capture (the designed landscape): needs the GLB set present
-    // AND a patient rasterizer — the alpha-blended canopy sweep is minutes
-    // per frame under SwiftShader; on real GPUs it is a normal load.
     { id: 'garden-cam-assets',    q: 'venue=sculpture-garden&shadows=0&count=12',
       cam: { p: [0, 1.6, 8.4],   t: [0, 1.9, -5] } },
     { id: 'cyber-tier-low-08',      q: 'venue=cyber-gallery&count=8', tier: 'low' },
     // ── MIRROR LAKE — v1.0.0 FORENSIC BEFORE (never update; regression ref) ──
     { id: 'lake-v1-08',           q: 'venue=mirror-lake-v1&count=8' },
     { id: 'lake-v1-tier-low-08',  q: 'venue=mirror-lake-v1&count=8', tier: 'low' },
-    // ── MIRROR LAKE — "The Still Shore" (v3.0.0) ──────────────────────────
-    // Count scaling: 5 (capacity floor — a small show still composes the
-    // bay), 12 (default hang), 40 (capacity ceiling — three berths rings).
-    // The Reflector pass is minutes-per-frame under SwiftShader, so the
-    // matrix captures on the ?reflect=0 QA strip; the water's own proof
-    // lives in scripts/harness/probe-lake-water.mjs.
     { id: 'lake-05',              q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=5' },
     { id: 'lake-12-mixed',        q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12' },
     { id: 'lake-40-mixed',        q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=40' },
-    // The designed walk: the landing sightline (spawn faces the bay), the
-    // shore walk mid-stride, the pier over the water, the pavilion look-back
-    // (the whole composition returned), close reading of the hero, the
-    // horizon (far shore + moon), the hero's rear presentation (backing
-    // board over water — the global artwork-backside contract), low tier.
     { id: 'lake-cam-arrival',     q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
       cam: { p: [0, 1.6, 12.24],  t: [0, 1.7, -6] } },
     { id: 'lake-cam-walk',        q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
@@ -348,19 +255,12 @@ const SCENARIOS = [
     { id: 'lake-cam-backside',    q: 'venue=mirror-lake&tier=high&reflect=0&assets=0&count=12',
       cam: { p: [-4.4, 1.62, -9.4], t: [-4.4, 1.6, -6.5] } },
     { id: 'lake-tier-low-12',     q: 'venue=mirror-lake&tier=low&reflect=0&assets=0&count=12', tier: 'low' },
-    // ── THE SALON — Iteration 8 production pass ───────────────────────────
-    // Count scaling: 1, 8 (the curated preview hang), 12, 30 (capacity
-    // ceiling). Orientation stress: portrait-heavy (the salon's declared
-    // strength). Spawn view + low tier.
     { id: 'salon-01',             q: 'venue=the-salon&count=1' },
     { id: 'salon-08-mixed',       q: 'venue=the-salon&count=8' },
     { id: 'salon-12-mixed',       q: 'venue=the-salon&count=12' },
     { id: 'salon-30-mixed',       q: 'venue=the-salon&count=30' },
     { id: 'salon-08-portrait',    q: 'venue=the-salon&count=8&orient=portrait' },
     { id: 'salon-tier-low-08',    q: 'venue=the-salon&count=8', tier: 'low' },
-    // Forensic poses for a 12-work square (8.4 m room): the spawn read, a
-    // corner view across the room, the doorcase wall, and a close approach
-    // at conversational distance.
     { id: 'salon-cam-spawn',      q: 'venue=the-salon&count=12' },
     { id: 'salon-cam-corner',     q: 'venue=the-salon&count=12',
       cam: { p: [-3.1, 1.62, 3.1], t: [1.5, 1.5, -1.5] } },
@@ -399,12 +299,6 @@ const tierInit = {
            Object.defineProperty(navigator,'maxTouchPoints',{get:()=>0});`,
 };
 
-// Headless compositing throttles real rAF (~17fps) during page load, which
-// trips the viewer's own 35fps FPS-benchmark and retroactively downgrades
-// the tier — and SwiftShader at 720p genuinely renders ~4fps. So: boot at a
-// small viewport with a timer-driven rAF (4 ms hop) so the benchmark measures
-// true per-frame cost instead of compositor stalls, THEN resize to the
-// capture resolution once the benchmark window has passed.
 const BOOT_VIEWPORT = { width: 320, height: 180 };
 const SHOT_VIEWPORT = { width: 640, height: 360 };
 
@@ -457,9 +351,6 @@ async function run() {
 
         // Enter, then let the arrival choreography finish (1.5 s dolly + margin)
         await page.$eval('#enter-btn', el => el.click()).catch(e => errors.push(`enter click: ${e}`));
-        // Deterministic async-content gate: venues with an asset layer (the
-        // sculpture garden's GLB vegetation) settle asynchronously — capture
-        // must wait for the scene to say so, never guess with a sleep.
         await page.waitForFunction(() => {
             const s = window.__exospace?.scene;
             return !s || (s._gardenAssetsSettled !== false && s._lakeAssetsSettled !== false);
@@ -468,12 +359,6 @@ async function run() {
         await page.waitForTimeout(Math.round(10000 * SETTLE));       // FPS-benchmark window closes
         await page.setViewportSize(SHOT_VIEWPORT);    // capture resolution
         await page.waitForTimeout(Math.round(9000 * SETTLE));        // frames at capture res + background texture stream
-        // Venues with an ASSET layer (the sculpture garden's GLB trees): the
-        // first render of each asset material compiles its shader program,
-        // and under SwiftShader that compile is orders of magnitude slower
-        // than on a real GPU. Give the asset layer its first rendered frames
-        // before capturing — a capture raced against a shader compile ships
-        // a treeless "garden" still that verifies nothing.
         if ((sc.q || '').includes('sculpture-garden') || (sc.q || '').includes('mirror-lake')) {
             await page.waitForTimeout(Math.round(15000 * SETTLE));
         }
@@ -482,19 +367,11 @@ async function run() {
         // Hide HUD chrome for clean venue captures (crosshair, buttons, hint)
         await page.addStyleTag({ content: '#crosshair,#ui-layer,#controls-hint{display:none!important}' }).catch(() => {});
 
-        // Optional scripted camera (forensic framing parity with a live shot).
-        // PointerLockControls only mutates rotation on real mousemove events,
-        // so a direct position.set + lookAt persists for the capture window.
         if (sc.cam) {
             await page.evaluate((cam) => {
                 const s = window.__exospace?.scene;
                 if (!s?.camera) return;
                 if (cam.behind !== undefined) {
-                    // Artwork-relative framing: place the camera BEHIND
-                    // artwork[cam.behind] along its own facing (local −z =
-                    // the rear of the piece) and aim at its centre. This is
-                    // how the rear-presentation matrix stays valid regardless
-                    // of where the seeded plan actually hung the piece.
                     const art = s.artworks?.[cam.behind];
                     if (!art) return;
                     art.updateMatrixWorld(true);
@@ -519,27 +396,9 @@ async function run() {
             await page.waitForTimeout(2000);   // let a full render loop pass
         }
 
-        // CDP screenshot — Playwright's own screenshot path waits for
-        // compositor stability that never settles while the scene renders
-        // continuously under SwiftShader. Page.captureScreenshot must run
-        // WHILE the loop renders (halting invalidates the WebGL drawing
-        // buffer and captures a blank frame).
-        //
-        // CATHEDRAL AUDIT GUARD: a capture (or session) failure on ONE
-        // scenario used to reject out of run() and kill the WHOLE run —
-        // every later scenario lost its shot because scenario N's
-        // SwiftShader compositor died. The heavy multi-pass venues (the
-        // cathedral's transmission + planar reflection are the first
-        // combination in the catalog) make that a routine event under
-        // software rasterization, so the capture is now best-effort per
-        // scenario: a dead capture is logged into the report and the run
-        // continues with the remaining scenarios.
         let pngB64 = null;
         try {
             const cdp = await ctx.newCDPSession(page);
-            // Hard-bound the capture: a software-rendered scene that cannot
-            // present a frame must not wedge the whole run (the race loses
-            // to a timer and the scenario logs a dead capture instead).
             pngB64 = await Promise.race([
                 cdp.send('Page.captureScreenshot', { format: 'png' }, { timeout: 310000 })
                     .then(d => d.data),
@@ -554,10 +413,6 @@ async function run() {
             await writeFile(shot, Buffer.from(pngB64, 'base64'));
         }
 
-        // Pull render stats from the scene (draw calls, triangles, lights).
-        // Non-fatal: under SwiftShader the page occasionally dies between
-        // the CDP capture and this evaluate — the SHOT is the deliverable,
-        // a stats crash must not discard it.
         let stats = null;
         if (STATS) {
             try {

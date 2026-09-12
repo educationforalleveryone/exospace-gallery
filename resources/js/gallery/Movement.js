@@ -1,28 +1,16 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Movement — physics-based WASD + cinematic lean + footstep SFX
-//
-// All calls into THREE.PointerLockControls helpers (moveForward, moveRight)
-// stay here so the rest of the codebase doesn't depend on the controls lib.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { CONFIG } from './config.js';
 
 // Desktop movement (pointer-lock controls + WASD)
 export function updateMovement() {
     if (!this.controls.isLocked || this.isInspecting) return;
-    // Iteration 4 "Arrival": the intro dolly owns the camera. Movement is
-    // restored the moment it finishes (or the visitor skips it — any input
-    // event ends the dolly, so this guard holds for well under 2 s).
     if (this.arrivalActive) return;
 
     const delta = Math.min(this.clock.getDelta(), 0.1); // cap at 100ms
 
-    // ── Step 1: Damping (friction) ──────────────────────────────────────────
     const dampingFactor = Math.pow(1 / CONFIG.camera.damping, delta);
     this.velocity.multiplyScalar(dampingFactor);
     if (this.velocity.length() < 0.001) this.velocity.set(0, 0, 0);
 
-    // ── Step 2: Input + acceleration ────────────────────────────────────────
     this.direction.set(0, 0, 0);
     let isMoving = false;
     if (this.moveState.forward)  { this.direction.z -= 1; isMoving = true; }
@@ -40,7 +28,6 @@ export function updateMovement() {
         this.velocity.z += this.direction.z * CONFIG.camera.acceleration * delta * totalMultiplier;
     }
 
-    // ── Step 3: Clamp to max speed ──────────────────────────────────────────
     const speedMultiplier  = this.currentSpeedMultiplier || 1;
     const sprintMultiplier = this.moveState.sprint ? CONFIG.movement.sprintMultiplier : 1;
     const maxSpeed = CONFIG.camera.maxSpeed * speedMultiplier * sprintMultiplier;
@@ -56,13 +43,9 @@ export function updateMovement() {
     this.controls.moveRight(this.velocity.x * delta);
     this.controls.moveForward(-this.velocity.z * delta);
 
-    // ── Step 5: Collisions ──────────────────────────────────────────────────
     this.enforceRoomBounds();
     this.camera.position.y = CONFIG.camera.height;
 
-    // ── Step 6: Cinematic lean (camera rolls slightly into turns) ───────────
-    // (Task H43 / audit C4) — skip camera lean for reduced-motion users.
-    // The rolling sensation can trigger vestibular discomfort.
     if (this.reducedMotion) {
         this.currentLean = 0;
     } else {
@@ -102,11 +85,7 @@ export function updateMovement() {
     }
 }
 
-// Mobile movement — virtual joystick drives the same velocity model.
-// Defined in Mobile.js but kept here for parity with the desktop version.
 export function updateMovementMobile() {
-    // Iteration 4 "Arrival": same ownership rule as the desktop path — the
-    // intro dolly owns the camera until handoff (or skip).
     if (this.arrivalActive) return;
     // Implementation lives in Mobile.js (this method is bound from there)
     if (typeof this._mobileUpdateMovement === 'function') {

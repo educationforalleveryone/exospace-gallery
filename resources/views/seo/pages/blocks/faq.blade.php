@@ -1,5 +1,3 @@
-{{-- Block: faq — authored questions/answers. Also feeds FAQPage schema
-     (SeoPageRenderer collects the same items). --}}
 <section class="max-w-3xl mx-auto px-4 py-14">
     @if(!empty($data['heading']))
         <h2 class="text-2xl md:text-3xl font-bold text-white mb-8">{{ $data['heading'] }}</h2>

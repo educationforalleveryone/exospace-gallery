@@ -14,23 +14,6 @@ use App\Support\Seo\SeoManager;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/**
- * Public venue-template showcase (SEO OS Iteration 2).
- *
- * Routes:
- *   GET /venues          — hub: all published, active venue templates
- *   GET /venues/{slug}   — venue page + the public exhibitions using it
- *
- * Venue templates are a genuine entity with real data (name, description,
- * category, capacity, preview assets) and they are how curators choose the
- * look of their exhibitions. Public venue pages give search engines a
- * crawlable hub type and give prospective customers a "what can I build"
- * gallery — every page links to live exhibitions using the venue.
- *
- * Only venues that are active + published AND have at least one publicly
- * viewable exhibition are shown individually; draft venues or empty venues
- * would be thin pages.
- */
 class PublicVenueController extends Controller
 {
     private const PER_PAGE = 24;
@@ -42,12 +25,6 @@ class PublicVenueController extends Controller
 
     public function index(): View
     {
-        // ITERATION-1 FIX (portable SQL): `having('public_galleries_count')`
-        // references a SELECT subquery alias — MySQL tolerates it, but
-        // SQLite (CI / local test runs) rejects HAVING on a non-aggregate
-        // column when paginate() issues its count(*) query. whereHas
-        // produces an equivalent EXISTS filter that is portable across
-        // both drivers.
         $venues = VenueTemplate::active()
             ->published()
             ->whereHas('galleries', fn ($q) => $q->publiclyViewable()->has('images', '>=', 1))

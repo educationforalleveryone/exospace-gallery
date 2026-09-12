@@ -1,15 +1,3 @@
-// probe-lake-nav.mjs — Mirror Lake navigation/collision reproduction probe.
-//
-//   node scripts/harness/probe-lake-nav.mjs [count]
-//
-// Boots the harness (mirror-lake), freezes the render loop, then drives the
-// REAL movement pipeline (velocity → enforceRoomBounds → _lakeTick) through
-// scripted visitor scenarios and reports:
-//   • teleports (per-frame displacement far above maxSpeed·dt)
-//   • water intrusion (position over water while not on pier/pavilion)
-//   • railing pass-through (pier deck edge crossed laterally)
-//   • reachable viewing distance per artwork
-//   • stuck states (input held, position frozen)
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
@@ -60,12 +48,8 @@ const report = await page.evaluate(async () => {
     const onPavBand = (x, z) => Math.abs(x - plan.pavilion.x) < plan.pavilion.size / 2 + 0.25
         && Math.abs(z - plan.pavilion.z) < plan.pavilion.size / 2 + 0.25;
 
-    // Deterministic movement clock — the live FPS sampler shares scene.clock
-    // via rAF, so manual updateMovement() calls would read ~0 delta. Pin it.
     s.clock.getDelta = () => DT;
 
-    // Run the real pipeline for `seconds` while holding the given move state,
-    // starting the camera at (x, z) looking along (lx, lz). Returns a trace.
     const run = (name, x, z, dirX, dirZ, seconds, opts = {}) => {
         s.camera.position.set(x, 1.6, z);
         s.velocity.set(0, 0, 0);
@@ -136,15 +120,12 @@ const report = await page.evaluate(async () => {
     run('C/pavilion-stepoff-east', plan.pavilion.x, plan.pavilion.z, 1, 0, 4);
     run('C/pavilion-stepoff-west', plan.pavilion.x, plan.pavilion.z, -1, 0, 4);
 
-    // ── D. Shore walk end-to-end + spawn sanity ─────────────────────────
     const w0 = plan.walk.samples[0];
     const wN = plan.walk.samples[plan.walk.samples.length - 1];
     run('D/shorewalk-east', w0[0], w0[1], 1, 0, 20);
     run('D/shorewalk-west', wN[0], wN[1], -1, 0, 20);
     run('D/spawn-to-hero', plan.spawn.x, plan.spawn.z, -0.45, -0.89, 12);
 
-    // ── E. Reachable viewing distance per artwork (walk from the water's
-    //      edge at 3 sample bearings toward each berth) ──────────────────
     const view = [];
     for (let i = 0; i < s.artworks.length; i++) {
         const art = s.artworks[i];

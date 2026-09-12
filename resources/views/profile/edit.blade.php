@@ -16,7 +16,6 @@
                 </div>
             </div>
 
-            {{-- SEC-4: MFA section — opt-in for regular users, required for super-admins --}}
             <div class="card card-pad">
                 <div class="max-w-xl">
                     <h3 class="text-lg font-medium text-gray-100">Multi-Factor Authentication (MFA)</h3>
@@ -54,10 +53,6 @@
                             </p>
                         @endif
 
-                        {{-- ITERATION-6: the promised disable flow. Requires the
-                             current password (same sudo bar as account deletion),
-                             works even while the MFA session is unverified — a
-                             lost device must not lock the user out of recovery. --}}
                         <div class="mt-4 pt-4 border-t border-gray-700/50">
                             <x-danger-button
                                 x-data=""

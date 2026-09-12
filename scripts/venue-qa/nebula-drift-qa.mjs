@@ -1,39 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// nebula-drift-qa.mjs — the venue QA gate for Nebula Drift (v2.2.0, "the
-// nebula owns the sky" identity pass on top of the Deep Field).
-//
-//   node scripts/venue-qa/nebula-drift-qa.mjs
-//
-// Same layering as crystal-cathedral-qa.mjs (plain Node over the repo
-// checkout; the composition probe additionally uses the repo's `three`
-// dependency): pins CONTRACTS while tests/Feature pins the DB side and
-// scripts/harness/shoot.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the nebula-drift row declares the Deep Field
-//      identity (void_deepfield body, declared environment 'none', neutral
-//      rig, island-grade standing glow, restrained bloom, black vignette,
-//      depth bands, light pools, elevation-step hang) and NOT the
-//      superseded v1.0.0 keys.
-//   B. DB ↔ harness sync — the PHP-less harness renders the same JSON a
-//      fresh install seeds (drift here means screenshots stop meaning
-//      anything).
-//   C. Composition invariants — driven through the REAL VenueDecorator body
-//      + three.js (no GL, canvas stubbed): the three sky shells precess in
-//      the SAME sense at layered rates (coherent sky, shear parallax), the
-//      arch carries a crown luminosity profile + deep tonal masses, stars
-//      are NEUTRAL (the v1.0.0 all-violet sky is gone), the current carries
-//      its shader drift attributes, the ring renders as a restrained thread
-//      (halo + vertex luminosity, whisper base), monolith silhouettes stand
-//      beyond the field, light pools land under the artworks, the body
-//      scales across the capacity range, low-end keeps the composition, and
-//      two builds from the same seed are transform-identical.
-//   D. JS/PHP hygiene — no purple rig in the row, no all-violet star palette
-//      in the body, zero venue slugs in the shared modules, the drift-rotate
-//      motion type is consumed, the owned-key 'nebula' + SCHEMA s6 ship on
-//      the exporter, and the guarded migration file is present.
-// ─────────────────────────────────────────────────────────────────────────────
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (nebula-drift row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -139,7 +103,6 @@ ok('copy does NOT promise a reflection (honesty matrix — no reflector here)',
 ok('version pinned 2.2.0',
     /'version'\s*=>\s*'2\.2\.0'/.test(row));
 
-// ── B. DB ↔ harness sync ────────────────────────────────────────────────────
 section('B. DB ↔ harness sync (nebula-drift body)');
 const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
 function harnessVenue(key) {
@@ -184,12 +147,8 @@ if (hBody) {
 
 // ── C. Composition invariants (real body, real three, no GL) ────────────────
 section('C. Composition invariants (real body, real three, no GL)');
-// Source reads the composition probe shares with the hygiene section —
-// hoisted above the probe so in-source contract checks can run inside it.
 const decoratorSrc = readFileSync(rel('resources/js/gallery/VenueDecorator.js'), 'utf8');
 try {
-    // Canvas stub — the body generates its sprite/pool textures via 2D
-    // contexts; with no GL in the probe nothing is ever uploaded.
     const ctxStub = () => ({
         createRadialGradient: () => ({ addColorStop: () => {} }),
         fillRect: () => {}, clearRect: () => {}, fillStyle: null,
@@ -244,8 +203,6 @@ try {
 
     const { sprites, points, instanced, meshes } = classify(probeScene);
 
-    // v2.2.0 desktop counts: far 4 features + 2 deep masses + 16 haze = 22;
-    // mid 5 features + 1 accent + 2 deep + 12 haze = 20; near veil 4 → 46.
     ok('band built: 46 sky sprites on desktop (features + deep masses + haze + near veil)',
         sprites.length === 46, `got ${sprites.length}`);
     ok('band masses differ by seeded screen rotation (5 shared canvases, no clones)',
@@ -272,12 +229,6 @@ try {
             halo ? `opacity ${halo.material.opacity}` : 'missing');
     }
 
-    // Sprite shells: the sky must be LAYERED (three distinct radii) and
-    // precess in the SAME sense at layered rates (one coherent sky whose
-    // layers shear by ≈ 8°/3 min — the v2.1.0 coherence fix), all
-    // subliminal. The 4th drift-rotate entry is the meridian ring's own yaw
-    // (its bright beads travel the ring) — shells are the entries at the
-    // three shell rates; the ring runs slightly faster by design.
     const drifts = (probes[1].ctx._particleSystems || []).filter((p) => p.type === 'drift-rotate');
     ok('drift-rotate registry: three sky shells + the ring rig', drifts.length === 4, `got ${drifts.length}`);
     const shells = drifts.filter((d) => Math.abs(d.speed) <= 0.0052);
@@ -296,18 +247,12 @@ try {
         `min ${minD.toFixed(1)} / max ${maxD.toFixed(1)} @ R ${probes[1].r}`);
     ok('crown luminosity profile: the brightest feature sits nearer the arch core than the dimmest (§1 hierarchy)',
         (() => {
-            // Feature masses are the high-opacity (> 0.5) sprites; their
-            // opacities were written as base × crownWeight, so the spread of
-            // opacities across the shell is the profile's fingerprint.
             const feats = sprites.map((s) => s.material.opacity).filter((o) => o > 0.5);
             if (feats.length < 4) return false;
             return Math.max(...feats) - Math.min(...feats) > 0.12;
         })(), 'opacity spread across features must exceed 0.12');
     ok('deep masses present: half-luminance bodies between the bright features (§1 tonal structure)',
         (() => {
-            // The masses' colour is baked into the shared canvas textures
-            // (material.color stays white), so the deep bodies are asserted
-            // at the source: DOMINANT × 0.45, drawn between the features.
             const src = addNebulaDeepfieldSrc();
             return src.includes('const DEEP = DOMINANT.clone().multiplyScalar(0.45)')
                 && src.includes('deepMass(');
@@ -321,8 +266,6 @@ try {
     ok('sky sprites render behind the scene (renderOrder < 0)',
         sprites.every((s) => s.renderOrder < 0));
 
-    // Stars: the v1.0.0 sky was 100% hue 0.7–0.85 (violet). The new sky is
-    // NEUTRAL: the far fine field must be overwhelmingly white/blue-white.
     const starObjs = points.filter((p) => p.geometry?.getAttribute('color'));
     ok('star colours present as vertex attributes', starObjs.length >= 2);
     const farField = starObjs.find((p) => p.geometry.getAttribute('position').count >= 300);
@@ -355,8 +298,6 @@ try {
         ok('current is fog-exempt (the current IS atmosphere)', current.obj.material.fog === false);
     }
 
-    // Monoliths: beyond the field, dark, fog-exempt (silhouettes against the
-    // band glow — occluding it requires opaque + fog:false).
     if (instanced.length === 1) {
         const inst = instanced[0];
         const m = new THREE.Matrix4(); const p = new THREE.Vector3();
@@ -381,8 +322,6 @@ try {
             inst.material.transparent !== true);
     }
 
-    // Light pools: declared placement.light_pools → one instanced mesh under
-    // every artwork (post-placement hook).
     {
         const scene = new THREE.Scene();
         const ctx = {
@@ -427,8 +366,6 @@ try {
             scene2.children.length === 0);
     }
 
-    // Ring radius + band scale with the venue radius (5-work salon → 40-work
-    // hall keeps the composition proportional).
     {
         const small = classify(buildField(9.5).scene);
         const large = classify(buildField(22.3).scene);
@@ -475,10 +412,6 @@ try {
         ok('determinism: identical seed → identical monolith transforms', JSON.stringify(ia) === JSON.stringify(ib));
     }
 
-    // Placement: the two-band hang stays inside the bounds with the pools
-    // declared (same pure planner the pool anchors read), and the v2.2.0
-    // elevation step lifts ONLY the inner band (outer ring keeps the
-    // legibility band bit-exactly).
     {
         const field = computeFloatFieldRadius(40, 3.2, { depthBands: 2 });
         const rng = createVenueRng('nebula-drift:placement');
@@ -500,8 +433,6 @@ try {
             liftBand1Y.every((y, i) => Math.abs((y - flatBand1Y[i]) - 0.7) < 1e-9));
         ok('elevation step: default keeps every venue bit-identical (opt-in key)',
             (() => {
-                // Omitting the key and passing 0 explicitly must produce the
-                // exact same layout — undeclared ⇒ historic behaviour.
                 const rngA = createVenueRng('nebula-drift:placement');
                 const rngB = createVenueRng('nebula-drift:placement');
                 const omitted = computeFloatLayout(40, field.radius, rngA, { depthBands: 2 });
@@ -513,7 +444,6 @@ try {
     ok('composition probe (requires the repo three dependency)', false, err.message);
 }
 
-// ── D. JS/PHP hygiene ───────────────────────────────────────────────────────
 section('D. JS/PHP hygiene');
 const gallerySceneSrc = readFileSync(rel('resources/js/gallery/GalleryScene.js'), 'utf8');
 const exporterSrc = readFileSync(rel('app/Services/VenueConfigExporter.php'), 'utf8');

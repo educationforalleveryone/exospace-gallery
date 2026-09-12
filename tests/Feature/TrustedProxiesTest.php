@@ -2,16 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-001: TRUSTED_PROXIES hard-fail regression test (audit CR-5).
- *
- * Verifies that AppServiceProvider::boot() throws a RuntimeException when
- * TRUSTED_PROXIES is empty or '*' in production, and does NOT throw in
- * non-production environments.
- *
- * Run: php artisan test --filter=TrustedProxiesTest
- */
-
 namespace Tests\Feature;
 
 use Tests\TestCase;
@@ -64,12 +54,6 @@ class TrustedProxiesTest extends TestCase
 
     private function expectTrustedProxiesRuntimeException(?string $trustedProxies, string $env): void
     {
-        // ITERATION-1 FIX: exercising the guard via refreshApplication() is
-        // unreliable — phpdotenv's immutable writer RE-WRITES variables it
-        // loaded on a previous boot, so runtime $_ENV/putenv overrides are
-        // clobbered by the .env reload. The production guard is now a
-        // static method on the provider (assertTrustedProxiesConfigured)
-        // and is invoked directly here.
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessageMatches('/TRUSTED_PROXIES/i');
 

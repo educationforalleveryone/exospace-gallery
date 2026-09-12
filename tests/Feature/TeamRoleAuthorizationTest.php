@@ -13,51 +13,9 @@ use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Tests\TestCase;
 
-/**
- * ITERATION 13 — Team membership & role authorization boundary tests.
- *
- * Server-side enforcement matrix for the team-management actions that
- * exist in Exospace (TeamController + TeamPolicy):
- *
- *   view               = owner OR member (any role)
- *   update (settings)  = owner OR editor (canEdit)
- *   delete             = owner only
- *   invite             = owner OR editor (canEdit)
- *   revoke invitation  = owner OR editor (canEdit) + invitation belongs to that team
- *   manageMembers      = owner only (remove member, change member role)
- *   switch / leave     = owner / members only
- *
- * Sections:
- *   A — authorized owner / editor / member behavior
- *   B — insufficient-role behavior (viewer and editor on owner-only ops)
- *   C — non-member behavior (authenticated outsider)
- *   D — cross-team boundary (Team A actor vs Team B resources)
- *   E — role-escalation attempts (client-controlled role/member values)
- *   F — member-target validation (T-1/T-2: no fabricated audit events)
- *
- * NOTE ON RunInSeparateProcess: Team::memberRole() memoizes
- * (team_id, user_id) → role in a PHP static (PERF-19). Correct under
- * production FPM (statics reset per request), but inside a single
- * PHPUnit process RefreshDatabase reuses synthetic IDs (team 1, user 2),
- * so a stale memo from an earlier test can poison a later one. Tests
- * that reach memberRole() (show / update / invite / revoke via canEdit)
- * therefore run in their own process — faithfully simulating a fresh
- * FPM request cycle. (Same pattern as GalleryOwnershipBoundaryTest,
- * Iteration 12. The remaining tests only hit isOwner()/hasMember(),
- * which are never memoized, so they are safe in-process.)
- *
- * NOTE ON LIVEWIRE (brief Section 8): verified during the Iteration-13
- * trace that NO Livewire components exist in this codebase (no
- * app/Livewire directory, no component classes); all team-management
- * interactions are classic Blade form POST/PATCH/DELETE requests to the
- * routes under test here. The server-side boundaries exercised by this
- * file are therefore exactly the interactive paths a browser can reach.
- */
 class TeamRoleAuthorizationTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ── Fixture helpers ──────────────────────────────────────────────────
 
     private function memberOf(Team $team, string $role): User
     {
@@ -71,10 +29,6 @@ class TeamRoleAuthorizationTest extends TestCase
     {
         return Team::factory()->create(['owner_id' => $owner->id]);
     }
-
-    // ═════════════════════════════════════════════════════════════════════
-    // A. AUTHORIZED BEHAVIOR — each existing role can do what it is meant to
-    // ═════════════════════════════════════════════════════════════════════
 
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
@@ -360,10 +314,6 @@ class TeamRoleAuthorizationTest extends TestCase
         $this->assertDatabaseHas('teams', ['id' => $team->id, 'owner_id' => $owner->id]);
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    // B. INSUFFICIENT-ROLE BEHAVIOR — lower-privileged roles are rejected
-    // ═════════════════════════════════════════════════════════════════════
-
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
     public function test_viewer_cannot_update_team_settings(): void
@@ -511,10 +461,6 @@ class TeamRoleAuthorizationTest extends TestCase
         $this->assertDatabaseHas('teams', ['id' => $team->id]);
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    // C. NON-MEMBER BEHAVIOR — authenticated outsiders are rejected
-    // ═════════════════════════════════════════════════════════════════════
-
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
     public function test_non_member_cannot_view_team_page(): void
@@ -659,10 +605,6 @@ class TeamRoleAuthorizationTest extends TestCase
         $response->assertDontSee($foreignTeam->name);
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    // D. CROSS-TEAM BOUNDARY — Team A actors vs Team B resources
-    // ═════════════════════════════════════════════════════════════════════
-
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
     public function test_team_a_owner_cannot_update_team_b(): void
@@ -770,8 +712,6 @@ class TeamRoleAuthorizationTest extends TestCase
 
     public function test_cross_team_invitation_revoke_is_rejected_with_404(): void
     {
-        // The actor IS authorized on Team A, but the invitation belongs to
-        // Team B — swapping the invitation ID must not leak or delete it.
         $ownerA = User::factory()->create();
         $teamA = $this->ownedTeam($ownerA);
         $ownerB = User::factory()->create();
@@ -787,11 +727,6 @@ class TeamRoleAuthorizationTest extends TestCase
         $response->assertNotFound();
         $this->assertDatabaseHas('team_invitations', ['id' => $invitationB->id]);
     }
-
-    // ═════════════════════════════════════════════════════════════════════
-    // E. ROLE ESCALATION — client-controlled role/member values cannot
-    //    elevate privileges
-    // ═════════════════════════════════════════════════════════════════════
 
     public function test_member_role_update_rejects_owner_role_value(): void
     {
@@ -867,8 +802,6 @@ class TeamRoleAuthorizationTest extends TestCase
             'role' => 'owner',
         ]);
 
-        // Rejected twice over: manageMembers is owner-only (403), and even
-        // if it were not, the role whitelist would reject 'owner'.
         $response->assertForbidden();
         $this->assertDatabaseHas('team_user', [
             'team_id' => $team->id,
@@ -937,9 +870,6 @@ class TeamRoleAuthorizationTest extends TestCase
 
     public function test_owner_cannot_remove_a_member_by_manipulating_team_id(): void
     {
-        // Owner A submits Team B's member list URL with their own member ID:
-        // even a "valid team + valid member elsewhere" combination must not
-        // cross the boundary.
         $ownerA = User::factory()->create();
         $teamA = $this->ownedTeam($ownerA);
         $memberA = $this->memberOf($teamA, 'viewer');
@@ -955,12 +885,6 @@ class TeamRoleAuthorizationTest extends TestCase
         $this->assertDatabaseHas('team_user', ['team_id' => $teamA->id, 'user_id' => $memberA->id]);
         $this->assertDatabaseHas('team_user', ['team_id' => $teamB->id, 'user_id' => $memberB->id]);
     }
-
-    // ═════════════════════════════════════════════════════════════════════
-    // F. MEMBER-TARGET VALIDATION (T-1/T-2) — membership mutations must
-    //    only fire for real members of that team; no fabricated audit
-    //    events for no-op "removals"/"role changes"
-    // ═════════════════════════════════════════════════════════════════════
 
     public function test_remove_member_rejects_a_user_who_is_not_a_member(): void
     {
@@ -990,12 +914,10 @@ class TeamRoleAuthorizationTest extends TestCase
         $team = $this->ownedTeam($owner);
         $member = $this->memberOf($team, 'viewer');
 
-        // First removal is real and audited.
         $this->actingAs($owner)->delete("/admin/teams/{$team->id}/members", [
             'user_id' => $member->id,
         ])->assertSessionHas('status');
 
-        // Second removal is a no-op — it must not fabricate a second event.
         $response = $this->actingAs($owner)->delete("/admin/teams/{$team->id}/members", [
             'user_id' => $member->id,
         ]);
@@ -1037,8 +959,6 @@ class TeamRoleAuthorizationTest extends TestCase
 
     public function test_update_member_role_rejects_a_member_of_a_different_team(): void
     {
-        // The user_id IS a member — of Team B. Team A's owner must not be
-        // able to "change their role" in Team A (no-op + fake audit before).
         $ownerA = User::factory()->create();
         $teamA = $this->ownedTeam($ownerA);
         $ownerB = User::factory()->create();

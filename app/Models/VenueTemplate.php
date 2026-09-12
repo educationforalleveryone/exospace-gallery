@@ -9,37 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
-/**
- * App\Models\VenueTemplate
- *
- * Event / Venue Template — the single source of truth for how a 3D gallery
- * looks and behaves. Replaces the previous stub model (which only stored
- * name/description/capacity) with a fully data-driven configuration that
- * the 3D viewer consumes via JSON.
- *
- * Schema highlights (see migration 2026_06_21_000001_extend_venue_templates_table):
- *   - visual_config     JSON  wall_height, fog, ambient, spot, fill, tone_mapping, frame_override, ceiling_type
- *   - material_config   JSON  wall + floor color/roughness/metalness/normal_strength
- *   - decorations       JSON  array of 3D props (GLB) with position/rotation/scale
- *   - lighting_fixtures JSON  array of custom light fixtures
- *   - supported_layouts JSON  subset of [square, corridor, l-shape, rotunda]
- *   - preview_model_path      GLB file for admin 3D preview
- *   - hdri_path               custom HDRI environment map
- *   - default_audio_path      default ambient audio for galleries using this venue
- *   - category                gallery / museum / warehouse / outdoor / futuristic / minimal / luxury / abstract
- *   - is_featured, is_draft, view_count, author_id, version, published_at
- *
- * Backward compatibility:
- *   - The legacy `default_settings` JSON column is preserved.
- *   - The JS `applyVenueOverrides(slug)` switch in view.blade.php continues
- *     to function as a fallback when visual_config is null.
- *   - Existing galleries continue to work without changes.
- */
 class VenueTemplate extends Model
 {
     use HasFactory;
 
-    /** Categories used for filtering and badges in the admin UI. */
     public const CATEGORIES = [
         'gallery'     => 'Gallery',
         'museum'      => 'Museum',
@@ -51,44 +24,17 @@ class VenueTemplate extends Model
         'abstract'    => 'Abstract',
     ];
 
-    /** Plan tiers — kept in sync with User::planLimits(). */
     public const PLANS = ['free', 'pro', 'studio'];
 
-    /** Room layouts supported by the 3D viewer. */
     public const LAYOUTS = ['square', 'corridor', 'l-shape', 'rotunda'];
 
-    /**
-     * Stock environment (HDRI) names a venue may declare via
-     * visual_config.environment (s4 environment authority).
-     *
-     * CATHEDRAL AUDIT FIX (2026-09-07): this constant was REFERENCED by
-     * VenueTemplateRequest::rules() (Rule::in(VenueTemplate::ENVIRONMENTS))
-     * since the s4 environment-authority change but was never DEFINED on the
-     * model — every super-admin venue save through the structured form
-     * fataled with "Undefined constant App\Models\VenueTemplate::ENVIRONMENTS"
-     * at validation time. Restored here, in lockstep with the runtime map
-     * resources/js/gallery/config.js `environments` (studio / rural_evening /
-     * night / none) — the two lists must never drift (config.js documents
-     * the lockstep contract).
-     */
     public const ENVIRONMENTS = ['studio', 'rural_evening', 'night', 'none'];
 
-    /**
-     * Iteration 5 "Authoring" (§9.3): the stable, flat visual_config keys
-     * the super-admin structured form manages directly. EVERYTHING ELSE in
-     * visual_config — structure descriptors (IT3), structure_pass /
-     * glazing_wall / sun_shadows gates, placement, tier_fallbacks, future
-     * pipeline pastes — flows through the advanced raw-JSON field and is
-     * preserved verbatim on structured saves.
-     */
     public const STRUCTURED_VISUAL_KEYS = [
         'wall_height', 'wall_depth', 'ceiling_type', 'ceiling_height',
         'background_color', 'fog_color', 'fog_near', 'fog_far',
         'ambient_color', 'ambient_intensity', 'spot_intensity',
         'fill_intensity', 'tone_mapping_exposure', 'frame_override',
-        // Iteration 6 "Consolidation": the declared shell + interpreter keys
-        // are stable vocabulary now — the structured form manages them (the
-        // advanced JSON box stays the escape hatch: advanced still wins).
         'ceiling_color', 'ceiling_beams', 'ceiling_neon',
         'open_air', 'layout_shape', 'structure_pass',
         'void_dust', 'void_starfield', 'void_colonnade', 'void_shards', 'void_lake',
@@ -96,7 +42,6 @@ class VenueTemplate extends Model
         'placement',
     ];
 
-    /** The stable material_config keys the structured form manages. */
     public const STRUCTURED_MATERIAL_KEYS = [
         'wall_color', 'wall_roughness', 'wall_metalness', 'wall_normal_strength',
         'floor_color', 'floor_roughness', 'floor_metalness', 'floor_normal_strength',
@@ -167,10 +112,6 @@ class VenueTemplate extends Model
         'supported_layouts' => '["square","corridor","l-shape","rotunda"]',
     ];
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Boot
-    // ─────────────────────────────────────────────────────────────────────
-
     protected static function boot()
     {
         parent::boot();
@@ -179,12 +120,7 @@ class VenueTemplate extends Model
             if (empty($venue->slug)) {
                 $venue->slug = Str::slug($venue->name);
             }
-            // P2-5 FIX: Removed the while-loop slug uniqueness check.
-            // Same TOCTOU race as Artist — the DB unique constraint is
-            // the source of truth. Controllers catch QueryException and retry.
 
-            // If author_id isn't set, leave it null (system-owned template).
-            // Set published_at if this isn't a draft.
             if (!$venue->is_draft && !$venue->published_at) {
                 $venue->published_at = now();
             }
@@ -198,10 +134,6 @@ class VenueTemplate extends Model
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Relationships
-    // ─────────────────────────────────────────────────────────────────────
-
     public function galleries(): HasMany
     {
         return $this->hasMany(Gallery::class);
@@ -212,22 +144,6 @@ class VenueTemplate extends Model
         return $this->belongsTo(User::class, 'author_id');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Scopes
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * Iteration 5 "Authoring" (roadmap P2.1): `active()` is THE choke point
-     * for every venue-selection surface — customer picker (forUser), public
-     * venue pages, walkable previews, discover filters and SEO renderers all
-     * route through here. An ARCHIVED venue (archived_at set) is retired
-     * from selection everywhere, in one line.
-     *
-     * Deliberately NOT applied to: the Gallery#venueTemplate relation and
-     * the view-count job — an archived venue keeps SERVING every gallery
-     * that already uses it (archive must never break a live show), it only
-     * stops being choosable.
-     */
     public function scopeActive(Builder $q): Builder
     {
         return $q->where('is_active', true)->whereNull('archived_at');
@@ -259,35 +175,16 @@ class VenueTemplate extends Model
         return $q->whereIn('plan_required', $allowed);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Accessors & helpers
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * Iteration 5 "Authoring": visual_config keys BEYOND the structured
-     * form — prefills the advanced raw-JSON textarea on the edit screen so
-     * structure/gate/placement keys round-trip through a structured save.
-     */
     public function advancedVisualConfig(): array
     {
         return array_diff_key($this->visual_config ?? [], array_flip(self::STRUCTURED_VISUAL_KEYS));
     }
 
-    /**
-     * Iteration 5 "Authoring": archived = retired from selection, still
-     * serving existing galleries, restorable in one click. Distinct from
-     * is_active (pause toggle) — see scopeActive().
-     */
     public function isArchived(): bool
     {
         return $this->archived_at !== null;
     }
 
-    /**
-     * Per-venue conversion rollup (§9.2 #6): galleries created per 1,000
-     * venue views. Null when the venue has no views yet — a ratio against
-     * zero is a lie, not a zero.
-     */
     public function conversionRate(): ?float
     {
         if (($this->view_count ?? 0) <= 0) {
@@ -307,15 +204,6 @@ class VenueTemplate extends Model
         };
     }
 
-    /**
-     * Iteration 0 (roadmap P0.4 — honest capacity): the picker previously
-     * showed "min–max artworks" (e.g. White Cube "20–60"), but capacity_min
-     * is not enforced anywhere and actively misleads — a Free customer
-     * (max 10 images) reading "20–60 artworks" on the default venue is
-     * being told the venue does not fit their show. The honest, useful
-     * datum is the upper bound. capacity_min remains in the DB and the
-     * super-admin form as administrative guidance.
-     */
     public function capacityLabel(): string
     {
         if (is_null($this->capacity_max)) {
@@ -329,10 +217,6 @@ class VenueTemplate extends Model
         return self::CATEGORIES[$this->category] ?? ucfirst($this->category);
     }
 
-    /**
-     * Thumbnail URL — prefers the new uploaded thumbnail_path, falls back
-     * to the legacy `thumbnail` column, falls back to null.
-     */
     public function getThumbnailUrlAttribute(): ?string
     {
         if ($this->thumbnail_path) {
@@ -365,10 +249,6 @@ class VenueTemplate extends Model
             : null;
     }
 
-    /**
-     * Does this venue support a given room layout?
-     * If `supported_layouts` is null/empty, all layouts are allowed.
-     */
     public function supportsLayout(string $layout): bool
     {
         if (empty($this->supported_layouts)) {
@@ -377,10 +257,6 @@ class VenueTemplate extends Model
         return in_array($layout, $this->supported_layouts, true);
     }
 
-    /**
-     * Active + published + supports-layout filter — used by the gallery
-     * create/edit controllers to populate the venue picker.
-     */
     public static function forUser(User $user)
     {
         return static::active()
@@ -390,30 +266,16 @@ class VenueTemplate extends Model
             ->get();
     }
 
-    /**
-     * Increment view count without firing model events (cheap).
-     * Used when a gallery using this venue is viewed.
-     */
     public function incrementViewCount(): void
     {
         $this->increment('view_count');
     }
 
-    /**
-     * Get a sanitized config array suitable for export to the 3D viewer
-     * via the VenueConfigExporter service. This is the canonical shape
-     * the JS expects — see app/Services/VenueConfigExporter.php.
-     */
     public function toViewerConfig(): array
     {
         return [
             'id'              => $this->id,
             'slug'            => $this->slug,
-            // v3.0.0 observability: the payload version ships to the viewer so
-            // a stale deployment (a migration that has not run yet) is
-            // diagnosable from the browser console alone (GalleryScene logs
-            // it once per load). Field reports previously could not
-            // distinguish "old bundle" from "old payload".
             'version'         => $this->version,
             'name'            => $this->name,
             'category'        => $this->category,

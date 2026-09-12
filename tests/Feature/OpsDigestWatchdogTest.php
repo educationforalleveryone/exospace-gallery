@@ -12,27 +12,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 8, Feature B — the digest delivery watchdog.
- *
- * The silence contract (§16.4) says a missing morning digest IS the
- * alarm; the watchdog makes the platform raise that alarm itself
- * instead of relying on a human noticing the silence. These tests pin:
- *
- *   1. Healthy: stamp from today → NO alert, NO event, prior open
- *      watchdog event resolved + exactly ONE recovery note; a second
- *      healthy run stays SILENT (idempotent — no daily "watchdog OK").
- *   2. Missed: no stamp ever / stamp from before today → ONE warning
- *      alert (deduped per run window) + ONE INFRASTRUCTURE event with
- *      source 'watchdog' and the stable title; a manual send earlier
- *      the same morning counts as delivered (the contract is "a digest
- *      arrived", not "the scheduler fired").
- *   3. Scope: digest disabled → clean no-op (a suspended contract
- *      cannot be broken); watchdog disabled → clean no-op; the command
- *      NEVER exits non-zero.
- *   4. Resolution robustness: a cache flush between miss and recovery
- *      falls back to the stable-title lookup and still resolves.
- */
 class OpsDigestWatchdogTest extends TestCase
 {
     use RefreshDatabase;
@@ -57,8 +36,6 @@ class OpsDigestWatchdogTest extends TestCase
         ]);
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────
-
     private function digest(): OpsMorningDigestService
     {
         return app(OpsMorningDigestService::class);
@@ -71,8 +48,6 @@ class OpsDigestWatchdogTest extends TestCase
 
     private function slackMessages(): array
     {
-        // Http::recorded(), NOT assertSent: the silent paths send ZERO
-        // requests and assertSent would fail on the absence itself.
         $messages = [];
         foreach (Http::recorded() as [$request, $response]) {
             if (str_contains((string) $request->url(), 'slack.test')) {
@@ -82,8 +57,6 @@ class OpsDigestWatchdogTest extends TestCase
 
         return $messages;
     }
-
-    // ── 1. Healthy ──────────────────────────────────────────────────────
 
     public function test_healthy_delivery_is_silent(): void
     {
@@ -99,8 +72,6 @@ class OpsDigestWatchdogTest extends TestCase
 
     public function test_manual_send_this_morning_counts_as_delivered(): void
     {
-        // The contract is "a digest arrived this morning" — whether the
-        // scheduler or the human Send-now button delivered it.
         $this->stampToday('manual');
 
         $this->artisan('ops:check-digest-delivery')->assertSuccessful();
@@ -151,11 +122,8 @@ class OpsDigestWatchdogTest extends TestCase
         $this->artisan('ops:check-digest-delivery')->assertSuccessful();
         $this->artisan('ops:check-digest-delivery')->assertSuccessful();
 
-        // First run: one recovery note. Second run: silence.
         $this->assertCount(1, $this->slackMessages(), 'The recovery note fires exactly once per miss.');
     }
-
-    // ── 2. Missed ───────────────────────────────────────────────────────
 
     public function test_missing_stamp_raises_one_alert_and_one_event(): void
     {
@@ -200,8 +168,6 @@ class OpsDigestWatchdogTest extends TestCase
         $this->assertStringContainsString('/ops/digest', $messages[0]);
     }
 
-    // ── 3. Scope + never fatal ──────────────────────────────────────────
-
     public function test_digest_disabled_is_a_clean_no_op(): void
     {
         config(['ops.digest.enabled' => false]);
@@ -226,8 +192,6 @@ class OpsDigestWatchdogTest extends TestCase
         $this->assertSame([], array_filter($this->slackMessages()));
         $this->assertSame(0, OpsEvent::where('source', 'watchdog')->count());
     }
-
-    // ── 4. Resolution robustness ────────────────────────────────────────
 
     public function test_recovery_after_a_cache_flush_resolves_via_title_lookup(): void
     {

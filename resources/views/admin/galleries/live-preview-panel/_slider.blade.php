@@ -1,22 +1,4 @@
 @php
-    /**
-     * Single slider row for the Live Preview panel.
-     *
-     * Vars:
-     *   $id             string  — control id (also the JSON key)
-     *   $label          string  — human label
-     *   $unit           string  — unit suffix (e.g. "m", "")
-     *   $min, $max, $step
-     *   $value          number  — current effective value
-     *   $default        number  — venue default (used for the reset button)
-     *   $group          string  — 'visual_config' | 'material_config' | 'post_fx'
-     *   $requiresReload bool    — true for structural changes (wall_height)
-     *   $hint           string  — one-line textual explanation
-     *   $hintSvg        string  — key for the inline SVG mockup
-     *
-     * Renders a label row + slider row + reset button + hover hint popover.
-     * The parent JS reads data-lp-* attributes to wire up event handlers.
-     */
     $requiresReload = $requiresReload ?? false;
 @endphp
 
@@ -48,12 +30,6 @@
            min="{{ $min }}" max="{{ $max }}" step="{{ $step }}"
            value="{{ $value }}"
            class="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-brand-500" />
-
-    {{-- Hover hint popover — shows on hover/focus of the label.
-         ITERATION-3: was absolute z-50 — the hint opened INSIDE the sidebar's
-         overflow-y-auto scroll container and got clipped for sliders near the
-         panel edges. Now it flows inline (grid block) so it can never clip;
-         no z-index required. --}}
 
     <div data-lp-hint-popover="{{ $id }}"
          class="hidden mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 text-xs text-gray-300">
@@ -107,7 +83,6 @@
     [data-lp-hint-popover]:hover {
         display: block !important;
     }
-    /* Make the wrapper position-relative so the absolute popover anchors correctly */
     .lp-control { position: relative; }
     [data-lp-hint-popover] { left: 0; top: 100%; }
 </style>

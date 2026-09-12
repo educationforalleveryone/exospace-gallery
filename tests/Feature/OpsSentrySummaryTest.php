@@ -10,16 +10,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 4 — the Sentry API bridge.
- *
- * The tile's contract: read-only headlines, cached, fail-soft, and the
- * token NEVER appears in any returned payload or rendered page. These
- * tests pin every branch: unconfigured, success (including Sentry's
- * shifting count-field shapes), auth rejection, rate limit, network
- * failure, malformed JSON, and the cache behavior that keeps a slow or
- * broken Sentry API off the dashboard's critical path.
- */
 class OpsSentrySummaryTest extends TestCase
 {
     use RefreshDatabase;
@@ -282,8 +272,6 @@ class OpsSentrySummaryTest extends TestCase
             ->assertSee('retries on the next TTL window', false);
     }
 
-    // ── The error trend (Iteration 6) ────────────────────────────────────
-
     public function test_trend_is_unconfigured_without_http_calls(): void
     {
         $this->configure(token: null, org: null);
@@ -430,8 +418,6 @@ class OpsSentrySummaryTest extends TestCase
 
         $content = $this->asMfaSuperAdmin()->get('/ops')->getContent();
 
-        // Pure SVG, no JS: the viewBox is there, 24 bars render, the peak
-        // is highlighted and the caption quantifies the day.
         $this->assertStringContainsString('viewBox="0 0 120 36"', $content);
         $this->assertSame(24, substr_count($content, '<rect '));
         $this->assertStringContainsString('fill-amber-400/90', $content);

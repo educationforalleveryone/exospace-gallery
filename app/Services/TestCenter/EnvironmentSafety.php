@@ -6,16 +6,6 @@ namespace App\Services\TestCenter;
 
 use App\Models\QaTestRun;
 
-/**
- * Environment safety guard — the single choke point that decides whether a
- * profile may execute against a given target environment.
- *
- * RULES ENCODED HERE (mirrors config/test-center.php):
- *   - PHPUnit-style suites NEVER run against production.
- *   - Destructive strategies never run against production or staging
- *     unless staging explicitly opted in via TEST_CENTER_STAGING_SUITES.
- *   - prod-safe-read profiles may run anywhere.
- */
 class EnvironmentSafety
 {
     public function __construct(
@@ -24,9 +14,6 @@ class EnvironmentSafety
         $this->config = $config ?: config('test-center', []);
     }
 
-    /**
-     * @return bool true when execution is permitted.
-     */
     public function mayExecute(string $profileKey, array $profile, string $targetEnvironment): bool
     {
         $verdict = $this->evaluate($profileKey, $profile, $targetEnvironment);
@@ -34,12 +21,6 @@ class EnvironmentSafety
         return $verdict['allowed'];
     }
 
-    /**
-     * Structured verdict consumed by CLI, dashboard and ingest API so every
-     * surface renders the SAME explanation for a refusal.
-     *
-     * @return array{allowed:bool, reason:?string, remediation:?string}
-     */
     public function evaluate(string $profileKey, array $profile, string $targetEnvironment): array
     {
         $environments = $this->config['environments'] ?? [];
@@ -99,7 +80,6 @@ class EnvironmentSafety
         return ['allowed' => true, 'reason' => null, 'remediation' => null];
     }
 
-    /** Helper used by qa:run when a profile declares database=mysql-required. */
     public function databaseRequirement(array $profile): ?string
     {
         return $profile['database'] ?? null;

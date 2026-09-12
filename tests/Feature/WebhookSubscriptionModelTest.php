@@ -10,15 +10,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
-/**
- * ITERATION 10 — webhook_subscriptions migration + model shape.
- *
- * Coverage: the schema + mutators + scopes shipped in the Iter-10
- * migration. This is a small contract test — the dispatch fan-out
- * + UI flows have their own dedicated test files.
- *
- * Run: php artisan test --filter=WebhookSubscriptionModelTest
- */
 class WebhookSubscriptionModelTest extends TestCase
 {
     use RefreshDatabase;
@@ -58,8 +49,6 @@ class WebhookSubscriptionModelTest extends TestCase
 
     public function test_same_url_different_events_allowed(): void
     {
-        // A security team receiving BOTH billing.recipient_added and
-        // _removed at the same URL is one row each (not a duplicate).
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => 'https://sec.example.com/hook',

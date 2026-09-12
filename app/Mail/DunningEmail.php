@@ -10,29 +10,6 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-/**
- * M-9: Dunning email — sent when a recurring subscription payment fails.
- *
- * 3-email sequence:
- *   Step 1 (immediate): "Your payment failed — please update your card"
- *   Step 2 (day 3):     "Still failing — update your card to avoid losing access"
- *   Step 3 (day 7):     "Final notice — your subscription will be cancelled"
- *
- * The email subject + body escalate in urgency with each step. All 3
- * include a link to the 2Checkout customer portal where the user can
- * update their payment method.
- *
- * CAN-SPAM/GDPR compliance:
- *   - Dunning emails are TRANSACTIONAL (not marketing) — they're sent
- *     regardless of marketing_consent because they're required to fulfill
- *     the user's subscription contract.
- *   - Includes physical postal address (EMAIL-2/EMAIL-9, fixed in P0-3).
- *   - No unsubscribe link (transactional emails are exempt from CAN-SPAM
- *     unsubscribe requirements, but we include a "manage your billing" link).
- *
- * Implements ShouldQueue (P2-18 pattern) so the email send doesn't block
- * the webhook handler.
- */
 class DunningEmail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;

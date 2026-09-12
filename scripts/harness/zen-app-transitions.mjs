@@ -1,21 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// zen-app-transitions.mjs — state-isolation evidence on the REAL app (§15).
-//
-// The harness-based zen-transitions.mjs walks harness.html boots; this driver
-// walks the PRODUCTION transition path: /venues/{slug}/preview in the running
-// Laravel app — the same route a visitor hits — one FULL page load per venue
-// (exactly how production changes venues: a fresh boot, never an in-place
-// mutation). After each boot, snapshot the venue-identity state from the live
-// scene via window.__exospace.scene (exposed by gallery/main.js).
-//
-// Sequences (brief §15): zen → white-cube → zen and zen → dark-museum → zen.
-// The two zen snapshots in each sequence must be IDENTICAL, nothing foreign
-// may ride along, and zen's declared-absent environment must stay absent
-// (envMap false) next to venues that DO load HDRIs.
-//
-//   node scripts/harness/zen-app-transitions.mjs [base-url]
-// ─────────────────────────────────────────────────────────────────────────────
 import fs from 'node:fs';
 
 const BASE_URL = process.argv[2] || 'http://127.0.0.1:8090';

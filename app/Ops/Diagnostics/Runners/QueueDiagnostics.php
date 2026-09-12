@@ -11,24 +11,6 @@ use App\Services\JobHeartbeatService;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
-/**
- * OpsCenter — QueueDiagnostics (Iteration 3).
- *
- * queue.health | queue.failed-jobs
- *
- * Reuses the EXISTING worker monitoring inputs (ADR-6, no second system):
- * the jobs/failed_jobs tables OperationalAlertService already watches and
- * the JobHeartbeatService cadence registry. Thresholds mirror the alerting
- * service (failed >10 warning / >50 critical; oldest job >10 min critical)
- * so the dashboard and Slack never disagree about what "bad" means.
- *
- * Read-only: SELECTs only. Retrying/deleting failed jobs is NOT a
- * diagnostic (both change state): since Iteration 10 the deliberate
- * one-job-at-a-time handling lives on the /ops/queue page through the
- * action framework — password + typed phrase, audited, announced. The
- * diagnostics tell you WHAT is failing; the conscious fix happens
- * through the deploy pipeline or those deliberate operator actions.
- */
 class QueueDiagnostics implements RunsDiagnostics
 {
     public function runDiagnostic(string $id, ?OpsApplication $application): DiagnosticResult
@@ -42,8 +24,6 @@ class QueueDiagnostics implements RunsDiagnostics
             ),
         };
     }
-
-    // ── queue.health ────────────────────────────────────────────────────
 
     private function health(): DiagnosticResult
     {
@@ -146,8 +126,6 @@ class QueueDiagnostics implements RunsDiagnostics
         );
     }
 
-    // ── queue.failed-jobs ───────────────────────────────────────────────
-
     private function failedJobs(): DiagnosticResult
     {
         try {
@@ -188,8 +166,6 @@ class QueueDiagnostics implements RunsDiagnostics
             'detail' => sprintf('%d total, %d in the last 24 h; oldest failed %s.', $total, $recent, $oldestAge),
         ];
 
-        // Top failing jobs, grouped by queue + first exception line (the
-        // exception class line carries the WHY without dumping payloads).
         try {
             $top = DB::table('failed_jobs')
                 ->select('queue', 'exception', DB::raw('count(*) as n'))

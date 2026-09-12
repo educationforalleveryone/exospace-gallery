@@ -12,7 +12,6 @@
         retention window (default 30 days — <code>OUTBOUND_WEBHOOK_LEDGER_RETENTION_DAYS</code>).
     </p>
 
-    {{-- ── Subscription metadata tile ──────────────────────────────────── --}}
     <div class="card card-pad mb-8">
         <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
             <h2 class="modal-title">Subscription</h2>
@@ -22,10 +21,6 @@
                 @else
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/15 text-gray-400 border border-gray-500/30">paused</span>
                 @endif
-                {{-- ITERATION-3: this was an <a data-method="PATCH"> whose
-                     synthesizing script carried no nonce → CSP-blocked in
-                     production → clicking navigated via GET → 405. It is a
-                     real POST form now (same route, same confirm). --}}
                 <form method="POST" action="{{ route('super.webhooks.toggle', $subscription) }}" class="inline">
                     @csrf
                     @method('PATCH')
@@ -77,7 +72,6 @@
         @endif
     </div>
 
-    {{-- ── Deliveries table ──────────────────────────────────────────────── --}}
     <div class="card overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
             <h2 class="modal-title">Delivery history</h2>
@@ -155,8 +149,4 @@
     </div>
 </div>
 
-{{-- ITERATION-3: the @once PATCH-link synthesizer script carried no nonce —
-     CSP blocked it in production, so the Pause/Enable link performed a raw
-     GET → 405. Replaced by the real form above; the canonical
-     exospaceConfirmWrapper (resources/js/app.js) provides the confirm. --}}
 </x-app-layout>

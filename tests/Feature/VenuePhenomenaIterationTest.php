@@ -2,31 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration 2 "PHENOMENA" regression tests (3D venue roadmap, P1.2).
- *
- * Pins the void-family identity contract so future changes cannot silently
- * re-introduce the promise/delivery gap or break the rollback switches:
- *
- *   - Declared identity: the four void venues carry the config keys the JS
- *     interpreter consumes (placement_mode, structure_pass, plus the
- *     per-venue effect declarations). The seven other venues declare NONE —
- *     effects are opt-in per venue, never global (§11.3).
- *   - Per-venue promise matrix: copy may only promise a phenomenon the
- *     venue's config actually declares (float language ⇔ placement_mode;
- *     "reflects" ⇔ floor_reflection). This is the tier-safe successor of the
- *     Iteration 0 global over-claim list, which Iteration 2 deliberately
- *     narrowed.
- *   - The migration is a safe, idempotent, UNION-merge: admin-set config keys
- *     and admin-written descriptions are never clobbered; down() removes
- *     exactly what up() added, and only while it still matches.
- *   - The preview/gallery payload carries the identity keys to the client.
- *   - DoD rule #7 (hard from Iteration 2 onward): the new interpreter modules
- *     contain ZERO venue slugs — venue identity lives only in config.
- *
- * Run: php artisan test --filter=VenuePhenomenaIterationTest
- */
-
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,10 +13,6 @@ class VenuePhenomenaIterationTest extends TestCase
     use RefreshDatabase;
 
     private const VOID_VENUES = ['infinite-void', 'crystal-cathedral', 'nebula-drift', 'mirror-lake'];
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Declared identity — the config contract the JS interpreter consumes
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_void_venues_declare_the_phenomena_identity_keys(): void
     {
@@ -83,28 +54,16 @@ class VenuePhenomenaIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // The Room family + garden must be untouched by the void pass:
-        // effects are opt-in per venue, never global (§11.3), and the garden
-        // keeps its easel identity (§4.10) by NOT declaring a placement mode.
         foreach (['white-cube', 'industrial-loft', 'dark-museum', 'zen-gallery', 'luxury-penthouse', 'cyber-gallery', 'sculpture-garden'] as $slug) {
             $config = $this->visualConfig($slug);
             $this->assertArrayNotHasKey('placement_mode', $config, "[{$slug}] must not declare a void placement mode.");
         }
 
-        // Iteration 3 "Rooms" narrowed this list (the same way Iteration 2
-        // narrowed Iteration 0's over-claim list); Iteration 6 "Consolidation"
-        // completes the arc: loft / museum / garden now legitimately declare
-        // their OWN interpreter selectors ('loft' / 'museum' / 'garden' — the
-        // JS slug branches are gone). No venue declares a foreign pass.
         foreach (['industrial-loft' => 'loft', 'dark-museum' => 'museum', 'sculpture-garden' => 'garden'] as $slug => $pass) {
             $config = $this->visualConfig($slug);
             $this->assertSame($pass, $config['structure_pass'] ?? null, "[{$slug}] declares its own interpreter selector (Iteration 6).");
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The per-venue promise matrix — words ⇔ declared render, as CI
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_copy_promises_only_declared_phenomena(): void
     {
@@ -157,10 +116,6 @@ class VenuePhenomenaIterationTest extends TestCase
         $this->assertStringContainsStringIgnoringCase('colonnade', (string) $cathedral, 'Cathedral copy must name the colonnade the pass delivers.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The migration — union merge, guarded copy, idempotent, reversible
-    // ─────────────────────────────────────────────────────────────────────
-
     private function phenomenaMigration(): object
     {
         return require database_path('migrations/2026_09_01_000002_phenomena_void_identity.php');
@@ -170,8 +125,6 @@ class VenuePhenomenaIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // A super-admin has already tuned infinite-void: their background
-        // colour AND their own placement_mode (they prefer easels) must win.
         DB::table('venue_templates')->where('slug', 'infinite-void')->update([
             'visual_config' => json_encode([
                 'background_color' => '0x123456',
@@ -208,8 +161,6 @@ class VenuePhenomenaIterationTest extends TestCase
         $migration = $this->phenomenaMigration();
 
         $migration->up();
-        // Admin changes placement_mode AFTER the pass (a real rollback scenario:
-        // an operator disables float for one venue, then rolls the migration back).
         DB::table('venue_templates')->where('slug', 'crystal-cathedral')->update([
             'visual_config' => json_encode(array_merge($this->visualConfig('crystal-cathedral'), [
                 'placement_mode' => 'easel',
@@ -222,13 +173,6 @@ class VenuePhenomenaIterationTest extends TestCase
         $this->assertArrayNotHasKey('structure_pass', $cathedral, 'down() removes the untouched keys it added.');
         $this->assertArrayNotHasKey('glass_material', $cathedral);
 
-        // CATHEDRAL AUDIT (2026-09-07): the seeder baseline moved forward —
-        // the fresh-install row now carries the LUMINOUS ARCADE description
-        // and ice tint, neither of which this earlier migration owns. The
-        // guarded copy restore must therefore NOT fire on the baseline row
-        // (the newer copy survives a rollback of an OLDER migration), and
-        // the restore path itself is exercised by planting the exact copy
-        // this migration DID deliver.
         $this->assertSame(
             'A colonnade of faceted crystal piers carries pointed arches around a hall of polished dark stone; light falls from a vaulted oculus and reflects across the floor while artworks float before framed bays of stone.',
             DB::table('venue_templates')->where('slug', 'crystal-cathedral')->value('description'),
@@ -250,10 +194,6 @@ class VenuePhenomenaIterationTest extends TestCase
         $this->assertSame('phenomena', $this->visualConfig('crystal-cathedral')['structure_pass'] ?? null);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The client payload — identity keys must reach the viewer + previews
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_preview_payload_carries_the_identity_keys(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -266,10 +206,6 @@ class VenuePhenomenaIterationTest extends TestCase
         $this->assertSame('phenomena', $config['visual_config']['structure_pass'] ?? null);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // DoD rule #7 (hard from Iteration 2 onward): no slug-keyed JS added
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_new_interpreter_modules_contain_zero_venue_slugs(): void
     {
         $slugs = [
@@ -278,8 +214,6 @@ class VenuePhenomenaIterationTest extends TestCase
             'infinite-void', 'crystal-cathedral', 'nebula-drift', 'mirror-lake',
         ];
 
-        // These modules are the GENERIC interpreter (§10.2): they may never
-        // know a venue's name — venues opt in per config key.
         $modules = [
             'resources/js/gallery/TierResolve.js',
             'resources/js/gallery/TierEffects.js',
@@ -297,8 +231,6 @@ class VenuePhenomenaIterationTest extends TestCase
             }
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
 
     private function visualConfig(string $slug): array
     {

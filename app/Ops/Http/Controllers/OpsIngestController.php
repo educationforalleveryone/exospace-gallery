@@ -9,37 +9,6 @@ use App\Ops\Services\OpsEventIngestor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * OpsCenter — OpsIngestController.
- *
- * The ingestion API that makes the control plane PLATFORM-WIDE without
- * agents: the other applications on the Coolify server POST their
- * errors/events here with a shared token — no Docker socket, no SSH, no
- * inbound ports on the reporting side (ADR-3).
- *
- * POST /api/ops/ingest
- * Headers: X-Ops-Token: <token>   (token configured in OPS_INGEST_TOKENS)
- * Body (JSON):
- *   {
- *     "title":       "Database connection failure",      // required
- *     "message":     "SQLSTATE[HY000] [2002] ...",       // optional
- *     "severity":    "critical|error|warning|info",     // default: error
- *     "category":    "DATABASE",                         // optional (classified otherwise)
- *     "environment": "production",                       // default: production
- *     "context":     { ... }                             // optional, redacted server-side
- *   }
- * The application is derived from the TOKEN (each token maps to a slug in
- * OPS_INGEST_TOKENS) — a reporter can never claim to be another app.
- *
- * Security:
- *   - Fail-closed: no OPS_INGEST_TOKENS configured → 404 (the endpoint
- *     does not exist; same convention as MetricsController).
- *   - Timing-safe comparison (hash_equals) of a SHA-256 of the provided
- *     token against the configured value.
- *   - Rate-limited (default 30/min per IP).
- *   - Payload size caps (config/ops.php → ingest).
- *   - Server-side redaction ALWAYS runs — reporters cannot opt out.
- */
 class OpsIngestController extends Controller
 {
     public function __construct(
@@ -82,8 +51,6 @@ class OpsIngestController extends Controller
             ], 422);
         }
 
-        // The reporter's identity is the TOKEN's slug — never a client
-        // claim. Name falls back to a title-cased slug.
         $application = $this->ingestor->resolveOrCreateApplication(
             $slug,
             ucwords(str_replace(['-', '_'], ' ', $slug)),
@@ -114,11 +81,6 @@ class OpsIngestController extends Controller
         ], $event->wasRecentlyCreated ? 201 : 200);
     }
 
-    /**
-     * Parse OPS_INGEST_TOKENS ("slug1=token1,slug2=token2").
-     *
-     * @return array<string, string> slug => configured token
-     */
     private function credentials(): array
     {
         $raw = (string) config('ops.ingest.tokens', '');
@@ -138,9 +100,6 @@ class OpsIngestController extends Controller
         return $credentials;
     }
 
-    /**
-     * Timing-safe token check. Returns the application slug on success.
-     */
     private function authenticate(string $provided, array $credentials): ?string
     {
         if ($provided === '') {

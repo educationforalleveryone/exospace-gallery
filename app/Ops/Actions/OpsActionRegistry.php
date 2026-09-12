@@ -4,30 +4,6 @@ declare(strict_types=1);
 
 namespace App\Ops\Actions;
 
-/**
- * OpsCenter — OpsActionRegistry (Iteration 3).
- *
- * THE allow-list for every operation that changes state outside OpsCenter's
- * own records. If an action is not declared here, it does not exist — there
- * is no free-form action surface, no command passthrough, no SQL, no docker
- * exec. Ever.
- *
- * Risk tiers (the brief's ACTION MODEL, made explicit):
- *   none      — no external state change beyond a refresh (still throttled
- *               and audited): platform.sync.
- *   elevated  — changes infrastructure or re-applies an external event:
- *               requires password + typed confirmation phrase + audit +
- *               Slack announcement: app.restart, webhook.replay,
- *               queue.retry, queue.forget (Iteration 10).
- *
- * DANGEROUS operations (stop application, drop database, run migrations,
- * delete backups, wipe queues) are DELIBERATELY NOT on this list. They stay
- * in Coolify / the deploy pipeline where their full context lives. This is
- * a conscious scope decision documented in the master manual. The queue
- * actions are the scoped exception to "wipe queues": ONE job at a time,
- * never a bulk "retry all" or "flush" — the mass variants stay out exactly
- * because their blast radius is the whole queue.
- */
 final class OpsActionRegistry
 {
     public const RISK_NONE = 'none';
@@ -35,12 +11,12 @@ final class OpsActionRegistry
     public const RISK_ELEVATED = 'elevated';
 
     /**
-     * @var array<string, array{
-     *     label: string, group: string, risk: string, description: string,
-     *     will_do: string[], wont_do: string[], consequence: string,
-     *     confirmation_phrase: ?string, requires_password: bool
-     * }>
-     */
+      * @var array<string, array{
+      * label: string, group: string, risk: string, description: string,
+      * will_do: string[], wont_do: string[], consequence: string,
+      * confirmation_phrase: ?string, requires_password: bool
+      * }>
+      */
     private const ACTIONS = [
         'platform.sync' => [
             'label' => 'Refresh platform data now',
@@ -104,13 +80,6 @@ final class OpsActionRegistry
             'requires_password' => true,
         ],
 
-        // ── Iteration 10 — the queue lifecycle ───────────────────────────
-        // The failed-jobs diagnostic used to end its guidance with "retry
-        // deliberately (php artisan queue:retry from a terminal)" — the
-        // last workflow in the platform that pointed at a terminal. These
-        // two actions close it: one job at a time, through the same
-        // four-layer security model as every other elevated action.
-
         'queue.retry' => [
             'label' => 'Retry a failed queue job',
             'group' => 'Queue',
@@ -157,17 +126,11 @@ final class OpsActionRegistry
         return isset(self::ACTIONS[$id]);
     }
 
-    /**
-     * @return array{label: string, group: string, risk: string, description: string, will_do: string[], wont_do: string[], consequence: string, confirmation_phrase: ?string, requires_password: bool}|null
-     */
     public static function get(string $id): ?array
     {
         return self::ACTIONS[$id] ?? null;
     }
 
-    /**
-     * @return array<string, array{label: string, group: string, risk: string, description: string, will_do: string[], wont_do: string[], consequence: string, confirmation_phrase: ?string, requires_password: bool}>
-     */
     public static function all(): array
     {
         return self::ACTIONS;

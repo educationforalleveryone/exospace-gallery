@@ -9,49 +9,10 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Gallery ownership & CRUD authorization boundary (Iteration 12).
- *
- * Adversarial coverage for the exact mission: a user must never be able to
- * access or mutate another user's gallery by manipulating identifiers, route
- * parameters, or request payloads — while legitimate management and public
- * presentation keep working.
- *
- * Sections:
- *   A. Authorized owner — personal gallery CRUD works server-side
- *   B. Team galleries  — current members keep the documented role model
- *   C. Cross-user      — every mutation path rejects a foreign actor
- *   D. Team boundary   — removed/demoted members lose team-gallery access
- *   E. Creation        — ownership comes from the session, not the payload
- *   F. Public behavior — public presentation + API scoping intact
- *
- * NOTE (Iteration 12 fix): GalleryPolicy previously honored the row-level
- * user_id match for TEAM galleries too, so a member who had once created a
- * team gallery kept view/update/delete rights after being removed from the
- * team (removeMember/leave only detach the pivot) or demoted to viewer.
- * The policy now resolves team galleries through current team roles only.
- */
 class GalleryOwnershipBoundaryTest extends TestCase
 {
     use RefreshDatabase;
 
-    /*
-     * NOTE ON PROCESS ISOLATION (team tests): Team::memberRole() memoizes
-     * (team_id, user_id) → role in a PHP static — per-request in production
-     * FPM, but a PHPUnit run is ONE process, and RefreshDatabase re-uses the
-     * same synthetic ids (team 1, user 2) in every test. Without isolation,
-     * an earlier test's memoized 'editor' poisons later boundary tests that
-     * reuse the id pair. Each team test below therefore runs in its own
-     * process — a faithful simulation of a fresh FPM request cycle, which
-     * is exactly the lifecycle the production memo assumes.
-     */
-
-    // ── Helpers ──────────────────────────────────────────────────────────
-
-    /**
-     * Minimal valid payload for GalleryController::update() — every
-     * exhibition column is validated with required|in: whitelists.
-     */
     private function galleryPayload(array $overrides = []): array
     {
         return array_merge([
@@ -169,8 +130,6 @@ class GalleryOwnershipBoundaryTest extends TestCase
     public function test_team_owner_can_update_gallery_created_by_editor(): void
     {
         [$owner, $editor, $team] = $this->teamWithMember('editor');
-        // Editor-created team gallery: row user_id = editor (store() sets
-        // user_id to the acting member), team_id = team.
         $gallery = Gallery::factory()->create(['user_id' => $editor->id, 'team_id' => $team->id]);
 
         $response = $this->actingAs($owner)
@@ -278,8 +237,6 @@ class GalleryOwnershipBoundaryTest extends TestCase
 
     public function test_metadata_update_for_foreign_image_under_authorized_gallery_returns_404(): void
     {
-        // Actor owns gallery A but targets an image belonging to gallery B
-        // through gallery A's route — the scoped-URL check must 404.
         $actor = User::factory()->create();
         $foreigner = User::factory()->create();
         $galleryA = Gallery::factory()->create(['user_id' => $actor->id]);
@@ -331,13 +288,6 @@ class GalleryOwnershipBoundaryTest extends TestCase
         $this->assertDatabaseHas('galleries', ['id' => $gallery->id, 'deleted_at' => null]);
     }
 
-    // ── D. Team boundary — removed/demoted members (Iteration 12 fix) ────
-    //
-    // store() sets user_id to the acting member, so a team gallery row
-    // carries the creator's id. removeMember/leave only detach the pivot —
-    // nothing else revokes gallery access — so the policy itself must not
-    // let the stale user_id match override current team roles.
-
     #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
     #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function test_removed_member_loses_access_to_team_gallery_they_created(): void
@@ -345,8 +295,6 @@ class GalleryOwnershipBoundaryTest extends TestCase
         [$owner, $member, $team] = $this->teamWithMember('editor');
         $gallery = Gallery::factory()->create(['user_id' => $member->id, 'team_id' => $team->id]);
 
-        // Owner removes the member (mirrors TeamController::removeMember —
-        // pivot detach only; galleries are deliberately untouched there).
         $team->members()->detach($member->id);
 
         $this->actingAs($member)
@@ -401,8 +349,6 @@ class GalleryOwnershipBoundaryTest extends TestCase
 
         $team->members()->updateExistingPivot($member->id, ['role' => 'viewer']);
 
-        // View stays open for any CURRENT team member — only mutation rights
-        // track the editor/owner role.
         $this->actingAs($member)
             ->get("/admin/galleries/{$gallery->id}/edit")
             ->assertOk();

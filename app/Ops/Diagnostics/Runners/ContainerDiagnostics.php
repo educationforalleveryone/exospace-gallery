@@ -13,26 +13,6 @@ use App\Ops\Support\LogRedactor;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * OpsCenter — ContainerDiagnostics (Iteration 3).
- *
- * container.health | container.recent-logs
- *
- * container.health: live status from the Coolify API (NOT the 5-minute-old
- * sync row — a fresh call), interpreted (running:healthy vs exited vs
- * restarting = possible crash loop), plus the container events the control
- * plane has captured for that application.
- *
- * container.recent-logs: honest capability reporting. The Coolify REST API
- * does not expose container logs, so this diagnostic reports:
- *   - for the control plane host (self): a redacted tail of the actual log
- *     files on the persistent volume (laravel-*.log, scheduler.log);
- *   - for any other application: the errors/events the control plane has
- *     captured from it, and an explicit pointer to Coolify's log view.
- * It never pretends to have logs it cannot reach.
- *
- * Read-only: GET requests and file reads only.
- */
 class ContainerDiagnostics implements RunsDiagnostics
 {
     private const LOG_TAIL_LINES = 40;
@@ -53,8 +33,6 @@ class ContainerDiagnostics implements RunsDiagnostics
             ),
         };
     }
-
-    // ── container.health ────────────────────────────────────────────────
 
     private function health(?OpsApplication $application): DiagnosticResult
     {
@@ -209,8 +187,6 @@ class ContainerDiagnostics implements RunsDiagnostics
         };
     }
 
-    // ── container.recent-logs ───────────────────────────────────────────
-
     private function recentLogs(?OpsApplication $application): DiagnosticResult
     {
         $target = $application ?? $this->selfApplication();
@@ -228,8 +204,6 @@ class ContainerDiagnostics implements RunsDiagnostics
             );
         }
 
-        // Another application: the control plane's captured view + an honest
-        // pointer to Coolify's log view (the REST API does not expose logs).
         $events = OpsEvent::query()
             ->where('ops_application_id', $target->id)
             ->whereIn('status', ['open', 'acknowledged'])
@@ -267,9 +241,6 @@ class ContainerDiagnostics implements RunsDiagnostics
         );
     }
 
-    /**
-     * Tail the control plane host's own log files (redacted, bounded).
-     */
     private function selfLogTail(): DiagnosticResult
     {
         $findings = [];
@@ -317,9 +288,6 @@ class ContainerDiagnostics implements RunsDiagnostics
         );
     }
 
-    /**
-     * @return array{file: string, lines: string[]}|null
-     */
     private function tailFile(?string $path): ?array
     {
         if ($path === null || ! is_file($path)) {
@@ -346,9 +314,6 @@ class ContainerDiagnostics implements RunsDiagnostics
         return ['file' => basename($path), 'lines' => $tail];
     }
 
-    /**
-     * Newest file matching storage/logs/{pattern}.
-     */
     private function latestLogPath(string $pattern): ?string
     {
         try {

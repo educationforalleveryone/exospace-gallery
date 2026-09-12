@@ -4,12 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    {{-- ITERATION-1: internal tool page — keep out of search indexes (parity with
-         the app layout, which has carried this since Iter-013). --}}
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Overview') — OpsCenter</title>
-    {{-- ITERATION-1: same Inter webfont as the rest of the product — OpsCenter
-         previously fell back to system fonts. --}}
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -21,7 +17,6 @@
     Skip to content
 </a>
 
-{{-- ── Header ─────────────────────────────────────────────────────────── --}}
 <header class="bg-slate-900/80 border-b border-slate-800 backdrop-blur sticky top-0 z-40">
     <div class="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
@@ -39,7 +34,6 @@
             <a href="{{ route('ops.events') }}"        class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.events*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Errors &amp; Events</a>
             <a href="{{ route('ops.diagnostics.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.diagnostics*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Diagnostics</a>
             <a href="{{ route('ops.queue.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.queue*') ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Queue</a>
-            {{-- Iteration 5: operator-only surfaces — viewers get 403 at the route level; the nav simply never shows the doors. --}}
             @if(auth()->user()?->is_super_admin)
                 <a href="{{ route('ops.actions.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.actions*') ? 'bg-amber-600/20 text-amber-300 border border-amber-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Actions</a>
                 <a href="{{ route('ops.credentials.index') }}" class="px-3 py-1.5 rounded-md transition-colors duration-150 {{ request()->routeIs('ops.credentials*') ? 'bg-sky-600/20 text-sky-300 border border-sky-700/40' : 'text-slate-300 hover:bg-slate-800' }}">Credentials</a>
@@ -57,8 +51,6 @@
             @if(auth()->user()?->is_super_admin)
                 <a href="{{ route('super.index') }}" class="px-3 py-1.5 text-sm rounded-md text-slate-300 hover:bg-slate-800">Master Control</a>
             @endif
-            {{-- LOGOUT-ITERATION: full page load (destroys the Turbo snapshot
-                 cache of authenticated pages) + double-submission guard. --}}
             <form method="POST" action="{{ route('logout') }}"
                   data-turbo="false" data-busy data-busy-label="Signing out…">
                 @csrf
@@ -75,18 +67,12 @@
     @if(session('error'))
         <div class="mb-4 rounded-lg border border-red-700/50 bg-red-950/40 px-4 py-3 text-red-300 text-sm">{{ session('error') }}</div>
     @endif
-    {{-- ITERATION-3 FIX: info + warning flashes were never rendered in this
-         layout — the MFA-required warning (EnsureOpsAccess middleware) and
-         Sentry-mapping notices were silently swallowed. --}}
     @if(session('warning'))
         <div class="mb-4 rounded-lg border border-amber-700/50 bg-amber-950/40 px-4 py-3 text-amber-300 text-sm">{{ session('warning') }}</div>
     @endif
     @if(session('info'))
         <div class="mb-4 rounded-lg border border-blue-700/50 bg-blue-950/40 px-4 py-3 text-blue-300 text-sm">{{ session('info') }}</div>
     @endif
-    {{-- ITERATION-3 FIX: validation errors from ops forms (access grants,
-         credential rotations, Sentry mapping) appeared NOWHERE — the forms
-         silently re-rendered. One layout-level banner covers all of them. --}}
     @if($errors->any())
         <div class="mb-4 rounded-lg border border-red-700/50 bg-red-950/40 px-4 py-3 text-red-300 text-sm" role="alert">
             <p class="font-semibold mb-1">Please fix the following:</p>
@@ -98,12 +84,6 @@
 </main>
 
 <script nonce="@nonce">
-    // CSP-safe clickable rows: any [data-href] element navigates on click or
-    // Enter/Space (keyboard), replacing inline onclick= handlers. Also makes
-    // rows reachable by keyboard (tabindex=0) when set by the view.
-    // ITERATION-3: one-time guard — Turbo re-executes this <script> on every
-    // navigation, which previously stacked duplicate listeners (harmless but
-    // leaky; the guard makes the intent explicit).
     if (!window.__opsRowNavInit) {
         window.__opsRowNavInit = true;
         (function () {

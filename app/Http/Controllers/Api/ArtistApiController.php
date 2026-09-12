@@ -7,17 +7,8 @@ use App\Models\Artist;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * M-28: Public REST API for artists.
- *
- * Read-only endpoints for browsing artist profiles + their galleries.
- */
 class ArtistApiController extends Controller
 {
-    /**
-     * List all published artists (paginated).
-     * GET /api/v1/artists?per_page=20
-     */
     public function index(Request $request): JsonResponse
     {
         $perPage = min((int) $request->query('per_page', 20), 100);
@@ -39,10 +30,6 @@ class ArtistApiController extends Controller
         ]);
     }
 
-    /**
-     * Show a single artist.
-     * GET /api/v1/artists/{slug}
-     */
     public function show(string $slug): JsonResponse
     {
         $artist = Artist::where('slug', $slug)->first();
@@ -56,10 +43,6 @@ class ArtistApiController extends Controller
         ]);
     }
 
-    /**
-     * List galleries featuring this artist's work.
-     * GET /api/v1/artists/{slug}/galleries
-     */
     public function galleries(Request $request, string $slug): JsonResponse
     {
         $artist = Artist::where('slug', $slug)->first();

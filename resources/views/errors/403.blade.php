@@ -4,24 +4,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    {{-- VERIFICATION-ITERATION FIX: branded 403 page. Previously an
-         unauthorized request (a tampered, truncated, or expired signed
-         email-verification link; a super-admin/ops/MFA gate; any other
-         denied action) hit Laravel's default "403 | This action is
-         unauthorized." screen — a bare white page with no links and no
-         product identity. On the verification journey that is the FIRST
-         page a user sees after a mishap with the most important link in
-         their inbox, and it was a dead end.
-
-         This view renders the same HTTP semantics in the product's own
-         visual language (same design system as errors/419.blade.php) and
-         always offers a way forward (home / log in). The copy is written
-         to cover every 403 source honestly — broken/expired link OR
-         insufficient permission — without leaking WHICH gate fired.
-
-         Deliberately self-contained: inline CSS only, no Vite bundle, no
-         external fonts — error pages must render even when the app
-         bundle, CDN, or session that would provide them is unavailable. --}}
     <meta name="robots" content="noindex">
     <title>Access Denied — {{ config('app.name', 'Exospace') }}</title>
     <style>

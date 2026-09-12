@@ -9,20 +9,6 @@ use App\Ops\Models\OpsEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 1 — ingestion API security surface.
- *
- * POST /api/ops/ingest is the only UNAUTHENTICATED write path into the
- * control plane, which makes it the most security-sensitive endpoint of
- * the module. These tests pin its contract:
- *
- *   - fail-closed when no tokens are configured (404)
- *   - timing-safe token auth (401 on bad/missing token)
- *   - the token determines the application identity (no spoofing)
- *   - payload validation + size caps
- *   - server-side redaction regardless of what the reporter sends
- *   - dedup counters visible in the response
- */
 class OpsIngestApiTest extends TestCase
 {
     use RefreshDatabase;
@@ -125,8 +111,6 @@ class OpsIngestApiTest extends TestCase
 
     public function test_reporter_cannot_spoof_another_application(): void
     {
-        // Even if the payload claims to be "self", attribution follows the
-        // token (project-b) — identity is non-negotiable.
         config(['ops.ingest.tokens' => 'project-b=test-token-value-1']);
 
         $this->postJson('/api/ops/ingest', [

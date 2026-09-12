@@ -9,24 +9,6 @@ use App\Ops\Diagnostics\RunsDiagnostics;
 use App\Ops\Models\OpsApplication;
 use Throwable;
 
-/**
- * OpsCenter — ServerDiagnostics (Iteration 3).
- *
- * server.disk | server.resources
- *
- * server.disk measures the PERSISTENT VOLUME the application writes to
- * (storage path — uploads, logs, backups) with the same 80%/90% thresholds
- * OperationalAlertService already pages on, so the dashboard and Slack
- * agree on what "full" means.
- *
- * server.resources reports load, memory, uptime and runtime as seen from
- * INSIDE the container, labeled honestly: without lxcfs, /proc/meminfo
- * reflects the host, so figures are framed as "container view" — Coolify's
- * server view remains the host-authoritative source. No shellouts: every
- * number comes from PHP functions or /proc reads.
- *
- * Read-only by construction.
- */
 class ServerDiagnostics implements RunsDiagnostics
 {
     private const WARN_PCT = 80.0;
@@ -44,8 +26,6 @@ class ServerDiagnostics implements RunsDiagnostics
             ),
         };
     }
-
-    // ── server.disk ─────────────────────────────────────────────────────
 
     private function disk(): DiagnosticResult
     {
@@ -109,9 +89,6 @@ class ServerDiagnostics implements RunsDiagnostics
         );
     }
 
-    /**
-     * @return array<string, string>
-     */
     private function measurablePaths(): array
     {
         return [
@@ -119,8 +96,6 @@ class ServerDiagnostics implements RunsDiagnostics
             'Application root' => base_path(),
         ];
     }
-
-    // ── server.resources ────────────────────────────────────────────────
 
     private function resources(): DiagnosticResult
     {
@@ -220,9 +195,6 @@ class ServerDiagnostics implements RunsDiagnostics
         );
     }
 
-    /**
-     * @return array{total: int, available: int}|null Bytes.
-     */
     private function readMeminfo(): ?array
     {
         try {

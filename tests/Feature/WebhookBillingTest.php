@@ -9,24 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
-/**
- * Webhook + billing pipeline tests.
- *
- * (Task H15) — covers the most money-critical path in the app:
- *   - 2Checkout IPN signature verification (MD5 + optional HMAC SHA-256)
- *   - ORDER_CREATED → user upgrade
- *   - Idempotency (duplicate invoice_id → no double-upgrade)
- *   - REFUND_ISSUED → downgrade (only if current plan matches)
- *   - CHARGEBACK_REPORTED → downgrade
- *   - CHARGEBACK_REVERSED → plan restored
- *   - external-reference matching (pending_upgrade token)
- *   - customer_email fallback matching
- *
- * P0-2 FIX (audit): HMAC is now MANDATORY in production. The existing
- * tests below use the MD5-only path (with allow_md5_only=true) to test
- * the legacy 2Checkout signature layer. New tests at the bottom verify
- * the fail-closed behavior when HMAC is not configured in production.
- */
 class WebhookBillingTest extends TestCase
 {
     use RefreshDatabase;
@@ -48,11 +30,6 @@ class WebhookBillingTest extends TestCase
         Config::set('services.2checkout.allow_md5_only', true); // P0-2: explicit escape hatch for MD5-only tests
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
-
-    /**
-     * Build a valid 2Checkout IPN payload + MD5 hash.
-     */
     private function validIpnPayload(array $overrides = []): array
     {
         $saleId = $overrides['sale_id'] ?? 'SALE-' . uniqid();
@@ -79,9 +56,6 @@ class WebhookBillingTest extends TestCase
         ], $overrides);
     }
 
-    /**
-     * Build a valid HMAC SHA-256 signature for a given payload.
-     */
     private function signPayloadHmac(array $payload): string
     {
         $fields = [
@@ -104,8 +78,6 @@ class WebhookBillingTest extends TestCase
     {
         return $this->postJson('/webhooks/2checkout', $payload);
     }
-
-    // ── ORDER_CREATED: upgrade ───────────────────────────────────────────
 
     public function test_order_created_upgrades_user_to_pro(): void
     {
@@ -196,21 +168,17 @@ class WebhookBillingTest extends TestCase
         $this->assertDatabaseCount('transactions', 0);
     }
 
-    // ── Idempotency ──────────────────────────────────────────────────────
-
     public function test_duplicate_invoice_id_does_not_double_upgrade(): void
     {
         $user = User::factory()->create(['email' => 'buyer@example.com']);
 
         $payload = $this->validIpnPayload();
 
-        // First webhook — should upgrade
         $this->postWebhook($payload);
         $user->refresh();
         $this->assertEquals('pro', $user->plan);
         $firstPlanStartedAt = $user->plan_started_at;
 
-        // Second webhook with same invoice_id — should be idempotent
         $this->postWebhook($payload);
         $user->refresh();
         $this->assertEquals('pro', $user->plan);
@@ -220,8 +188,6 @@ class WebhookBillingTest extends TestCase
         // Only one transaction row
         $this->assertDatabaseCount('transactions', 1);
     }
-
-    // ── Signature verification ───────────────────────────────────────────
 
     public function test_invalid_hash_returns_403(): void
     {
@@ -242,8 +208,6 @@ class WebhookBillingTest extends TestCase
 
         $response->assertForbidden();
     }
-
-    // ── REFUND_ISSUED ────────────────────────────────────────────────────
 
     public function test_refund_issued_downgrades_user_when_plan_matches(): void
     {
@@ -274,8 +238,6 @@ class WebhookBillingTest extends TestCase
 
     public function test_refund_issued_does_not_downgrade_when_plan_changed(): void
     {
-        // User bought Pro, then upgraded to Studio. Refunding the old Pro
-        // purchase should NOT downgrade them from Studio.
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
             'user_id'   => $user->id,
@@ -326,8 +288,6 @@ class WebhookBillingTest extends TestCase
         $this->assertDatabaseCount('transactions', 1);
     }
 
-    // ── CHARGEBACK_REPORTED ──────────────────────────────────────────────
-
     public function test_chargeback_reported_downgrades_user(): void
     {
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
@@ -352,8 +312,6 @@ class WebhookBillingTest extends TestCase
         $transaction->refresh();
         $this->assertEquals('chargeback', $transaction->status);
     }
-
-    // ── CHARGEBACK_REVERSED ──────────────────────────────────────────────
 
     public function test_chargeback_reversed_restores_plan(): void
     {
@@ -382,8 +340,6 @@ class WebhookBillingTest extends TestCase
         $transaction->refresh();
         $this->assertEquals('completed', $transaction->status);
     }
-
-    // ── Non-mutating message types ───────────────────────────────────────
 
     public function test_refund_requested_does_not_downgrade(): void
     {
@@ -415,8 +371,6 @@ class WebhookBillingTest extends TestCase
         $this->assertEquals('pro', $user->plan); // unchanged
     }
 
-    // ── CSRF exemption ───────────────────────────────────────────────────
-
     public function test_webhook_is_exempt_from_csrf(): void
     {
         $user = User::factory()->create(['email' => 'buyer@example.com']);
@@ -426,8 +380,6 @@ class WebhookBillingTest extends TestCase
         $response = $this->postJson('/webhooks/2checkout', $payload);
         $response->assertOk();
     }
-
-    // ── P0-2: HMAC mandatory in production ───────────────────────────────
 
     public function test_hmac_signature_verifies_when_configured(): void
     {
@@ -532,10 +484,6 @@ class WebhookBillingTest extends TestCase
 
     public function test_tampered_customer_email_is_rejected_by_hmac(): void
     {
-        // This is the core P0-2 attack: capture a valid IPN, change
-        // customer_email to a victim's email, re-POST. MD5 still
-        // validates (customer_email is not signed by MD5), but HMAC
-        // must fail because customer_email IS signed by HMAC.
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
         Config::set('services.2checkout.allow_md5_only', false);
 
@@ -549,8 +497,6 @@ class WebhookBillingTest extends TestCase
         // Sign with the ORIGINAL customer_email
         $payload['signature'] = $this->signPayloadHmac($payload);
 
-        // Now tamper: change customer_email to the victim's email
-        // (MD5 still validates because MD5 doesn't cover customer_email)
         $payload['customer_email'] = 'victim@example.com';
 
         $response = $this->postWebhook($payload);
@@ -565,8 +511,6 @@ class WebhookBillingTest extends TestCase
 
     public function test_tampered_item_id_is_rejected_by_hmac(): void
     {
-        // Capture a valid Pro IPN, change item_id to Studio product ID,
-        // re-POST. MD5 validates (item_id not signed by MD5), HMAC fails.
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
         Config::set('services.2checkout.allow_md5_only', false);
 
@@ -589,10 +533,6 @@ class WebhookBillingTest extends TestCase
 
     public function test_tampered_message_type_is_rejected_by_hmac(): void
     {
-        // Capture a valid ORDER_CREATED IPN, change message_type to
-        // REFUND_ISSUED, re-POST. Without HMAC, this would forge a
-        // refund and downgrade any paying user. With HMAC, the message_type
-        // field is signed and the tamper is detected.
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
         Config::set('services.2checkout.allow_md5_only', false);
 
@@ -624,9 +564,6 @@ class WebhookBillingTest extends TestCase
 
     public function test_partial_refund_does_not_downgrade_user(): void
     {
-        // User bought Studio for $99. A $5 courtesy refund should NOT
-        // downgrade them — only full refunds (>=90% of original) trigger
-        // a downgrade.
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
             'user_id'   => $user->id,
@@ -705,13 +642,8 @@ class WebhookBillingTest extends TestCase
         $this->assertEquals('free', $user->plan); // downgraded (>=90%)
     }
 
-    // ── P1-3: Chargeback respects plan match ─────────────────────────────
-
     public function test_chargeback_does_not_downgrade_when_plan_changed(): void
     {
-        // User bought Pro (invoice A), then upgraded to Studio (invoice B).
-        // Chargeback on invoice A should NOT downgrade from Studio — the
-        // user's current plan doesn't match the charged-back transaction's plan.
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
             'user_id'   => $user->id,
@@ -765,9 +697,6 @@ class WebhookBillingTest extends TestCase
 
     public function test_upgrade_email_sent_only_after_commit(): void
     {
-        // The PlanUpgradedEmail should only be dispatched after the DB
-        // transaction commits. This test verifies the email IS sent on a
-        // successful upgrade (the afterCommit callback fires).
         \Illuminate\Support\Facades\Mail::fake();
 
         $user = User::factory()->create(['email' => 'buyer@example.com']);
@@ -779,9 +708,6 @@ class WebhookBillingTest extends TestCase
         $response = $this->postWebhook($payload);
 
         $response->assertOk();
-        // ITERATION-1 FIX: PlanUpgradedEmail implements ShouldQueue, and the
-        // bare `Mail::` reference relied on a missing import (fatal
-        // "Class Tests\Feature\Mail not found").
         \Illuminate\Support\Facades\Mail::assertQueued(\App\Mail\PlanUpgradedEmail::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id && $mail->plan === 'pro';
         });

@@ -4,30 +4,7 @@ use Illuminate\Support\Str;
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Database Connection Name
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify which of the database connections below you wish
-    | to use as your default connection for database operations. This is
-    | the connection which will be utilized unless another connection
-    | is explicitly specified when you execute a query / statement.
-    |
-    */
-
     'default' => env('DB_CONNECTION', 'mysql'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Database Connections
-    |--------------------------------------------------------------------------
-    |
-    | Below are all of the database connections defined for your application.
-    | An example configuration is provided for each database system which
-    | is supported by Laravel. You're free to add / remove connections.
-    |
-    */
 
     'connections' => [
 
@@ -60,31 +37,9 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-                // PERF-22: Persistent PDO connection. When true, the PDO
-                // connection is reused across requests within the same FPM
-                // worker (via php-fpm's connection pooling). Eliminates the
-                // TCP+auth round-trip (~5-15ms) on every request. Each FPM
-                // worker holds 1 idle connection; with 50 workers that's
-                // 50 connections — well under MySQL's default max_connections
-                // (151). Enable in production via DB_PERSISTENT=true.
                 \PDO::ATTR_PERSISTENT => filter_var(env('DB_PERSISTENT', false), \FILTER_VALIDATE_BOOLEAN),
             ]) : [],
 
-            // P3-15 FIX: Read/write splitting.
-            //
-            // When DB_READ_HOST is set, Laravel routes read queries (SELECT)
-            // to that host and write queries (INSERT/UPDATE/DELETE + SELECTs
-            // inside transactions) to the primary DB_HOST. This offloads
-            // analytics/dashboard reads from the primary, which is especially
-            // valuable for Exospace because:
-            //   - The admin dashboard fires 4 AnalyticsEvent COUNT queries
-            //     per page load (viewsToday, views7, viewsPrev7, rawChart)
-            //   - The gallery analytics page fires more
-            //   - analytics_events grows unbounded (90-day prune only)
-            //
-            // To use: set DB_READ_HOST in .env to a MySQL read-replica.
-            // When DB_READ_HOST is empty (the default), Laravel falls back to
-            // the primary host for both reads and writes — no behavior change.
             'read' => [
                 'host' => array_filter(array_map('trim', explode(',', (string) env('DB_READ_HOST', '')))) ?: [env('DB_HOST', '127.0.0.1')],
             ],
@@ -92,13 +47,6 @@ return [
                 'host' => env('DB_HOST', '127.0.0.1'),
             ],
 
-            // PERF-22 FIX: 'sticky' => true means that once a write has
-            // occurred in the current request, ALL subsequent reads in that
-            // request go to the primary (not the replica) — preventing the
-            // "I just saved but the next read doesn't see it" race that
-            // happens because MySQL async replication has a small lag.
-            //
-            // Recommended in production: DB_STICKY=true.
             'sticky' => env('DB_STICKY', true),
         ],
 
@@ -156,38 +104,14 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            // 'encrypt' => env('DB_ENCRYPT', 'yes'),
-            // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Migration Repository Table
-    |--------------------------------------------------------------------------
-    |
-    | This table keeps track of all the migrations that have already run for
-    | your application. Using this information, we can determine which of
-    | the migrations on disk haven't actually been run on the database.
-    |
-    */
 
     'migrations' => [
         'table' => 'migrations',
         'update_date_on_publish' => true,
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Redis Databases
-    |--------------------------------------------------------------------------
-    |
-    | Redis is an open source, fast, and advanced key-value store that also
-    | provides a richer body of commands than a typical key-value system
-    | such as Memcached. You may define your connection settings here.
-    |
-    */
 
     'redis' => [
 

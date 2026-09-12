@@ -2,13 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-004 regression tests for D-2 (PKCE), D-4 (password history on reset),
- * and D-6 (TeamInvitation token hashing).
- *
- * Run: php artisan test --filter=OAuthAndPasswordSecurityTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Team;
@@ -27,9 +20,6 @@ class OAuthAndPasswordSecurityTest extends TestCase
 
     public function test_d2_oauth_redirect_uses_pkce(): void
     {
-        // D-2 FIX: the OAuth redirect should call ->withPkce()
-        // We verify by checking that Socialite::driver()->withPkce()->redirect() is called.
-        // Since we can't easily mock the chained calls, we verify the source code contains withPkce.
         $controllerFile = file_get_contents(app_path('Http/Controllers/OAuthController.php'));
         $this->assertStringContainsString('withPkce', $controllerFile,
             'D-2: OAuthController::redirect must call ->withPkce() for PKCE protection.');

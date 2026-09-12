@@ -24,7 +24,6 @@
     </div>
 </div>
 
-{{-- ── Meta strip ─────────────────────────────────────────────────────── --}}
 <div class="grid sm:grid-cols-3 gap-3 mb-6">
     <div class="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
         <div class="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1">Next scheduled</div>
@@ -63,7 +62,6 @@
     This is a bug worth investigating in the Laravel log; the scheduled send would report the same.
 </div>
 @else
-    {{-- ── Section cards ─────────────────────────────────────────────── --}}
     <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
         @foreach($digest['sections'] as $section)
             @php
@@ -104,7 +102,6 @@
     </div>
     @endif
 
-    {{-- ── The exact Slack message ───────────────────────────────────── --}}
     <section class="mb-6">
         <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">The exact Slack message</h2>
         <div class="rounded-lg border border-slate-800 bg-slate-950 px-4 py-4">
@@ -120,10 +117,6 @@
     </section>
 @endif
 
-{{-- ══ WEEKLY REVIEW (Iteration 8) ═════════════════════════════════
-     The Monday deep-dive preview — same preview-is-the-message rule,
-     same section-card pattern, beneath the daily digest. Read for all
-     tiers; the manual send button renders for super-admins only. --}}
 <section class="mt-10 pt-8 border-t border-slate-800">
     <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
         <div>
@@ -172,11 +165,6 @@
         </div>
     </div>
 
-    {{-- Iteration 9: the long memory — the 8-week snapshot strip. Each
-         actual delivery (scheduled or manual) persists its metrics; the
-         strip turns a stack of Mondays into an arc. The partial itself
-         states the cold-start honesty (no snapshots = the accumulating
-         note, never a fabricated flat line). --}}
     <div class="mb-6">
         @include('ops.partials.weekly-trend-strip', ['snapshots' => $weeklySnapshots ?? []])
     </div>

@@ -6,18 +6,6 @@ use App\Models\VenueTemplate;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-/**
- * Validates create & update payloads for VenueTemplate.
- *
- * The JSON fields (visual_config, material_config, decorations,
- * lighting_fixtures) accept either:
- *   - a JSON string (sent by the textarea-based JSON editor in the form), or
- *   - a native array (sent if the form is later upgraded to a structured editor).
- *
- * Either way, the validation rules below ensure the resulting array has the
- * expected shape. The controller JSON-decodes strings before validation runs
- * (via prepareForValidation).
- */
 class VenueTemplateRequest extends FormRequest
 {
     public function authorize(): bool
@@ -27,10 +15,6 @@ class VenueTemplateRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        // Iteration 5 "Authoring" (§9.3): the structured visual/material
-        // form posts per-key inputs where an EMPTY field means "inherit the
-        // viewer default". Strip empty values BEFORE validation runs so
-        // nullable / Rule::in / regex rules never see blank strings.
         foreach (['visual_config', 'material_config'] as $field) {
             if ($this->has($field) && is_array($this->input($field))) {
                 $this->merge([$field => array_filter(
@@ -52,8 +36,6 @@ class VenueTemplateRequest extends FormRequest
                 if (json_last_error() === JSON_ERROR_NONE) {
                     $this->merge([$field => $decoded]);
                 } else {
-                    // Leave the original string in place — validation below
-                    // will reject it with a friendly message.
                     $this->merge([$field => '__INVALID_JSON__']);
                 }
             }
@@ -93,11 +75,6 @@ class VenueTemplateRequest extends FormRequest
             'visual_config.tone_mapping_exposure' => ['nullable', 'numeric', 'min:0', 'max:3'],
             'visual_config.frame_override'      => ['nullable', 'string', Rule::in(['gold', 'silver', 'bronze', 'black', 'white'])],
 
-            // ── Iteration 6 "Consolidation" (P2.2): the declared shell +
-            // structure keys. These used to live ONLY in the advanced JSON —
-            // they are stable vocabulary now, so flat validation catches
-            // typos at the form (a malformed ceiling_color or an unknown
-            // structure_pass would otherwise fail silently at runtime).
             'visual_config.ceiling_color'   => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
             'visual_config.ceiling_beams'   => ['nullable', 'boolean'],
             'visual_config.ceiling_neon'    => ['nullable', 'boolean'],
@@ -105,12 +82,6 @@ class VenueTemplateRequest extends FormRequest
             'visual_config.layout_shape'    => ['nullable', 'string', Rule::in(['circular'])],
             'visual_config.structure_pass'  => ['nullable', 'string', Rule::in(['rooms', 'cube', 'loft', 'museum', 'bays', 'garden', 'phenomena'])],
 
-            // ── s4 environment authority: the venue DECLARES its sky. The
-            // stock names map to the runtime's ENVIRONMENT_HDRIS assets;
-            // 'none' silences the environment entirely; a bespoke upload
-            // (hdri_file) wins over the stock declaration. Absent ⇒ the
-            // venue's default_settings.lighting_preset HDRI (legacy rows
-            // render unchanged).
             'visual_config.environment'     => ['nullable', 'string', Rule::in(VenueTemplate::ENVIRONMENTS)],
             'visual_config.void_dust'       => ['nullable', 'boolean'],
             'visual_config.void_starfield'  => ['nullable', 'boolean'],
@@ -119,8 +90,6 @@ class VenueTemplateRequest extends FormRequest
             'visual_config.void_lake'       => ['nullable', 'boolean'],
             'visual_config.void_arcade'     => ['nullable', 'boolean'],
 
-            // ── Iteration 6 curation (P2.3, §6.3–§6.5): opt-in placement.
-            // Absent block ⇒ uniform default hang; the config IS the switch.
             'visual_config.placement'                   => ['nullable', 'array'],
             'visual_config.placement.density'           => ['nullable', 'string', Rule::in(['intimate', 'standard', 'generous'])],
             'visual_config.placement.pair_orientation'  => ['nullable', 'boolean'],
@@ -159,13 +128,6 @@ class VenueTemplateRequest extends FormRequest
             'supported_layouts'   => ['nullable', 'array'],
             'supported_layouts.*' => ['string', Rule::in(VenueTemplate::LAYOUTS)],
 
-            // Iteration 5 "Authoring" (§9.3): the structured visual/material
-            // inputs only manage the stable flat keys. This field carries the
-            // REST of visual_config — structure descriptors (IT3),
-            // structure_pass / glazing_wall / sun_shadows gates, placement,
-            // tier_fallbacks, anything a 3D pipeline pastes in. Schema hint,
-            // not schema prison: decoded to an array (or null), merged over
-            // the structured keys by the controller.
             'visual_config_advanced' => ['nullable', 'array'],
 
             'is_active'    => ['boolean'],
@@ -206,13 +168,6 @@ class VenueTemplateRequest extends FormRequest
         ];
     }
 
-    /**
-     * Iteration 5 "Authoring" (§9.3): semantic-slip validation — the cheap
-     * cross-field checks that prevent silently broken venues. These are
-     * mistakes a JSON editor makes easily and a walkthrough catches late:
-     * fog that ends before it starts, a ceiling below the walls, props
-     * parked at non-numeric coordinates.
-     */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {

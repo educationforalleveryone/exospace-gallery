@@ -1,24 +1,6 @@
 @props(['align' => 'right', 'width' => '48', 'contentClasses' => 'py-1.5 bg-gray-800'])
 
 @php
-/**
- * Dropdown menu component — the canonical dropdown/user-menu/context-menu.
- *
- * Accessibility (J-1 FIX, Iter-012 — preserved):
- *   - Trigger is a real <button> with aria-haspopup / :aria-expanded / aria-controls
- *   - Panel has role="menu" + aria-labelledby
- *   - ArrowDown/ArrowUp navigate items ([role="menuitem"] via x-dropdown-link)
- *   - Escape closes
- *
- * Visual language: the panel uses .menu-panel (bg-gray-800, border
- * gray-600/60, rounded-xl, shadow-menu). Trigger focus ring is brand —
- * previously indigo-500, which fought the purple accent system.
- *
- * CSP FIX (Iter-014, preserved): the x-data attribute uses &quot; entities
- * for the querySelectorAll('[role="menuitem"]') selector — do not revert to
- * raw quotes or Alpine receives invalid JS and every expression on the page
- * dies.
- */
 
 $alignmentClasses = match ($align) {
     'left' => 'ltr:origin-top-left rtl:origin-top-right start-0',
@@ -31,8 +13,6 @@ $width = match ($width) {
     default => $width,
 };
 
-// Stable id for ARIA wiring (aria-controls ↔ id, aria-labelledby ↔ id).
-// Allows multiple dropdowns on the same page without id collisions.
 $dropdownId = 'dd-' . uniqid();
 @endphp
 

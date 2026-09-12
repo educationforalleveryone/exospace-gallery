@@ -8,13 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
-/**
- * Super-admin: featured exhibitions editor.
- *
- * Curates which galleries appear at the top of /discover.
- * Existing /discover already filters by is_featured — this controller
- * provides the UI to toggle that flag on individual galleries.
- */
 class FeaturedExhibitionsController extends Controller
 {
     public function index(Request $request): View

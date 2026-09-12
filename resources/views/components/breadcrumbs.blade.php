@@ -1,22 +1,7 @@
-{{--
-    Breadcrumb trail (SEO OS Iteration 1).
-
-    Renders a semantic <nav aria-label="Breadcrumb"><ol>…</ol></nav> plus
-    the BreadcrumbList JSON-LD graph. Visible breadcrumbs double as an
-    internal-linking device — every crumb except the last is a real link.
-
-    Usage:
-        @php
-            use App\Support\Seo\Breadcrumb;
-            $crumbs = Breadcrumb::trail([
-                ['Discover', route('discover')],
-                ['Gallery Title'],
-            ]);
-        @endphp
-        <x-breadcrumbs :crumbs="$crumbs" />
---}}
 @php
-    /** @var \App\Support\Seo\Breadcrumb[]|null $crumbs */
+    /**
+ * @var \App\Support\Seo\Breadcrumb[]|null $crumbs
+ */
     $crumbs = $crumbs ?? [];
     $showJsonLd = $showJsonLd ?? true;
 @endphp

@@ -6,13 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * M-19: User feedback model.
- *
- * Stores feedback from the in-app feedback widget. Created by
- * FeedbackController::store(), viewed by super-admins in the
- * feedback admin panel.
- */
 class UserFeedback extends Model
 {
     use HasFactory;

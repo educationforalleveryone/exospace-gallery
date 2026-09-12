@@ -9,26 +9,6 @@ use App\Models\Gallery;
 use App\Models\GalleryImage;
 use Illuminate\Support\Str;
 
-/**
- * Central schema.org builder (SEO OS Iteration 3).
- *
- * ONE place that knows how to turn Exospace entities into structured data.
- * Rules enforced here:
- *
- *  1. Every property maps to a REAL column/relation — no fabricated
- *     reviews, ratings, statistics, prices, or dates, ever.
- *  2. Graphs are plain PHP arrays; encoding happens once in <x-seo>.
- *  3. Entity eligibility (e.g. "gallery actually has artworks") is decided
- *     by the CALLER (quality rules live there); the builder only maps data.
- *
- * Usage:
- *   $schema = app(SchemaBuilder::class);
- *   $graphs = [
- *       $schema->exhibitionEvent($gallery),
- *       $schema->artworkItemList($gallery),
- *   ];
- *   $seo = $seo->with(['jsonLd' => $graphs]);
- */
 class SchemaBuilder
 {
     private function siteName(): string
@@ -41,14 +21,6 @@ class SchemaBuilder
         return rtrim((string) config('app.url'), '/');
     }
 
-    // ── Site-level ───────────────────────────────────────────────────────
-
-    /**
-     * Organization schema for the platform itself. sameAs intentionally
-     * reads from config so social profiles are added in ONE place.
-     *
-     * @return array<string, mixed>
-     */
     public function organization(): array
     {
         $schema = [
@@ -71,13 +43,6 @@ class SchemaBuilder
         return $schema;
     }
 
-    /**
-     * WebSite schema. SearchAction is deliberately OMITTED — the platform
-     * has no site-wide search today; emitting a dead search URL would be
-     * misleading structured data.
-     *
-     * @return array<string, mixed>
-     */
     public function webSite(): array
     {
         return [
@@ -88,13 +53,6 @@ class SchemaBuilder
         ];
     }
 
-    // ── People ───────────────────────────────────────────────────────────
-
-    /**
-     * Person schema from real artist data.
-     *
-     * @return array<string, mixed>
-     */
     public function person(Artist $artist, ?string $profileUrl = null): array
     {
         $schema = [
@@ -129,15 +87,6 @@ class SchemaBuilder
         return $schema;
     }
 
-    // ── Exhibitions ──────────────────────────────────────────────────────
-
-    /**
-     * ExhibitionEvent schema. Only meaningful when the gallery carries
-     * schedule data or content — the caller decides. Galleries without any
-     * dates are better represented as CollectionPage (see collectionPage()).
-     *
-     * @return array<string, mixed>
-     */
     public function exhibitionEvent(Gallery $gallery): array
     {
         $schema = [
@@ -171,12 +120,6 @@ class SchemaBuilder
         return $schema;
     }
 
-    /**
-     * CollectionPage representation of a gallery — used when the gallery
-     * has no schedule dates (a permanent collection, not a dated event).
-     *
-     * @return array<string, mixed>
-     */
     public function collectionPage(Gallery $gallery): array
     {
         $schema = [
@@ -193,14 +136,6 @@ class SchemaBuilder
         return $schema;
     }
 
-    /**
-     * ItemList of the artworks in a gallery. Each ListItem carries the
-     * artwork URL (the artwork landing page) plus a minimal VisualArtwork
-     * item summary from real columns.
-     *
-     * @param  iterable<GalleryImage>  $images
-     * @return array<string, mixed>
-     */
     public function artworkItemList(Gallery $gallery, iterable $images, int $totalCount = 0): array
     {
         $items = [];
@@ -225,13 +160,6 @@ class SchemaBuilder
         ];
     }
 
-    // ── Artworks ─────────────────────────────────────────────────────────
-
-    /**
-     * VisualArtwork schema from real columns.
-     *
-     * @return array<string, mixed>
-     */
     public function visualArtwork(GalleryImage $image, ?Gallery $gallery = null, bool $minimal = false): array
     {
         $schema = [
@@ -239,8 +167,6 @@ class SchemaBuilder
             'name' => $image->title ?: $image->original_name ?: 'Untitled',
         ];
 
-        // Minimal mode (used inside ItemList): no description/context to
-        // keep the JSON-LD payload small on large galleries.
         if (!$minimal) {
             $schema['@context'] = 'https://schema.org';
             if ($image->description) {
@@ -265,9 +191,6 @@ class SchemaBuilder
             $schema['dateCreated'] = (string) $image->year;
         }
         if ($image->dimensions) {
-            // Physical dimensions string ("120 × 80 cm") — schema `size`.
-            // (artworkSurface means the SUPPORT material and was previously
-            // misused for dimensions — audit M6, fixed.)
             $schema['size'] = $image->dimensions;
         }
 
@@ -291,14 +214,6 @@ class SchemaBuilder
         return $schema;
     }
 
-    // ── Hubs ─────────────────────────────────────────────────────────────
-
-    /**
-     * CollectionPage for a hub (discover, artists, venues).
-     *
-     * @param  iterable<Gallery|Artist>|null  $items
-     * @return array<string, mixed>
-     */
     public function hubCollectionPage(string $name, string $url, ?iterable $items = null): array
     {
         $schema = [
@@ -335,9 +250,6 @@ class SchemaBuilder
         return $schema;
     }
 
-    /**
-     * @param  Gallery|Artist  $item
-     */
     private function hubItemUrl($item): string
     {
         if ($item instanceof Gallery) {
@@ -346,8 +258,6 @@ class SchemaBuilder
 
         return url('/artist/' . $item->slug);
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────
 
     private function exhibitionStatus(Gallery $gallery): string
     {

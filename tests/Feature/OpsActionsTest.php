@@ -14,21 +14,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 3 — the action surface.
- *
- * These tests pin the four-layer security model and the execution contract:
- *
- *   1. Auth bar (super-admin + MFA) and throttle surface.
- *   2. Allow-list (unknown action → 404) and kill switch (disabled → 404).
- *   3. Inline password verification — wrong/missing password NEVER executes.
- *   4. Typed confirmation phrase — a mismatch NEVER executes.
- *   5. Execution: restart delegates to the Coolify API (and handles its
- *      failure), webhook replay reuses the existing pipeline, sync reuses
- *      the scheduled sync service.
- *   6. Every attempt is audited (ops.action.executed) and announced through
- *      the existing alerting pipeline.
- */
 class OpsActionsTest extends TestCase
 {
     use RefreshDatabase;
@@ -89,8 +74,6 @@ class OpsActionsTest extends TestCase
         ]);
     }
 
-    // ── Layer 1: auth bar ───────────────────────────────────────────────
-
     public function test_guest_cannot_execute_actions(): void
     {
         $this->post('/ops/actions/app.restart')->assertRedirect('/login');
@@ -107,8 +90,6 @@ class OpsActionsTest extends TestCase
         $this->actingAs($user)->get('/ops/actions')->assertStatus(403);
         $this->actingAs($user)->post('/ops/actions/app.restart')->assertStatus(403);
     }
-
-    // ── Layer 2: allow-list + kill switch ───────────────────────────────
 
     public function test_unknown_action_is_404(): void
     {
@@ -135,8 +116,6 @@ class OpsActionsTest extends TestCase
             ->get(route('ops.actions.confirm', ['action' => 'app.restart', 'app' => $app->id]))
             ->assertStatus(404);
     }
-
-    // ── Layer 3 + 4: password & phrase ──────────────────────────────────
 
     public function test_restart_requires_password(): void
     {
@@ -191,8 +170,6 @@ class OpsActionsTest extends TestCase
             ->assertRedirect(route('ops.actions.index'))
             ->assertSessionHasErrors('action');
     }
-
-    // ── Layer 5: execution ──────────────────────────────────────────────
 
     public function test_restart_executes_via_coolify_and_audits_and_alerts(): void
     {
@@ -380,8 +357,6 @@ class OpsActionsTest extends TestCase
             ->assertRedirect()
             ->assertSessionHas('error');
     }
-
-    // ── The actions hub page ────────────────────────────────────────────
 
     public function test_actions_hub_renders_catalog_webhook_panel_and_history(): void
     {

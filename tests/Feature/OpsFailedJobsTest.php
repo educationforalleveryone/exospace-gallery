@@ -18,31 +18,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 10 — the failed-jobs lifecycle.
- *
- * The queue.failed-jobs diagnostic used to end its guidance with "retry
- * deliberately (php artisan queue:retry from a terminal)" — the last
- * workflow in the platform that pointed at a terminal. This iteration
- * closes it. These tests pin:
- *
- *   1. The BROWSER: /ops/queue is viewer-visible, paginated, filterable,
- *      honest about a missing table, and parses the human job name.
- *   2. The two ACTIONS (queue.retry / queue.forget) through the SAME
- *      four-layer security model as app.restart: allow-list, kill
- *      switch, inline password, typed phrase — plus audit + Slack
- *      announcement + a QUEUE event in the timeline.
- *   3. The AUTHORITATIVE ROW-VERIFICATION contract: success is "the row
- *      is gone", not the artisan exit code — a fake runner that returns
- *      0 without deleting must NOT report success.
- *   4. The TERMINAL GUIDANCE REMOVAL: the diagnostic now points at
- *      /ops/queue, never at a terminal.
- *
- * The real-command tests run against QUEUE_CONNECTION=sync (SyncQueue::
- * pushRaw is a no-op) with payloads that carry no data.command — so
- * Laravel's queue:retry/queue:forget execute their real database paths
- * (failer find → push → forget) without dispatching anything.
- */
 class OpsFailedJobsTest extends TestCase
 {
     use RefreshDatabase;
@@ -58,8 +33,6 @@ class OpsFailedJobsTest extends TestCase
             'ops.actions.enabled' => true,
         ]);
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
 
     private function asMfaSuperAdmin()
     {
@@ -94,11 +67,6 @@ class OpsFailedJobsTest extends TestCase
         ]);
     }
 
-    /**
-     * One failed_jobs row. Payload carries a displayName and NO
-     * data.command — the real queue:retry then never unserializes
-     * anything, and pushRaw on the sync connection is a no-op.
-     */
     private function failedJob(array $overrides = []): array
     {
         $uuid = $overrides['uuid'] ?? 'job-'.uniqid('', false);
@@ -121,15 +89,12 @@ class OpsFailedJobsTest extends TestCase
         return ['uuid' => $uuid];
     }
 
-    /**
-     * A fake ArtisanCommandRunner that records calls and returns a preset
-     * exit code WITHOUT deleting the row — pins the authoritative
-     * row-verification contract.
-     */
     private function fakeRunner(int $exitCode): object
     {
         return new class ($exitCode) extends ArtisanCommandRunner {
-            /** @var list<array{0: string, 1: array}> */
+            /**
+ * @var list<array{0: string, 1: array}>
+ */
             public array $calls = [];
 
             public function __construct(private readonly int $exitCode)
@@ -156,8 +121,6 @@ class OpsFailedJobsTest extends TestCase
 
         return 0;
     }
-
-    // ── 1. The browser page ─────────────────────────────────────────────
 
     public function test_guest_is_redirected_to_login(): void
     {
@@ -399,9 +362,6 @@ class OpsFailedJobsTest extends TestCase
 
     public function test_retry_failure_when_exit_zero_but_row_survives(): void
     {
-        // THE contract test: artisan exit code 0 is NOT trusted — the row
-        // must be gone. (Covers unserializable payloads and every case
-        // where the command reports success without completing.)
         $this->failedJob(['uuid' => 'silent-1']);
         $fake = $this->fakeRunner(0);
         $this->app->instance(ArtisanCommandRunner::class, $fake);
@@ -436,8 +396,6 @@ class OpsFailedJobsTest extends TestCase
 
     public function test_retry_the_word_all_is_treated_as_a_uuid_not_a_bulk_command(): void
     {
-        // queue:retry accepts 'all' as a special id — the action surface
-        // must never let that through as a bulk retry.
         $this->failedJob(['uuid' => 'innocent-1']);
         $fake = $this->fakeRunner(0);
         $this->app->instance(ArtisanCommandRunner::class, $fake);
@@ -479,8 +437,6 @@ class OpsFailedJobsTest extends TestCase
             ])
             ->assertSessionHasErrors('job');
     }
-
-    // ── 3. queue.forget ─────────────────────────────────────────────────
 
     public function test_forget_confirm_page_states_the_permanence(): void
     {

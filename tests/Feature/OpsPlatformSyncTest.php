@@ -11,13 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 1 — Coolify platform sync.
- *
- * The sync is what makes the control plane platform-wide. These tests pin
- * its upsert/idempotency contract and its degradation contract (API down
- * must never crash the scheduler chain — it becomes an observable event).
- */
 class OpsPlatformSyncTest extends TestCase
 {
     use RefreshDatabase;
@@ -36,15 +29,6 @@ class OpsPlatformSyncTest extends TestCase
         ]);
     }
 
-    /**
-     * A STATEFUL fake for a single application whose status the test
-     * mutates between syncs. (Http::fake() stubs are append-only — the
-     * first matching pattern wins — so a second Http::fake() would NOT
-     * replace the first; transitions must be simulated within one fake.)
-     *
-     * @return callable(string): void mutator: set the status the Coolify
-     *                                API will report on the next sync.
-     */
     private function statefulFake(string $uuid, string $initialStatus): callable
     {
         $status = $initialStatus;
@@ -101,8 +85,6 @@ class OpsPlatformSyncTest extends TestCase
 
     public function test_self_application_is_correlated_with_its_coolify_row(): void
     {
-        // The self row is created by the ingestor before sync runs (local
-        // errors arrive first in real life too).
         app(\App\Ops\Services\OpsEventIngestor::class)::selfApplication();
 
         $this->fakeCoolify(applications: [
@@ -210,8 +192,6 @@ class OpsPlatformSyncTest extends TestCase
 
     public function test_unreachable_endpoint_degrades_gracefully(): void
     {
-        // Deployments endpoint 404s (older Coolify version) — the rest of
-        // the sync must still work.
         Http::fake([
             'http://coolify.test/api/v1/applications' => Http::response([
                 ['uuid' => 'app-uuid-2', 'name' => 'project-b', 'status' => 'running:healthy'],

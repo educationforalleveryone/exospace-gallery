@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// Probe the LIVE harness scene: count lights, find fire-glow, sample the
-// stone's lit luminance. Run: node scripts/harness/probe-penthouse-lights.mjs
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';

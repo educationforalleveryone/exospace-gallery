@@ -7,20 +7,6 @@ namespace App\Console\Commands;
 use App\Models\SeoPage;
 use Illuminate\Console\Command;
 
-/**
- * SEO OS (Iteration 5): scaffold a new SEO page (landing or editorial).
- *
- * Creates a DRAFT with a sensible starter block structure. The page is
- * NOT published — publishing is a deliberate human action
- * (update status='published'), which keeps "no unreviewed content goes
- * indexable" enforced by default.
- *
- *   php artisan seo:make-page virtual-galleries --type=landing --title="Virtual Galleries"
- *   php artisan seo:make-page how-to-curate --type=editorial --title="How to Curate"
- *
- * Blocks are edited afterwards (tinker/admin UI) — this command only
- * provides the skeleton.
- */
 class SeoMakePage extends Command
 {
     protected $signature = 'seo:make-page
@@ -69,13 +55,6 @@ class SeoMakePage extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Starter blocks: hero → explanatory text → LIVE exhibitions (the
-     * anti-thin-content block) → CTA. Editors replace copy; the structure
-     * guarantees real-content linkage.
-     *
-     * @return array<int, array<string, mixed>>
-     */
     private function starterBlocks(string $type, string $title): array
     {
         $blocks = [

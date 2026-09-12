@@ -1,8 +1,4 @@
 <?php
-/**
- * ITERATION 7 — migration up/down/up + data round-trip on SQLite.
- * Mirrors the Iteration-6 iter6_migration_check.php pattern.
- */
 require __DIR__ . '/../vendor/autoload.php';
 
 $app = require_once __DIR__ . '/../bootstrap/app.php';

@@ -8,9 +8,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureUserIsSuperAdmin
 {
-    /**
-     * Handle an incoming request.
-     */
     public function handle(Request $request, Closure $next): Response
     {
         // If user is not authenticated or not a super admin, kick them out

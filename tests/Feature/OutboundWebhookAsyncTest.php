@@ -9,30 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 9 — outbound webhook async (queued) dispatch path.
- *
- * Coverage: workstream E1 ships dispatchAsync() — the queued sibling
- * of dispatch(). Same payload + signature path; the Http::post call
- * runs inside a queued job so the actor's request returns immediately.
- * Use for high-volume product events (gallery.published, user.registered)
- * where the actor's request must not be held open by a downstream
- * subscriber. Production sets QUEUE_CONNECTION=redis/database so the
- * job is processed by a worker; phpunit.xml sets QUEUE_CONNECTION=sync
- * so tests get the same retry-then-exhaust path as dispatch().
- *
- * Tests:
- *   - dispatchAsync() fires an HTTP POST to the configured URL when
- *     QUEUE_CONNECTION=sync (phpunit default) — the job runs inline.
- *   - The X-Exospace-Event header matches the event name.
- *   - Silent-skip when no OUTBOUND_WEBHOOK_URL configured — same
- *     behavior as dispatch().
- *   - Body + signature are computed at enqueue time (not dequeue) —
- *     the payload's timestamp reflects when the event happened, not
- *     when the worker picked it up.
- *
- * Run: php artisan test --filter=OutboundWebhookAsyncTest
- */
 class OutboundWebhookAsyncTest extends TestCase
 {
     use RefreshDatabase;

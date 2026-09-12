@@ -1,56 +1,7 @@
 @php
-    /**
-     * Live Preview Panel — partial included in admin/galleries/edit.blade.php
-     *
-     * HOW TO USE:
-     *   Drop this one line anywhere inside the edit page where you want the
-     *   Live Preview panel to appear (typically just below the existing
-     *   "Override venue materials" collapsible, or as its own section):
-     *
-     *       @include('admin.galleries.live-preview-panel', ['gallery' => $gallery])
-     *
-     *   The partial expects $gallery to be the Gallery model (already loaded
-     *   in the edit view). No other variables needed.
-     *
-     * WHAT IT RENDERS:
-     *   - A two-column layout: iframe (left) + control sidebar (right)
-     *   - The iframe loads /admin/galleries/{gallery}/preview
-     *   - The sidebar has 3 control groups:
-     *       Atmosphere  — wall height, fog, ambient/spot intensity, tone mapping
-     *       Materials   — wall/floor roughness, metalness, color
-     *       Post-FX     — bloom strength, vignette darkness
-     *       (Colors     — fog tint only. The BACKGROUND control was retired:
-     *       venue bodies derive from background_color, so overriding it
-     *       recomposes the venue instead of tuning it — the purple-belt
-     *       incident. The venue template owns the background; see
-     *       VenueConfigExporter for the four-layer rationale.)
-     *   - Each control has:
-     *       - Label + live numeric readout
-     *       - Slider (or color picker)
-     *       - Hover hint card (SVG mini-mockup + textual explanation)
-     *       - Reset-to-venue-default button
-     *   - Hidden input #visual_overrides_json holds the JSON blob that gets
-     *     submitted with the form (GalleryController::update parses it).
-     *
-     * The slider values are persisted in the URL hash of the iframe so a
-     * page refresh doesn't lose them, but the curator has to click
-     * "Update Settings" to persist them to the DB.
-     */
     $overrides = $gallery->visualOverridesArray();
     $previewUrl = route('admin.galleries.preview', $gallery);
 
-    // S3 PANEL SCRUB (venue-owned material identity + presentation): the
-    // exporter and the save-side normalizer already ignore/strip these keys,
-    // but the panel's ready handler replays EVERY saved override key into
-    // the running preview via postMessage — without this scrub a legacy
-    // floor/post_fx layer kept re-arming itself in the editor even after
-    // the s3 deploy heal. Scrubbing here means the preview renders the
-    // venue's own declaration and the next "Update Settings" persists the
-    // cleaned column shape. (Same grounds as the s2 atmosphere retirement:
-    // these keys COMPOSE the venue — the post-hotfix residual incident
-    // shipped a white-cube-era floor layer + a stale {bloom:true} through
-    // them and recomposed the night wing's dark stone into a bright
-    // polished plane under a grey glow.)
     if (!empty($overrides['visual_config'])) {
         foreach (array_keys($overrides['visual_config']) as $lpKey) {
             if (\App\Services\VenueConfigExporter::isVenueOwnedKey((string) $lpKey)) {
@@ -65,8 +16,6 @@
     }
     unset($overrides['post_fx']); // legacy sibling bucket — venue-owned presentation
 
-    // Pull venue defaults so we can show them as the "reset target" for each slider.
-    // These come from the venue template's visual_config + material_config.
     $venueDefaults = [
         'wall_height'           => $gallery->venueTemplate?->visual_config['wall_height']           ?? 4,
         'fog_near'              => $gallery->venueTemplate?->visual_config['fog_near']              ?? 10,
@@ -75,9 +24,6 @@
         'ambient_intensity'     => $gallery->venueTemplate?->visual_config['ambient_intensity']     ?? 0.20,
         'spot_intensity'        => $gallery->venueTemplate?->visual_config['spot_intensity']        ?? 0.45,
         'tone_mapping_exposure' => $gallery->venueTemplate?->visual_config['tone_mapping_exposure'] ?? 0.50,
-        // (s3: wall/floor roughness+metalness + bloom/vignette defaults
-        // removed with their sliders — venue-owned material identity and
-        // presentation, no longer panel-tunable.)
     ];
 
     // Current effective value = override ?? venue default
@@ -121,7 +67,6 @@
     {{-- Two-column layout: iframe (left) + controls (right) --}}
     <div class="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
 
-        {{-- ── LEFT: Preview iframe ──────────────────────────────────────── --}}
         <div class="relative bg-black rounded-lg overflow-hidden border border-gray-700" style="aspect-ratio: 16/10; min-height: 400px;">
             <iframe id="live-preview-iframe"
                     src="{{ $previewUrl }}"
@@ -139,22 +84,11 @@
             </div>
         </div>
 
-        {{-- ── RIGHT: Control sidebar ────────────────────────────────────── --}}
         <div class="bg-gray-800/60 rounded-lg border border-gray-700 p-4 space-y-5 overflow-y-auto" style="max-height: 700px;">
 
-            {{-- ── Atmosphere group ──────────────────────────────────────── --}}
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Atmosphere</div>
 
-                {{-- VENUE-OWNED ATMOSPHERE / ARCHITECTURE / RIG (2026-09-06):
-                     the wall-height, ambient, spot, exposure and fog-distance
-                     controls are retired on the same grounds as the
-                     background control below. These keys COMPOSE the venue —
-                     the Dark Museum deployed incident shipped a violet fog +
-                     a stale pre-polish dim rig + open_air through them and
-                     recomposed the night wing into a purple void. They are
-                     now stripped on save and ignored on export; the venue
-                     template is the single authority. --}}
                 <p class="text-[11px] leading-relaxed text-gray-500">
                     Lighting, fog and wall architecture are part of the venue's
                     curated design and are managed with the venue template —
@@ -173,43 +107,16 @@
                 {{-- (retired: fog_far slider — venue-owned atmosphere) --}}
             </div>
 
-            {{-- ── Colors group ──────────────────────────────────────────── --}}
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Colors</div>
-
-                {{-- BACKGROUND + FOG TINT RETIRED (venue-owned atmosphere):
-                     the floor-edge fade, fog ramp and void dome all derive
-                     from background_color, and on a fog-composed venue the
-                     fog tint IS the atmosphere (the deployed "purple belt"
-                     incident; the Dark Museum deployed-screenshot incident
-                     rode a violet fog through this very control). Retired at
-                     every layer: the panel controls are removed, the
-                     controller strips the keys on save, and the exporter
-                     ignores them for legacy rows (heals already-broken
-                     galleries on deploy — no manual reset needed). --}}
 
                 <p class="mt-3 text-[11px] leading-relaxed text-gray-500">
                     The venue's background is part of its curated design and is managed with the venue template.
                 </p>
             </div>
 
-            {{-- ── Materials group ───────────────────────────────────────── --}}
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Materials</div>
-
-                {{-- VENUE-OWNED MATERIAL IDENTITY (s3, 2026-09-06): the four
-                     roughness/metalness sliders are retired on the same
-                     grounds as the atmosphere controls. These values COMPOSE
-                     the venue's surfaces — the post-hotfix residual incident
-                     shipped a white-cube-era floor layer (light colour +
-                     low roughness + metal) through the unguarded material
-                     bucket and recomposed the Dark Museum's declared dark
-                     stone into a bright polished plane, lifted by the rig's
-                     own ambient into the brightest surface in the room.
-                     Stripped on save, ignored on export, scrubbed on panel
-                     load; the venue template is the single authority. The
-                     legitimate lanes (wall/floor material pickers, frames,
-                     audio) remain. --}}
 
                 <p class="text-[11px] leading-relaxed text-gray-500">
                     Surface materials and finishes are part of the venue's
@@ -217,19 +124,8 @@
                 </p>
             </div>
 
-            {{-- ── Post-FX group ─────────────────────────────────────────── --}}
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Post-Processing</div>
-
-                {{-- VENUE-OWNED PRESENTATION (s3, 2026-09-06): the bloom and
-                     vignette sliders are retired. visual_config.post_fx is a
-                     NESTED object the merge replaces WHOLESALE — a stale
-                     {bloom:true} from the pre-restraint era re-arms bloom
-                     and drops the venue's black-blend vignette back to the
-                     stock grey glow (the residual incident's haloed lights
-                     and lifted blacks). Bloom on/off is the venue's
-                     restraint declaration, not a per-gallery knob; owned as
-                     one object at every layer. --}}
 
                 <p class="text-[11px] leading-relaxed text-gray-500">
                     Glow and vignette are part of the venue's curated mood and
@@ -260,24 +156,17 @@ window.openNewTab = function(url, e) { window.open(url, '_blank'); };
     const overrideCountEl = document.getElementById('lp-override-count');
     const resetAllBtn = document.getElementById('lp-reset-all');
 
-    // The current overrides state. Initialised from the hidden input (which
-    // was hydrated from $gallery->visual_overrides by the blade).
     let state = JSON.parse(hiddenInput.value || '{}');
     if (!state.visual_config)   state.visual_config = {};
     if (!state.material_config) state.material_config = {};
     if (!state.post_fx)         state.post_fx = {};
 
-    // Track which controls require an iframe reload vs. which can be patched live.
-    // Set via the data-requires-reload attribute on each slider.
     const structuralKeys = new Set(['wall_height']); // others can be added
 
     let iframeReady = false;
     let pendingReload = false;
 
-    // ── Sync hidden input + override count ──────────────────────────────
     function syncHidden() {
-        // Strip null/empty values so the controller's parseVisualOverrides
-        // can recognise a fully-reset state.
         const clean = {};
         ['visual_config', 'material_config', 'post_fx'].forEach(bucket => {
             const filtered = {};
@@ -334,8 +223,6 @@ window.openNewTab = function(url, e) { window.open(url, '_blank'); };
                 overlay.style.opacity = '0';
                 overlay.style.pointerEvents = 'none';
             }
-            // Apply the current state to the freshly-loaded scene so the
-            // preview reflects saved overrides immediately.
             Object.entries(state.visual_config || {}).forEach(([k, v]) => sendPatch('visual_config', k, v));
             Object.entries(state.material_config || {}).forEach(([k, v]) => sendPatch('material_config', k, v));
             Object.entries(state.post_fx || {}).forEach(([k, v]) => sendPatch('post_fx', k, v));
@@ -372,9 +259,6 @@ window.openNewTab = function(url, e) { window.open(url, '_blank'); };
         let _patchTimer = null;
         ctrl.addEventListener('input', () => {
             const raw = ctrl.value;
-            // Color pickers give "#aabbcc"; the viewer's parseColor accepts
-            // both #aabbcc and 0xaabbcc. Coerce to 0x form so it round-trips
-            // through the JSON column consistently.
             const value = ctrl.type === 'color'
                 ? '0x' + raw.slice(1).toUpperCase()
                 : (ctrl.step && ctrl.step.includes('.') ? parseFloat(raw) : parseInt(raw, 10));
@@ -387,8 +271,6 @@ window.openNewTab = function(url, e) { window.open(url, '_blank'); };
             if (requiresReload) {
                 scheduleReload();
             } else {
-                // Debounce live patches at 80ms so a fast drag doesn't
-                // flood the iframe with postMessages.
                 clearTimeout(_patchTimer);
                 _patchTimer = setTimeout(() => sendPatch(group, key, value), 80);
             }
@@ -396,8 +278,6 @@ window.openNewTab = function(url, e) { window.open(url, '_blank'); };
 
         if (resetBtn) {
             resetBtn.addEventListener('click', () => {
-                // Reset to venue default — set state[key] = null so the
-                // exporter strips it and the venue default takes over.
                 state[group] = state[group] || {};
                 state[group][key] = null;
                 ctrl.value = defaultVal;
@@ -409,11 +289,8 @@ window.openNewTab = function(url, e) { window.open(url, '_blank'); };
         }
     });
 
-    // ── Reset all overrides ─────────────────────────────────────────────
     if (resetAllBtn) {
         resetAllBtn.addEventListener('click', (e) => {
-            // ITERATION-4: native confirm() replaced by the styled kernel dialog
-            // (window.exospaceConfirm) — one confirm mechanism product-wide.
             window.exospaceConfirm(e, 'Reset all visual overrides to the venue defaults? This affects all controls in this panel.').then((ok) => {
                 if (!ok) return;
                 resetOverrides();

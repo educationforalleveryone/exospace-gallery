@@ -16,18 +16,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/**
- * OpsCenter — OpsDiagnosticController (Iteration 3).
- *
- * The diagnostics surface: catalog (grouped by domain), one-click run, and
- * the run result page. READ-ONLY by construction — the engine only executes
- * allow-listed checks; this controller adds no capabilities of its own.
- *
- * Security bar: the /ops route group already enforces auth + verified +
- * super_admin + mfa. Runs are additionally throttled (live API calls and DB
- * probes must not be hammerable) and every run is audited by the engine
- * (AdminAuditLog ops.diagnostic.run).
- */
 class OpsDiagnosticController extends Controller
 {
     public function __construct(
@@ -35,9 +23,6 @@ class OpsDiagnosticController extends Controller
         private readonly OpsSweepStatusService $sweepStatus,
     ) {}
 
-    /**
-     * GET /ops/diagnostics — the catalog + recent runs.
-     */
     public function index(Request $request): View
     {
         $application = $this->resolveApplication($request);
@@ -49,8 +34,6 @@ class OpsDiagnosticController extends Controller
             ->limit(15)
             ->get();
 
-        // Iteration 7: the sweep-cadence panel (self-scoped checks only —
-        // the panel explains the watch, which always targets self).
         try {
             $sweepStatus = $this->sweepStatus->status();
         } catch (\Throwable) {
@@ -67,13 +50,6 @@ class OpsDiagnosticController extends Controller
         ]);
     }
 
-    /**
-     * POST /ops/diagnostics/run — execute one allow-listed diagnostic.
-     *
-     * Accepts:  diagnostic (id), application (id, optional),
-     *           event (id, optional), incident (id, optional)
-     *           — the latter two only annotate provenance.
-     */
     public function run(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -86,8 +62,6 @@ class OpsDiagnosticController extends Controller
         $id = (string) $validated['diagnostic'];
 
         if (! DiagnosticRegistry::has($id)) {
-            // Not in the allow-list — indistinguishable from "does not
-            // exist" on purpose (no capability oracle).
             abort(404, 'Unknown diagnostic.');
         }
 
@@ -109,8 +83,6 @@ class OpsDiagnosticController extends Controller
                 abort(404, 'Unknown event.');
             }
 
-            // The event's application is the natural target when the caller
-            // did not pass one explicitly.
             $application ??= $event->application;
             $source = 'event';
             $sourceId = $event->id;
@@ -138,9 +110,6 @@ class OpsDiagnosticController extends Controller
             ->with('success', 'Diagnostic completed — status: '.$run->statusLabel().'.');
     }
 
-    /**
-     * GET /ops/diagnostics/runs/{run} — the result page.
-     */
     public function show(Request $request, OpsDiagnosticRun $run): View
     {
         $run->load(['application', 'actor']);

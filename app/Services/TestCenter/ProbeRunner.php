@@ -8,15 +8,6 @@ use App\Models\QaTestRun;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 
-/**
- * Executes the safe-read probe strategies (http-smoke / in-process-checks)
- * through their console commands' junit-json contract, converts the payload
- * into JUnit XML, and records an honest run row.
- *
- * Shared by:
- *   - `qa:run smoke` / `qa:run production_health` (strategy dispatch)
- *   - Control Center start buttons (synchronous execution, seconds-long)
- */
 class ProbeRunner
 {
     public function __construct(
@@ -26,11 +17,6 @@ class ProbeRunner
         private readonly JunitParser $parser,
     ) {}
 
-    /**
-     * @param  string $targetEnv one of local|ci|staging|production
-     *
-     * @return array{run:QaTestRun, success:bool}
-     */
     public function execute(string $profileKey, string $targetEnv): array
     {
         $profile = $this->registry->profile($profileKey);

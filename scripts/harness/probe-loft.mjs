@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// LOCAL-ONLY runtime probe: boots the harness for one scenario and evaluates
-// the live scene — asserts no structural piece intersects an artwork volume.
-// Usage: node scripts/harness/probe-loft.mjs [query]
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -75,9 +72,6 @@ const report3 = await page.evaluate(() => {
     };
     const artworks = [];
     s.scene.traverse(o => { if (o.name === 'artwork-canvas') artworks.push(o); });
-    // Columns are MERGED into one mesh (mergeParts → plain BufferGeometry,
-    // no .parameters) — identify structural meshes by world-space AABB size:
-    // tall (≥ 4 m), thin (≤ 0.5 m on both horizontal axes), near a wall.
     const structs = [];
     s.scene.traverse(o => {
         if (!o.isMesh || o.name === 'artwork-canvas' || o.name === 'artwork-frame') return;

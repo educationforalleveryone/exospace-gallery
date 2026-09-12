@@ -7,50 +7,10 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
-/**
- * M-13: Admin impersonation service.
- *
- * Allows a super-admin to "log in as" another user to debug issues from
- * the user's perspective. The original admin's ID is stored in the session
- * so they can restore their own session when done.
- *
- * Security model:
- *   - Only super-admins can start impersonation (enforced by route middleware).
- *   - The impersonated user's session is a FULL session — they see exactly
- *     what the user sees (galleries, billing, profile, etc.).
- *   - A visible banner is shown at the top of every page while impersonating,
- *     with a "Return to admin" button. This prevents the admin from
- *     forgetting they're impersonating.
- *   - Every impersonation start/stop is recorded in AdminAuditLog (TD-19
- *     auto-captures dirty attributes).
- *   - The admin cannot impersonate other super-admins (prevents privilege
- *     escalation via impersonation chains).
- *   - The admin cannot impersonate themselves (no-op).
- *
- * Session keys:
- *   - 'impersonating_admin_id' — the original admin's user ID (set on start,
- *     cleared on stop).
- *
- * SESSION-ITERATION FIX (Iter-10): start() and stop() are the only
- * authentication-state transitions in the app that did NOT rotate the
- * session ID — every other identity change (password login, registration,
- * OAuth callback) already regenerates via the CR-4 session-fixation fixes.
- * Both transitions now call session()->regenerate(), which issues a fresh
- * session ID while PRESERVING the payload (the impersonating_admin_id key
- * and any flash state survive; only the identifier changes). This matches
- * the canonical Laravel practice for switching users within a session.
- */
 class ImpersonationService
 {
     private const SESSION_KEY = 'impersonating_admin_id';
 
-    /**
-     * Start impersonating a user.
-     *
-     * @param  User  $admin   The super-admin initiating the impersonation.
-     * @param  User  $target  The user to impersonate.
-     * @return bool  True if impersonation started, false if not allowed.
-     */
     public function start(User $admin, User $target): bool
     {
         // Cannot impersonate yourself
@@ -74,9 +34,6 @@ class ImpersonationService
         // Log in as the target user
         Auth::login($target);
 
-        // SESSION-ITERATION FIX (Iter-10): rotate the session ID on the
-        // identity transition, same as login/registration/OAuth. The data
-        // (impersonating_admin_id) migrates to the new ID automatically.
         session()->regenerate();
 
         // Audit log
@@ -94,11 +51,6 @@ class ImpersonationService
         return true;
     }
 
-    /**
-     * Stop impersonating and restore the original admin's session.
-     *
-     * @return bool  True if impersonation was stopped, false if not impersonating.
-     */
     public function stop(): bool
     {
         if (! $this->isImpersonating()) {
@@ -124,10 +76,6 @@ class ImpersonationService
         Auth::login($admin);
         session()->forget(self::SESSION_KEY);
 
-        // SESSION-ITERATION FIX (Iter-10): rotate the session ID on the way
-        // back to the admin identity too (same rationale as start()). The
-        // key was captured above and re-login restores the admin; only the
-        // identifier changes.
         session()->regenerate();
 
         // Audit log
@@ -147,17 +95,11 @@ class ImpersonationService
         return true;
     }
 
-    /**
-     * Is the current session impersonating another user?
-     */
     public function isImpersonating(): bool
     {
         return session()->has(self::SESSION_KEY);
     }
 
-    /**
-     * Get the original admin user (if currently impersonating).
-     */
     public function getImpersonatingAdmin(): ?User
     {
         $adminId = session(self::SESSION_KEY);

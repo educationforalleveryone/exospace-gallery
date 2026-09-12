@@ -1,22 +1,3 @@
-{{-- OpsCenter (Iteration 8): the per-application Sentry trend cell for the
-     Applications table — a compact pure-SVG 24-bar sparkline mirroring the
-     conventions of partials/sentry-trend.blade.php (no JS, no npm, no
-     chart library — the discovery audit's "pure Blade UI" rule holds).
-
-     Receives:
-       $trend     the SentryApiClient::trendFor() fail-soft shape
-                  (configured/error/series/total/peak/peak_hour)
-       $mapped    bool — whether the application has a mapping at all
-
-     Rendering contract (mirrors the digest's "omitted is not broken"):
-       unmapped                  → muted dash “not mapped” tooltip (informational)
-       mapped + API unconfigured → muted dash “token not configured” tooltip —
-                                   NOT a zero: silence is not “no errors”
-       configured + error        → honest amber “API error” + title tooltip
-       configured + series       → sparkline + total + peak tooltip
-       configured + zero events  → sparkline renders flat + “0” — a mapped
-                                   project with no errors is a RESULT. --}}
-
 @php
     $trend = $trend ?? [];
     $mapped = (bool) ($mapped ?? false);
@@ -56,18 +37,10 @@
         <span class="text-xs font-mono {{ $total > 0 ? 'text-slate-200' : 'text-slate-500' }}">{{ number_format($total) }}</span>
     </div>
 @elseif(! empty($trend['configured']) && ! empty($trend['error']))
-    {{-- Honest degradation: the mapped project's stats call failed (bad
-         slug, missing scope, rate limit) — one amber word, reason in the
-         tooltip. Silence would read exactly like "no errors". --}}
     <span class="text-xs text-amber-400/90 font-semibold" title="{{ $trend['error'] }}">API error</span>
 @elseif($fetched)
-    {{-- Configured, mapped, no error, but no usable series either — the
-         practical edge; treat as a quiet day rather than a failure. --}}
     <span class="text-xs font-mono text-slate-500">0</span>
 @elseif($mapped)
-    {{-- Mapped, but the API token is not configured: the mapping can be
-         saved ahead of the token, and the cell says so instead of
-         claiming a zero-error day. --}}
     <span class="text-xs text-slate-600" title="Mapped, but SENTRY_API_TOKEN is not configured — no trend until it is set">—</span>
 @else
     <span class="text-xs text-slate-600" title="Map this application to a Sentry project below (super-admin)">—</span>

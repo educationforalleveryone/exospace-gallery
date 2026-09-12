@@ -10,17 +10,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 1 — exception reporting + retention.
- *
- * Exception path: every uncaught exception the framework reports becomes
- * a classified event WITH request context (url, request_id) — while
- * expected 404/validation traffic stays at info severity (a bot hitting
- * random URLs must not paint the platform red).
- *
- * Retention path: auto-resolve stale events, delete old resolved ones,
- * NEVER delete open events.
- */
 class OpsExceptionAndRetentionTest extends TestCase
 {
     use RefreshDatabase;
@@ -45,9 +34,6 @@ class OpsExceptionAndRetentionTest extends TestCase
         try {
             $this->get('_ops-test/boom');
         } catch (\RuntimeException) {
-            // Without exception handling rendered (APP_DEBUG=false in the
-            // test env the handler still reports). Both paths are fine —
-            // what matters is the event below.
         }
 
         // The reportable in bootstrap/app.php recorded it.

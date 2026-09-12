@@ -15,29 +15,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 6 — the operator tier.
- *
- * Iteration 5's level column reserved the design space; this iteration
- * fills it: an 'operator' grant is "viewer + the right to RUN the
- * read-only diagnostics" and NOTHING else. These tests pin:
- *
- *   1. The gate: operators read everything viewers read (unchanged bar:
- *      verified + MFA + active grant).
- *   2. The ROUTE-LEVEL split: operators can POST /ops/diagnostics/run
- *      (the one surface the tier exists for) and NOTHING else — the
- *      Actions hub, credentials, access management and incident
- *      lifecycle 403 at the route level, direct URL or not.
- *   3. Tier independence: each kill switch fail-closes only its own
- *      tier; the other tier and super-admins are untouched.
- *   4. Level changes: viewer → operator → viewer is atomic (revoke +
- *      re-grant, both ledger rows, both audited, one Slack note).
- *   5. UI honesty: operators see RUN buttons + the OPERATOR badge, but
- *      no infrastructure buttons, nav doors or lifecycle controls;
- *      viewers see exactly what they saw in Iteration 5.
- *   6. OpsAccessContext: the view-layer resolver mirrors the middleware
- *      exactly (fail-closed, per-request cached, flushable).
- */
 class OpsOperatorAccessTest extends TestCase
 {
     use RefreshDatabase;
@@ -64,8 +41,6 @@ class OpsOperatorAccessTest extends TestCase
         parent::tearDown();
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────
-
     private function asMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
@@ -79,10 +54,6 @@ class OpsOperatorAccessTest extends TestCase
         ]);
     }
 
-    /**
-     * A regular, verified, MFA-enabled user holding an active grant at
-     * the given level, already MFA-verified in-session.
-     */
     private function asGrantee(string $level, array $userOverrides = [])
     {
         $user = User::factory()->withMfa()->create(array_merge([
@@ -108,8 +79,6 @@ class OpsOperatorAccessTest extends TestCase
         return OpsAccessGrant::query()->active()->where('user_id', $user->id)->first();
     }
 
-    // ── 1. The gate ─────────────────────────────────────────────────────
-
     public function test_operator_reads_everything_the_viewer_reads(): void
     {
         $this->asGrantee(OpsAccessGrant::LEVEL_OPERATOR)->get('/ops')->assertOk();
@@ -121,8 +90,6 @@ class OpsOperatorAccessTest extends TestCase
 
     public function test_operator_without_mfa_is_sent_to_mfa_setup(): void
     {
-        // Same bar as viewers and super-admins — the tier changes WHAT
-        // you can do, never the account-security bar.
         $user = User::factory()->create([ // no withMfa()
             'is_super_admin' => false,
             'email_verified_at' => now(),
@@ -137,13 +104,8 @@ class OpsOperatorAccessTest extends TestCase
         $this->actingAs($user)->get('/ops')->assertRedirect(route('mfa.setup'));
     }
 
-    // ── 2. Route-level split ────────────────────────────────────────────
-
     public function test_operator_can_run_read_only_diagnostics(): void
     {
-        // The one surface the tier exists for. sqlite connectivity is
-        // healthy in the test environment; the run redirects to its
-        // result page.
         $this->asGrantee(OpsAccessGrant::LEVEL_OPERATOR)
             ->post('/ops/diagnostics/run', ['diagnostic' => 'database.connectivity'])
             ->assertRedirect();
@@ -241,21 +203,15 @@ class OpsOperatorAccessTest extends TestCase
             ->post('/ops/diagnostics/run', ['diagnostic' => 'database.connectivity'])
             ->assertRedirect();
 
-        // The audit trail names the actor — delegating the run right
-        // never means delegating away accountability.
         $audit = AdminAuditLog::where('action', 'ops.diagnostic.run')->first();
         $this->assertNotNull($audit);
         $this->assertSame($user->id, $audit->actor_id);
     }
 
-    // ── 3. Kill-switch independence ─────────────────────────────────────
-
     public function test_operator_kill_switch_fail_closes_only_operators(): void
     {
         config(['ops.access.operator_enabled' => false]);
 
-        // Operator: locked out of BOTH surfaces (the read gate treats a
-        // disabled tier as no access; the run gate denies).
         $this->asGrantee(OpsAccessGrant::LEVEL_OPERATOR)->get('/ops')->assertStatus(403);
         $this->asGrantee(OpsAccessGrant::LEVEL_OPERATOR)
             ->post('/ops/diagnostics/run', ['diagnostic' => 'database.connectivity'])
@@ -415,8 +371,6 @@ class OpsOperatorAccessTest extends TestCase
             ->assertSee('value="viewer"', false);
     }
 
-    // ── 5. UI honesty ───────────────────────────────────────────────────
-
     public function test_operator_sees_run_buttons_but_no_infrastructure_or_governance_surfaces(): void
     {
         $response = $this->asGrantee(OpsAccessGrant::LEVEL_OPERATOR)->get('/ops/diagnostics');
@@ -502,8 +456,6 @@ class OpsOperatorAccessTest extends TestCase
             ->assertDontSee('viewer (read-only)', false);
     }
 
-    // ── 6. OpsAccessContext ─────────────────────────────────────────────
-
     public function test_access_context_resolves_levels_and_mirrors_the_middleware(): void
     {
         $superAdmin = User::factory()->withMfa()->create(['is_super_admin' => true]);
@@ -539,8 +491,6 @@ class OpsOperatorAccessTest extends TestCase
         // Prime the cache.
         OpsAccessContext::level($user);
 
-        // Revoking the grant must NOT be visible until the memo flushes
-        // (the middleware re-checks the DB on every request anyway).
         OpsAccessGrant::query()->where('user_id', $user->id)->delete();
         $this->assertSame('operator', OpsAccessContext::level($user));
 

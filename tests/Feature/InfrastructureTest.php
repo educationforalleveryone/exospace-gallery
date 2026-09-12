@@ -2,12 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-006 regression tests for infrastructure fixes.
- *
- * Run: php artisan test --filter=InfrastructureTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\GdprDeletionRequest;
@@ -22,10 +16,6 @@ class InfrastructureTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * ITERATION-1 FIX: Schedule::assertScheduled() does not exist in
-     * Laravel 11/12 (imaginary API). Inspect the scheduler's events.
-     */
     private function assertCommandScheduled(string $needle, string $message = ''): void
     {
         $commands = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
@@ -45,10 +35,6 @@ class InfrastructureTest extends TestCase
 
     public function test_a8_metrics_returns_json(): void
     {
-        // AUDIT-P0-1.5 FIX: /metrics now requires a token. The previous
-        // version of this test hit /metrics without a token and expected 200.
-        // Now the endpoint fails closed (404) when METRICS_TOKEN is empty,
-        // and returns 404 for a wrong/missing token when METRICS_TOKEN is set.
         config(['app.metrics_token' => 'correct-test-token']);
         $response = $this->get('/metrics?token=correct-test-token');
         $response->assertStatus(200);
@@ -71,10 +57,6 @@ class InfrastructureTest extends TestCase
         ]);
     }
 
-    /**
-     * AUDIT-P0-1.5 FIX: When METRICS_TOKEN is empty, /metrics returns 404.
-     * This is the fail-closed default for premium SaaS — no fingerprinting.
-     */
     public function test_audit_p01_5_metrics_fail_closed_when_token_unset(): void
     {
         config(['app.metrics_token' => null]);
@@ -86,10 +68,6 @@ class InfrastructureTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /**
-     * AUDIT-P0-1.5 FIX: When METRICS_TOKEN is set, /metrics requires the
-     * correct token via ?token=. Wrong token → 404. Missing token → 404.
-     */
     public function test_audit_p01_5_metrics_rejects_wrong_token(): void
     {
         config(['app.metrics_token' => 'correct-test-token']);
@@ -177,10 +155,6 @@ class InfrastructureTest extends TestCase
 
     public function test_a1_backup_schedule_exists(): void
     {
-        // ITERATION 7: the spatie backup commands run through the
-        // exospace:backup wrapper so they stamp heartbeats on success
-        // and Slack-alert on failure. The cadence is unchanged
-        // (daily 01:00 db, weekly Sun 01:30 files, daily 02:00 clean).
         $this->assertCommandScheduled('exospace:backup db');
         $this->assertCommandScheduled('exospace:backup files');
         $this->assertCommandScheduled('exospace:backup clean');
@@ -201,9 +175,6 @@ class InfrastructureTest extends TestCase
 
     public function test_a10_operational_alerts_scheduled(): void
     {
-        // A-10 FIX: the operational alert check should be scheduled every 5 minutes
-        // The operational check is a Schedule::call() closure (named via
-        // ->name('operational-alerts')), not a command — match the event name.
         $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events());
         $this->assertTrue(
             $events->contains(fn ($e) => $e->description === 'operational-alerts'),

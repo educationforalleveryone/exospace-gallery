@@ -8,7 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // --- Teams ---
         Schema::create('teams', function (Blueprint $table) {
             $table->id();
             $table->foreignId('owner_id')->constrained('users')->onDelete('cascade');
@@ -52,11 +51,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // ITERATION-1 FIX (consolidated-migration coexistence): on fresh
-        // installs the galleries table (and its team_id column) is owned by
-        // the consolidated migration that runs later in the batch and has
-        // already been rolled back — guard the column removal, and skip the
-        // ALTER entirely when only the table drops remain.
         if (Schema::hasTable('galleries') && Schema::hasColumn('galleries', 'team_id')) {
             Schema::table('galleries', function (Blueprint $table) {
                 $table->dropForeign(['team_id']);

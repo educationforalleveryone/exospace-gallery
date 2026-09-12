@@ -7,39 +7,8 @@ namespace App\Ops\Services;
 use App\Models\ProcessedWebhook;
 use Throwable;
 
-/**
- * OpsCenter — OpsStatusTilesService (Iteration 4).
- *
- * The read-only fact layer behind the overview's Backup and Webhook tiles
- * AND the health score's data-protection component. One source of truth:
- * the tile, the score and (in the case of backups) OpsHealthService all
- * describe the same disks with the same thresholds, so the dashboard can
- * never disagree with itself.
- *
- * Backup freshness mirrors the existing monitors (OperationalAlertService
- * / OpsHealthService): a disk is STALE when its newest zip is older than
- * 26 hours, MISSING when no zip exists at all. Those two states are the
- * reasons backups exist — anything else is green.
- *
- * Webhook status summarizes the 2Checkout IPN ledger (processed_webhooks):
- * a lingering 'failed' row is an unprocessed billing event — a real,
- * answerable problem (the replay action exists precisely for it).
- *
- * Both methods NEVER throw and never write anything: unreadable disks or
- * missing tables degrade to an honest 'unknown' with a reason, exactly
- * like every other OpsCenter reader.
- */
 class OpsStatusTilesService
 {
-    /**
-     * Backup freshness per configured destination disk.
-     *
-     * @return array{
-     *     disks: array<int, array{disk: string, status: string, file_count: int, newest_name: string|null, newest_age_hours: float|null, newest_size: int|null}>,
-     *     status: string,   // healthy|degraded|critical|unknown
-     *     reasons: string[]
-     * }
-     */
     public function backupStatus(): array
     {
         $disks = config('backup.backup.destination.disks', ['local']);
@@ -106,8 +75,6 @@ class OpsStatusTilesService
                     $status = 'critical';
                 }
             } catch (Throwable) {
-                // Unreadable disk: honest unknown for the row, degraded for
-                // the rollup — we cannot claim the backups are fine.
                 $rows[] = [
                     'disk' => (string) $diskName,
                     'status' => 'unreadable',
@@ -137,18 +104,6 @@ class OpsStatusTilesService
         return ['disks' => $rows, 'status' => $status, 'reasons' => $reasons];
     }
 
-    /**
-     * 2Checkout IPN ledger health (the replay targets).
-     *
-     * @return array{
-     *     failed_count: int,
-     *     oldest_failed_age_hours: float|null,
-     *     failed_24h: int,
-     *     processed_24h: int,
-     *     status: string,   // healthy|degraded|critical|unknown
-     *     reasons: string[]
-     * }
-     */
     public function webhookStatus(): array
     {
         $unknown = [

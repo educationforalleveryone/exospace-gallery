@@ -1,17 +1,5 @@
 <?php
 
-/**
- * P3-1: Sentry error tracking configuration.
- *
- * To enable Sentry:
- *   1. Run: composer require sentry/sentry-laravel
- *   2. Set SENTRY_LARAVEL_DSN in your .env
- *   3. Set SENTRY_ENVIRONMENT=production in your .env
- *
- * If the package is not installed or the DSN is empty, Sentry is a no-op.
- * The config file is structured so Laravel doesn't crash if the package
- * isn't installed — the Sentry SDK checks for the DSN at runtime.
- */
 return [
     'dsn' => env('SENTRY_LARAVEL_DSN'),
 

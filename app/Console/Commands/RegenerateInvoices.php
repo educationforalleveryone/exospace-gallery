@@ -9,25 +9,6 @@ use App\Services\InvoiceGenerator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Iteration-002 (audit 2CO-6): Regenerate invoice PDFs.
- *
- * Backfills real PDFs (via dompdf) for invoices that were created before the
- * 2CO-6 fix — i.e. invoices with .html pdf_path. Run this command once after
- * deploying Iteration-002 to convert all existing HTML invoices to PDFs.
- *
- * Usage:
- *   php artisan exospace:regenerate-invoices
- *   php artisan exospace:regenerate-invoices --limit=100
- *   php artisan exospace:regenerate-invoices --force  (regenerate ALL, even .pdf)
- *
- * The command is safe to run multiple times — it only regenerates invoices
- * with .html paths by default (idempotent). Use --force to regenerate all
- * (e.g. after updating the invoice Blade template).
- *
- * The command processes invoices in batches to avoid memory issues on large
- * tables. Default batch size is 100.
- */
 class RegenerateInvoices extends Command
 {
     protected $signature = 'exospace:regenerate-invoices

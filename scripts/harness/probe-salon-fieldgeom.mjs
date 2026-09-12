@@ -1,8 +1,3 @@
-// probe-salon-fieldgeom.mjs — dump the EXACT world geometry of every merged
-// structure mesh (position attribute bounds in LOCAL space + matrixWorld +
-// world AABB) so the phantom-surface question is answered from vertices,
-// not from AABB guesses.
-//   node scripts/harness/probe-salon-fieldgeom.mjs [count]
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';

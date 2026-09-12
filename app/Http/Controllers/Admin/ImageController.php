@@ -22,34 +22,13 @@ class ImageController extends Controller
 
     public function store(Request $request, Gallery $gallery)
     {
-        // (Task H06 / audit H10) — authorize OUTSIDE the try/catch so
-        // abort(403) propagates correctly. Previously the catch swallowed
-        // HttpException and returned 500 with $e->getMessage() leaked to
-        // the client.
-        //
-        // ITERATION-1 P0 SECURITY FIX: was view-level — a team "viewer"
-        // could upload images to team galleries. GalleryPolicy::uploadMedia
-        // requires owner/editor. Matches the gallery-settings permission
-        // model (GalleryEventController already required edit).
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         try {
             $user = auth()->user();
 
-            // ITERATION-1 FIX (entitlement consistency): limits are billed
-            // against the PLAN HOLDER — the team owner for team galleries,
-            // the acting user for personal galleries. Previously the
-            // UPLOADER's plan was checked: a Free-plan editor uploading to
-            // a Studio team owner's gallery was wrongly blocked at 10
-            // images, while the same team owner's own uploads were counted
-            // against a different bucket than the gallery limit — the
-            // same entitlement enforced two different ways.
             $planHolder = $gallery->team_id ? $gallery->team->owner : $user;
 
-            // Plan limit: total images across all of the plan holder's galleries.
-            // (Task H04 / audit H8) — plan-aware error message. Previously
-            // ALL users hitting the limit saw "Upgrade to Pro" — confusing
-            // for Studio users who are already on the top tier.
             if ($planHolder->currentImageCount() >= $planHolder->max_images) {
                 $upgradeTarget = match($planHolder->plan) {
                     'free'    => 'Pro',
@@ -74,10 +53,6 @@ class ImageController extends Controller
                 return response()->json($response, 422);
             }
 
-            // Per-gallery safety cap, from the PLAN HOLDER's tier (same
-            // match as config/plans.php — a follow-up iteration should move
-            // this to a single planLimits() source to eliminate the
-            // duplication).
             $perGalleryCap = match($planHolder->plan) {
                 'studio'  => 500,
                 'pro'     => 100,
@@ -121,24 +96,15 @@ class ImageController extends Controller
                 'position_order' => ($gallery->images()->max('position_order') ?? 0) + 1,
             ]);
 
-            // (Task H25) Register with Spatie Media Library for responsive
-            // WebP variants. Non-blocking — if it fails, the legacy `path`
-            // column still serves the JPEG.
             $this->imageService->registerMedia($image, $file);
 
             return response()->json(['success' => true, 'id' => $image->id, 'path' => asset($image->path)]);
 
         } catch (\App\Exceptions\ImageTooLargeException $e) {
-            // P3-12: Pre-decode dimension cap was exceeded. Return a 422 with
-            // a user-friendly message that tells them the actual dimensions
-            // and the limit, so they can resize and retry.
             return response()->json([
                 'error' => $e->getMessage(),
             ], 422);
         } catch (\Exception $e) {
-            // (Task H06 / audit H10) — don't leak $e->getMessage() to the
-            // client. Log the full error internally; return a generic
-            // message to the user.
             Log::error('Image Upload Error: ' . $e->getMessage(), [
                 'file'  => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : 'no file',
                 'trace' => $e->getTraceAsString(),
@@ -149,9 +115,6 @@ class ImageController extends Controller
 
     public function destroy(GalleryImage $image)
     {
-        // (Task H06) — authorize outside try/catch.
-        // ITERATION-1 P0 SECURITY FIX: was view-level — a team "viewer"
-        // could delete artworks from team galleries. Editor only.
         $this->authorizeGalleryAccess($image->gallery, requireEdit: true);
 
         try {
@@ -164,16 +127,6 @@ class ImageController extends Controller
         }
     }
 
-    /**
-     * Bulk delete images.
-     *
-     * (Task H06 / audit H37) — rewritten:
-     *   - Load all images in ONE query (was N+1: findOrFail per image)
-     *   - Group by gallery and authorize per gallery (was per image)
-     *   - Wrap deletes in DB::transaction (was none — partial-failure
-     *     left file deleted but row present or vice versa)
-     *   - HttpException (403) handled separately, not swallowed
-     */
     public function bulkDestroy(Request $request)
     {
         $request->validate([
@@ -187,17 +140,11 @@ class ImageController extends Controller
         // Load all images in one query with their galleries.
         $images = GalleryImage::with('gallery')->whereIn('id', $request->ids)->get()->keyBy('id');
 
-        // Group by gallery so we authorize per gallery (not per image —
-        // avoids N authorization queries for N images in the same gallery).
         $byGallery = $images->groupBy('gallery_id');
 
         foreach ($byGallery as $galleryId => $galleryImages) {
             $gallery = $galleryImages->first()->gallery;
 
-            // Authorize per gallery. If unauthorized, all images in this
-            // gallery are skipped — don't leak which images exist.
-            // ITERATION-1 P0 SECURITY FIX: requireEdit — a team "viewer"
-            // could bulk-delete artworks. Editor/owner only.
             try {
                 $this->authorizeGalleryAccess($gallery, requireEdit: true);
             } catch (HttpException $e) {
@@ -217,19 +164,12 @@ class ImageController extends Controller
                     } catch (\Exception $e) {
                         $errors[] = "Image {$image->id}: " . $e->getMessage();
                         Log::error("Bulk delete error for image {$image->id}: " . $e->getMessage());
-                        // Re-throw to roll back the transaction for this
-                        // gallery's batch — partial deletes within a
-                        // gallery leave the file/row state inconsistent.
                         throw $e;
                     }
                 }
             });
         }
 
-        // AUDIT-P1-4.15: Log bulk image deletion. Single audit entry per
-        // request (not per image) to avoid log flooding. Placed OUTSIDE the
-        // per-gallery DB::transaction calls so the audit entry survives even
-        // if a batch rolls back — critical for forensic visibility.
         AdminAuditLog::record('gallery.images.bulk_deleted', auth()->user(), [
             'gallery_ids'     => $byGallery->keys()->toArray(),
             'image_ids'       => $images->keys()->toArray(),

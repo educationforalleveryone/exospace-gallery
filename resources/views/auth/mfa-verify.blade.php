@@ -10,12 +10,6 @@
     @endif
 
     <div class="card card-pad">
-        {{-- ITERATION-6: one input, two credential kinds. The TOTP code is
-             the primary path; users who lost their device can switch the
-             form to a 10-character backup code. The input previously had
-             maxlength="6" + pattern="\d{6}", which made a backup code
-             IMPOSSIBLE to type — the recovery path existed in the
-             controller but was unreachable through the UI. --}}
         <div x-data="{ backup: {{ $errors->has('code') && strlen(trim(old('code', ''))) > 6 ? 'true' : 'false' }} }">
             <form method="POST" action="{{ route('mfa.verify') }}" data-busy data-busy-label="Verifying…">
                 @csrf

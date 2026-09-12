@@ -23,7 +23,6 @@ class DashboardController extends Controller
         private readonly FlakyDetector $flaky,
     ) {}
 
-    /** GET /control-center — status wall: version, latest runs, readiness teaser. */
     public function overview(): View
     {
         $profiles = [];
@@ -59,7 +58,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    /** GET /control-center/flaky — reliability board. */
     public function flaky(): View
     {
         return view('control-center.flaky', [
@@ -68,7 +66,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    /** GET /control-center/runs?profile=&status= — history with filters. */
     public function runs(): View
     {
         $query = QaTestRun::query()->orderByDesc('id');
@@ -86,7 +83,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    /** GET /control-center/runs/{run} — full detail incl. failures. */
     public function run(QaTestRun $run): View
     {
         $failures = $run->cases()->whereIn('status', ['failed', 'error', 'timed_out'])
@@ -119,7 +115,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    /** GET /control-center/runs/{run}/artifact — stream stored JUnit XML. */
     public function artifact(QaTestRun $run): Response
     {
         $rel = $this->artifactRelPath($run);

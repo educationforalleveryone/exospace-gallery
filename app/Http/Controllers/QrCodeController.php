@@ -11,32 +11,12 @@ use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * Generates a QR code PNG for a gallery's public URL.
- *
- * Route: GET /gallery/{slug}/qr
- *
- * Useful for curators who print QR codes on physical signage at in-person
- * openings — visitors scan to enter the 3D exhibition on their phones.
- *
- * Two output formats:
- *   - Default: PNG (300×300, prints crisply on posters)
- *   - ?format=svg: SVG (scalable, smaller file, ideal for print design)
- *
- * Requires the `endroid/qr-code` composer package:
- *
- *   composer require endroid/qr-code
- *
- * Cached for 24 hours per slug+format.
- */
 class QrCodeController extends Controller
 {
     public function show(string $slug): Response
     {
         $gallery = Gallery::where('slug', $slug)->firstOrFail();
 
-        // ITERATION-1 FIX (unpublished content leak): don't mint share QR
-        // codes for unpublished galleries — same policy as the OG endpoint.
         if (! $gallery->is_active) {
             abort(404);
         }

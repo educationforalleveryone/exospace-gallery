@@ -9,8 +9,6 @@
 
     <!-- Custom Premium Styles -->
     <style>
-        /* Dropzone Drag Hover State — ITERATION-7: rgba/hex now brand-500
-           (was the retired purple-500 #a855f7). */
         .dropzone.dz-drag-hover {
             border-color: #8b5cf6 !important;
             background: rgba(139, 92, 246, 0.05) !important;
@@ -36,16 +34,6 @@
         .gallery-card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        /* Custom checkbox styling — ITERATION-7: rule removed. Dead since
-           iteration 4 migrated every checkbox to the kit `.checkbox-base`
-           (the old rule also hardcoded the retired pre-iteration-1 brand
-           hex #9333ea). */
-
-        /* Toast notifications — ITERATION-3: the page-local `.toast-item`
-           system (green/red/indigo pills, top-right, z-index 9999) was removed.
-           The kit `window.toast()` from the x-toast component is used instead —
-           same call signature, one visual language, correct stacking tier. */
 
         /* Venue card styles */
         .venue-card-inner {
@@ -116,8 +104,7 @@
         }
         .venue-plan-badge {
             display: inline-block;
-            font-size: 0.75rem; /* 12px text floor (ITERATION-7; was 9px —
-                                   recipe unified with galleries/create) */
+            font-size: 0.75rem;
             font-weight: 700;
             letter-spacing: 0.06em;
             padding: 2px 7px;
@@ -128,9 +115,6 @@
         .venue-plan-badge-free    { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
         .venue-plan-badge-pro     { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.4); }
         .venue-plan-badge-studio  { background: rgba(245,158,11,0.12); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
-        /* Iteration 1 "The Rehearsal" (P1.1) — walkable preview affordance.
-           Opens the venue's sample exhibition in a new tab WITHOUT changing
-           the selection (the anchor stops click propagation in JS — CSP-safe). */
         .venue-walkthrough {
             display: inline-flex;
             align-items: center;
@@ -173,9 +157,6 @@
     }
     #reorder-save-bar .save-btn,
     #reorder-save-bar .discard-btn {
-        /* ITERATION-7: button styling moved to the kit (.btn / .btn-primary /
-           .btn-secondary on the buttons themselves). Class names kept as the
-           JS hook targets (bar.querySelector('.save-btn')). */
     }
 
     /* Drag handle cursor on image cards */
@@ -221,11 +202,6 @@
                 @endif
             </div>
 
-            {{-- ── ITERATION-2: Publish status bar (the publish moment) ────────
-                 Draft → amber banner + Publish button (needs ≥1 artwork).
-                 Live  → green banner + public link + Unpublish.
-                 Placed ABOVE the settings form so publish state is the
-                 first thing the curator sees, matching its product weight. --}}
             @php
                 $imageCount  = $gallery->images()->count();
                 $publicUrl   = $gallery->custom_domain
@@ -315,9 +291,6 @@
                             <textarea name="description" id="edit-description" rows="3" class="input-base mt-1">{{ old('description', $gallery->description) }}</textarea>
                         </div>
 
-                        {{-- SEO OS (Iteration 6): curator-facing SEO overrides.
-                             Leave blank to use the automatic titles/descriptions
-                             generated from the gallery's real content. --}}
                         <div class="mb-4">
                             <label for="edit-seo-title" class="label-text mb-1.5">
                                 SEO title <span class="text-gray-500 font-normal">(optional — auto-generated when empty)</span>
@@ -345,7 +318,6 @@
                     <input type="hidden" name="room_layout"       id="edit_room_layout"       value="{{ old('room_layout', $gallery->room_layout ?? 'square') }}">
                     <input type="hidden" name="venue_template_id" id="edit_venue_template_id" value="{{ old('venue_template_id', $gallery->venue_template_id) }}">
 
-                    {{-- ── Venue Picker ──────────────────────────── --}}
                     <div class="mb-5">
                         <h3 class="block text-sm font-medium text-gray-400 mb-3">Venue</h3>
                         @php
@@ -369,10 +341,6 @@
                                 @php
                                     $accessible = $venue->isAccessibleBy(auth()->user());
                                     $isSelected = $gallery->venue_template_id == $venue->id;
-                                    // Iteration 0 (roadmap P0.2 — picker truth):
-                                    // one thumbnail pipeline (DB upload → static
-                                    // convention → styled initials fallback; the
-                                    // literal "??" fallback is unreachable).
                                     $thumbUrl = $venue->thumbnail_url ?: ('/assets/thumbnails/' . $venue->slug . '.jpg');
                                     $atm = $venueAtmospheres[$venue->slug] ?? [
                                         'bg'     => 'linear-gradient(135deg,#1a1a2e 0%,#101020 100%)',
@@ -409,13 +377,6 @@
                                         @endif
 
                                         <div class="venue-preview" style="background: {{ $atm['bg'] }};">
-                                            {{-- data-onerror-hide reveals the styled fallback
-                                                 beneath if no thumbnail file exists. An inline
-                                                 onerror="" attribute is blocked by CSP (event-handler
-                                                 attributes aren't covered by the script nonce) — the
-                                                 layout's document-level capturing 'error' listener
-                                                 (layouts/app.blade.php) handles [data-onerror-hide]
-                                                 instead. --}}
                                             <img src="{{ $thumbUrl }}"
                                                  alt="{{ $venue->name }}"
                                                  class="venue-thumb-img"
@@ -432,9 +393,6 @@
                                             <div style="font-size:12px;color:#6b7280;margin-top:2px;">{{ $venue->capacityLabel() }}</div>
                                             <span class="venue-plan-badge {{ $badgeClass }}">{{ ucfirst($venue->plan_required) }}</span>
 
-                                            {{-- Iteration 1 "The Rehearsal" (P1.1): walk the venue
-                                                 before switching to it — the chooser test. Opens in a
-                                                 new tab; click never changes the selected venue. --}}
                                             @featureFlag('venue_previews')
                                             <a href="{{ route('venues.preview', $venue->slug) }}" target="_blank" rel="noopener"
                                                class="venue-walkthrough" data-walkthrough-link
@@ -460,18 +418,6 @@
                         </div>
                     </div>
 
-                    {{-- ── Exhibition overrides (collapsed) ──────────
-                         s4 control taxonomy: this section holds ONLY the
-                         legitimate exhibition lanes — surface family, floor
-                         family, frame finish. Lighting is NOT here: for a
-                         venue-managed gallery the lighting preset resolves
-                         through the VENUE (VenueConfigExporter::
-                         presetForGallery), so a per-gallery "Lighting"
-                         select was a control that silently did nothing to
-                         the room's rig and could never again pick the
-                         venue's sky (the Dark Museum incident channel).
-                         The room's light is part of the venue's curated
-                         design; super-admins tune it in the Venue Editor. --}}
                     <div x-data="{ open: false }" class="mb-4">
                         <button type="button" @click="open = !open" :aria-expanded="open ? 'true' : 'false'" aria-controls="advanced-overrides"
                                 class="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition border-t border-gray-700/60 pt-3 pb-1 w-full text-left">
@@ -479,19 +425,7 @@
                             Exhibition finishes (walls, floor, frames)
                             <svg class="w-3.5 h-3.5 ml-auto transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </button>
-                        {{-- ITERATION-4: x-cloak + display guard added — the panel
-                             content flashed open for a frame before Alpine init
-                             (its sibling in galleries/create already had this). --}}
                         <div id="advanced-overrides" x-show="open" x-transition x-cloak style="display: none;" class="grid grid-cols-2 gap-3 mt-3">
-                            {{-- LEGITIMATE EXHIBITION LANES (s4 taxonomy) only.
-                                 The old fourth select here — "Lighting" — was
-                                 retired: it wrote the gallery's lighting_preset
-                                 column, which for venue-managed galleries is
-                                 resolved through the venue's own default and
-                                 no longer picks the environment or the rig.
-                                 Keeping it invited "why doesn't this do
-                                 anything?" confusion at best, stale-preset
-                                 sky injection at worst. --}}
                             <div>
                                 <label for="adv_wall" class="block text-xs text-gray-500 mb-1">Wall</label>
                                 <select id="adv_wall" class="input-base">
@@ -524,12 +458,6 @@
                         </div>
                     </div>
 
-                    {{-- ── Live Preview & Template Controls ──────────────────────
-                        Drop-in partial that renders a side-by-side preview iframe
-                        + slider sidebar with per-control hint cards. State is
-                        persisted in #visual_overrides_json, which is parsed by
-                        GalleryController::update() on form submit.
-                    --}}
                     @include('admin.galleries.live-preview-panel', ['gallery' => $gallery])
 
                     <!-- Background Music (Pro Feature) -->
@@ -766,13 +694,6 @@
                         @endif
                     </div>
 
-                    {{-- ============================================================
-                         Round 4: Custom Domain + Branded Entrance Curtain
-                         (Studio-plan only — non-Studio users see an upgrade CTA)
-
-                         ONE @if($isStudio) block containing both features,
-                         then ONE @else for the upgrade CTA, then ONE @endif.
-                         ============================================================ --}}
                     @php
                         $planHolder = $gallery->team_id ? $gallery->team->owner : auth()->user();
                         $isStudio = $planHolder->plan === 'studio';
@@ -800,10 +721,6 @@
                             <p class="text-xs text-emerald-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline break-all">{{ $gallery->custom_domain }}</a> see this gallery.</p>
                             @endif
 
-                            {{-- (Task H63) — DNS verification UI. Shows the TXT
-                                 record the user must add + a "Verify domain" button.
-                                 Wired to the galleries.verify-domain route from
-                                 Iteration 02. --}}
                             @include('admin.galleries._custom-domain-verification')
                         </div>
 
@@ -891,12 +808,6 @@
                 <h3 class="text-lg font-medium text-gray-100 mb-4">Upload Artworks</h3>
 
                 @php
-                    // ITERATION-2 (plan-copy alignment): quota display is
-                    // PLAN-HOLDER based (team galleries bill against the
-                    // team owner — previously showed the acting editor's
-                    // limits) and reflects the real semantics: max_images
-                    // is a TOTAL across all the holder's galleries, not
-                    // a per-gallery cap.
                     $planHolder = $gallery->team_id ? $gallery->team->owner : Auth::user();
                     $imgCount   = $gallery->images()->count();
                     $imgUsed    = $planHolder->currentImageCount();
@@ -1044,12 +955,6 @@
                 @endif
             </div>
 
-            {{-- ── ITERATION-2: Artwork metadata editor modal ───────────────────
-                 Wires the previously ORPHANED ImageMetadataController endpoint
-                 (PUT /admin/galleries/{gallery}/images/{image}/metadata —
-                 routed since Round 4 but called by nothing) to a per-artwork
-                 editor. Populated from the card's data-metadata blob; saved
-                 via fetch, card caption updates in place. --}}
             <div id="metadata-modal" role="dialog" aria-modal="true" aria-labelledby="metadata-modal-title"
                  style="display:none;"
                  class="fixed inset-0 z-[60] items-center justify-center p-4 overflow-y-auto bg-black/75 backdrop-blur-sm">
@@ -1169,30 +1074,7 @@
     <!-- Dropzone & Scripts -->
     
     <script nonce="@nonce">
-        // ITERATION-3: the page-local toast() shadowed window.toast and drew a
-        // second, visually-different toast system (plus its own CSS block and
-        // z-index 9999 container). Removed — toast() calls in this script now
-        // resolve to the kit window.toast() from the x-toast component.
-        // (FIX 2026-08-31: never write a literal x-component tag inside a JS
-        // comment — Blade compiles component tags even there, and a non-
-        // self-closing tag with no closing tag swallowed the rest of this
-        // file as slot content, producing an unclosed shouldRender() if()
-        // and the "syntax error, unexpected end of file, expecting elseif or
-        // else or endif" 500 when opening this page. Mention components in
-        // prose without angle brackets.)
 
-        // ─── Dropzone Config ────────────────────────────────────
-        // FIX (Iter-002): this used to be assigned directly to
-        // `Dropzone.options.imageUploadDropzone`, which threw
-        // "Dropzone is not defined" whenever this script ran before the
-        // async @@vite('admin-vendor.js') module (which sets window.Dropzone)
-        // had finished loading — a plain classic <script> doesn't wait for a
-        // type="module" script to finish. Made this a plain object (no
-        // reference to the Dropzone global) and moved the actual
-        // Dropzone.autoDiscover / instantiation into a ready-check bootstrap
-        // below, which also re-attaches correctly after Turbo navigations
-        // instead of relying on Dropzone's own one-shot DOMContentLoaded
-        // auto-discovery.
         const exospaceDropzoneOptions = {
             paramName: "file",
             maxFilesize: 10,
@@ -1275,12 +1157,6 @@
             }
         };
 
-        // ─── Dropzone bootstrap ───────────────────────────────
-        // Waits for admin-vendor.js to finish loading (window.Dropzone),
-        // then manually attaches to #image-upload-dropzone. Runs on initial
-        // load and on every turbo:load so it also works after navigating to
-        // this page via Turbo (Dropzone's built-in autoDiscover only ever
-        // runs once, on the page's first DOMContentLoaded).
         (function initGalleryDropzone(attemptsLeft) {
             if (typeof Dropzone === 'undefined') {
                 if (attemptsLeft === undefined) attemptsLeft = 30;
@@ -1304,11 +1180,6 @@
             }
         });
 
-        // ── CSP-safe helper functions for data-click / data-input attributes ──
-        // These replace inline onclick="..." / oninput="..." handlers that CSP blocks.
-        // The delegated listener in layouts/app.blade.php dispatches to these.
-        // ITERATION-2 (publish moment): copy the public gallery URL from the
-        // Live status bar. Resolved by the CSP-safe data-click delegator.
         window.copyPublicLink = function(url) {
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(url).then(function() {
@@ -1335,11 +1206,6 @@
             const colorInput = document.querySelector('input[name="curtain_bg_color"]');
             if (colorInput && input.value) colorInput.value = input.value;
         };
-        // ─── ITERATION-2: Artwork metadata editor (orphaned endpoint wired) ──
-        // PUT /admin/galleries/{gallery}/images/{image}/metadata — the
-        // endpoint existed since Round 4 but nothing called it. These
-        // handlers are resolved by the CSP-safe data-click/data-submit
-        // delegators in layouts/app.blade.php.
         const METADATA_FIELDS = ['title', 'description', 'artist_id', 'price', 'currency',
                                  'medium', 'year', 'dimensions', 'edition_size', 'edition_number', 'external_url'];
         const metadataModal = () => document.getElementById('metadata-modal');
@@ -1366,9 +1232,6 @@
         };
 
         window.closeMetadataModal = function() {
-            // Shared helper (app.js): removes scroll lock, pops the modal
-            // stack, restores focus. Backdrop click + Escape + Tab trap are
-            // handled by the global modal system.
             if (metadataModal()) closeModal(metadataModal());
         };
 
@@ -1386,14 +1249,9 @@
                 if (input.type === 'checkbox') {
                     payload.for_sale = input.checked;
                 } else {
-                    // Cleared fields send explicit nulls so the backend
-                    // overwrites the old value — omitting the key would
-                    // silently keep it (partial-update semantics).
                     payload[field] = input.value === '' ? null : input.value;
                 }
             }
-            // Currency always submits so the select's default doesn't stick
-            // when the curator clears the price.
             payload.currency = document.getElementById('metadata-currency').value;
 
             saveBtn.disabled = true;
@@ -1524,7 +1382,6 @@
             if (header) header.textContent = `Current Images (${count})`;
         }
 
-        // ─── Select All / Selection State ──────────────────────
         function toggleSelectAll() {
             const selectAllCheckbox = document.getElementById('select-all-checkbox');
             const imageCheckboxes = document.querySelectorAll('.image-checkbox');
@@ -1630,7 +1487,6 @@
             });
         }
 
-        // ─── AJAX: Upload Audio File ───────────────────────────
         function uploadAudioFile(input) {
             const file = input.files[0];
             if (!file) return;
@@ -1703,7 +1559,6 @@
             });
         }
 
-        // ─── AJAX: Upload Logo File ────────────────────────────
         function uploadLogoFile(input) {
             const file = input.files[0];
             if (!file) return;
@@ -1771,15 +1626,6 @@
                 document.getElementById('logo-upload-error').style.display = 'block';
             });
         }
-        // ─── AJAX form submit — no page navigation so no "leave site" dialog ───
-        // ITERATION-3 CRITICAL FIX: this handler used
-        // document.querySelector('form[action*="galleries"]') — which matches
-        // the FIRST such form in the DOM. Depending on publish state that was
-        // the Unpublish form or this one, so "Update Settings" silently lost
-        // its AJAX flow and Publish/Unpublish were hijacked into a fetch that
-        // followed the redirect, failed res.json() and showed a fake
-        // "Network error" while the action actually succeeded. Scoped to the
-        // settings form id now.
         document.getElementById('gallery-settings-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const form = this;
@@ -1898,13 +1744,6 @@
             showUnsavedModal(href);
         }, true);
 
-        // ─── BUGFIX: SortableJS init + saveOrder/discardOrder (Round 4) ────
-        // FIX (Iter-002): Sortable is loaded async via @@vite('admin-vendor.js').
-        // The old code did a single check and permanently gave up ("Reorder
-        // init skipped") if that module hadn't finished loading yet — which
-        // also meant window.saveOrder/discardOrder never got defined for the
-        // rest of the page's life. Retry for a few seconds instead of
-        // bailing on the first attempt.
         (function initReorder(attemptsLeft) {
             const grid = document.getElementById('gallery-grid');
             if (!grid || typeof Sortable === 'undefined') {
@@ -2008,10 +1847,6 @@
     </script>
 
 <script nonce="@nonce">
-// Iteration 0 (roadmap P0.1 — single source of truth): venue descriptions and
-// accent colors are rendered SERVER-SIDE onto each card as data-description /
-// data-accent from the venue_templates DB row. The old JS maps (which covered
-// only 8 of 11 venues and drifted from the DB) are deleted.
 
 function selectEditVenue(card) {
     if (card.dataset.accessible !== 'true') {
@@ -2036,10 +1871,6 @@ function selectEditVenue(card) {
     document.getElementById('edit_room_layout').value       = card.dataset.layout;
     document.getElementById('edit_venue_template_id').value = card.dataset.venueId;
 
-    // Sync advanced dropdowns to reflect new venue defaults
-    // (s4: no adv_lighting select any more — the preset resolves through
-    // the venue; the hidden edit_lighting_preset input above carries the
-    // venue's default so the column stays consistent.)
     if (document.getElementById('adv_wall')) {
         document.getElementById('adv_wall').value    = card.dataset.wall;
         document.getElementById('adv_floor').value   = card.dataset.floor;
@@ -2071,9 +1902,6 @@ document.querySelectorAll('.edit-venue-card').forEach(card => {
     card.addEventListener('click', () => selectEditVenue(card));
 });
 
-// Iteration 1 "The Rehearsal": "Walk through" opens the venue preview in a
-// new tab WITHOUT changing the selection — stop the click from bubbling to
-// the card's selectEditVenue handler (CSP-safe: addEventListener).
 document.querySelectorAll('[data-walkthrough-link]').forEach(a => {
     a.addEventListener('click', (e) => e.stopPropagation());
 });

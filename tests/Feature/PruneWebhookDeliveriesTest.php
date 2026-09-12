@@ -12,22 +12,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
-/**
- * ITERATION 11 — daily prune of the webhook_deliveries ledger.
- *
- * Coverage: the `webhook-deliveries:prune` artisan command —
- * deletes rows older than the retention window (default 30 days,
- * configurable via OUTBOUND_WEBHOOK_LEDGER_RETENTION_DAYS).
- *
- * Trust bar: the prune is audit-logged as webhook.deliveries_pruned
- * (target = newest surviving row, same convention as
- * RunMonitoredBackup — payload carries rows_deleted + oldest_delivered
- * + retention_days + cutoff). Empty-table case is a no-op with a
- * Log::info line; fresh-install case (table doesn't exist) is a no-op
- * with a friendly info line.
- *
- * Run: php artisan test --filter=PruneWebhookDeliveriesTest
- */
 class PruneWebhookDeliveriesTest extends TestCase
 {
     use RefreshDatabase;
@@ -138,15 +122,6 @@ class PruneWebhookDeliveriesTest extends TestCase
         $sub = $this->makeSubscription();
         $old = $this->makeDelivery($sub, 40);
 
-        // The dry-run path's correctness is verified by the row
-        // NOT being deleted (the delete path is what test_prune_
-        // deletes_rows_older_than_retention_window asserts). The
-        // exit code is asserted via assertSuccessful. The exact
-        // output substring is intentionally NOT asserted — the
-        // PendingCommand expectsOutputToContain mock matching is
-        // brittle under Symfony's doWrite call decomposition (the
-        // formatter can split a single info() call across multiple
-        // doWrite calls, defeating str_contains on partial strings).
         $this->artisan('webhook-deliveries:prune', ['--dry-run' => true])
             ->assertSuccessful();
 
@@ -191,10 +166,6 @@ class PruneWebhookDeliveriesTest extends TestCase
 
     public function test_prune_no_audit_row_when_table_emptied_by_prune(): void
     {
-        // Edge case: every row is older than the retention window —
-        // the prune empties the table. Following the RunMonitoredBackup
-        // precedent, the audit row is skipped with Log::info (no
-        // surviving row to target).
         $sub = $this->makeSubscription();
         $old = $this->makeDelivery($sub, 40);
 
@@ -216,17 +187,11 @@ class PruneWebhookDeliveriesTest extends TestCase
 
     public function test_prune_no_op_when_table_does_not_exist(): void
     {
-        // Fresh install case — the migration hasn't run yet. The
-        // Schema::hasTable guard catches it and the command is a
-        // no-op with a friendly info line.
         Schema::drop('webhook_deliveries');
 
         $this->artisan('webhook-deliveries:prune')
             ->assertSuccessful()
             ->expectsOutputToContain('webhook_deliveries table does not exist yet');
 
-        // Recreate so the tearDown (RefreshDatabase) doesn't choke.
-        // Actually — RefreshDatabase rolls back, so dropping is fine.
-        // No need to recreate.
     }
 }

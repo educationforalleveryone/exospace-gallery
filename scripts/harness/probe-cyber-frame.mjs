@@ -1,5 +1,3 @@
-// Dump artwork world positions + camera state from the live harness scene
-// (framing aid for the eye-level close-reading shot).
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';

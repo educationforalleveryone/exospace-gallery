@@ -2,26 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * ITERATION-3 — Billing hardening tests.
- *
- * Part 1: subscription reconciliation against the 2Checkout API
- * (exospace:reconcile-subscriptions). Webhooks are the only thing keeping
- * local plan state in sync, and they get missed. The job must:
- *   - auto-downgrade paid users whose 2CO subscription is dead AND whose
- *     local paid period has already ended (missed cancellation webhook);
- *   - NOT touch users still inside a locally-paid period;
- *   - NOT act on API failures (conservative skip);
- *   - alert (but never auto-grant) free users holding live references;
- *   - no-op when the API is unconfigured.
- *
- * Part 2: CHARGEBACK_REVERSED no longer grants infinite subscriptions —
- * a reversed chargeback on a SUBSCRIPTION purchase restores a finite
- * period (now + 1 month) instead of plan_expires_at = null.
- *
- * Run: php artisan test --filter=SubscriptionReconciliationTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\AdminAuditLog;
@@ -56,8 +36,6 @@ class SubscriptionReconciliationTest extends TestCase
         ], $attrs));
     }
 
-    // ── Part 1: reconciliation ───────────────────────────────────────────
-
     public function test_dead_subscription_with_expired_local_period_downgrades(): void
     {
         $user = $this->subscribedUser();
@@ -74,8 +52,6 @@ class SubscriptionReconciliationTest extends TestCase
 
     public function test_dead_subscription_inside_paid_period_is_not_downgraded(): void
     {
-        // Customer cancelled at period end: 2CO already flipped the
-        // subscription off, but the user PAID through plan_expires_at.
         $user = $this->subscribedUser(['plan_expires_at' => now()->addDays(10)]);
 
         Http::fake([$this->apiUrl($user) => Http::response(['SubscriptionEnabled' => false])]);
@@ -149,8 +125,6 @@ class SubscriptionReconciliationTest extends TestCase
 
     public function test_free_user_with_live_reference_is_alert_only(): void
     {
-        // Missed payment webhook direction: possible paying customer stuck
-        // on free. NEVER auto-grant — support verifies manually.
         User::factory()->create([
             'plan'            => 'free',
             'subscription_id' => 'SUB-FREE-REF',

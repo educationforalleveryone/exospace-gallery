@@ -10,19 +10,6 @@ use Illuminate\Support\Facades\Hash;
 use PragmaRX\Google2FAQRCode\Google2FA;
 use Tests\TestCase;
 
-/**
- * ITERATION-6 — End-to-end MFA lifecycle tests.
- *
- * Covers the full production lifecycle on top of the replay-protection
- * suite (MfaReplayProtectionTest, untouched): enrollment + confirmation,
- * enabled-state persistence, the login-area challenge (RequireMfa),
- * failure behavior, the intended-destination round trip, the 30-minute
- * session TTL, the user-binding of the verified-session flag, the backup
- * code recovery path THROUGH the accepted input formats, and the
- * self-serve disable flow introduced in this iteration.
- *
- * Run: php artisan test --filter=MfaLifecycleTest
- */
 class MfaLifecycleTest extends TestCase
 {
     use RefreshDatabase;
@@ -36,8 +23,6 @@ class MfaLifecycleTest extends TestCase
         $this->google2fa = new Google2FA;
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
-
     private function user(array $attributes = []): User
     {
         return User::factory()->create(array_merge([
@@ -45,7 +30,6 @@ class MfaLifecycleTest extends TestCase
         ], $attributes));
     }
 
-    /** An MFA-enabled user with 2 plaintext backup codes, TOTP baseline consumed. */
     private function enabledUser(array $attributes = []): User
     {
         $secret = $this->google2fa->generateSecretKey();
@@ -65,8 +49,6 @@ class MfaLifecycleTest extends TestCase
     {
         return $this->google2fa->getCurrentOtp($secret);
     }
-
-    // ── Enrollment / setup ───────────────────────────────────────────────
 
     public function test_setup_page_renders_qr_and_secret_for_a_regular_user(): void
     {
@@ -172,9 +154,6 @@ class MfaLifecycleTest extends TestCase
     {
         $user = $this->user();
 
-        // No 'backup_codes' in the session (page revisited after the flash
-        // aged out) — a regular user must be sent to SETTINGS, never to
-        // /master-control (super-admin-only, would 403).
         $this->actingAs($user)->get('/mfa/backup-codes')
             ->assertRedirect(route('profile.edit'));
     }
@@ -210,8 +189,6 @@ class MfaLifecycleTest extends TestCase
             ->assertRedirect(route('mfa.verify'));
     }
 
-    // ── Login-area challenge (RequireMfa) ────────────────────────────────
-
     public function test_regular_user_without_mfa_passes_gated_routes(): void
     {
         $user = $this->user();
@@ -227,8 +204,6 @@ class MfaLifecycleTest extends TestCase
 
         $response->assertRedirect(route('mfa.verify'));
         $response->assertSessionHas('info');
-        // The challenge must remember the destination (iteration-6: intended
-        // round trip)…
         $this->assertSame(url('/billing'), session('url.intended'));
         // …and must NOT mark the session as verified.
         $this->assertNull(session('mfa_verified'));
@@ -269,8 +244,6 @@ class MfaLifecycleTest extends TestCase
         $user = $this->enabledUser();
         $secret = decrypt($user->google2fa_secret);
 
-        // The helper consumes the current window as the baseline; reset it
-        // so the live code is still "newer".
         $user->forceFill(['google2fa_ts' => 0])->save();
 
         $this->actingAs($user)
@@ -288,10 +261,6 @@ class MfaLifecycleTest extends TestCase
 
     public function test_verified_session_flag_is_bound_to_the_verifying_user(): void
     {
-        // The session flag survives session-ID regeneration (login flows
-        // rotate the ID but keep the data). A DIFFERENT user authenticating
-        // into the same session must not inherit the first user's
-        // MFA-verified state.
         $alice = $this->enabledUser();
         $bob = $this->enabledUser();
 
@@ -300,8 +269,6 @@ class MfaLifecycleTest extends TestCase
             ->post('/mfa/verify', ['code' => $this->currentOtp(decrypt($alice->google2fa_secret))])
             ->assertRedirect();
 
-        // Simulate a re-login into the SAME PHP session: same session
-        // contents, but a different authenticated user.
         $this->actingAs($bob)
             ->withSession($this->app['session.store']->all())
             ->get('/billing')
@@ -312,9 +279,6 @@ class MfaLifecycleTest extends TestCase
     {
         $user = $this->enabledUser();
 
-        // A POST inside the mfa-gated group must bounce to the challenge —
-        // and must NOT record the POST endpoint as the intended destination
-        // (it would 405 on the way back).
         $this->actingAs($user)
             ->post('/billing/downgrade')
             ->assertRedirect(route('mfa.verify'));
@@ -331,8 +295,6 @@ class MfaLifecycleTest extends TestCase
             ->assertSessionHas('status');
     }
 
-    // ── Backup-code recovery path ────────────────────────────────────────
-
     public function test_formatted_backup_code_verifies(): void
     {
         $user = $this->enabledUser();
@@ -346,8 +308,6 @@ class MfaLifecycleTest extends TestCase
 
     public function test_lowercase_backup_code_verifies(): void
     {
-        // Manually typed codes may come out lowercase; hashes are case-
-        // sensitive, so the controller must normalise.
         $user = $this->enabledUser();
 
         $this->actingAs($user)
@@ -383,8 +343,6 @@ class MfaLifecycleTest extends TestCase
             'actor_id' => $user->id,
         ]);
     }
-
-    // ── Disable flow (new in iteration 6) ────────────────────────────────
 
     public function test_disable_requires_password(): void
     {
@@ -454,8 +412,6 @@ class MfaLifecycleTest extends TestCase
 
     public function test_disable_works_while_mfa_session_is_unverified_lost_device_recovery(): void
     {
-        // The whole point of the recovery path: no MFA challenge has been
-        // completed in this session, and the user still gets out.
         $user = $this->enabledUser();
 
         $this->actingAs($user)
@@ -502,12 +458,6 @@ class MfaLifecycleTest extends TestCase
 
     public function test_throttle_buckets_are_isolated_per_endpoint(): void
     {
-        // Iteration-5 V-3 class regression guard: Laravel's numeric
-        // throttle:6,1 keys by IP ALONE unless a prefix is given, so all
-        // numerically throttled routes used to share ONE bucket — failed
-        // verify attempts could lock a user out of the disable/recovery
-        // endpoint within the same minute. Each MFA endpoint now carries
-        // its own prefix; exhausting one must leave the others open.
         $user = $this->enabledUser();
 
         for ($i = 0; $i < 6; $i++) {
@@ -525,8 +475,6 @@ class MfaLifecycleTest extends TestCase
             ->assertRedirect(route('profile.edit'));
     }
 
-    // ── Super-admin enforcement ──────────────────────────────────────────
-
     public function test_super_admin_without_mfa_is_forced_into_setup(): void
     {
         $user = $this->user(['is_super_admin' => true]);
@@ -543,8 +491,6 @@ class MfaLifecycleTest extends TestCase
         $this->actingAs($user)->get('/master-control')
             ->assertRedirect(route('mfa.verify'));
     }
-
-    // ── Secret hygiene ───────────────────────────────────────────────────
 
     public function test_responses_never_leak_the_totp_secret_or_backup_hashes(): void
     {

@@ -1,8 +1,3 @@
-// probe-lake-shots.mjs — single-session Mirror Lake capture: boots the venue
-// once, then teleports the camera through named viewpoints and screenshots
-// each. Fast enough for SwiftShader QA loops.
-//
-//   OUT=shots-lake-before node scripts/harness/probe-lake-shots.mjs [count]
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';

@@ -10,23 +10,6 @@ use App\Ops\Models\OpsIncident;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/**
- * OpsCenter — OpsIncidentController (Iteration 2).
- *
- * The incident surface: index + the timeline detail page, plus the
- * module's FIRST write paths — acknowledge / resolve / reopen.
- *
- * Action security model (deliberate, mirroring Master Control's bars):
- *   - Route group already enforces auth + verified + super_admin + mfa.
- *   - These three actions are non-destructive state changes (they alter
- *     only OpsCenter's own records, never infrastructure), so they follow
- *     the "billing recipients" precedent: super-admin + MFA + audit log +
- *     throttle, WITHOUT password.confirm. When Iteration 3 introduces
- *     actions that touch infrastructure (restart, replay), those get the
- *     password.confirm bar.
- *   - Every action is recorded in AdminAuditLog with the acting user —
- *     the same append-only, PII-hashed ledger the rest of the app uses.
- */
 class OpsIncidentController extends Controller
 {
     public function index(Request $request): View
@@ -66,12 +49,6 @@ class OpsIncidentController extends Controller
         ]);
     }
 
-    /**
-     * POST /ops/incidents/{incident}/acknowledge
-     * "A human has seen this" — stops the re-alert cadence semantics for
-     * the correlation service (acknowledged incidents are still adoptable
-     * but are visually distinguished).
-     */
     public function acknowledge(Request $request, OpsIncident $incident)
     {
         if ($incident->status !== 'open') {
@@ -95,12 +72,6 @@ class OpsIncidentController extends Controller
             ->with('success', 'Incident acknowledged — it stays on the board until resolved.');
     }
 
-    /**
-     * POST /ops/incidents/{incident}/resolve
-     * Operator declares the story over. (Auto-resolution of stale events
-     * is separate: ops:prune-events resolves their events; incidents with
-     * all-resolved members are resolved by the correlation sweep.)
-     */
     public function resolve(Request $request, OpsIncident $incident)
     {
         if ($incident->status === 'resolved') {
@@ -127,11 +98,6 @@ class OpsIncidentController extends Controller
             ->with('success', 'Incident resolved.');
     }
 
-    /**
-     * POST /ops/incidents/{incident}/reopen
-     * The story came back. (Automatic reopen also happens when a new event
-     * correlates into a just-resolved incident within its window.)
-     */
     public function reopen(Request $request, OpsIncident $incident)
     {
         if ($incident->status !== 'resolved') {

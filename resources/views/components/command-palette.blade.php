@@ -1,47 +1,11 @@
 @php
-/**
- * ITERATION-3 (AUDIT-P1-3.2): ⌘K Command Palette component.
- *
- * A Linear/Stripe/Notion-style command palette that lets power users
- * navigate the admin without touching the mouse. Triggered by ⌘K (Mac)
- * or Ctrl+K (Windows/Linux). Also accessible via the "/" key when not
- * in an input field.
- *
- * Features:
- *   - Fuzzy search across commands (navigation + actions)
- *   - Keyboard navigation (ArrowUp/ArrowDown to select, Enter to execute, Esc to close)
- *   - Grouped results (Navigation / Actions / Galleries)
- *   - Dynamic gallery list (loaded from `data-galleries` attribute on body)
- *   - Recently used commands (remembered in localStorage)
- *   - Accessible: role="dialog", aria-modal, aria-labelledby, focus trap
- *   - CSP-safe via `nonce="@nonce"`
- *
- * Usage:
- *   Just include <x-command-palette /> once per layout. The component
- *   registers the ⌘K keyboard listener globally and renders the palette
- *   hidden until triggered.
- *
- * To disable: set FEATURE_COMMAND_PALETTE=false in .env. The component
- * checks the feature flag and renders nothing when disabled.
- */
 
-// Check the feature flag. Default to enabled — the palette is a pure
-// progressive enhancement (doesn't break anything if JS fails).
-// Access pattern: config('feature_flags.flags.{flag}') per the FeatureFlag service.
 $enabled = config('feature_flags.flags.command_palette', true);
 if (! $enabled) {
     return;
 }
 @endphp
 
-{{-- The palette is hidden by default (x-cloak) and shown via Alpine.
-     ITERATION-3 CRITICAL FIX: the old bindings were
-     @keydown.k.window.prevent / @keydown.slash.window.prevent —
-     Alpine applies .prevent BEFORE the expression, so (1) pressing plain
-     "k" anywhere opened the palette AND swallowed the keystroke, and
-     (2) "/" could not be typed into any input on admin pages at all.
-     Now: Cmd/Ctrl+K (the real shortcut), and "/" only preventDefaults
-     when it would actually open the palette (not while typing). --}}
 <div
     x-data="commandPalette()"
     x-init="init()"
@@ -67,8 +31,6 @@ if (! $enabled) {
     ></div>
 
     {{-- Palette panel --}}
-    {{-- data-focus-trap: delegated Tab containment from app.js — the palette
-         manages focus into search itself but never trapped Tab. --}}
     <div
         x-show="isOpen"
         data-focus-trap
@@ -157,15 +119,12 @@ function commandPalette() {
         groups: [],
 
         init() {
-            // Build the command list once. Could be extended to fetch
-            // dynamic commands (galleries, recent items) via fetch().
             this.groups = this.buildGroups();
         },
 
         buildGroups() {
             const groups = [];
 
-            // ── Navigation ────────────────────────────────────────────
             const navIcon = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>';
             const galleryIcon = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h4v16H5a1 1 0 01-1-1V5z M10 4h4v16h-4V4z M15 4h4a1 1 0 011 1v14a1 1 0 01-1 1h-4V4z"/></svg>';
             const artistIcon = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke-width="1.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>';
@@ -196,10 +155,6 @@ function commandPalette() {
 
             // ── Actions (only show on relevant pages) ─────────────────
             const actions = [];
-            // Could be extended with context-aware actions like
-            // "Publish gallery", "Invite team member", "Download invoice".
-            // For now, only navigation is included — actions can be added
-            // in future iterations as pages register them.
             if (actions.length > 0) {
                 groups.push({ label: 'Actions', items: actions });
             }

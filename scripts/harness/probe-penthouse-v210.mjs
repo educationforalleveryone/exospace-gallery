@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// Probe the LIVE penthouse scene: dump ceiling/floor material colors, the
-// light roster, and sample the rendered ceiling luminance.
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';

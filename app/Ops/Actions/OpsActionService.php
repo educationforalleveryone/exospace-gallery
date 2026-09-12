@@ -18,28 +18,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
-/**
- * OpsCenter — OpsActionService (Iteration 3).
- *
- * Executes allow-listed actions after the CONTROLLER has validated the
- * operator's password and typed confirmation phrase. This service is the
- * only code path to Coolify's restart endpoint and the only OpsCenter
- * trigger for the webhook replay pipeline — both reused systems, never
- * duplicated (ADR-6).
- *
- * Every action, success or failure:
- *   - is recorded in AdminAuditLog (ops.action.executed) with actor,
- *     target and outcome;
- *   - is announced through OperationalAlertService (the existing alerting
- *     pipeline — its dedup and severity routing are inherited);
- *   - creates a control-plane EVENT (so restarts/replays appear in
- *     timelines and incident correlation);
- *   - returns a structured result — it NEVER throws to the caller.
- *
- * The kill switch (config ops.actions.enabled, env OPS_ACTIONS_ENABLED,
- * default true) fail-closes the whole surface: execute() refuses and the
- * UI hides every action.
- */
 class OpsActionService
 {
     public function __construct(
@@ -50,21 +28,11 @@ class OpsActionService
         private readonly ArtisanCommandRunner $artisan,
     ) {}
 
-    /**
-     * Is the action surface available at all?
-     */
     public function enabled(): bool
     {
         return (bool) config('ops.actions.enabled', true);
     }
 
-    /**
-     * Execute an allow-listed action.
-     *
-     * @param  string  $actionId  Registry id (app.restart | webhook.replay | platform.sync | queue.retry | queue.forget).
-     * @param  array{application_id?: ?int, webhook_id?: ?int, failed_job_uuid?: ?string}  $target
-     * @return array{ok: bool, message: string, detail?: array<string, mixed>}
-     */
     public function execute(string $actionId, array $target, User $actor): array
     {
         $definition = OpsActionRegistry::get($actionId);
@@ -99,14 +67,6 @@ class OpsActionService
         return $result;
     }
 
-    // ── Actions ─────────────────────────────────────────────────────────
-
-    /**
-     * Restart an application container via the Coolify API.
-     *
-     * @param  array{application_id?: ?int}  $target
-     * @return array{ok: bool, message: string, detail?: array<string, mixed>}
-     */
     private function restartApplication(array $target, User $actor): array
     {
         $application = OpsApplication::find((int) ($target['application_id'] ?? 0));
@@ -139,9 +99,6 @@ class OpsActionService
             ];
         }
 
-        // Observable in the timeline + incident correlation: the operator
-        // intervened. Severity info — this is a deliberate change, not a
-        // fault; the app's own events will tell the rest of the story.
         $this->ingestor->record([
             'source' => 'system',
             'category' => 'INFRASTRUCTURE',
@@ -170,14 +127,6 @@ class OpsActionService
         ];
     }
 
-    /**
-     * Replay one stored billing webhook through the EXISTING pipeline (the
-     * same code path Master Control's Billing Review uses — reused, not
-     * duplicated).
-     *
-     * @param  array{webhook_id?: ?int}  $target
-     * @return array{ok: bool, message: string, detail?: array<string, mixed>}
-     */
     private function replayWebhook(array $target, User $actor): array
     {
         $row = ProcessedWebhook::find((int) ($target['webhook_id'] ?? 0));
@@ -196,9 +145,6 @@ class OpsActionService
             return ['ok' => false, 'message' => 'Webhook #'.$row->id.' has a corrupted stored payload — replay is not possible.'];
         }
 
-        // Identical semantics to SuperAdmin\BillingController::replayWebhook:
-        // synthetic request through the live pipeline, no re-verification,
-        // no dedupe — safety comes from the handlers' idempotency.
         $synthetic = Request::create('/webhooks/2checkout', 'POST', $payload);
 
         $ok = false;
@@ -237,17 +183,6 @@ class OpsActionService
         ];
     }
 
-    /**
-     * Run the scheduled platform sync on demand (same semantics as
-     * ops:sync-platform — idempotent, non-fatal on API failure).
-     *
-     * Unreachability is detected with an explicit reachability probe
-     * (GET /teams): sync() itself degrades every endpoint failure to
-     * empty data, so a dead API would otherwise look like an empty-but-
-     * successful refresh.
-     *
-     * @return array{ok: bool, message: string, detail?: array<string, mixed>}
-     */
     private function platformSync(User $actor): array
     {
         if (! config('ops.platform_sync.enabled')) {
@@ -281,15 +216,6 @@ class OpsActionService
         ];
     }
 
-    // ── Iteration 10 — the queue lifecycle ─────────────────────────────
-
-    /**
-     * Look up ONE failed job by its UUID (the stable public identifier —
-     * numeric ids renumber on table rebuilds; UUIDs are also what
-     * queue:retry itself accepts).
-     *
-     * @return array{id: int, uuid: string, connection: string, queue: string, payload: string, exception: string, failed_at: string}|null
-     */
     private function findFailedJob(?string $uuid): ?array
     {
         if ($uuid === null || $uuid === '' || strlen($uuid) > 64) {
@@ -309,17 +235,10 @@ class OpsActionService
                 'failed_at' => (string) $row->failed_at,
             ];
         } catch (Throwable) {
-            // failed_jobs table missing/unreadable — same answer as "not found",
-            // the caller's message will carry the reasonableness.
             return null;
         }
     }
 
-    /**
-     * The human-facing job name from the payload (displayName), falling
-     * back to the class name, falling back to "unknown" — the raw payload
-     * is JSON with a displayName key in every Laravel-dispatched job.
-     */
     public static function jobName(string $payload): string
     {
         $decoded = json_decode($payload, true);
@@ -337,22 +256,6 @@ class OpsActionService
         return 'Unknown job';
     }
 
-    /**
-     * Retry ONE failed job through Laravel's own queue:retry (the same
-     * command the terminal used to be needed for — reused, not
-     * duplicated). Laravel pushes the payload back onto the job's
-     * original connection and deletes the failed row.
-     *
-     * SUCCESS IS VERIFIED AGAINST THE TABLE, NOT THE EXIT CODE: Laravel's
-     * retry order is push-then-forget, so a row that is GONE afterwards
-     * means the push happened; a row that SURVIVES means it did not —
-     * whatever the exit code says (an unserializable payload or a dead
-     * queue connection both leave the row in place, and the command's
-     * exit code is 0 in several of those cases).
-     *
-     * @param  array{failed_job_uuid?: ?string}  $target
-     * @return array{ok: bool, message: string, detail?: array<string, mixed>}
-     */
     private function retryFailedJob(array $target, User $actor): array
     {
         $uuid = (string) ($target['failed_job_uuid'] ?? '');
@@ -378,8 +281,6 @@ class OpsActionService
             ];
         }
 
-        // Same observability as app.restart: the operator intervened —
-        // QUEUE/info, so the deliberate retry shows in timelines.
         $this->ingestor->record([
             'source' => 'system',
             'category' => 'QUEUE',
@@ -402,16 +303,6 @@ class OpsActionService
         ];
     }
 
-    /**
-     * Forget (permanently delete) ONE failed job through Laravel's own
-     * queue:forget. The row, its payload and its exception trace are
-     * gone — there is no archive.
-     *
-     * Same authoritative row-verification as retry.
-     *
-     * @param  array{failed_job_uuid?: ?string}  $target
-     * @return array{ok: bool, message: string, detail?: array<string, mixed>}
-     */
     private function forgetFailedJob(array $target, User $actor): array
     {
         $uuid = (string) ($target['failed_job_uuid'] ?? '');
@@ -456,20 +347,6 @@ class OpsActionService
         ];
     }
 
-    // ── Recording ───────────────────────────────────────────────────────
-
-    /**
-     * Audit every executed action attempt (append-only ledger, PII-hashed by
-     * AdminAuditLog itself — actor email lands in the payload only as a
-     * hashed value).
-     *
-     * Queue actions (Iteration 10) audit against the control-plane host
-     * application (the fail-soft selfApplication fallback) — failed jobs
-     * are not Eloquent models, and they belong to the platform the control
-     * plane itself runs in. The UUID rides in the message.
-     *
-     * @param  array{application_id?: ?int, webhook_id?: ?int, failed_job_uuid?: ?string}  $target
-     */
     private function audit(string $actionId, array $definition, array $target, User $actor, array $result): void
     {
         try {
@@ -481,19 +358,12 @@ class OpsActionService
                 'risk' => $definition['risk'],
                 'outcome' => $result['ok'] ? 'success' : 'failure',
                 'message' => mb_substr((string) $result['message'], 0, 400),
-                // actor identity comes from Auth::id() inside AdminAuditLog —
-                // no email (or other PII) is added by this payload.
             ]);
         } catch (Throwable) {
             // The audit ledger must never take an action's success path down.
         }
     }
 
-    /**
-     * Announce through the EXISTING alerting pipeline (info severity for
-     * successes, error for failures — both visible in the ops Slack channel;
-     * no dedup key: operator actions are rare and each one matters).
-     */
     private function announce(string $actionId, array $definition, User $actor, array $result): void
     {
         try {
@@ -513,9 +383,6 @@ class OpsActionService
         }
     }
 
-    /**
-     * @param  array{application_id?: ?int, webhook_id?: ?int, failed_job_uuid?: ?string}  $target
-     */
     private function resolveAuditTarget(string $actionId, array $target): ?\Illuminate\Database\Eloquent\Model
     {
         return match ($actionId) {

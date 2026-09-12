@@ -1,8 +1,3 @@
-{{-- OpsCenter (Iteration 4): the three overview tiles — backups, the 2Checkout
-     webhook ledger, and the Sentry bridge. Read-only facts + link-outs to the
-     surfaces that own the actions (Master Control backup tile, OpsCenter
-     Actions hub for replays, Sentry itself for stack traces). --}}
-
 @php
     $chip = [
         'healthy'  => 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50',
@@ -25,7 +20,6 @@
     ];
 @endphp
 
-{{-- ── Backups tile ─────────────────────────────────────────────────────── --}}
 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
     <div class="flex items-center justify-between gap-2 mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Backups</h2>
@@ -67,7 +61,6 @@
     </p>
 </div>
 
-{{-- ── Webhooks tile ────────────────────────────────────────────────────── --}}
 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
     <div class="flex items-center justify-between gap-2 mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Billing Webhooks</h2>
@@ -97,7 +90,6 @@
     </p>
 </div>
 
-{{-- ── Sentry tile ──────────────────────────────────────────────────────── --}}
 <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
     <div class="flex items-center justify-between gap-2 mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Sentry — Unresolved</h2>
@@ -143,9 +135,6 @@
         </ul>
     @endif
 
-    {{-- Iteration 6: the 24-hour error-volume sparkline (pure SVG — no JS,
-         no npm). Renders whenever the trend endpoint answered, including
-         the all-quiet case (a flat baseline is information too). --}}
     @include('ops.partials.sentry-trend')
 
     @if(! empty($sentryTile['configured']))

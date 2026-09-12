@@ -4,30 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * ITERATION 4 — users table scale indexes.
- *
- * The Master Control dashboard (SystemController::index) runs, on every page
- * load: three `WHERE plan = ?` counts, a banned/unverified count pair, and a
- * `ORDER BY created_at DESC` user pagination. None of those predicates had
- * an index (the consolidated users migration only indexed current_team_id /
- * google_id / github_id / trial_ends_at / is_super_admin / acquisition
- * columns) — at 100k+ users each page load becomes a set of full scans.
- *
- * Iteration 4 also caches those counts (Cache::flexible), but indexes are
- * the durable fix: the pagination sort runs on every page load regardless
- * of caching, and cache refreshes hit the same predicates.
- *
- * Uses Schema::getIndexes() (portable across SQLite/MySQL — the Iteration-1
- * lesson: raw SHOW INDEX DDL is MySQL-only and breaks SQLite CI) plus
- * try/catch guards so concurrent deploys / pre-existing indexes never abort
- * the migration. Verified up/down/up on SQLite.
- */
 return new class extends Migration
 {
-    /**
-     * @return list<array{name: string}>
-     */
     private function indexNames(string $table): array
     {
         try {
@@ -56,8 +34,6 @@ return new class extends Migration
                     $table->index($column, $indexName);
                 });
             } catch (\Throwable $e) {
-                // Already present under a different name, or concurrent
-                // deploy raced us — non-fatal for an additive index.
                 report($e);
             }
         }

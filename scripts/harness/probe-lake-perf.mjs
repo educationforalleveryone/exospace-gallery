@@ -1,6 +1,3 @@
-// probe-lake-perf.mjs — console/network hygiene + renderer stats for Mirror
-// Lake on both water paths. 404s for stripped assets (GLBs/HDRIs/audio in the
-// QA sandbox) are expected and reported separately from runtime errors.
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';

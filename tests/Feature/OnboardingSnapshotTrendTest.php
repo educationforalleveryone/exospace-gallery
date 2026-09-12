@@ -11,19 +11,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 5 — TTFE history: onboarding snapshots + trend read model.
- *
- * The weekly report previously existed only as scheduler stdout and one
- * log line; the headline metric had no memory. These tests pin:
- *   1. persistSnapshot() writes truthful rows for a window
- *   2. Re-runs within the capture hour UPDATE (idempotent), never duplicate
- *   3. trend() returns chronological rows for the Master Control chart
- *   4. The weekly command persists all three dashboard windows (7/30/90)
- *      AND delivers the report to the operational alert channel
- *   5. Master Control renders the trend chart (≥2 points) / placeholder (<2)
- *   6. cleanup-stale prunes snapshots older than 2 years
- */
 class OnboardingSnapshotTrendTest extends TestCase
 {
     use RefreshDatabase;
@@ -144,8 +131,6 @@ class OnboardingSnapshotTrendTest extends TestCase
             );
         }
 
-        // The report reached the operational channel — the delivery gap that
-        // made the weekly report invisible is closed.
         Http::assertSent(function ($request) {
             return $request->url() === 'https://hooks.example.test/services/T000/B000/xxx'
                 && str_contains($request->body(), 'Weekly onboarding report')
@@ -184,8 +169,6 @@ class OnboardingSnapshotTrendTest extends TestCase
 
         $response = $this->actingAsMfaSuperAdmin()->get('/master-control');
 
-        // A single point is not a trend — the placeholder explains when the
-        // chart appears instead of rendering a misleading one-point line.
         $response->assertOk()
             ->assertDontSee('id="ttfe-trend-chart"', false)
             ->assertSee('Trend appears after the second weekly snapshot', false);

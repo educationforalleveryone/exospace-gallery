@@ -11,29 +11,6 @@ use App\Ops\Support\LogRedactor;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
-/**
- * OpsCenter — OpsEventIngestor.
- *
- * The SINGLE pipeline every event passes through, regardless of source:
- *
- *     app logs (tap) ──┐
- *     exceptions ──────┤
- *     Coolify sync ────┼──> record() ──> redact ─> classify ─> fingerprint
- *     ingest API ──────┤                                  └─> dedup upsert
- *     health checks ───┘
- *
- * Contracts:
- *   - Redaction happens HERE, closest to persistence. No caller needs to
- *     remember to redact (and forgetting is impossible).
- *   - Dedup by fingerprint: the same error recurring increments counters on
- *     the existing row. A storm of 37 identical DB errors = one row with
- *     occurrence_count=37.
- *   - Reopen semantics: a resolved event that recurs reopens with a fresh
- *     episode (occurrence_count=1) while total_count keeps accumulating.
- *   - NEVER throws to the caller: observability must not take the
- *     application down. Failures are swallowed after being written to
- *     stderr (never Log:: — the log tap would recurse).
- */
 class OpsEventIngestor
 {
     private bool $busy = false;
@@ -43,26 +20,8 @@ class OpsEventIngestor
         private readonly ErrorClassifier $classifier,
     ) {}
 
-    /**
-     * Record an event. Returns the persisted event, or null on failure.
-     *
-     * @param  array  $input  {
-     *                        source:           string  — exception|app_log|coolify|ingest|health|heartbeat|backup|webhook|scheduler|system|sweep
-     *                        category:         ?string — force a category (skips pattern match, still gets causes when known)
-     *                        severity:         string  — observed severity (critical|error|warning|info)
-     *                        title:            ?string — headline; derived when absent
-     *                        message:          ?string — raw detail (redacted here)
-     *                        context:          array   — structured context (redacted here)
-     *                        application_slug: ?string — application identifier (slug/uuid)
-     *                        application_id:   ?int    — direct ops_application_id
-     *                        environment:      ?string
-     *                        occurred_at:      ?\DateTimeInterface
-     *                        }
-     */
     public function record(array $input): ?OpsEvent
     {
-        // Reentrancy guard: the DB error handler could itself log to a
-        // channel that taps back into this ingestor.
         if ($this->busy) {
             return null;
         }
@@ -85,9 +44,6 @@ class OpsEventIngestor
                 $severityIn,
             );
 
-            // A forced category (e.g. DEPLOYMENT from the Coolify sync) wins
-            // over the pattern; the classifier still provides causes when it
-            // matched something useful.
             $forcedCategory = isset($input['category'])
                 && in_array((string) $input['category'], OpsEvent::CATEGORIES, true)
                 ? (string) $input['category']
@@ -135,14 +91,6 @@ class OpsEventIngestor
         }
     }
 
-    /**
-     * Iteration 2: near-real-time correlation for critical events.
-     *
-     * Called by the reportable/ingest call sites AFTER record() returns.
-     * The 5-minute sweep (ops:correlate-incidents) catches everything
-     * else; this path only pulls critical errors into incidents faster.
-     * Guarded + failure-tolerant, so it can never break ingestion.
-     */
     public function correlateCritical(OpsEvent $event): void
     {
         if ($event->severity !== 'critical' || $event->ops_incident_id !== null) {
@@ -156,9 +104,6 @@ class OpsEventIngestor
         }
     }
 
-    /**
-     * Find-or-create the "self" application (the host app: Exospace).
-     */
     public static function selfApplication(): OpsApplication
     {
         $name = (string) config('ops.self.name', 'This Application');
@@ -200,9 +145,6 @@ class OpsEventIngestor
         return $app;
     }
 
-    /**
-     * Find-or-create an application by slug (used by the ingest API).
-     */
     public function resolveOrCreateApplication(string $slug, string $name, ?string $environment = null): OpsApplication
     {
         return OpsApplication::firstOrCreate(
@@ -278,8 +220,6 @@ class OpsEventIngestor
                 ]);
             }
 
-            // Dedup hit: bump counters. If the event was resolved, this
-            // recurrence REOPENS it with a fresh episode.
             $reopening = $event->status === 'resolved' || $event->status === 'acknowledged';
 
             $event->occurrence_count = $reopening ? 1 : $event->occurrence_count + 1;
@@ -292,15 +232,11 @@ class OpsEventIngestor
                 $event->first_seen_at = $now;
             }
 
-            // Severity escalates but never de-escalates during an episode:
-            // if it was ever critical while open, it stays critical.
             $severityRank = OpsEvent::severityRank($severity);
             if ($severityRank > OpsEvent::severityRank($event->severity)) {
                 $event->severity = $severity;
             }
 
-            // Keep the freshest message/context (the newest occurrence is
-            // the most relevant for diagnosis).
             if ($message !== '') {
                 $event->message = $message;
             }
@@ -316,15 +252,6 @@ class OpsEventIngestor
         });
     }
 
-    /**
-     * Stable grouping key: same application + category + normalized title.
-     *
-     * Normalization strips digits, UUIDs and quoted values so that
-     * "Failed for order 12345" and "Failed for order 99999" group together
-     * (they are the same operational problem), while different titles stay
-     * distinct. Message is intentionally NOT part of the key — titles are
-     * classifier-driven and stable; messages carry per-occurrence noise.
-     */
     private function fingerprint(?int $applicationId, string $category, string $title, string $message): string
     {
         $normalized = strtolower($title);

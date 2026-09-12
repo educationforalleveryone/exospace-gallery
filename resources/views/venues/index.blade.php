@@ -1,6 +1,3 @@
-{{--
-    Venue directory (SEO OS Iteration 2) — crawlable hub for venue templates.
---}}
 @extends('layouts.public')
 
 @section('content')

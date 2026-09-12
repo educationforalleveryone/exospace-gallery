@@ -7,12 +7,6 @@
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    <!-- RESET-ITERATION FIX (UX): guard against duplicate submissions —
-         double-clicks burned the route's 5/hour throttle budget and made
-         the broker's 60s per-email throttle look like a broken flow.
-         x-on:submit (not inline onsubmit=) keeps this CSP-safe; mirrors the
-         login/register forms. The page fully reloads on failure
-         (validation redirect) so the state self-resets. -->
     <form method="POST" action="{{ route('password.email') }}"
           x-data="{ submitting: false }"
           x-on:submit="submitting = true">

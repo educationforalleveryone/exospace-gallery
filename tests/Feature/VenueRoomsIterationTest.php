@@ -2,34 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration 3 "ROOMS" regression tests (3D venue roadmap, P1.3).
- *
- * Pins the Room-family identity contract so future changes cannot silently
- * re-introduce the material-swap problem or break the rollback switches:
- *
- *   - Declared structure: zen/penthouse/cyber carry `structure` descriptors
- *     + `structure_pass = 'rooms'`; penthouse adds `glazing_wall`; white-cube
- *     selects its bespoke respect pass with `structure_pass = 'cube'`
- *     (Iteration 6 made structure_pass the single interpreter selector);
- *     the garden declares `sun_shadows` + its own 'garden' pass.
- *     Interpreter selection is opt-in per venue — the config is the only
- *     on-switch (§11.3 rule 2); venues without a pass render no structure.
- *   - Vocabulary ceiling: the descriptor arrays use ONLY the ≤10 primitives
- *     of §10.3 (checked by name against the frozen JS list).
- *   - Copy matrix extension: a venue that declares structure promises its
- *     signature in words; venues without structure must not.
- *   - The migration is a safe, idempotent, UNION-merge (visual + material
- *     config), with exact-match guards on the museum wall texture and the
- *     three re-tightened descriptions; down() removes exactly what up()
- *     added, and only while it still matches.
- *   - The payload carries the structure keys to the viewer + previews.
- *   - DoD rule #7 (hard from Iteration 2 onward): StructureBuilder — the new
- *     interpreter — contains ZERO venue slugs.
- *
- * Run: php artisan test --filter=VenueRoomsIterationTest
- */
-
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -40,15 +12,8 @@ class VenueRoomsIterationTest extends TestCase
 {
     use RefreshDatabase;
 
-    // Zen v2 note: the venue outgrew the descriptor vocabulary — its
-    // framed-bay architecture is procedural (the 'bays' interpreter) and
-    // carries NO structure array. It moved to VenueZenIterationTest pins.
     private const DESCRIPTOR_VENUES = ['luxury-penthouse', 'cyber-gallery'];
     private const ROOM_PASS_VENUES  = ['white-cube', 'luxury-penthouse', 'cyber-gallery'];
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Declared structure — the config contract the interpreter consumes
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_descriptor_venues_declare_rooms_structure(): void
     {
@@ -81,10 +46,6 @@ class VenueRoomsIterationTest extends TestCase
         $penthouse = $this->visualConfig('luxury-penthouse');
         $this->assertTrue($penthouse['glazing_wall'] ?? false, '[luxury-penthouse] must declare the glazing wall (§4.8).');
 
-        // Zen v2 ("The Quiet Procession"): the venue left the descriptor
-        // family for the procedural bays interpreter — no props, no
-        // absolute coordinates (the v1 shoji/alcove/bench descriptors are
-        // gone; see VenueZenIterationTest).
         $zen = $this->visualConfig('zen-gallery');
         $this->assertSame('bays', $zen['structure_pass'] ?? null, '[zen-gallery] selects the framed-bay interpreter.');
         $this->assertArrayNotHasKey('structure', $zen, '[zen-gallery] v2 carries no descriptor props — the bay architecture is procedural.');
@@ -100,8 +61,6 @@ class VenueRoomsIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $config = $this->visualConfig('white-cube');
-        // Iteration 6: 'cube' is the explicit interpreter selector for the
-        // respect pass (was 'rooms' + a JS slug gate pre-consolidation).
         $this->assertSame('cube', $config['structure_pass'] ?? null, '[white-cube] structure_pass selects the respect-pass interpreter.');
         $this->assertArrayNotHasKey('structure', $config, '[white-cube] "clean is the point" — it must NOT carry descriptors (§4.1).');
         $this->assertSame(2.0, (float) ($this->materialConfig('white-cube')['floor_tile_meters'] ?? 0), '[white-cube] declares its floor tile density (§4.1 floor-scale fix).');
@@ -113,9 +72,6 @@ class VenueRoomsIterationTest extends TestCase
 
         $garden = $this->visualConfig('sculpture-garden');
         $this->assertTrue($garden['sun_shadows'] ?? false, '[sculpture-garden] is the only venue allowed sun shadows (§4.10, tier-gated in JS).');
-        // Iteration 6: the garden's bespoke body is config-selected like
-        // every other interpreter — 'garden' is its selector (the JS slug
-        // branch is gone).
         $this->assertSame('garden', $garden['structure_pass'] ?? null, '[sculpture-garden] selects its bespoke interpreter via structure_pass.');
         $this->assertSame(2.0, (float) ($this->materialConfig('sculpture-garden')['floor_tile_meters'] ?? 0));
 
@@ -133,10 +89,6 @@ class VenueRoomsIterationTest extends TestCase
             $this->assertArrayNotHasKey('glazing_wall', $config, "[{$slug}] must not declare a glazing wall.");
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The vocabulary ceiling (§10.3: ≤10 primitives, closed set)
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_structure_descriptors_use_only_the_declared_vocabulary(): void
     {
@@ -157,10 +109,6 @@ class VenueRoomsIterationTest extends TestCase
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Copy matrix extension — structure in render ⇔ structure in words
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_descriptor_venues_copy_names_their_signature(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -179,10 +127,6 @@ class VenueRoomsIterationTest extends TestCase
         $this->assertMatchesRegularExpression('/floor/i', $cyber, 'Cyber copy must promise the floor light grid.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The migration — union merge, guarded fields, idempotent, reversible
-    // ─────────────────────────────────────────────────────────────────────
-
     private function roomsMigration(): object
     {
         return require database_path('migrations/2026_09_01_000003_rooms_structure_pass.php');
@@ -192,8 +136,6 @@ class VenueRoomsIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // A super-admin has already tuned zen-gallery: their structure array,
-        // their background colour and their description must all survive.
         DB::table('venue_templates')->where('slug', 'zen-gallery')->update([
             'visual_config' => json_encode([
                 'background_color' => '0x223344',
@@ -236,8 +178,6 @@ class VenueRoomsIterationTest extends TestCase
         $migration = $this->roomsMigration();
 
         $migration->up();
-        // Admin replaces the cyber structure AFTER the pass (real rollback
-        // scenario: an operator tunes the venue, then rolls the migration back).
         DB::table('venue_templates')->where('slug', 'cyber-gallery')->update([
             'visual_config' => json_encode(array_merge($this->visualConfig('cyber-gallery'), [
                 'structure_pass' => 'rooms-v2',
@@ -266,10 +206,6 @@ class VenueRoomsIterationTest extends TestCase
             '[zen-gallery] keeps its v2 bays selector (the rooms migration adds only where absent).');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The client payload — structure keys must reach the viewer + previews
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_preview_payload_carries_the_structure_keys(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -290,10 +226,6 @@ class VenueRoomsIterationTest extends TestCase
         $this->assertArrayNotHasKey('structure', $wcConfig['visual_config']);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // DoD rule #7: the new interpreter stays slug-free
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_structure_builder_contains_zero_venue_slugs(): void
     {
         $slugs = [
@@ -311,8 +243,6 @@ class VenueRoomsIterationTest extends TestCase
             );
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
 
     private function visualConfig(string $slug): array
     {

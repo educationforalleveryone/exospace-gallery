@@ -1,28 +1,3 @@
-{{--
-    SEO head component v2 (SEO Operating System, Iteration 1).
-
-    Renders the full meta layer from a SeoData value object when given one:
-
-        @php $seo = app(\App\Support\Seo\SeoManager::class)->forGallery($gallery); @endphp
-        <x-seo :seo="$seo" />
-
-    Legacy string-props mode still works (public pages pass plain strings):
-
-        <x-seo title="..." description="..." canonical-url="..." />
-
-    New capabilities in v2 (all optional):
-      - robots directive emission (noindex handling)
-      - og:image dimensions + type + alt
-      - og:locale
-      - rel=prev/next for paginated sequences
-      - JSON-LD graphs carried on the SeoData object
-
-    Canonical policy: when no canonical is provided the component does NOT
-    fall back to url()->current() anymore (that produced query-string
-    self-canonicals — audit C4). It falls back to CanonicalUrl::clean() of
-    the current URL so tracking params are always stripped, and paginated
-    listings pass an explicit canonical.
---}}
 @props([
     'seo' => null,
     'title' => null,
@@ -69,12 +44,6 @@
         $locale      = $data->locale;
         $jsonLd      = $data->jsonLd;
     } else {
-        // Legacy string-props mode.
-        //
-        // ITERATION-1 FIX: `?:` on an UNDEFINED variable raises a warning
-        // (promoted to an exception in tests) — when callers render the
-        // component without an explicit canonical, every page 500'd in
-        // this mode. isset() guards first, then the empty-string fallback.
         $title       = $title ?? $siteName . ' — Immersive 3D Art Galleries';
         $description = $description ?? config('seo.default_description');
         $canonical   = isset($canonicalUrl) && $canonicalUrl !== ''

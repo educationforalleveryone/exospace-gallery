@@ -28,9 +28,6 @@
             <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)" required autocomplete="username" />
             <x-input-error class="mt-2" :messages="$errors->get('email')" />
 
-            {{-- ITERATION-7: set expectations for the email-change lifecycle —
-                 a changed address starts unverified and a confirmation link is
-                 sent to it (the old address also receives a security notice). --}}
             <p class="mt-2 text-xs text-gray-500">
                 {{ __('Changing your email address requires re-verifying the new address.') }}
             </p>
@@ -54,12 +51,6 @@
             @endif
         </div>
 
-        {{-- ITERATION-7: identity confirmation for the email change — the same
-             current-password bar the app already applies to account deletion
-             and MFA disable. Server-side the rule is conditional (required
-             only when the email is actually changing), so name-only edits
-             stay one-step; the field is always visible so the form works
-             identically with JavaScript disabled. --}}
         <div>
             <x-input-label for="confirm_email_password" :value="__('Current Password')" />
             <x-text-input
@@ -78,8 +69,6 @@
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
 
-            {{-- ITERATION-3: the transient "Saved." pill was removed — the
-                 layout toast announces profile-updated (humanized) once. --}}
         </div>
     </form>
 </section>

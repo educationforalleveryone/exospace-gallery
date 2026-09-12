@@ -3,58 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * JAPANESE ZEN GALLERY DEEPENING — v1.0.0 → v2.0.0 ("The Quiet Procession")
- * for the venue row (slug: zen-gallery).
- *
- * WHAT THE v1.0.0 ROW WAS (the design brief's named failure mode): "a normal
- * gallery with Japanese decorations" — a pre-polish rig (exposure 0.55,
- * ambient 0.22, spot 0.45, fill 0.14: the measured ~10× too dim profile under
- * r155+ physical units), shoji/tokonoma/bench props at ABSOLUTE coordinates
- * (they broke on every layout change), a rotunda default the bay rhythm can
- * never serve, no post_fx declaration (runtime default bloom), no placement
- * curation, and an 'studio' environment declaration that gave a sealed room a
- * reflection source it never rendered.
- *
- * THIS MIGRATION (DB side only — the bay architecture ships in the JS bundle
- * as the generic structure_pass 'bays' interpreter):
- *   visual_config   : the procession rig (exposure 0.95, warm ambient 0.5,
- *                     spot 2.2, fill 1.3), warm-paper atmosphere (background
- *                     /fog 0xeee7d8, 18→60), ceiling 0xe9e2d0 at 3.6 m,
- *                     artwork legibility (base 0.25, pool 10), hemisphere
- *                     0.1, environment 'none' + env_intensity 0 (declared
- *                     absence — no sky can leak into the venue), sumi-ink
- *                     frame_override, structure_pass 'bays' + the bays
- *                     proportion block, placement curation (generous /
- *                     focal front / pairing), post-fx restraint.
- *   material_config : texture_tint authority + warm limewash wall 0xe6dfcf,
- *                     pale cedar floor 0xa98d64 at tatami tile scale (1.8).
- *   default_settings: plaster/wood finishes, coherent sumi-ink frame start,
- *                     square layout default.
- *   supported_layouts: square / corridor / l-shape (rotunda dropped — the
- *                     procession is linear; layoutForGallery clamps legacy
- *                     rotunda rows to the venue default automatically).
- *   description     : verifiable copy for the rendered identity.
- *
- * GUARDING (same contract as the white-cube / loft / museum migrations):
- * every rewrite fires ONLY while the stored value still equals the
- * previously seeded v1.0.0 value (strings strictly, numbers numerically).
- * The v1 structure descriptor array (the props) is removed only under the
- * three-way v1 baseline guard (version 1.0.0 + structure_pass 'rooms' + v1
- * description) — a hand-tuned row keeps its descriptors. Absent keys are
- * added only when missing. Idempotent; down() reverses each rewrite under
- * the same exact-match guard.
- *
- * NOTE: paired with the seeder (fresh-install baseline). Version stamps
- * like the museum deepening (guarded 1.0.0 → 2.0.0).
- */
 return new class extends Migration
 {
-    /**
-     * Exact-match guard: strings strictly, numbers numerically (null never
-     * matches). Keeps an admin's custom value from ever matching the seeded
-     * "from" value the rewrite is guarded on.
-     */
     private function guardedEquals($current, $from): bool
     {
         if ($current === null) {
@@ -78,7 +28,6 @@ return new class extends Migration
             return; // venue removed by the operator — respect that
         }
 
-        // ── visual_config ────────────────────────────────────────────────
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
@@ -146,15 +95,10 @@ return new class extends Migration
             ];
         }
 
-        // frame_override: v1 stored NULL (absent override). Add the sumi-ink
-        // declaration only while it is still null/absent.
         if (!array_key_exists('frame_override', $vc) || $vc['frame_override'] === null) {
             $vc['frame_override'] = 'black';
         }
 
-        // structure_pass 'rooms' → 'bays' + the v1 props removed. The
-        // descriptor array goes ONLY under the three-way baseline guard —
-        // a hand-tuned row keeps its descriptors (and its pass).
         $v1Description = 'A quiet, focused space: shoji screens, a tokonoma alcove and warm wood, tuned for close, calm looking.';
         if (($vc['structure_pass'] ?? null) === 'rooms'
             && $this->guardedEquals($row->version, '1.0.0')
@@ -167,7 +111,6 @@ return new class extends Migration
             ->where('id', $row->id)
             ->update(['visual_config' => json_encode($vc)]);
 
-        // ── material_config ──────────────────────────────────────────────
         $mc = json_decode((string) $row->material_config, true) ?: [];
 
         if ($this->guardedEquals($mc['wall_roughness'] ?? null, 0.7)) {
@@ -232,7 +175,6 @@ return new class extends Migration
                 ->update(['description' => $v2Description]);
         }
 
-        // ── version ──────────────────────────────────────────────────────
         if ($this->guardedEquals($row->version, '1.0.0')) {
             DB::table('venue_templates')->where('id', $row->id)->update(['version' => '2.0.0']);
         }

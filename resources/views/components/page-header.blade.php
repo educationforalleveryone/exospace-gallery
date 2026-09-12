@@ -1,33 +1,3 @@
-{{--
-    Canonical page header (ITERATION 2).
-
-    ONE component for every authenticated page's title block. Renders the
-    layout's predictable composition:
-
-        [back link | breadcrumbs]
-        H1  page title            (visible h1 — fixes the "h2-only in the
-        description (optional)     $header slot = no h1 on page" audit gap)
-        meta row (optional)
-                        [action area — right aligned on ≥lg, stacked on mobile]
-
-    Usage (in the layout's $header slot):
-        <x-slot name="header">
-            <x-page-header title="Galleries" description="Create and manage 3D galleries">
-                <x-slot:actions>
-                    <a href="…" class="btn btn-primary">New gallery</a>
-                </x-slot:actions>
-            </x-page-header>
-        </x-slot>
-
-    Props:
-        - title       plain-text page title (escaped). For rich titles (chips,
-                      avatars) use the `heading` slot instead.
-        - description supporting line under the title (string) — or `description` slot.
-        - back        URL for a standardised "← Back to …" link (backLabel customises text).
-
-    Slots: heading · description · meta (chips/counts under description) ·
-           breadcrumb (anything above the title, e.g. <x-breadcrumbs>) · actions.
---}}
 @props([
     'title'       => null,
     'description' => null,

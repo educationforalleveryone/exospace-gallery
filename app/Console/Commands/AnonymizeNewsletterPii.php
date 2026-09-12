@@ -9,46 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * ITERATION-5 (AUDIT-P1-5.3): PII retention for the newsletter_signups table.
- *
- * The newsletter_signups table stores emails captured in the entrance curtain
- * of galleries (before visitors enter the 3D experience). Each entry has:
- *   - email: the visitor's email (PII — the primary data captured)
- *   - name: optional name (PII)
- *   - ip_address: the visitor's IP (PII — used for spam analysis)
- *   - referrer: where the visitor came from (may contain query-string PII)
- *   - gallery_id: FK to the gallery (preserved for analytics)
- *
- * Without this command, PII is retained indefinitely — a GDPR violation.
- * Curators need the email to send gallery updates, but after the retention
- * window the legitimate business interest expires.
- *
- * This command anonymizes PII on newsletter_signups rows older than the
- * retention window (default: 18 months):
- *   - email → 'anonymized:' + hash (preserves "same person signed up for
- *     multiple galleries" correlation for analytics)
- *   - name → null
- *   - ip_address → null
- *   - referrer → null
- *
- * The gallery_id + signed_up_at + timestamps are preserved for aggregate
- * analytics ("how many signups did this gallery get last year?").
- *
- * Schedule: monthly (1st of each month) via routes/console.php, running
- * after exospace:anonymize-rsvp-pii.
- *
- * Idempotent: re-running on already-anonymized rows is a no-op.
- *
- * NOTE: The unique constraint on (gallery_id, email) means the anonymized
- * email hash must be unique per gallery. Since the hash includes APP_KEY +
- * the original email, two different emails produce two different hashes —
- * so the unique constraint is preserved. If a collision somehow occurred
- * (astronomically unlikely with SHA-256 truncated to 16 chars), the UPDATE
- * would throw a duplicate-key error and the chunkById cursor would retry
- * the batch. This is acceptable — the operator would see the error in the
- * log and can manually investigate.
- */
 class AnonymizeNewsletterPii extends Command
 {
     protected $signature = 'exospace:anonymize-newsletter-pii
@@ -76,9 +36,6 @@ class AnonymizeNewsletterPii extends Command
             return self::SUCCESS;
         }
 
-        // Count rows that need anonymization.
-        // Use signed_up_at (the authoritative signup date) for the cutoff,
-        // matching how the table is queried in analytics.
         $needsAnonymization = DB::table('newsletter_signups')
             ->where('signed_up_at', '<', $cutoff)
             ->where(function ($q) {

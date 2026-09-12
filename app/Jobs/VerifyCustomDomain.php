@@ -12,25 +12,6 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-/**
- * S-2 FIX: Verify DNS for a single gallery's pending custom_domain, in parallel.
- *
- * Previously, VerifyPendingCustomDomains command did all 100 pending-domain
- * DNS lookups sequentially in a single cron tick. Each dns_get_record() call
- * blocks for up to 5 seconds on slow DNS resolvers, so 100 pending domains
- * could take up to 500 seconds — exceeding the cron's 60-second timeout and
- * leaving most domains unverified.
- *
- * Now VerifyPendingCustomDomains dispatches one VerifyCustomDomain job per
- * pending gallery. Queue workers process them in parallel (default: 1 worker
- * per cron tick, but you can scale to N workers via Coolify's worker service
- * config — see docker-start.sh). Each job does ONE dns_get_record() call,
- * so a 5-second timeout only blocks that one job, not the whole batch.
- *
- * Idempotent: if DNS hasn't propagated yet, the job silently exits (no error,
- * no retry). The next hourly cron tick will dispatch a fresh job for the same
- * gallery, which will succeed once DNS propagates.
- */
 class VerifyCustomDomain implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -53,8 +34,6 @@ class VerifyCustomDomain implements ShouldQueue
             return;
         }
 
-        // Defensive: if the gallery's custom_domain was cleared (downgrade,
-        // admin action) between dispatch and handle, skip.
         if (! $gallery->custom_domain || ! $gallery->custom_domain_verification_token) {
             return;
         }
@@ -72,8 +51,6 @@ class VerifyCustomDomain implements ShouldQueue
         }
 
         if (! $this->checkDnsTxtRecord($host, $expected)) {
-            // DNS hasn't propagated yet — not an error, just not ready.
-            // The next hourly cron tick will redispatch a fresh job.
             Log::debug('VerifyCustomDomain: TXT record not yet visible', [
                 'gallery_id' => $gallery->id,
                 'domain'     => $gallery->custom_domain,
@@ -102,13 +79,6 @@ class VerifyCustomDomain implements ShouldQueue
         }
     }
 
-    /**
-     * Look up DNS TXT records for $host and return true if any record's
-     * text matches $expectedValue exactly.
-     *
-     * Mirrors the private method in VerifyPendingCustomDomains + GalleryController.
-     * Kept private here to avoid a service extraction (overkill for 3 callers).
-     */
     private function checkDnsTxtRecord(string $host, string $expectedValue): bool
     {
         if (empty($host) || empty($expectedValue)) {

@@ -8,158 +8,13 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * M-23: Outbound webhook service.
- *
- * Dispatches event notifications to external endpoints configured by the
- * user (or the founder). Unlike inbound webhooks (2Checkout IPN), these
- * are Exospace SENDING data TO an external service when something happens.
- *
- * Supported events (consumers of this service call dispatch() with these
- * event names — the list here documents the contract, not an enum):
- *   - gallery.published     — when a gallery goes live (is_active = true)
- *   - gallery.unpublished   — when a gallery is deactivated
- *   - user.upgraded         — when a user's plan changes to a higher tier
- *   - user.downgraded       — when a user's plan changes to a lower tier
- *   - user.registered       — when a new user signs up
- *   - subscription.cancelled — when a subscription is cancelled
- *   - subscription.renewed   — when a recurring payment succeeds
- *
- * ITERATION 9 additions (billing recipient management — security-page
- * events surfaced so a security team subscribing to "who is receiving
- * the weekly financial digest" can alert on changes instead of polling
- * the admin audit log):
- *   - billing.recipient_added   — when a mailbox is added to the digest list
- *   - billing.recipient_removed — when a mailbox is removed from the digest list
- *
- * Endpoint configuration:
- *   Set OUTBOUND_WEBHOOK_URL + OUTBOUND_WEBHOOK_SECRET in .env (read via
- *   config('services.outbound_webhook.*') — see config/services.php).
- *   The payload includes the event type + entity data.
- *
- *   For per-event endpoints, extend this service with a config map:
- *   config('services.outbound_webhooks.events.gallery.published') => 'https://...'
- *
- * Security:
- *   - Each webhook includes an HMAC-SHA256 signature header (X-Exospace-Signature)
- *     computed with OUTBOUND_WEBHOOK_SECRET. The receiver verifies the
- *     signature to authenticate the payload.
- *   - Webhooks are retried 3 times with exponential backoff on failure.
- *   - Timeouts at 10 seconds to prevent hanging.
- *
- * Sync vs async (ITERATION 9):
- *   - dispatch()        — synchronous (3 retries × 1+3+9s backoff + 10s
- *                         timeout = up to 42s wall). Right for low-volume
- *                         security-page events (billing.recipient_added/
- *                         _removed) where the actor's request can wait
- *                         for the page to be received + the failure path
- *                         is immediately visible to the admin.
- *   - dispatchAsync()   — queued (the same payload + signature, but the
- *                         Http::post call runs inside a queued job so
- *                         the actor's request returns immediately). Use
- *                         for high-volume product events (gallery
- *                         publishing, user registration) where the
- *                         actor's request must not be held open by a
- *                         downstream subscriber. The dispatch path is
- *                         identical so the receiver can't tell the two
- *                         apart — the contract is the same.
- *
- * AUDIT-P0-1.3 FIX: Previously read env() directly, which breaks under
- * `php artisan config:cache` (env() returns null outside config files when
- * the config is cached). Now reads from config('services.outbound_webhook.*')
- * — see config/services.php for the centralized env reads.
- *
- * ITERATION 10 — per-event DB-backed subscriptions.
- *
- * dispatch() now fans out per-event: every active
- * `webhook_subscriptions` row matching the event type gets its own
- * signed POST (with per-subscription secret OR global fallback OR
- * unsigned). The env-var OUTBOUND_WEBHOOK_URL is treated as a
- * "default" subscription that's always-on — so a brand-new
- * subscriber for ONE event doesn't accidentally bypass the existing
- * env subscriber for the OTHER events. Precedence:
- *   - 0 DB rows for an event  → only env (if configured)
- *   - ≥1 DB rows for an event → each row + env (if configured)
- *   - neither configured       → silent-skip
- *
- * Backward-compat: an install that has never created any
- * webhook_subscriptions rows behaves EXACTLY like pre-Iter-10
- * (single env URL, single POST per dispatch). So this code is
- * safe to deploy BEFORE any subscriptions are created.
- *
- * dispatchAsync() does NOT fan out — high-volume product events
- * keep the single-URL contract; the queued job class is one job
- * per URL and the fan-out path would multiply jobs unboundedly
- * for an unconfigured event. If per-event async fan-out is ever
- * needed (a security team subscribes to gallery.published), the
- * contract should be one queued job per (event, url) tuple —
- * deferred until that case actually exists.
- *
- * ITERATION 11 — per-subscription delivery ledger.
- *
- * dispatchSingle() writes ONE row to the webhook_deliveries table
- * at the end of the retry loop (success OR retry-exhausted). The
- * row captures the FINAL state (http_status, attempt_count,
- * success, error_message, delivered_at) + the subscription_id (when
- * dispatched through the fan-out path) or null (when dispatched to
- * the env URL or a one-shot override URL). The ledger is the
- * persisted analog of the Log::info / Log::warning / Log::error
- * calls in dispatchSingle() — those remain (for the production
- * log aggregator) but the ledger row is the SQL-queryable triage
- * surface for the operator ("the security team says they didn't
- * receive the recipient_added webhook last Tuesday" is now a
- * SQL query, not a grep across rotated laravel.log files).
- *
- * The ledger write is guarded by Schema::hasTable('webhook_
- * deliveries') so a fresh install with the migration not yet
- * applied silently skips the write — same shape as the Iter-10
- * Schema::hasTable('webhook_subscriptions') guard. Wrapped in
- * try/catch so a ledger write failure can NEVER break the dispatch
- * path (the receiver already got the webhook; the operator just
- * loses the triage row — log + continue, don't re-dispatch).
- *
- * The async path's ledger write is DEFERRED (same deferral shape
- * as the Iter-10 async fan-out deferral) — see the dispatchAsync()
- * docstring for the rationale.
- */
 class OutboundWebhookService
 {
-    // ITERATION 9: made public so the queued dispatchAsync path (which
-    // uses an anonymous class — a separate class that can't access
-    // private constants of OutboundWebhookService) can read the same
-    // retry policy. Public constants also document the retry contract
-    // to receivers ("max 3 retries with exponential backoff 1+3+9s")
-    // without forcing them to read the dispatch() source.
     public const TIMEOUT = 10;
     public const MAX_RETRIES = 3;
 
-    /**
-     * Dispatch a webhook event synchronously.
-     *
-     * ITERATION 10 — fan out per-event to every active
-     * webhook_subscriptions row matching the event type. The env-var
-     * OUTBOUND_WEBHOOK_URL is treated as an always-on default
-     * subscription (so a brand-new subscriber for ONE event doesn't
-     * bypass an existing env-var subscriber for the OTHER events).
-     *
-     * Per-subscription secrets override the global
-     * OUTBOUND_WEBHOOK_SECRET. If neither is set, the POST is
-     * dispatched unsigned (no X-Exospace-Signature header).
-     *
-     * @param  string $eventType  The event name (e.g. 'gallery.published')
-     * @param  array  $payload    The event data
-     * @param  string|null $url    Override URL (uses config default if null —
-     *                              preserved for direct callers like the
-     *                              Iter-9 async test path that doesn't go
-     *                              through the subscription fan-out)
-     */
     public static function dispatch(string $eventType, array $payload, ?string $url = null): void
     {
-        // Direct override URL — bypass the subscription fan-out entirely.
-        // Preserved for callers/tests that want a one-shot dispatch to a
-        // specific endpoint (not the documented product path). The
-        // ledger row for this path has subscription_id = null (no DB
-        // subscription row is associated with a one-shot override).
         if ($url !== null) {
             static::dispatchSingle($eventType, $payload, $url);
             return;
@@ -169,43 +24,19 @@ class OutboundWebhookService
         $envUrl = config('services.outbound_webhook.url');
         $globalSecret = config('services.outbound_webhook.secret');
 
-        // Gather the subscription set for this event. Schema::hasTable
-        // guard so a fresh install with the migration not yet run (or
-        // a test database that didn't run this migration) silently
-        // falls back to env-only — same shape as pre-Iter-10.
         $subscriptions = Schema::hasTable('webhook_subscriptions')
             ? WebhookSubscription::forEvent($eventType)
             : collect();
 
-        // No DB subscriptions AND no env URL configured — silent-skip
-        // (preserves the Iter-9 contract: a fresh install with no
-        // subscriber configured is a no-op, never an error). No ledger
-        // row is written for a silent-skip (there was no dispatch to
-        // record).
         if ($subscriptions->isEmpty() && ! $envUrl) {
             return;
         }
 
-        // The env URL is always-on — dispatched FIRST so the audit-row
-        // precedence rule (audit-then-stream) still holds for the env
-        // subscriber's primary path even if a DB subscription's POST
-        // hangs the actor's request. Order doesn't actually matter for
-        // sync dispatch (every POST happens inside this call) but the
-        // convention is preserved. The ledger row for the env URL
-        // dispatch has subscription_id = null (it's not a DB row).
         if ($envUrl) {
             static::dispatchSingle($eventType, $payload, $envUrl, $globalSecret);
         }
 
-        // Fan out to every active DB subscription for this event. The
-        // subscription_id is threaded through so the ledger row
-        // captures which subscription this dispatch was for (lets the
-        // management UI's "Last delivery" column show per-subscription
-        // status without a JOIN).
         foreach ($subscriptions as $sub) {
-            // Per-subscription secret overrides the global secret. If
-            // both are null, the POST is unsigned (the receiver can
-            // still see X-Exospace-Event; no X-Exospace-Signature).
             $secret = $sub->secret !== null && $sub->secret !== ''
                 ? $sub->secret
                 : $globalSecret;
@@ -214,39 +45,6 @@ class OutboundWebhookService
         }
     }
 
-    /**
-     * ITERATION 10 — internal: dispatch to ONE URL with the same
-     * retry + signature contract as pre-Iter-10 dispatch(). Extracted
-     * so the fan-out path can call it per-subscription without
-     * duplicating the body+signature+retry loop. Public visibility
-     * on the constants already exposes the retry contract — this
-     * method is the actual retry loop.
-     *
-     * ITERATION 11 — writes a webhook_deliveries ledger row at the
-     * end of the retry loop (success OR exhausted). The ledger row
-     * captures the FINAL state (http_status, attempt_count, success,
-     * error_message, delivered_at) so the operator investigating
-     * "the security team says they didn't receive the recipient_added
-     * webhook last Tuesday" can SQL-query the ledger instead of
-     * greping rotated laravel.log files.
-     *
-     * The ledger write is guarded by Schema::hasTable('webhook_
-     * deliveries') so a fresh install with the migration not yet
-     * applied (or a test database that didn't run this migration)
-     * silently skips the ledger write — same shape as the Iter-10
-     * Schema::hasTable('webhook_subscriptions') guard. The guard is
-     * wrapped in try/catch so a ledger write failure can NEVER break
-     * the dispatch path (the receiver still got the webhook; the
-     * operator just loses the triage row — log + continue, don't
-     * re-dispatch).
-     *
-     * @param  string       $eventType       The event name (e.g. 'gallery.published')
-     * @param  array        $payload         The event data
-     * @param  string       $url             The HTTPS endpoint to POST to
-     * @param  string|null  $secret          HMAC secret (per-sub OR global OR null for unsigned)
-     * @param  int|null     $subscriptionId  The webhook_subscriptions.id (null for env
-     *                                       URL or one-shot override paths)
-     */
     private static function dispatchSingle(string $eventType, array $payload, string $url, ?string $secret = null, ?int $subscriptionId = null): void
     {
         $body = json_encode([
@@ -259,19 +57,11 @@ class OutboundWebhookService
             ? hash_hmac('sha256', $body, $secret)
             : null;
 
-        // Final-state accumulators for the ledger row. Track the last
-        // HTTP response status (nullable when no attempt ever got a
-        // response — all attempts threw exceptions) + the last error
-        // message (nullable on success). The success flag flips to
-        // true the moment any attempt returns a 2xx response.
         $lastHttpStatus = null;
         $lastError = null;
         $succeeded = false;
         $finalAttempt = 0;
 
-        // Dispatch synchronously with retries (for low-volume events)
-        // For high volume, this should be queued — but Exospace's event
-        // volume is low enough that sync is fine.
         for ($attempt = 1; $attempt <= self::MAX_RETRIES; $attempt++) {
             $finalAttempt = $attempt;
 
@@ -326,13 +116,6 @@ class OutboundWebhookService
             ]);
         }
 
-        // ITERATION 11 — write the delivery ledger row. Guarded by
-        // Schema::hasTable so a fresh install with the migration not
-        // yet applied silently skips the write (the dispatch path is
-        // preserved verbatim). Wrapped in try/catch so a ledger
-        // write failure (DB down, deadlock, etc.) can NEVER break
-        // the dispatch path — the receiver already got the webhook;
-        // the operator just loses the triage row. Log + continue.
         try {
             if (Schema::hasTable('webhook_deliveries')) {
                 WebhookDelivery::create([
@@ -356,45 +139,6 @@ class OutboundWebhookService
         }
     }
 
-    /**
-     * ITERATION 9 — async (queued) dispatch for high-volume product
-     * events. Same payload + signature path as dispatch(); the Http::post
-     * call runs inside a queued job so the actor's request returns
-     * immediately. Use for gallery.published / user.registered where
-     * the actor's request must not be held open by a downstream
-     * subscriber. The dispatch path is identical to dispatch() so the
-     * receiver can't tell the two apart.
-     *
-     * The queue connection comes from config('queue.default') — sync
-     * under phpunit.xml (QUEUE_CONNECTION=sync), so tests get the same
-     * retry-then-exhaust path as dispatch(). Production sets
-     * QUEUE_CONNECTION=redis/database so the job is processed by a
-     * worker, decoupling webhook latency from the actor's request.
-     *
-     * The body + signature are computed at enqueue time (not at
-     * dequeue time) so the timestamp reflects when the event happened,
-     * not when the worker picked it up — same contract as dispatch().
-     *
-     * ITERATION 11 — async ledger write DEFERRED. The sync dispatchSingle()
-     * path writes a webhook_deliveries ledger row at the end of the
-     * retry loop (the headline gap from Iter-10's §8 backlog). The
-     * async path's anonymous queued-job class does NOT write a ledger
-     * row — symmetric with the Iter-10 deferral of async fan-out.
-     * Rationale: the async path is for high-volume product events
-     * (gallery.published, user.registered) where the env-URL
-     * subscriber is the receiver (not a security team on the DB
-     * subscription side). The security-team triage use case the
-     * ledger exists for is the SYNC path (billing.recipient_* — the
-     * same low-volume security-page events the Iter-9 sync-vs-async
-     * contract was scoped to). If a security team ever subscribes to
-     * gallery.published at high volume, the deferred work is to
-     * thread the WebhookDelivery model into the anonymous job class
-     * (one row per dequeue, bounded by the retention cleanup).
-     *
-     * @param  string $eventType  The event name (e.g. 'gallery.published')
-     * @param  array  $payload    The event data
-     * @param  string|null $url    Override URL (uses config default if null)
-     */
     public static function dispatchAsync(string $eventType, array $payload, ?string $url = null): void
     {
         $url = $url ?? config('services.outbound_webhook.url');
@@ -414,10 +158,6 @@ class OutboundWebhookService
             ? hash_hmac('sha256', $body, $secret)
             : null;
 
-        // Dispatch through the queue. The job is a tiny self-contained
-        // invokable class so we don't add a queue-worker dependency for
-        // callers who never use the async path. When QUEUE_CONNECTION=
-        // sync (phpunit), the job runs inline — same wall as dispatch().
         dispatch(new class($url, $body, $signature, $eventType) {
             public function __construct(
                 private readonly string $url,

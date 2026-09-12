@@ -7,16 +7,6 @@ namespace App\Services\TestCenter;
 use App\Models\QaTestRun;
 use App\Services\OperationalAlertService;
 
-/**
- * QA event notifications routed through the existing OperationalAlertService
- * (severity-split Slack webhooks you already operate) with its native
- * de-duplication TTLs so a red pipeline cannot spam a channel.
- *
- * Emitted events:
- *   1. Profile failure        — severity critical, dedup per profile+commit
- *   2. Release blocked flip   — critical, dedup global daily
- *   3. New regression found   — warning, dedup per identifier (first sighting)
- */
 class QaNotifier
 {
     public function __construct(

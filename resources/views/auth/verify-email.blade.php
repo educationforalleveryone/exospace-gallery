@@ -40,9 +40,6 @@
     </div>
 
     <div class="flex items-center justify-between gap-3">
-        {{-- VERIFICATION-ITERATION: data-busy opt-in guard — a double-click
-             used to fire two POSTs (two emails). Same delegate convention
-             as the logout form on this page and every other auth form. --}}
         <form method="POST" action="{{ route('verification.send') }}"
               class="flex-1" data-busy data-busy-label="Resending…">
             @csrf
@@ -50,8 +47,6 @@
                 Resend Email
             </x-primary-button>
         </form>
-        {{-- LOGOUT-ITERATION: full page load (destroys the Turbo snapshot
-             cache of authenticated pages) + double-submission guard. --}}
         <form method="POST" action="{{ route('logout') }}"
               data-turbo="false" data-busy data-busy-label="Signing out…">
             @csrf

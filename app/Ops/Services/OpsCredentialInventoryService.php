@@ -11,51 +11,10 @@ use App\Services\OperationalAlertService;
 use Illuminate\Support\Collection;
 use Throwable;
 
-/**
- * OpsCenter — OpsCredentialInventoryService (Iteration 5).
- *
- * Turns the master manual's §15 credential-rotation checklist into a live,
- * in-product governance surface. Two halves:
- *
- *   1. The CATALOG (const below) — the platform's credential surfaces:
- *      which env vars each one lives in, whether it is CONFIGURED (a
- *      presence boolean read from config — NEVER the value), a
- *      recommended rotation cadence in days, and whether it was exposed
- *      at project kickoff (shared in chat → must be rotated before
- *      anything else). §15's nine items plus the OpsCenter-era optional
- *      tokens.
- *
- *   2. The LEDGER (ops_credentials table, via OpsCredential) — one row
- *      per catalog key, updated each time an operator records a
- *      rotation. Nothing else: the schema cannot hold a secret VALUE,
- *      the probes never read one past a boolean, and the UI asserts it.
- *
- * Status chips per credential:
- *   rotate_now — exposed at kickoff and no rotation recorded yet (§15
- *                made live: red until someone actually rotates it)
- *   overdue    — rotated once, but longer ago than the cadence
- *   due_soon   — within 14 days of the cadence limit
- *   ok         — rotated within cadence
- *   untracked  — not exposed, no rotation recorded: recording one starts
- *                the clock (an honest non-alarm — these are the optional
- *                OpsCenter tokens)
- *
- * Every recorded rotation is audited (ops.credential.rotated) and
- * announced on Slack (info) — the same paper trail as restarts and
- * access changes.
- */
 class OpsCredentialInventoryService
 {
-    /**
-     * days before a cadence expires that the chip turns "due soon".
-     */
     public const DUE_SOON_WINDOW_DAYS = 14;
 
-    /**
-     * The static catalog. 'cadence' = recommended rotation interval in
-     * days (null = policy-driven only, e.g. APP_KEY where rotation logs
-     * everyone out). 'exposed' = value shared at project kickoff (§15).
-     */
     public const CATALOG = [
         [
             'key' => 'db-password', 'name' => 'Database password', 'category' => 'Platform',
@@ -123,14 +82,6 @@ class OpsCredentialInventoryService
         private readonly OperationalAlertService $alerts,
     ) {}
 
-    /**
-     * Full inventory: catalog + live configured-presence + ledger state.
-     *
-     * @return array{
-     *     items: array<int, array<string, mixed>>,
-     *     counts: array{rotate_now: int, overdue: int, due_soon: int, ok: int, untracked: int, configured: int}
-     * }
-     */
     public function inventory(): array
     {
         $ledger = $this->ledgerRows();
@@ -142,9 +93,6 @@ class OpsCredentialInventoryService
             $row = $ledger->firstWhere('key', $entry['key']);
 
             $lastRotated = $row?->last_rotated_at;
-            // Carbon's diffInDays() is fractional (169.99 for "170 days
-            // minus a second"): the EXACT float drives the cadence math,
-            // the floor drives the "x days ago" display.
             $daysSince = $lastRotated !== null ? (float) $lastRotated->diffInDays(now()) : null;
 
             $item = array_merge($entry, [
@@ -164,19 +112,11 @@ class OpsCredentialInventoryService
             $items[] = $item;
         }
 
-        // §15 order first: exposed-never-rotated at the top, then overdue,
-        // then the rest in catalog order.
         usort($items, fn ($a, $b) => $this->statusRank($a['status']) <=> $this->statusRank($b['status']));
 
         return ['items' => $items, 'counts' => $counts];
     }
 
-    /**
-     * Record a rotation. Validates the key, upserts the ledger row (one
-     * row per key — re-rotating updates it), audits and announces.
-     *
-     * @return array{ok: bool, message: string}
-     */
     public function markRotated(string $key, User $actor, ?string $note = null): array
     {
         $entry = $this->entry($key);
@@ -204,8 +144,6 @@ class OpsCredentialInventoryService
             AdminAuditLog::record('ops.credential.rotated', $credential, [
                 'credential' => $key,
                 'note' => $note,
-                // Values NEVER enter the payload — the key name is the
-                // whole story ("coolify-token rotated by operator #4").
             ]);
         } catch (Throwable) {
             // The ledger must never take the flow down.
@@ -230,9 +168,6 @@ class OpsCredentialInventoryService
         return ['ok' => true, 'message' => 'Rotation recorded for '.$entry['name'].'.'];
     }
 
-    /**
-     * @return array{key: string, name: string, category: string, env: string[], cadence: ?int, exposed: bool, guidance: string}|null
-     */
     public function entry(string $key): ?array
     {
         foreach (self::CATALOG as $entry) {
@@ -244,23 +179,15 @@ class OpsCredentialInventoryService
         return null;
     }
 
-    /**
-     * @return Collection<int, OpsCredential>
-     */
     private function ledgerRows(): Collection
     {
         try {
             return OpsCredential::query()->with('rotatedBy')->get();
         } catch (Throwable) {
-            // Table absent (pre-migration window) — every credential
-            // reports "never rotated" honestly.
             return collect();
         }
     }
 
-    /**
-     * @param  array{cadence: ?int, exposed: bool}  $entry
-     */
     private function statusFor(array $entry, ?\Illuminate\Support\Carbon $lastRotated, ?float $daysSince): string
     {
         if ($lastRotated === null) {
@@ -296,10 +223,6 @@ class OpsCredentialInventoryService
         };
     }
 
-    /**
-     * Configured-presence probe per credential. Reads CONFIG (config:cache
-     * safe), returns a BOOLEAN only — the value never leaves this method.
-     */
     private function probeConfigured(string $key): bool
     {
         return match ($key) {

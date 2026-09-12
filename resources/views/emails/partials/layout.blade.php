@@ -1,26 +1,3 @@
-{{-- B-9 FIX (Iter-004): Shared email layout — table-based for Outlook/Gmail compat.
-
-    USAGE:
-      @extends('emails.partials.layout')
-      @section('preheader', 'Your preview text here — max 85 chars')
-      @section('content')
-          ... your email body markup here ...
-      @endsection
-
-    This layout uses:
-      - Table-based layout (<table role="presentation">) — works in Outlook 2007-2019
-        (Word's HTML renderer doesn't support flex/grid reliably).
-      - Inline CSS on every element — Gmail strips <style> tags in <head>.
-      - No linear-gradient or background-clip: text — Outlook doesn't support them.
-      - A PNG wordmark instead of gradient text (the logo image must be hosted).
-      - Hidden preheader div (B-10 fix) — the first 85 chars shown in inbox preview.
-
-    The layout is compatible with:
-      - Gmail (web + Android) — strips <style>, supports inline CSS
-      - Outlook (2007-2019) — Word renderer, needs tables + inline CSS
-      - Apple Mail — supports everything (most lenient)
-      - Dark mode — uses prefers-color-scheme in a <style> block (Apple Mail only)
---}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,7 +7,6 @@
     <meta name="supported-color-schemes" content="light dark">
     <title>@yield('title', 'Exospace Gallery')</title>
     <style>
-        /* Dark mode — only works in Apple Mail / iOS Mail. Gmail/Outlook ignore this. */
         @media (prefers-color-scheme: dark) {
             .email-body { background-color: #1a1a2e !important; }
             .email-card { background-color: #16213e !important; }
@@ -41,8 +17,6 @@
 </head>
 <body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
 
-    {{-- B-10 FIX: Preheader text. Hidden from view but visible in inbox preview.
-        This is the first text in the body — email clients show it after the subject. --}}
     @yield('preheader')
 
     {{-- Wrapper table — centers the email on desktop --}}

@@ -1,32 +1,4 @@
 #!/usr/bin/env node
-// scripts/verify-vite-manifest.js
-//
-// BUILD-TIME GUARD (added 2026-08-31) — run this AFTER `npm run build` and
-// BEFORE `php artisan view:cache` (see nixpacks.toml).
-//
-// WHY THIS EXISTS:
-//   Production hit three 500s on 2026-08-31, one of them:
-//     "Unable to locate file in Vite manifest: admin-vendor.js"
-//     (View: /app/resources/views/admin/galleries/analytics.blade.php)
-//   Root cause class: a Blade view references a Vite entry that the built
-//   manifest does not contain. When that happens today, the deploy succeeds
-//   and the error only appears at runtime as a 500 for end users.
-//
-// WHAT THIS SCRIPT DOES:
-//   1. Scans resources/views/**/*.blade.php for @vite(...) references.
-//      - Blade {{-- --}} comments are stripped first (so commented examples
-//        are not checked).
-//      - Escaped @@vite is ignored (Blade renders it as literal text).
-//   2. Loads public/build/manifest.json and verifies:
-//      a) every referenced entry exists in the manifest under the EXACT key
-//         (manifest keys are paths relative to the project root, e.g.
-//         "resources/js/admin-vendor.js" — NOT "admin-vendor.js");
-//      b) every manifest entry's output file actually exists on disk.
-//   3. Exit 1 with a clear, actionable message on any problem — failing the
-//   deploy at build time instead of shipping a 500.
-//
-// Usage: node scripts/verify-vite-manifest.js [viewsDir] [manifestPath]
-// Defaults: resources/views   public/build/manifest.json
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -76,7 +48,6 @@ for (const file of listBladeFiles(VIEWS_DIR)) {
     }
 }
 
-// ── 2. Load the manifest ────────────────────────────────────────────────────
 if (!existsSync(MANIFEST_PATH)) {
     console.error('[verify-vite-manifest] FAILED — manifest not found at ' + relative(ROOT, MANIFEST_PATH));
     console.error('  Did `vite build` run? nixpacks.toml must run "npm run build" before this check.');

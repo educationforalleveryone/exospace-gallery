@@ -1,14 +1,3 @@
-// probe-lake-geom.mjs — Mirror Lake geometry intersection audit (post-impl
-// QA §8). Boots the venue, then checks the specific structural relationships
-// the render QA flagged plus the generic artwork/terrain invariants:
-//   1. pavilion posts land ON the deck (no float, no sink)
-//   2. bench seat rests on its skids and stays inside the deck edge
-//   3. fascia clears the roof slab (flush under, not clipping)
-//   4. pier rails stop before the pavilion deck (no crossing)
-//   5. every artwork hovers over submerged bed (water visible under it)
-//   6. artwork collision AABBs never overlap each other (no push-fights)
-//   7. artwork AABBs clear the pier rail boxes
-//   8. terrain height agrees with isWater along a sample grid
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
@@ -74,9 +63,6 @@ const report = await page.evaluate(() => {
     };
     const find = (name) => s.scene.getObjectByProperty('name', name);
 
-    // Locate the pier / pavilion meshes by traversal from the scene: the
-    // pier group holds a merged timber mesh + a steel rail mesh (+ proxies);
-    // the pavilion group holds the merged body + roof + fascia + strip.
     let pierRails = null, pavRoof = null, pavFascia = null;
     s.scene.traverse((o) => {
         if (!o.isMesh || !o.geometry?.attributes?.position) return;
@@ -89,11 +75,7 @@ const report = await page.evaluate(() => {
         if (Math.abs(px - plan.pavilion.x) < 0.2 && (bb.maxY - bb.minY) < 0.12 && bb.minY > 2.8 && bb.maxY < 2.995) pavFascia = { o, bb };
     });
 
-    // 1. pavilion corner posts vs deck top: the merged body must span the
-    // deck (0) to the roof soffit (~2.99) with no float gap.
     const pavBodyBox = aabbOf(find('structure:pavilion') || s.scene.children[s.scene.children.length - 1] || s.scene);
-    // (fallback below: derive from the pier/pavilion spans via a targeted
-    // traversal — the merged body is the only timber mesh over the pavilion)
     let bodyBox = null;
     s.scene.traverse((o) => {
         if (bodyBox || !o.isMesh) return;

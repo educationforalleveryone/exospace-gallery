@@ -38,8 +38,6 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        // ITERATION-1 FIX: registration now redirects to the email
-        // verification notice (verified email is required for /admin/*).
         $response->assertRedirect(route('verification.notice', absolute: false));
     }
 
@@ -52,8 +50,6 @@ class RegistrationTest extends TestCase
             'email' => 'defaults@example.com',
             'password' => 'GoodPass123',
             'password_confirmation' => 'GoodPass123',
-            // Mass-assignment probe: a malicious client must not be able to
-            // elevate itself or flip billing/verification state on signup.
             'is_super_admin' => '1',
             'plan' => 'studio',
             'max_galleries' => '99999',
@@ -110,8 +106,6 @@ class RegistrationTest extends TestCase
 
     public function test_registration_rejects_boolean_invalid_marketing_consent(): void
     {
-        // Tampered clients must not be able to smuggle arbitrary strings
-        // through the consent checkbox (nullable|boolean rule).
         $response = $this->from('/register')->post('/register', [
             'name' => 'Bad Consent',
             'email' => 'badconsent@example.com',
@@ -145,10 +139,6 @@ class RegistrationTest extends TestCase
 
     public function test_registration_survives_a_unique_constraint_race_with_a_clean_validation_error(): void
     {
-        // Simulates the race: another row with the same email lands between
-        // the `unique` validation and the INSERT (double-click / concurrent
-        // requests). The `creating` hook inserts the duplicate so the real
-        // INSERT hits the DB constraint, not the validator.
         $commit = false;
         User::creating(function () use (&$commit) {
             if ($commit) {
@@ -171,8 +161,6 @@ class RegistrationTest extends TestCase
             'password_confirmation' => 'GoodPass123',
         ]);
 
-        // The losing request must re-present the standard unique-rule error,
-        // NOT surface a 500 QueryException.
         $response->assertRedirect('/register');
         $response->assertSessionHasErrors('email');
         $this->assertSame(1, User::where('email', 'race@example.com')->count());
@@ -237,14 +225,7 @@ class RegistrationTest extends TestCase
         ]);
 
         $user = User::where('email', 'mail@example.com')->first();
-        // Verification link — the framework-wired listener on Registered.
-        // VERIFICATION-ITERATION: the User model now sends the branded
-        // App\Notifications\Auth\VerifyEmail subclass (framework fake
-        // matches by exact class, not instanceof).
         Notification::assertSentTo($user, VerifyEmail::class);
-        // Welcome email — the discovery-wired SendWelcomeEmail listener.
-        // WelcomeEmail implements ShouldQueue, so the fake records it as
-        // queued (same pattern as tests/Feature/EmailDispatchTest.php).
         Mail::assertQueued(WelcomeEmail::class, function (WelcomeEmail $mailable) use ($user) {
             return $mailable->hasTo($user->email);
         });
@@ -280,8 +261,6 @@ class RegistrationTest extends TestCase
         $show->assertSee('You were invited to join a team');
         $show->assertSee('name="invitation_token" value="'.$plaintext.'"', false);
 
-        // The form POSTs the plaintext back; the email field is locked to
-        // the invited address (server-side merge — posted email is ignored).
         $response = $this->post('/register', [
             'name' => 'Invited User',
             'email' => 'tampered@example.com',
@@ -301,8 +280,6 @@ class RegistrationTest extends TestCase
 
         $response->assertRedirect(route('admin.teams.show', $team, absolute: false));
 
-        // The invited path intentionally fires NO Registered event: no
-        // verification email, no welcome email (the invite email served).
         Notification::assertNothingSent();
         Mail::assertNothingQueued();
     }
@@ -344,12 +321,8 @@ class RegistrationTest extends TestCase
         $this->assertNotNull(TeamInvitation::find($expired->id), 'expired invitation must not be consumed');
     }
 
-    // ── REGISTRATION-ITERATION: throttle ─────────────────────────────────
-
     public function test_registration_route_is_rate_limited(): void
     {
-        // throttle:10,1 on POST /register. 11 rapid requests (all failing
-        // validation so no users/sessions churn) → the 11th must be 429.
         for ($i = 1; $i <= 10; $i++) {
             $this->post('/register', ['name' => '', 'email' => "thr{$i}@example.com"]);
         }

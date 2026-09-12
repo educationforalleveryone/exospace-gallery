@@ -9,99 +9,8 @@ use App\Ops\Models\OpsEvent;
 use App\Ops\Models\OpsIncident;
 use Throwable;
 
-/**
- * OpsCenter — OpsHealthScoreService (Iteration 4).
- *
- * The single 0–100 platform health score shown on the overview. The brief
- * was explicit: no meaningless numbers. So the score is a documented,
- * weighted blend of five components — each 0–100, each carrying its own
- * reasons — plus VERDICT CAPS that keep the number from ever being rosier
- * than the status label beside it. The formula lives HERE, in one
- * auditable place (mirrored in docs/MASTER_MANUAL_OPERATIONS.md §16):
- *
- *   Host subsystems ..... 30 %   OpsHealthService::selfChecks() rollup
- *                                  (DB, cache, queue, scheduler, backups,
- *                                  disk) — healthy 100 / degraded 50 /
- *                                  critical 0.
- *   Applications ........ 25 %   Average across non-server apps from the
- *                                  Coolify sync — running 100 / degraded
- *                                  50 / stopped 0 / unknown 50. No apps
- *                                  synced yet → 50 (honest neutral, with
- *                                  a reason).
- *   Untriaged errors .... 20 %   100 − (25×critical + 10×error + 3×warning)
- *                                  over OPEN/ACKNOWLEDGED events NOT
- *                                  already inside an active incident.
- *                                  Deliberately: an error that is part of
- *                                  an incident is counted once — as part
- *                                  of that incident — never twice.
- *   Active incidents .... 15 %   100 − (30×critical + 15×error + 6×warning)
- *                                  over OPEN/ACKNOWLEDGED incidents.
- *   Data protection ..... 10 %   70 % backup freshness (per-disk average:
- *                                  fresh 100 / stale 0 / missing 0 /
- *                                  unreadable 50) + 30 % webhook ledger
- *                                  (0 failed 100 / 1–5 failed 50 / >5 0).
- *
- *   score = min( blend, caps… )   blend = Σ weight_i × component_i / 100
- *
- * VERDICT CAPS (the anti-rose-colored-glasses rule). The status label on
- * the dashboard is worst-of; the blend averages. Averages can talk you
- * out of a verdict the platform has already rendered — the caps stop
- * that. Each cap mirrors a condition OpsHealthService::platformHealth()
- * treats as critical/degraded, so the score can NEVER disagree upward:
- *
- *   Host subsystems critical (database or cache down)  → cap 60
- *   Any application stopped                             → cap 65
- *   Any backup disk missing or stale (>26 h)            → cap 65
- *   Host degraded · any app degraded · any open untriaged
- *   critical/error event · any active incident          → cap 85
- *
- * Reading the two together is diagnostic, not redundant: label CRITICAL
- * with a high-ish score (capped) = ONE serious localized problem; label
- * DEGRADED with a LOW score = many small problems compounding. The
- * breakdown card always shows which caps applied and why.
- *
- * Bands: 90–100 HEALTHY · 70–89 DEGRADED · below 70 CRITICAL.
- *
- * compute() is a PURE function over an input array (unit-tested to
- * exhaustion); computeLive() is the thin aggregator that gathers the
- * inputs from the existing read paths (ADR-6 — no new monitors, no new
- * tables, nothing persisted; the score is always derivable, so it is
- * always current by construction).
- *
- * ── Iteration 5: the per-application sub-score (§16.2 of the manual) ──
- *
- * computeApplication() applies the SAME philosophy — weighted
- * components, reasons, verdict caps, bands — scoped to ONE application,
- * so each row on the Applications page answers "is THIS app healthy?"
- * while the platform score answers "is the PLATFORM healthy?".
- *
- *   Application health   50 %   running 100 / degraded 50 / stopped 0 /
- *                               unknown 50 (same mapping as the platform
- *                               applications component, so the two never
- *                               disagree about what "degraded" is worth)
- *   Untriaged errors     30 %   SAME penalties as the platform component
- *                               (100 − 25×critical − 10×error − 3×warning)
- *                               over the APP's open events not already in
- *                               an active incident
- *   Active incidents     20 %   SAME penalties as the platform component
- *                               over the APP's open incidents
- *
- *   Caps (mirroring the platform caps, app-scoped):
- *     app stopped                       → cap 65
- *     app degraded                      → cap 85
- *     any untriaged critical/error      → cap 85
- *     any active incident               → cap 85
- *
- * Host subsystems and data protection are DELIBERATELY excluded: they
- * are platform-wide facts already expressed in the platform score —
- * copying them into every row would make a single host problem look
- * like four app problems. Same bands (90 / 70) as the platform score.
- */
 class OpsHealthScoreService
 {
-    /**
-     * Component weights — must sum to exactly 100 (enforced by test).
-     */
     public const WEIGHTS = [
         'host' => 30,
         'applications' => 25,
@@ -110,10 +19,6 @@ class OpsHealthScoreService
         'protection' => 10,
     ];
 
-    /**
-     * Per-application component weights — must sum to exactly 100
-     * (enforced by test). See the class docblock (§16.2).
-     */
     public const APP_WEIGHTS = [
         'health' => 50,
         'untriaged' => 30,
@@ -125,15 +30,6 @@ class OpsHealthScoreService
         private readonly OpsStatusTilesService $tiles,
     ) {}
 
-    /**
-     * Pure computation. @see computeLive() for the input shape.
-     *
-     * @return array{
-     *     score: int, band: string,
-     *     components: array<string, array{name: string, score: int, weight: int, reasons: string[]}>,
-     *     applied_caps: array<int, string>
-     * }
-     */
     public function compute(array $input): array
     {
         $components = [
@@ -154,8 +50,6 @@ class OpsHealthScoreService
 
         $blend = (int) round($total / 100);
 
-        // Verdict caps — see the class docblock. Each mirrors a condition
-        // the status label already treats as critical or degraded.
         $caps = $this->verdictCaps($input);
 
         $score = $blend;
@@ -172,13 +66,6 @@ class OpsHealthScoreService
         ];
     }
 
-    /**
-     * The caps in force for this input (empty when the platform has no
-     * verdict-level problems — the blend then speaks freely).
-     *
-     * @param  array<string, mixed>  $input
-     * @return array<int, array{limit: int, label: string}>
-     */
     private function verdictCaps(array $input): array
     {
         $caps = [];
@@ -216,17 +103,10 @@ class OpsHealthScoreService
         return $caps;
     }
 
-    /**
-     * Gather live inputs and compute. Never throws — an unavailable input
-     * degrades to the honest-neutral values documented above.
-     *
-     * @return array{score: int, band: string, components: array<string, array{name: string, score: int, weight: int, reasons: string[]}>, applied_caps: array<int, string>}
-     */
     public function computeLive(): array
     {
         $input = [];
 
-        // ── Host subsystems ─────────────────────────────────────────────
         try {
             $self = $this->health->selfChecks();
             $input['self_status'] = $self['status'];
@@ -292,7 +172,6 @@ class OpsHealthScoreService
         }
         $input['untriaged_events'] = $untriaged;
 
-        // ── Active incidents ────────────────────────────────────────────
         $incidents = ['critical' => 0, 'error' => 0, 'warning' => 0];
         try {
             OpsIncident::query()
@@ -311,7 +190,6 @@ class OpsHealthScoreService
         }
         $input['active_incidents'] = $incidents;
 
-        // ── Data protection ─────────────────────────────────────────────
         $backupDisks = ['ok' => 0, 'stale' => 0, 'missing' => 0, 'unreadable' => 0];
         try {
             foreach ($this->tiles->backupStatus()['disks'] as $disk) {
@@ -334,12 +212,6 @@ class OpsHealthScoreService
 
     // ── Per-application sub-score (Iteration 5, §16.2) ───────────────────
 
-    /**
-     * Pure per-application computation.
-     *
-     * @param  array{health?: string, untriaged_events?: array<string, int>, active_incidents?: array<string, int>}  $input
-     * @return array{score: int, band: string, components: array<string, array{name: string, score: int, weight: int, reasons: string[]}>, applied_caps: array<int, string>}
-     */
     public function computeApplication(array $input): array
     {
         $health = (string) ($input['health'] ?? 'unknown');
@@ -359,9 +231,6 @@ class OpsHealthScoreService
 
         $blend = (int) round($total / 100);
 
-        // App-scoped verdict caps — same limits, same reasoning as the
-        // platform caps: the number may never read rosier than the row's
-        // own Health label beside it.
         $caps = [];
 
         if ($health === 'stopped') {
@@ -392,16 +261,6 @@ class OpsHealthScoreService
         ];
     }
 
-    /**
-     * Batched live sub-scores for the Applications page: two grouped
-     * queries feed every row's pure computation — no per-row database
-     * round-trips, no persistence (the sub-score is as derivable as the
-     * platform score). Fail-soft per query: a missing table degrades to
-     * zero counts, never an exception.
-     *
-     * @param  iterable<int, OpsApplication>  $applications
-     * @return array<int, array{score: int, band: string, components: array<string, array{name: string, score: int, weight: int, reasons: string[]}>, applied_caps: array<int, string>}>
-     */
     public function computeForApplications(iterable $applications): array
     {
         $ids = [];
@@ -413,9 +272,6 @@ class OpsHealthScoreService
             return [];
         }
 
-        // Active incident ids — events inside them are counted as part of
-        // the incident, never twice (the same double-count rule the
-        // platform score applies).
         $activeIds = [];
         try {
             $activeIds = OpsIncident::query()
@@ -477,14 +333,6 @@ class OpsHealthScoreService
         return $scores;
     }
 
-    /**
-     * The app's own health — identical point mapping to the platform
-     * applications component (per app: running 100 / degraded 50 /
-     * stopped 0 / unknown 50), so the row badge and the platform score
-     * can never disagree about what a health state is worth.
-     *
-     * @return array{name: string, score: int, weight: int, reasons: string[]}
-     */
     private function appHealthComponent(string $health): array
     {
         $score = match ($health) {
@@ -504,12 +352,6 @@ class OpsHealthScoreService
         return ['name' => 'Application health', 'score' => $score, 'weight' => self::APP_WEIGHTS['health'], 'reasons' => $reasons];
     }
 
-    // ── Components ────────────────────────────────────────────────────────
-
-    /**
-     * @param  string[]  $reasons
-     * @return array{name: string, score: int, weight: int, reasons: string[]}
-     */
     private function hostComponent(string $status, array $reasons): array
     {
         $score = match ($status) {
@@ -526,10 +368,6 @@ class OpsHealthScoreService
         return ['name' => 'Host subsystems', 'score' => $score, 'weight' => self::WEIGHTS['host'], 'reasons' => $componentReasons];
     }
 
-    /**
-     * @param  array<string, int>  $apps  running|degraded|stopped|unknown counts
-     * @return array{name: string, score: int, weight: int, reasons: string[]}
-     */
     private function applicationsComponent(array $apps): array
     {
         $total = array_sum(array_map('intval', $apps));
@@ -566,10 +404,6 @@ class OpsHealthScoreService
         return ['name' => 'Applications', 'score' => $score, 'weight' => self::WEIGHTS['applications'], 'reasons' => $reasons];
     }
 
-    /**
-     * @param  array<string, int>  $counts  critical|error|warning
-     * @return array{name: string, score: int, weight: int, reasons: string[]}
-     */
     private function untriagedComponent(array $counts, ?int $weight = null): array
     {
         $critical = (int) ($counts['critical'] ?? 0);
@@ -598,10 +432,6 @@ class OpsHealthScoreService
         return ['name' => 'Untriaged errors', 'score' => $score, 'weight' => $weight ?? self::WEIGHTS['untriaged'], 'reasons' => $reasons];
     }
 
-    /**
-     * @param  array<string, int>  $counts  critical|error|warning
-     * @return array{name: string, score: int, weight: int, reasons: string[]}
-     */
     private function incidentsComponent(array $counts, ?int $weight = null): array
     {
         $critical = (int) ($counts['critical'] ?? 0);
@@ -628,10 +458,6 @@ class OpsHealthScoreService
         return ['name' => 'Active incidents', 'score' => $score, 'weight' => $weight ?? self::WEIGHTS['incidents'], 'reasons' => $reasons];
     }
 
-    /**
-     * @param  array<string, int>  $disks  ok|stale|missing|unreadable counts
-     * @return array{name: string, score: int, weight: int, reasons: string[]}
-     */
     private function protectionComponent(array $disks, int $failedWebhooks): array
     {
         // Backup part (70 % of the component).

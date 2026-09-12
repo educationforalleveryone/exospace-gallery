@@ -19,7 +19,6 @@
     <p>Every grant and revocation is audited (<span class="font-mono">ops.access.granted</span> / <span class="font-mono">ops.access.revoked</span>) and announced in the ops Slack channel.</p>
 </div>
 
-{{-- ── Grant form ───────────────────────────────────────────────────────── --}}
 <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5 mb-6">
     <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Grant access</h2>
     @if($candidates->isEmpty())
@@ -57,7 +56,6 @@
     @endif
 </section>
 
-{{-- ── Active grants ───────────────────────────────────────────────────── --}}
 <section class="mb-6">
     <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Active grants ({{ $activeGrants->count() }})</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800">
@@ -102,7 +100,6 @@
                         <td class="px-4 py-3 text-right">
                             <div class="inline-flex items-center gap-1.5">
                                 @if($grant->user)
-                                    {{-- Level change — the atomic revoke+re-grant lives in OpsAccessService (one click, both ledger rows). --}}
                                     @if($grant->level === 'viewer')
                                         <form method="POST" action="{{ route('ops.access.grant') }}" data-confirm="Change this account to the OPERATOR tier? They will be able to run read-only diagnostics (audited) in addition to viewing." data-confirm-button="Grant" class="inline">
                                             @csrf
@@ -119,8 +116,6 @@
                                         </form>
                                     @endif
                                 @endif
-                                {{-- ITERATION-3: message moved into an attribute (was interpolated into a
-                                     JS string — an apostrophe in the user's name broke the handler). --}}
                                 <form method="POST" action="{{ route('ops.access.revoke', $grant) }}" data-confirm="Revoke OpsCenter access for {{ $grant->user?->name ?? 'this account' }}? Access ends immediately." data-confirm-button="Revoke" class="inline">
                                     @csrf
                                     <button class="btn btn-sm btn-ops-red-ghost">Revoke…</button>
@@ -140,7 +135,6 @@
     </div>
 </section>
 
-{{-- ── Revoked history ──────────────────────────────────────────────────── --}}
 <section>
     <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Revoked (history, most recent first)</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800/60">

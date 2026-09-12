@@ -1,40 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// dark-museum-qa.mjs — the venue QA gate for Dark Museum.
-//
-//   node scripts/venue-qa/dark-museum-qa.mjs
-//
-// Same layering as white-cube-qa.mjs / infinite-void-qa.mjs /
-// industrial-loft-qa.mjs: this file pins CONTRACTS (config authority,
-// geometry invariants, parity, determinism),
-// tests/Feature/VenueDarkMuseumIterationTest.php pins the DB side, and
-// scripts/harness/shoot.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the dark-museum row declares the deepened
-//      "night wing" identity (texture_tint authority — the audit's headline
-//      material find, a readable-dark rig, a fog reach that covers the room,
-//      declared post-fx restraint with the black vignette blend, dark-venue
-//      artwork legibility, silenced hemisphere wash, curation placement).
-//   B. DB↔harness sync — the PHP-less harness renders the same JSON a fresh
-//      install seeds.
-//   C. Geometry invariants — driven through the REAL modules:
-//        • trim offsets measure from the wall INNER FACE (the v1.0.0
-//          skirting was buried dead geometry — the White Cube defect class)
-//        • the rotunda branch exists and never builds square-room skirting
-//          (the v1.0.0 floating-trim defect)
-//        • cabinets stop BELOW the ceiling (the see-over reveal)
-//        • the post-placement picture-light hook is wired in buildGallery
-//        • end-to-end: the REAL placer hangs the show, the REAL museum pass
-//          builds the room, and every artwork gets exactly one picture-light
-//          fixture band above it — no fixture drift, no structure-through-art
-//        • bay hangs keep the outer walls' 5 cm standoff
-//   D. JS hygiene — venue-declarable hemisphere (default unchanged), the
-//      Exospace vignette blend (grey default = stock behaviour), zero venue
-//      slugs in runtime code.
-//   E. Parity pipeline — exporter plan-tier parity + the guarded deepening
-//      migration + reduced-motion flag parity.
-// ─────────────────────────────────────────────────────────────────────────────
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -49,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (dark-museum row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -107,7 +70,6 @@ ok('version bumped (2.x)', /'version'\s*=>\s*'2\.\d+\.\d+'/.test(chunk));
 ok('description promises only what renders (picture lights / charcoal)',
     /picture lights|charcoal/.test(chunk));
 
-// ── B. DB↔harness sync ──────────────────────────────────────────────────────
 section('B. DB↔harness sync (dark-museum body)');
 const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
 const hStart = harnessSrc.indexOf("'dark-museum': {");
@@ -192,8 +154,6 @@ ok('the hook dispatches on structure_pass (zero slug knowledge)',
                 artworks: [], CONFIG,
                 _venueVisualConfig: { structure_pass: 'museum' },
                 _layoutMeta: layoutMeta,
-                // RoomBuilder sets this before placement on every rotunda
-                // build (createRoomRotunda); the stub mirrors the contract.
                 _rotundaRadius: layoutMeta.radius,
                 artworkImages,
                 makeArtworkGroup: Placer.makeArtworkGroup,
@@ -205,8 +165,6 @@ ok('the hook dispatches on structure_pass (zero slug knowledge)',
         };
     };
 
-    // Decompose a merged indexed BufferGeometry into connected-triangle
-    // cluster AABBs (the structural boxes the merge hid).
     const componentBoxes = (geometry) => {
         const pos = geometry.attributes.position;
         const index = geometry.index;
@@ -220,10 +178,6 @@ ok('the hook dispatches on structure_pass (zero slug knowledge)',
             }
             triBoxes.push(box);
         }
-        // mergeParts does not weld vertices — a box's six faces are six
-        // disconnected triangle groups. Grow each face box by a small
-        // epsilon so adjacent faces of the SAME box union into one cluster
-        // (true per-box clusters), while separate boxes stay separate.
         const EPS = 0.01;
         const grown = triBoxes.map(b => b.clone().expandByScalar(EPS));
         const parent = triBoxes.map((_, i) => i);
@@ -260,9 +214,6 @@ ok('the hook dispatches on structure_pass (zero slug knowledge)',
             Decorator.addVenueStructure.call(ctx, { imageCount: n, images: artworkImages });
             Decorator.addVenuePostPlacementStructure.call(ctx);
 
-            // The named plate mesh (one merged geometry, one cluster per
-            // artwork) + the merged tube mesh must exist. Cabinet caps and
-            // downlight rings share the brass material but not the contract.
             const plateMesh = meshes.find(m => m.isMesh && m.name === 'museum-picture-light-plates');
             const tubeMesh = meshes.find(m => m.isMesh && m.name === 'museum-picture-light-tubes');
             ok(`${name} n=${n}: merged plate + tube fixtures present`, !!plateMesh && !!tubeMesh);
@@ -284,8 +235,6 @@ ok('the hook dispatches on structure_pass (zero slug knowledge)',
                     clusters.length === n, `clusters=${clusters.length}`);
             }
 
-            // Each artwork's top edge must sit DIRECTLY below some fixture
-            // cluster (fixture tracks the piece: |Δz/Δx lateral| small).
             for (const g of ctx.artworks) {
                 g.updateMatrixWorld(true);
                 const c = g.userData._canvasMesh;
@@ -319,8 +268,6 @@ ok('the hook dispatches on structure_pass (zero slug knowledge)',
     ok('no structural box intersects any artwork volume', totalOverlaps === 0, `overlaps=${totalOverlaps}`);
 }
 
-// C6. Bay-hang standoff parity: a bay piece's frame back clears the divider
-// face by the same ~5 cm as the outer walls' wallInset.
 {
     const surf = { x: 0, z: -(0.15 + 0.03), nx: 0, nz: -1, width: 2.9, height: 2.4 };
     const plan = Placer._planBayHangs(6, [surf], 3.5);
@@ -332,7 +279,6 @@ ok('the hook dispatches on structure_pass (zero slug knowledge)',
         `fromFace=${frameBackFromFace.toFixed(3)} (outer walls: wallInset − depth/2 = ${(Placer.wallInset(0.3) - 0.15).toFixed(3)})`);
 }
 
-// ── D. JS hygiene ───────────────────────────────────────────────────────────
 section('D. JS hygiene (declared-identity contracts)');
 ok('hemisphere wash is venue-declarable with the historical default',
     /_venueHemisphereIntensity \?\? 0\.15/.test(lightingSrc));

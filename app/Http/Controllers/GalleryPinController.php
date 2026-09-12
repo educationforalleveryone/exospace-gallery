@@ -8,22 +8,9 @@ use Illuminate\Support\Facades\Cache;
 
 class GalleryPinController extends Controller
 {
-    /**
-     * Max failed PIN attempts before lockout, and the lockout duration.
-     *
-     * PINs are 4 digits = 10,000 combinations. Without throttling, an
-     * attacker cracking at ~100 req/s finishes in under 2 minutes per
-     * gallery. With this lockout (5 attempts → 15-minute lockout per
-     * gallery+IP), the same attack takes ~5 days of continuous trying
-     * from a single IP — and the lockout is per-gallery, so a botnet
-     * hitting one gallery still gets locked out per IP.
-     */
     private const MAX_FAILED_ATTEMPTS = 5;
     private const LOCKOUT_MINUTES = 15;
 
-    /**
-     * Show the PIN entry screen.
-     */
     public function show(string $slug)
     {
         $gallery = Gallery::where('slug', $slug)->where('is_active', true)->firstOrFail();
@@ -40,18 +27,6 @@ class GalleryPinController extends Controller
         return view('gallery.pin', compact('gallery'));
     }
 
-    /**
-     * Verify the submitted PIN.
-     *
-     * Throttled at two layers:
-     *   1. Route-level `throttle:5,1` (routes/web.php) — 5 requests per
-     *      minute per IP across ALL PIN endpoints. Stops brute-force at
-     *      the HTTP layer.
-     *   2. Per-gallery lockout in this controller — after MAX_FAILED_ATTEMPTS
-     *      failed attempts for a (gallery, IP) pair, the IP is locked out
-     *      of that gallery's PIN for LOCKOUT_MINUTES. Stops a distributed
-     *      attacker who rotates IPs but targets one gallery.
-     */
     public function verify(Request $request, string $slug)
     {
         $gallery = Gallery::where('slug', $slug)->where('is_active', true)->firstOrFail();
@@ -61,7 +36,6 @@ class GalleryPinController extends Controller
         $lockoutKey = $this->lockoutKey($gallery->id, $request->ip());
         $attemptsKey = $this->attemptsKey($gallery->id, $request->ip());
 
-        // ── Check lockout ─────────────────────────────────────────────────
         $lockedUntil = Cache::get($lockoutKey);
         if ($lockedUntil !== null && $lockedUntil > now()) {
             $minutes = (int) ceil(now()->diffInSeconds($lockedUntil) / 60);

@@ -253,9 +253,6 @@
                             </div>
                             <div>
                                 <label for="team-description" class="label-text mb-1.5">Description</label>
-                                {{-- ITERATION-3 CRITICAL FIX: the opening <textarea> tag was missing
-                                     its closing ">" — the old() value rendered as broken attributes and
-                                     the whole Team Settings form submitted corrupted markup. --}}
                                 <textarea name="description" id="team-description" rows="3" class="input-base">{{ old('description', $team->description) }}</textarea>
                             </div>
                             <button type="submit" class="btn btn-secondary w-full">
@@ -332,9 +329,6 @@
                                     <div class="flex gap-2">
                                         <form action="{{ route('admin.teams.destroy', $team) }}" method="POST">
                                             @csrf @method('DELETE')
-                                            {{-- ITERATION-3: @js() escapes the team name — a name containing a
-                                                 single quote previously broke the Alpine expression and left
-                                                 the destructive button permanently enabled. --}}
                                             <button type="submit" :disabled="typed !== @js($team->name)"
                                                     class="btn btn-sm btn-danger">
                                                 Delete Permanently
@@ -359,8 +353,5 @@
         window.exospaceGuardForm(form);
         form.submit();
     }
-    // ITERATION-3: window.disableSubmitButton is now the canonical helper in
-    // resources/js/app.js (was defined only here, so other pages referencing
-    // it silently no-op'd). The page-local copy was removed.
     </script>
 </x-app-layout>

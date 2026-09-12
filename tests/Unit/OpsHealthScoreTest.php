@@ -7,21 +7,8 @@ namespace Tests\Unit;
 use App\Ops\Services\OpsHealthScoreService;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 4 — the health score FORMULA.
- *
- * The brief demanded "no meaningless numbers": every score must be
- * reproducible from documented weights, every component must explain
- * itself, and the number may never contradict the status verdict
- * (verdict caps). These tests pin all three properties to the formula
- * itself, independent of any live data source.
- */
 class OpsHealthScoreTest extends TestCase
 {
-    /**
-     * A perfectly healthy platform input — every test scenario derives
-     * from this by mutation, so expected values stay derivable by hand.
-     */
     private function baseline(): array
     {
         return [
@@ -92,8 +79,6 @@ class OpsHealthScoreTest extends TestCase
 
     public function test_stopped_application_caps_score_at_65_critical_band(): void
     {
-        // 3 running + 1 stopped: blend alone = 94 (healthy band) — a stopped
-        // app is a CRITICAL verdict on the dashboard; the cap enforces it.
         $input = array_merge($this->baseline(), [
             'applications' => ['running' => 3, 'degraded' => 0, 'stopped' => 1, 'unknown' => 0],
         ]);
@@ -107,9 +92,6 @@ class OpsHealthScoreTest extends TestCase
 
     public function test_stale_backup_disk_caps_score_at_65_critical_band(): void
     {
-        // Backups gone stale: the protection component drops AND the
-        // verdict cap applies — a platform without fresh backups is never
-        // "healthy".
         $input = array_merge($this->baseline(), [
             'backup_disks' => ['ok' => 1, 'stale' => 1, 'missing' => 0, 'unreadable' => 0],
         ]);
@@ -176,8 +158,6 @@ class OpsHealthScoreTest extends TestCase
 
     public function test_warning_only_platform_stays_in_the_blend(): void
     {
-        // Warnings never degrade the platform STATUS — so no cap may fire;
-        // the blend alone decides (and 10 warnings legitimately hurt it).
         $input = array_merge($this->baseline(), [
             'untriaged_events' => ['critical' => 0, 'error' => 0, 'warning' => 10],
         ]);
@@ -189,8 +169,6 @@ class OpsHealthScoreTest extends TestCase
         $this->assertSame(94, $result['score']); // 100 − 20×0.30
         $this->assertSame('healthy', $result['band']);
     }
-
-    // ── Component math ───────────────────────────────────────────────────
 
     public function test_applications_component_is_the_health_average(): void
     {
@@ -249,8 +227,6 @@ class OpsHealthScoreTest extends TestCase
 
     public function test_unreadable_backup_disk_counts_half(): void
     {
-        // 1 ok + 1 unreadable → (100 + 50)/2 = 75 backup part; webhooks 100
-        // → 0.7×75 + 0.3×100 = 82.5 → 83. No cap (unreadable ≠ stale/missing).
         $input = array_merge($this->baseline(), [
             'backup_disks' => ['ok' => 1, 'stale' => 0, 'missing' => 0, 'unreadable' => 1],
         ]);
@@ -350,9 +326,6 @@ class OpsHealthScoreTest extends TestCase
 
     public function test_compounding_problems_push_below_the_caps(): void
     {
-        // A single stopped app alone scores exactly the cap (65). Stack
-        // more problems on top and the BLEND itself falls below the cap —
-        // the score keeps its resolution within the verdict.
         $input = array_merge($this->baseline(), [
             'self_status' => 'degraded',
             'self_reasons' => ['Cache probe failed'],
@@ -364,8 +337,6 @@ class OpsHealthScoreTest extends TestCase
 
         $result = $this->service()->compute($input);
 
-        // host 50×0.30 + apps 50×0.25 + untriaged 0×0.20 + incidents 70×0.15
-        // + protection 30×0.10 = 15+12.5+0+10.5+3 = 41 — well under every cap.
         $this->assertSame(41, $result['score']);
         $this->assertSame('critical', $result['band']);
     }

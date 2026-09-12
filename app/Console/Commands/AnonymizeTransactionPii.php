@@ -8,51 +8,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * SEC-10 FIX: PII retention policy for the transactions table.
- *
- * The transactions table stores customer_email + customer_name (PII) for
- * every 2Checkout payment. Tax/audit regulations (IRS) require retaining
- * financial records for 7 years — but GDPR Article 5(1)(e) requires that
- * PII is "kept in a form which permits identification of data subjects for
- * no longer than is necessary".
- *
- * This command reconciles the two: it ANONYMIZES the PII fields
- * (customer_email, customer_name) on transactions older than a configurable
- * retention window (default: 18 months), while keeping the financial record
- * (amount, currency, plan, status, invoice_id, sale_id) intact for tax audit.
- *
- * The anonymization replaces PII with a one-way hash derived from the
- * original value + APP_KEY. This:
- *   - Removes the PII from the database (GDPR-compliant)
- *   - Preserves the ability to correlate transactions by the same (now-
- *     anonymized) customer email (e.g. for fraud detection)
- *   - Cannot be reversed without APP_KEY (and even then, only the hash is
- *     stored — the original email is gone)
- *
- * Schedule: monthly (1st of each month) via routes/console.php, after the
- * partition-prune command. Runs AFTER partition pruning so that old
- * partitions (which are dropped entirely) don't waste anonymization effort.
- *
- * The command is idempotent: re-running it on already-anonymized rows is
- * a no-op (the hash-of-hash is stable).
- *
- * ITERATION-003 FIX (audit G-5): Now also anonymizes the invoices table.
- *
- * The invoices table holds the SAME PII (customer_email, customer_name,
- * billing_address) copied from the transaction at issue time. The
- * InvoiceGenerator's comment claimed invoices "retain the financial record"
- * — but it preserved the PII, not just the financial record, contradicting
- * GDPR Art. 5(1)(e). Nothing anonymized the invoice PII.
- *
- * FIX: This command now anonymizes both tables in the same run:
- *   - transactions: customer_email → 'anonymized:' + hash, customer_name → null
- *   - invoices: customer_email → 'anonymized:' + hash, customer_name → null,
- *     billing_address → null
- *
- * The financial fields (amount, tax_amount, tax_rate, currency, invoice_number)
- * are preserved for tax audit compliance.
- */
 class AnonymizeTransactionPii extends Command
 {
     protected $signature = 'exospace:anonymize-pii
@@ -103,9 +58,6 @@ class AnonymizeTransactionPii extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Anonymize PII on old transactions.
-     */
     private function anonymizeTransactions($cutoff, bool $dryRun, int $batchSize): int
     {
         $this->info("── Transactions ──");
@@ -160,32 +112,16 @@ class AnonymizeTransactionPii extends Command
         return $anonymized;
     }
 
-    /**
-     * ITERATION-003 FIX (G-5): Anonymize PII on old invoices.
-     *
-     * The invoices table holds the SAME PII as transactions (customer_email,
-     * customer_name, plus billing_address). Without this, the invoices table
-     * retains PII indefinitely — a GDPR violation.
-     *
-     * The financial fields (amount, tax_amount, tax_rate, currency,
-     * invoice_number, pdf_path) are preserved for tax audit compliance.
-     */
     private function anonymizeInvoices($cutoff, bool $dryRun, int $batchSize): int
     {
         $this->newLine();
         $this->info("── Invoices (G-5 fix) ──");
 
-        // Only process if the invoices table exists (defensive — the table
-        // is created by 2026_07_04_000012, which may not have run on very
-        // old installs).
         if (! \Illuminate\Support\Facades\Schema::hasTable('invoices')) {
             $this->warn("  Invoices table does not exist — skipping invoice anonymization.");
             return 0;
         }
 
-        // Count rows that need anonymization.
-        // Invoices have an `issued_at` column (not `created_at`), which is
-        // the authoritative issue date. We use issued_at for the cutoff.
         $needsAnonymization = DB::table('invoices')
             ->where('issued_at', '<', $cutoff)
             ->where(function ($q) {

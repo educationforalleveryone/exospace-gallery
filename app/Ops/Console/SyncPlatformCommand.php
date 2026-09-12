@@ -7,19 +7,6 @@ namespace App\Ops\Console;
 use App\Ops\Services\PlatformSyncService;
 use Illuminate\Console\Command;
 
-/**
- * OpsCenter — ops:sync-platform.
- *
- * Pulls the whole Coolify platform (servers, applications, databases,
- * services, recent deployments) into the ops tables. Scheduled every 5
- * minutes from routes/console.php; safe to run manually at any time
- * (idempotent, overlap-protected on the schedule).
- *
- * When the Coolify API is unreachable the command records a rate-limited
- * INFRASTRUCTURE event (via PlatformSyncService::recordApiUnreachable)
- * and exits 0 — a monitoring feed being down must never fail the
- * scheduler chain that hosts the OTHER alerts.
- */
 class SyncPlatformCommand extends Command
 {
     protected $signature = 'ops:sync-platform';

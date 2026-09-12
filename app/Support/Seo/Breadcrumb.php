@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Support\Seo;
 
-/**
- * One breadcrumb crumb: label + URL (URL null = current page / non-link).
- */
 final class Breadcrumb
 {
     public function __construct(
@@ -14,13 +11,6 @@ final class Breadcrumb
         public readonly ?string $url = null,
     ) {}
 
-    /**
-     * Build a breadcrumb trail from [label, url|null] pairs.
-     * The last entry is treated as the current page (rendered without a link).
-     *
-     * @param  array<int, array{0: string, 1?: string|null}> $trail
-     * @return array<int, self>
-     */
     public static function trail(array $trail): array
     {
         $crumbs = [];
@@ -34,12 +24,6 @@ final class Breadcrumb
         return $crumbs;
     }
 
-    /**
-     * BreadcrumbList JSON-LD graph for this trail.
-     *
-     * @param  array<int, self> $crumbs
-     * @return array<string, mixed>
-     */
     public static function toJsonLd(array $crumbs): array
     {
         $items = [];
@@ -58,7 +42,6 @@ final class Breadcrumb
         ];
     }
 
-    /** HTML-escaped, length-managed label for rendering. */
     public function label(int $limit = 60): string
     {
         return \Illuminate\Support\Str::limit(trim($this->label), $limit);

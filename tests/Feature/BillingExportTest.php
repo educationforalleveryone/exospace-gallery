@@ -9,17 +9,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * ITERATION 5 — billing review CSV export.
- *
- * The billing review data could previously only leave the system by
- * pagination + copy-paste. These tests pin:
- *   1. Transactions export: BOM + header + rows, money-status filter
- *      semantics shared with the page, 90-day default window, days=all
- *   2. Webhook ledger export with the failed-only filter
- *   3. Every export writes an admin audit record (the CSV carries PII out)
- *   4. Access: super-admin + MFA only (403 otherwise)
- */
 class BillingExportTest extends TestCase
 {
     use RefreshDatabase;
@@ -57,8 +46,6 @@ class BillingExportTest extends TestCase
         ], $attrs));
     }
 
-    // ── Transactions export ─────────────────────────────────────────────
-
     public function test_transactions_export_streams_csv_with_bom_and_rows(): void
     {
         $tx = $this->makeTransaction(['status' => 'refunded', 'amount' => 29.00]);
@@ -88,8 +75,6 @@ class BillingExportTest extends TestCase
             ->get('/master-control/billing/export')
             ->streamedContent();
 
-        // Default = refunds & chargebacks (the page's default filter), not
-        // every purchase ever.
         $this->assertSame(2, substr_count($csv, "\n") - 1, 'two money-event rows (header excluded)');
     }
 
@@ -123,8 +108,6 @@ class BillingExportTest extends TestCase
         $this->assertStringContainsString($old->invoice_id, $all, 'days=all exports everything');
     }
 
-    // ── Webhook ledger export ───────────────────────────────────────────
-
     public function test_webhooks_export_streams_the_ledger_with_failed_filter(): void
     {
         $failed = ProcessedWebhook::create([
@@ -157,8 +140,6 @@ class BillingExportTest extends TestCase
         $this->assertStringContainsString('Message Type', $csv);
         $this->assertStringNotContainsString('MSG-OK-', $csv, 'failed-only filter respected');
     }
-
-    // ── Audit trail + access control ────────────────────────────────────
 
     public function test_every_export_writes_an_admin_audit_record(): void
     {

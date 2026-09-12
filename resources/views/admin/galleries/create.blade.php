@@ -183,9 +183,6 @@
 .venue-plan-badge-free    { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
 .venue-plan-badge-pro     { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.4); }
 .venue-plan-badge-studio  { background: rgba(245,158,11,0.12); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
-/* Iteration 1 "The Rehearsal" (P1.1) — walkable preview affordance.
-   Opens the venue's sample exhibition in a new tab WITHOUT selecting
-   the venue (the anchor stops click propagation in JS — CSP-safe). */
 .venue-walkthrough {
     display: inline-flex;
     align-items: center;
@@ -225,10 +222,6 @@ $venueAtmospheres = [
         @php
             $accessible = $venue->isAccessibleBy(auth()->user());
             $isSelected = old('venue_template_id', $venueTemplates->firstWhere('plan_required', 'free')?->id) == $venue->id;
-            // Iteration 0 (roadmap P0.2 — picker truth): one thumbnail
-            // pipeline. DB-uploaded thumbnail (works for admin-created
-            // venues) → static convention file → styled fallback with REAL
-            // venue initials (the literal "??" fallback is unreachable).
             $thumbUrl = $venue->thumbnail_url ?: ('/assets/thumbnails/' . $venue->slug . '.jpg');
             $atm = $venueAtmospheres[$venue->slug] ?? [
                 'bg'     => 'linear-gradient(135deg,#1a1a2e 0%,#101020 100%)',
@@ -268,14 +261,6 @@ $venueAtmospheres = [
 
                 {{-- Venue Preview --}}
                 <div class="venue-preview" style="background: {{ $atm['bg'] }};">
-                    {{-- data-onerror-hide reveals the styled fallback beneath if
-                         the static convention file is absent (admin-created
-                         venues before their first upload). An inline
-                         onerror="" attribute is blocked by CSP (event-handler
-                         attributes aren't covered by the script nonce) — the
-                         layout's document-level capturing 'error' listener
-                         (layouts/app.blade.php) handles [data-onerror-hide]
-                         instead. --}}
                     <img src="{{ $thumbUrl }}"
                          alt="{{ $venue->name }}"
                          class="venue-thumb-img"
@@ -294,9 +279,6 @@ $venueAtmospheres = [
                     <div style="font-size:12px;color:#6b7280;margin-top:2px;">{{ $venue->capacityLabel() }}</div>
                     <span class="venue-plan-badge {{ $badgeClass }}">{{ ucfirst($venue->plan_required) }}</span>
 
-                    {{-- Iteration 1 "The Rehearsal" (roadmap P1.1): walk the
-                         venue BEFORE committing — the chooser test. Opens in
-                         a new tab; click never selects the venue. --}}
                     @featureFlag('venue_previews')
                     <a href="{{ route('venues.preview', $venue->slug) }}" target="_blank" rel="noopener"
                        class="venue-walkthrough" data-walkthrough-link
@@ -433,11 +415,6 @@ $venueAtmospheres = [
     </div>
 
 <script nonce="@nonce">
-// Iteration 0 (roadmap P0.1 — single source of truth): venue descriptions
-// and accent colors are rendered SERVER-SIDE onto each card as
-// data-description / data-accent from the venue_templates DB row. The old
-// JS description map drifted from the DB (and promised things venues don't
-// render, e.g. penthouse "city views") — it is deleted.
 
 function selectVenue(card) {
     const accessible = card.dataset.accessible === 'true';
@@ -482,9 +459,6 @@ document.querySelectorAll('.venue-card').forEach(card => {
     card.addEventListener('click', () => selectVenue(card));
 });
 
-// Iteration 1 "The Rehearsal": "Walk through" opens the venue preview in a
-// new tab WITHOUT selecting the venue — stop the click from bubbling to the
-// card's selectVenue handler (CSP-safe: addEventListener, no inline onclick).
 document.querySelectorAll('[data-walkthrough-link]').forEach(a => {
     a.addEventListener('click', (e) => e.stopPropagation());
 });

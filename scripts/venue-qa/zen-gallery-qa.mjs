@@ -1,43 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// zen-gallery-qa.mjs — the venue QA gate for Japanese Zen Gallery v2.
-//
-//   node scripts/venue-qa/zen-gallery-qa.mjs
-//
-// Same layering as white-cube-qa.mjs / infinite-void-qa.mjs /
-// industrial-loft-qa.mjs / dark-museum-qa.mjs: this file pins CONTRACTS
-// (config authority, geometry invariants, parity, determinism),
-// tests/Feature/VenueZenIterationTest.php pins the DB side, and
-// scripts/harness/shoot.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the zen-gallery row declares the v2 "Quiet
-//      Procession" identity: structure_pass 'bays' + proportions, the
-//      warm-paper atmosphere, the procession rig, texture_tint authority,
-//      the DECLARED-ABSENT environment ('none' + env_intensity 0 — no sky
-//      can leak in), artwork legibility, placement curation, post-fx
-//      restraint, linear-only supported_layouts, sumi-ink frames.
-//   B. DB↔harness sync — the PHP-less harness renders the same JSON a
-//      fresh install seeds (same pairs, equal values).
-//   C. Geometry invariants — driven through the REAL modules:
-//        • THE SIGNATURE GUARANTEE: every artwork sits CENTRED between its
-//          two flanking fins (±2 cm) on every supported layout, at any
-//          count — the bay architecture derives from the same run plan the
-//          placer consumes (squareRunPlan / lshapeRowPlan).
-//        • No timber/recess geometry ever intersects a canvas (clipping).
-//        • Every artwork fits its bay with margin (no pierce of fins).
-//        • The clerestory band, display steps and (square) rafters exist;
-//          the whole architecture costs ≤ 6 draw calls (merged).
-//        • Low-end tier: same silhouettes in Lambert (degradation parity).
-//        • Determinism: rebuilding twice produces identical geometry.
-//   D. JS hygiene — zero venue slugs in runtime code; the 'bays' pass is
-//      selected by config only.
-//   E. Authority/parity — 'bays' + 'structure' are venue-owned exporter
-//      keys (a stale gallery override cannot reshape the architecture),
-//      the venue request vocabulary admits 'bays', the guarded migration
-//      exists and pins the same v2 description, and the runtime patch
-//      guard consumes the SHIPPED lists (no JS-side second copy).
-// ─────────────────────────────────────────────────────────────────────────────
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -52,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (zen-gallery row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -112,7 +72,6 @@ ok('version bumped (2.x)', /'version'\s*=>\s*'2\.\d+\.\d+'/.test(chunk));
 ok('description promises only what renders (framed bays / paper band / cedar)',
     /framed bays/.test(chunk) && /paper band/.test(chunk) && /cedar/.test(chunk));
 
-// ── B. DB↔harness sync ──────────────────────────────────────────────────────
 section('B. DB↔harness sync (zen-gallery body)');
 const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
 const hStart = harnessSrc.indexOf("'zen-gallery': {");
@@ -144,7 +103,6 @@ if (hStart !== -1) {
         !/rotunda/.test(hChunk.match(/supported_layouts:[^\n]+/)?.[0] ?? 'rotunda'));
 }
 
-// ── C. Geometry invariants (REAL modules) ───────────────────────────────────
 section('C. Geometry invariants (real placer + real bays pass)');
 const THREE = (await import(pathToFileURL(rel('node_modules/three/build/three.module.js')))).default
     ?? (await import(pathToFileURL(rel('node_modules/three/build/three.module.js'))));
@@ -222,12 +180,6 @@ const componentBoxes = (geometry) => {
     });
     return [...clusters.values()];
 };
-// Decompose merged geometry into per-TRIANGLE AABBs. A box side-face's
-// triangle spans the box's full extent in the two face axes, so fin faces
-// are identifiable by their y-span (fins are full-height; headers are not)
-// — no clustering needed: mergeParts never welds touching boxes, but their
-// unioned AABB would be the whole wall (useless for both fin-finding and
-// clipping checks).
 const triangleBoxes = (geometry) => {
     const pos = geometry.attributes.position;
     const index = geometry.index;
@@ -251,9 +203,6 @@ const overlaps = (a, b, tol = 0.005) =>
 const S = 4.5; // generous — the venue declares it (PlacementCuration preset)
 const FACE0 = CONFIG.room.wallDepth / 2 + FIN_D / 2; // fin centre depth off the wall centre plane
 
-// Identify which bayed face an artwork hangs on + its tangent coordinate.
-// Mirrors each layout's placer walk exactly (wallId on square; face planes
-// on corridor / l-shape). Returns { wall, t, planeFn, tanFn } or null.
 function artFace(g, meta) {
     const x = g.position.x, z = g.position.z;
     const wd = CONFIG.room.wallDepth;
@@ -371,9 +320,6 @@ for (const n of [1, 8, 24, 60]) {
                 if (artSpan < bayWidth - 0.05) { /* fits with margin */ }
                 else cramped++;
             }
-            // Clipping: NO timber or recess triangle may enter the canvas
-            // box (the canvas is a zero-depth plane — only geometry that
-            // spans it registers).
             const hitTimber = timberTris.some(b => overlaps(b, canvasBox));
             const hitRecess = recessTris.some(b => overlaps(b, canvasBox));
             if (hitTimber || hitRecess) clipped++;
@@ -404,7 +350,6 @@ ok(`every artwork fits its bay with margin (${total - cramped}/${total})`,
         pa.length === pb.length && pa.every((v, i) => v === pb[i]));
 }
 
-// ── Low-end degradation parity ──────────────────────────────────────────────
 {
     const meta = squareMeta(8);
     const { ctx, meshes } = makeZenCtx(8, meta, true);
@@ -418,7 +363,6 @@ ok(`every artwork fits its bay with margin (${total - cramped}/${total})`,
         !!paper && (paper.material.emissiveIntensity ?? 0) > 0);
 }
 
-// ── D. JS hygiene ───────────────────────────────────────────────────────────
 section('D. JS hygiene');
 {
     const runtimeFiles = [
@@ -438,7 +382,6 @@ section('D. JS hygiene');
     }
 }
 
-// ── E. Authority + parity ───────────────────────────────────────────────────
 section('E. Authority + parity');
 const exporterSrc = readFileSync(rel('app/Services/VenueConfigExporter.php'), 'utf8');
 ok("'bays' is a venue-owned exporter key (architecture cannot be overridden)",
@@ -464,7 +407,6 @@ const sceneSrc = readFileSync(rel('resources/js/gallery/GalleryScene.js'), 'utf8
 ok('runtime patch guard consumes the SHIPPED owned lists (no JS copy to drift)',
     /venue_owned_visual/.test(sceneSrc) && /venue_owned_material/.test(sceneSrc));
 
-// ── Report ──────────────────────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(66));
 if (failures === 0) console.log('✅ zen-gallery-qa: ALL CHECKS PASSED');
 else { console.error(`❌ zen-gallery-qa: ${failures} check(s) FAILED`); process.exit(1); }

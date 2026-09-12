@@ -3,64 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * OUTDOOR SCULPTURE GARDEN v3.0.0 — "The Curated Walk" (landscape identity).
- *
- * WHAT THE FORENSIC AUDIT FOUND (screenshot-class defects, not taste):
- *   • The camera spawned at (0, 1.6, 0) — the exact spot where the §4.10
- *     redesign later placed the central pedestal + bronze knot. The
- *     visitor's first frame rendered from INSIDE the hero sculpture's AABB.
- *   • Every artwork hung on ONE evenly-spaced ring facing the centre (the
- *     legacy circular placer): no depth, no hierarchy, no discovery — from
- *     the spawn all pieces were visible at once (the metronome fence).
- *   • Easel-ring artworks registered NO collision obstacle (the float venues
- *     do) — visitors clipped straight through canvases.
- *   • The ground was a perfectly flat disc; the grass ended at a hard seam
- *     against the sky dome; beyond the hedge there was NOTHING (the horizon
- *     revealed the illusion).
- *   • Vegetation was 4 identical cone trees in the hedge's exact colour.
- *   • The "stone path" was 6 decorative discs connecting nothing.
- *   • No environment declaration → the resolved 'bright' preset's studio.hdr
- *     (an INTERIOR) downloaded and reflected in the bronze hero; a "ceiling"
- *     point light floated at (0, 8, 0) over the open sky; warm indoor pool
- *     lights hovered at every easel in daylight; the hemisphere light was
- *     neutral white/gray over grass.
- *
- * THE SIGNATURE (ships in the JS bundle — GardenLayout.js + the rebuilt
- * VenueDecorator garden body + ArtworkPlacer's 'garden' placement mode; this
- * migration carries only the DB half, the same split every deepening
- * iteration uses):
- *   the garden becomes a DESIGNED LANDSCAPE — terrain → walks → courts →
- *   vegetation, in that order. Artworks stand on curated clearings (primary /
- *   secondary / transitional), each facing its approach; a stone promenade
- *   leads from a garden GATE (the new spawn) to the bronze centrepiece and
- *   on around a ring walk; vegetation frames and screens; the horizon
- *   dissolves into a rolling, hazed distant landscape.
- *
- * THIS MIGRATION (DB side only):
- *   visual_config : declared environment absence + sky IBL strength, the
- *                   hemisphere sky/ground daylight tints, the ceiling-orb
- *                   opt-out, the landscape field sizing (bonus + floor), the
- *                   'garden' placement mode, the garden tuning block
- *                   (sky_environment), haze fog, rig rebalance.
- *   description   : verifiable copy (the v2 "winding path" copy is gone).
- *   version       : 2.0.0 → 3.0.0 under guard.
- *
- * GUARDING (same contract as the IT3/IT6/dark-museum/zen/cyber migrations):
- *   every rewrite fires ONLY while the stored value still equals the
- *   previously seeded value (strings strictly, numbers numerically; nulls
- *   only via explicit absence checks). A super-admin's custom value is never
- *   touched. Absent keys are added only when missing. Idempotent; down()
- *   reverses each rewrite under the same exact-match guard. Paired with the
- *   seeder (fresh-install baseline).
- */
 return new class extends Migration
 {
-    /**
-     * Exact-match guard: strings strictly, numbers numerically (null never
-     * matches). Keeps an admin's custom value from ever matching the seeded
-     * "from" value the rewrite is guarded on.
-     */
     private function guardedEquals($current, $from): bool
     {
         if ($current === null) {
@@ -81,7 +25,6 @@ return new class extends Migration
             return; // venue removed by the operator — respect that
         }
 
-        // ── visual_config ────────────────────────────────────────────────
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
@@ -95,8 +38,6 @@ return new class extends Migration
             }
         }
 
-        // fog_color was an explicit null (→ "no fog"). The distant landscape
-        // needs aerial perspective — rewrite only while it is still null.
         if (!array_key_exists('fog_color', $vc) || $vc['fog_color'] === null) {
             $vc['fog_color'] = '0xd6e0e2';
         }
@@ -164,7 +105,6 @@ return new class extends Migration
                 ->update(['description' => $v3Description]);
         }
 
-        // ── version ──────────────────────────────────────────────────────
         if ($this->guardedEquals($row->version, '2.0.0')) {
             DB::table('venue_templates')->where('id', $row->id)->update(['version' => '3.0.0']);
         }

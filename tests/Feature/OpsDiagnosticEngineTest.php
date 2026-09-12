@@ -15,18 +15,6 @@ use App\Ops\Models\OpsEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 3 — the diagnostic engine.
- *
- * Pins the engine's security and robustness contracts:
- *   - the allow-list (unknown id → null / 404, no capability oracle),
- *   - the auth bar (guest / regular user / super-admin without MFA),
- *   - audit + persistence for every run,
- *   - redaction of findings before persistence,
- *   - the honest scope guard (self-scoped check vs another application),
- *   - provenance (event/incident sources),
- *   - the never-throw contract for exploding runners.
- */
 class OpsDiagnosticEngineTest extends TestCase
 {
     use RefreshDatabase;
@@ -55,8 +43,6 @@ class OpsDiagnosticEngineTest extends TestCase
         ]);
     }
 
-    // ── Auth bar ────────────────────────────────────────────────────────
-
     public function test_guest_cannot_run_diagnostics(): void
     {
         $this->post('/ops/diagnostics/run', ['diagnostic' => 'database.connectivity'])
@@ -82,14 +68,10 @@ class OpsDiagnosticEngineTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
-        // Logged in but WITHOUT the mfa_verified session flag → the MFA
-        // middleware bounces to the verification challenge.
         $this->actingAs($admin)
             ->post('/ops/diagnostics/run', ['diagnostic' => 'database.connectivity'])
             ->assertRedirect(route('mfa.verify'));
     }
-
-    // ── Allow-list ──────────────────────────────────────────────────────
 
     public function test_unknown_diagnostic_id_is_rejected_with_404(): void
     {
@@ -108,8 +90,6 @@ class OpsDiagnosticEngineTest extends TestCase
         $this->assertNull($engine->run('totally.bogus'));
     }
 
-    // ── Happy path: run + persist + audit ───────────────────────────────
-
     public function test_run_persists_result_and_audits(): void
     {
         $admin = User::factory()->withMfa()->create([
@@ -117,9 +97,6 @@ class OpsDiagnosticEngineTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
-        // AdminAuditLog::record captures the actor from the Auth facade —
-        // authenticate so the audit row carries the acting user even in a
-        // direct service-level call (HTTP requests do this automatically).
         $this->actingAs($admin);
 
         $run = app(DiagnosticEngine::class)->run('database.connectivity', null, $admin, 'manual');
@@ -155,8 +132,6 @@ class OpsDiagnosticEngineTest extends TestCase
             ->assertSee('Queue &amp; worker health', false)
             ->assertSee($run->summary, false);
     }
-
-    // ── Provenance ──────────────────────────────────────────────────────
 
     public function test_run_from_an_event_records_provenance_and_target(): void
     {
@@ -201,8 +176,6 @@ class OpsDiagnosticEngineTest extends TestCase
             ->assertStatus(404);
     }
 
-    // ── Scope guard ─────────────────────────────────────────────────────
-
     public function test_self_scoped_diagnostic_against_another_app_is_honestly_inconclusive(): void
     {
         $other = OpsApplication::create([
@@ -221,13 +194,8 @@ class OpsDiagnosticEngineTest extends TestCase
         $this->assertStringContainsString('Container health', $run->interpretation, 'The honest answer must point at the diagnostics that CAN help.');
     }
 
-    // ── Redaction ───────────────────────────────────────────────────────
-
     public function test_findings_are_redacted_before_persistence(): void
     {
-        // Bind a fake runner that returns findings containing secret-shaped
-        // strings — the engine must redact them before storing (defense in
-        // depth; the redactor's own patterns are pinned by its unit tests).
         $this->app->instance(DatabaseDiagnostics::class, new class implements \App\Ops\Diagnostics\RunsDiagnostics
         {
             public function runDiagnostic(string $id, ?OpsApplication $application): DiagnosticResult
@@ -252,8 +220,6 @@ class OpsDiagnosticEngineTest extends TestCase
         $this->assertStringNotContainsString('hunter2', $stored);
         $this->assertStringNotContainsString('abcdefabcdefabcdefabcdef', $stored);
     }
-
-    // ── Never-throw ─────────────────────────────────────────────────────
 
     public function test_exploding_runner_becomes_a_failed_run_not_a_500(): void
     {

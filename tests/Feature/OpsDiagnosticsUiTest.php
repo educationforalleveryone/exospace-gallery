@@ -12,13 +12,6 @@ use App\Ops\Services\OpsEventIngestor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 3 — the diagnostics UI.
- *
- * Pins the surfaces the operator actually touches: the catalog page, the
- * run-result page, one-click buttons on error/incident pages (the whole
- * point of the iteration), and the per-application quick actions.
- */
 class OpsDiagnosticsUiTest extends TestCase
 {
     use RefreshDatabase;

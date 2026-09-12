@@ -2,27 +2,11 @@
 
 declare(strict_types=1);
 
-/**
- * Central SEO configuration for Exospace.
- *
- * This is the single place where SEO behaviour is configured. Nothing in
- * templates or controllers may hard-code SEO limits, titles or defaults —
- * they read from here (usually via App\Support\Seo\SeoManager).
- *
- * The design goal: when keyword research arrives later, the *strategy*
- * lives in data (seo_profiles / seo_pages), not in templates. This config
- * holds only mechanical parameters.
- */
-
 return [
 
-    // ── Brand / site identity ───────────────────────────────────────────
     'site_name'        => env('APP_NAME', 'Exospace'),
     'title_separator'  => ' | ',
 
-    // Title templates. Placeholders: {title}, {site}, {section}.
-    // Kept as templates (not hard-coded strings) so the brand voice can
-    // change in one place. Entity pages compose via SeoManager.
     'templates'        => [
         'home'          => '{site} — Immersive 3D Art Galleries',
         'gallery'       => '{title} — 3D Virtual Exhibition',
@@ -35,12 +19,8 @@ return [
         'default'       => '{title}',
     ],
 
-    // Default meta description used when a page has no better source.
-    // This is a platform-level description of the product, not a keyword
-    // strategy.
     'default_description' => 'Create museum-quality 3D art exhibitions in minutes. Upload your images, pick a venue, share a link. Free to start.',
 
-    // ── Meta limits ─────────────────────────────────────────────────────
     'limits'           => [
         'title'            => 60,   // px-truncated ~580px; 60 chars is the safe ceiling
         'description'      => 155,  // 160 hard cap, 155 with ellipsis safety
@@ -48,9 +28,6 @@ return [
         'og_description'   => 150,
     ],
 
-    // ── Quality gates ───────────────────────────────────────────────────
-    // An artwork only gets an indexable standalone page when it carries
-    // real information. These thresholds are mechanical, not editorial.
     'artwork_gate'     => [
         'min_description_chars' => 80,
         'max_related'           => 6,
@@ -62,14 +39,9 @@ return [
         'artworks_max'  => 6,   // related works on an artwork page
     ],
 
-    // ── Sitemaps ────────────────────────────────────────────────────────
     'sitemap'          => [
-        // URLs per sub-sitemap. Google caps at 50,000 URLs / 50 MB uncompressed;
-        // 2,000 keeps XML documents comfortably small while limiting file count.
         'per_page'      => 2000,
 
-        // Cache TTLs (seconds) for sub-sitemaps and the index. Entries are
-        // also invalidated by observers bumping the sitemap version key.
         'cache_ttl'     => 1800,   // 30 minutes
         'cache_ttl_stale' => 3600, // flexible-cache stale window
 
@@ -77,12 +49,10 @@ return [
         'include_images' => true,
     ],
 
-    // ── Feeds ───────────────────────────────────────────────────────────
     'feed'             => [
         'max_items' => 50,
     ],
 
-    // ── Open Graph ──────────────────────────────────────────────────────
     'og'               => [
         'default_image'        => 'img/og-default.png',
         'default_image_width'  => 1200,
@@ -92,11 +62,7 @@ return [
         'twitter_card'         => 'summary_large_image',
     ],
 
-    // ── Canonicalisation ────────────────────────────────────────────────
     'canonical'        => [
-        // Query params that NEVER affect page content — always stripped
-        // from canonical URLs. Tracking params first, then app-specific
-        // display params.
         'stripped_params' => [
             // Universal tracking
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
@@ -109,15 +75,10 @@ return [
             'embed', 'artwork', 'preview',
         ],
 
-        // Params that DO change content and are preserved when they are
-        // the sole content-affecting param (e.g. pagination).
         'pagination_param' => 'page',
     ],
 
-    // ── Robots / crawling ───────────────────────────────────────────────
     'robots'           => [
-        // Paths disallowed for all user agents on the primary host.
-        // Admin/auth/billing/utility surfaces + duplicate/preview endpoints.
         'disallow' => [
             '/admin',
             '/master-control',
@@ -140,35 +101,20 @@ return [
             '/gallery/*/qr',
             '/artist/*/og-image',
         ],
-        // Wildcard query disallows (Google/Bing extension syntax).
-        // ITERATION-1 FIX: use the canonical Google robots.txt wildcard form
-        // (/*?param= — matches any path followed by the query param), as used
-        // in Google's own documentation examples. The bare `*?param=` form
-        // also works on Googlebot but is nonstandard and was inconsistent
-        // with the documented policy.
         'disallow_query' => [
             '/*?embed=',
             '/*?preview=',
         ],
     ],
 
-    // ── SEO pages (landing + editorial) ─────────────────────────────────
     'pages'            => [
-        // URL prefix for editorial content (guides, tutorials, comparisons).
-        // Landing pages live at the root (/{slug}); editorial content is
-        // namespaced to avoid collisions with future product routes.
         'editorial_prefix'  => 'resources',
 
-        // Landing-page slugs are matched against a cached allow-list, so
-        // root-slug routing can never shadow real product routes.
         'landing_cache_ttl' => 3600,
         'list_cache_ttl'    => 600,
     ],
 
-    // ── Indexability reporting ──────────────────────────────────────────
     'audit'            => [
-        // Scheduled SEO health check. Results go to the log and (when the
-        // operational webhook is configured) to Slack.
         'schedule'        => 'daily',
         'slack_on_issues' => true,
     ],

@@ -14,17 +14,6 @@ $maxWidth = [
 ][$maxWidth];
 @endphp
 
-{{-- ─────────────────────────────────────────────────────────────────────────
-    THE modal component (single dialog architecture for the product).
-
-    Visual language: .modal-backdrop (scrim + blur) + .modal-panel
-    (bg-gray-800 / border-gray-600/50 / rounded-xl / shadow-modal).
-    Interior bands: .modal-header / .modal-body / .modal-footer.
-
-    Behavior (unchanged): Alpine-driven, opens via the `open-modal` window
-    event, traps Tab focus, closes on Escape / backdrop click, locks body
-    scroll while open.
-   ───────────────────────────────────────────────────────────────────────── --}}
 <div
     x-data="{
         show: @js($show),

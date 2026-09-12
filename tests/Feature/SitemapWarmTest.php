@@ -10,17 +10,6 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
-/**
- * ITERATION 4 — sitemap cache warming.
- *
- * Before this iteration, every sitemap cache key rebuilt lazily INSIDE the
- * crawler's request (Cache::flexible's cold path computes inline with no
- * lock). These tests pin the warmer contract:
- *   - sitemap:warm populates the versioned keys a crawler would read
- *   - the daily 04:15 schedule exists
- *   - seo:rebuild now actually warms (its docblock always claimed it did)
- *   - warmed keys serve without re-querying (cold-path never fires)
- */
 class SitemapWarmTest extends TestCase
 {
     use RefreshDatabase;
@@ -69,8 +58,6 @@ class SitemapWarmTest extends TestCase
         $this->assertSame(0, $exit);
 
         $version = (int) Cache::get('seo:sitemap:version', 1);
-        // Same key expressions the request path uses (single source of
-        // truth — cacheGroupEntries / cacheIndexEntries):
         $this->assertTrue(Cache::has("sitemap:index:v{$version}"));
         $this->assertTrue(Cache::has('sitemap:count:galleries:v' . $version));
         $this->assertTrue(Cache::has('sitemap:lastmod:galleries:v' . $version));
@@ -88,16 +75,8 @@ class SitemapWarmTest extends TestCase
         $this->assertSame(1, Artisan::call('sitemap:warm', ['--group' => 'nonsense']));
     }
 
-    /**
-     * ITERATION-6 FIX (Iteration-5 regression): the events group was added
-     * to SitemapController::GROUPS but missing from the command's --group
-     * allowlist — targeted warming of the events sitemap failed with
-     * "Unknown group".
-     */
     public function test_warm_command_accepts_the_events_group(): void
     {
-        // Warm an empty events group — exit 0 proves the allowlist accepts
-        // it (the empty group simply yields a 0-page warm).
         $this->assertSame(0, Artisan::call('sitemap:warm', ['--group' => 'events']));
     }
 
@@ -133,8 +112,6 @@ class SitemapWarmTest extends TestCase
 
         // Version bumped atomically…
         $this->assertSame(8, (int) Cache::get('seo:sitemap:version'));
-        // …and the NEW version's keys are pre-populated (the docblock has
-        // claimed "eagerly warms" since SEO OS Iteration 4 — now true).
         $this->assertTrue(Cache::has('sitemap:group:galleries:1:v8'));
         $this->assertTrue(Cache::has('sitemap:index:v8'));
 
@@ -150,8 +127,6 @@ class SitemapWarmTest extends TestCase
         $v1 = (int) Cache::get('seo:sitemap:version', 1);
         $this->assertTrue(Cache::has("sitemap:group:galleries:1:v{$v1}"));
 
-        // An entity write bumps the version atomically (seed-then-increment)
-        // and the old version's keys stop being served.
         GalleryImage::create([
             'gallery_id'    => Gallery::first()->id,
             'path'          => 'artworks/warm2.jpg',

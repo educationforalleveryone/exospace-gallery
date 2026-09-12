@@ -31,7 +31,6 @@
     ];
 @endphp
 
-{{-- ── Status banner ─────────────────────────────────────────────────── --}}
 <div class="rounded-xl border {{ $statusStyles['banner'] }} p-5 mb-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -52,7 +51,6 @@
 
 <div class="grid lg:grid-cols-3 gap-6">
 
-    {{-- ── Main column ─────────────────────────────────────────────────── --}}
     <div class="lg:col-span-2 space-y-6">
 
         {{-- Findings --}}
@@ -117,7 +115,6 @@
         @endif
     </div>
 
-    {{-- ── Side column ─────────────────────────────────────────────────── --}}
     <div class="space-y-6">
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
             <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Run details</h2>

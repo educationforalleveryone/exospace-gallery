@@ -4,13 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * P3-10: Change admin_audit_logs.actor_id FK from cascade-delete to nullOnDelete.
- *
- * Previously, deleting a super-admin cascade-deleted all their audit log
- * entries — losing the forensic trail. Now the actor_id is set to NULL
- * when the user is deleted, preserving the audit record for compliance.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -36,10 +29,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // ITERATION-1 FIX (consolidated-migration coexistence): rollback
-        // runs additive migrations' down() in reverse batch order — the
-        // target table may already be gone (owned by the consolidated
-        // migration that runs later in the same batch on fresh installs).
         if (! Schema::hasTable('admin_audit_logs')) {
             return;
         }

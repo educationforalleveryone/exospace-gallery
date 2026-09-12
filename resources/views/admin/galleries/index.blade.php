@@ -143,8 +143,6 @@
                                 </div>
                                 
                                 <!-- Actions -->
-                                {{-- ITERATION-2: draft cards offer Preview + Publish (the public
-                                     URL 404s while draft, so View/Share are meaningless). --}}
                                 @if($gallery->is_active)
                                 <div class="grid grid-cols-2 gap-2 mb-2">
                                     <a href="{{ route('gallery.view', $gallery->slug) }}" target="_blank" class="btn btn-secondary">
@@ -208,11 +206,6 @@
                     {{ $galleries->links() }}
                 </div>
             @else
-                <!-- PREMIUM EMPTY STATE: First-Time User Onboarding.
-                     ITERATION-9: tamed to the design language — one gradient
-                     (the header band), no pulsing blur glow, no shadow-2xl,
-                     card/well recipes instead of nested off-system surfaces,
-                     h2 no longer outweighs the page title. -->
                 <div class="max-w-4xl mx-auto">
                     <!-- Main Hero Card -->
                     <div class="card overflow-hidden">
@@ -440,11 +433,6 @@
                 }, 2000);
             });
         }
-
-        // ITERATION-3: Escape / backdrop click / Tab trap / scroll lock for
-        // both modals are handled by the shared modal system in app.js —
-        // the page-local Escape sweeper + backdrop helper were removed
-        // (they also stacked a listener on every Turbo visit).
 
         // Open QR code in new tab — the route returns a PNG
         function openQrCode(el, e) {

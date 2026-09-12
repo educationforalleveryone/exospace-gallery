@@ -10,32 +10,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
-/**
- * Admin CRUD for artist profiles.
- *
- * Curators (any authenticated user) can create artist profiles and
- * assign them to artworks. The creator is recorded in `created_by`.
- *
- * AUTHORIZATION (task C16)
- * ------------------------
- * Previously, "any user can edit any artist profile" — the docblock
- * called this "intentional for the multi-curator group-show scenario."
- * The pre-launch audit flagged this as a critical vulnerability: a
- * malicious free-tier user could change any artist's bio/website/social
- * links (defacement, phishing-link injection) or delete any artist and
- * detach them from every image across every gallery via
- * `$artist->images()->update(['artist_id' => null])`.
- *
- * New model:
- *   - Any authenticated user can VIEW / search all artists (multi-curator
- *     collaboration preserved — the dropdown still shows everyone).
- *   - Only the creator OR a super-admin can edit or delete an artist.
- *   - `created_by` is locked at creation time and cannot be changed via
- *     the update form (it's not in the validated fields).
- *
- * This stops the cross-tenant defacement / attribution-wipe attack
- * while keeping the legitimate collaboration flow working.
- */
 class ArtistController extends Controller
 {
     public function index(Request $request): View
@@ -98,14 +72,6 @@ class ArtistController extends Controller
 
         $artist = Artist::create($validated);
 
-        // SEO OS (Iteration 6): persist curator SEO overrides into the
-        // artist's seo_profile (creates on demand).
-        //
-        // ITERATION-1 P0 FIX: this block previously ran BEFORE
-        // Artist::create() — $artist was still undefined, so submitting the
-        // artist form with ANY SEO override field produced
-        // "Call to a member function seoProfileOrCreate() on null" (HTTP
-        // 500). Moved below the create() call where the model exists.
         if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
             $profile = $artist->seoProfileOrCreate();
             $profile->fill([
@@ -172,8 +138,6 @@ class ArtistController extends Controller
             }
         }
 
-        // SEO OS (Iteration 6): persist curator SEO overrides into the
-        // artist's seo_profile (creates on demand).
         if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
             $profile = $artist->seoProfileOrCreate();
             $profile->fill([
@@ -183,9 +147,6 @@ class ArtistController extends Controller
             ])->save();
             unset($validated['seo_title'], $validated['seo_description']);
         }
-
-        // `created_by` is intentionally NOT in $validated — it is locked
-        // at creation time and cannot be transferred via the edit form.
 
         if ($request->hasFile('portrait')) {
             if ($artist->portrait_path) {
@@ -222,14 +183,6 @@ class ArtistController extends Controller
             ->with('status', "Artist \"{$name}\" deleted. Their artworks remain but are now unattributed.");
     }
 
-    /**
-     * AJAX endpoint: search artists by name (for the image-edit dropdown).
-     * Returns JSON [{id, name, location, portrait_url}].
-     *
-     * Search is available to any authenticated user — multi-curator
-     * collaboration requires seeing everyone's artists in the dropdown.
-     * Only mutation (edit/delete) is restricted by authorizeArtistMutation().
-     */
     public function search(Request $request)
     {
         $term = trim((string) $request->query('q', ''));
@@ -251,20 +204,6 @@ class ArtistController extends Controller
         ]));
     }
 
-    // ── Authorization ─────────────────────────────────────────────────────
-
-    /**
-     * Only the artist's creator OR a super-admin can edit/delete.
-     *
-     * (Task C16) — previously any authenticated user could mutate any
-     * artist, enabling cross-tenant defacement and attribution-wipe
-     * attacks. Now only the original creator (or a super-admin for
-     * support cases) can mutate.
-     *
-     * The view/search/index/show actions remain open to any authenticated
-     * user — multi-curator collaboration requires seeing everyone's
-     * artists in the dropdown.
-     */
     private function authorizeArtistMutation(Artist $artist): void
     {
         $user = Auth::user();

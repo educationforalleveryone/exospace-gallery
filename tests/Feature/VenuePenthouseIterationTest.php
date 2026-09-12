@@ -2,44 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Luxury Penthouse identity tests — v3.0.0 "The Double Volume"
- * (2026-09-09 full redesign; predecessors: 2026_09_01_000003 "Rooms",
- * 2026_09_08_000005 "The Collector's Floor", 2026_09_08_000006 "Evening Light").
- *
- * Pins the v3.0.0 contract so the venue can never silently regress:
- *
- *   - The FULL MIGRATION CHAIN lands on the seeder row: a production venue
- *     walks v1.0.0 → 000005 (2.0.0) → 000006 (2.1.0) → 000007 (3.0.0); a
- *     fresh install seeds the final state directly. Both roads MUST end at
- *     one identity.
- *   - THE DOUBLE VOLUME: wing_heights { gallery 3.55 / volume 6.3 } under
- *     the 6.3 nominal — the procession/gallery band is LOW, the living
- *     volume is DOUBLE-HIGH, and the seam between them is the venue's
- *     dominant spatial idea.
- *   - THE GLASS CORNER: glazing_walls opens BOTH faces (wing_b_end +
- *     wing_b_north) while glazing_wall stays true for square-layout
- *     galleries; the fireplace pier (wall_end) stays solid inside the
- *     north glass run.
- *   - THE SEAM: the junction family (fascia + full-width lit slot + the
- *     axis sculpture) is declared; the fireplace surface is hangable ABOVE
- *     the fire (y 3.25) and the walnut art wall (wall_left_high, y 2.6)
- *     carries the second statement work — the residential hang.
- *   - The evening interior: lit warm ceiling 0x5c4c3a, the rig luminous
- *     (ambient 0.42 / hemi 0.3 / fill 0.42 / exposure 0.92), dusk-haze fog
- *     26/160, the honed floor (0.62/0.03), the cheap-class glazing on BOTH
- *     faces, bronze frames (gold read as decoration), artwork legibility
- *     base 0.5, black-blend vignette.
- *   - The promise matrix: the copy names what renders.
- *   - Guarded, idempotent, reversible at EVERY chain step; admin edits
- *     survive up() and down().
- *   - The architecture is venue-owned (s7: wing_heights + glazing_walls
- *     joined the owned set) — a stale gallery override can never recompose
- *     the building.
- *
- * Run: php artisan test --filter=VenuePenthouseIterationTest
- */
-
 namespace Tests\Feature;
 
 use App\Services\VenueConfigExporter;
@@ -50,10 +12,6 @@ use Tests\TestCase;
 class VenuePenthouseIterationTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The seeder baseline — the fresh-install identity
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_seeded_row_is_the_double_volume(): void
     {
@@ -207,10 +165,6 @@ class VenuePenthouseIterationTest extends TestCase
         $this->assertStringNotContainsStringIgnoringCase('gold', $desc, 'Copy must not promise gold — the frames are bronze by declaration.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The guarded migration CHAIN — production roads converge on one identity
-    // ─────────────────────────────────────────────────────────────────────
-
     private function penthouseMigration5(): object
     {
         return require database_path('migrations/2026_09_08_000005_luxury_penthouse_residence.php');
@@ -236,14 +190,6 @@ class VenuePenthouseIterationTest extends TestCase
         return require database_path('migrations/2026_09_09_000009_luxury_penthouse_media_wall.php');
     }
 
-    /**
-     * The venue-template editor's JSON round-trip (the ROOT CAUSE the
-     * convergence pass repairs): re-serializing the row through the browser
-     * (a) loses the float-ness of integral numbers (5.0 → 5) and (b) re-sorts
-     * every object's keys alphabetically. PHP's `===` guards see
-     * int(5) !== float(5.0) and skip — this helper reproduces the drift
-     * byte-faithfully (verified against the live production payload).
-     */
     private function editorRoundTrip(mixed $value): mixed
     {
         if (is_bool($value) || is_null($value) || is_string($value) || is_int($value)) {
@@ -263,7 +209,6 @@ class VenuePenthouseIterationTest extends TestCase
         return $value;
     }
 
-    /** The v1.0.0 row exactly as production holds it pre-chain. */
     private function seedLegacyPenthouseRow(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -289,9 +234,6 @@ class VenuePenthouseIterationTest extends TestCase
                 'frame_override'         => 'gold',
                 'structure_pass'         => 'rooms',
                 'glazing_wall'           => true,
-                // The v1.0.0 "Rooms" payload — VERBATIM (the exact-match
-                // guard in 000005 compares against this 17-descriptor list;
-                // it is also the harness's legacy body).
                 'structure'              => [
                     ['id' => 'terrace-deck', 'primitive' => 'box', 'at' => ['from' => 'glazing_outside', 'offset' => [0, 0.04, 2.6]], 'turn' => 'out', 'fit' => 'glazing', 'fit_pad' => 0.1, 'size' => [1, 0.08, 5.0], 'material' => 'dark_trim'],
                     ['id' => 'glazing-glass', 'primitive' => 'plane', 'at' => ['from' => 'glazing', 'offset' => [0, 2.2, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.06, 'size' => [1, 4.4], 'material' => ['glass' => true, 'tint' => '0xc4d8ea', 'opacity' => 0.18]],
@@ -328,9 +270,6 @@ class VenuePenthouseIterationTest extends TestCase
 
     public function test_the_full_migration_chain_lands_the_exact_seeder_state(): void
     {
-        // Production path: v1.0.0 → 000005 (2.0.0) → 000006 (2.1.0)
-        //   → 000007 (3.0.0). Fresh-install path: the seeder ships the final
-        //     state directly. Both roads MUST end at the same identity.
         $this->seedLegacyPenthouseRow();
         $this->penthouseMigration5()->up();
 
@@ -375,8 +314,6 @@ class VenuePenthouseIterationTest extends TestCase
         $this->seedLegacyPenthouseRow();
         $this->penthouseMigration5()->up();
 
-        // An admin retune that must survive the pass (guarded swap):
-        // ambient differs from the migration's declared 0.26→0.42 pair.
         DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
             'visual_config' => json_encode(array_merge($this->visualConfig('luxury-penthouse'), [
                 'ambient_intensity' => 0.5, // the admin owns it now
@@ -417,8 +354,6 @@ class VenuePenthouseIterationTest extends TestCase
         $this->penthouseMigration5()->up();
         $this->penthouseMigration6()->up();
 
-        // An admin retune that must survive the pass (guarded swap):
-        // exposure differs from the migration's declared 0.92 pair.
         DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
             'visual_config' => json_encode(array_merge($this->visualConfig('luxury-penthouse'), [
                 'tone_mapping_exposure' => 1.05, // the admin owns it now
@@ -462,19 +397,6 @@ class VenuePenthouseIterationTest extends TestCase
         $this->assertStringContainsString('floor at dusk', (string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('description'), 'down() restores the v2.1.0 copy.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The convergence pass (000008) — the production drift repair.
-    //
-    // FORENSIC CONTEXT: the live production row drifted from the chain — an
-    // admin venue-template save re-serialized visual_config through a
-    // browser JSON round-trip BEFORE batches 53–55 ran, storing float 5.0 as
-    // int 5 and alphabetically re-sorting every descriptor's keys. Every
-    // strict `===` STRUCTURE guard then missed (int 5 !== float 5.0) and the
-    // swaps SILENTLY skipped, so production served the v1.0.0 "Rooms" body
-    // (the blue/warm preset-tower skyline) under a 3.0.0 version string.
-    // These tests replay that exact history and pin the repair.
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_the_drifted_production_row_converges_to_the_double_volume(): void
     {
         // 1. The clean v1.0.0 row (batch 42 era).
@@ -488,12 +410,6 @@ class VenuePenthouseIterationTest extends TestCase
             'lighting_fixtures' => json_encode($this->editorRoundTrip(json_decode((string) $row->lighting_fixtures, true) ?: [])),
         ]);
 
-        // 3. The guarded chain runs — but history repeats mid-chain: the
-        //    editor save happened again between the v2.0.0 and v2.1.0
-        //    deploys (that is why production's fixtures froze at the v2
-        //    pair). Scalar/copy guards fire; every structure/fixture guard
-        //    MISSES (this is the production bug — assert it so the test
-        //    fails loudly if the chain semantics ever change).
         $this->penthouseMigration5()->up();
         $this->driftRowLikeProduction();   // the second editor save
         $this->penthouseMigration6()->up();
@@ -581,8 +497,6 @@ class VenuePenthouseIterationTest extends TestCase
         $this->penthouseMigration7()->up();
         $this->penthouseMigration8()->up();
 
-        // Reversibility: down() restores the v2.1.0 bodies under the same
-        // semantic guards (000007.down() then owns the rest of the chain).
         $this->penthouseMigration8()->down();
         $rolled = $this->visualConfig('luxury-penthouse');
         $this->assertCount(47, $rolled['structure'] ?? [], 'down() restores the v2.1.0 payload for chain bodies.');
@@ -592,25 +506,10 @@ class VenuePenthouseIterationTest extends TestCase
         $this->assertCount(5, $rolledFixtures, 'down() restores the v2.1.0 fixture rig.');
         $this->assertSame('cove-wash-a', $rolledFixtures[2]['id'] ?? null, 'The v2.1.0 cove washes come back.');
 
-        // The chain stays coherent after the rollback: 000007.down() must
-        // find its exact v2.1.0 expectations (the reason down() targets the
-        // v2.1 bodies rather than inventing a state).
         $this->penthouseMigration7()->down();
         $this->assertSame('2.1.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'),
             '000007.down() recognises the restored v2.1.0 state (chain rollback stays coherent).');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The Media Wall pass (000009) — v3.0.0 → v3.1.0.
-    //
-    // OWNER CONTEXT: on the deployed v3.0.0 floor the lounge sofa group
-    // read as a dead black mass, the art wall's statement work hung
-    // unlit, the floor lamp read as a floating blank panel, and the axis
-    // knot floated 0.10 m above its plinth. 000009 answers with the media
-    // console + bezel (viewer-drawn Now Showing screen), a picture-light
-    // bar + fixture, the lamp move/strengthen, and the small craft debts
-    // — all under per-descriptor semantic guards (the 000008 rule).
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_media_wall_pass_upgrades_the_seeded_floor(): void
     {
@@ -734,7 +633,6 @@ class VenuePenthouseIterationTest extends TestCase
             'A curator override can neither move nor remove the media wall.');
     }
 
-    /** Step 2 of the production replay: the admin save's JSON round-trip. */
     private function driftRowLikeProduction(): void
     {
         $row = DB::table('venue_templates')->where('slug', 'luxury-penthouse')
@@ -744,10 +642,6 @@ class VenuePenthouseIterationTest extends TestCase
             'lighting_fixtures' => json_encode($this->editorRoundTrip(json_decode((string) $row->lighting_fixtures, true) ?: [])),
         ]);
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The client payload — the Double Volume must reach preview AND public
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_payload_carries_the_double_volume_to_the_client(): void
     {
@@ -770,10 +664,6 @@ class VenuePenthouseIterationTest extends TestCase
 
     public function test_the_penthouse_architecture_is_venue_owned(): void
     {
-        // Every key this pass uses is venue-owned (s7 added wing_heights +
-        // glazing_walls) — a stale gallery override can never recompose the
-        // building, and the schema bump re-keys every cached payload on
-        // deploy.
         foreach (['structure', 'glazing_wall', 'glazing_walls', 'wing_heights', 'post_fx', 'environment', 'env_intensity',
             'artwork_light_base', 'artwork_light_pool_cap', 'hemisphere_intensity',
             'wall_height', 'ceiling_color', 'ambient_color', 'fog_near', 'fog_far',
@@ -785,8 +675,6 @@ class VenuePenthouseIterationTest extends TestCase
         }
         $this->assertSame('s7', VenueConfigExporter::SCHEMA, 'The s7 schema bump re-keys cached payloads on deploy.');
 
-        // End-to-end: a gallery carrying a saved override layer renders the
-        // VENUE's architecture, not the override.
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $venue   = \App\Models\VenueTemplate::where('slug', 'luxury-penthouse')->firstOrFail();
@@ -814,8 +702,6 @@ class VenuePenthouseIterationTest extends TestCase
         $this->assertSame('none', $payload['visual_config']['environment'] ?? null, 'A curator-saved sky override is stripped — the sky is the city.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-
     private function visualConfig(string $slug): array
     {
         return json_decode((string) DB::table('venue_templates')->where('slug', $slug)->value('visual_config'), true) ?: [];
@@ -826,7 +712,6 @@ class VenuePenthouseIterationTest extends TestCase
         return json_decode((string) DB::table('venue_templates')->where('slug', $slug)->value('material_config'), true) ?: [];
     }
 
-    /** Recursively key-sort a JSON blob so identity comparisons ignore order. */
     private function canonicalJson(mixed $json): string
     {
         $data = is_string($json) ? (json_decode((string) $json, true) ?: []) : $json;

@@ -33,7 +33,6 @@
 </div>
 @endif
 
-{{-- ── Diagnostic catalog, grouped ─────────────────────────────────────── --}}
 <div class="space-y-8 mb-10">
     @foreach($groups as $group)
         @php
@@ -51,15 +50,12 @@
                             </span>
                         </div>
                         <p class="text-xs text-slate-400 leading-relaxed mb-4 flex-1">{{ $definition['description'] }}</p>
-                        {{-- Iteration 6: super-admins AND operator-tier grantees can run these read-only checks (route-level: ops_operator group). --}}
                         @if(\App\Ops\Support\OpsAccessContext::canRunDiagnostics(auth()->user()))
                             <form method="POST" action="{{ route('ops.diagnostics.run') }}"
                                   data-busy data-busy-label="Running…">
                                 @csrf
                                 <input type="hidden" name="diagnostic" value="{{ $id }}">
                                 @if($application)<input type="hidden" name="application" value="{{ $application->id }}">@endif
-                                {{-- ITERATION-3: data-busy — the run is synchronous (seconds), the
-                                     button used to stay clickable → double runs + double queue rows. --}}
                                 <button class="btn btn-sm btn-ops-primary w-full">
                                     Run diagnostic
                                 </button>
@@ -74,10 +70,8 @@
     @endforeach
 </div>
 
-{{-- ── Sweep cadences (Iteration 7) ─────────────────────────────────────── --}}
 @include('ops.partials.sweep-cadences')
 
-{{-- ── Recent runs ────────────────────────────────────────────────────── --}}
 <section>
     <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Recent runs</h2>
     <div class="overflow-x-auto rounded-lg border border-slate-800">

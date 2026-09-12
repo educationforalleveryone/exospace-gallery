@@ -4,9 +4,6 @@
 @section('description', 'See what\'s new in Exospace — feature releases, improvements, and bug fixes.')
 
 @section('content')
-{{-- ITERATION-4: inline-style markup rewritten with utilities + kit badges
-     (.badge-brand for versions, .badge-success for highlights — 12px floor
-     enforced), token colors for markers, no colored glow shadows. --}}
 <div class="max-w-3xl mx-auto px-6 py-16">
 
     {{-- Header --}}

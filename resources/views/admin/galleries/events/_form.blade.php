@@ -1,11 +1,4 @@
 @php
-    // FIX (2026-08-31): this was `:title="@yield('form-title', 'New event')"`.
-    // Blade compiles component tags BEFORE directives, so the raw @yield text
-    // was embedded verbatim into the component's argument array and, being
-    // inside an emitted <?php block, was never compiled further — PHP then
-    // parsed it as error-suppression + yield('form-title', 'New event') and
-    // died with "syntax error, unexpected token ','" (yield takes one arg).
-    // Pulling the section into a plain variable is the safe equivalent.
     $formTitle = $__env->yieldContent('form-title') ?: 'New event';
 @endphp
 <x-app-layout>
@@ -14,10 +7,6 @@
     </x-slot>
 
     <div class="page-shell-narrow">
-        {{-- ITERATION-3 FIX: only the title field showed validation errors — a
-             failed starts_at / ends_after / location_url rule re-rendered the
-             form with NO indication anything was wrong. Banner + field errors
-             now cover every validated attribute. --}}
         @if($errors->any())
             <div class="alert alert-error mb-4" role="alert">
                 <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>

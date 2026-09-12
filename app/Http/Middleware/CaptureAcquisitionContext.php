@@ -8,29 +8,8 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Organic acquisition capture (SEO OS Iteration 7).
- *
- * On a visitor's FIRST page view (per session), record:
- *   - HTTP referrer (as sent by the browser)
- *   - landing page path
- *   - UTM params if present
- *   - a classified channel bucket
- *
- * The data is copied onto the user at registration (User::creating hook)
- * and powers the organic-acquisition report in the SEO console. It is
- * first-party, session-scoped, and never shared with third parties.
- *
- * Channel classification:
- *   campaign  — any utm_source present (the campaign owns the attribution)
- *   social    — referrer host matches a known social platform
- *   organic   — referrer host matches a known search engine
- *   referral  — referrer host is any other site
- *   direct    — no referrer (or same-host)
- */
 class CaptureAcquisitionContext
 {
-    /** Search engine hosts (organic). */
     private const SEARCH_HOSTS = [
         'google.', 'bing.com', 'duckduckgo.com', 'yahoo.', 'ecosia.org',
         'brave.com', 'search.brave.com', 'startpage.com', 'baidu.com',
@@ -38,7 +17,6 @@ class CaptureAcquisitionContext
         'perplexity.ai', 'chatgpt.com', 'copilot.microsoft.com',
     ];
 
-    /** Social platform hosts. */
     private const SOCIAL_HOSTS = [
         'facebook.com', 'instagram.com', 'twitter.com', 'x.com',
         'linkedin.com', 'tiktok.com', 'pinterest.', 'reddit.com',
@@ -48,8 +26,6 @@ class CaptureAcquisitionContext
 
     public function handle(Request $request, Closure $next): Response
     {
-        // Only the first HTML page view per session carries attribution;
-        // subsequent views would overwrite with navigational referrers.
         if ($request->isMethod('get') && !$request->session()->has('acquisition')) {
             $request->session()->put('acquisition', $this->capture($request));
         }
@@ -57,9 +33,6 @@ class CaptureAcquisitionContext
         return $next($request);
     }
 
-    /**
-     * @return array{channel: string, referrer: ?string, landing_page: string, utm: array<string, string>}
-     */
     private function capture(Request $request): array
     {
         $referrer = $request->headers->get('referer');

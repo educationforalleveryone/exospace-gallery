@@ -19,24 +19,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 7 — the unified morning digest.
- *
- * These tests pin the briefing end to end:
- *
- *   1. compose(): all sections present on an empty platform (honest
- *      empty states, not missing sections); seeded facts surface in
- *      the right section; the incident double-count rule holds.
- *   2. Fail-soft per section: a throwing data source degrades ONLY
- *      its section — the rest of the briefing still composes.
- *   3. Sentry: omitted when unconfigured; reported when configured.
- *   4. send(): scheduled posts once + deduplicates within the info
- *      TTL; manual deliberately BYPASSES the dedup; both stamp.
- *   5. The command: sends + exits 0; kill switch = clean no-op;
- *      never fatal.
- *   6. Routes: preview viewer-visible; manual send super-admin-only,
- *      throttled, audited (ops.digest.sent); viewer sees no button.
- */
 class OpsMorningDigestTest extends TestCase
 {
     use RefreshDatabase;
@@ -51,20 +33,12 @@ class OpsMorningDigestTest extends TestCase
             'services.operational_alerts.webhook_url' => 'https://slack.test/hook',
             'services.operational_alerts.critical_webhook_url' => null,
             'ops.digest.enabled' => true,
-            // Determinism: the dev box's .env may carry real Sentry /
-            // ingest settings — neutralize them so the digest tests see
-            // a clean, unconfigured platform unless a test opts in.
             'ops.sentry.api_token' => null,
             'ops.sentry.org' => null,
         ]);
 
         Http::fake([
             'slack.test/*' => Http::response(['ok' => true]),
-            // Fixed 24 h stats payload for the ONE test that configures
-            // Sentry. NOTE: Http stub callbacks match in REGISTRATION
-            // ORDER (first match wins) — re-faking the same pattern inside
-            // a test body would NOT override this, so the payload lives
-            // here and the test only flips the config on.
             'sentry.test/*' => Http::response([
                 'data' => [
                     [now()->timestamp - 7200, ['count' => 3]],
@@ -74,8 +48,6 @@ class OpsMorningDigestTest extends TestCase
             ]),
         ]);
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
 
     private function service(): OpsMorningDigestService
     {
@@ -180,8 +152,6 @@ class OpsMorningDigestTest extends TestCase
             $this->assertContains($expected, $keys, "Section '{$expected}' must always compose — an empty platform is an honest state, not a missing section.");
         }
 
-        // Sentry stays OMITTED while unconfigured (not 'unavailable' —
-        // the operator never asked for it).
         $this->assertNotContains('sentry', $keys);
         $this->assertContains('sentry', array_column($digest['omitted'], 'key'));
 
@@ -207,14 +177,11 @@ class OpsMorningDigestTest extends TestCase
             'last_event_at' => now(),
         ]);
 
-        // This error belongs to the incident → counted as part of it,
-        // never twice (the health-score rule, applied to the digest).
         $this->event($application, 'error', [
             'title' => 'Correlated error inside the incident',
             'ops_incident_id' => $incident->id,
         ]);
 
-        // This one is untriaged.
         $otherApp = $this->app(['name' => 'Gallery Frontend']);
         $this->event($otherApp, 'critical', ['title' => 'Frontend 500 spike']);
 
@@ -304,10 +271,6 @@ class OpsMorningDigestTest extends TestCase
 
     public function test_compose_counts_overdue_credentials(): void
     {
-        // APP_KEY is always present (the encrypter needs it) and the
-        // dev .env may expose more surfaces — seed a fresh rotation for
-        // EVERY catalog entry so the only actionable surface is the
-        // one this test deliberately makes overdue.
         foreach (OpsCredentialInventoryService::CATALOG as $entry) {
             OpsCredential::firstOrCreate(
                 ['key' => $entry['key']],
@@ -315,8 +278,6 @@ class OpsMorningDigestTest extends TestCase
             );
         }
 
-        // slack-webhooks is "configured" via the alert webhook URL, and
-        // the ledger says it was last rotated 200 days ago (cadence 180).
         OpsCredential::where('key', 'slack-webhooks')->update([
             'last_rotated_at' => now()->subDays(200),
         ]);
@@ -389,8 +350,6 @@ class OpsMorningDigestTest extends TestCase
         $this->assertStringContainsString('1 audited ops action(s): ops.access.granted', $lines);
     }
 
-    // ── Fail-soft ───────────────────────────────────────────────────────
-
     public function test_a_throwing_data_source_degrades_only_its_section(): void
     {
         $this->app->instance(OpsStatusTilesService::class, new class extends OpsStatusTilesService
@@ -420,8 +379,6 @@ class OpsMorningDigestTest extends TestCase
         $this->assertContains('activity', array_column($digest['sections'], 'key'));
     }
 
-    // ── render() ────────────────────────────────────────────────────────
-
     public function test_render_contains_sections_and_footer(): void
     {
         $application = $this->app(['name' => 'Render Service']);
@@ -445,12 +402,8 @@ class OpsMorningDigestTest extends TestCase
         $this->assertStringContainsString('Rendered incident title', $text);
         $this->assertStringContainsString('Full detail: https://ops.example.test/ops', $text);
 
-        // The scheduled envelope quotes the message verbatim — no
-        // section key may leak a raw array.
         $this->assertStringNotContainsString('Array', $text);
     }
-
-    // ── send() ──────────────────────────────────────────────────────────
 
     public function test_scheduled_send_posts_to_slack_and_stamps(): void
     {
@@ -487,8 +440,6 @@ class OpsMorningDigestTest extends TestCase
 
         $this->assertSame('manual', $this->service()->lastSent()['trigger']);
     }
-
-    // ── The command ─────────────────────────────────────────────────────
 
     public function test_command_sends_and_exits_zero(): void
     {
@@ -530,8 +481,6 @@ class OpsMorningDigestTest extends TestCase
             ->expectsOutputToContain('Morning digest failed')
             ->assertSuccessful();
     }
-
-    // ── Routes + UI ─────────────────────────────────────────────────────
 
     public function test_digest_preview_is_viewer_visible(): void
     {

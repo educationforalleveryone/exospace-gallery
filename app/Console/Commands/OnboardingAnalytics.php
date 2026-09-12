@@ -8,49 +8,12 @@ use App\Services\OperationalAlertService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-/**
- * M-16: Onboarding funnel analytics.
- *
- * Tracks how users progress through the onboarding funnel:
- *   1. Registered (created_at)
- *   2. Created first gallery
- *   3. Uploaded first image
- *   4. Published gallery
- *   5. Got first view
- *
- * ITERATION-3: time-to-first-gallery and time-to-first-publish are now
- * computed from galleries.published_at (first-publish semantics) instead
- * of the is_active proxy, and the MySQL-only TIMESTAMPDIFF() was replaced
- * with portable PHP-side date math — the command previously crashed on
- * SQLite (CI) and locked itself to MySQL-only deployment shapes.
- *
- * ITERATION-4: the computation moved into OnboardingMetricsService (shared
- * with the Master Control onboarding panel, so the weekly report and the
- * live dashboard can never disagree). This command is now a thin reporter
- * that pulls FRESH (uncached) numbers — a weekly report must reflect the
- * week's actual state, not a possibly-stale dashboard cache entry.
- *
- * ITERATION-5: the report finally reaches humans and history.
- *   - Persistence: all three dashboard windows (7/30/90) are snapshotted
- *     into onboarding_snapshots, so Master Control can chart the TTFE
- *     trend instead of only the current window's point value. The live
- *     cohort erodes (GDPR deletions, PII anonymization, analytics rollup
- *     pruning) — the snapshot table is the faithful record.
- *   - Delivery: the report is pushed to the operational Slack channel
- *     (info severity) via OperationalAlertService — the same channel that
- *     carries the SEO audit and health alerts. Previously the report
- *     existed only as scheduler stdout + one log line, which nobody read.
- */
 class OnboardingAnalytics extends Command
 {
     protected $signature = 'exospace:onboarding-analytics {--days=30 : Analyze users from last N days}';
 
     protected $description = 'Generate onboarding funnel analytics report, snapshot the metric history, and post the summary to the operational alert channel.';
 
-    /**
-     * Dashboard windows snapshotted every run — must match the Master
-     * Control period selector so every trend has data.
-     */
     private const SNAPSHOT_WINDOWS = [7, 30, 90];
 
     public function handle(OnboardingMetricsService $metrics, OperationalAlertService $alerts): int
@@ -58,9 +21,6 @@ class OnboardingAnalytics extends Command
         $days = (int) $this->option('days');
         $data = $metrics->compute($days);
 
-        // ITERATION-5: persist history for every dashboard window BEFORE
-        // reporting, so the trend chart and the report can never disagree
-        // about what this week looked like.
         $snapshots = [];
         foreach (self::SNAPSHOT_WINDOWS as $window) {
             $snapshots[] = $metrics->persistSnapshot($window);
@@ -83,8 +43,6 @@ class OnboardingAnalytics extends Command
         $this->info('Time to first gallery:');
         $this->printDiffStats($data['ttfg_hours'], 'hours');
 
-        // TTFE — the product's headline metric (first PUBLISH, not first
-        // gallery creation; see Iteration-3 notes on published_at).
         $this->newLine();
         $this->info('Time to first published exhibition (TTFE):');
         $this->printDiffStats($data['ttfe_hours'], 'hours');
@@ -100,10 +58,6 @@ class OnboardingAnalytics extends Command
             'avg_hours_to_first_publish' => $data['ttfe_hours']['avg'] ?? null,
         ]);
 
-        // ITERATION-5: deliver the weekly report where operators already
-        // look — the operational alert channel (info severity). Delivery
-        // failure must never fail the command; OperationalAlertService
-        // already swallows webhook errors.
         $alerts->alert(
             'Weekly onboarding report',
             $this->slackSummary($data),
@@ -117,12 +71,6 @@ class OnboardingAnalytics extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Compact multi-line summary for the alert channel — the funnel with
-     * step conversion plus the headline TTFE/TTFG numbers.
-     *
-     * @param  array<string, mixed>  $data
-     */
     private function slackSummary(array $data): string
     {
         $lines = [
@@ -147,9 +95,6 @@ class OnboardingAnalytics extends Command
         return implode("\n", $lines);
     }
 
-    /**
-     * @param  null|array{min: float, avg: float, max: float}  $stats
-     */
     private function printDiffStats(?array $stats, string $unit): void
     {
         if ($stats === null) {

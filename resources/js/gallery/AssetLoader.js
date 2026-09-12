@@ -1,26 +1,7 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// AssetLoader — textures, HDRIs, GLBs (with DRACO + KTX2), audio
-//
-// Key differences from the old code:
-//   - DRACOLoader is registered once on the GLTFLoader so compressed GLBs work
-//   - KTX2Loader is registered so compressed textures work (future-proofing)
-//   - All loaders come from three/addons — bundled by Vite, no CDN
-//   - Material PBR sets are preloaded so Materials.js can read them synchronously
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader }      from 'three/addons/loaders/KTX2Loader.js';
-// Three.js r167+ ships HDRLoader (examples/jsm/loaders/HDRLoader.js) and
-// deprecated RGBELoader — but HDRLoader is a SEPARATE module, not an export
-// of RGBELoader.js, so the old "pick whichever export exists" fallback read
-// `_HDRLoaderModule.HDRLoader` from the WRONG module (always undefined) and
-// silently kept loading the deprecated class: every boot logged
-// "RGBELoader has been deprecated. Please use HDRLoader instead."
-// HDRLoader.js is imported directly (present since r167; the lockfile pins
-// ^0.182.0) with the RGBELoader namespace import kept only as a build-time
-// safety net for older trees.
 import * as _HDRLoaderModule from 'three/addons/loaders/HDRLoader.js';
 import * as _RGBELoaderModule from 'three/addons/loaders/RGBELoader.js';
 const _HDRLoader = _HDRLoaderModule.HDRLoader || _HDRLoaderModule.RGBELoader || _RGBELoaderModule.RGBELoader;
@@ -32,29 +13,6 @@ let _gltfLoader  = null;
 let _dracoLoader = null;
 let _ktx2Loader  = null;
 
-// PERF-E25 (3D audit — decode off the main thread): artwork textures decode
-// via createImageBitmap() on a browser background thread when available.
-// The previous path (TextureLoader → HTMLImageElement) defers decode to the
-// first texImage2D upload, which lands on the MAIN thread — during phase-B
-// streaming that meant visible hitches every time a texture swapped in while
-// the visitor was walking. ImageBitmaps arrive fully decoded.
-//
-// Orientation note — BUGFIX (artwork rendered upside down):
-// three's WebGLTextures upload path skips the UNPACK_FLIP_Y_WEBGL pixelStorei
-// call entirely for ImageBitmap sources (confirmed against the installed
-// three version — see uploadTexture()'s `isImageBitmap` branch), so
-// Texture#flipY has NO effect on a bitmap-backed texture. The previous
-// approach compensated by baking the flip into the bitmap's PIXELS at
-// decode time via createImageBitmap's `imageOrientation: 'flipY'` option.
-// That decode-time flip is NOT reliably consistent across GPU/driver
-// backends — Chromium's accelerated image-decode path (e.g. the ANGLE
-// Direct3D11 backend on Windows) has known discrepancies here, which is
-// exactly the class of bug that renders artwork upside down on some
-// machines and right-side up on others for the identical file.
-// Fix: never bake a pixel-level flip. Decode with the untouched
-// orientation ('none', the default) and instead flip at the UV-SAMPLING
-// stage via the texture's transform (center + repeat) — pure shader math,
-// so it is 100% consistent across every GPU/driver/OS combination.
 let _bitmapLoader = null;
 function createArtworkLoader() {
     if (typeof createImageBitmap !== 'undefined' && typeof fetch !== 'undefined') {
@@ -65,37 +23,20 @@ function createArtworkLoader() {
     return new THREE.TextureLoader();
 }
 
-// Flip a texture vertically via its UV transform (center + repeat) instead
-// of via pixel data or the (for-ImageBitmap-ignored) flipY pixelStorei flag.
-// Scaling repeat.y by -1 around center (0.5, 0.5) maps v -> 1 - v for any
-// v already in [0,1], so no wrap mode is needed and nothing samples outside
-// the texture.
 function flipTextureVertically(tex) {
     tex.center.set(0.5, 0.5);
     tex.repeat.set(1, -1);
     tex.needsUpdate = true;
 }
 
-// Normalized artwork-texture fetch: always resolves a THREE.Texture to
-// onLoad (constructing one around the ImageBitmap when on the bitmap path —
-// needsUpdate is required for a manually constructed Texture).
 function loadArtworkTexture(loader, url, onLoad, onError) {
     if (loader instanceof THREE.ImageBitmapLoader) {
         loader.load(url, (bitmap) => {
             const tex = new THREE.Texture(bitmap);
-            // BUGFIX: the bitmap is undoctored (imageOrientation:'none'), and
-            // flipY is ignored for ImageBitmap sources by the renderer — so
-            // without this, the artwork uploads exactly as decoded, which
-            // reads upside down against the room's UV convention. Flip it
-            // at the UV-sampling stage instead (see flipTextureVertically).
             flipTextureVertically(tex);
             onLoad(tex);
         }, undefined, onError);
     } else {
-        // TextureLoader path (createImageBitmap unavailable): the browser's
-        // normal HTMLImageElement upload DOES honour UNPACK_FLIP_Y_WEBGL, and
-        // Texture#flipY defaults to true — this path was already correct and
-        // is left untouched.
         loader.load(url, onLoad, undefined, onError);
     }
 }
@@ -103,17 +44,7 @@ function loadArtworkTexture(loader, url, onLoad, onError) {
 function getDracoLoader(renderer) {
     if (!_dracoLoader) {
         _dracoLoader = new DRACOLoader();
-        // Decoder wasm files live in /decoders/draco/ — the exact layout
-        // scripts/copy-decoders.sh creates (and the path this comment block
-        // always claimed). The historic '/decoders/' root pointed one level
-        // too high: every DRACO GLB (venue decorations, the sculpture
-        // garden's asset layer) 404'd its decoder and fell back per-prop.
-        // The garden asset iteration surfaced it; this is the root-cause fix.
         _dracoLoader.setDecoderPath('/decoders/draco/');
-        // PERF-A5 (3D audit F5): was { type: 'js' } — the asm.js decoder.
-        // The wasm decoder decodes the same GLBs 2-4x faster. Both files
-        // ship in /decoders/draco/ (draco_wasm_wrapper.js + draco_decoder.wasm),
-        // so switching is purely a speed win with identical output.
         _dracoLoader.setDecoderConfig({ type: 'wasm' });
     }
     return _dracoLoader;
@@ -132,8 +63,6 @@ export function getGltfLoader() {
     if (!_gltfLoader) {
         _gltfLoader = new GLTFLoader();
         _gltfLoader.setDRACOLoader(getDracoLoader(this?.renderer));
-        // KTX2 support — only enable if renderer is available (it always is
-        // by the time GLBs load, but be defensive)
         if (this?.renderer) {
             _gltfLoader.setKTX2Loader(getKtx2Loader(this.renderer));
         }
@@ -141,18 +70,6 @@ export function getGltfLoader() {
     return _gltfLoader;
 }
 
-// ── Capability-based artwork texture selection ─────────────────────────────
-// PERF-A1 (3D audit F1): the backend now ships a `textures` map per artwork
-// (thumb 400 / small 768 / medium 1024 / large 2048 WebP conversions,
-// falling back to the original URL when a conversion is missing).
-// Pick the variant that matches what the device can actually display:
-//
-//   low-end  → small  (768px)   — pixelRatio 1, short fog, small far plane
-//   mobile   → medium (1024px)  — artwork occupies ~600-900 device px at most
-//   desktop  → large  (2048px)  — headroom for focus-mode close inspection
-//
-// Every tier falls back through the chain to img.url (the original), so
-// legacy galleries without Spatie conversions behave exactly as before.
 export function pickTextureUrl(img, scene) {
     const t = img.textures;
     if (!t) return img.url; // legacy payload (pre-iteration-1 galleries)
@@ -161,23 +78,6 @@ export function pickTextureUrl(img, scene) {
     return t.large || t.medium || t.small || img.url;
 }
 
-// ── Main asset load — runs on GalleryScene boot ──────────────────────────────
-//
-// PERF-C9 (3D audit F9): PROGRESSIVE LOADING. The old flow blocked the Enter
-// button until 100% of artwork textures had downloaded + decoded — on a
-// 30-image gallery over a slow connection that was a minute of staring at a
-// progress bar while the room itself was ready in seconds.
-//
-// New two-phase flow:
-//   Phase A (blocking):  PBR materials → blur-up thumbnails (desktop) → the
-//                        first FIRST_BATCH artwork textures (deep-linked
-//                        artwork prioritised) → room builds → ENTER UNLOCKS.
-//   Phase B (background): remaining textures stream in with the same 6-way
-//                        concurrency pool and swap into their slots live.
-//
-// Every canvas material is created with a map from the very start (thumb or
-// a shared 1×1 dark placeholder) so a texture swap never changes the shader
-// program — the pop-in costs zero recompiles (see ArtworkPlacer).
 export async function loadAssets() {
     const textureLoader = new THREE.TextureLoader();
     const artworkLoader = createArtworkLoader();
@@ -212,10 +112,6 @@ export async function loadAssets() {
 
         const totalImages = data.images.length;
 
-        // ── Create placeholder entries for ALL artworks up-front ────────────
-        // Wall geometry is sized from the total count, every slot is framed,
-        // and textures attach as they arrive. (Previously, an image whose
-        // download failed was skipped entirely and the wall had a hole.)
         this.artworkImages = data.images.map(img => ({
             texture: null,      // full-quality variant — filled on arrival
             thumbTexture: null, // blur-up placeholder (desktop high-end)
@@ -223,8 +119,6 @@ export async function loadAssets() {
             ...img,              // backend fields: id, url, textures, metadata…
         }));
 
-        // Loading order — a deep-linked artwork (?artwork=<id>) jumps the
-        // queue so the shared link's target is inside the first batch.
         const deepLinkArtworkId = data.deepLinkArtworkId;
         const order = data.images.map((_, i) => i);
         if (deepLinkArtworkId) {
@@ -238,19 +132,10 @@ export async function loadAssets() {
         const MAX_CONCURRENT = 6;  // PERF-5: browser HTTP/2 connection cap
         const FIRST_BATCH    = Math.min(6, totalImages);
 
-        // Configure + (rarely) downscale a freshly loaded artwork texture.
-        // PERF-C19 (3D audit): uploads are capped at 2048px server-side, but
-        // legacy galleries may still reference larger originals — those would
-        // be uploaded to the GPU at full size. CONFIG.performance.textureMaxSize
-        // existed but was never wired; it is now the enforced ceiling.
         const finalizeTexture = (tex) => {
             tex.colorSpace      = THREE.SRGBColorSpace;
             tex.generateMipmaps = !this.isLowEnd;
             tex.anisotropy      = safeAnisotropy;
-            // Mipmap-less textures must not keep the mip-mapping min filter:
-            // an incomplete mip chain samples BLACK on strict WebGL2 drivers
-            // (low-end tier showed unreadable/black artworks). LinearFilter
-            // is the correct pair for generateMipmaps=false.
             if (!tex.generateMipmaps) tex.minFilter = THREE.LinearFilter;
 
             const maxDim = CONFIG.performance.textureMaxSize || 2048;
@@ -268,12 +153,6 @@ export async function loadAssets() {
                 resized.generateMipmaps = !this.isLowEnd;
                 resized.anisotropy      = safeAnisotropy;
                 if (!resized.generateMipmaps) resized.minFilter = THREE.LinearFilter;
-                // No UV flip needed here: `image` is the untouched (unflipped)
-                // decoded bitmap, and CanvasTexture's source is an
-                // HTMLCanvasElement (not an ImageBitmap), so the renderer DOES
-                // honour flipY for it — CanvasTexture defaults flipY=true,
-                // which correctly orients it the same way a normal
-                // TextureLoader image does.
                 return resized;
             }
             return tex;
@@ -327,9 +206,6 @@ export async function loadAssets() {
             await Promise.all(Array.from({ length: n }, () => worker()));
         };
 
-        // ── PHASE A ──────────────────────────────────────────────────────────
-        // Blur-up thumbnails: desktop high-end only — mobile/low-end spend
-        // their bytes on the real (medium/small) variants instead.
         const useThumbs = !this.isLowEnd && !this.isMobile;
         if (useThumbs && totalImages > FIRST_BATCH) {
             this.updateProgress(12, 'Preparing exhibition...');
@@ -350,8 +226,6 @@ export async function loadAssets() {
             return;
         }
 
-        // Enter unlocks with the room built — the entire point of PERF-C9.
-        // updateProgress() reads this flag to enable the button early.
         this._enterReady = true;
         this.updateProgress(62, 'Ready — enter now, remaining artworks still loading');
 
@@ -360,10 +234,6 @@ export async function loadAssets() {
             order.slice(FIRST_BATCH),
             (idx) => {
                 const img = this.artworkImages[idx];
-                // PERF-E27: if a focus-mode upgrade already fetched the LARGE
-                // variant for this artwork, don't let phase B overwrite it
-                // with the tier default (medium on mobile) — that would be a
-                // visual downgrade of a piece the visitor is looking at.
                 if (img._loadedUrl && img._loadedUrl === img.textures?.large) {
                     return Promise.resolve();
                 }
@@ -378,28 +248,10 @@ export async function loadAssets() {
         setTimeout(() => this.hideLoader(), 500);
     } catch (error) {
         console.error('Critical asset loading error:', error);
-        // UX-1 FIX: Show error UI instead of freezing the curtain.
-        // Previously, hideLoader() was a no-op (just console.log) — the
-        // curtain stayed at whatever % it last updated, Enter button stayed
-        // disabled, visitor was stuck. Now we show a proper error overlay.
-        // (PERF-C9: if the visitor already entered, the curtain is gone and
-        // this is a no-op — the room stays usable with placeholders.)
         this.showLoadError(error);
     }
 }
 
-// ── Focus-mode texture refinement (PERF-E27 / 3D audit) ───────────────────
-// On the mobile tier, artworks load the 1024px "medium" variant — the right
-// trade-off for wall viewing, but slightly soft when the visitor walks up
-// and inspects a piece (focus distance 1.8 m fills the phone screen). When
-// they focus an artwork, fetch the 2048px "large" variant on demand, swap
-// it in during the 1.5 s camera tween, and dispose the medium texture —
-// progressive refinement driven by intent, so only inspected pieces ever
-// pay the large-variant bytes.
-//
-// Desktop already loads `large` and low-end stays on `small` deliberately
-// (GPU memory), so this only activates on the mobile tier. Idempotent and
-// race-safe against phase-B streaming via the _loadedUrl bookkeeping.
 export function upgradeFocusedArtworkTexture(artworkGroup) {
     if (!this._isMobileTier) return;
     if (!artworkGroup || !this.artworkImages) return;
@@ -422,8 +274,6 @@ export function upgradeFocusedArtworkTexture(artworkGroup) {
             img.texture = tex;
             img._loadedUrl = largeUrl;
 
-            // finalizeTexture is loadAssets-scoped; apply the same standard
-            // configuration here (mobile tier keeps mipmaps + anisotropy 2).
             tex.colorSpace      = THREE.SRGBColorSpace;
             tex.generateMipmaps = !this.isLowEnd;
             if (!tex.generateMipmaps) tex.minFilter = THREE.LinearFilter;
@@ -439,8 +289,6 @@ export function upgradeFocusedArtworkTexture(artworkGroup) {
     );
 }
 
-// UX-1: Show a load-error overlay with retry button.
-// Replaces the silent freeze that left visitors stuck.
 export function showLoadError(error) {
     const curtain = document.getElementById('entrance-curtain');
     if (!curtain) return;
@@ -465,43 +313,13 @@ export function showLoadError(error) {
 
     curtain.innerHTML = errorHtml;
     curtain.style.display = 'flex';
-    // BUGFIX: an inline onclick="" attribute is blocked by the page's CSP
-    // (script-src has no 'unsafe-inline' and hashes don't cover event-handler
-    // attributes). Wire the retry button up via addEventListener instead —
-    // this runs from the already-trusted bundled script, so CSP allows it.
     document.getElementById('gallery-load-error-retry')
         ?.addEventListener('click', () => window.location.reload());
 }
 
-// ── HDRI environment map — non-blocking, fades in after room renders ─────────
-//
-// ── ENVIRONMENT AUTHORITY (s4) ───────────────────────────────────────────────
-// The venue's declared environment IS its sky; the gallery's lighting preset
-// NEVER picks it. This is the fix for the Dark Museum "sky/cloud on the
-// floor" incident: the gallery column used to resolve the HDRI, so a stale
-// gallery-era preset ('bright' → studio.hdr, or 'moody' → rural_evening.hdr
-// with its cloud deck) installed a daytime/dusk sky inside the night museum,
-// and its reflections read as a bright cloudy sheen on the polished dark
-// stone. Resolution order:
-//
-//   1. hdri_url            — the venue's bespoke upload (wins over everything)
-//   2. visual_config.environment — the venue's declared stock environment
-//                            (studio | rural_evening | night | none)
-//   3. resolved lighting preset hdri — the fill-in for venues that declare
-//                            no environment (and for venue-less legacy
-//                            galleries). Venue-safe because the preset
-//                            itself is venue-resolved upstream.
-//
-// 'none' (or env_intensity: 0) means the venue does not want an environment —
-// the ~10 MB HDR transfer is skipped entirely.
 export function loadEnvironmentMap() {
     if (this._skipHdri) return; // low-end: skip the 10MB HDRI
 
-    // A venue declaring env_intensity = 0 has silenced the environment at the
-    // source (§10.2 — the declaration is the identity). Downloading a ~10 MB
-    // HDR only to multiply it by zero was pure waste on every desktop visit
-    // of such venues (Infinite Void paid this on every load). Zero means the
-    // venue does not want an environment — skip the transfer entirely.
     if (this._venueEnvIntensity === 0) return;
 
     const venueVisual = this._venueVisualConfig || null;
@@ -512,30 +330,17 @@ export function loadEnvironmentMap() {
 
     if (!hdriPath && venueVisual && 'environment' in venueVisual &&
         venueVisual.environment != null) {
-        // 2. the venue's declared stock environment (null = undeclared —
-        // the editor select's empty state — handled by the preset fallback
-        // below, same as pre-s4 venues that never declared the key).
         if (venueVisual.environment === 'none') {
             declaredNone = true;                  // the venue refuses a sky
         } else {
             hdriPath = CONFIG.environments[venueVisual.environment] ?? null;
             if (!hdriPath) {
-                // An EXPLICIT but unknown stock name (hand-authored advanced
-                // JSON). Never silently substitute a generic sky — the venue
-                // declared something the renderer cannot resolve, so it gets
-                // no environment (standard lights still cover the room) and
-                // the author finds out immediately.
                 console.warn(`[exospace] venue "${this._venueSlug || '?'}" declared unknown environment "${venueVisual.environment}" — rendering without an environment.`);
             }
         }
     }
 
     if (!declaredNone && !hdriPath) {
-        // 3. fill-in for venues that declare no environment (and venue-less
-        // legacy galleries): the RESOLVED preset's HDRI. For venue-managed
-        // galleries the preset is venue-resolved (VenueConfigExporter::
-        // presetForGallery) — the gallery's own lighting_preset column can
-        // no longer diverge it, so this stays venue-consistent.
         const preset = this.lightingPreset || 'bright';
         hdriPath = (CONFIG.lighting[preset] || CONFIG.lighting.bright).hdri;
     }
@@ -551,21 +356,10 @@ export function loadEnvironmentMap() {
         (texture) => {
             texture.mapping = THREE.EquirectangularReflectionMapping;
             this.scene.environment = texture;
-            // The environment STRENGTH is also venue-owned: env_intensity in
-            // visual_config overrides the preset's envIntensity (which now
-            // only fills in for venues that declare nothing — and for
-            // venue-managed galleries the preset itself is venue-resolved,
-            // see VenueConfigExporter::presetForGallery).
             const envIntensity = this._venueEnvIntensity ?? lightingConfig.envIntensity;
             if (envIntensity !== undefined) {
                 this.scene.environmentIntensity = envIntensity;
             }
-            // The preset's exposure must not CLOBBER the venue's declared
-            // exposure. applyVenueConfig already set the venue value — the
-            // HDRI arriving seconds later silently reverted it (the declared
-            // tone_mapping_exposure looked like it "didn't work"). The venue
-            // declaration is the identity source; the preset only fills in
-            // for venues that declare nothing.
             if (this._venueVisualConfig?.tone_mapping_exposure == null &&
                 lightingConfig.toneMappingExposure !== undefined) {
                 this.renderer.toneMappingExposure = lightingConfig.toneMappingExposure;

@@ -16,20 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
-/**
- * Super-admin SEO console (Iteration 6).
- *
- * One surface for the whole operational layer:
- *   - Health dashboard (SeoAuditService — real data only)
- *   - seo_profiles overrides for galleries + artists (title/description for
- *     curators; robots/canonical/sitemap/structured-data for operators)
- *   - Redirect manager
- *   - SEO page list with quick publish/unpublish (full block editing stays
- *     in tinker/CLI — pages are structural, edited rarely)
- *   - Cache rebuild trigger (seo:rebuild)
- *
- * Audit trail: every mutation records to AdminAuditLog.
- */
 class SeoAdminController extends Controller
 {
     public function __construct(
@@ -54,8 +40,6 @@ class SeoAdminController extends Controller
 
         return view('super-admin.seo.index', array_merge($data, ['tab' => $tab]));
     }
-
-    // ── Tabs ─────────────────────────────────────────────────────────────
 
     private function healthTab(): array
     {
@@ -90,11 +74,6 @@ class SeoAdminController extends Controller
         return ['seoPages' => SeoPage::query()->orderByDesc('updated_at')->paginate(30)];
     }
 
-    // ── Mutations ────────────────────────────────────────────────────────
-
-    /**
-     * Save the seo_profile for a gallery or artist.
-     */
     public function updateProfile(Request $request, string $type, int $id): RedirectResponse
     {
         $validated = $request->validate([
@@ -112,11 +91,6 @@ class SeoAdminController extends Controller
         }
 
         $profile = $subject->seoProfileOrCreate();
-        // ITERATION-1 FIX (500 on SEO profile save): nullable fields were
-        // read with ?: on keys that validation REMOVES when absent —
-        // "Undefined array key" → the whole super-admin SEO profile save
-        // 500'd whenever a form omitted any optional field. Use ?? null
-        // semantics via data_get on the validated array.
         $profile->fill([
             'title_override'       => $validated['title_override'] ?? null,
             'description_override' => $validated['description_override'] ?? null,
@@ -194,11 +168,6 @@ class SeoAdminController extends Controller
         return back()->with('status', 'SEO caches rebuilt.');
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
-
-    /**
-     * @return Gallery|Artist|null
-     */
     private function resolveSubject(string $type, int $id)
     {
         return match ($type) {

@@ -1,6 +1,3 @@
-// probe-lake-reflect-shots.mjs — key frames on the PLANAR water path (the
-// product default). The Reflector re-renders the scene per frame, so this is
-// limited to a few viewpoints under SwiftShader.
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';

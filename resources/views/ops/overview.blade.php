@@ -13,7 +13,6 @@
 
 @section('content')
 
-{{-- ── Platform status hero ──────────────────────────────────────────── --}}
 @php
     $hero = $statusStyles[$platform['status']] ?? $statusStyles['unknown'];
     $scoreStyles = [
@@ -31,13 +30,8 @@
                 <span class="relative inline-flex rounded-full h-3.5 w-3.5 {{ $hero['dot'] }}"></span>
             </span>
             <div>
-                {{-- ITERATION-9: the h1 was the SMALLEST text in its own heading
-                     (text-lg wrapping a text-2xl status span). One size, one
-                     voice: the status word is the title; the score rides as a
-                     chip; counters keep the numeric ladder. --}}
                 <h1 class="page-title text-slate-50 flex items-center flex-wrap gap-3">
                     <span>{{ $hero['label'] }}</span>
-                    {{-- Iteration 4: the quantified verdict — same band as the status label, with the breakdown card right below --}}
                     <span class="inline-flex items-baseline gap-1.5 px-3 py-1 rounded-lg border {{ $scoreStyle }} text-sm font-semibold text-numeric align-middle" title="Weighted health score — see the breakdown below">
                         <span class="text-base">{{ $healthScore['score'] }}</span><span class="text-xs font-normal opacity-70">/100</span>
                     </span>
@@ -72,7 +66,6 @@
 {{-- ── Health score breakdown (Iteration 4) ─────────────────────────── --}}
 @include('ops.partials.score-breakdown', ['healthScore' => $healthScore])
 
-{{-- ── Active incidents (Iteration 2) ─────────────────────────────────────── --}}
 @if($activeIncidents->isNotEmpty())
 <section class="mb-6">
     <div class="flex items-center justify-between mb-3">
@@ -104,7 +97,6 @@
 
 <div class="grid lg:grid-cols-3 gap-6">
 
-    {{-- ── Application health grid ─────────────────────────────────── --}}
     <section class="lg:col-span-2 space-y-6">
         <div>
             <div class="flex items-center justify-between mb-3">
@@ -145,7 +137,6 @@
             @endif
         </div>
 
-        {{-- ── Recent errors ───────────────────────────────────────── --}}
         <div>
             <div class="flex items-center justify-between mb-3">
                 <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Active Errors — What Needs Attention</h2>
@@ -188,7 +179,6 @@
         </div>
     </section>
 
-    {{-- ── Right column ──────────────────────────────────────────────── --}}
     <section class="space-y-6">
         <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
             <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">{{ $selfApp?->name ?? 'Host Application' }} — Subsystems</h2>
@@ -235,8 +225,6 @@
             'sentryTile' => $sentryTile,
         ])
 
-        {{-- ITERATION-9: release notes are meta-noise at equal weight with
-             production health — collapsed until asked for. --}}
         <details class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 group">
             <summary class="text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none hover:text-slate-300 transition-colors">Shipped — release notes</summary>
             <ul class="text-xs text-slate-500 space-y-1.5 mt-3">

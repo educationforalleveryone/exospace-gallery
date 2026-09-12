@@ -1,9 +1,5 @@
 <x-app-layout>
     <x-slot name="header">
-        {{-- ITERATION-6: role-aware copy — this page is reached by regular
-             users opting in (MFA is optional for them) and by super-admins
-             mid-enforcement (MFA is required). One static "required"
-             headline read as a scare-screen for opt-in users. --}}
         <x-page-header title="Set Up Multi-Factor Authentication"
                        description="{{ auth()->user()->is_super_admin ? 'MFA is required for super-admin accounts. ' : 'Add an extra layer of security to your account. ' }}Scan the QR code below with your authenticator app (Google Authenticator, Authy, 1Password, etc.)."/>
     </x-slot>

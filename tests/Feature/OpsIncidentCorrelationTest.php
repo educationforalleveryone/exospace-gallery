@@ -13,17 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 2 — the correlation engine.
- *
- * The brief's core requirement, asserted end-to-end:
- *
- *     Deployment #184 → Migration failed → Container restarted
- *     → HTTP 500 increased → Sentry spike
- *
- *     must become ONE incident with a timeline and a root-cause candidate
- *     — not five unrelated problems.
- */
 class OpsIncidentCorrelationTest extends TestCase
 {
     use RefreshDatabase;
@@ -33,8 +22,6 @@ class OpsIncidentCorrelationTest extends TestCase
         parent::setUp();
         $this->withoutVite();
 
-        // Keep alerting side-effects deterministic: capture alert calls
-        // instead of letting Slack webhooks fire (they would in prod).
         config([
             'services.operational_alerts.webhook_url' => null,
             'services.operational_alerts.critical_webhook_url' => null,
@@ -51,9 +38,6 @@ class OpsIncidentCorrelationTest extends TestCase
         return app(IncidentCorrelationService::class);
     }
 
-    /**
-     * THE flagship scenario from the brief.
-     */
     public function test_deployment_cascade_becomes_one_incident(): void
     {
         // 15:02 deployment failed (Coolify sync)

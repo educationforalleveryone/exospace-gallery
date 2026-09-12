@@ -22,8 +22,6 @@
 
     <div class="page-shell">
         {{-- Flash messages --}}
-        {{-- ITERATION-9: flash banners removed — the layout's <x-toast> already
-             announces these keys (billing/admin-dashboard precedent). --}}
 
     <!-- Platform Statistics -->
     <div class="pt-6">
@@ -41,16 +39,9 @@
                 ['val' => $stats['unverified_users'], 'label' => 'Unverified',     'color' => 'orange'],
             ] as $stat)
             @php
-                /* ITERATION-1 FIX: these classes were previously interpolated
-                   (bg-{{ $stat['color'] }}-900/30), which Tailwind's JIT cannot
-                   see — half the tiles rendered unstyled in production. Explicit
-                   literal classes compile correctly. */
                 $statTones = [
                     'blue'   => 'bg-blue-500/10   border-blue-500/30   text-blue-300',
                     'purple' => 'bg-brand-500/10  border-brand-500/30  text-brand-300',
-                    /* ITERATION-6: 'indigo' stays a distinct data category —
-                       the 'purple' key above already resolves to brand, so
-                       mapping indigo too would render two tone keys identically. */
                     'indigo' => 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300',
                     'pink'   => 'bg-pink-500/10   border-pink-500/30   text-pink-300',
                     'gray'   => 'bg-gray-500/10   border-gray-500/30   text-gray-300',
@@ -66,22 +57,9 @@
             @endforeach
         </div>
 
-        {{-- ITERATION 8/9: Backup health tile — surfaces the worst of the
-             three backup heartbeat statuses (db / files / clean) at-a-glance.
-             ITERATION-9 moved it ABOVE feature flags: "is anything wrong?"
-             outranks configuration metadata in a health-first hierarchy.
-             Same data JobHeartbeatService already tracks (no new queries).
-             Hidden on a fresh install with no stamps AND no acks (the
-             monitor's missing-job grace window hasn't started yet — same
-             convention as OperationalAlertService::checkJobHeartbeats). --}}
         @if(($backupHealth['show'] ?? false) && !empty($backupHealth['types']))
             @php
                 $backupColors = [
-                    // FIX (2026-08-31): added the missing 'state' key. The status
-                    // badge below reads $tc['state'] — x-status-badge expects the
-                    // shared four-state vocabulary (healthy/warning/critical/...),
-                    // which $backupColors never had, so Master Control 500'd with
-                    // "Undefined array key state" as soon as backupHealth was shown.
                     'fresh'   => ['border' => 'border-emerald-500/40', 'bg' => 'bg-emerald-900/30', 'text' => 'text-emerald-300', 'icon' => '✅', 'label' => 'all fresh', 'state' => 'healthy'],
                     'stale'   => ['border' => 'border-amber-500/40',   'bg' => 'bg-amber-900/30',   'text' => 'text-amber-300',   'icon' => '⚠️', 'label' => 'one stale', 'state' => 'warning'],
                     'missing' => ['border' => 'border-red-500/40',      'bg' => 'bg-red-900/30',      'text' => 'text-red-300',      'icon' => '🚨', 'label' => 'one missing', 'state' => 'critical'],
@@ -117,8 +95,6 @@
             </div>
         @endif
 
-        {{-- M-14: Feature Flags — configuration metadata, collapsed until asked
-             for (ITERATION-9): it outranked the health signal by position. --}}
         <details class="mb-8 card card-pad">
             <summary class="eyebrow cursor-pointer select-none">Feature Flags</summary>
             <div class="flex flex-wrap gap-2 mt-3">
@@ -137,9 +113,6 @@
             </div>
         </details>
 
-        {{-- ITERATION 4: Onboarding funnel + TTFE. Was weekly-console-report-only —
-             the product's headline metric (time to first published exhibition)
-             is now visible continuously. Data: OnboardingMetricsService (cached 30/60 min). --}}
         <div class="mb-8 card card-pad">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 class="eyebrow">Onboarding Funnel &amp; TTFE</h3>
@@ -217,15 +190,6 @@
                 </div>
             </div>
 
-            {{-- ITERATION 5: TTFE trend — weekly snapshots persisted by
-                 exospace:onboarding-analytics. One point per week per window;
-                 the chart appears from the second snapshot on.
-                 ITERATION 6: release markers (dashed verticals + version
-                 labels) from ReleaseCalendar — the changelog's own release
-                 dates, so metric movement can be read against what shipped.
-                 ITERATION 7: >2σ anomaly rings (amber for high/worse,
-                 emerald for low/better) — weeks that deviate from the
-                 trailing mean with no release to blame. --}}
             <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
                 <div class="flex items-center justify-between mb-2">
                     <div class="text-xs text-gray-500 uppercase tracking-wider">TTFE / TTFG trend — weekly snapshots ({{ $onboardingDays }}d window)</div>
@@ -233,12 +197,6 @@
                 </div>
                 @if(count($onboardingTrend) >= 2)
                     @php
-                        // ITERATION 8: canvas accessibility — WCAG 1.1.1 (canvas
-                        //   needs a text alternative). The aria-label is computed
-                        //   server-side from the trend + annotation counts so a
-                        //   screen reader announces point count + release
-                        //   markers + anomaly count (the WHERE is in the table
-                        //   fallback below the chart).
                         $ttfePoints = count($onboardingTrend);
                         $ttfeReleases = count($releaseAnnotations);
                         $ttfeAnomalies = count($anomalyAnnotations ?? []);
@@ -255,17 +213,6 @@
                 @endif
             </div>
 
-            {{-- ITERATION 9 — funnel-stage conversion-rate trend + >2σ
-                 anomaly rings per stage. The 5-bar funnel above is a point
-                 value (one window); this chart shows the per-stage conversion
-                 rate (registered→created_gallery, created_gallery→uploaded_image,
-                 uploaded_image→published, published→got_views) over time so a
-                 sudden stage drop ("this week only 10% of new signups created a
-                 gallery vs the 30% trailing avg") surfaces as an amber ring at
-                 the right week. Same TrendAnomalies::detect algorithm + same
-                 ring-draw plugin pattern as the TTFE + retention charts; the
-                 per-stage tooltip override (workstream C) renders the breakdown
-                 when hovering a ringed point. --}}
             @if(!empty($funnelStageTrend) && count($onboardingTrend) >= 2)
                 @php
                     $fsPoints = count($onboardingTrend);
@@ -284,11 +231,6 @@
             @endif
         </div>
 
-        {{-- ITERATION 6: Cohort retention — was a weekly stdout-only report
-             (the same blindness TTFE had before Iteration 5). Live matrix from
-             CohortRetentionMetricsService (cached 30/60 min); truthful bounded
-             activity: a login (users.last_login_at) OR a gallery update in the
-             week. Trend from retention_snapshots persisted weekly. --}}
         <div class="mb-8 card card-pad">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 class="eyebrow">🔁 Weekly cohort retention</h3>
@@ -313,16 +255,11 @@
                                 <td class="py-1.5 px-2 text-right text-gray-400">{{ number_format($cohort['size']) }}</td>
                                 @foreach($cohort['cells'] as $w => $cell)
                                     @php
-                                        // Heat shading: deeper emerald = better retention; partial
-                                        // (not-yet-closed) weeks render dimmed with an asterisk so a
-                                        // still-running week can never read as a final rate.
                                         $pct = (float) $cell['pct'];
                                         $shade = $pct >= 40 ? 'bg-emerald-900/60 text-emerald-200'
                                                   : ($pct >= 20 ? 'bg-emerald-900/30 text-emerald-300'
                                                   : ($pct >= 10 ? 'bg-amber-900/30 text-amber-300' : 'text-gray-600'));
                                         if (! $cell['complete']) { $shade .= ' opacity-50'; }
-                                        // ITERATION 7: cells with a non-empty cohort link to the
-                                        // drill-down — size-0 cohorts have nothing behind the number.
                                         $hasDrilldown = $cohort['size'] > 0 && $cell['complete'];
                                         $drilldownUrl = $hasDrilldown
                                             ? route('super.retention.cohort', ['cohort' => $cohort['week_start'], 'week' => $w])
@@ -338,8 +275,6 @@
                                 @endforeach
                             </tr>
                         @empty
-                            {{-- ITERATION-4: empty branch — a fresh instance with no
-                                cohorts rendered a blank tbody under full headers. --}}
                             <tr class="border-t border-gray-800/60">
                                 <td colspan="{{ 2 + $retention['weeks'] }}" class="py-6 text-center text-gray-500">
                                     <p class="text-xs font-medium text-gray-400">No cohort data yet</p>
@@ -351,9 +286,6 @@
                 </table>
             </div>
 
-            {{-- W1/W2 retention trend — weekly snapshots persisted by
-                 exospace:cohort-retention. One point per capture: the retention
-                 of the most recent cohort whose week had closed by then. --}}
             <div class="bg-black/40 border border-gray-700/50 rounded-lg p-3 mt-3">
                 <div class="flex items-center justify-between mb-2">
                     <div class="text-xs text-gray-500 uppercase tracking-wider">Week-1 / Week-2 retention trend — weekly snapshots</div>
@@ -361,11 +293,6 @@
                 </div>
                 @if(count($retentionTrendW1) >= 2)
                     @php
-                        // ITERATION 8: canvas accessibility (mirrors the TTFE
-                        //   chart's role="img" + aria-label). Anomaly count is
-                        //   the SUM of W1 + W2 anomalies — both series are
-                        //   rendered on the same chart, so the screen-reader
-                        //   announcement must cover both.
                         $retPoints = count($retentionTrendW1);
                         $retAnomalies = count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? []);
                         $retAria = "Week-1 and Week-2 retention trend chart, {$retPoints} weekly snapshot" . ($retPoints === 1 ? '' : 's');
@@ -600,9 +527,6 @@
                             </td>
                         </tr>
                     @endif
-                    {{-- ITERATION-3: the client-side filter used to leave a fully
-                         blank tbody when no row matched — this row is toggled
-                         by applyFilters() below. --}}
                     <tr id="usersNoResults" class="hidden">
                         <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-500">
                             No users match the current search / filters.
@@ -640,20 +564,12 @@
     </div>
 
     <script nonce="@nonce">
-        // ITERATION-3: the page-local DOMContentLoaded delegate block (confirm
-        // forms, data-confirm-click, data-click/… delegation) was REMOVED —
-        // layouts/app.blade.php now ships those delegates bound once to
-        // `document`, so they keep working after every Turbo navigation.
-        // (The old per-element bindings silently died post-Turbo, which left
-        // impersonate/unban/verify actions unguarded.)
 
         // CSP-safe delegated change handler: styled confirm + guarded submit
         window.confirmChangePlan = function(message, e) {
             window.exospaceConfirm(e, message);
         };
 
-        // Ban modal — uses the shared openModal/closeModal helpers (app.js):
-        // body scroll lock, focus trap, Escape, backdrop click, focus restore.
         function openBanModal(userId, userName) {
             document.getElementById('banUserName').textContent = userName;
             document.getElementById('banForm').action = '/master-control/users/' + userId + '/ban';
@@ -662,8 +578,6 @@
         function closeBanModal() {
             closeModal('banModal');
         }
-        // (backdrop click + Escape for #banModal are handled globally by the
-        // shared modal system — role="dialog" + id is all that is required.)
 
         // Search & filter
         const search     = document.getElementById('userSearch');
@@ -687,8 +601,6 @@
             });
         }
 
-        // ITERATION-3: toggle the no-results row so a filtered-to-empty
-        // table never renders as a blank area.
         const noResultsRow = document.getElementById('usersNoResults');
         const baseApplyFilters = applyFilters;
         applyFilters = function() {
@@ -713,8 +625,6 @@
 
 
     {{-- (Task H32) Type-to-confirm modals for destructive super-admin actions --}}
-    {{-- data-focus-trap: delegated Tab containment from app.js; x-effect adds
-         the same body scroll lock every other dialog uses. --}}
     <div id="deleteConfirmModal" x-data="{ open: false, typed: '', userId: 0, userName: '' }"
          x-cloak
          x-effect="document.body.classList.toggle('overflow-y-hidden', open)"
@@ -809,22 +719,6 @@
     </div>
 
     <script nonce="@nonce">
-    // ITERATION 5: TTFE trend chart. Chart.js loads as a Vite module
-    // (admin-vendor.js) — under Turbo Drive it can still be evaluating when
-    // this classic script runs, so poll for window.Chart instead of assuming
-    // it (same waitForChartThenInit pattern as the gallery analytics page).
-    //
-    // ITERATION 6: release annotations — a tiny inline plugin (the Chart.js
-    // annotation package is NOT in the admin-vendor bundle) draws a dashed
-    // vertical + version label at the first capture at/after each release
-    // date. Same release list /changelog renders (ReleaseCalendar service).
-    //
-    // ITERATION 7: >2σ anomaly rings — a second inline plugin draws an
-    // amber ring (high = worse) or emerald ring (low = better) around any
-    // weekly TTFE point that deviates more than 2σ from the trailing mean.
-    // Math lives in TrendAnomalies::detect (PHP-side); JS only draws the
-    // pre-computed {index, z, direction} list so the canvas and the audit
-    // trail always agree.
     (function () {
         var canvas = document.getElementById('ttfe-trend-chart');
         if (!canvas) return; // fewer than 2 snapshots — placeholder shown
@@ -836,9 +730,6 @@
         var releases = @json($releaseAnnotations);
         var anomalies = @json($anomalyAnnotations ?? []);
 
-        // Map each release to a chart index: the first capture point at or
-        // after the release date (a release between two Mondays annotates
-        // the first Monday that could reflect it).
         var releaseMarks = [];
         releases.forEach(function (release) {
             var idx = captureDates.findIndex(function (d) { return d >= release.date; });
@@ -857,8 +748,6 @@
             setTimeout(function () { waitForChart(attemptsLeft - 1); }, 100);
         }
 
-        // Inline plugin: dashed vertical + rotated label at the top of the
-        // chart area. Pure Chart.js plugin API — no annotation package.
         var releaseAnnotationPlugin = {
             id: 'releaseAnnotations',
             afterDatasetsDraw: function (chart) {
@@ -890,20 +779,6 @@
             }
         };
 
-        // ITERATION 7: Inline plugin — ring anomalous TTFE points. Amber
-        // for high (worse: slower TTFE), emerald for low (better: faster
-        // TTFE). Ring radius 7 sits around the standard point radius (3)
-        // so it never obscures the underlying data. Z-label sits above
-        // high anomalies and below low ones, off the data line.
-        //
-        // ITERATION 8: sigma + sigma_eff are now forwarded by
-        // SystemController alongside z (audit-fix D-4). A future
-        // iteration can wire these into a Chart.js tooltip override
-        // (the canvas title attribute is canvas-wide, not per-shape, so
-        // a real tooltip plugin is the right vehicle — deferred; the
-        // data is available in the `anomalies` JS variable in the
-        // meantime, and the math is documented in
-        // app/Services/TrendAnomalies.php for hand-recomputation).
         var anomalyPlugin = {
             id: 'ttfeAnomalies',
             afterDatasetsDraw: function (chart) {
@@ -987,8 +862,6 @@
                         }
                     }
                 },
-                // Both plugins conditional on having at least one mark each
-                // so a clean trend renders with no overlays.
                 plugins: [].concat(
                     releaseMarks.length > 0 ? [releaseAnnotationPlugin] : [],
                     anomalies.length > 0 ? [anomalyPlugin] : []
@@ -999,13 +872,6 @@
         waitForChart(30);
     })();
 
-    // ITERATION 6: W1/W2 retention trend chart — same waitForChart pattern.
-    // ITERATION 8: anomaly plugin rings low-retention weeks amber
-    // (worse — churn up) and high-retention weeks emerald (better).
-    // Direction convention is INVERTED vs TTFE: for retention, 'high'
-    // = more users came back = better, so 'high' → emerald (the same
-    // visual language as TTFE: amber = bad, emerald = good regardless
-    // of which metric the ring annotates).
     (function () {
         var canvas = document.getElementById('retention-trend-chart');
         if (!canvas) return; // fewer than 2 snapshots — placeholder shown
@@ -1025,10 +891,6 @@
             setTimeout(function () { waitForChart(attemptsLeft - 1); }, 100);
         }
 
-        // Ring anomalies on the retention trend. datasetIndex selects
-        // which series (0 = W1 pink, 1 = W2 purple) the ring sits on.
-        // Color INVERTED vs TTFE: 'low' (less retention) = amber/worse;
-        // 'high' (more retention) = emerald/better.
         function makeRetentionAnomalyPlugin(id, datasetIndex, anomalies) {
             return {
                 id: id,
@@ -1037,8 +899,6 @@
                     var ctx = chart.ctx;
                     var chartArea = chart.chartArea;
                     var xAxis = chart.scales.x;
-                    // For a 2-dataset line chart, the y-pixel of a point
-                    // depends on the dataset it belongs to.
                     var yAxis = chart.scales.y;
                     var meta = chart.getDatasetMeta(datasetIndex);
                     if (!meta || !meta.data) return;
@@ -1046,10 +906,6 @@
                     anomalies.forEach(function (a) {
                         var x = xAxis.getPixelForValue(a.index);
                         if (x < chartArea.left || x > chartArea.right) return;
-                        // Find the y-pixel for this data point from the
-                        // dataset's own rendered points (more reliable
-                        // than recomputing from yAxis + the raw value
-                        // when spanGaps/tension are in play).
                         var pt = meta.data[a.index];
                         if (!pt) return;
                         var y = pt.y;
@@ -1140,25 +996,6 @@
     })();
     </script>
 
-    {{-- ITERATION 9 — funnel-stage conversion-rate trend chart. Same
-         waitForChart pattern + same inline-plugin architecture as the
-         TTFE + retention charts. 4 datasets (one per stage), each with
-         its own color from $funnelStageTrend. The anomaly plugin rings
-         low stage-rate weeks amber (worse — stage drop) and high weeks
-         emerald (better — stage jump), matching the retention chart's
-         inverted direction convention (a stage-rate rise is good, same
-         as a retention rise).
-
-         Workstream C — per-shape tooltip override plugin. The TTFE
-         chart and W1/W2 retention charts above ship their anomaly data
-         in JS payload (var anomalies / w1Anomalies / w2Anomalies) but
-         only render a static ±Nsigma label on the canvas; the mean /
-         sigma_eff / z breakdown is in the payload but not surfaced. The
-         tooltip override plugin below is shared across all 3 charts:
-         when hovering a ringed point, the tooltip body shows the
-         breakdown (mean / sigma_eff / z / direction). The plugin is
-         conditional on anomalies.length > 0 so a clean trend renders
-         with the default tooltip behavior. --}}
     @if(!empty($funnelStageTrend) && count($onboardingTrend) >= 2)
     <script nonce="@nonce">
     (function () {
@@ -1168,13 +1005,6 @@
         var labels = @json(collect($onboardingTrend)->pluck('captured_at'));
         var stages = @json($funnelStageTrend);
 
-        // Build a tooltip override plugin that adds the anomaly
-        // breakdown (mean / sigma_eff / z / direction) to the default
-        // tooltip when hovering a ringed point. The data lives in each
-        // stage's `anomalies` list — the plugin finds the matching
-        // anomaly by chart index + datasetIndex and appends the
-        // breakdown lines. Mirrors the plugin factory shape the
-        // retention chart uses (so a future refactor could unify them).
         function makeFunnelTooltipPlugin() {
             return {
                 id: 'funnelAnomalyTooltip',
@@ -1199,11 +1029,6 @@
             };
         }
 
-        // Inline plugin — ring anomalous funnel-stage points. Each
-        // stage is a separate dataset (datasetIndex = stage order),
-        // so the ring sits on the right series. Color INVERTED vs
-        // TTFE (low = worse = amber; high = better = emerald), same
-        // as the retention chart.
         function makeFunnelAnomalyPlugin(datasetIndex, anomalies) {
             return {
                 id: 'funnelAnomalies_' + datasetIndex,
@@ -1310,15 +1135,6 @@
     </script>
     @endif
 
-    {{-- ITERATION 9 (workstream C) — per-shape tooltip override on the TTFE
-         + W1/W2 retention anomaly rings. The existing inline <script> blocks
-         above already define the ring plugins (anomalyPlugin for TTFE,
-         w1Plugin/w2Plugin for retention); the per-shape tooltip override
-         below augments the default tooltip when hovering a ringed point so
-         the operator can read the mean / sigma_eff / z breakdown without
-         hand-recomputing. The plugin is conditional on the anomalies JS
-         variable having entries so a clean trend renders with the default
-         tooltip behavior. --}}
     @php
         $hasTtfeAnomalies = count($anomalyAnnotations ?? []) > 0;
         $hasRetentionAnomalies = (count($retentionW1Anomalies ?? []) + count($retentionW2Anomalies ?? [])) > 0;
@@ -1327,29 +1143,13 @@
     @if($showAnomalyTooltipOverride)
     <script nonce="@nonce">
     (function () {
-        // Wait for both Chart + the trend canvases to exist (the trend
-        // init scripts above are IIFEs that poll for window.Chart too;
-        // we attach the tooltip override via Chart.pluginServiceBase so
-        // it applies to every chart on the page, then guard inside the
-        // hook so only anomaly-bearing points show the breakdown).
         function attachTooltipOverride() {
             if (!window.Chart) return;
 
-            // Per-chart anomaly data lives on each canvas's chart instance
-            // (the inline scripts above pass it as the `anomalies` var).
-            // Since we can't read another IIFE's closure, we re-derive the
-            // anomaly metadata from the JSON payloads the inline scripts
-            // embedded — same source the ring plugins read.
             var ttfeAnomalies = @json($anomalyAnnotations ?? []);
             var w1Anomalies = @json($retentionW1Anomalies ?? []);
             var w2Anomalies = @json($retentionW2Anomalies ?? []);
 
-            // Chart.js external tooltip hook. Returns an array of body
-            // lines appended after the default tooltip body. The hook is
-            // per-chart-instance via the options.plugins.tooltip.external
-            // pattern, but registering globally with a guard is simpler
-            // and safe — the guard skips any chart instance without
-            // matching anomaly data.
             Chart.defaults.plugins.tooltip.external = function (context) {
                 var tooltip = context.tooltip;
                 if (!tooltip || !tooltip.dataPoints || tooltip.dataPoints.length === 0) return;
@@ -1370,9 +1170,6 @@
                 var match = list.find(function (a) { return a.index === index; });
                 if (!match) return;
 
-                // Append the breakdown lines below the default tooltip body.
-                // Chart.js reads the `afterBody` callback's return as an
-                // array of strings; each becomes a new line below the body.
                 if (!tooltip.afterBody) tooltip.afterBody = [];
                 if (typeof tooltip.afterBody === 'function') return; // already overridden — skip
                 var dirLabel = match.direction === 'low' ? 'drop' : 'rise';
@@ -1386,8 +1183,6 @@
             };
         }
 
-        // Poll for Chart.js (same pattern as the inline scripts above).
-        // Once attached, the override persists for the life of the page.
         function waitForChart(attemptsLeft) {
             if (window.Chart) { attachTooltipOverride(); return; }
             if (attemptsLeft <= 0) {
@@ -1402,10 +1197,6 @@
     @endif
 
     <script nonce="@nonce">
-    // (Task H32) Modal openers for type-to-confirm destructive actions.
-    // ITERATION-2 FIX: these used the Alpine v2 API (modal.__x), which never
-    // exists under Alpine 3 — the caller-side guard made the buttons silently
-    // do nothing. Same intent, the working Alpine 3 accessor.
     function openDeleteModal(userId, userName) {
         const modal = document.getElementById('deleteConfirmModal');
         if (window.Alpine) {

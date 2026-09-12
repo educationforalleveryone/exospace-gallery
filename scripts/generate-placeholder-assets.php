@@ -1,22 +1,5 @@
 #!/usr/bin/env php
 <?php
-/**
- * generate-placeholder-assets.php — generates solid-color placeholder textures
- * for every material the viewer references, so the gallery works BEFORE the
- * user runs `bash scripts/download-cc0-assets.sh`.
- *
- * Placeholders are tiny (1×1 pixel, ~2 KB) solid-color JPEGs in the correct
- * directory structure. Once the user runs `download-cc0-assets.sh`, the real
- * PBR sets (color + normal + roughness + AO at 1K resolution) overwrite these.
- *
- * Usage:
- *   php scripts/generate-placeholder-assets.php
- *
- * Run this:
- *   - After applying the refactor (before running download-cc0-assets.sh)
- *   - On a fresh deploy where assets haven't been synced yet
- *   - Whenever you add a new material to config.js TEXTURE_PATHS
- */
 
 $base = __DIR__ . '/../public/assets/textures';
 
@@ -53,8 +36,6 @@ function makePlaceholderJpg(string $path, array $rgb): void {
     if (!is_dir(dirname($path))) {
         mkdir(dirname($path), 0775, true);
     }
-    // 64×64 px solid colour (small enough to be ~2 KB, big enough to not look
-    // like a single pixel when tiled)
     $img = imagecreatetruecolor(64, 64);
     $color = imagecolorallocate($img, $rgb[0], $rgb[1], $rgb[2]);
     imagefill($img, 0, 0, $color);
@@ -62,7 +43,6 @@ function makePlaceholderJpg(string $path, array $rgb): void {
     imagedestroy($img);
 }
 
-// ── Wall + floor + ceiling PBR sets ─────────────────────────────────────────
 $count = 0;
 foreach ($materials as $surface => $list) {
     foreach ($list as $mat => $rgb) {
@@ -110,7 +90,6 @@ $envDir = "{$base}/env";
 if (!is_dir($envDir)) mkdir($envDir, 0775, true);
 file_put_contents("{$envDir}/.gitkeep", "# HDRIs go here — run bash scripts/download-cc0-assets.sh\n");
 
-// ── Venue thumbnails directory ──────────────────────────────────────────────
 $thumbDir = __DIR__ . '/../public/assets/thumbnails/venues';
 if (!is_dir($thumbDir)) mkdir($thumbDir, 0775, true);
 
@@ -132,9 +111,6 @@ foreach ($venueThumbs as $slug => $rgb) {
     $count++;
 }
 
-// ── SFX placeholder (silent 1-second MP3) ────────────────────────────────────
-// Real audio files go in /assets/audio/sfx/ — the user supplies these or
-// downloads from freesound.org. We create empty .gitkeep so the dir exists.
 $sfxDir = __DIR__ . '/../public/assets/audio/sfx';
 if (!is_dir($sfxDir)) mkdir($sfxDir, 0775, true);
 file_put_contents("{$sfxDir}/.gitkeep", "# SFX files go here — footstep.mp3, interaction_click.mp3\n");

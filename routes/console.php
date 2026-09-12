@@ -10,23 +10,11 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// ── Scheduled tasks ───────────────────────────────────────────────────────
-//
-// CR-2 FIX (Iter-001): Scheduler started by docker-start.sh.
-// K-5 FIX (Iter-005): queue:prune-failed added.
-// K-9 FIX (Iter-005): cohort/onboarding analytics added.
-// A-1 FIX (Iter-006): backup commands added.
-// A-10 FIX (Iter-006): operational alert check added.
-
-// ── Hourly ────────────────────────────────────────────────────────────────
-
 Schedule::command('exospace:verify-pending-domains')
     ->hourly()
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// A-10 FIX (Iter-006): Check operational health every 5 minutes.
-// Sends alerts if failed_jobs > threshold, disk > 80%, or scheduler is stale.
 Schedule::call(function () {
     app(\App\Services\OperationalAlertService::class)->checkAndAlert();
 })
@@ -35,20 +23,11 @@ Schedule::call(function () {
     ->withoutOverlapping(5)
     ->onOneServer();
 
-// ── Every 5 minutes ───────────────────────────────────────────────────────
-
 Schedule::command('exospace:purge-banned-sessions')
     ->everyFiveMinutes()
     ->withoutOverlapping(5)
     ->onOneServer();
 
-// ── Daily ─────────────────────────────────────────────────────────────────
-
-// ITERATION-3: reconcile local plan state against the 2Checkout API —
-// catches missed cancellation webhooks (paid entitlements leaking after a
-// 2CO-side subscription end) and missed payment webhooks (alert-only).
-// 04:10 offsets it from the 03:00–04:00 maintenance batch; capped at 200
-// users per run, drift beyond the cap reconciles on following runs.
 Schedule::command('exospace:reconcile-subscriptions')
     ->dailyAt('04:10')
     ->withoutOverlapping(30)
@@ -59,20 +38,11 @@ Schedule::command('exospace:rollup-analytics')
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// ITERATION-4: pre-populate sitemap caches so crawler requests never pay
-// the cold-rebuild cost in-request (Cache::flexible's cold path computes
-// inline — multi-second COUNT + 2k-row render lands on Googlebot today).
-// 04:15 slots it after reconcile (04:10) and before the seo:audit health
-// check (04:30), so the audit inspects a warmed cache. Page-capped per
-// group; deeper pages stay lazy.
 Schedule::command('sitemap:warm')
     ->dailyAt('04:15')
     ->withoutOverlapping(30)
     ->onOneServer();
 
-// ── SEO OS (Iteration 6): daily SEO health audit ──────────────────────────
-// Platform-data-only report (never fabricated search data). Posts to Slack
-// via OPERATIONAL_ALERT_WEBHOOK when warnings exist.
 Schedule::command('exospace:seo-audit')
     ->dailyAt('04:30')
     ->withoutOverlapping(30)
@@ -103,16 +73,6 @@ Schedule::command('queue:prune-failed --hours=168')
     ->dailyAt('02:30')
     ->onOneServer();
 
-// A-1 FIX (Iter-006 / Iter-7): backup commands run through the
-// exospace:backup wrapper so they stamp heartbeats on success
-// (JobHeartbeatService) and post Slack alerts on failure (in addition
-// to spatie's own mail notifications + the backup-health check that
-// catches a stale newest-zip on a disk).
-//
-// Schedule is unchanged in cadence; only the invoked command swapped:
-//   daily 01:00   → exospace:backup db     (was: backup:run --only-db)
-//   Sun   01:30   → exospace:backup files  (was: backup:run --only-files)
-//   daily 02:00   → exospace:backup clean  (was: backup:clean)
 Schedule::command('exospace:backup db')
     ->dailyAt('01:00')
     ->withoutOverlapping(60)
@@ -128,12 +88,6 @@ Schedule::command('exospace:backup clean')
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// ── Weekly ────────────────────────────────────────────────────────────────
-
-// K-9 FIX (Iter-005): Cohort retention analytics.
-// ITERATION 6: the command now persists its matrix into retention_snapshots
-// (retention history) and posts the summary to the operational Slack
-// channel instead of scheduler stdout.
 Schedule::command('exospace:cohort-retention --weeks=8')
     ->weeklyOn(1, '06:00')
     ->withoutOverlapping(60)
@@ -145,16 +99,10 @@ Schedule::command('exospace:onboarding-analytics --days=30')
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// ITERATION 6: weekly billing digest — trailing-7-day money events as a
-// CSV (same code path as the Billing Review on-demand export) emailed to
-// BILLING_EXPORT_EMAIL. Unconfigured → clean no-op. After the analytics
-// pair (06:00/06:30), before business hours.
 Schedule::command('exospace:send-billing-export')
     ->weeklyOn(1, '07:00')
     ->withoutOverlapping(60)
     ->onOneServer();
-
-// ── Monthly ───────────────────────────────────────────────────────────────
 
 // C-1 FIX (Iter-003): Partition maintenance for transactions table.
 Schedule::command('exospace:prune-transactions')
@@ -168,23 +116,11 @@ Schedule::command('exospace:anonymize-pii')
     ->withoutOverlapping(120)
     ->onOneServer();
 
-// G-6 FIX (Iter-010): Scrub PII from old admin_audit_logs.payload.
-// Runs after exospace:anonymize-pii so all PII retention happens in
-// one monthly batch (predictable operator schedule).
 Schedule::command('exospace:anonymize-audit-pii')
     ->monthlyOn(1, '06:00')
     ->withoutOverlapping(120)
     ->onOneServer();
 
-// ── ITERATION-5 (AUDIT-P1-5.1/5.2/5.3): PII retention for the 3 tables ──
-// that were missing anonymization jobs (flagged in the original audit).
-// These run after exospace:anonymize-audit-pii so ALL PII retention
-// (transactions, invoices, audit logs, feedback, RSVPs, newsletter signups)
-// completes in one monthly batch before any morning traffic.
-//
-// Each command anonymizes PII on rows older than 18 months (default),
-// preserving the non-PII fields (category, status, gallery_id, etc.) for
-// aggregate analytics. Idempotent — re-running is a no-op.
 Schedule::command('exospace:anonymize-feedback-pii')
     ->monthlyOn(1, '06:30')
     ->withoutOverlapping(120)
@@ -200,8 +136,6 @@ Schedule::command('exospace:anonymize-newsletter-pii')
     ->withoutOverlapping(120)
     ->onOneServer();
 
-// A-5 FIX (Iter-006): Process scheduled GDPR deletion requests.
-// Deletes users whose 30-day grace period has expired.
 Schedule::call(function () {
     $requests = \App\Models\GdprDeletionRequest::where('status', 'pending')
         ->where('scheduled_deletion_at', '<=', now())
@@ -224,129 +158,54 @@ Schedule::call(function () {
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// ── ITERATION 11: prune the webhook_deliveries ledger. ───────────────
-// One row per OutboundWebhookService::dispatch completion (success OR
-// retry-exhausted) — unbounded row growth without this prune. Default
-// retention: 30 days (configurable via OUTBOUND_WEBHOOK_LEDGER_
-// RETENTION_DAYS). Runs daily at 03:17 (off-peak, before the 04:30
-// GDPR-deletion-processing and the 05:00 backup window — keeps the
-// retention batch isolated). Audit-logged as webhook.deliveries_pruned
-// (target = newest surviving row, same convention as RunMonitoredBackup).
 Schedule::command('webhook-deliveries:prune')
     ->dailyAt('03:17')
     ->name('webhook-deliveries-prune')
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// ── OpsCenter (Iteration 1) ───────────────────────────────────────────
-//
-// Platform sync: pulls servers/applications/databases/services/deployments
-// from the Coolify API into the ops tables every 5 minutes. This is what
-// makes the control plane platform-wide (all apps on the box, not just
-// Exospace) with zero agents and zero Docker socket access. Failures are
-// recorded as events by the command itself — never fatal to the chain.
 Schedule::command('ops:sync-platform')
     ->everyFiveMinutes()
     ->name('ops-sync-platform')
     ->withoutOverlapping(5)
     ->onOneServer();
 
-// ops_events retention: auto-resolve stale events, delete old resolved
-// ones (documented policy in config/ops.php). 03:35 slots it after the
-// 03:17 webhook-ledger prune, before the 04:00 maintenance batch.
 Schedule::command('ops:prune-events')
     ->dailyAt('03:35')
     ->name('ops-prune-events')
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// OpsCenter (Iteration 2): incident correlation sweep — groups unlinked
-// error/critical events into incidents (adopt into open incidents, detect
-// deployment→migration→container→errors causal chains, cluster, or create
-// solo incidents). Runs right after the platform sync so a freshly synced
-// deployment failure correlates with the errors that followed it.
 Schedule::command('ops:correlate-incidents')
     ->everyFiveMinutes()
     ->name('ops-correlate-incidents')
     ->withoutOverlapping(5)
     ->onOneServer();
 
-// OpsCenter (Iteration 4): proactive diagnostic sweep — the same read-only,
-// allow-listed checks an operator runs on demand (database, Redis, queue,
-// disk, scheduler), probed every 15 minutes WITHOUT operator interaction.
-// Degraded/failed findings become deduplicated control-plane events
-// (source 'sweep') that the correlation sweep above can group into
-// incidents, plus Slack alerts with their own dedup keys; a check that
-// comes back healthy resolves its event automatically. Probes persist
-// nothing (no ops_diagnostic_runs rows, no audit entries) — only the
-// exceptions are recorded. Kill switch: OPS_SWEEP_ENABLED=false.
 Schedule::command('ops:sweep-diagnostics')
     ->everyFifteenMinutes()
     ->name('ops-sweep-diagnostics')
     ->withoutOverlapping(10)
     ->onOneServer();
 
-// OpsCenter (Iteration 6): credential-rotation reminder sweep — the
-// governance counterpart of the diagnostic sweep. Daily at 09:00 it reads
-// the /ops/credentials inventory: ROTATE NOW / OVERDUE chips produce ONE
-// warning Slack alert (deduplicated per day) plus ONE deduplicated
-// SECURITY event (source 'sweep') that resolves itself once every
-// credential is back in cadence; a DUE-SOON-only state sends a gentle
-// weekly info nudge; an all-clean state sends nothing at all. Read-only
-// against the world (config-presence booleans + the ops_credentials
-// ledger — a secret VALUE never enters any payload, by construction).
-// Kill switch: OPS_CREDENTIAL_REMINDERS_ENABLED=false (the page keeps
-// working; only the proactive nudge stops).
 Schedule::command('ops:sweep-credentials')
     ->dailyAt('09:00')
     ->name('ops-sweep-credentials')
     ->withoutOverlapping(30)
     ->onOneServer();
 
-// OpsCenter (Iteration 7): the unified morning digest — ONE Slack
-// message a day unifying every domain the control plane watches
-// (health score + caps, incidents, untriaged errors, application
-// rollup + worst offenders, sweep findings, backups, the webhook
-// ledger, the Sentry 24 h trend, credential cadence, and the last
-// 24 h of operator activity). 08:15 sits after the 01:00–04:30
-// nightly batch (and the Monday 06:00–07:00 analytics), before the
-// 09:00 credential reminder — the digest carries the headline, the
-// reminder carries the actionable list. The silence contract
-// (§16.4): it sends on ALL-QUIET days too, so a silent morning is
-// itself a signal. Manual test sends from /ops/digest bypass the
-// dedup by design. Kill switch: OPS_MORNING_DIGEST_ENABLED=false.
 Schedule::command('ops:send-morning-digest')
     ->dailyAt('08:15')
     ->name('ops-send-morning-digest')
     ->withoutOverlapping(30)
     ->onOneServer();
 
-// OpsCenter (Iteration 8): the weekly review — the Monday deep-dive
-// riding right behind the daily digest inside the morning-briefing
-// block. Trailing-7-day trends the daily cadence cannot show: error
-// volume by category, incident throughput with MTTA/MTTR, deployment
-// activity + failures, the sweep's finding history, current backup
-// freshness and the week's operator activity. NOT a dead-man's switch
-// (the digest + the watchdog below carry the silence contract) —
-// informational, so OPS_WEEKLY_REVIEW_ENABLED=false simply turns it
-// off. Scheduled send deduplicated within the 6 h info TTL.
 Schedule::command('ops:send-weekly-review')
     ->weeklyOn(1, '08:30')
     ->name('ops-send-weekly-review')
     ->withoutOverlapping(30)
     ->onOneServer();
 
-// OpsCenter (Iteration 8): the digest watchdog — meta-monitoring the
-// monitor. Thirty minutes after the 08:15 send (08:45 daily) it
-// verifies the ops:morning-digest:last stamp is from TODAY; a missing
-// or stale stamp while the digest is enabled means the silence
-// contract (§16.4) is broken — stale scheduler, a throwing send path,
-// or a flipped switch — and the watchdog raises the alarm itself: one
-// warning Slack alert (dedup key ops.digest.missed) + one
-// deduplicated INFRASTRUCTURE event (source 'watchdog') that
-// auto-resolves with a single recovery note the next healthy morning.
-// Quiet when healthy; clean no-op while the digest is disabled.
-// Kill switch: OPS_DIGEST_WATCHDOG_ENABLED=false.
 Schedule::command('ops:check-digest-delivery')
     ->dailyAt('08:45')
     ->name('ops-check-digest-delivery')

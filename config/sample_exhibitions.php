@@ -1,56 +1,11 @@
 <?php
 
-/**
- * Iteration 1 "The Rehearsal" (roadmap P1.1) — sample exhibition data.
- *
- * WHAT THIS IS
- * ------------
- * Every walkable venue preview (route `venues.preview`, view
- * venues/preview.blade.php) hangs a small, curated set of DEMONSTRATION
- * artworks so a prospective customer can experience the venue before
- * committing (the chooser test: every venue walkable pre-commit).
- *
- * The artworks are deliberately NOT real customer data, NOT seeded into the
- * galleries/images tables, and NOT reachable from any user-facing model.
- * They are built per-request into the preview GALLERY_DATA payload by
- * App\Services\SampleExhibitionService and rendered by the same 3D runtime
- * a paying customer's gallery uses. No database rows are created or read
- * for them.
- *
- * ART-TYPE MATCHING
- * -----------------
- * Roadmap §6/§8: a venue's sample hang must flatter the venue's art type —
- * Crystal Cathedral gets tall vertical works, Industrial Loft gets wide
- * landscapes, White Cube gets a balanced minimal mix, and so on. Each
- * venue's `selection` is an ORDERED list of collection keys (first work =
- * first hang position; placement order follows the viewer's ArtworkPlacer).
- *
- * SWAPPING IN CC0 WORKS LATER
- * ---------------------------
- * The bundled JPGs under public/assets/sample/artworks/ are generated
- * demonstration pieces. To upgrade the previews to real CC0 works (Met
- * Open Access, Art Institute of Chicago, Smithsonian Open Access — all
- * CC0), replace the files keeping the SAME filenames, or add entries here
- * with new keys + files and update the selections. Zero code changes.
- *
- * HONESTY RULES (Iteration 0 contract, still in force)
- * ----------------------------------------------------
- *   - Preview artworks never claim to be for sale (for_sale false).
- *   - The preview curtain labels the hang as a sample exhibition.
- *   - No artwork entry may reference a real artist profile (the `artist`
- *     key is intentionally absent → the viewer hides the artist link).
- */
-
 return [
 
     'collection' => [
         'name'   => 'The Exospace Sample Collection',
         'credit' => 'Demonstration artworks — not for sale',
 
-        // The shared pool of sample works. Every venue selects from here,
-        // so the preview payload stays small (6–8 textures, all browser-
-        // cacheable across venues) while each venue still reads as a
-        // distinct, art-type-matched hang.
         'artworks' => [
 
             // ── Landscape (3:2) — wide walls, corridors, promenades ─────
@@ -181,15 +136,6 @@ return [
         ],
     ],
 
-    /*
-    │ Per-venue curated hangs (roadmap P1.1: "art-type-matched").
-    │ `selection` is ordered — the first key is the first hang position.
-    │ `note` documents the curatorial rationale (also surfaced on the
-    │ preview curtain as the sample-hang subtitle).
-    │
-    │ Unknown slugs (admin-created venues) fall back to a balanced default
-    │ draw in SampleExhibitionService — previews work for every venue.
-    */
     'venues' => [
 
         'white-cube' => [
@@ -280,11 +226,6 @@ return [
             ],
         ],
 
-        // Iteration 8 "The Salon" (roadmap P3.2): the hang is DELIBERATELY
-        // orientation-mixed — portraits interleaved with landscapes and
-        // squares — because the salon declares placement.pair_orientation
-        // (§6.4): the preview exercises the IT6 pairing machinery exactly
-        // as a customer's mixed upload would read on its walls.
         'the-salon' => [
             'note'      => 'A close-hung domestic mix — portraits, studies and small landscapes at salon distance.',
             'selection' => [

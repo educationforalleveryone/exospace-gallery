@@ -11,58 +11,12 @@ use App\Services\OperationalAlertService;
 use Illuminate\Console\Command;
 use Throwable;
 
-/**
- * OpsCenter — SweepCredentialsCommand (Iteration 6).
- *
- * ops:sweep-credentials — the credential-rotation counterpart of the
- * diagnostic sweep. Iteration 5 made the §15 checklist LIVE on
- * /ops/credentials (status chips computed on every page view); this
- * command makes cadence lapses find the OPERATOR — daily, in Slack,
- * without anyone having to remember the page exists. The same
- * "problems find the operator" philosophy as ops:sweep-diagnostics.
- *
- * Daily semantics (09:00, via the Coolify scheduled task):
- *
- *   ROTATE NOW or OVERDUE chips → ONE warning Slack alert (dedup key
- *      ops.credentials.rotation — the service's 2 h TTL suppresses
- *      intra-day duplicates, so the reminder lands once per day, not
- *      once per credential) + ONE deduplicated SECURITY event (source
- *      'sweep', category SECURITY): "Credential rotation overdue: N of
- *      M surfaces need attention", listing the keys and their ages.
- *      Recurrence bumps occurrence_count (the ingestor's fingerprint
- *      dedup), so the event reads "seen 14×" while a lapse drags on.
- *
- *   previously alerted, now clean → the event is RESOLVED and an
- *      info-level "recovered" note goes to Slack — working the page
- *      closes the loop by itself (a recorded rotation moves the chip to
- *      OK, the next sweep notices).
- *
- *   DUE SOON only (nothing overdue) → a gentle info nudge, throttled to
- *      WEEKLY by an explicit cache gate (the service's info dedup TTL
- *      is only 6 h — far too chatty for a daily planning reminder).
- *      NO event: due-soon is a plan-ahead signal, not a problem.
- *
- *   everything OK → nothing at all. Silence is the reward.
- *
- * Guarantees (the OpsCenter contract):
- *   - read-only against the world: reads the inventory (config presence
- *     booleans + the ops_credentials ledger), writes only the event row,
- *     its resolution, and Slack alerts. No secret VALUE can appear in
- *     any of them — the inventory never exposes one by construction.
- *   - never fatal: every step is individually guarded; the command
- *     always exits 0 (a broken reminder must not break the schedule
- *     chain).
- *   - kill switch: OPS_CREDENTIAL_REMINDERS_ENABLED=false exits
- *     immediately (the /ops/credentials PAGE keeps working — the switch
- *     gates the proactive nudge, not the surface).
- */
 class SweepCredentialsCommand extends Command
 {
     protected $signature = 'ops:sweep-credentials';
 
     protected $description = 'Sweep the credential rotation ledger; alert + record a SECURITY event when rotations are overdue or exposed-unrotated, auto-resolve when clean';
 
-    /** Stable event title — the ingestor's fingerprint + resolution lookups key off it. */
     private const EVENT_TITLE = 'Credential rotation overdue';
 
     public function handle(OpsCredentialInventoryService $inventory, OpsEventIngestor $ingestor): int
@@ -81,9 +35,6 @@ class SweepCredentialsCommand extends Command
             return self::SUCCESS;
         }
 
-        // Bucket the actionable chips. UNTRACKED (optional tokens, never
-        // rotated) and OK are deliberately invisible here — the reminder
-        // reports PROBLEMS, not inventory.
         $rotateNow = array_values(array_filter($data['items'], fn ($item) => $item['status'] === 'rotate_now'));
         $overdue = array_values(array_filter($data['items'], fn ($item) => $item['status'] === 'overdue'));
         $dueSoon = array_values(array_filter($data['items'], fn ($item) => $item['status'] === 'due_soon'));
@@ -109,13 +60,6 @@ class SweepCredentialsCommand extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * The overdue alert + SECURITY event. One event, one Slack message —
-     * the list rides in the message/context, dedup handles recurrence.
-     *
-     * @param  array<int, array<string, mixed>>  $rotateNow
-     * @param  array<int, array<string, mixed>>  $overdue
-     */
     private function alertOverdue(array $rotateNow, array $overdue, int $total, OpsEventIngestor $ingestor): void
     {
         $lines = [];
@@ -174,11 +118,6 @@ class SweepCredentialsCommand extends Command
         ));
     }
 
-    /**
-     * Resolve the prior open SECURITY event when the list is clean (the
-     * same recovery contract as the diagnostic sweep — fires exactly
-     * once per lapse, idempotent after that).
-     */
     private function resolvePriorEvent(): void
     {
         try {
@@ -214,13 +153,6 @@ class SweepCredentialsCommand extends Command
         }
     }
 
-    /**
-     * The weekly due-soon nudge: info severity, no event, throttled by an
-     * explicit 6-day cache gate (the alert service's info dedup TTL is
-     * only 6 h — a daily command would otherwise nudge every day).
-     *
-     * @param  array<int, array<string, mixed>>  $dueSoon
-     */
     private function nudgeDueSoon(array $dueSoon): void
     {
         $gate = 'ops:sweep-credentials:nudge';
@@ -238,9 +170,6 @@ class SweepCredentialsCommand extends Command
         $names = array_map(fn ($i) => $i['name'].' ('.$i['days_since'].'d)', $dueSoon);
 
         try {
-            // No service dedup key here ON PURPOSE: the weekly gate above
-            // is the single throttle (the service's info TTL is only 6 h,
-            // which would fight the gate instead of helping it).
             app(OperationalAlertService::class)->alert(
                 'OpsCenter: '.count($dueSoon).' credential(s) due for rotation soon',
                 "Within their cadence window:\n• ".implode("\n• ", $names)."\nPlan the rotation(s) on /ops/credentials.",

@@ -11,17 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 10 — super-admin webhook subscription management UI.
- *
- * Coverage: the per-event subscription management surface at
- * /master-control/webhooks — add/remove/toggle subscriptions for
- * outbound webhook events. Mirrors the Iter-7 digest recipient
- * management pattern: audit-logged mutations, super-admin + MFA
- * gate, throttle 30,1, no password.confirm (reversible).
- *
- * Run: php artisan test --filter=WebhookSubscriptionManagementTest
- */
 class WebhookSubscriptionManagementTest extends TestCase
 {
     use RefreshDatabase;
@@ -31,8 +20,6 @@ class WebhookSubscriptionManagementTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         Http::fake();
-        // Suppress the operational-alert path so test assertions don't
-        // see outbound webhook fires from other admin actions.
         config(['services.operational_alerts.webhook_url' => null]);
     }
 
@@ -182,8 +169,6 @@ class WebhookSubscriptionManagementTest extends TestCase
             'id' => $sub->id,
         ]);
 
-        // Audit row written BEFORE the delete — target_id preserves the
-        // attribution to the deleted row's id.
         $audit = AdminAuditLog::where('action', 'webhook.subscription_removed')->first();
         $this->assertNotNull($audit);
         $this->assertSame($sub->id, $audit->target_id);
@@ -231,12 +216,6 @@ class WebhookSubscriptionManagementTest extends TestCase
 
     public function test_routes_are_throttled(): void
     {
-        // Smoke test: 31 rapid POSTs with the SAME admin should hit the
-        // throttle (30,1). Each call to actingAsMfaSuperAdmin() without
-        // a passed admin creates a new user, which would reset the
-        // throttle key — using one shared admin across all 31 requests
-        // mirrors the real-world throttle attack vector (one admin
-        // hammering the form).
         $admin = $this->createMfaSuperAdmin();
 
         for ($i = 0; $i < 30; $i++) {

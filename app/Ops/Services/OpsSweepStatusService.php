@@ -10,56 +10,10 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
-/**
- * OpsCenter — OpsSweepStatusService (Iteration 7).
- *
- * The measurement surface behind "tune the sweep cadences from real
- * data". The cadence MECHANISM shipped in Iteration 6 deliberately
- * untuned: OPS_SWEEP_CADENCES starts empty (every check, every sweep)
- * and the manual says "measure, then set cadences". This service is
- * the measure half — it exposes, per swept check:
- *
- *   cadence      the configured throttle (null = every sweep)
- *   last probe   how many minutes ago the check actually ran
- *                (the same ops:sweep:last:{id} cache stamp the sweep
- *                command maintains — skipped checks do NOT refresh it)
- *   open finding whether the check currently has an open/acknowledged
- *                sweep event (such a check is probed EVERY sweep
- *                regardless of its cadence — recovery is never delayed)
- *
- * Read-only, cache/DB-guarded, never throws: a missing stamp renders
- * as "never probed (or cache flushed)", an unreadable events table as
- * an honest unknown. Consumers: the Diagnostics page panel (the
- * operator-facing cadence table) and the morning digest's sweep
- * section.
- */
 class OpsSweepStatusService
 {
-    /**
-     * The sweep command's own cadence floor — anything finer than the
-     * sweep interval is meaningless (the sweep simply cannot run more
-     * often than the scheduler invokes it). Mirrors
-     * SweepDiagnosticsCommand::MIN_CADENCE_MINUTES; duplicated because
-     * that constant is private and this service must stay a reader,
-     * not a friend.
-     */
     public const SWEEP_INTERVAL_MINUTES = 15;
 
-    /**
-     * Per-check sweep state for every configured sweep id.
-     *
-     * @return array{
-     *     enabled: bool,
-     *     interval_minutes: int,
-     *     checks: array<int, array{
-     *         id: string, label: string, group: string,
-     *         cadence_minutes: int|null, cadence_label: string,
-     *         last_probe_at: CarbonInterface|null, last_probe_minutes: int|null,
-     *         has_open_event: bool,
-     *     }>,
-     *     ignored: array<int, array{id: string, reason: string}>,
-     * }
-     */
     public function status(): array
     {
         $configured = (array) config('ops.sweeps.diagnostics', []);
@@ -76,9 +30,6 @@ class OpsSweepStatusService
 
             $definition = DiagnosticRegistry::get($id);
             if ($definition === null) {
-                // The sweep command warns about these in scheduler.log;
-                // here they stay visible in the UI too — a typo in
-                // OPS_SWEEP_DIAGNOSTICS must not silently shrink the watch.
                 $ignored[] = ['id' => $id, 'reason' => 'unknown diagnostic id — the sweep skips it with a warning'];
                 continue;
             }
@@ -109,8 +60,6 @@ class OpsSweepStatusService
         foreach ($checks as $index => $check) {
             $minutes = null;
             if ($check['last_probe_at'] !== null) {
-                // diffInMinutes() is fractional (Carbon 3) — the exact
-                // float drives nothing here, the display floors it.
                 $minutes = max(0, (int) floor($check['last_probe_at']->diffInMinutes(now())));
             }
             $checks[$index]['last_probe_minutes'] = $minutes;
@@ -124,12 +73,6 @@ class OpsSweepStatusService
         ];
     }
 
-    /**
-     * The cached last-probe stamp (a Carbon) or null. The stamp is only
-     * written when a check is ACTUALLY probed — a cadence skip never
-     * refreshes it, so the age shown here is the real probe cadence,
-     * not the sweep's own interval.
-     */
     private function lastProbeAt(string $id): ?CarbonInterface
     {
         try {
@@ -141,13 +84,6 @@ class OpsSweepStatusService
         }
     }
 
-    /**
-     * Open/acknowledged sweep event for this check? Same lookup the
-     * sweep command's shouldProbe() uses (title match, source 'sweep')
-     * — DB trouble reads as "yes" there (probe anyway); here it reads
-     * as "unknown" rendered by the caller. The difference is safe:
-     * this service only DISPLAYS state, it never decides to probe.
-     */
     private function hasOpenEvent(string $id): bool
     {
         $label = DiagnosticRegistry::label($id);

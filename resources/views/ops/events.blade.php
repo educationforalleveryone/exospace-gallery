@@ -8,7 +8,6 @@
     <p class="text-xs text-slate-400 mt-1">Normalized, deduplicated events from every source — application logs, exceptions, the Coolify API, and self-reporting applications.</p>
 </div>
 
-{{-- ── Filters ───────────────────────────────────────────────────────── --}}
 <form method="GET" action="{{ route('ops.events') }}" class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 mb-4">
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
         <div class="col-span-2">
@@ -64,7 +63,6 @@
     </div>
 </form>
 
-{{-- ── Events table ──────────────────────────────────────────────────── --}}
 <div class="overflow-x-auto rounded-lg border border-slate-800">
     <table class="w-full text-sm">
         <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">

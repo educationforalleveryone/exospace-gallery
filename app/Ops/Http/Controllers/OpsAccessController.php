@@ -12,27 +12,12 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/**
- * OpsCenter — OpsAccessController (Iteration 5; operator tier in 6).
- *
- * The management surface for access grants (viewer + operator tiers).
- * SUPER-ADMIN ONLY (mounted inside the nested 'super_admin' route group
- * — a grantee can never reach these routes, let alone grant, change a
- * level, or revoke).
- *
- * Everything mutates only OpsCenter's own grant rows; every change is
- * audited and announced on Slack by OpsAccessService.
- */
 class OpsAccessController extends Controller
 {
     public function __construct(
         private readonly OpsAccessService $access,
     ) {}
 
-    /**
-     * The Access page: active grants (both tiers), recently revoked
-     * grants, and the grant form (user picker + level).
-     */
     public function index(): View
     {
         $activeGrants = OpsAccessGrant::query()
@@ -48,10 +33,6 @@ class OpsAccessController extends Controller
             ->limit(10)
             ->get();
 
-        // Candidates for the grant form: real accounts that are neither
-        // super-admins nor already holding an active grant. Shows MFA /
-        // verified state so the operator knows what happens on first
-        // visit before granting.
         $candidates = User::query()
             ->where('is_super_admin', false)
             ->whereNotIn('id', $activeGrants->pluck('user_id'))
@@ -66,11 +47,6 @@ class OpsAccessController extends Controller
         ]);
     }
 
-    /**
-     * Grant access (by user id + level from the picker form). Granting a
-     * different level to an account that already holds an active grant
-     * performs the atomic level change (revoke old + grant new).
-     */
     public function grant(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -90,9 +66,6 @@ class OpsAccessController extends Controller
             ->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
-    /**
-     * Revoke a grant.
-     */
     public function revoke(Request $request, OpsAccessGrant $grant): RedirectResponse
     {
         $result = $this->access->revoke($grant, $request->user());

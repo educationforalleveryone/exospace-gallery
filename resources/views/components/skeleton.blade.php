@@ -5,26 +5,6 @@
 ])
 
 @php
-/**
- * ITERATION-2 (AUDIT-P1-2.2): Skeleton component.
- *
- * Previously, the analytics page had 40+ lines of hand-coded `animate-pulse`
- * divs. Now any page can use <x-skeleton variant="card" /> to render a
- * placeholder that matches the visual weight of the real content.
- *
- * Variants:
- *   - text     — a single line of placeholder text (default width: full)
- *   - row      — a table/list row (height matches a typical table row)
- *   - card     — a stat card (small square, ~96px tall)
- *   - chart    — a chart placeholder (wider, taller, with a "line" hint)
- *   - avatar   — a circular avatar (used in member lists, comments)
- *   - button   — a button-shaped placeholder
- *
- * Pass `count` to repeat the skeleton N times (e.g. for a list of 5 rows).
- *
- * The shimmer uses the `animate-shimmer` keyframe defined in tailwind.config.js
- * with a gradient background that slides horizontally.
- */
 $baseClass = 'animate-shimmer rounded-md bg-gradient-to-r from-surface-900 via-ink-800 to-surface-900 bg-[length:200%_100%]';
 
 $variantClasses = [
@@ -39,8 +19,6 @@ $variantClasses = [
 $variantClass = $variantClasses[$variant] ?? $variantClasses['text'];
 $finalClass = $baseClass . ' ' . $variantClass . ' ' . $class;
 
-// For the `text` variant, default to a slightly-shorter width unless the
-// caller overrides it via `class="w-72"` etc.
 if ($variant === 'text' && !str_contains($class, 'w-')) {
     $finalClass .= ' w-3/4';
 }

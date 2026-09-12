@@ -12,23 +12,8 @@ use App\Models\SeoProfile;
 use App\Models\SeoRedirect;
 use Illuminate\Support\Collection;
 
-/**
- * SEO health auditor (Iteration 6).
- *
- * Computes the platform's SEO health from REAL data — the same queries the
- * public surfaces use, so the report reflects what crawlers actually see.
- * Used by the super-admin dashboard and the scheduled `exospace:seo-audit`
- * command (issues optionally posted to Slack via the standard operational
- * webhook).
- *
- * This is a READ-ONLY service: no Search Console data is fabricated or
- * fetched — index performance lives in external tools (see master manual §3).
- */
 class SeoAuditService
 {
-    /**
-     * @return array<string, mixed>
-     */
     public function summary(): array
     {
         return [
@@ -41,18 +26,10 @@ class SeoAuditService
         ];
     }
 
-    /**
-     * Issues = actionable quality problems. Each entry is a small, factual
-     * finding; the dashboard links to the affected entity.
-     *
-     * @return array<int, array{key: string, label: string, count: int, severity: string}>
-     */
     public function issues(): array
     {
         $issues = [];
 
-        // 1. Public galleries with no description (meta description falls
-        //    back to generated copy — better to have real curator text).
         $missingDesc = Gallery::publiclyViewable()->has('images', '>=', 1)
             ->where(fn ($q) => $q->whereNull('description')->orWhere('description', ''))
             ->count();
@@ -127,11 +104,6 @@ class SeoAuditService
         return $issues;
     }
 
-    /**
-     * Galleries with per-page SEO context for the dashboard table.
-     *
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
-     */
     public function galleryTable(string $search = '', string $filter = 'all')
     {
         $query = Gallery::query()
@@ -155,9 +127,6 @@ class SeoAuditService
         return $query->paginate(25)->withQueryString();
     }
 
-    /**
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
-     */
     public function artistTable(string $search = '')
     {
         return Artist::query()

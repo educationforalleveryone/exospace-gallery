@@ -22,15 +22,6 @@ class VenueTemplateController extends Controller
         private VenueSnapshotManager $snapshots,
     ) {}
 
-    /**
-     * List all venue templates with gallery counts and key badges.
-     * Supports optional ?category= and ?q= filters.
-     *
-     * Iteration 5 "Authoring" (§9.2 #6): the table is also where catalog
-     * decisions live — galleries_count + view_count + the conversion rollup
-     * surface here, so retirement / #12 / family-investment calls are
-     * data-driven instead of gut-driven.
-     */
     public function index(Request $request): View
     {
         $query = VenueTemplate::query()
@@ -60,9 +51,6 @@ class VenueTemplateController extends Controller
         ));
     }
 
-    /**
-     * Show the create form.
-     */
     public function create(): View
     {
         $venue = new VenueTemplate([
@@ -84,9 +72,6 @@ class VenueTemplateController extends Controller
         return view('super-admin.venues.create', compact('venue', 'categories', 'layouts'));
     }
 
-    /**
-     * Store a new venue template.
-     */
     public function store(VenueTemplateRequest $request): RedirectResponse
     {
         $data = $this->extractData($request);
@@ -105,15 +90,6 @@ class VenueTemplateController extends Controller
             ->with('status', "Venue \"{$venue->name}\" created.");
     }
 
-    /**
-     * Show the edit form.
-     *
-     * Iteration 5 "Authoring": this page IS the authoring loop —
-     * structured config form, live preview iframe, and the last 5
-     * snapshots with one-click restore (each rollback immediately
-     * visible in the iframe because save/restore bust the exporter
-     * cache via the venue's updated_at, §10.7).
-     */
     public function edit(VenueTemplate $venue): View
     {
         $categories = VenueTemplate::CATEGORIES;
@@ -129,16 +105,6 @@ class VenueTemplateController extends Controller
         ));
     }
 
-    /**
-     * Update an existing venue template.
-     *
-     * Iteration 5 "Authoring": before the save overwrites the venue, the
-     * current state is captured as a snapshot (§9.2 #3) — the list on the
-     * edit page reads as "what you would go back to". Pruned to 5 by the
-     * manager. Redirect returns to the EDIT page (not the index) so the
-     * live preview iframe renders the just-saved state — tweak → preview
-     * without losing your place.
-     */
     public function update(VenueTemplateRequest $request, VenueTemplate $venue): RedirectResponse
     {
         $before = $venue->toArray();
@@ -164,15 +130,6 @@ class VenueTemplateController extends Controller
             ->with('status', "Venue \"{$venue->name}\" updated. Preview below reflects the saved state.");
     }
 
-    /**
-     * Iteration 5 "Authoring" (§9.2 #2): clone/duplicate.
-     *
-     * Venue #12 begins as a copy of its family sibling — this kills the
-     * 80-line JSON re-typing tax. The clone is ALWAYS created as a draft:
-     * a duplicate must never silently go live next to its original.
-     * Asset files are COPIED (not shared) so replacing a GLB/HDRI on one
-     * venue can never corrupt the other.
-     */
     public function cloneVenue(Request $request, VenueTemplate $venue): RedirectResponse
     {
         $copy = $venue->replicate(['slug', 'view_count', 'published_at', 'archived_at']);
@@ -185,8 +142,6 @@ class VenueTemplateController extends Controller
         $copy->archived_at  = null;
         $copy->sort_order  = (VenueTemplate::max('sort_order') ?? 0) + 1;
 
-        // Copy uploaded assets under new names (replace/delete on one venue
-        // must not touch the other).
         $disk = Storage::disk('public');
         foreach (['thumbnail_path', 'preview_model_path', 'hdri_path', 'default_audio_path'] as $field) {
             if (!empty($venue->$field) && $disk->exists($venue->$field)) {
@@ -197,9 +152,6 @@ class VenueTemplateController extends Controller
             }
         }
 
-        // Slug: generated from the copy's name; the DB unique constraint is
-        // the source of truth (same P2-5 convention as Artist) — retry with
-        // a numeric suffix on collision.
         $baseSlug = Str::slug($copy->name) ?: 'venue-copy';
         for ($attempt = 1; $attempt <= 10; $attempt++) {
             $copy->slug = $attempt === 1 ? $baseSlug : "{$baseSlug}-{$attempt}";
@@ -207,8 +159,6 @@ class VenueTemplateController extends Controller
                 $copy->save();
                 break;
             } catch (QueryException $e) {
-                // MySQL says "Duplicate entry", sqlite/postgres say
-                // "UNIQUE constraint" — tests run on sqlite.
                 $msg = strtolower($e->getMessage());
                 $isCollision = str_contains($msg, 'duplicate entry')
                     || str_contains($msg, 'unique constraint');
@@ -230,10 +180,6 @@ class VenueTemplateController extends Controller
             ->with('status', "Venue cloned as \"{$copy->name}\" (draft). Configure, preview, then publish.");
     }
 
-    /**
-     * Iteration 5 "Authoring" (§9.2 #5): explicit publish — draft/published
-     * becomes a real workflow step instead of a stray checkbox.
-     */
     public function publish(Request $request, VenueTemplate $venue): RedirectResponse
     {
         $wasDraft = $venue->is_draft;
@@ -252,10 +198,6 @@ class VenueTemplateController extends Controller
         return back()->with('status', "Venue \"{$venue->name}\" published — now selectable in the picker.");
     }
 
-    /**
-     * Unpublish: back to draft. Instantly hidden from every customer
-     * surface (the Iteration 0 draft-leak contract), fully reversible.
-     */
     public function unpublish(Request $request, VenueTemplate $venue): RedirectResponse
     {
         $venue->update(['is_draft' => true]);
@@ -267,21 +209,6 @@ class VenueTemplateController extends Controller
         return back()->with('status', "Venue \"{$venue->name}\" moved back to draft.");
     }
 
-    /**
-     * Iteration 5 "Authoring" (§9.2 #4): DELETE becomes ARCHIVE.
-     *
-     * The old hard delete reset every gallery using the venue back to the
-     * default white-cube — irreversible and customer-visible. Archive
-     * instead:
-     *   - hides the venue from every selection surface (scopeActive),
-     *   - keeps SERVING every gallery already using it,
-     *   - keeps every uploaded file (a live show may still reference them),
-     *   - is restorable in one click (unarchive).
-     *
-     * USAGE GUARD: archiving a venue that N galleries use requires the
-     * confirm_usage flag — the UI dialog states the count before the admin
-     * can proceed. The confirmation is also recorded in the audit log.
-     */
     public function destroy(Request $request, VenueTemplate $venue): RedirectResponse
     {
         if ($venue->isArchived()) {
@@ -310,9 +237,6 @@ class VenueTemplateController extends Controller
             ->with('status', "Venue \"{$venue->name}\" archived — hidden from selection, existing galleries unaffected. Restore anytime.");
     }
 
-    /**
-     * Unarchive: back into selection everywhere (scopeActive clears).
-     */
     public function unarchive(Request $request, VenueTemplate $venue): RedirectResponse
     {
         $venue->update(['archived_at' => null]);
@@ -324,12 +248,6 @@ class VenueTemplateController extends Controller
         return back()->with('status', "Venue \"{$venue->name}\" restored to selection.");
     }
 
-    /**
-     * Iteration 5 "Authoring" (§9.2 #3): one-click snapshot restore.
-     * The manager captures the current state first, so even a restore is
-     * reversible. Cache visibility is automatic (§10.7: exporter keys on
-     * the venue's updated_at — a restore IS a save).
-     */
     public function restoreSnapshot(Request $request, VenueTemplate $venue, VenueTemplateSnapshot $snapshot): RedirectResponse
     {
         abort_unless($snapshot->venue_template_id === $venue->id, 404);
@@ -348,23 +266,6 @@ class VenueTemplateController extends Controller
             ->with('status', "Rolled back to snapshot from {$snapshot->created_at->format('Y-m-d H:i')} (the overwritten state was itself snapshotted).");
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Private helpers
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * Extract validated data minus file uploads. JSON fields are already
-     * decoded to arrays by VenueTemplateRequest::prepareForValidation().
-     *
-     * Iteration 5 "Authoring" (§9.3): visual_config arrives from the
-     * STRUCTURED form (per-key inputs, empties stripped pre-validation)
-     * plus the `visual_config_advanced` raw-JSON field carrying everything
-     * the form does not model — structure descriptors (IT3), gates
-     * (structure_pass / glazing_wall / sun_shadows), placement,
-     * tier_fallbacks, pipeline pastes. Advanced wins on conflict: schema
-     * hint, not schema prison. Old JSON-textarea clients keep working —
-     * their decoded arrays flow through untouched.
-     */
     private function extractData(VenueTemplateRequest $request, ?VenueTemplate $venue = null): array
     {
         $data = $request->validated();
@@ -410,10 +311,6 @@ class VenueTemplateController extends Controller
         return $data;
     }
 
-    /**
-     * Handle file uploads for thumbnail / preview model / HDRI / audio.
-     * Deletes the previous file if replaced.
-     */
     private function handleFileUploads(VenueTemplateRequest $request, VenueTemplate $venue): void
     {
         $disk = Storage::disk('public');

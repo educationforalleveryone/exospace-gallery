@@ -10,35 +10,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * CRYSTAL CATHEDRAL — "The Luminous Arcade" venue-deepening iteration
- * (2026-09-07).
- *
- * Forensic audit → architectural redesign. The seeded venue WAS twelve thin
- * smooth-shaded glass tubes + four pastel-rainbow point lights in a blue
- * void: crystal as decoration, no cathedral. This suite pins the new
- * identity end to end:
- *
- *   • the seeder declares the arcade body and its full identity payload;
- *   • the copy ⇔ render honesty matrix holds (colonnade / float / reflect);
- *   • the guarded migration transforms an Iteration-6-era row into
- *     EXACTLY the seeder's fresh-install state (byte parity), is
- *     idempotent, reversible, and never clobbers admin edits;
- *   • the venue-owned key guard strips every new identity key from gallery
- *     visual_overrides (a stale curator layer cannot recompose the venue);
- *   • the public render path resolves lighting_preset / room_layout through
- *     the venue authority — the preview/public parity defect the audit
- *     found in GalleryViewController;
- *   • the JS body ships the architecture (dispatch + instancing + no
- *     rainbow palette + no Math.random) with zero slug knowledge.
- */
 class VenueCathedralIterationTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The seeded identity
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_seeder_declares_the_luminous_arcade_identity(): void
     {
@@ -107,10 +81,6 @@ class VenueCathedralIterationTest extends TestCase
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The guarded migration
-    // ─────────────────────────────────────────────────────────────────────
-
     private function cathedralMigration(): object
     {
         return require database_path('migrations/2026_09_07_000001_crystal_cathedral_architecture.php');
@@ -121,7 +91,6 @@ class VenueCathedralIterationTest extends TestCase
         return require database_path('migrations/2026_09_08_000001_crystal_cathedral_deploy_review.php');
     }
 
-    /** The Iteration-6-era row exactly as production holds it pre-migration. */
     private function seedIterationSixCathedralRow(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -167,10 +136,6 @@ class VenueCathedralIterationTest extends TestCase
 
     public function test_the_migration_lands_the_exact_seeder_state(): void
     {
-        // Production path: the IT6-era row is transformed by the migration;
-        // a fresh install is seeded straight to the final state. Both roads
-        // MUST end at the same identity (drift here means previews and
-        // production diverge).
         $this->seedIterationSixCathedralRow();
         $this->cathedralMigration()->up();
         $this->deployReviewMigration()->up();
@@ -180,10 +145,6 @@ class VenueCathedralIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         $seeded = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first();
 
-        // Canonical comparison: JSON object key ORDER legitimately differs
-        // (the migration appends added keys after the IT6-era ones; the
-        // seeder ships the composed literal). Identity = same keys, same
-        // values, same types — order-insensitive by design.
         $this->assertSame(
             $this->canonicalJson($seeded->visual_config),
             $this->canonicalJson($migrated->visual_config),
@@ -198,7 +159,6 @@ class VenueCathedralIterationTest extends TestCase
         $this->assertSame($seeded->version, $migrated->version, 'Versions converge.');
     }
 
-    /** Recursively key-sort a JSON blob so identity comparisons ignore order. */
     private function canonicalJson(mixed $json): string
     {
         $data = is_string($json) ? (json_decode((string) $json, true) ?: []) : $json;
@@ -247,8 +207,6 @@ class VenueCathedralIterationTest extends TestCase
         $after = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first();
         $this->assertSame($before->visual_config, $after->visual_config, 'Re-running the migration rewrites nothing.');
 
-        // Reversibility: down() restores every value it changed (only where
-        // still equal), removes what it added, restores the superseded flag.
         $migration->down();
         $rolled = $this->visualConfig('crystal-cathedral');
         $this->assertSame(true, $rolled['void_colonnade'] ?? null, 'down() restores the IT6 body flag (the rollback chain).');
@@ -321,10 +279,6 @@ class VenueCathedralIterationTest extends TestCase
             'A venue the operator removed is never resurrected by the migration.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // The venue-owned guard — overrides cannot recompose the identity
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_gallery_overrides_cannot_recompose_the_architecture(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -341,8 +295,6 @@ class VenueCathedralIterationTest extends TestCase
             );
         }
 
-        // End-to-end: a gallery carrying an ancient override layer that
-        // predates the guard renders the VENUE's identity, not the override.
         $venue   = VenueTemplate::where('slug', 'crystal-cathedral')->firstOrFail();
         $owner   = User::factory()->create(['plan' => 'pro']);
         $gallery = Gallery::factory()->create([
@@ -366,10 +318,6 @@ class VenueCathedralIterationTest extends TestCase
         $this->assertSame('planar', $vc['floor_reflection'], 'The declared reflection cannot be stripped by a stale layer.');
         $this->assertArrayNotHasKey('void_colonnade', $vc, 'The superseded body cannot be re-armed by a stale layer.');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Preview ⇄ public parity — the two resolved keys ship identically
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_public_path_resolves_preset_and_layout_through_the_venue_authority(): void
     {
@@ -399,16 +347,10 @@ class VenueCathedralIterationTest extends TestCase
             'An unsupported layout clamps to the venue default on every render path.'
         );
 
-        // Wiring: the public controller actually calls the authority (the
-        // runtime-mirror greps the arrival suite established).
         $controller = file_get_contents(app_path('Http/Controllers/GalleryViewController.php'));
         $this->assertStringContainsString('presetForGallery($gallery)', $controller, 'The public payload resolves the preset through the venue authority.');
         $this->assertStringContainsString('layoutForGallery($gallery)', $controller, 'The public payload resolves the layout through the venue authority.');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The JS body — architecture ships, no slugs, no randomness, no rainbow
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_arcade_body_ships_with_the_dispatch_and_hygiene_rules(): void
     {
@@ -437,10 +379,6 @@ class VenueCathedralIterationTest extends TestCase
 
     public function test_the_missing_environments_constant_is_restored(): void
     {
-        // The s4 environment authority referenced VenueTemplate::ENVIRONMENTS
-        // from the super-admin request WITHOUT defining it — every structured
-        // venue save fataled at validation. The constant must exist and stay
-        // in lockstep with the runtime map (config.js `environments`).
         $this->assertSame(
             ['studio', 'rural_evening', 'night', 'none'],
             VenueTemplate::ENVIRONMENTS,
@@ -452,10 +390,6 @@ class VenueCathedralIterationTest extends TestCase
             $this->assertStringContainsString("'{$name}'", $config, "Runtime config.js knows the '{$name}' environment (lockstep contract).");
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Harness parity — the visual harness renders the seeded identity
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_harness_carries_the_seeded_cathedral_body(): void
     {
@@ -472,10 +406,6 @@ class VenueCathedralIterationTest extends TestCase
             $this->assertStringContainsString($marker, $seeder, "Seeder parity marker {$marker} present.");
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────
 
     private function visualConfig(string $slug): array
     {

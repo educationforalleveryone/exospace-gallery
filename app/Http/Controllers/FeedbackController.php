@@ -8,20 +8,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/**
- * M-19: Feedback controller.
- *
- * Handles:
- *   - POST /feedback — store feedback from the widget (AJAX or form POST)
- *   - GET /admin/feedback — super-admin view of all feedback (for triage)
- *   - PATCH /admin/feedback/{feedback}/status — update feedback status
- */
 class FeedbackController extends Controller
 {
-    /**
-     * Store feedback from the in-app widget.
-     * Accepts both AJAX (JSON response) and regular form POST (redirect back).
-     */
     public function store(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
@@ -66,9 +54,6 @@ class FeedbackController extends Controller
         return back()->with('status', 'Thank you for your feedback!');
     }
 
-    /**
-     * Super-admin: list all feedback for triage.
-     */
     public function index(Request $request): View
     {
         $query = UserFeedback::with('user')->latest();
@@ -88,9 +73,6 @@ class FeedbackController extends Controller
         return view('super-admin.feedback.index', compact('feedback', 'counts'));
     }
 
-    /**
-     * Super-admin: update feedback status.
-     */
     public function updateStatus(Request $request, UserFeedback $feedback): RedirectResponse
     {
         $validated = $request->validate([

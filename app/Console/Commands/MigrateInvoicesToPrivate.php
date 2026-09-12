@@ -9,40 +9,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-/**
- * Iteration-015 (media authorization M-1): Move invoice files to the private disk.
- *
- * Invoice PDFs used to be written to the PUBLIC disk at
- * "invoices/{year}/{invoice_number}.pdf". Because invoice numbers are
- * sequential (INV-2026-00001, INV-2026-00002, …) and nginx serves the public
- * disk unauthenticated at /storage/…, anyone could scrape every customer's
- * financial documents (name, address, VAT number, amounts) without an account
- * — the owner-only BillingController::downloadInvoice endpoint was bypassed
- * entirely by the direct URL.
- *
- * Since Iteration-015 the InvoiceGenerator writes new invoice files to the
- * PRIVATE 'local' disk (storage/app/private — NOT under the public/storage
- * symlink) and the authorized download endpoint serves them from there.
- *
- * THIS command retires the legacy public copies safely:
- *   1. For every invoice with a pdf_path whose file still exists on the
- *      public disk, the file is COPIED to the private disk (bytes verbatim).
- *   2. The copy is VERIFIED (byte size must match) BEFORE the public copy is
- *      deleted — a failed verification aborts that file's move and leaves the
- *      public file untouched.
- *   3. Per-file try/catch: one bad file never aborts the whole run.
- *
- * Usage:
- *   php artisan exospace:migrate-invoices-to-private            (dry-run — reports, changes nothing)
- *   php artisan exospace:migrate-invoices-to-private --force    (performs copy → verify → delete)
- *   php artisan exospace:migrate-invoices-to-private --force --batch=100
- *
- * The command is IDEMPOTENT — files already on the private disk are skipped,
- * so it can safely be run multiple times. It only ever touches files whose
- * path is referenced by an invoice's pdf_path column; gallery images, venue
- * assets, branding files and everything else on the public disk are never
- * read or written by this command. No database rows are modified.
- */
 class MigrateInvoicesToPrivate extends Command
 {
     protected $signature = 'exospace:migrate-invoices-to-private
@@ -79,16 +45,9 @@ class MigrateInvoicesToPrivate extends Command
             ->orderBy('id')
             ->chunkById($batchSize, function ($invoices) use ($local, $public, $force, &$alreadyPrivate, &$duplicateRetired, &$toMove, &$missing) {
                 foreach ($invoices as $invoice) {
-                    // Defensive: tolerate the legacy "storage/"-prefixed path
-                    // convention the codebase documents in places (audit M6).
                     $path = Str::after($invoice->pdf_path, 'storage/');
 
                     if ($local->exists($path)) {
-                        // Already migrated. If a public copy ALSO still exists
-                        // (an earlier run interrupted before cleanup, or a
-                        // stray re-upload), it is a redundant duplicate of the
-                        // verified private file — retire it so /storage/… URLs
-                        // stay dead even in this edge case.
                         if ($public->exists($path)) {
                             $duplicateRetired++;
                             if ($force) {
@@ -108,8 +67,6 @@ class MigrateInvoicesToPrivate extends Command
                         continue;
                     }
 
-                    // File exists on neither disk — nothing this command can
-                    // do (the authorized endpoint already 404s for it).
                     $missing++;
                     $this->warn("  [missing] invoice {$invoice->id}: {$path} not found on either disk.");
                 }
@@ -158,8 +115,6 @@ class MigrateInvoicesToPrivate extends Command
                 // Write the private copy FIRST.
                 $local->put($entry['path'], $content);
 
-                // Verify BEFORE deleting the public copy — byte size must
-                // match exactly. On mismatch the public file is left intact.
                 if ($local->size($entry['path']) !== $public->size($entry['path'])) {
                     $local->delete($entry['path']);
                     throw new \RuntimeException('size verification failed after copy');

@@ -6,18 +6,6 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
-    /*
-     | QA-Control-Center (Iteration 1): engine-portability shim.
-     |
-     | The SEO audit/quality-gate queries (app/Services/Seo/SeoAuditService)
-     | intentionally use MySQL's CHAR_LENGTH() for byte-accurate description
-     | thresholds in production. SQLite — which the suite defaults to for
-     | speed (:memory:) — does not ship that function, so any test that hit
-     | the artwork gate 500'd with "no such function: CHAR_LENGTH".
-     |
-     | Rather than weakening production SQL, we register the function on
-     | SQLite connections only. MySQL behaviour is unchanged everywhere.
-     */
     protected function setUp(): void
     {
         parent::setUp();

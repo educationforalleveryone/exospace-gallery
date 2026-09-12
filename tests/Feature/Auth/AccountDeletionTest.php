@@ -15,43 +15,16 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * ITERATION-9 — Focused coverage for the authenticated account-deletion
- * lifecycle (self-serve path: DELETE /profile → ProfileController::destroy
- * → UserDeletionService).
- *
- * Covers what the deletion flow itself owns:
- *   - authorization + the current-password sudo bar (server-side only)
- *   - deliberate confirmation semantics (wrong/missing password = no-op)
- *   - the shared-data matrix (personal galleries die, galleries in OTHER
- *     users' teams transfer to the team owner, other members' galleries in
- *     OWNED teams survive intact, owned teams cascade with the owner)
- *   - transactional safety of the DB tail
- *   - stale-credential purge (password_reset_tokens is EMAIL-keyed)
- *   - forensic parity with the admin path ('user_deleted' audit + alert)
- *   - authentication/session consequences + stale/repeat requests
- *   - the throttle bucket on the deletion endpoint
- *
- * The two pre-existing tests in ProfileTest (happy path + wrong password)
- * remain as regression anchors; this suite deep-covers the same endpoint.
- */
 class AccountDeletionTest extends TestCase
 {
     use RefreshDatabase;
 
     protected function tearDown(): void
     {
-        // Tests that simulate deletion failures register one-off User::deleting
-        // closures on the static model dispatcher; flush them so they cannot
-        // leak into other tests in the same process (ProfileTest precedent).
         User::flushEventListeners();
 
         parent::tearDown();
     }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Authorization — the server is the security boundary
-    // ─────────────────────────────────────────────────────────────────
 
     public function test_guest_cannot_delete_any_account(): void
     {
@@ -69,8 +42,6 @@ class AccountDeletionTest extends TestCase
         $actor = User::factory()->create();
         $other = User::factory()->create();
 
-        // The route is self-scoped: no user id parameter exists. A request
-        // that tries to sneak one must still resolve to the ACTING user.
         $this->actingAs($actor)
             ->delete('/profile', [
                 'password' => 'password',
@@ -86,10 +57,6 @@ class AccountDeletionTest extends TestCase
         // The "targeted" account must be untouched.
         $this->assertNotNull($other->fresh());
     }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Confirmation / security — deliberate intent required
-    // ─────────────────────────────────────────────────────────────────
 
     public function test_deletion_requires_the_current_password(): void
     {
@@ -121,9 +88,6 @@ class AccountDeletionTest extends TestCase
 
     public function test_oauth_only_account_cannot_delete_without_setting_a_password(): void
     {
-        // has_password=false users hold an unusable random placeholder hash;
-        // the current-password gate can never pass for them (the UI now
-        // shows guidance instead of the form — Iteration 8 pattern).
         $user = User::factory()->create([
             'has_password' => false,
             'password' => Hash::make(uniqid('', true)),
@@ -161,15 +125,9 @@ class AccountDeletionTest extends TestCase
 
         $response->assertOk();
         $this->assertStringContainsString('confirm-user-deletion', $response->getContent());
-        // Iteration 9: the destructive form must carry the app-wide
-        // double-submission guard and the password-manager hint.
         $this->assertStringContainsString('data-busy', $response->getContent());
         $this->assertStringContainsString('autocomplete="current-password"', $response->getContent());
     }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Successful deletion — rows, files, credentials, session
-    // ─────────────────────────────────────────────────────────────────
 
     public function test_valid_deletion_removes_the_user_their_personal_galleries_and_files(): void
     {
@@ -227,15 +185,9 @@ class AccountDeletionTest extends TestCase
         // Stale authenticated functionality is unreachable post-deletion.
         $this->get('/profile')->assertRedirect(route('login'));
 
-        // A stale/repeated deletion request from the (now guest) session
-        // fails safely — a login redirect, not an error.
         $this->delete('/profile', ['password' => 'password'])
             ->assertRedirect(route('login'));
     }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Shared data — the deletion must respect team ownership
-    // ─────────────────────────────────────────────────────────────────
 
     public function test_galleries_created_in_another_users_team_transfer_to_the_team_owner(): void
     {
@@ -256,8 +208,6 @@ class AccountDeletionTest extends TestCase
             ->delete('/profile', ['password' => 'password'])
             ->assertSessionHasNoErrors();
 
-        // The member is gone; the TEAM's gallery survives — re-owned by the
-        // team owner, files intact.
         $this->assertNull($member->fresh());
         $fresh = $teamGallery->fresh();
         $this->assertNotNull($fresh, 'The team gallery must survive its creator.');
@@ -339,10 +289,6 @@ class AccountDeletionTest extends TestCase
         $this->assertNotNull($member->fresh());
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Transactional safety — no partial destructive state
-    // ─────────────────────────────────────────────────────────────────
-
     public function test_a_failure_during_the_deletion_tail_leaves_no_partial_state(): void
     {
         $user = User::factory()->create();
@@ -352,16 +298,10 @@ class AccountDeletionTest extends TestCase
             'customer_name' => 'Real Name',
         ]);
 
-        // Simulate an unexpected failure at the FINAL step (the user row
-        // delete). The DB tail is transactional, so NOTHING in it may have
-        // committed: no anonymization, no team-id clears, no purge.
         User::deleting(function () {
             throw new \RuntimeException('simulated deletion-tail failure');
         });
 
-        // Surface the real exception instead of letting it become a 500
-        // response, but keep AssertionFailedErrors distinct from the
-        // simulated one (they share a RuntimeException ancestor).
         $this->withoutExceptionHandling();
 
         try {
@@ -379,10 +319,6 @@ class AccountDeletionTest extends TestCase
         $this->assertSame('Real Name', $transaction->fresh()->customer_name);
         $this->assertNotNull(User::find($user->id));
     }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Forensic visibility — parity with the admin path
-    // ─────────────────────────────────────────────────────────────────
 
     public function test_self_serve_deletion_is_audited_like_the_admin_path(): void
     {
@@ -402,24 +338,16 @@ class AccountDeletionTest extends TestCase
         $this->assertNotNull($log, 'Self-serve deletion must be audited (the admin path always was).');
         $this->assertSame(User::class, $log->target_type);
         $this->assertSame((int) $user->id, (int) $log->target_id);
-        // Payload shape matches SystemController::deleteUser, plus the
-        // self-serve marker. PII hashing applies (same as the admin path):
-        // the email must NOT appear in cleartext.
         $this->assertSame('pro', $log->payload['plan']);
         $this->assertTrue($log->payload['self_serve']);
         $this->assertStringStartsWith('pii:', $log->payload['email']);
         $this->assertStringNotContainsString($user->email, (string) json_encode($log->payload));
 
-        // actor_id: nullOnDelete resolves to NULL on the production driver
-        // once the user row is gone; on SQLite (tests) the FK is not
-        // enforced inside RefreshDatabase, so the original id may remain.
         $this->assertTrue(
             $log->actor_id === null || (int) $log->actor_id === (int) $user->id,
             'The actor can only be the deleting user (or NULL after their own deletion).'
         );
 
-        // The destructive-action alert reaches eligible super-admins. The
-        // mailable is ShouldQueue, so it lands in the queue channel.
         Mail::assertQueued(SuperAdminActionAlert::class, function ($mail) use ($superAdmin) {
             return $mail->hasTo($superAdmin->email);
         });
@@ -440,10 +368,6 @@ class AccountDeletionTest extends TestCase
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Throttle — the sudo bar cannot be brute-forced
-    // ─────────────────────────────────────────────────────────────────
-
     public function test_deletion_password_gate_is_throttled_in_an_isolated_bucket(): void
     {
         $user = User::factory()->create();
@@ -461,8 +385,6 @@ class AccountDeletionTest extends TestCase
             ->delete('/profile', ['password' => 'wrong-6'])
             ->assertTooManyRequests();
 
-        // The bucket is ISOLATED: the email-change endpoint on the same
-        // controller keeps working (its own profile-update bucket).
         $this->actingAs($user)
             ->patch('/profile', ['name' => 'Still Here', 'email' => $user->email])
             ->assertSessionHasNoErrors();

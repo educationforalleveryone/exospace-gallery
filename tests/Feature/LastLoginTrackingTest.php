@@ -7,17 +7,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * ITERATION 6 — users.last_login_at tracking.
- *
- * The platform had NO login-activity record, which forced the retention
- * analytics into an unbounded, noisy activity definition. These tests pin
- * the new signal:
- *   1. Password login stamps last_login_at
- *   2. Failed login does not stamp
- *   3. Post-registration auto-login stamps (registration IS a first login)
- *   4. The stamp survives as a queryable column (retention reads it)
- */
 class LastLoginTrackingTest extends TestCase
 {
     use RefreshDatabase;
@@ -77,10 +66,6 @@ class LastLoginTrackingTest extends TestCase
 
     public function test_login_event_is_wired_to_the_stamp_listener(): void
     {
-        // Auto-discovered listener registration (no EventServiceProvider in
-        // Laravel 11+): assert the dispatcher actually resolves a listener
-        // for the Login event — if auto-discovery breaks, retention would
-        // silently lose its login signal.
         $listeners = app('events')->getListeners(\Illuminate\Auth\Events\Login::class);
 
         $this->assertNotEmpty($listeners, 'Illuminate\Auth\Events\Login has at least one listener (StampLastLogin)');

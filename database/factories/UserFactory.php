@@ -6,9 +6,6 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
- */
 class UserFactory extends Factory
 {
     protected static ?string $password;
@@ -21,21 +18,15 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password'          => static::$password ??= Hash::make('password'),
             'remember_token'    => Str::random(10),
-            // Plan fields — the User model's boot() creating hook sets
-            // these if not provided, but being explicit makes tests clearer.
             'plan'              => 'free',
             'max_galleries'     => 1,
             'max_images'        => 10,
             'plan_started_at'   => now(),
             'plan_expires_at'   => null,
-            // P0-3: marketing consent defaults to false (opt-in required).
-            // Tests that need consented users should use ->create(['marketing_consent' => true]).
             'marketing_consent' => false,
             // P0-7: lifecycle email tracking columns (split from lifecycle_nudged_at)
             'inactive_nudged_at'       => null,
             'plan_expiry_reminded_at'  => null,
-            // TD-17: MFA fields (P3-7/P3-8) — null = MFA not enabled.
-            // Tests that need MFA-enabled users should use the withMfa() state.
             'google2fa_secret'  => null,
             'mfa_enabled_at'    => null,
             'mfa_backup_codes'  => null,
@@ -56,8 +47,6 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
-
-    // ── Plan states (Task H14) ─────────────────────────────────────────
 
     public function pro(): static
     {
@@ -92,32 +81,14 @@ class UserFactory extends Factory
         ]);
     }
 
-    /**
-     * TD-17: MFA-enabled state. Sets a fake (but valid-format) TOTP secret
-     * + enabled timestamp. The secret is encrypted the same way the
-     * MfaController does it (encrypt() with APP_KEY).
-     *
-     * Tests that need to verify MFA flows (setup, verify, backup codes)
-     * should use a real pragmarx/google2fa secret instead of this state —
-     * this state is for tests that just need the user to HAVE MFA enabled
-     * (e.g. testing the RequireMfa middleware gating).
-     */
     public function withMfa(): static
     {
         return $this->state(fn (array $attributes) => [
-            // ITERATION-1 FIX: generateSecretKey() is an instance method
-            // in google2fa v8 — calling it statically threw a fatal Error
-            // whenever the withMfa() state was used.
             'google2fa_secret' => encrypt((new \PragmaRX\Google2FA\Google2FA())->generateSecretKey()),
             'mfa_enabled_at'   => now(),
         ]);
     }
 
-    /**
-     * M-1: Active subscription state. Sets a fake subscription_id + active
-     * status + subscription_ends_at 30 days from now (monthly billing).
-     * For tests that need users with active recurring subscriptions.
-     */
     public function withSubscription(string $plan = 'pro'): static
     {
         return $this->state(fn (array $attributes) => [
@@ -133,9 +104,6 @@ class UserFactory extends Factory
         ]);
     }
 
-    /**
-     * M-1: Cancelled subscription state (still within paid period).
-     */
     public function withCancelledSubscription(string $plan = 'pro'): static
     {
         return $this->state(fn (array $attributes) => [

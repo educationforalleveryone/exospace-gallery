@@ -10,30 +10,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-/**
- * Send an email alert to all super-admins when a destructive super-admin
- * action is performed. (Task H52 / audit H18)
- *
- * This is a lightweight MFA alternative — instead of requiring a TOTP
- * code (which requires provisioning a secrets table + QR code flow),
- * we alert all super-admins whenever a destructive action fires. If
- * a super-admin's session is compromised, the other super-admins see
- * the alert and can investigate.
- *
- * Destructive actions that trigger this alert:
- *   - deleteUser (user_deleted)
- *   - banUser (user_banned)
- *   - toggleSuperAdmin (super_admin_toggled)
- *   - unverifyEmail (email_unverified)
- *   - updatePlan (plan_changed)
- *
- * For full MFA (TOTP), install pragmarx/google2fa-qrcode and add:
- *   - A `google2fa_secret` column to the users table
- *   - A setup flow at /profile/mfa
- *   - A middleware that requires a valid TOTP for /master-control/*
- * This is noted as future work — the email-alert approach is the
- * pragmatic first step.
- */
 class SendSuperAdminActionAlert implements ShouldQueue
 {
     public function handle(AdminAuditLogged $event): void

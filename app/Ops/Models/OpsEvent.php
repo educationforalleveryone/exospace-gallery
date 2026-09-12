@@ -7,21 +7,6 @@ namespace App\Ops\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * App\Ops\Models\OpsEvent
- *
- * The normalized, DEDUPLICATED event/error record. One row per distinct
- * fingerprint (application + category + normalized message) — a recurring
- * error increments occurrence_count instead of inserting new rows.
- *
- * Lifecycle:
- *   open         — being seen / recurring
- *   acknowledged — an operator has seen it (Iteration 2 UI)
- *   resolved     — auto-resolved after auto_resolve_days without
- *                  recurrence, or (later iteration) resolved by an
- *                  operator. A resolved event that recurs REOPENS with a
- *                  fresh episode (occurrence_count reset, total_count kept).
- */
 class OpsEvent extends Model
 {
     protected $table = 'ops_events';
@@ -56,17 +41,11 @@ class OpsEvent extends Model
         return $this->belongsTo(OpsApplication::class, 'ops_application_id');
     }
 
-    /**
-     * The incident this event was correlated into (Iteration 2), if any.
-     */
     public function incident(): BelongsTo
     {
         return $this->belongsTo(OpsIncident::class, 'ops_incident_id');
     }
 
-    /**
-     * Severity rank for ordering/comparison (higher = more serious).
-     */
     public static function severityRank(string $severity): int
     {
         return match (strtolower($severity)) {
@@ -78,9 +57,6 @@ class OpsEvent extends Model
         };
     }
 
-    /**
-     * The "why it matters" line rendered under the error title in the UI.
-     */
     public function impactStatement(): string
     {
         return match ($this->category) {
@@ -102,12 +78,6 @@ class OpsEvent extends Model
         };
     }
 
-    /**
-     * Likely causes from the classifier (never certain — phrased as
-     * "likely" by design; see docs/OPS_DISCOVERY_AUDIT.md ADR-4).
-     *
-     * @return string[]
-     */
     public function likelyCauses(): array
     {
         $causes = $this->classification['likely_causes'] ?? [];
@@ -115,9 +85,6 @@ class OpsEvent extends Model
         return is_array($causes) ? array_values(array_filter($causes, 'is_string')) : [];
     }
 
-    /**
-     * @return string[]
-     */
     public function recommendedDiagnostics(): array
     {
         $recs = $this->classification['recommended_diagnostics'] ?? [];

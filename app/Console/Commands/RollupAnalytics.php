@@ -7,15 +7,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Roll up raw analytics_events into analytics_daily, then prune old events.
- *
- * S-1 FIX (audit): Previously used an N+1 loop — for each gallery × day
- * combination, it ran 5 separate COUNT/AVG queries (6 queries × N galleries
- × N days = potentially hundreds of thousands of queries). Now uses a
- * single INSERT ... SELECT ... GROUP BY query that aggregates all
- * gallery-day combinations in one pass.
- */
 class RollupAnalytics extends Command
 {
     protected $signature = 'exospace:rollup-analytics
@@ -36,10 +27,6 @@ class RollupAnalytics extends Command
 
         $this->prune($retentionDays);
 
-        // P3-16: Invalidate the global 'analytics' tag so the dashboard +
-        // per-gallery analytics pages recompute from the freshly-rolled-up
-        // analytics_daily table (instead of serving stale cached counts
-        // for up to 10 minutes).
         app(\App\Services\CacheTagService::class)->invalidateTag('analytics');
         $this->info('Invalidated analytics cache tag.');
 
@@ -47,13 +34,6 @@ class RollupAnalytics extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * S-1 FIX: Aggregate raw events into analytics_daily using a single
-     * INSERT ... ON DUPLICATE KEY UPDATE query with conditional aggregation.
-     *
-     * This replaces the previous N+1 loop (6 queries per gallery × day)
-     * with ONE query regardless of how many galleries or days are involved.
-     */
     private function rollup(): void
     {
         $days = $this->option('days');
@@ -71,10 +51,6 @@ class RollupAnalytics extends Command
         $endDate = now()->startOfDay();
         $this->info("Rolling up events from {$startDate} to {$endDate->toDateString()}...");
 
-        // S-1: Single INSERT ... ON DUPLICATE KEY UPDATE with conditional aggregation.
-        // SUM(CASE WHEN event='view' THEN 1 ELSE 0 END) counts views.
-        // COUNT(DISTINCT CASE WHEN event='view' THEN session_token END) counts unique visitors.
-        // AVG(CASE WHEN event='view' AND dwell_seconds IS NOT NULL THEN dwell_seconds END) computes avg dwell.
         $inserted = DB::affectingStatement("
             INSERT INTO analytics_daily (gallery_id, date, views, unique_visitors, focuses, tour_starts, avg_dwell_seconds, created_at, updated_at)
             SELECT
@@ -108,9 +84,6 @@ class RollupAnalytics extends Command
         ]);
     }
 
-    /**
-     * Delete raw events older than the retention window.
-     */
     private function prune(int $retentionDays): void
     {
         $cutoff = now()->subDays($retentionDays);

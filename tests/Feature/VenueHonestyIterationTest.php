@@ -2,28 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration 0 "HONESTY" regression tests (3D venue roadmap, P0.1/P0.2/P0.4).
- *
- * Pins the honesty contract so future changes cannot silently re-introduce
- * promise/delivery gaps or selection-integrity bugs:
- *
- *   - P0.1  The 11 seeded venue descriptions contain NO known over-claims
- *           ("floating artworks", "mirror floor reflects", "partial
- *           dividers", "prism of colour") — the promise test as CI.
- *   - P0.2  Draft venues are excluded from the picker query contract
- *           (active() + published()).
- *   - P0.2  Picker blades render DB descriptions/accent server-side and the
- *           JS description maps (which drifted from the DB) are gone.
- *   - P0.2  The literal "??" monogram fallback is unreachable in the pickers.
- *   - P0.4  capacityLabel() is honest (upper bound only, no unenforced min).
- *   - P0.4  The honesty migration is GUARDED: it applies only when the row
- *           still matches the original seeded copy and never clobbers
- *           super-admin-customized descriptions.
- *
- * Run: php artisan test --filter=VenueHonestyIterationTest
- */
-
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,22 +12,11 @@ class VenueHonestyIterationTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ─────────────────────────────────────────────────────────────────────
-    // P0.1 — the promise test, as CI
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_seeded_descriptions_contains_no_known_overclaims(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $forbidden = [
-            // Iteration 0 list. Iteration 2 "Phenomena" DELIVERED float
-            // placement (all four voids) and the Mirror Lake planar
-            // reflector, so 'Floating artworks' / 'mirror floor reflects'
-            // were removed from this global list DELIBERATELY — the
-            // per-venue promise matrix now lives in
-            // VenuePhenomenaIterationTest (copy may only promise a
-            // phenomenon the venue's config actually declares).
             'mirror floor reflects',        // the PBR lie must never return in ANY wording
             'partial dividers',             // no divider geometry until Iteration 3
             'prism of colour',              // refraction is not rendered
@@ -84,10 +51,6 @@ class VenueHonestyIterationTest extends TestCase
         $this->assertSame(0, $empty, 'Every venue must carry a customer-facing description.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // P0.2 — draft-leak fix: the picker query contract
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_picker_query_excludes_draft_venues(): void
     {
         $published = \App\Models\VenueTemplate::factory()->create([
@@ -113,10 +76,6 @@ class VenueHonestyIterationTest extends TestCase
         );
         $this->assertFalse($picker->contains('slug', 'picker-inactive'));
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // P0.2 — picker blades: server-side truth, no JS maps, no "??" path
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_picker_blades_render_descriptions_from_db_and_have_no_js_maps(): void
     {
@@ -156,10 +115,6 @@ class VenueHonestyIterationTest extends TestCase
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // P0.4 — honest capacity label
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_capacity_label_is_honest_upper_bound_only(): void
     {
         $venue = \App\Models\VenueTemplate::factory()->make([
@@ -178,10 +133,6 @@ class VenueHonestyIterationTest extends TestCase
         ]);
         $this->assertSame('Any exhibition size', $unlimited->capacityLabel());
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // P0.4 — the honesty migration is guarded (production data safety)
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_honesty_migration_updates_matched_copy_and_respects_admin_edits(): void
     {

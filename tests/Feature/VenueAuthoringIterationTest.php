@@ -2,39 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration 5 "AUTHORING" regression tests (3D venue roadmap, P2.1).
- *
- * Pins the in-product authoring loop so venue iteration stays safe in
- * production:
- *
- *   - CLONE: draft copy with copied config + fresh assets; never
- *     auto-published; unique slug on collision; audit-logged.
- *   - SNAPSHOTS: every save captures the overwritten state; retention
- *     capped at 5; restore returns the exact prior content and snapshots
- *     the state it rolled back (reversible restore).
- *   - ARCHIVE (delete is gone): usage guard demands confirm_usage when
- *     galleries exist; archived venues leave every selection surface
- *     (picker / public pages / preview) but keep SERVING existing
- *     galleries; unarchive restores selection. No row is ever
- *     hard-deleted by the destroy route.
- *   - PUBLISH: explicit publish/unpublish workflow steps, audit-logged,
- *     unpublish instantly hides from customers (Iteration 0 contract).
- *   - AUDIT: every authoring action writes an AdminAuditLog row.
- *   - CACHE-BUST (§10.7 integration): saving a venue (or restoring a
- *     snapshot) changes the exporter cache key, so every gallery using
- *     the venue renders the new config on its next view — the "my fix
- *     isn't live" trap stays closed and snapshot rollback is visible
- *     immediately.
- *   - SEMANTIC VALIDATION (§9.3): inverted fog and ceiling-below-wall
- *     are rejected; structured saves preserve advanced visual_config
- *     keys (structure descriptors, gates).
- *   - PERMISSIONS: every authoring route is super-admin + MFA only, and
- *     the whole suite 404s behind FEATURE_FLAG_VENUE_AUTHORING=false.
- *
- * Run: php artisan test --filter=VenueAuthoringIterationTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\AdminAuditLog;
@@ -60,8 +27,6 @@ class VenueAuthoringIterationTest extends TestCase
     }
 
 
-    /** RequireMfa (Task H56/SEC-5) demands a verified MFA session for every
-     *  super-admin action — actingAs alone is not enough. */
     private function mfaSession(): array
     {
         return ['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp];
@@ -86,10 +51,6 @@ class VenueAuthoringIterationTest extends TestCase
             'is_active'       => true,
         ], $overrides));
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  Clone
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_clone_creates_draft_copy_with_copied_config_and_audit(): void
     {
@@ -139,10 +100,6 @@ class VenueAuthoringIterationTest extends TestCase
         $this->assertCount(2, array_unique($slugs), 'Clone slugs must be unique.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Snapshots + restore
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_update_captures_presave_snapshot_and_prunes_to_five(): void
     {
         $admin = $this->superAdmin();
@@ -168,9 +125,6 @@ class VenueAuthoringIterationTest extends TestCase
             'Snapshot retention must cap at 5 per venue.'
         );
 
-        // The OLDEST surviving snapshot must be the state before save #3
-        // (saves #1 and #2 snapshots were pruned): the name at that moment
-        // was "Test Venue v2".
         $oldest = VenueTemplateSnapshot::forVenue($venue->id)->get()->last();
         $this->assertSame('Test Venue v2', $oldest->config['name']);
         $this->assertSame('before save', $oldest->label);
@@ -213,8 +167,6 @@ class VenueAuthoringIterationTest extends TestCase
         $this->assertSame(4, $venue->visual_config['wall_height']);
         $this->assertSame('0x0f0f0f', $venue->visual_config['fog_color']);
 
-        // The restore first snapshotted the state it rolled back FROM
-        // (posted values are strings — '9', not 9).
         $safety = VenueTemplateSnapshot::forVenue($venue->id)->firstOrFail();
         $this->assertSame('before restore', $safety->label);
         $this->assertSame('9', (string) $safety->config['visual_config']['wall_height']);
@@ -245,10 +197,6 @@ class VenueAuthoringIterationTest extends TestCase
             ->assertNotFound();
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Archive (delete is gone) + selection surfaces
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_destroy_archives_instead_of_hard_delete_and_galleries_keep_rendering(): void
     {
         $admin = $this->superAdmin();
@@ -267,8 +215,6 @@ class VenueAuthoringIterationTest extends TestCase
         $venue->refresh();
         $this->assertTrue($venue->isArchived());
 
-        // The gallery's relation still resolves and the exporter still
-        // serves the venue config (archived ≠ broken live show).
         $gallery->refresh();
         $this->assertNotNull($gallery->venueTemplate);
         $this->assertNotNull(app(VenueConfigExporter::class)->forGallery($gallery));
@@ -307,9 +253,6 @@ class VenueAuthoringIterationTest extends TestCase
         $admin = $this->superAdmin();
         $venue = $this->venue(['slug' => 'archived-test', 'is_active' => true]);
 
-        // The public /venues catalog lists venues that carry a public
-        // exhibition (publiclyViewable + has images) — give the venue one so
-        // it is catalog-visible before archiving.
         Gallery::factory()->for($admin, 'user')
             ->create(['venue_template_id' => $venue->id, 'is_active' => true])
             ->images()->create(GalleryImage::factory()->make()->toArray());
@@ -357,10 +300,6 @@ class VenueAuthoringIterationTest extends TestCase
         ]);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Publish / unpublish
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_publish_clears_draft_and_stamps_timestamp(): void
     {
         $admin = $this->superAdmin();
@@ -393,8 +332,6 @@ class VenueAuthoringIterationTest extends TestCase
         $venue->refresh();
         $this->assertTrue($venue->is_draft);
 
-        // Iteration 0 selection-integrity contract: drafts are invisible
-        // to customers everywhere, instantly.
         $this->get(route('venues.preview', 'unpublish-me'))->assertNotFound();
         $this->assertSame(0, VenueTemplate::forUser($admin)->where('id', $venue->id)->count());
 
@@ -403,10 +340,6 @@ class VenueAuthoringIterationTest extends TestCase
             'target_id' => $venue->id,
         ]);
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  Cache-bust integration (§10.7 — the fix that makes it all visible)
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_saving_venue_immediately_changes_gallery_config(): void
     {
@@ -444,15 +377,9 @@ class VenueAuthoringIterationTest extends TestCase
         $this->assertSame(4, $rolled['visual_config']['wall_height'], 'Snapshot rollback must be visible immediately.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Structured form + semantic validation (§9.3)
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_structured_form_preserves_unknown_visual_keys(): void
     {
         $admin = $this->superAdmin();
-        // IT3 structure descriptors + gates live in visual_config — the
-        // structured form must round-trip them untouched.
         $venue = $this->venue([
             'visual_config' => [
                 'wall_height'    => 4,
@@ -507,10 +434,6 @@ class VenueAuthoringIterationTest extends TestCase
         $this->assertSame(4, $venue->visual_config['wall_height']);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Permissions + feature flag
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_authoring_actions_require_super_admin(): void
     {
         $user = $this->regularUser();
@@ -540,8 +463,6 @@ class VenueAuthoringIterationTest extends TestCase
         $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->patch(route('super.venues.unpublish', $venue))->assertNotFound();
         $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])->patch(route('super.venues.unarchive', $venue))->assertNotFound();
 
-        // Core CRUD keeps working with the flag off (a plain update must
-        // still succeed — and simply not capture snapshots).
         $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->put(route('super.venues.update', $venue), [
                 'name' => $venue->name, 'description' => $venue->description,

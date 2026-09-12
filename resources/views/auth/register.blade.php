@@ -82,11 +82,6 @@
                 {{ __('Already registered?') }}
             </a>
 
-            {{-- REGISTRATION-ITERATION (UX): same duplicate-submission guard
-                 the login form ships — x-on:submit (not inline onsubmit=)
-                 stays CSP-safe; page reload on validation failure self-resets
-                 state. Also removes the double-POST race window that could
-                 surface "email already taken" to a fast double-click. --}}
             <x-primary-button class="ms-4"
                               x-bind:disabled="submitting"
                               x-bind:class="{ 'opacity-50 cursor-not-allowed': submitting }">

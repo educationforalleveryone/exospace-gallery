@@ -11,7 +11,6 @@
     @endif
 </div>
 
-{{-- ── The explicit interstitial: nothing executes until this form succeeds ── --}}
 <div class="max-w-3xl mx-auto">
 
     <div class="rounded-xl border border-amber-700/60 bg-amber-950/30 p-5 mb-6">
@@ -91,8 +90,6 @@
     </section>
 
     {{-- The confirmation form: typed phrase + password --}}
-    {{-- ITERATION-3: data-busy — restart/replay/forget are slow, the Execute
-         button used to stay clickable for the whole run. --}}
     <form method="POST" action="{{ route('ops.actions.execute', $actionId) }}" class="rounded-lg border border-slate-800 bg-slate-900/60 p-6 space-y-5"
           data-busy data-busy-label="Executing…">
         @csrf

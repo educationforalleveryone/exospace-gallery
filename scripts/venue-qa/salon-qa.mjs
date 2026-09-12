@@ -1,37 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// salon-qa.mjs — the venue QA gate for The Salon (v3.0.0 "two rooms").
-//
-//   node scripts/venue-qa/salon-qa.mjs
-//
-// Runs WITHOUT a PHP stack (plain Node over the repo checkout). Layering:
-// pins CONTRACTS (payload parity, divider placement geometry, determinism)
-// here, while tests/Feature/VenueSalonIterationTest.php pins the DB side
-// and scripts/harness/probe-salon-poses.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the v3.0.0 row declares the authored identity
-//      (two-room divider plan, curtain primitive + collision, wide double
-//      door, per-room roses, warm readable rig, texture authority,
-//      restraint, side-wall tangent-yaw discipline — the phantom-slab
-//      guard).
-//   B. DB↔harness sync — the PHP-less harness renders the same payload a
-//      fresh install seeds (drift here means screenshots stop meaning
-//      anything).
-//   C. Divider placement invariants — driven through the REAL shared
-//      modules (PlacementCuration.resolveDividerHang) across the capacity
-//      range: both rooms hang works at every count 5→30, the hero keeps a
-//      dead-centre odd slot, frames never reach the curtain fabric or the
-//      doorcase, rows never touch, no two frames intersect, every work
-//      finds a slot, the room stays domestic, and the whole plan is
-//      deterministic.
-//   D. Legacy parity — venues that declare none of the keys resolve exactly
-//      as before (resolveSquareHang path untouched, resolveDividerHang
-//      returns null without the key).
-//   E. Structure↔placement coherence — the curtain's declared walk gap
-//      equals the plan's opening; the keeps clear the real geometry.
-//   F. JS hygiene — no venue slug in the runtime (DoD #7).
-// ─────────────────────────────────────────────────────────────────────────────
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -46,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── payload extraction helpers ────────────────────────────────────────────
 function seederSalonChunk() {
     const src = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
     const i = src.indexOf("'slug'          => 'the-salon'");
@@ -60,7 +26,6 @@ function harnessSalonObject() {
     if (i === -1) throw new Error('the-salon entry not found in harness');
     return src.slice(i, src.indexOf("'luxury-penthouse': {", i));
 }
-/** Pull every `key => [...]` / `key: [...]` literal (balanced) as raw text. */
 function rawLiteral(text, phpStyle) {
     const keys = ['placement', 'structure', 'post_fx', 'material_config', 'visual_config', 'default_settings'];
     const out = {};
@@ -87,7 +52,6 @@ function rawLiteral(text, phpStyle) {
     return out;
 }
 
-// ── A. Seeder contract ─────────────────────────────────────────────────────
 section('A. Seeder contract (the-salon v3 row)');
 const chunk = seederSalonChunk();
 const phpLit = rawLiteral(chunk, true);
@@ -118,7 +82,6 @@ ok('rails stand ABOVE the hang (y 3.53 — the v1 clip is dead)',
     chunk.includes('[0, 3.53, 0.0]'));
 ok('no mid-wall rail remains (the v1 0.9 m rail is gone)', !chunk.includes('[0, 0.9, 0.045]'));
 
-// ── A2. The v3 identity elements ─────────────────────────────────────────
 {
     ok('the curtain ships (parametric primitive, collision, both-side fabric)',
         /'id'\s*=>\s*'salon-curtain',\s*'primitive'\s*=>\s*'curtain'/.test(chunk)
@@ -140,7 +103,6 @@ ok('no mid-wall rail remains (the v1 0.9 m rail is gone)', !chunk.includes('[0, 
     ok('the single rose is retired', !chunk.includes("'id' => 'rose-disc',"));
 }
 
-// ── A3. The phantom-slab guard ───────────────────────────────────────────
 {
     const sideFitRe = /'id'\s*=>\s*'([\w-]+)',\s*'primitive'\s*=>\s*'[\wa-z-]+',\s*'at'\s*=>\s*\['from'\s*=>\s*'wall_(left|right)'/g;
     const sideIds = [...chunk.matchAll(sideFitRe)].map(m => m[1]);
@@ -154,7 +116,6 @@ ok('no mid-wall rail remains (the v1 0.9 m rail is gone)', !chunk.includes('[0, 
         `missing turn: ${noTurn.join(', ')}`);
 }
 
-// ── B. DB↔harness sync ───────────────────────────────────────────────────
 section('B. DB↔harness sync (drift = screenshots stop meaning anything)');
 const harness = harnessSalonObject();
 const jsLit = rawLiteral(harness, false);
@@ -230,8 +191,6 @@ for (let count = 5; count <= 30; count++) {
     if (frontRow0 === null || frontRow0 % 2 !== 1) { sweepOk = false; sweepLog.push(`count ${count}: hero line ${frontRow0} not odd`); }
     roomSummary[count] = { L, a: perRoom.a, b: perRoom.b, hero: frontRow0 };
 
-    // (3) geometry: slots mirror the placer's math exactly, then assert
-    //     clearances against the REAL architecture (curtain sweep, doorcase)
     const widths = widthsFor(count, count);
     const atZ = plan.atZ;
     let idx = 0;
@@ -255,8 +214,6 @@ for (let count = 5; count <= 30; count++) {
                 sweepOk = false;
                 sweepLog.push(`count ${count}: frame leaves segment ${ln.seg} [${t.toFixed(2)}±${half.toFixed(2)} in ${seg.a.toFixed(2)},${seg.b.toFixed(2)}]`);
             }
-            // curtain fabric sweep clear (side segments): the fabric sweeps
-            // amp·env ≤ 0.16 from the curtain plane; frames stay ≥ keep−0.25
             if (seg.wall === 'left' || seg.wall === 'right') {
                 const dPlane = Math.min(Math.abs((t - half) - atZ), Math.abs((t + half) - atZ));
                 if (dPlane < 0.3) { sweepOk = false; sweepLog.push(`count ${count}: frame approaches the curtain (${dPlane.toFixed(2)} m)`); }
@@ -289,7 +246,6 @@ const d1 = JSON.stringify(resolveDividerHang(placement, 24, DENSITY_PRESETS.inti
 const d2 = JSON.stringify(resolveDividerHang(placement, 24, DENSITY_PRESETS.intimate, MINW));
 ok('divider plan is deterministic', d1 === d2);
 
-// ── D. Legacy parity ───────────────────────────────────────────────────────
 section('D. Legacy parity (venues without the keys are untouched)');
 const legacy = resolveSquareHang(undefined, 12, 4, 3.5, 8);
 ok('no keys → single line', legacy.rows === 1);
@@ -301,7 +257,6 @@ ok('no room_divider key → divider plan is null (the on-switch is the config)',
 const salonRowsLegacy = resolveSquareHang({ salon_rows: 2, wall_length_cap: 12.6 }, 24, 4, 2.8, 8);
 ok('the v2 rows path still resolves (non-divider venues unaffected)', salonRowsLegacy.rows === 2 && salonRowsLegacy.perLine > 0);
 
-// ── E. Structure↔placement coherence ──────────────────────────────────────
 section('E. Structure↔placement coherence (one truth per number)');
 {
     const curtainRe = /'id'\s*=>\s*'salon-curtain'[^\n]*/;
@@ -323,7 +278,6 @@ section('E. Structure↔placement coherence (one truth per number)');
         bracket >= 0.125);
 }
 
-// ── F. JS hygiene ─────────────────────────────────────────────────────────
 section('F. JS hygiene (DoD #7 — the DB is the sole identity source)');
 const { execSync } = await import('node:child_process');
 let slugFree = true;

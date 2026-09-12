@@ -7,39 +7,7 @@
 ])
 
 @php
-/**
- * ITERATION-2 (AUDIT-P1-2.3): Empty state component.
- *
- * Previously, empty states were hand-coded inline per page with wildly
- * varying quality — the galleries index had a gorgeous animated-cube hero
- * with "three ways to start", while the artists + events lists had bare
- * "No artists yet" copy. This component standardizes the empty-state pattern.
- *
- * Usage:
- *   <x-empty-state
- *       icon="gallery"
- *       title="No galleries yet"
- *       description="Create your first 3D gallery to start showcasing artwork.">
- *       <x-slot:action>
- *           <x-primary-button href="{{ route('admin.galleries.create') }}">Create gallery</x-primary-button>
- *       </x-slot:action>
- *   </x-empty-state>
- *
- * For custom icons, pass a raw SVG path string as `icon`:
- *   <x-empty-state icon="M12 4v16m8-8H4" title="..." description="...">
- *
- * Named icons (curated to match the visual language):
- *   - gallery   — for empty galleries lists
- *   - artist    — for empty artists lists
- *   - event     — for empty events lists
- *   - image     — for empty image managers
- *   - analytics — for empty analytics pages
- *   - error     — for generic error states
- *   - search    — for empty search results
- */
 
-// Named icon library — each entry is a complete SVG inner content (paths).
-// Sized 24x24 viewBox, callers render the outer <svg>.
 $namedIcons = [
     'gallery' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h4v16H5a1 1 0 01-1-1V5z M10 4h4v16h-4V4z M15 4h4a1 1 0 011 1v14a1 1 0 01-1 1h-4V4z"/>',
     'artist' => '<circle cx="12" cy="8" r="4" stroke-width="1.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',

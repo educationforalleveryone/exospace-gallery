@@ -7,11 +7,6 @@
 <div class="max-w-3xl mx-auto px-6 py-16">
 
     {{-- Header --}}
-    {{-- ITERATION-4: fully inline-styled markup rewritten on the shared kit —
-         .status language for the banner, .card + <x-status-badge> for the
-         subsystem rows, utilities elsewhere. The page-local JS hover hack for
-         the back link is replaced by a hover: utility (and it was
-         DOMContentLoaded-bound, so it silently died after Turbo visits). --}}
     <div class="text-center mb-12">
         @if($allHealthy)
             <div class="status status-healthy mb-6">
@@ -47,9 +42,6 @@
                 'queue'    => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
                 'storage'  => 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4',
             ];
-            // ITERATION-4: the hex $statusStyles map (and whole-card color
-            // tinting) is replaced by the shared status vocabulary from
-            // iteration 2 — dot + word chips, never color alone.
             $statusMap = [
                 'operational' => ['state' => 'healthy',  'label' => 'Operational'],
                 'degraded'    => ['state' => 'warning',  'label' => 'Degraded'],

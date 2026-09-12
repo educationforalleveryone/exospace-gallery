@@ -3,70 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Iteration 8 "The Salon" (roadmap P3.2): venue #12 — the catalog's first
- * pipeline-born venue (docs/VENUE_12_BRIEF.md, §16.7).
- *
- * THE DECISION (pre-committed rule, brief §3)
- * -------------------------------------------
- *   studio share >= 50% of venue-attributed views → GRANDEUR (great hall)
- *   below 50% — or NO MEANINGFUL VIEW DATA YET                   → INTIMACY (salon)
- *
- * This build runs under the rule's no-data branch: the build environment
- * has no production view data (the instrument, `php artisan
- * venues:catalog-report --json`, is the only numeric input and it reads
- * production). The decision record in the brief is completed accordingly;
- * if production data later shows the >=50% branch, the Grand Hall brief
- * (§4 candidate B) is pre-staged and unspent — the Salon remains justified
- * on its own merits (cheapest build in the catalog, free/funnel reach,
- * flatters the majority of uploads).
- *
- * WHAT IT SHIPS
- * -------------
- * One new venue row, "The Salon" (slug `the-salon`, Pro tier, sort_order
- * 12): a small warm domestic room whose identity is ENTIRELY declared in
- * visual_config — warm plaster + timber shell, anchor-based structure
- * descriptors (picture rail ×4 via fit:'wall', centre bench, rug), and the
- * catalog's first seeded `visual_config.placement` block: density
- * 'intimate' (§6.3 ≈ 2.8 m rhythm) + pair_orientation (§6.4 interleave) —
- * the IT6 curation machinery used AS VENUE CHARACTER, not auto-magic
- * (DO NOT DO #6). No focal wall: the brief assigns focal treatment to the
- * grand-hall candidate, and the salon's walls read egalitarian by design.
- *
- * Zero JS ships with this iteration: the descriptor interpreter
- * (StructureBuilder), the placement interpreter (ArtworkPlacer) and the
- * config pipeline (VenueConfigExporter) already render every declared key
- * generically. A venue with no code is the IT6 contract working as
- * intended (§10.2 — the DB is the sole source of venue identity).
- *
- * SAFETY (production data protection) — same family as Iterations 2/3/5/6:
- *   - up() is a GUARDED INSERT: runs only when the slug is absent, so
- *     re-running (and existing installs that already created the venue via
- *     the admin suite) is a no-op. It NEVER touches the eleven seeded
- *     venues and never overwrites anything (DO NOT DO #13: no re-seeding).
- *   - down() deletes the row ONLY while every config column still equals
- *     the payload this migration wrote AND no gallery references it — a
- *     super-admin-tuned or in-use venue survives rollback untouched
- *     (the row is then inert data, never broken references).
- *   - Fresh installs get the identical row from VenueTemplateSeeder (the
- *     payloads are pinned byte-equal by VenueSalonIterationTest).
- *
- * STATUS FIELDS: is_active true, is_draft false, published_at now() — the
- * venue is live the moment the migration runs, because the chooser test
- * (§13) extends to 12 or the venue does not ship (brief §5.3).
- *
- * ROLLBACK (runtime, no deploy): remove the structure/placement keys from
- * the venue's visual_config in the admin suite → the venue renders as a
- * plain default room, live. Full removal: unpublish/archive via the IT5
- * authoring suite, or migrate:rollback while the row is untouched.
- */
 return new class extends Migration
 {
-    /**
-     * The Salon payload — MUST stay byte-equal (same keys, same order,
-     * same values) to entry #12 in VenueTemplateSeeder::templates().
-     * Pinned by VenueSalonIterationTest::test_seeder_and_migration_payloads_are_equal.
-     */
     public function salonTemplate(): array
     {
         return [
@@ -104,29 +42,19 @@ return new class extends Migration
                 'fill_intensity'         => 0.16,
                 'tone_mapping_exposure'  => 0.6,
                 'frame_override'         => null,
-                // ── Iteration 8 declared identity (rollback = remove
-                // these keys — the venue reverts to a plain default
-                // room, live; no deploy, no flag).
                 'structure_pass'        => 'rooms',
                 'placement'             => [
                     'density'          => 'intimate',  // §6.3 — ~2.8 m salon-close rhythm
                     'pair_orientation' => true,        // §6.4 — portrait/landscape interleave
                 ],
                 'structure'              => [
-                // ── Picture rail — one thin timber line fitted to each wall
-                // (fit: 'wall' stretches it to the wall span, minus corner
-                // pads). The salon-wall convention made physical.
                 ['id' => 'rail-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
                 ['id' => 'rail-back',  'primitive' => 'box', 'at' => ['from' => 'wall_back',  'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
                 ['id' => 'rail-left',  'primitive' => 'box', 'at' => ['from' => 'wall_left',  'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
                 ['id' => 'rail-right', 'primitive' => 'box', 'at' => ['from' => 'wall_right', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
-                // ── Bench — the domestic datum (§4.5 convention, centred),
-                // colliding so walkers respect it.
                 ['id' => 'bench-top',  'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0, 0.42, 1.4]], 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'salon-bench', 'tier_floor' => 'low'],
                 ['id' => 'bench-leg-l', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [-0.65, 0.19, 1.4]], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'salon-bench', 'tier_floor' => 'low'],
                 ['id' => 'bench-leg-r', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0.65, 0.19, 1.4]], 'size' => [0.09, 0.38, 0.38], 'material' => 'wood_dark', 'merge' => 'salon-bench', 'tier_floor' => 'low'],
-                // ── Rug — the one warm floor note. Flat: walkable, not an
-                // obstacle (no collide), cheapest tier renders it.
                 ['id' => 'rug', 'primitive' => 'plane', 'at' => ['from' => 'center', 'offset' => [0, 0.012, 1.4]], 'rot' => [-1.5707963, 0, 0], 'size' => [2.6, 1.8], 'material' => 'fabric_warm', 'tier_floor' => 'low'],
             ],
             ],
@@ -184,7 +112,6 @@ return new class extends Migration
     }
 
 
-    /** Numeric-tolerant deep equality for JSON-decoded config columns. */
     private function jsonEquals($a, $b): bool
     {
         if (is_array($a) || is_array($b)) {
@@ -217,17 +144,11 @@ return new class extends Migration
             return;
         }
 
-        // Never delete a venue a gallery still uses — that would orphan
-        // customer data (the IT5 archive guard exists for the same reason).
         $inUse = DB::table('galleries')->where('venue_template_id', $row->id)->exists();
         if ($inUse) {
             return;
         }
 
-        // Never delete a venue the admin has tuned — every config column
-        // must still equal what up() wrote (super-admin edits win, always).
-        // Numeric-tolerant: JSON round-trips may re-type 1.0 as 1 depending
-        // on the PHP build's json encoder; that is not an admin edit.
         $t = $this->salonTemplate();
         foreach (['tags', 'default_settings', 'visual_config', 'material_config', 'decorations', 'lighting_fixtures', 'supported_layouts'] as $col) {
             if (!$this->jsonEquals(json_decode((string) $row->{$col}, true), $t[$col])) {

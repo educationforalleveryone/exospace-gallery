@@ -2,23 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * SEO OPERATING SYSTEM — Iteration 3 (structured data + internal linking) tests.
- *
- * Covers:
- *   - SchemaBuilder: every schema type built from real entity data; no
- *     fabricated properties; correct types
- *   - InternalLinkingService: related galleries (shared-artist relevance,
- *     excludes private/empty/self, caps at limit), related artists
- *     (shared exhibitions), related artworks (same artist, other galleries)
- *   - Wiring: gallery page emits builder graphs (ExhibitionEvent for dated,
- *     CollectionPage for undated; ItemList with artwork URLs), artist page
- *     Person + ItemList, artwork page VisualArtwork, discover CollectionPage
- *   - Welcome page: real featured galleries render + WebSite schema
- *
- * Run: php artisan test --filter=SeoSchemaAndLinkingTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Artist;
@@ -72,8 +55,6 @@ class SeoSchemaAndLinkingTest extends TestCase
             'orientation'   => 'landscape',
         ], $attrs));
     }
-
-    // ── SchemaBuilder ───────────────────────────────────────────────────
 
     public function test_organization_schema_is_real_and_complete(): void
     {
@@ -213,8 +194,6 @@ class SeoSchemaAndLinkingTest extends TestCase
         $this->assertCount(25, $schema['mainEntity']['itemListElement']);
     }
 
-    // ── InternalLinkingService ──────────────────────────────────────────
-
     public function test_related_galleries_rank_shared_artists_first(): void
     {
         $artist = Artist::create(['name' => 'Shared Artist']);
@@ -324,8 +303,6 @@ class SeoSchemaAndLinkingTest extends TestCase
         $this->assertTrue(app(InternalLinkingService::class)->relatedArtworks($artwork)->isEmpty());
     }
 
-    // ── Controller wiring ───────────────────────────────────────────────
-
     public function test_gallery_page_emits_dated_and_undated_graphs_correctly(): void
     {
         // Undated gallery → CollectionPage (not a fake event)
@@ -422,8 +399,6 @@ class SeoSchemaAndLinkingTest extends TestCase
         $html = $response->getContent();
         $this->assertStringContainsString('Real Featured Show', $html, 'Real featured gallery replaces placeholder (audit M10).');
         $this->assertStringContainsString("gallery/{$gallery->slug}", $html, 'Links point at the real gallery URL.');
-        // ITERATION-1 FIX: the welcome page renders graphs via the
-        // standalone x-json-ld component, which pretty-prints its JSON.
         $this->assertStringContainsString('"@type": "WebSite"', $html);
         $this->assertStringContainsString('"@type": "Organization"', $html);
     }

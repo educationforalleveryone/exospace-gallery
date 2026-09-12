@@ -8,35 +8,6 @@ use App\Services\OperationalAlertService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-/**
- * M-17: Cohort retention analytics.
- *
- * Groups users into weekly cohorts by registration date, then tracks what
- * % of each cohort is still active (logged in or updated a gallery) in
- * each subsequent week.
- *
- * ITERATION 6 — the measurement was fixed and the report finally reaches
- * humans and history (the same graduation TTFE got in Iteration 5):
- *
- *   Measurement: "active in week [start,end)" is now BOUNDED and truthful
- *   — users.last_login_at in the window (stamped by the StampLastLogin
- *   listener on the Login event) OR any gallery updated in the window.
- *   The old definition counted users.updated_at >= period start —
- *   unbounded (future activity inflated earlier weeks) and noisy (plan
- *   changes, marketing prefs and admin writes all bump that column).
- *
- *   Persistence: complete matrix cells (cohort × week, week closed) are
- *   snapshotted into retention_snapshots — the live cohort erodes over
- *   time (GDPR deletions, monthly PII anonymization), so point-in-time
- *   snapshots are the only faithful retention history. Master Control
- *   charts the W1/W2 trend from them.
- *
- *   Delivery: the report is posted to the operational Slack channel
- *   (info severity) — it previously existed only as scheduler stdout +
- *   one log line, which nobody read.
- *
- * SCHEDULE: weekly Monday 06:00 via routes/console.php.
- */
 class CohortRetentionAnalytics extends Command
 {
     protected $signature = 'exospace:cohort-retention {--weeks=8 : Number of weeks to analyze}';
@@ -47,9 +18,6 @@ class CohortRetentionAnalytics extends Command
         $weeks = max(2, min(25, (int) $this->option('weeks')));
         $data = $metrics->compute($weeks);
 
-        // Persist complete cells BEFORE reporting, so the persisted
-        // history and the report can never disagree about what this week
-        // looked like (idempotent within the capture hour).
         $persisted = $metrics->persist($weeks);
         $this->info("Persisted {$persisted} complete retention cell(s) to retention_snapshots.");
 
@@ -64,8 +32,6 @@ class CohortRetentionAnalytics extends Command
             $row = str_pad($cohort['label'], 12) . str_pad((string) $cohort['size'], 8);
             foreach ($cohort['cells'] as $cell) {
                 $value = $cell['pct'] > 0 ? $cell['pct'] . '%' : '-';
-                // Incomplete cells (their week hasn't closed) are marked —
-                // a partial week must never read as a final retention rate.
                 $row .= str_pad($cell['complete'] ? $value : $value . '*', 8);
             }
             $this->info($row);
@@ -82,9 +48,6 @@ class CohortRetentionAnalytics extends Command
             'persisted'  => $persisted,
         ]);
 
-        // Deliver where operators already look (info severity, deduped).
-        // Delivery failure must never fail the command; the alert service
-        // already swallows webhook errors.
         $alerts->alert(
             'Weekly retention report',
             $this->slackSummary($data),
@@ -97,19 +60,10 @@ class CohortRetentionAnalytics extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Compact multi-line summary for the alert channel — cohort sizes,
-     * the W1 headline, and where the trend lives.
-     *
-     * @param  array{weeks: int, cohorts: array<int, array{week_start: string, label: string, size: int, cells: array<int, array{pct: float, active: int, complete: bool}>}>}  $data
-     */
     private function slackSummary(array $data): string
     {
         $registered = array_sum(array_map(fn ($c) => $c['size'], $data['cohorts']));
 
-        // Latest COMPLETE W1 cell — the headline "week-1 retention" number
-        // (cohorts are oldest-first, so scan from the end; skip empty
-        // cohorts and partial cells).
         $w1 = null;
         for ($i = count($data['cohorts']) - 1; $i >= 0; $i--) {
             $cells = $data['cohorts'][$i]['cells'];

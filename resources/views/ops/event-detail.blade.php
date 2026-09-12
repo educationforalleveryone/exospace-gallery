@@ -16,7 +16,6 @@
     ][$event->severity] ?? ['text' => strtoupper($event->severity), 'chip' => 'bg-slate-800/60 text-slate-300 border-slate-600/50'];
 @endphp
 
-{{-- ── Header ─────────────────────────────────────────────────────────── --}}
 <div class="rounded-xl border {{ $sev['chip'] }} border-slate-800 p-5 mb-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -164,7 +163,6 @@
         </details>
     </div>
 
-    {{-- ── Side column: where / when / how often ───────────────────────── --}}
     <div class="space-y-6">
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
             <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Where it happened</h2>

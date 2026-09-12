@@ -1,121 +1,15 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// StructureBuilder — the descriptor-vocabulary interpreter (roadmap §10.3)
-//
-// Iteration 3 "Rooms" (roadmap P1.3). This is the ONE genuinely new subsystem
-// the roadmap authorises: a deliberately small, declarative vocabulary that
-// lets a venue's `visual_config.structure` JSON describe interior structure,
-// rendered here generically — the JS contains ZERO venue knowledge (DoD rule
-// #7: no slug-keyed JS; the DB is the sole source of venue identity, §10.2).
-//
-// THE VOCABULARY (≤10 primitives — if a venue needs more, it needs modeling,
-// not descriptors; §10.3):
-//
-//   box | cylinder | cone | plane | sphere | torus |
-//   emissive-strip | points-cloud | glyph-plane | instance-grid
-//
-// ENTRY SCHEMA (one structure element):
-//
-//   {
-//     id:        'shoji-a',                 // optional, used in logs/seeds
-//     primitive: 'box',
-//
-//     at: [x, y, z]                         // world position, OR
-//     at: { from: ANCHOR, offset: [side, up, forward] },
-//     turn: 'in' | 'out',                   // anchored only: yaw to face
-//                                           // into / away from the room
-//     rot: [rx, ry, rz],                    // radians (turn yaw is added)
-//
-//     size: n | [x, y, z],                  // primitive dimensions
-//     fit: 'wall' | 'glazing',              // stretch the horizontal tangent
-//                                           // axis to the anchored wall span
-//     fit_pad: 0.1,                         // total metres trimmed by fit
-//
-//     material: 'preset_key' | { color: '0x..', roughness, metalness,
-//               emissive, emissiveIntensity, transparent, opacity,
-//               side: 'double', glass: true, tint, opacity },
-//
-//     collide: true,                        // register AABB obstacle
-//     hangable: true,                       // register artwork-hang surface
-//     tier_floor: 'low' | 'mobile' | 'high',// minimum tier that renders it
-//     merge: 'group-key',                   // same material + key ⇒ merged
-//
-//     // instance-grid only:
-//     grid: {
-//       mode: 'line',                       // 1-D along the anchor's SIDE axis
-//       from: ANCHOR, span: 'fit'|number, spacing: 1.4, forward: -0.05,
-//     } | {
-//       mode: 'box',                        // regular fill of a 3-D box
-//       area: AREA, spacing: [x,y,z],
-//     } | {
-//       mode: 'scatter',                    // seeded distribution
-//       area: AREA, count, seed, scale_jitter: [min,max],
-//       yaw_jitter: [min,max], grounded: true,
-//     },
-//     // optional for instance-grid (the shape each instance repeats):
-//     grid: { ... , instance: 'box'|'cylinder'|'cone'|'sphere'|'torus'|'plane' },
-//     // points-cloud only:
-//     cloud: { count, area: AREA, size, opacity, color, drift, seed },
-//     // glyph-plane only:
-//     text: '…', text_color: '0x..', text_px: 340, bg: '0x..'|null
-//   }
-//
-// AREA spec (box/scatter/cloud): { from: ANCHOR|[x,y,z], size: [w,h,d] |
-//   {fit:'room', pad:[x,z]}, forward: n } — a box CENTRED on the anchor.
-//   Scatter instances with `grounded: true` sit on the area floor.
-//
-// ANCHORS (resolved from the room this venue built — never from slugs):
-//   'center'      primary exhibition zone centre (origin; l-shape ⇒ wing A)
-//   'wall_front' | 'wall_back' | 'wall_left' | 'wall_right'
-//                 inner wall-face centre; offset forward = INTO the room
-//   'wall_*_outside'   outer wall-face centre; offset forward = AWAY
-//   'glazing' | 'glazing_outside'
-//                 the wall replaced by glazing (visual_config.glazing_wall
-//                 / glazing_walls 'wing_b_end'); available on square +
-//                 l-shape (the Penthouse layouts)
-//   v3 "The Double Volume" (l-shape, venue-declared — all resolve null and
-//   SKIP when the declaring keys are absent):
-//   'glazing_north' | 'glazing_north_outside'
-//                 the SECOND glazed face (glazing_walls 'wing_b_north') —
-//                 the wing B segment of the north run, full volume height
-//   'junction' | 'junction_outside'
-//                 the gallery↔volume seam centre in wing A (z = jZ) — the
-//                 line where wing_heights split the ceilings; fwd points
-//                 into the volume / into the gallery respectively
-//   'wall_left_high' | 'wall_left_high_outside'
-//                 the living volume's west face (z ∈ [jZ, lenA/2], tall) —
-//                 the art-wall wall; resolves only under wing_heights
-//
-// HARD RULES (§10.3 — what keeps this from becoming an engine):
-//   no scripting, no conditions, no animation in descriptors (a drifting
-//   point cloud reuses the EXISTING particle behaviour — the only animation
-//   the runtime has; DO-NOT-DO #5 respected). Complex props stay GLB
-//   decorations via the existing pipeline.
-//
-// VALIDATION: validateStructure() is pure (no THREE import) so the descriptor
-// parser is unit-testable in plain Node per §10.8.
-//
-// ROLLBACK: structure renders only when the venue declares BOTH
-//   visual_config.structure_pass = 'rooms' AND a non-empty structure array.
-//   Removing either key from one venue's JSON reverts that venue, live, no
-//   deploy (config is the only on-switch, §11.3 rule 2).
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 import { CONFIG, parseColor } from './config.js';
 import { mergeParts } from './GeometryUtils.js';
 import { createVenueRng, venueSeedSource } from './Rng.js';
 import { makeGlassMaterial } from './TierEffects.js';
 
-// ── The closed primitive set (§10.3: ≤10) ────────────────────────────────────
 export const STRUCTURE_PRIMITIVES = Object.freeze([
     'box', 'cylinder', 'cone', 'plane', 'sphere', 'torus',
     'emissive-strip', 'points-cloud', 'glyph-plane', 'instance-grid',
     'curtain',
 ]);
 
-// ── Material presets (interpreted generically; venues reference by key) ──────
-// Room-family palette per §5.3 "matte restraint + one precious idea per venue".
-// Explicit material objects in a descriptor always win over these presets.
 export const SB_MATERIALS = Object.freeze({
     wood_dark:    { color: '0x4a3826', roughness: 0.75, metalness: 0.05 },
     wood_warm:    { color: '0x8b6f47', roughness: 0.70, metalness: 0.10 },
@@ -128,9 +22,6 @@ export const SB_MATERIALS = Object.freeze({
     fabric_warm:  { color: '0x6a5a48', roughness: 1.00, metalness: 0.00 },
     fabric_dark:  { color: '0x2e2a26', roughness: 1.00, metalness: 0.00 },
     crate_wood:   { color: '0x6a5230', roughness: 0.90, metalness: 0.00 },
-    // v2.0.0 additive presets (Luxury Penthouse identity pass). New KEYS
-    // only — every existing preset keeps its exact values, so venues that
-    // reference the map render bit-identically (§11.3 rule 2).
     walnut:       { color: '0x4a3421', roughness: 0.55, metalness: 0.08 },
     basalt:       { color: '0x4a4e57', roughness: 0.35, metalness: 0.05 },
     neon_cyan:    { color: '0x00e5ff', emissive: '0x00e5ff', emissiveIntensity: 2.4 },
@@ -152,14 +43,6 @@ export function validateStructure(entries) {
             errors.push(`${at}: unknown primitive "${e.primitive}"`);
         }
         if (e.at === undefined || e.at === null) {
-            // VALIDATOR FIX (Penthouse audit): grid entries that SELF-ANCHOR
-            // via their grid/cloud area were rejected here — which silently
-            // skipped the ENTIRE v1.0.0 penthouse structure (its scatter
-            // skyline carries no anchor; one invalid entry invalidates the
-            // whole array). A scatter/box instance-grid and a points-cloud
-            // resolve their positions from grid.area / cloud.area; `at` is
-            // only REQUIRED for entries the interpreter actually anchors
-            // (line grids place along the anchor's side axis).
             const selfAnchored =
                 (e.primitive === 'instance-grid' &&
                     (e.grid?.mode === 'scatter' || e.grid?.mode === 'box')) ||
@@ -227,33 +110,17 @@ export function validateStructure(entries) {
     return { valid: errors.length === 0, errors };
 }
 
-// ── Tier floor (pure) ─────────────────────────────────────────────────────────
-// 'low'    → every device renders it
-// 'mobile' → high + mobile tiers
-// 'high'   → high tier only (HDRI-class effects)
 export function resolveTierFloor(tierFloor, { isLowEnd = false, isMobileTier = false } = {}) {
     if (tierFloor === 'high')   return !isLowEnd && !isMobileTier;
     if (tierFloor === 'mobile') return !isLowEnd;
     return true;
 }
 
-// ── Anchor resolution ─────────────────────────────────────────────────────────
-// Returns { pos:[x,y,z], fwd:[x,0,z], width, height } or null when the anchor
-// does not exist for the current layout (entries anchored to it are SKIPPED,
-// never guessed — a wrong guess would put geometry inside walls).
-//
-// fwd = the anchor's forward axis: INTO the room for wall anchors, AWAY from
-// the room for *_outside anchors. `width` = the span along the wall tangent.
 export function resolveAnchor(ctx, from) {
     const meta = ctx._layoutMeta || {};
     const d    = CONFIG.room.wallDepth || 0.3;
     const type = meta.type || 'square';
 
-    // v3 "The Double Volume": l-shape venues may declare per-wing heights
-    // (visual_config.wing_heights) — RoomBuilder writes the SAME numbers it
-    // built from into _layoutMeta (hA/hB), so anchors always match the
-    // built walls. Undeclared ⇒ both fall back to the nominal height and
-    // every anchor resolves exactly as before (siblings bit-identical).
     const nominalH = CONFIG.room.wallHeight;
     const zoneH = (zone) => (zone === 'a' ? (meta.hA ?? nominalH) : (meta.hB ?? nominalH));
 
@@ -265,9 +132,6 @@ export function resolveAnchor(ctx, from) {
         return horizontal(0, 0, 0, 1, 0);
     }
 
-    // The wall(s) replaced by glazing (RoomBuilder sets ctx._glazing when
-    // the venue declares glazing_wall / glazing_walls; ctx._glazingNorth is
-    // the v3 second face). Each resolves with its own span + height.
     if (from === 'glazing' || from === 'glazing_outside') {
         const g = ctx._glazing;
         if (!g) return null;
@@ -329,27 +193,6 @@ export function resolveAnchor(ctx, from) {
         }
     }
 
-    // ── L-SHAPE WALL ANCHORS (Luxury Penthouse identity pass, v2.0.0) ────
-    // The l-shape used to expose ONLY 'center' + 'glazing' — descriptor
-    // entries could not attach any architecture to a wing wall (trim, cove,
-    // fireplace, or the wall itself were all unreachable from config).
-    // Derived purely from _layoutMeta (the same numbers createRoomLShape
-    // built the walls from — no drift possible):
-    //
-    //   wing A (x ∈ [0, wingW], z ∈ [−lenA/2, lenA/2]) — the gallery corridor
-    //     wall_left   x=0 run     (inner face +d/2, faces +x, span lenA)
-    //     wall_front  z=−lenA/2   (inner face, faces +z, span wingW)
-    //     wall_right  x=wingW run z ∈ [−lenA/2, jZ] (faces −x, span jZ+lenA/2)
-    //   wing B (x ∈ [wingW, wingW+lenB], z ∈ [jZ, lenA/2]) — the lounge wing
-    //     wall_inner  z=jZ        (faces +z into wing B, span lenB)
-    //     wall_back   z=lenA/2    (the colinear south run, span wingW+lenB)
-    //   + the five _outside mirrors (offset AWAY, fwd inverted).
-    //
-    // Rollback: no shipped descriptor referenced wall anchors on l-shape
-    // (v1.0.0 rows anchor only 'glazing'/'glazing_outside'/'center'), so
-    // every existing venue renders BIT-IDENTICALLY whether or not this
-    // block exists — the anchors were simply skipped before (§11.3 rule 2:
-    // the config is the only on-switch).
     if (type === 'l-shape') {
         const W  = meta.wingW;
         const LA = meta.lenA;
@@ -361,11 +204,6 @@ export function resolveAnchor(ctx, from) {
         // v3: per-zone heights (undeclared ⇒ nominal ⇒ bit-identical).
         const hA = zoneH('a');       // gallery band (z ∈ [−LA/2, jz])
         const hB = zoneH('b');       // living volume (north strip + wing B)
-        // v3: under wing_heights the BUILT west wall is two segments (the
-        // gallery run + the volume's west face) — 'wall_left' matches the
-        // BUILT gallery segment, 'wall_left_high' exposes the volume face.
-        // Undeclared heights ⇒ the historic single full run (and
-        // 'wall_left_high' resolves null → descriptors skip, never guess).
         const dual = (meta.hA ?? nominalH) !== nominalH || (meta.hB ?? nominalH) !== nominalH;
         switch (from) {
             // wing A — the gallery corridor
@@ -391,21 +229,8 @@ export function resolveAnchor(ctx, from) {
             case 'wall_inner_outside':   return horizontal(W + LB / 2, jz - hi, 0, -1, LB, hB);
             case 'wall_back':            return horizontal((W + LB) / 2, zS - hi, 0, -1, W + LB, hB);
             case 'wall_back_outside':    return horizontal((W + LB) / 2, zS + hi, 0, 1, W + LB, hB);
-            // wing A north end wall — the corridor TERMINUS (v2.1.0). The
-            // fireplace family moves here: the walk now ends on a warm
-            // destination instead of a blank wall (the south wall behind the
-            // spawn carried it before, where visitors never faced it).
-            // No shipped descriptor referenced wall_end before v2.1.0, so
-            // every other venue resolves exactly as before (§11.3 rule 2).
             case 'wall_end':            return horizontal(W / 2, zS - hi, 0, -1, W, hB);
             case 'wall_end_outside':    return horizontal(W / 2, zS + hi, 0, 1, W, hB);
-            // ── v3 "The Double Volume": the SEAM ─────────────────────────
-            // 'junction' = the gallery↔volume seam centre in wing A: the
-            // line where the low gallery band ends (z = jz) and the
-            // double-height volume begins. The venue dresses the exposed
-            // gallery roofline here (fascia + cove reveal) and places the
-            // axis sculpture just inside the volume. '_outside' resolves
-            // on the gallery side of the seam.
             case 'junction':            return horizontal(W / 2, jz, 0, 1, W, hB);
             case 'junction_outside':    return horizontal(W / 2, jz, 0, -1, W, hB);
         }
@@ -414,8 +239,6 @@ export function resolveAnchor(ctx, from) {
     return null; // rotunda / circular: only center + glazing anchors
 }
 
-// ── Area resolution (instance-grid box/scatter + points-cloud) ───────────────
-// Returns { cx, cy, cz, sx, sy, sz } — a world-axis box — or null.
 function resolveArea(ctx, area) {
     if (!area) return null;
     let cx = 0, cz = 0;
@@ -449,19 +272,9 @@ function resolveArea(ctx, area) {
     return { cx, cy: area.y || 0, cz, sx: Math.max(0, sx), sy: Math.max(0, sy), sz: Math.max(0, sz) };
 }
 
-// ── Materials ─────────────────────────────────────────────────────────────────
 function buildMaterial(ctx, mat) {
     const spec = typeof mat === 'string' ? (SB_MATERIALS[mat] || SB_MATERIALS.wood_warm) : mat;
     if (spec.glass) {
-        // Tier-resolved (TierResolve): transmission high / cheap mobile / flat
-        // low-end — the same null-glass-proof path the Cathedral colonnade uses.
-        // v2.1.0: a descriptor may opt OUT of the transmission class with
-        // `tier: 'cheap'` (broad-sheen transparent, no scene re-render pass)
-        // and may retune the sheen with `roughness`. Both keys are opt-in —
-        // every glass descriptor that omits them resolves exactly as before
-        // (the Penthouse glazing is the only shipped opt-in: a 6 m wall of
-        // transmission glass re-renders the whole scene per frame AND throws
-        // hard specular orbs from the interior lights onto the "sky").
         return makeGlassMaterial(ctx, {
             tint: parseColor(spec.tint) || new THREE.Color(0xcfdde8),
             opacity: spec.opacity ?? 0.25,
@@ -493,11 +306,6 @@ function materialKey(mat) {
     return typeof mat === 'string' ? mat : JSON.stringify(mat);
 }
 
-// ── Geometry per primitive (local, untransformed) ─────────────────────────────
-// `e.size`: number | [x, y, z] — box w/h/d, plane w/h, others via params.
-// `fitWidth` > 0 replaces the tangent size component for fit:'wall'/'glazing'.
-// `areaDims` enables fit:'area_x' / 'area_z' (grid instances stretch to the
-// resolved area box — the cyber floor grid spans the room whatever its size).
 function buildGeometry(e, fitWidth, areaDims) {
     const s = Array.isArray(e.size) ? e.size : [e.size ?? 1, e.size ?? 1, e.size ?? 1];
     const p = e.params || {};
@@ -555,32 +363,6 @@ function buildGlyphMaterial(e) {
     });
 }
 
-// ── curtain (Salon v3 "two rooms") ─────────────────────────────────────
-// One descriptor builds a full-height divided curtain wall: two tied-back
-// fabric panels with sine folds, a brass rod with brackets, finials, rings
-// and tie bands. Parametric from params so ANY square venue can declare it:
-//
-//   params: {
-//     opening: 2.4,        // clear top gap — also the guaranteed walk gap
-//     rod_y: 3.1,          // brass rod centre height
-//     top_y: 3.03,         // fabric heading height
-//     hem_y: 0.02,         // fabric hem height (just off the floor)
-//     amplitude: 0.085,    // fold depth (metres, ± from the curtain plane)
-//     folds: 6,            // sine folds per panel
-//     tie_y: 1.12,         // tie-band height (the gathered waist)
-//     gather: 0.15,        // waist pull toward the wall (fraction of span)
-//     hem_gather: 0.06,    // hem pull (the flared skirt)
-//     bracket: 0.16,       // standoff of the fabric's outer edge from a wall
-//     hardware: 'bronze',  // material preset key for rod/rings/bands
-//     seed: '…',           // folds the phase (deterministic from id+seed)
-//   }
-//
-// Draw calls: 2 fabric meshes (one per side — separate so each registers
-// its OWN collision box and the opening stays walkable) + 1 merged hardware
-// mesh. Collision: each fabric panel registers its world AABB with a tight
-// 0.06 pad — the free passage is exactly `opening`. Requires the square
-// layout (reads _layoutMeta.wallLength); anything else skips with one
-// warning. Deterministic: the fold phase is an FNV-1a hash of id+seed.
 function _strHash01(str) {
     let h = 2166136261;
     for (let i = 0; i < str.length; i++) {
@@ -594,8 +376,6 @@ function _curtainPanelGeometry(o) {
     const { xOut, xIn, side, topY, hemY, amp, folds, phase, tieV, gather, hemGather, nu, nv } = o;
     const span  = Math.abs(xOut - xIn);
     const widthAt = (v) => {
-        // waist pull: full span at the heading, gathered at the tie band,
-        // gently flared again at the hem (smoothstep both ways).
         if (v <= tieV) {
             const t = v / Math.max(1e-6, tieV);
             const s = t * t * (3 - 2 * t);
@@ -669,8 +449,6 @@ function buildCurtain(ctx, e, pos, finishMesh) {
     const nu = Math.max(24, folds * 8 + 1);
     const nv = 30;
 
-    // 1. Fabric panels (one mesh per side — separate collision boxes keep
-    //    the opening exactly `opening` wide).
     for (const side of [-1, 1]) {
         const xOut = side * (W / 2 - bracket);
         const xIn  = side * (opening / 2);
@@ -680,14 +458,8 @@ function buildCurtain(ctx, e, pos, finishMesh) {
         });
         const mesh = new THREE.Mesh(geo, fabricMat);
         mesh.position.set(pos[0], 0, pos[2]);   // geometry is room-local X/Z
-        // Collision is registered BELOW with a TIGHT pad — finishMesh's own
-        // obstacle path pads 0.25, which would eat 0.5 m of the passage.
         finishMesh(mesh, e, false, null);
         if (e.collide) {
-            // The panel AABB must hug the fabric so the walk gap stays the
-            // declared opening (the fabric sweeps ±(amp·env) ≈ 0.2 m; the
-            // world AABB covers the full heading width — the conservative
-            // read keeps visitors from brushing the gathered cloth).
             ctx.registerObstacle(mesh, 0.06);
         }
     }
@@ -710,16 +482,6 @@ function buildCurtain(ctx, e, pos, finishMesh) {
             const x = xIn + (xOut - xIn) * u;
             parts.push({ geo: new THREE.TorusGeometry(0.042, 0.011, 8, 18), pos: [pos[0] + x, rodY, pos[2]], rot: [0, Math.PI / 2, 0] });
         }
-        // Tie band around the gathered waist — must sit ON the fabric, not
-        // on the flat curtain plane. _curtainPanelGeometry folds the cloth
-        // in Z via amp·env(v)·sin(u·folds·2π+phase), and env(v) PEAKS at
-        // v = tieV (the Gaussian bump term is 1 there) — the gathered waist
-        // is exactly where the fold depth is amplified. This hardware used
-        // pos[2] (the flat plane) with no fold term, so the ring sat up to
-        // amp·env(tieV) ≈ 0.13–0.15 m in front of/behind the actual puckered
-        // cloth — a visibly detached ring "floating" near the curtain.
-        // u mirrors the panel geometry's parametrisation (u=0 at the wall
-        // edge, x = xOut − side·u·width); at v=tieV, widthAt(tieV) = waist.
         const span = Math.abs(xOut - xIn);
         const waist = span * (1 - gather);
         const xTie = xOut - side * (waist / 2 + 0.02);
@@ -735,11 +497,6 @@ function buildCurtain(ctx, e, pos, finishMesh) {
     return 3;   // fabric-l + fabric-r + hardware
 }
 
-// ── Main entry ─────────────────────────────────────────────────────────────────
-// ctx = the GalleryScene controller (same convention as every gallery module).
-// Reads only generic state: _layoutMeta, _glazing, isLowEnd, _isMobileTier,
-// _venueSlug (seed source only), scene, registerObstacle(), _particleSystems,
-// _hangableSurfaces. Returns the number of draw calls emitted.
 export function buildStructure(ctx, entries) {
     const check = validateStructure(entries);
     if (!check.valid) {
@@ -772,12 +529,6 @@ export function buildStructure(ctx, entries) {
         // 1. Tier floor — an undeclared effect never appears (§11.3 rule 2).
         if (!resolveTierFloor(e.tier_floor, { isLowEnd: !!ctx.isLowEnd, isMobileTier: !!ctx._isMobileTier })) continue;
 
-        // 2. Anchor + transform.
-        // DISPATCH FIX (Penthouse audit): scatter/box instance-grids and
-        // points-clouds SELF-ANCHOR through grid.area / cloud.area — they
-        // never hit the anchor resolver, which returned null for a missing
-        // `at` and silently skipped the entry (the v1.0.0 skyline died
-        // exactly here, one layer below the validator gate).
         const selfAnchored =
             (e.primitive === 'instance-grid' &&
                 (e.grid?.mode === 'scatter' || e.grid?.mode === 'box')) ||
@@ -793,9 +544,6 @@ export function buildStructure(ctx, entries) {
             const o  = e.at.offset || [0, 0, 0];
             const fx = a.fwd[0], fz = a.fwd[2];
             const sx =  fz, sz = -fx;               // side = up × fwd (horizontal)
-            // at.up = 'ceiling' → the up offset measures from the anchored
-            // wall's TOP (dynamic wall height) instead of the floor — neon
-            // edges track the room whatever height the admin sets.
             const baseY = e.at.up === 'ceiling' ? (a.height || CONFIG.room.wallHeight) : 0;
             pos = [
                 a.pos[0] + sx * o[0] + fx * o[2],
@@ -803,25 +551,8 @@ export function buildStructure(ctx, entries) {
                 a.pos[2] + sz * o[0] + fz * o[2],
             ];
             fwd = [fx, 0, fz];
-            // FIX (v3 audit): fwd is the file's 3-element [x, 0, z] shape —
-            // the historic 2-element [fx, fz] made buildInstanceGrid's
-            // `fwd[2]` read UNDEFINED, so every ANCHORED line-grid (the
-            // glazing mullions + terrace rails) scattered NaN positions and
-            // silently collapsed at the anchor point — shipped broken since
-            // v2.0.0. One shape for every consumer, end.
             if (e.turn === 'in')  yaw = Math.atan2(fx, fz);
             if (e.turn === 'out') yaw = Math.atan2(fx, fz) + Math.PI;
-            // FIT-TANGENT GUARD (salon v2.0.0 field report): fit:'wall'
-            // stretches the geometry's local X axis — which is the wall's
-            // TANGENT only when the mesh is yawed to its anchor. Front/back
-            // anchors have tangent X at yaw 0; a SIDE anchor (fwd along ±X)
-            // needs the ±90° turn. A payload that forgets turn:'in' renders
-            // its panels PERPENDICULAR to the wall — the salon's phantom
-            // mid-room slabs ("is this a wall or a curtain? I can walk
-            // through it", deployed 2026-09-10). When the descriptor
-            // declares neither a turn nor its own yaw, apply the tangent
-            // yaw here and warn once: the payload stays authoritative, the
-            // room stays sane.
             if (e.fit === 'wall' && fwd[0] !== 0 && e.turn === undefined && !(e.rot && e.rot[1])) {
                 yaw = Math.atan2(fx, fz);
                 if (!warnedMisalignedFit) {
@@ -839,10 +570,6 @@ export function buildStructure(ctx, entries) {
             const pad = e.fit_pad ?? 0.1;
             let span = 0;
             if (e.fit === 'glazing') {
-                // v3: resolve through the anchor table so BOTH declared
-                // glazing faces ('glazing' and 'glazing_north') span
-                // correctly — the historic ctx._glazing read is unchanged
-                // for the single-face venues.
                 span = resolveAnchor(ctx, e.at.from)?.width || 0;
             } else if (fwd) {
                 span = resolveAnchor(ctx, e.at.from)?.width || 0;
@@ -864,17 +591,9 @@ export function buildStructure(ctx, entries) {
             mesh = new THREE.Mesh(buildGeometry(e, fitWidth), buildMaterial(ctx, e.material));
         }
         mesh.position.set(pos[0], pos[1], pos[2]);
-        // 'YXZ' order: yaw applies AFTER any tip, in the world — a flat rug
-        // (rot x = -π/2) stays up-facing under the turn yaw on every layout.
-        // (Merged parts keep the XYZ default — they must stay yaw-only.)
         mesh.rotation.order = 'YXZ';
         mesh.rotation.set(rot[0], ry, rot[2]);
 
-        // Hangable surfaces: wall-facing planes/boxes register an artwork span
-        // (Iteration 3 bay redistribution — Museum dividers, generic mechanism).
-        // v3: `hangable` may be `{ y: n }` — the hang centre height for the
-        // surface (the above-the-fire hang on a double-height pier). Plain
-        // `true` keeps the placer's eye level (every existing venue).
         let hang = null;
         if (e.hangable && (e.primitive === 'plane' || e.primitive === 'box')) {
             const s = Array.isArray(e.size) ? e.size : [e.size ?? 1, e.size ?? 1];
@@ -885,10 +604,6 @@ export function buildStructure(ctx, entries) {
             }
         }
 
-        // 5. Merge groups — static same-material primitives auto-merge (§10.3).
-        // Collision is tracked PER PART: a merged group's own AABB would span
-        // the whole venue, so colliding parts register individual proxies at
-        // emit time (see below).
         if (e.merge) {
             const key = `${e.merge}|${materialKey(e.material)}`;
             if (!mergeGroups.has(key)) mergeGroups.set(key, { mat: null, parts: [], collideParts: [], hangs: [] });
@@ -929,20 +644,12 @@ export function buildStructure(ctx, entries) {
     return built;
 }
 
-// Shared invisible material for collision proxies (never rendered — the
-// proxies exist only so registerObstacle can measure their world AABB).
 let _proxyMat = null;
 function _collisionProxyMaterial() {
     if (!_proxyMat) _proxyMat = new THREE.MeshBasicMaterial({ visible: false });
     return _proxyMat;
 }
 
-// ── instance-grid ──────────────────────────────────────────────────────────────
-// mode 'line'    → 1-D endpoint-inclusive row along the anchor's SIDE axis
-//                  (mullions, rail posts — spans adapt to the room via 'fit')
-// mode 'box'     → regular 3-D fill of the area box (cyber floor light grid)
-// mode 'scatter' → seeded distribution (skyline towers — deterministic §13.6)
-// Returns draw calls emitted (0 or 1 — always one merged mesh).
 function buildInstanceGrid(ctx, e, pos, ry, fwd, seedSource, finishMesh) {
     const g = e.grid;
     const mat = buildMaterial(ctx, e.material);
@@ -950,8 +657,6 @@ function buildInstanceGrid(ctx, e, pos, ry, fwd, seedSource, finishMesh) {
     const baseRot = e.rot || [0, 0, 0];
 
     const place = (x, y, z, scale, yawJit, areaDims) => {
-        // The INSTANCE shape: grid.instance (default 'box') — the entry's own
-        // primitive is 'instance-grid', which buildGeometry does not build.
         const instance = { ...e, primitive: g.instance || 'box' };
         parts.push({
             geo: buildGeometry(instance, 0, areaDims || null),
@@ -962,8 +667,6 @@ function buildInstanceGrid(ctx, e, pos, ry, fwd, seedSource, finishMesh) {
     };
 
     if (g.mode === 'line') {
-        // Base = the entry's resolved `at` position; instances spread along the
-        // anchor's side axis. span 'fit' = anchored wall/glazing width.
         let span = g.span;
         if (span === 'fit') {
             const pad = g.fit_pad ?? e.fit_pad ?? 0.1;
@@ -1018,9 +721,6 @@ function buildInstanceGrid(ctx, e, pos, ry, fwd, seedSource, finishMesh) {
     return 1;
 }
 
-// ── points-cloud ───────────────────────────────────────────────────────────────
-// Reuses the EXISTING drift particle behaviour (the runtime's only animation —
-// §10.3: descriptors add no new animation classes; DO-NOT-DO #5).
 function buildPointCloud(ctx, e, seedSource) {
     const c = e.cloud;
     const area = resolveArea(ctx, c.area);

@@ -10,12 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
-/**
- * Admin CRUD for gallery calendar events (opening receptions, artist talks).
- *
- * Curators manage their gallery's event calendar from /admin/galleries/{id}/events.
- * Visitors RSVP via the public GalleryEventController.
- */
 class GalleryEventController extends Controller
 {
     use AuthorizesGalleryAccess;
@@ -23,11 +17,6 @@ class GalleryEventController extends Controller
     public function index(Gallery $gallery): View
     {
         $this->authorizeGalleryAccess($gallery);
-        // PERF-15: Use withCount('rsvps') instead of loading full
-        // rsvp rows. The index page only needs the count (for the
-        // "X / Y RSVPs" display), not the full rsvp records. The
-        // RSVPs admin page (rsvps() method below) loads full rsvp
-        // rows when needed.
         $gallery->load(['scheduleEvents' => fn($q) => $q->withCount('rsvps')]);
 
         $upcoming = $gallery->scheduleEvents()->upcoming()->withCount('rsvps')->get();
@@ -124,9 +113,6 @@ class GalleryEventController extends Controller
             ->with('status', "Event \"{$title}\" deleted.");
     }
 
-    /**
-     * View RSVP list for an event.
-     */
     public function rsvps(Gallery $gallery, GalleryScheduleEvent $event): View
     {
         $this->authorizeGalleryAccess($gallery);

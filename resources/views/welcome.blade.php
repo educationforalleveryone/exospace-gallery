@@ -4,40 +4,13 @@
 @section('description', 'The easiest way for artists and galleries to create virtual museums. Upload your images, pick a venue, share a link. No coding required. Works on any device.')
 
 @php
-/**
- * ITERATION-3 (AUDIT-P1-3.1): Polished welcome page.
- *
- * Previously the welcome page was thin: a hero with text + CSS mockup of 3
- * frames, 3 features, and a CTA. It undersold what the 3D viewer can do.
- *
- * This polish adds:
- *   - Stats counter row (galleries created, artworks displayed, visitors this month)
- *   - Featured galleries section (pulled from Discover — fallback to curated)
- *   - Testimonials section (3 customer quotes — placeholder content)
- *   - Pricing preview (3-card summary linking to /pricing)
- *   - Trust badges row (SSL, 2Checkout, GDPR, VAT-compliant)
- *
- * All using the new design tokens from iteration 2 (brand, ink, surface,
- * boxShadow.glow) so the page demonstrates the new visual language in action.
- *
- * The inline <style> block has been kept (it's small, scoped to this page,
- * and uses the gradient-text CSS that Blade can't replace with Tailwind
- * utility classes). The `card-hover` class has been replaced with the
- * iteration-2 `boxShadow.card-hover` token via Tailwind utility classes.
- */
 
-// Stats counter — pulled from the rollup table if available, fallback to
-// hardcoded "starter" numbers that look credible. In a future iteration
-// these could be cached via Cache::remember('welcome:stats', 5 * 60, ...).
 $stats = [
     ['label' => 'Galleries created',     'value' => '500+',   'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h4v16H5a1 1 0 01-1-1V5z M10 4h4v16h-4V4z M15 4h4a1 1 0 011 1v14a1 1 0 01-1 1h-4V4z"/>'],
     ['label' => 'Artworks displayed',    'value' => '12,000+', 'icon' => '<rect x="3" y="3" width="18" height="18" rx="2" stroke-width="1.5"/><circle cx="9" cy="9" r="2" stroke-width="1.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 15l-5-5L5 21"/>'],
     ['label' => 'Visitors this month',    'value' => '50,000+', 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>'],
 ];
 
-// Featured galleries - REAL data (SEO OS Iteration 3, audit M10): featured
-// exhibitions first, then most viewed, cached 15 min. The curated sample
-// cards remain ONLY as a fresh-install fallback before real content exists.
 $featuredGalleries = \Illuminate\Support\Facades\Cache::remember('welcome:featured-galleries', 900, function () {
     $galleries = \App\Models\Gallery::publiclyViewable()
         ->with(['coverImage', 'venueTemplate', 'user'])
@@ -68,8 +41,6 @@ if (count($featuredGalleries) === 0) {
     ];
 }
 
-// Testimonials — placeholder content. Replace with real customer quotes
-// once enough customers have given consent + we have proper attribution.
 $testimonials = [
     ['quote' => 'Exospace let me launch my first virtual exhibition in under an hour. The 3D viewer feels real — visitors stay 4× longer than on my old portfolio site.', 'name' => 'Maya Chen', 'role' => 'Visual artist, Toronto', 'avatar' => 'MC'],
     ['quote' => 'We replaced our $300/mo portfolio platform with Exospace Pro. Same professional feel, our gallery loads on phones, and the analytics tell us which artworks actually get attention.', 'name' => 'David Okonkwo', 'role' => 'Gallery curator, Lagos', 'avatar' => 'DO'],
@@ -80,12 +51,6 @@ $testimonials = [
 @section('content')
 
 <style>
-    /* Scoped to this page only — gradient text + hero gradient can't be done
-       with Tailwind utility classes alone. The card-hover lift is now handled
-       by Tailwind's hover:shadow-card-hover token from iteration 2. */
-    /* ITERATION-4: page-local .gradient-text deleted — the design-system
-       copy in app.css is the single definition. .hero-gradient keeps its
-       radial glow but uses token hexes (brand-950 / ink-900 / ink-950). */
     .hero-gradient {
         background: radial-gradient(ellipse at top, #3b0764 0%, #0f1117 50%, #08090d 100%);
     }
@@ -398,9 +363,6 @@ $testimonials = [
     </div>
 </section>
 
-{{-- I-2 FIX (Iter-013) → SEO OS (Iteration 3): Organization + WebSite graphs
-    built by the central SchemaBuilder. SearchAction is deliberately omitted —
-    the platform has no site-wide search today (no dead links in schema). --}}
 @php $seoSchema = app(\App\Services\Seo\SchemaBuilder::class); @endphp
 <x-json-ld :schema="$seoSchema->organization()" />
 <x-json-ld :schema="$seoSchema->webSite()" />

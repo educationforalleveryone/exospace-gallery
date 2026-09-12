@@ -12,52 +12,14 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
-/**
- * OpsCenter — CheckDigestDeliveryCommand (Iteration 8).
- *
- * ops:check-digest-delivery — the digest WATCHDOG: meta-monitoring the
- * monitor. The morning digest's silence contract (§16.4) says a missing
- * digest IS the alarm — but until now the only thing that could notice
- * the silence was a human reading Slack. This command closes that loop:
- * 30 minutes after the 08:15 send, it checks the ops:morning-digest:last
- * stamp and raises the alarm itself when the briefing did not arrive.
- *
- * What "missed" means and why each failure mode matters:
- *   stamp absent        → the digest has NEVER gone out (fresh install
- *                         with the switch on, or a cache flush wiped the
- *                         stamp — either way, worth one look)
- *   stamp not from today → the scheduler is stale, the send path threw,
- *                         or someone flipped OPS_MORNING_DIGEST_ENABLED
- *                         off and back on — the dead-man's switch fired
- *   stamp from today     → the contract held: resolve any prior watchdog
- *                         event + ONE recovery note, then stay silent
- *
- * The watchdog stays QUIET when healthy — exactly like every other
- * monitor. Only the digest itself fires on time (that is the contract);
- * a daily "watchdog OK" message would double the morning noise and
- * teach the operator to ignore the channel.
- *
- * Guardrails (the OpsCenter family rules):
- *   - OPS_MORNING_DIGEST_ENABLED=false → clean no-op: the contract is
- *     suspended, an absent digest means nothing by design (§16.4).
- *   - OPS_DIGEST_WATCHDOG_ENABLED=false → clean no-op (the safety net
- *     itself has a switch).
- *   - ONE warning alert (dedup key ops.digest.missed — a double-fired
- *     schedule must not double-post) + ONE deduplicated INFRASTRUCTURE
- *     event (source 'watchdog') the correlation sweep can group.
- *   - Never fatal: a watchdog crash must never break the schedule
- *     chain — always exits 0 and says what went wrong.
- */
 class CheckDigestDeliveryCommand extends Command
 {
     protected $signature = 'ops:check-digest-delivery';
 
     protected $description = 'Watchdog: verify the 08:15 morning digest actually went out; alert + record an event when the silence contract is broken';
 
-    /** The stable event title — the resolution key, same trick as the sweep. */
     private const EVENT_TITLE = 'Digest watchdog: morning digest missing';
 
-    /** Cache slot for the recorded event's id (cache-flush fallback: title lookup). */
     private const EVENT_ID_KEY = 'ops:watchdog:digest:event';
 
     public function handle(OpsMorningDigestService $digest, OpsEventIngestor $ingestor): int
@@ -95,9 +57,6 @@ class CheckDigestDeliveryCommand extends Command
             return self::SUCCESS;
         }
 
-        // ── MISSED ────────────────────────────────────────────────────────
-        // Two honest variants: never sent (fresh install / flushed cache)
-        // vs stale (sent before today — the switch is broken or off).
         $reason = $lastSent === null
             ? 'No digest delivery has ever been recorded (fresh install, or a cache flush wiped the stamp).'
             : sprintf(
@@ -140,13 +99,6 @@ class CheckDigestDeliveryCommand extends Command
                 $message,
                 'warning',
                 'ops.digest.missed',
-                // ITERATION 9: escalate=true — this alarm polices the
-                // alert channel ITSELF, so it also goes to the
-                // independent OPS_ESCALATION_WEBHOOK (when set): a dead
-                // #ops webhook must not swallow the alarm about the
-                // dead #ops webhook. The recovery note below does NOT
-                // escalate — the all-clear is informational, and the
-                // resolved event row already records it durably.
                 true,
             );
         } catch (Throwable $e) {
@@ -158,13 +110,6 @@ class CheckDigestDeliveryCommand extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Healthy path: resolve the prior open watchdog event (cached id
-     * first, stable-title fallback second) and send exactly ONE recovery
-     * note — only when a row was actually resolved RIGHT NOW. An absent
-     * or already-resolved event stays silent: a healthy morning must not
-     * generate watchdog noise.
-     */
     private function resolvePrior(OpsEventIngestor $ingestor): void
     {
         $event = null;

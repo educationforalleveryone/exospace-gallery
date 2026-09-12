@@ -8,25 +8,8 @@ use App\Models\Gallery;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
-/**
- * Organic acquisition reporting (SEO OS Iteration 7).
- *
- * Answers, from first-party data only:
- *   - How do signups break down by acquisition channel?
- *   - Do organically-acquired users create galleries (the conversion the
- *     SEO machine exists to drive)?
- *
- * This service never fabricates search-engine data — impressions/clicks/
- * positions live in Search Console (see master manual §3.2). What it DOES
- * measure is the downstream behaviour of visitors the search engines send.
- */
 class OrganicAcquisitionService
 {
-    /**
-     * Signup counts by channel over a lookback window.
-     *
-     * @return array<string, int>
-     */
     public function signupsByChannel(int $days = 90): array
     {
         $since = now()->subDays($days);
@@ -49,12 +32,6 @@ class OrganicAcquisitionService
         ], $rows);
     }
 
-    /**
-     * Galleries created by organically-acquired users within a window
-     * after signup (the SEO → product conversion).
-     *
-     * @return array{galleries: int, users_with_galleries: int}
-     */
     public function organicGalleriesCreated(int $days = 90): array
     {
         $since = now()->subDays($days);
@@ -81,12 +58,6 @@ class OrganicAcquisitionService
         ];
     }
 
-    /**
-     * Top organic landing pages by resulting signups (the pages that
-     * actually convert search visitors into accounts).
-     *
-     * @return \Illuminate\Support\Collection<int, array{landing_page: string, signups: int}>
-     */
     public function topOrganicLandingPages(int $days = 90, int $limit = 10): Collection
     {
         $since = now()->subDays($days);
@@ -106,11 +77,6 @@ class OrganicAcquisitionService
             ]);
     }
 
-    /**
-     * Full report for the SEO console.
-     *
-     * @return array<string, mixed>
-     */
     public function report(int $days = 90): array
     {
         $signups = $this->signupsByChannel($days);

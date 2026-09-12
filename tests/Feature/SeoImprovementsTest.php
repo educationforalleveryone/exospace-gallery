@@ -8,33 +8,22 @@ use App\Models\Gallery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Iteration-013 regression tests for SEO improvements:
- *   - I-1: noindex meta on auth/admin layouts (guest.blade.php + app.blade.php)
- *   - I-2: JSON-LD structured data on homepage (Organization), pricing (Product + FAQPage),
- *     discover (ItemList)
- *   - I-3: sitemap includes /changelog and /status
- *   - I-6: RSS auto-discovery link in public layout head
- */
 class SeoImprovementsTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
     public function i1_guest_layout_has_noindex_meta(): void
     {
         $source = file_get_contents(resource_path('views/layouts/guest.blade.php'));
         $this->assertStringContainsString('<meta name="robots" content="noindex,nofollow">', $source, 'I-1: guest layout must have noindex,nofollow meta');
     }
 
-    /** @test */
     public function i1_app_layout_has_noindex_meta(): void
     {
         $source = file_get_contents(resource_path('views/layouts/app.blade.php'));
         $this->assertStringContainsString('<meta name="robots" content="noindex,nofollow">', $source, 'I-1: app layout must have noindex,nofollow meta');
     }
 
-    /** @test */
     public function i2_json_ld_component_exists_with_supported_types(): void
     {
         $source = file_get_contents(resource_path('views/components/json-ld.blade.php'));
@@ -45,7 +34,6 @@ class SeoImprovementsTest extends TestCase
         $this->assertStringContainsString('application/ld+json', $source, 'I-2: renders <script type="application/ld+json">');
     }
 
-    /** @test */
     public function i2_homepage_renders_organization_json_ld(): void
     {
         $response = $this->get('/');
@@ -54,7 +42,6 @@ class SeoImprovementsTest extends TestCase
         $response->assertSee('application/ld+json', false);
     }
 
-    /** @test */
     public function i2_pricing_page_renders_product_and_faq_json_ld(): void
     {
         $response = $this->get('/pricing');
@@ -70,7 +57,6 @@ class SeoImprovementsTest extends TestCase
         $response->assertSee('Is there a free trial for Pro?', false);
     }
 
-    /** @test */
     public function i2_discover_page_renders_item_list_json_ld_when_galleries_exist(): void
     {
         $gallery = Gallery::factory()->create([
@@ -82,24 +68,17 @@ class SeoImprovementsTest extends TestCase
 
         $response = $this->get('/discover');
         $response->assertStatus(200);
-        // ITERATION-1 FIX: the seo component emits COMPACT JSON-LD graphs
-        // (the pretty-printed variant is the standalone x-json-ld
-        // component used on the pricing page).
         $response->assertSee('"@type":"ItemList"', false);
         $response->assertSee('"@type":"ListItem"', false);
     }
 
-    /** @test */
     public function i2_discover_page_omits_item_list_when_no_galleries(): void
     {
-        // No galleries in DB — the @if($galleries->isNotEmpty()) guard should
-        // suppress the JSON-LD block.
         $response = $this->get('/discover');
         $response->assertStatus(200);
         $response->assertDontSee('"@type": "ItemList"', false);
     }
 
-    /** @test */
     public function i3_sitemap_controller_includes_changelog_and_status(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/SitemapController.php'));
@@ -107,19 +86,14 @@ class SeoImprovementsTest extends TestCase
         $this->assertStringContainsString("route('status')", $source, 'I-3: sitemap includes status route');
     }
 
-    /** @test */
     public function i3_sitemap_xml_contains_changelog_and_status_urls(): void
     {
-        // ITERATION-1 FIX: /sitemap.xml is a sitemap INDEX (lists group
-        // files only). The static pages — changelog, status — live in the
-        // static group. Assert against the right artifact.
         $response = $this->get('/sitemap-static-1.xml');
         $response->assertStatus(200);
         $response->assertSee('/changelog', false);
         $response->assertSee('/status', false);
     }
 
-    /** @test */
     public function i6_public_layout_has_rss_auto_discovery_link(): void
     {
         $source = file_get_contents(resource_path('views/layouts/public.blade.php'));
@@ -128,7 +102,6 @@ class SeoImprovementsTest extends TestCase
         $this->assertStringContainsString('/feed.xml', $source, 'I-6: href points at /feed.xml');
     }
 
-    /** @test */
     public function i6_homepage_renders_rss_auto_discovery_link(): void
     {
         $response = $this->get('/');

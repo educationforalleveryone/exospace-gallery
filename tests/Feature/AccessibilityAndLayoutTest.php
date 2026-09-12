@@ -7,19 +7,10 @@ namespace Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Iteration-012 regression tests for accessibility & UI/UX findings:
- *   - J-1: Dropdown component keyboard-accessible (button trigger, ARIA, arrow keys)
- *   - J-2: Navigation dropdowns (notif bell, team switcher, mobile hamburger) have ARIA state
- *   - J-4: img tags missing alt attributes
- *   - H-1: Contact page uses the public layout
- *   - H-2: Discover page uses the public layout
- */
 class AccessibilityAndLayoutTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
     public function j1_dropdown_component_uses_button_trigger_with_aria(): void
     {
         $source = file_get_contents(resource_path('views/components/dropdown.blade.php'));
@@ -38,18 +29,14 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringNotContainsString('<div @click="open = ! open">', $source, 'J-1: old clickable-div trigger must be removed');
     }
 
-    /** @test */
     public function j1_dropdown_link_has_menuitem_role(): void
     {
         $source = file_get_contents(resource_path('views/components/dropdown-link.blade.php'));
 
-        // ITERATION-1 FIX: match the component's actual Blade quoting
-        // (['role' => 'menuitem', 'tabindex' => '-1']).
         $this->assertStringContainsString("'role' => 'menuitem'", $source, 'J-1: dropdown-link must have role="menuitem"');
         $this->assertStringContainsString("'tabindex' => '-1'", $source, 'J-1: dropdown-link must have tabindex="-1" (focusable via arrow keys)');
     }
 
-    /** @test */
     public function j2_notification_bell_has_aria_state(): void
     {
         $source = file_get_contents(resource_path('views/layouts/navigation.blade.php'));
@@ -60,7 +47,6 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringContainsString('aria-labelledby="notif-dropdown-trigger"', $source, 'J-2: notif panel must have aria-labelledby');
     }
 
-    /** @test */
     public function j2_team_switcher_has_aria_state(): void
     {
         $source = file_get_contents(resource_path('views/layouts/navigation.blade.php'));
@@ -71,7 +57,6 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringContainsString('aria-label="Switch team context"', $source, 'J-2: team switcher must have aria-label');
     }
 
-    /** @test */
     public function j2_mobile_hamburger_has_aria_state(): void
     {
         $source = file_get_contents(resource_path('views/layouts/navigation.blade.php'));
@@ -83,7 +68,6 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringContainsString('aria-labelledby="mobile-nav-toggle"', $source, 'J-2: mobile nav panel must have aria-labelledby');
     }
 
-    /** @test */
     public function j4_analytics_page_artwork_thumbnail_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/admin/galleries/analytics.blade.php'));
@@ -93,35 +77,30 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringNotContainsString('<img src="{{ asset($img->path) }}" class="w-10 h-10', $source, 'J-4: img tag must not be missing alt');
     }
 
-    /** @test */
     public function j4_dashboard_gallery_row_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/components/dashboard/gallery-row.blade.php'));
         $this->assertStringContainsString('alt="{{ $gallery->title ?: \'Gallery cover\' }}"', $source, 'J-4: gallery-row cover must have alt');
     }
 
-    /** @test */
     public function j4_artist_form_portrait_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/admin/artists/_form-fields.blade.php'));
         $this->assertStringContainsString('alt="{{ $artist->name ?: \'Artist portrait\' }}"', $source, 'J-4: artist portrait must have alt');
     }
 
-    /** @test */
     public function j4_venue_form_thumbnail_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/super-admin/venues/_form-fields.blade.php'));
         $this->assertStringContainsString('alt="{{ $venue->name ?: \'Venue thumbnail\' }}"', $source, 'J-4: venue thumbnail must have alt');
     }
 
-    /** @test */
     public function j4_featured_index_cover_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/super-admin/featured/index.blade.php'));
         $this->assertStringContainsString('alt="{{ $gallery->title ?: \'Featured gallery cover\' }}"', $source, 'J-4: featured cover must have alt');
     }
 
-    /** @test */
     public function h1_contact_page_uses_public_layout(): void
     {
         $source = file_get_contents(resource_path('views/pages/contact.blade.php'));
@@ -144,14 +123,10 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringNotContainsString('[Country]', $source, 'H-1: [Country] placeholder removed');
     }
 
-    /** @test */
     public function h2_discover_page_uses_public_layout(): void
     {
         $source = file_get_contents(resource_path('views/discover/index.blade.php'));
 
-        // ITERATION-1 FIX: metadata moved from Blade sections to the
-        // controller-built SeoData object (SEO OS Iteration 2) — the
-        // layout/content contracts are what matter for accessibility.
         $this->assertStringContainsString("@extends('layouts.public')", $source, 'H-2: discover page must extend layouts.public');
         $this->assertStringContainsString("@section('content')", $source, 'H-2: discover page must define content section');
         $this->assertStringContainsString("@endsection", $source, 'H-2: discover page must end with @endsection');
@@ -162,11 +137,8 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringNotContainsString('<x-slot name="header">', $source, 'H-2: <x-slot name="header"> removed');
     }
 
-    /** @test */
     public function h2_discover_page_still_renders_via_http(): void
     {
-        // Smoke test: ensure the page compiles after the layout conversion.
-        // We don't need real galleries — just verify no Blade syntax errors.
         $gallery = \App\Models\Gallery::factory()->create([
             'is_active' => true,
             'is_featured' => true,

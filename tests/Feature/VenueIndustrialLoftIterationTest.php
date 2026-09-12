@@ -7,37 +7,9 @@ use Illuminate\Support\Str;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * INDUSTRIAL LOFT DEEPENING iteration — the forensic-audit remediation as CI.
- *
- * Pins:
- *   1. The seeded industrial-loft row declares the deepened identity (a
- *      physical-unit rig the venue can actually render with, a fog reach
- *      that covers its own rooms, explicit post-fx restraint, dark-venue
- *      artwork legibility keys, blackened-steel frames, the open-floor
- *      default, loft corridor proportions) — an Industrial Loft that can no
- *      longer render as a near-black tunnel on a fresh install.
- *   2. The guarded migration rewrites ONLY the previously seeded values
- *      (admin customisations survive), is idempotent, adds its new keys only
- *      when absent, and down() reverses each rewrite under the same
- *      exact-match guard.
- *   3. The artwork-legibility contract is generic: a venue whose rig renders
- *      dark must declare a standing glow for its hang (artwork_light_base)
- *      — the audit's core finding: the venue was dark AND its artworks kept
- *      the generic 0.15 fraction, so the hang read as unlit rectangles.
- *   4. The harness venue payload stays in sync with the seeder row (the
- *      PHP-less visual harness renders the same JSON a fresh install gets).
- *
- * Portable patterns per the IT2–IT6 suites: sqlite-safe JSON
- * read-modify-write, migrations invoked directly.
- */
 class VenueIndustrialLoftIterationTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The deepened identity (mirrors the seeder + harness payload)
-    // ─────────────────────────────────────────────────────────────────────
 
     public const DEEPENED_VISUAL = [
         'fog_near'              => 14,
@@ -61,12 +33,6 @@ class VenueIndustrialLoftIterationTest extends TestCase
     ];
 
 
-    /**
-     * JSON numeric normalisation: some PHP builds encode 1.0 as "1" (int)
-     * and others as "1.0" (float). The values are numerically identical —
-     * compare the decoded arrays with float tolerance, exactly like the
-     * migration's own guardedEquals does.
-     */
     private function assertPostFxMatches(array $expected, ?array $actual, string $message): void
     {
         $this->assertIsArray($actual, $message);
@@ -119,10 +85,6 @@ class VenueIndustrialLoftIterationTest extends TestCase
         return $this->jsonCol($slug, 'default_settings');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. The fresh-install baseline IS the deepened identity
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_seeded_industrial_loft_declares_the_deepened_identity(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -163,14 +125,8 @@ class VenueIndustrialLoftIterationTest extends TestCase
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. The guarded migration: exact-match, idempotent, reversible
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_migration_rewrites_only_the_previous_seeded_values(): void
     {
-        // Start from the PRE-deepening row: re-seed, then hand-rewind the row
-        // to the v1.0.0 values (the exact bytes the migration guards on).
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         DB::table('venue_templates')->where('slug', 'industrial-loft')->update([
             'version'          => '1.0.0',
@@ -252,8 +208,6 @@ class VenueIndustrialLoftIterationTest extends TestCase
         $this->assertSame(0.77, (float) $vc['ambient_intensity'], '[migration] admin ambient survives.');
         $this->assertSame(1.3, (float) $vc['tone_mapping_exposure'], '[migration] admin exposure survives.');
         $this->assertSame(['bloom' => true], $vc['post_fx'], '[migration] admin post_fx survives.');
-        // Untouched keys keep their deepened values (their guards no longer
-        // match the stored values — nothing to rewrite).
         $this->assertSame(2.4, (float) $vc['spot_intensity'], '[migration] deepened keys keep their values when no guard matches.');
     }
 
@@ -274,22 +228,10 @@ class VenueIndustrialLoftIterationTest extends TestCase
         $this->assertSame('corridor', $this->defaultSettings('industrial-loft')['room_layout'] ?? null);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. The generic dark-venue legibility contract
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_dark_rigs_declare_artwork_legibility(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // A venue whose exposure sits below ~1.0 renders its rig dark — the
-        // hang must then declare a standing glow (the audit's rule: no
-        // artwork sits in the dark because the venue forgot the hang).
-        //
-        // SCOPED to the audited venues: industrial-loft (this iteration) and
-        // infinite-void (its deepening). The remaining dark venues keep
-        // their historical rows by contract (§27 iteration discipline —
-        // they receive their own passes; this test widens with each).
         foreach (['industrial-loft', 'infinite-void'] as $slug) {
             $vc = $this->visualConfig($slug);
             $exposure = (float) ($vc['tone_mapping_exposure'] ?? 0.5);
@@ -306,10 +248,6 @@ class VenueIndustrialLoftIterationTest extends TestCase
             );
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. The harness payload stays in sync with the seeder row
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_harness_payload_matches_the_seeded_row(): void
     {

@@ -1,19 +1,4 @@
 <?php
-/**
- * zen-parity-check.php — §14 preview↔public parity evidence for zen-gallery.
- *
- * Compares the IDENTITY payload each surface consumes:
- *   1. Public venue preview  → VenueConfigExporter::forVenuePreview()
- *   2. Gallery Live Preview  → VenueConfigExporter::forGalleryPreview()
- *   3. Public gallery        → VenueConfigExporter::forGallery()
- * (The Super Admin Venue Editor preview iframe IS the venue preview route —
- * surfaces 1 and the editor preview share one payload by construction.)
- *
- * Identity keys = venue-owned atmosphere/architecture/rig + material palette.
- * Gallery-owned exhibition finishes (wall/floor/frame/layout) are EXPECTED to
- * differ on the gallery surfaces (that's the customer's lane) — the venue
- * identity keys must be byte-identical across all three.
- */
 
 require __DIR__.'/../../vendor/autoload.php';
 $app = require_once __DIR__.'/../../bootstrap/app.php';
@@ -25,9 +10,6 @@ use App\Models\Gallery;
 $venue = DB::table('venue_templates')->where('slug', 'zen-gallery')->first();
 if (!$venue) { echo "FAIL: no zen-gallery row\n"; exit(1); }
 
-// A gallery on zen with the venue's default exhibition finishes (what a new
-// customer gets) AND one with custom finishes (what a tuned customer looks like).
-// A gallery needs an owner; create the owner when the DB has no users yet.
 if (!DB::table('users')->count()) {
     \App\Models\User::factory()->create(['plan' => 'pro']);
 }

@@ -11,48 +11,6 @@ use App\Services\TwoCheckoutApiClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-/**
- * ITERATION-3: subscription reconciliation against the 2Checkout API.
- *
- * WHY: webhooks are the only thing keeping local plan state in sync with
- * 2CO, and webhooks get missed — endpoint downtime, mis-routed INS URLs,
- * 2CO-side delivery gaps. The classic failure: a customer cancels at the
- * bank / 2CO marks the subscription dead, the cancellation webhook never
- * arrives, and the local account keeps paid entitlements forever (direct
- * revenue leak). The opposite drift (2CO active, local free after a missed
- * payment webhook) under-serves a paying customer.
- *
- * WHAT IT DOES (deliberately asymmetric, fail-safe in the user's favour
- * where automation is unsafe):
- *
- *   Local state claims active paid plan + subscription_id, 2CO says the
- *   subscription is DISABLED/expired:
- *     - if the local plan_expires_at has ALSO passed (or is null — the
- *       "should still be active" claim rests solely on a webhook we now
- *       know was missed) → AUTO-DOWNGRADE to free via
- *       PlanDowngradeService (same cleanup path as every other
- *       downgrade), audit-logged + alerted;
- *     - if local plan_expires_at is still in the future (the customer
- *       paid through that date — e.g. cancelled-for-period-end) →
- *       ALERT ONLY, no action. CheckPlanExpiry handles the boundary
- *       when the paid period genuinely ends.
- *
- *   Local plan is free but the user still carries a subscription_id that
- *   2CO reports as ACTIVE → ALERT ONLY. A missed payment webhook means
- *       someone PAID and isn't getting entitlements — but auto-granting
- *       from a stale reference can double-grant after refunds/chargebacks;
- *       support verifies and grants manually.
- *
- * SAFETY: any API failure (network error, non-200, unparseable body) is
- * counted and SKIPPED — never downgraded on a failed lookup. If more than
- * a third of lookups fail, the run aborts with an alert (the API is lying
- * or the network is broken; bulk action on bad data is worse than no
- * action). No-ops cleanly when the 2CO API is unconfigured (local/CI).
- *
- * SCHEDULE: daily 04:10 (offset from the 04:00 cleanup batch) via
- * routes/console.php. --limit caps the batch (default 200) so a cron tick
- * never runs long; drift beyond the cap reconciles on subsequent runs.
- */
 class ReconcileSubscriptions extends Command
 {
     protected $signature = 'exospace:reconcile-subscriptions
@@ -66,9 +24,6 @@ class ReconcileSubscriptions extends Command
         if (! TwoCheckoutApiClient::isConfigured()) {
             $this->info('2Checkout API not configured — nothing to reconcile (local/CI).');
 
-            // ITERATION 6: a completed no-op still proves the scheduler ran
-            // the job — stamp the heartbeat so the cadence monitor can tell
-            // "feature off" apart from "job silently dead".
             app(JobHeartbeatService::class)->stamp('exospace:reconcile-subscriptions');
 
             return self::SUCCESS;
@@ -77,9 +32,6 @@ class ReconcileSubscriptions extends Command
         $limit = max(1, (int) $this->option('limit'));
         $dryRun = (bool) $this->option('dry-run');
 
-        // Users whose local state claims an ACTIVE paid subscription. A
-        // null subscription_status on a paid plan is treated as active too
-        // — pre-M-1 rows never set it.
         $users = User::query()
             ->whereIn('plan', ['pro', 'studio'])
             ->whereNotNull('subscription_id')
@@ -141,8 +93,6 @@ class ReconcileSubscriptions extends Command
             $localStillPaid = $user->plan_expires_at !== null && $user->plan_expires_at->isFuture();
 
             if ($localStillPaid) {
-                // The customer paid through plan_expires_at (e.g. cancelled
-                // at period end). Let the paid period run out naturally.
                 $this->alertDrift($user, 'paid-period-still-active',
                     '2Checkout reports the subscription as ended, but the local plan is paid until '
                     . $user->plan_expires_at->toDateString() . '. No action taken — expiry will '
@@ -152,8 +102,6 @@ class ReconcileSubscriptions extends Command
                 continue;
             }
 
-            // Local state believes the plan should be active only because a
-            // webhook was missed. Downgrade (unless dry-run).
             if ($dryRun) {
                 $this->warn("[dry-run] would downgrade user {$user->id} ({$user->plan}, subscription {$user->subscription_id}) to free.");
                 continue;
@@ -174,9 +122,6 @@ class ReconcileSubscriptions extends Command
             $downgraded++;
         }
 
-        // ── Missed-payment direction: local free + still-live reference ──
-        // ALERT ONLY — never auto-grant (stale references after refunds or
-        // chargebacks make automatic upgrades unsafe; support verifies).
         $freeWithLiveRef = User::query()
             ->where('plan', 'free')
             ->whereNotNull('subscription_id')
@@ -218,23 +163,11 @@ class ReconcileSubscriptions extends Command
             'alerts' => $alerts, 'errors' => $errors, 'dry_run' => $dryRun,
         ]);
 
-        // ITERATION 6: successful completion (including runs that ended on
-        // the API-unreliable safety valve — those already paged) counts as
-        // "the job ran"; only a job that never finishes goes silent.
         app(JobHeartbeatService::class)->stamp('exospace:reconcile-subscriptions');
 
         return self::SUCCESS;
     }
 
-    /**
-     * Interpret a 2CO v6.0 subscription payload.
-     *
-     * Returns true  → subscription is definitively dead (disabled or past
-     *                 its expiration date),
-     *         false → subscription is alive,
-     *         null  → payload shape not recognised (caller treats as a
-     *                 failed lookup — never acts on it).
-     */
     private function subscriptionIsDead(array $data): ?bool
     {
         $enabled = $data['SubscriptionEnabled'] ?? null;

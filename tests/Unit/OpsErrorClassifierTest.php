@@ -7,15 +7,6 @@ namespace Tests\Unit;
 use App\Ops\Support\ErrorClassifier;
 use PHPUnit\Framework\TestCase;
 
-/**
- * OpsCenter — Iteration 1 — error classification engine.
- *
- * The classifier is the component that turns raw technical strings into
- * operational information (category, severity, likely causes, recommended
- * diagnostics). These tests pin its contract: the brief's flagship example
- * ("SQLSTATE[HY000] [2002] Connection refused" must surface as a CRITICAL
- * DATABASE problem with likely causes) is asserted verbatim.
- */
 class OpsErrorClassifierTest extends TestCase
 {
     private ErrorClassifier $classifier;
@@ -26,10 +17,6 @@ class OpsErrorClassifierTest extends TestCase
         $this->classifier = new ErrorClassifier;
     }
 
-    /**
-     * The flagship example from the project brief: a raw DB connection
-     * error must become an operational DATABASE event at critical severity.
-     */
     public function test_database_connection_refused_is_critical_database(): void
     {
         $result = $this->classifier->classify(
@@ -48,8 +35,6 @@ class OpsErrorClassifierTest extends TestCase
 
     public function test_severity_upgrades_from_pattern_floor(): void
     {
-        // A connection-refused logged at mere 'warning' must still surface
-        // as critical — the pattern floor is the minimum severity.
         $result = $this->classifier->classify(null, 'SQLSTATE[HY000] [2002] Connection refused', 'warning');
 
         $this->assertSame('critical', $result['severity']);
@@ -57,8 +42,6 @@ class OpsErrorClassifierTest extends TestCase
 
     public function test_observed_level_wins_when_higher(): void
     {
-        // A pattern with an info floor (e.g. 404s) logged at error level
-        // keeps the observed severity — never downgraded below the level.
         $result = $this->classifier->classify(
             \Symfony\Component\HttpKernel\Exception\NotFoundHttpException::class,
             'Route [whatever] not found',
@@ -102,9 +85,6 @@ class OpsErrorClassifierTest extends TestCase
 
     public function test_migration_failure_requires_sqlstate_context(): void
     {
-        // The bare word "Migration" must NOT classify as MIGRATION without
-        // SQL/syntax/duplicate context (e.g. "Migrating a gallery" is not a
-        // migration failure).
         $result = $this->classifier->classify(null, 'Migrating gallery records for user', 'info');
 
         $this->assertNotSame('MIGRATION', $result['category']);

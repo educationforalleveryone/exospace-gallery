@@ -1,28 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// infinite-void-qa.mjs — the venue QA gate for Infinite Void.
-//
-//   node scripts/venue-qa/infinite-void-qa.mjs
-//
-// Same layering as white-cube-qa.mjs (plain Node over the repo checkout, no
-// PHP stack): pins CONTRACTS while tests/Feature pins the DB side and
-// scripts/harness/shoot.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the infinite-void row declares the deepened identity
-//      (physical-units rig, black-dissolve post_fx, standing-glow lighting,
-//      depth-band placement, tint-authoritative materials).
-//   B. DB ↔ harness sync — the PHP-less harness renders the same JSON a fresh
-//      install seeds (drift here means screenshots stop meaning anything).
-//   C. Placement invariants — driven through the REAL float modules: aspect
-//      clamps, walkable-bound containment (the CORRECTED radius−0.5 edge),
-//      hover-band legibility, determinism, depth-band activation + per-band
-//      arc spacing (no overlap), radius↔layout agreement.
-//   D. JS hygiene — zero venue slugs in the pure modules (DoD rule #7), the
-//      HDRI-skip rule for env_intensity 0, the ACES-safe vignette rule
-//      (darkness ≤ 1 — negatives bounce back grey), and the void-dust body
-//      drifts per particle (uTime uniform, not a whole-cloud bob).
-// ─────────────────────────────────────────────────────────────────────────────
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -37,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (infinite-void row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -102,7 +77,6 @@ ok('default frame defines the edge (modern/black — white glares in the dark)',
 ok('version bumped to 2.0.0',
     /'version'\s*=>\s*'2\.0\.0'/.test(chunk));
 
-// ── B. DB ↔ harness sync ────────────────────────────────────────────────────
 section('B. Harness payload ↔ seeder sync');
 const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
 for (const [label, needle] of [
@@ -150,8 +124,6 @@ for (const [n, bands] of [[1, 1], [6, 1], [12, 2], [30, 2], [60, 2], [200, 2]]) 
     ok(`${n}-work layout is deterministic`, JSON.stringify(layout) === JSON.stringify(again));
 }
 
-// Depth bands: small shows stay single-ring; large shows gain depth that
-// honours the per-band arc spacing (no two works of one band overlap).
 {
     const small = computeFloatFieldRadius(6, 3.5, { depthBands: 2 });
     ok('a 6-work show keeps the calm single ring', small.bands === 1);
@@ -173,18 +145,11 @@ for (const [n, bands] of [[1, 1], [6, 1], [12, 2], [30, 2], [60, 2], [200, 2]]) 
     let minArc = Infinity;
     for (const bandLayout of byBand) {
         const angles = bandLayout.map(() => null);
-        // recompute band membership from the layout geometry is lossy — use
-        // the pure rule instead: band = i % bands, posInBand = floor(i / bands).
         const perBandCount = [0, 0];
         layout.forEach((_, i) => perBandCount[i % bands]++);
         void angles; void bandLayout;
-        // arc spacing per band = 2π r / bandCount; band 0 (outer) is tighter
-        // than band 1 only when counts differ by more than the radius ratio —
-        // verify both bands against the brand spacing with tolerance.
         void perBandCount;
     }
-    // Simpler robust check: the radius planner must give the outer band at
-    // least the brand arc for its share of works.
     const perBand = Math.ceil(30 / 2);
     const outerArc = (2 * Math.PI * (radius - FLOAT_LAYOUT_DEFAULTS.edgeInset)) / perBand;
     ok(`outer band honours arc spacing (${outerArc.toFixed(2)} m ≥ 3.5 m)`, outerArc >= 3.5 - 1e-9);
@@ -198,10 +163,6 @@ for (const [n, bands] of [[1, 1], [6, 1], [12, 2], [30, 2], [60, 2], [200, 2]]) 
     const maxR = Math.max(...layout.map(p => Math.hypot(p.x, p.z)));
     ok('60-work banded field: outer ring sits at radius − edgeInset (± wander)',
         Math.abs(maxR - (a.radius - FLOAT_LAYOUT_DEFAULTS.edgeInset)) <= FLOAT_LAYOUT_DEFAULTS.radialWander / 2 + 1e-9);
-    // √n-ish growth: a 200-work banded field must stay well inside the
-    // legacy footprint (111 m) — and the camera far now SCALES from the real
-    // bounds (RoomBuilder sets circular roomBounds), so even the biggest
-    // field can never exceed its own far plane (the pre-fix clipping bug).
     const big = computeFloatFieldRadius(200, 3.5, { depthBands: 2 });
     const legacy = Math.max(10, Math.max(200 * 3.5, 30) / (2 * Math.PI));
     ok(`200-work banded radius stays sane (${big.radius.toFixed(1)} m < legacy ${legacy.toFixed(1)} m)`,
@@ -210,7 +171,6 @@ for (const [n, bands] of [[1, 1], [6, 1], [12, 2], [30, 2], [60, 2], [200, 2]]) 
         big.radius * 2.5 + 10 > big.radius * 2.4 + 6);
 }
 
-// ── D. JS hygiene ───────────────────────────────────────────────────────────
 section('D. JS hygiene (config authority + correctness classes)');
 const slugs = [
     'white-cube', 'industrial-loft', 'dark-museum', 'zen-gallery',
@@ -259,11 +219,6 @@ const collisionsSrc = readFileSync(rel('resources/js/gallery/Collisions.js'), 'u
 ok('circular bound consumes _circularBoundsRadius as-is (no double inset)',
     !/_circularBoundsRadius\s*-\s*0\.5/.test(collisionsSrc));
 
-// ── E. Post-deploy hotfix contracts (2026-09-05; s2/s3 generalization) ──────
-// The s2 hotfix replaced the s1 per-key unsets with the venue-owned
-// authority loop (VENUE_OWNED_VISUAL_KEYS / VENUE_OWNED_MATERIAL_KEYS +
-// void_* prefix rule), and s3 expanded it to the full material identity +
-// post_fx + placement. These checks pin the CURRENT shapes.
 section('E. Post-deploy hotfix contracts (venue-owned bg / SW / benchmark / AO)');
 const exporterSrc = readFileSync(rel('app/Services/VenueConfigExporter.php'), 'utf8');
 ok('exporter strips background_color from saved overrides (venue-owned atmosphere)',

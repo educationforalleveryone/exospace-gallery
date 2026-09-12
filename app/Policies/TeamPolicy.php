@@ -6,21 +6,6 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-/**
- * Team authorization policy.
- *
- * (Task H05 / audit H9)
- *
- * Authorization model:
- *   - view:        team owner OR team member (any role)
- *   - create:      any authenticated user
- *   - update:      team owner OR team editor
- *   - delete:      team owner only
- *   - invite:      team owner OR team editor
- *   - manageMembers: team owner only
- *
- * Super-admins bypass all checks (see before() hook).
- */
 class TeamPolicy
 {
     use HandlesAuthorization;
@@ -63,10 +48,6 @@ class TeamPolicy
         return $team->isOwner($user);
     }
 
-    /**
-     * Can the user switch to this team as their active context?
-     * Owner OR any member.
-     */
     public function switch(User $user, Team $team): bool
     {
         return $team->isOwner($user) || $team->hasMember($user);

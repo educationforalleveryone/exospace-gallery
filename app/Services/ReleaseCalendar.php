@@ -6,26 +6,8 @@ namespace App\Services;
 
 use Carbon\CarbonInterface;
 
-/**
- * ITERATION 6 — the platform's release calendar, single source of truth.
- *
- * The changelog data lived as a private array inside ChangelogController —
- * fine while the only consumer was the public /changelog page. Iteration 6
- * annotates the Master Control TTFE trend chart with release markers so an
- * operator can see whether a release moved the headline metric ("did TTFE
- * drop after the publish-workflow rework shipped?"). Two copies of the
- * release list would drift, so the data moved here and BOTH consumers read
- * this service.
- *
- * Keep entries newest-first. The version numbering matches iteration
- * milestones (v1.7 = Iteration 017) and the date is the PRODUCTION DEPLOY
- * date — annotation truth depends on it being real, not aspirational.
- */
 class ReleaseCalendar
 {
-    /**
-     * @return array<int, array<string, mixed>>
-     */
     public static function releases(): array
     {
         return [
@@ -150,11 +132,6 @@ class ReleaseCalendar
         ];
     }
 
-    /**
-     * Minimal (version, date) pairs — newest first.
-     *
-     * @return array<int, array{version: string, date: string}>
-     */
     public static function releaseDates(): array
     {
         return array_map(
@@ -163,17 +140,6 @@ class ReleaseCalendar
         );
     }
 
-    /**
-     * Releases whose deploy date falls within [$from, $to] inclusive.
-     *
-     * Used by the Master Control trend chart: annotations only make sense
-     * inside the charted window, and a 26-week chart must not draw eight
-     * crowded lines. Releases sharing a date (v1.5–v1.7 all shipped
-     * 2026-07-04) are merged into one annotation labelled
-     * "v1.5 · v1.6 · v1.7" — one deploy event, one marker.
-     *
-     * @return array<int, array{version: string, date: string}> oldest first
-     */
     public static function between(CarbonInterface $from, CarbonInterface $to): array
     {
         $byDate = [];

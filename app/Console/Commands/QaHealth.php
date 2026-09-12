@@ -9,14 +9,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 
-/**
- * qa:health — PRODUCTION-SAFE READ-ONLY in-process diagnostics.
- *
- * The ONLY profile designed to execute inside the production container
- * (read-only probes; zero mutation). Mirrors the questions a human would ask
- * after a deploy: app booted? DB answers? Redis answers? queue draining?
- * scheduler heartbeat fresh? disk sane?
- */
 class QaHealth extends Command
 {
     protected $signature = 'qa:health
@@ -123,7 +115,9 @@ class QaHealth extends Command
         return $problems === 0 ? self::SUCCESS : self::FAILURE;
     }
 
-    /** @var list<array{0:string,1:callable}> */
+    /**
+ * @var list<array{0:string,1:callable}>
+ */
     private array $probes = [];
     private int $problems = 0;
 

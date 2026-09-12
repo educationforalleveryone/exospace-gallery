@@ -16,7 +16,6 @@
         <div class="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-300" role="alert">{{ session('error') }}</div>
     @endif
 
-    {{-- ── 90-day snapshot ─────────────────────────────────────────────── --}}
     <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-8">
         @php
             $tiles = [
@@ -36,10 +35,6 @@
         @endforeach
     </div>
 
-    {{-- ITERATION 7 — weekly billing digest recipients. Managed here (DB-backed)
-         rather than env-only so changes are attributable + survive deploys. The
-         UI-managed list takes precedence over BILLING_EXPORT_EMAIL once any
-         recipient is added. --}}
     <div class="card card-pad mb-8">
         <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
             <h2 class="modal-title">📬 Weekly billing digest recipients</h2>
@@ -64,8 +59,6 @@
                     <ul class="space-y-1">
                         @foreach($digestRecipients as $recipient)
                             <li class="flex items-center justify-between gap-3 bg-gray-800/50 border border-gray-700/40 rounded px-3 py-2" x-data="{ confirming: false }">
-                                {{-- ITERATION-3: min-w-0 + break-all — a long email used to
-                                     stretch the row and shove the Remove control out of view. --}}
                                 <div class="text-sm text-gray-200 min-w-0">
                                     <span class="break-all">{{ $recipient->email }}</span>
                                     <div class="text-xs text-gray-500">added {{ $recipient->created_at?->diffForHumans() }}@if($recipient->addedBy) by {{ $recipient->addedBy->name }}@endif</div>
@@ -95,10 +88,6 @@
                     </div>
                 @endif
 
-                {{-- ITERATION-3: data-submit="disableSubmitButton" previously resolved to
-                     an undefined global on this page (defined only in teams/show) — the
-                     form had zero double-click protection. Now uses the opt-in data-busy
-                     guard (canonical helper in resources/js/app.js). --}}
                 <form method="POST" action="{{ route('super.billing.recipients.store') }}" class="mt-4 flex gap-2" data-busy data-busy-label="Adding…">
                     @csrf
                     <input type="email" name="email" required placeholder="recipient@example.com"
@@ -130,7 +119,6 @@
         </div>
     </div>
 
-    {{-- ── Money events (transactions) ─────────────────────────────────── --}}
     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 class="modal-title">💳 Money events</h2>
         <div class="flex gap-1 text-xs items-center flex-wrap">
@@ -140,8 +128,6 @@
                     {{ $label }}
                 </a>
             @endforeach
-            {{-- ITERATION 5: CSV export — same status filter, 90-day window by
-                 default (days=all for everything). Audit-logged. --}}
             <a href="{{ route('super.billing.export', array_filter(['export' => 'transactions', 'status' => $status ?? ''])) }}"
                class="px-3 py-1.5 rounded-md bg-emerald-600/80 hover:bg-emerald-500 text-white ml-1"
                title="Streamed CSV of the rows matching the current filter (90-day window)">
@@ -202,7 +188,6 @@
         </div>
     </div>
 
-    {{-- ── Webhook ledger ────────────────────────────────────────────────── --}}
     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 class="modal-title">📨 Webhook ledger</h2>
         <div class="flex gap-1 text-xs items-center">
@@ -210,8 +195,6 @@
                class="px-3 py-1.5 rounded-md {{ request('webhook_status') === 'failed' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700' }}">
                 Failed only
             </a>
-            {{-- ITERATION 5: ledger CSV export — bounded by the 90-day payload
-                 retention either way. Audit-logged. --}}
             <a href="{{ route('super.billing.export', array_filter(['export' => 'webhooks', 'webhook_status' => request('webhook_status')])) }}"
                class="px-3 py-1.5 rounded-md bg-emerald-600/80 hover:bg-emerald-500 text-white"
                title="Streamed CSV of the ledger rows (90-day window)">
@@ -258,8 +241,6 @@
                             @if($hook->payload)
                                 <details class="group">
                                     <summary class="cursor-pointer text-xs text-gray-400 hover:text-gray-200 select-none">▸ View payload</summary>
-                                    {{-- ITERATION-3: max-h + scroll — multi-KB payloads rendered as
-                                     unbounded vertical blocks inside the table row. --}}
                                     <pre class="mt-2 p-3 bg-black/60 border border-gray-700 rounded-lg text-xs leading-relaxed text-gray-300 overflow-auto max-h-80 max-w-md">{{ json_encode($hook->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                 </details>
                             @else
@@ -288,8 +269,4 @@
     </div>
 </div>
 
-{{-- ITERATION-3: the @once confirm script here carried NO nonce — the CSP
-     silently blocked it in production, so webhook replay ran unconfirmed.
-     The canonical window.exospaceConfirmWrapper (resources/js/app.js) now
-     handles every data-submit="exospaceConfirmWrapper" form. --}}
 </x-app-layout>

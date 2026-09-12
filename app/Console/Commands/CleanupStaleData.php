@@ -7,25 +7,6 @@ use App\Models\TeamInvitation;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Clean up stale data: expired pending upgrades, expired team invitations,
- * stale webhook ledger rows, and aged onboarding snapshots. (Task H61;
- * webhook retention added in ITERATION 4; snapshot hygiene in ITERATION 5.)
- *
- * - Pending upgrades older than 7 days (token expired) → marked 'expired'
- * - Team invitations past their expires_at → deleted
- * - processed_webhooks older than 90 days → deleted (GDPR bound on the
- *   stored IPN payloads — customer_email/customer_name — that power the
- *   billing review page's replay tooling. 90 days covers the 2Checkout
- *   dispute/refund window; the admin_audit_logs trail retains the
- *   decision history WITHOUT raw PII beyond that horizon.)
- * - onboarding_snapshots older than 2 years → deleted (hygiene, not a
- *   legal bound — aggregate data, no PII; keeps the trend table honest)
- * - retention_snapshots older than 2 years → deleted (ITERATION 6, same
- *   hygiene convention — the chart never reads beyond 26 points)
- *
- * Scheduled daily at 4am via routes/console.php.
- */
 class CleanupStaleData extends Command
 {
     protected $signature = 'exospace:cleanup-stale';
@@ -41,17 +22,11 @@ class CleanupStaleData extends Command
 
         $this->info('Stale data cleanup complete.');
 
-        // ITERATION 6: cadence proof for the per-job heartbeat monitor —
-        // retention-bound cleanup silently stopping is a compliance risk.
         app(\App\Services\JobHeartbeatService::class)->stamp('exospace:cleanup-stale');
 
         return self::SUCCESS;
     }
 
-    /**
-     * Mark expired pending_upgrades as 'expired' (don't delete — keep for
-     * analytics/audit). The 7-day expiry matches the token validity window.
-     */
     private function cleanupPendingUpgrades(): void
     {
         $expired = PendingUpgrade::where('status', 'pending')
@@ -66,10 +41,6 @@ class CleanupStaleData extends Command
         }
     }
 
-    /**
-     * Delete expired team invitations. The invitation's isExpired()
-     * check in the controller prevents acceptance, but the rows accumulate.
-     */
     private function cleanupTeamInvitations(): void
     {
         $deleted = TeamInvitation::where('expires_at', '<', now())->delete();
@@ -82,12 +53,6 @@ class CleanupStaleData extends Command
         }
     }
 
-    /**
-     * ITERATION 4: prune the webhook ledger at 90 days. Guarded by the
-     * payload column's existence so the cleanup is a clean no-op on
-     * databases that haven't run the Iteration-4 migration yet (rolling
-     * deploy safety).
-     */
     private function cleanupWebhookLedger(): void
     {
         if (! \Illuminate\Support\Facades\Schema::hasColumn('processed_webhooks', 'payload')) {
@@ -107,13 +72,6 @@ class CleanupStaleData extends Command
         }
     }
 
-    /**
-     * ITERATION 5: prune onboarding snapshots after 2 years. Table-guarded
-     * for rolling deploys (same convention as the webhook prune). This is
-     * hygiene, not a retention obligation — the rows are aggregates (no
-     * PII) — but a trend chart never reads beyond 26 points, and keeping
-     * years of stale windows honest is cheaper than keeping them forever.
-     */
     private function cleanupOnboardingSnapshots(): void
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('onboarding_snapshots')) {
@@ -133,12 +91,6 @@ class CleanupStaleData extends Command
         }
     }
 
-    /**
-     * ITERATION 6: prune retention snapshots after 2 years. Table-guarded
-     * for rolling deploys (same convention as the other prunes). Hygiene,
-     * not a retention obligation — the rows are aggregates (cohort sizes
-     * and percentages, no PII); the trend chart reads at most 26 points.
-     */
     private function cleanupRetentionSnapshots(): void
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('retention_snapshots')) {

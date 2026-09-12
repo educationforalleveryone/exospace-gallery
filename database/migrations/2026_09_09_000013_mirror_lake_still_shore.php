@@ -3,54 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * MIRROR LAKE v3.0.0 — "The Still Shore" (the Studio-flagship redesign).
- *
- * WHY (the forensic audit, worklog: Mirror Lake Task 1):
- *   v1.0.0 shipped a void-family room: one dark disc the visitor SPAWNED ON
- *   (the "lake" was the floor), a chrome-perfect Reflector, square mist
- *   sprites, an accidental rural_evening HDRI environment leaking into a
- *   night scene, no arrival composition, and a moon fogged to invisibility.
- *   Nothing about the geometry was a lake. The JS bundle now renders the
- *   redesigned waterfront (LakeLayout.js plan → VenueDecorator "lake" body:
- *   shoreline, landing, shore walk, over-water artwork arc, timber pier to a
- *   lantern-lit viewing pavilion, far-shore treeline, procedural night sky
- *   + PMREM environment, real water shader); this migration carries the DB
- *   half — the same split every deepening iteration uses.
- *
- * THIS MIGRATION (DB side only):
- *   visual_config   : atmosphere retune (night haze, readable exposure),
- *                     placement_mode 'float' → 'lake', structure_pass
- *                     'phenomena' → 'lake', environment 'none' declared
- *                     (the v1 accidental HDRI leak is dead), hemisphere
- *                     sky/ground tints, no ceiling orb, declared field
- *                     sizing (a lake needs shore + water + far shore),
- *                     artwork light floor + cap, the 'lake' identity block
- *                     (sky_environment + the asset manifest, owned
- *                     wholesale like 'garden'), post_fx (bloom OFF — calm).
- *   material_config : the land stops pretending to be a mirror-metal floor
- *                     (roughness 1.0, metalness 0.0) — it is a dark
- *                     lakeside meadow now; the WATER is its own object.
- *   lighting_fixtures: the v1 moonlight fixture is removed — the moon is
- *                     plan-built now (position from the lake plan, streak
- *                     on the fallback tiers, reflection in the water).
- *   tags            : 'moonlit' → 'lakeside'.
- *   description     : verifiable copy (what a visitor will actually see).
- *   version         : 1.0.0 → 3.0.0 under guard.
- *
- * ROLLBACK: down() reverses every rewrite under the same exact-match guards
- * (structure_pass back to 'phenomena' re-activates the v1 void-lake body,
- * untouched in the bundle). A super-admin's custom value never matches the
- * guard and is never touched. Idempotent. No destructive commands; no
- * seeding of production.
- */
 return new class extends Migration
 {
-    /**
-     * Exact-match guard: strings strictly, numbers numerically (null never
-     * matches). Keeps an admin's custom value from ever matching the seeded
-     * "from" value the rewrite is guarded on.
-     */
     private function guardedEquals($current, $from): bool
     {
         if ($current === null) {
@@ -109,7 +63,6 @@ return new class extends Migration
             return; // venue removed by the operator — respect that
         }
 
-        // ── visual_config ────────────────────────────────────────────────
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
@@ -131,8 +84,6 @@ return new class extends Migration
             }
         }
 
-        // New identity keys — added ONLY while absent (admin edits win),
-        // the phenomena-migration union contract.
         $vcAdds = [
             'hemisphere_intensity'    => 0.45,
             'hemisphere_sky_color'    => '0x3d5680',
@@ -198,7 +149,6 @@ return new class extends Migration
                 ->update(['lighting_fixtures' => json_encode([])]);
         }
 
-        // ── tags ─────────────────────────────────────────────────────────
         $v1Tags = ['mirror', 'reflection', 'moonlit', 'meditative'];
         if (json_decode((string) $row->tags, true) === $v1Tags) {
             DB::table('venue_templates')
@@ -213,7 +163,6 @@ return new class extends Migration
                 ->update(['description' => $this->v3Description()]);
         }
 
-        // ── version ──────────────────────────────────────────────────────
         if ($this->guardedEquals($row->version, '1.0.0')) {
             DB::table('venue_templates')->where('id', $row->id)->update(['version' => '3.0.0']);
         }

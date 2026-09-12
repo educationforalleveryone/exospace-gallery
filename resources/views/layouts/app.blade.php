@@ -5,11 +5,6 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        {{-- I-1 FIX (Iter-013): noindex,nofollow on all admin/auth pages.
-            Covers ~80 admin views (dashboard, galleries, billing, profile,
-            teams, super-admin) with one line. Prevents Google from indexing
-            authenticated user content (gallery lists, billing history, etc.)
-            that may leak through weak auth or session-token-in-URL bugs. --}}
         <meta name="robots" content="noindex,nofollow">
 
         <title>{{ config('app.name', 'Exospace') }} — {{ isset($pageTitle) ? $pageTitle : 'Dashboard' }}</title>
@@ -21,10 +16,6 @@
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-        {{-- ITERATION-1: all global CSS (focus ring, page fade, card-lift, tooltip,
-             progress, reduced-motion) moved into resources/css/app.css so every
-             layout — guest, public, ops, control-center — inherits the same
-             behavior. Nothing layout-specific remains inline here. --}}
     </head>
     <body class="font-sans antialiased bg-ink-900 text-gray-100">
         <!-- Skip to main content (accessibility) -->
@@ -32,7 +23,6 @@
             Skip to main content
         </a>
 
-        {{-- M-13: Impersonation banner — shown when a super-admin is logged in as another user --}}
         @php
             $impersonationService = app(\App\Services\ImpersonationService::class);
             $isImpersonating = $impersonationService->isImpersonating();
@@ -67,9 +57,6 @@
                 </header>
             @endisset
 
-            {{-- (Task H10 / audit H40) — every admin page needs an <h1> for
-                 screen-reader navigation. Pages that don't provide a $header
-                 slot get a visually-hidden h1 with the page title. --}}
             @empty($header)
                 <h1 class="sr-only">{{ $pageTitle ?? 'Dashboard' }}</h1>
             @endempty
@@ -84,24 +71,9 @@
         @include('layouts.partials.cookie-banner')
 
         {{-- ITERATION-2 (AUDIT-P1-2.5): Unified toast component. --}}
-        {{-- Previously the toast container + window.toast() function were
-             inlined in BOTH app.blade.php and public.blade.php — the two
-             copies had drifted. Now this is the single source of truth. --}}
         <x-toast />
 
         <script nonce="@nonce">
-        // Keyboard shortcut: G+D = dashboard, G+G = galleries
-        // FIX (Iter-002): Turbo Drive re-inserts/re-executes this <script>
-        // block's contents on every navigation. A top-level `let lastKey` is
-        // fine on a real full page load, but on the SECOND Turbo navigation
-        // the browser throws "Identifier 'lastKey' has already been declared"
-        // because the previous `let` is still alive in this same JS realm —
-        // Turbo never reloads the document. That uncaught SyntaxError was
-        // aborting Turbo's body-swap mid-flight, which is also why dropdowns,
-        // modals, and other page elements appeared to "randomly pop"/freeze
-        // after navigating. Wrapping in an IIFE + a one-time guard fixes the
-        // redeclaration and stops us from stacking a fresh keydown listener
-        // on `document` (which persists across Turbo navigations) every visit.
         if (!window.__exospaceShortcutsInit) {
             window.__exospaceShortcutsInit = true;
             (function() {
@@ -123,44 +95,13 @@
             })();
         }
         </script>
-        {{-- ITERATION-3: openModal/closeModal + the global modal system
-             (backdrop click, Escape, Tab trap, scroll lock, focus restore)
-             moved into resources/js/app.js so the admin and public layouts
-             share ONE implementation. `showUpgradeModal` is kept as the
-             historical alias used by dashboard CTAs. --}}
         <script nonce="@nonce">
         function showUpgradeModal(){ openModal('upgrade-modal'); }
         </script>
         <script nonce="@nonce">
-        // ── CSP-safe global interaction delegates (ITERATION-3) ───────────────
-        // CRITICAL FIX: logout links, data-confirm forms and data-confirm-click
-        // buttons were previously bound PER-ELEMENT inside DOMContentLoaded.
-        // DOMContentLoaded fires once per real page load — Turbo Drive swaps
-        // <body> on later navigations without ever firing it again, so on
-        // every Turbo-navigated page:
-        //   • Sign out submitted via GET → 405 error
-        //   • every data-confirm / data-confirm-click guard silently
-        //     disappeared → destructive actions ran WITHOUT confirmation.
-        // All handlers below are delegated on `document` (which persists
-        // across Turbo navigations) inside one-time guards, so they work on
-        // the first page AND on every Turbo-swapped page after it.
-        //
-        // data-confirm / data-confirm-click now route through the styled
-        // window.exospaceConfirm() dialog instead of native window.confirm()
-        // (one confirm mechanism, one visual language, double-submit guarded).
         if (!window.__exospaceDelegatesInit) {
             window.__exospaceDelegatesInit = true;
 
-            // ── CSP-safe logout links ─────────────────────────────────────
-            // <a href="/logout" data-logout-link> inside a <form> submits the
-            // form instead of navigating (native GET would 405).
-            //
-            // LOGOUT-ITERATION: the submit is one-shot and guarded. Native
-            // form.submit() bypasses the submit event, so the data-busy
-            // delegate never sees it — the re-entry check and the shared
-            // exospaceGuardForm() (disable controls + spinner + 60s safety
-            // net) run here instead. Prevents double POSTs that would land
-            // on a 419 after the first one already invalidated the session.
             document.addEventListener('click', (e) => {
                 const el = e.target.closest('[data-logout-link]');
                 if (!el) return;
@@ -172,8 +113,6 @@
                 form.submit();
             });
 
-            // ── Confirm-on-submit forms ───────────────────────────────────
-            // <form data-confirm="Are you sure?">…</form>
             document.addEventListener('submit', (e) => {
                 const form = e.target.closest?.('form[data-confirm]');
                 if (!form || form.__exospaceConfirming) return;
@@ -184,7 +123,6 @@
                 });
             });
 
-            // ── Confirm-on-click buttons/links ────────────────────────────
             document.addEventListener('click', (e) => {
                 const el = e.target.closest('[data-confirm-click]');
                 if (!el || el.__exospaceConfirming) return;
@@ -199,19 +137,6 @@
                 });
             });
 
-            // ── Delegated action handlers ─────────────────────────────────
-            // Replaces inline onclick="fn(arg)" / onchange="fn(this)" /
-            // oninput="fn(this, event)" with declarative attributes:
-            //
-            //   <button data-click="deleteImage" data-arg="42">Delete</button>
-            //   <button data-click="dashboardShare" data-args='["https://...", "Title"]'>Share</button>
-            //   <input data-change="uploadAudioFile">
-            //   <input data-input="syncCurtainColor">
-            //
-            // The handler resolves window[fn] and calls it.
-            //   - data-arg (string):  fn(arg, event)
-            //   - data-args (JSON):   fn(...args, event)
-            //   - neither:            fn(el, event)
             const delegate = (eventName, attr) => {
                 document.addEventListener(eventName, (e) => {
                     const el = e.target.closest(`[${attr}]`);
@@ -237,14 +162,6 @@
             delegate('input', 'data-input');
             delegate('submit', 'data-submit');
 
-            // ── CSP-safe image error fallback ───────────────────────────
-            // <img data-onerror-hide> hides itself on load failure so a
-            // styled fallback element underneath shows through. Replaces
-            // inline onerror="this.style.display='none'" (blocked by CSP —
-            // event-handler attributes aren't covered by the script nonce).
-            // The 'error' event on <img> does NOT bubble, so this must be a
-            // CAPTURING listener on the document, not the usual bubble-phase
-            // delegate() helper above.
             document.addEventListener('error', (e) => {
                 const el = e.target;
                 if (el?.matches?.('[data-onerror-hide]')) el.style.display = 'none';
@@ -255,9 +172,6 @@
         @include('components.feedback-widget')
 
         {{-- ITERATION-3 (AUDIT-P1-3.2): ⌘K command palette. --}}
-        {{-- Triggered by ⌘K (Mac) or Ctrl+K (Windows/Linux) or "/" when not in
-             an input. Progressive enhancement — no impact when JS fails.
-             Disable via FEATURE_FLAG_COMMAND_PALETTE=false in .env. --}}
         @if(\App\Services\FeatureFlag::isEnabled('command_palette'))
             <x-command-palette />
         @endif

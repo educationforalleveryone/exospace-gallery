@@ -2,13 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-002 regression tests for audit 2CO-2 (signed buy link) and
- * 2CO-8 (trial fraud rate limit).
- *
- * Run: php artisan test --filter=SignedBuyLinkAndTrialFraudTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\User;

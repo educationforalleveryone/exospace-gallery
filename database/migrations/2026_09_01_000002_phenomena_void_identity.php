@@ -3,59 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Iteration 2 "Phenomena" (roadmap P1.2): the Void family identity pass.
- *
- * WHAT IT SHIPS (data side)
- * -------------------------
- * For the four void venues (infinite-void, crystal-cathedral, nebula-drift,
- * mirror-lake):
- *
- *   1. Declared-identity keys merged into visual_config:
- *        placement_mode    = 'float'        → artworks hover (§10.5) — the
- *                                             "floating artworks" promise made
- *                                             literally true on every tier.
- *        structure_pass    = 'phenomena'    → the new structure bodies render
- *                                             (colonnade / fog-exempt stars /
- *                                             reflector path). This key is the
- *                                             PER-VENUE ROLLBACK SWITCH: remove
- *                                             it from one venue's JSON and that
- *                                             venue reverts to its pre-pass
- *                                             render, live, no deploy.
- *        floor_edge_fade   = true           → infinite-void only: the ground
- *                                             disc dissolves into the void (§4.2).
- *        glass_material    = 'transmission' → cathedral only: true glass on
- *                                             high tier, DESIGNED cheap-glass
- *                                             fallback on mobile/low-end — the
- *                                             null-glass defect is unreachable.
- *        floor_reflection  = 'planar'       → mirror-lake only: real planar
- *                                             reflection on high tier, designed
- *                                             dark-gloss mood on mobile/low-end.
- *        env_intensity     = 0 / 0.05 / 0.15→ silences the accidental HDRI
- *                                             horizon glow inside voids (§4.7).
- *
- *   2. Copy re-tightened (the roadmap's P0.1 loop: words → render → words):
- *      the Iteration 0 wording described easels because easels were the truth.
- *      Float placement + the reflector now ship, so the descriptions return to
- *      promising the real phenomena. Each rewrite is GUARDED: it applies only
- *      when the row still carries the exact Iteration 0 text — a super-admin
- *      who customized a description keeps theirs.
- *
- * NAME DECISION GATE (§4.11): resolved — the reflector ships, so the venue
- * keeps the name "Mirror Lake". No rename in this migration.
- *
- * SAFETY (production data protection)
- * -----------------------------------
- * visual_config keys are merged with array UNION: a key the admin has already
- * set is NEVER overwritten — only ABSENT keys are added. Descriptions are
- * guarded by exact-match on the Iteration 0 text. The migration is portable
- * (PHP read-modify-write, no MySQL-only JSON functions) so it runs identically
- * on MySQL/MariaDB and in the sqlite test environment. Idempotent: re-running
- * adds nothing (keys present) and rewrites nothing (guards miss).
- *
- * Rollback: down() removes exactly the keys added (only where still equal to
- * what up() wrote) and restores the Iteration 0 descriptions (same guard).
- */
 return new class extends Migration
 {
     private const OLD_DESCRIPTIONS = [
@@ -72,9 +19,6 @@ return new class extends Migration
         'mirror-lake'       => 'A still, dark lake reflects the floating artworks and the moon. Mist drifts low. Quiet, spacious, meditative.',
     ];
 
-    /**
-     * Per-venue visual_config keys to ADD (absent keys only — admin edits win).
-     */
     private function identityKeys(): array
     {
         return [
@@ -138,8 +82,6 @@ return new class extends Migration
                 continue;
             }
 
-            // Remove exactly the keys up() added — but only while they still
-            // carry the value up() wrote (an admin's later edit is preserved).
             $existing = json_decode((string) $row->visual_config, true) ?: [];
             foreach ($keys as $key => $value) {
                 if (array_key_exists($key, $existing) && $existing[$key] === $value) {

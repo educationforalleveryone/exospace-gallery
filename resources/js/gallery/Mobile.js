@@ -1,27 +1,6 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Mobile — touch joystick + look pad + sprint toggle
-//
-// Detects touch devices on init. If detected:
-//   - Disables PointerLockControls
-//   - Shows the mobile-overlay (defined in view.blade.php)
-//   - Wires joystick (left half of screen) + look pad (right half)
-//   - Exposes _mobileUpdateMovement() so Movement.js can call it
-//
-// PERF-B10 (3D audit F10): all document/zone listeners are now registered
-// exactly once behind `this._mobileBound` — a WebGL context-restore rebuild
-// re-runs setupMobileControls, and the old code re-attached every touch
-// listener (double-fired joystick/look events). The dead `this._initJoystick?.()`
-// calls that ran BEFORE the functions were defined are also gone.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { CONFIG } from './config.js';
 
 export function setupMobileControls() {
-    // P2-17 FIX: Use pointer:coarse media query instead of UA-sniffing.
-    // UA-sniffing is fragile — iPad on iOS 13+ reports as Mac desktop.
-    // pointer:coarse reliably detects touch-primary devices.
-    // Fallback to maxTouchPoints for older browsers that don't support
-    // matchMedia('pointer:coarse').
     const isMobile = window.matchMedia('(pointer: coarse)').matches
         || (navigator.maxTouchPoints > 0 && 'ontouchstart' in window);
 
@@ -73,7 +52,6 @@ export function setupMobileControls() {
             lastTouchEnd = now;
         }, { passive: false });
 
-        // ── Joystick (left half) ────────────────────────────────────────
         const zone  = document.getElementById('joystick-zone');
         const base  = document.getElementById('joystick-base');
         const thumb = document.getElementById('joystick-thumb');
@@ -125,7 +103,6 @@ export function setupMobileControls() {
             });
         }
 
-        // ── Look pad (right half) ───────────────────────────────────────
         const lookZone = document.getElementById('look-zone');
         if (lookZone) {
             lookZone.addEventListener('touchstart', (e) => {
@@ -159,7 +136,6 @@ export function setupMobileControls() {
                 }
             });
 
-            // ── Double-tap to focus artwork ─────────────────────────────
             lookZone.addEventListener('touchend', () => {
                 const now = Date.now();
                 if (now - this.mobileState.lastTap < 300) {
@@ -169,7 +145,6 @@ export function setupMobileControls() {
             });
         }
 
-        // ── Sprint toggle button ────────────────────────────────────────
         const sprintBtn = document.getElementById('sprint-btn');
         if (sprintBtn) {
             sprintBtn.addEventListener('touchstart', (e) => {
@@ -191,8 +166,6 @@ export function setupMobileControls() {
         }
     }
 
-    // Wire the movement function — Movement.js calls this._mobileUpdateMovement()
-    // (re-bound on every setup so a context-restore rebuild stays wired)
     this._mobileUpdateMovement = _mobileUpdateMovement.bind(this);
 }
 

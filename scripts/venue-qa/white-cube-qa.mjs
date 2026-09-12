@@ -1,27 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// white-cube-qa.mjs — the venue QA gate for Modern White Cube.
-//
-//   node scripts/venue-qa/white-cube-qa.mjs
-//
-// Runs WITHOUT a PHP stack (plain Node over the repo checkout), so it fits
-// CI containers and build sandboxes. Uses the project's existing QA layering:
-// it pins CONTRACTS (config authority, placement geometry, determinism),
-// while tests/Feature/VenueWhiteCubePolishIterationTest.php pins the DB side
-// and scripts/harness/shoot.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the white-cube row declares the polished identity
-//      (gallery-white fog, physical-unit rig, post_fx restraint, layouts).
-//   B. DB↔harness sync — the PHP-less harness renders the same JSON a fresh
-//      install seeds (drift here means screenshots stop meaning anything).
-//   C. Placement invariants — driven through the REAL placement modules:
-//      aspect clamps, partial-run centring, wall contact, bounds, and the
-//      determinism contract (same inputs → identical transforms).
-//   D. JS hygiene — no venue slugs in the runtime (DoD rule #7), and the
-//      mipmap-less texture path always pairs with LinearFilter (the
-//      black-artwork low-end bug class).
-// ─────────────────────────────────────────────────────────────────────────────
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -36,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (white-cube row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -88,7 +64,6 @@ ok('all four advertised layouts supported',
 ok('version bumped to 1.1.0 (polish iteration)',
     /'version'\s*=>\s*'1\.1\.0'/.test(chunk));
 
-// ── B. DB ↔ harness sync ────────────────────────────────────────────────────
 section('B. Harness payload ↔ seeder sync');
 const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
 for (const [label, needle] of [
@@ -181,9 +156,6 @@ function runSquare(imageCount) {
         hang.every(g => Math.abs(g.position.x) <= half + 0.01 && Math.abs(g.position.z) <= half + 0.01));
     ok('artworks hang at eye level (1.6 m)',
         hang.every(g => Math.abs(g.position.y - 1.6) < 0.001));
-    // Upright = the canvas world normal is horizontal (|ny| ≈ 0) and points
-    // INTO the room. Euler angles are the wrong instrument: lookAt's 180°
-    // yaw has equivalent euler representations like (−π, 0, −π).
     const normalsUpright = hang.every(g => {
         const n = new THREE.Vector3(0, 0, 1).applyQuaternion(g.quaternion);
         return Math.abs(n.y) < 1e-6;
@@ -192,9 +164,6 @@ function runSquare(imageCount) {
     const facingIn = hang.every((g, i) => {
         const n = new THREE.Vector3(0, 0, 1).applyQuaternion(g.quaternion);
         const toCenter = new THREE.Vector3(-g.position.x, 0, -g.position.z).normalize();
-        // Off-centre hang positions tilt `toCenter` vs the wall normal
-        // (~19° at ±1.75 m on a 10.5 m wall) — the invariant is the
-        // inward hemisphere, not exact alignment.
         return n.dot(toCenter) > 0.5;
     });
     ok('every canvas faces into the room', facingIn);
@@ -283,7 +252,6 @@ function runSquare(imageCount) {
     ok('placement is deterministic (two runs → identical transforms)', sig(a) === sig(b));
 }
 
-// ── D. JS hygiene ───────────────────────────────────────────────────────────
 section('D. JS hygiene (config authority + correctness classes)');
 {
     const dir = rel('resources/js/gallery');

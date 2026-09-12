@@ -10,27 +10,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
-/**
- * Iteration-003: Migration integrity test (audit G-3 + G-4 fix).
- *
- * The "consolidated migrations" pattern in this codebase is a time-bomb:
- * the archive README instructs maintainers to move original additive migrations
- * into the archive directory once all prod environments have run the consolidated
- * versions. The consolidated migrations for `users` and `galleries` were INCOMPLETE:
- *   - users: missing 12+ columns added by later additive migrations (MFA, OAuth,
- *     subscriptions, dunning, marketing_consent, trial, has_password, etc.)
- *   - galleries: missing softDeletes() (the Gallery model's SoftDeletes trait
- *     injects WHERE deleted_at IS NULL into every query)
- *
- * Once the additive migrations are archived, `php artisan migrate:fresh` produces
- * a schema missing those columns, and the User/Gallery models crash with
- * "column not found" on every query.
- *
- * This test runs `migrate:fresh` on a clean SQLite DB and asserts that every
- * column referenced by the models exists in the resulting schema.
- *
- * Run: php artisan test --filter=MigrateFreshTest
- */
 class MigrateFreshTest extends TestCase
 {
     use RefreshDatabase;
@@ -102,29 +81,18 @@ class MigrateFreshTest extends TestCase
 
     public function test_transactions_table_does_not_have_user_id_fk_after_partitioning(): void
     {
-        // The partition migration drops the transactions.user_id FK because
-        // MySQL/InnoDB cannot be the target of a FK when the table is partitioned.
-        // This test documents that behavior so future maintainers don't try to
-        // re-add it (which would fail on MySQL with partitioning enabled).
-        // On SQLite (test env), partitioning is a no-op and the FK may still exist.
         $this->assertTrue(Schema::hasTable('transactions'));
         $this->assertTrue(Schema::hasColumn('transactions', 'user_id'));
     }
 
     public function test_analytics_events_table_does_not_have_country_column(): void
     {
-        // C-3 FIX (Iter-003): The country column was dropped. The model $fillable
-        // was also updated. This test asserts the schema matches the model — if
-        // someone re-adds the column without updating the model (or vice versa),
-        // this test fails.
         $this->assertFalse(Schema::hasColumn('analytics_events', 'country'),
             'analytics_events.country column was dropped. If you re-add it, also update AnalyticsEvent::$fillable.');
     }
 
     public function test_invoices_table_exists_with_required_columns(): void
     {
-        // G-1 + G-5: invoices table must exist with the PII columns that
-        // AnonymizeTransactionPii will anonymize.
         $this->assertTrue(Schema::hasTable('invoices'));
         $this->assertTableHasColumns('invoices', [
             'id',
@@ -183,18 +151,8 @@ class MigrateFreshTest extends TestCase
 
     public function test_rollback_and_re_migrate_works(): void
     {
-        // ITERATION-1 FIX: SQLite connection-level FK enforcement re-enables
-        // itself per connection; the Artisan call uses the same connection.
-        // Disable via config so DROP TABLE order doesn't matter, matching
-        // MySQL's behavior where consolidated rollbacks already work.
-        // ITERATION-1 FIX: DB::purge() on the :memory: connection destroys
-        // the database itself (a NEW in-memory DB is created per
-        // connection). Instead run the rollback on the SAME connection with
-        // FKs disabled via a direct PRAGMA statement, then re-enable.
         DB::statement('PRAGMA foreign_keys = OFF');
         try {
-            // Verify every migration has a working down() method by rolling
-            // back and re-migrating. If any down() throws, this test fails.
             $exitCode = Artisan::call('migrate:rollback', ['--force' => true]);
             $this->assertEquals(0, $exitCode, 'migrate:rollback failed — a migration has a broken down() method.');
 
@@ -205,9 +163,6 @@ class MigrateFreshTest extends TestCase
         }
     }
 
-    /**
-     * Assert that a table has all the specified columns.
-     */
     private function assertTableHasColumns(string $table, array $columns): void
     {
         $missing = [];

@@ -1,34 +1,3 @@
-{{--
-    Iteration 1 "The Rehearsal" (roadmap P1.1) — walkable venue preview.
-
-    WHAT THIS PAGE IS
-    -----------------
-    A public, no-auth, sample-only 3D walkthrough of a venue template,
-    rendered by the SAME runtime (resources/js/gallery/main.js) and the
-    SAME GALLERY_DATA contract as a customer gallery
-    (see VenuePreviewController for the payload's safety properties).
-
-    WHY IT IS SELF-CONTAINED (not an @extends of gallery/view.blade.php)
-    -------------------------------------------------------------------
-    gallery/view.blade.php is the money page — it is deeply coupled to a
-    real Gallery model (owner plan, curtain branding, events, newsletter,
-    OG images, analytics session). Reusing it for previews would mean
-    threading preview conditionals through every one of those surfaces,
-    each one a potential user-data leak. Instead this template mirrors the
-    viewer's REQUIRED DOM surface (the ids the 3D runtime queries) and
-    carries none of the user-data machinery:
-
-      ✗ no analytics        — the viewer's tracking global is never configured
-      ✗ no newsletter form  — the newsletter endpoint key stays null
-      ✗ no events           — hasUpcomingEvents is false
-      ✗ no OG/artwork pages — no per-artwork OG routes, no deep-links
-      ✗ no crawl indexing   — meta robots + X-Robots-Tag (controller)
-
-    SYNC NOTE (Iteration 5 "Authoring" will replace this with the admin
-    preview iframe machinery): the viewer CSS below is adapted from
-    gallery/view.blade.php. If you change viewer chrome styles there
-    (crosshair, info panel, tour HUD, mobile overlay), mirror them here.
---}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-turbo="false">
 <head>
@@ -36,9 +5,6 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    {{-- NOINDEX (brace to the controller's X-Robots-Tag header): a preview
-         is infinite thin-ish content; it must never compete with the
-         crawlable /venues/{slug} page or real exhibitions in search. --}}
     <meta name="robots" content="noindex, nofollow">
 
     <title>{{ $venue->name }} — Venue Preview | {{ config('seo.site_name', 'Exospace') }}</title>
@@ -58,12 +24,6 @@
         #canvas-container { width: 100vw; height: 100vh; display: block; }
         .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 
-        /* ── Preview HUD (top bar) ─────────────────────────────────────────
-           Persistent, curtain-independent chrome: back to the venue page on
-           the left, the sample label + "use this venue" CTA on the right.
-           z-index 150: above the canvas + ui-layer, below the curtain (200)
-           — but the curtain carries its own CTA link (see below) so the
-           funnel works during loading too. */
         #preview-hud {
             position: fixed; top: 0; left: 0; right: 0; z-index: 150;
             display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -104,7 +64,6 @@
             .preview-cta { padding: 8px 14px; font-size: 0.75rem; }
         }
 
-        /* ── Entrance curtain ────────────────────────────────────────────── */
         #entrance-curtain {
             position: fixed; inset: 0; z-index: 200;
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
@@ -133,7 +92,6 @@
         }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
 
-        /* ── UI overlay ──────────────────────────────────────────────────── */
         #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
         .ui-interactive { pointer-events: auto; }
 
@@ -168,7 +126,6 @@
             background: rgba(0, 0, 0, 0.92);
         }
 
-        /* ── Crosshair ───────────────────────────────────────────────────── */
         #crosshair {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
@@ -187,7 +144,6 @@
             box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
         }
 
-        /* ── Tour overlay ────────────────────────────────────────────────── */
         #tour-overlay {
             position: absolute; inset: 0; pointer-events: none; display: none; z-index: 50;
         }
@@ -240,7 +196,6 @@
             border-radius: 6px;
         }
 
-        /* ── Mobile overlay ──────────────────────────────────────────────── */
         @media (pointer: coarse), (hover: none) {
             #desktop-controls { display: none !important; }
         }
@@ -302,7 +257,6 @@
         </div>
     </noscript>
 
-    {{-- WebGL fallback (shown by the inline script below when WebGL is unavailable) --}}
     <div id="webgl-fallback" style="display:none; max-width: 600px; margin: 4rem auto; padding: 2rem; text-align: center; color: #e2e8f0; font-family: system-ui, sans-serif;">
         <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">WebGL Not Available</h2>
         <p style="color: #94a3b8; margin-bottom: 1.5rem;">
@@ -312,11 +266,6 @@
         <a href="{{ route('venues.show', $venue->slug) }}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600;">Back to the venue page →</a>
     </div>
 
-    {{-- ── Preview HUD ───────────────────────────────────────────────────────
-         Persistent chrome while walking. Left: exit back to the venue page.
-         Right: the sample label + the conversion CTA. Previews ARE the
-         funnel (roadmap DO NOT DO #10) — the CTA is never gated, nagged, or
-         countdown-limited; it is simply there. --}}
     <div id="preview-hud">
         <div class="preview-hud-side">
             <a class="preview-back" href="{{ route('venues.show', $venue->slug) }}">
@@ -326,11 +275,6 @@
         </div>
         <div class="preview-hud-side">
             @featureFlag('venue_try_on')
-            {{-- Iteration 7 "Frontier" (P3.1 spike): upload one LOCAL image,
-                 see it on this venue's wall. The file NEVER leaves the
-                 browser — TryOn.js does no network I/O and nothing is
-                 persisted; the input lives in the page, the texture lives
-                 in GPU memory, and a reload removes every trace. --}}
             <label for="tryon-input" class="preview-chip" style="cursor: pointer;"
                    title="Pick a local image — it is rendered in your browser only, never uploaded">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -361,7 +305,6 @@
         </div>
     </div>
 
-    {{-- ── Entrance curtain ─────────────────────────────────────────────────── --}}
     <div id="entrance-curtain">
         <div style="max-width: 800px; text-align: center; padding: 0 2rem;">
             <div class="entrance-logo">EXOSPACE</div>
@@ -434,7 +377,6 @@
         </div>
     </div>
 
-    {{-- ── 3D canvas ───────────────────────────────────────────────────────── --}}
     <div id="canvas-container"
          role="application"
          aria-label="Interactive 3D venue preview: {{ $venue->name }} sample exhibition — Use WASD to move, mouse to look, E to view artwork info, T for guided tour. Press Escape to exit pointer lock."
@@ -444,7 +386,6 @@
         This is an interactive 3D venue preview with sample artworks. Use keyboard: W A S D or arrow keys to move, mouse to look around, E to view artwork information, T for a guided tour, Escape to close dialogs. On mobile, use the on-screen joystick.
     </div>
 
-    {{-- ── Tour overlay ───────────────────────────────────────────────────── --}}
     <div id="tour-overlay" aria-hidden="true">
         <div id="tour-progress-bar" aria-hidden="true"></div>
         <div id="tour-hud" role="group" aria-label="Guided tour controls">
@@ -472,7 +413,6 @@
         </div>
     </div>
 
-    {{-- ── UI overlay ───────────────────────────────────────────────────────── --}}
     <div id="ui-layer">
         <div class="absolute top-20 left-6">
             <h1 class="text-white text-2xl font-bold drop-shadow-lg mb-1">{{ $venue->name }}</h1>
@@ -515,10 +455,6 @@
             </div>
         </div>
 
-        {{-- Artwork info panel — sample artworks carry title/description/
-             medium/year/dimensions only: no artist link, no price row, no
-             external link (updateArtworkMeta hides those rows when the
-             payload omits the data — samples always do). --}}
         <div id="info-panel" aria-live="polite" aria-atomic="true">
             <h3 id="artwork-title">Artwork Title</h3>
             <p id="artwork-description">Description will appear here</p>
@@ -557,8 +493,6 @@
 
     {{-- ── Gallery data injection (consumed by main.js) ───────────────────── --}}
     <script nonce="@nonce">
-        // WebGL detection — show the fallback div and hide the curtain if
-        // WebGL is unavailable (same pattern as gallery/view.blade.php).
         (function() {
             var canvas = document.createElement('canvas');
             var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -570,8 +504,6 @@
             }
         })();
 
-        // Service worker: cache the shared 3D engine assets. A visitor who
-        // previews a venue then opens a real gallery boots from disk cache.
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/sw.js').catch(function() {});
@@ -581,11 +513,6 @@
         window.EXOSPACE_REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         window.EXOSPACE_DEBUG = new URLSearchParams(window.location.search).has('debug');
 
-        // NOTE (analytics silence): the gallery viewer's analytics module
-        // no-ops unless a track endpoint + session id are configured. This
-        // page deliberately configures NEITHER, so preview walks cannot
-        // inflate gallery analytics or view counts. Do not add them here.
-
         window.GALLERY_DATA = @json($galleryData);
 
         if (!window.GALLERY_DATA || window.GALLERY_DATA.images.length === 0) {
@@ -594,9 +521,6 @@
             window.GALLERY_DATA._isEmpty = true;
         }
 
-        // Artwork info panel updater (same shape as gallery/view.blade.php,
-        // minus price/artist/external-link/share rows — samples never carry
-        // that data, so the rows stay hidden and the code paths stay dead).
         window.updateArtworkMeta = function(data) {
             const metaPanel = document.getElementById('artwork-meta');
             const detailsEl = document.getElementById('artwork-details');

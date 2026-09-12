@@ -2,25 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * ITERATION 5 — sitemap events group tests.
- *
- * The events group lists /gallery/{slug}/events for galleries with at
- * least one ACTIVE UPCOMING event. Inclusion rules deliberately mirror
- * PublicEventController::index (NOT publiclyViewable): PIN and closed
- * galleries redirect (never list a redirect URL), while not-yet-open
- * galleries keep their events page public — openings are the pre-opening
- * marketing surface (Iteration-3 decision).
- *
- * Also pins:
- *   - GalleryScheduleEvent writes bump the sitemap version (observer
- *     registration — before Iteration 5, announcing an opening never
- *     invalidated the sitemap cache)
- *   - The events group participates in sitemap:warm
- *
- * Run: php artisan test --filter=SitemapEventsGroupTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Gallery;
@@ -65,8 +46,6 @@ class SitemapEventsGroupTest extends TestCase
             'is_active'  => true,
         ], $attrs));
     }
-
-    // ── Index + group content ───────────────────────────────────────────
 
     public function test_sitemap_index_lists_the_events_group(): void
     {
@@ -126,9 +105,6 @@ class SitemapEventsGroupTest extends TestCase
 
     public function test_not_yet_open_galleries_are_included_in_the_events_group(): void
     {
-        // Deliberate difference from the galleries group: the events page of
-        // a future-opening exhibition stays public — openings and artist
-        // talks are the pre-opening marketing surface (Iteration 3).
         $gallery = $this->makePublicGallery(['opens_at' => now()->addDays(10)]);
         $this->addUpcomingEvent($gallery, ['starts_at' => now()->addDays(10)->addHours(2)]);
 
@@ -180,16 +156,12 @@ class SitemapEventsGroupTest extends TestCase
 
     public function test_empty_events_group_is_not_listed_in_the_index(): void
     {
-        // No events anywhere — but galleries/artists may exist so the index
-        // itself renders.
         $gallery = $this->makePublicGallery();
 
         $xml = $this->get('/sitemap.xml')->getContent();
 
         $this->assertStringNotContainsString('sitemap-events-', $xml, 'no upcoming events anywhere → group omitted from the index');
     }
-
-    // ── Cache invalidation ──────────────────────────────────────────────
 
     public function test_event_writes_bump_the_sitemap_version(): void
     {
@@ -202,17 +174,12 @@ class SitemapEventsGroupTest extends TestCase
         $after = (int) \Illuminate\Support\Facades\Cache::get('seo:sitemap:version');
         $this->assertGreaterThan($before, $after, 'announcing an event invalidates the sitemap cache (ITERATION 5 observer registration)');
 
-        // And a non-SEO-relevant write must NOT bump (no churn rule):
-        // capacity changes don't alter the URL set or the page's indexed
-        // content signals — the observer's WATCHED filter skips them.
         \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 100);
         $event = GalleryScheduleEvent::first();
         $event->capacity = 42;
         $event->save();
         $this->assertSame(100, (int) \Illuminate\Support\Facades\Cache::get('seo:sitemap:version'), 'capacity is not a watched attribute — no version churn');
     }
-
-    // ── Warming ─────────────────────────────────────────────────────────
 
     public function test_sitemap_warm_covers_the_events_group(): void
     {

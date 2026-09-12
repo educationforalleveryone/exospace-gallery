@@ -2,13 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-002 regression tests for audit 2CO-1 (cancel/reactivate auth),
- * 2CO-7 (same-plan renewal), and the TwoCheckoutApiClient service.
- *
- * Run: php artisan test --filter=BillingCancelAndRenewalTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\User;
@@ -164,8 +157,6 @@ class BillingCancelAndRenewalTest extends TestCase
             'api.2checkout.com/rest/6.0/subscriptions/sub-convert-123/cancel' => Http::response(['success' => true], 200),
         ]);
 
-        // User clicks "Upgrade to Pro" (one-time, not recurring) — this is the
-        // "convert to lifetime" flow
         $response = $this->actingAs($user)
             ->get(route('billing.upgrade', ['plan' => 'pro'])); // no ?recurring=1
 

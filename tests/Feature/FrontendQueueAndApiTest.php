@@ -2,13 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-005 regression tests for D-5 (Sanctum abilities), C-4 (SendWelcomeEmail),
- * C-5 (ProcessPlanDowngrade backoff), K-1 (imagick drift), K-5/K-9 (schedules).
- *
- * Run: php artisan test --filter=FrontendQueueAndApiTest
- */
-
 namespace Tests\Feature;
 
 use App\Jobs\ProcessPlanDowngrade;
@@ -28,7 +21,6 @@ class FrontendQueueAndApiTest extends TestCase
     {
         // D-5 FIX: read endpoints should have 'ability:read' middleware
         $readRoutes = ['api.v1.tokens.index', 'api.v1.me', 'api.v1.me.galleries'];
-        // Note: route names may not be defined — check by URL instead
         $routes = Route::getRoutes();
 
         $readEndpoints = [
@@ -37,11 +29,6 @@ class FrontendQueueAndApiTest extends TestCase
             'GET /api/v1/me/galleries',
         ];
 
-        // ITERATION-1 FIX: the old lookup (a) concatenated method+URI without
-        // a separator so RouteCollection::get() never resolved anything, and
-        // (b) compared lowercased methods against the UPPERCASE values that
-        // Route::methods() returns — the fallback loop never matched either,
-        // so this test never actually asserted anything. Match case-blind.
         foreach ($readEndpoints as $endpoint) {
             [$method, $uri] = explode(' ', $endpoint);
             $uri = ltrim($uri, '/');
@@ -75,8 +62,6 @@ class FrontendQueueAndApiTest extends TestCase
             // Replace {tokenId} with regex pattern for matching
             $uriPattern = preg_replace('/\{[^}]+\}/', '*', $uri);
 
-            // ITERATION-1 FIX: same case-blind method comparison as the
-            // read-endpoint test (methods() returns UPPERCASE).
             $matched = false;
             foreach ($routes as $r) {
                 if (in_array(strtoupper($method), array_map('strtoupper', $r->methods()), true)
@@ -123,13 +108,8 @@ class FrontendQueueAndApiTest extends TestCase
 
     public function test_c4_send_welcome_email_does_not_use_session(): void
     {
-        // C-4 FIX: the SendWelcomeEmail listener should NOT call session()
-        // (it runs on the queue worker, where session is not available)
         $listenerFile = file_get_contents(app_path('Listeners/SendWelcomeEmail.php'));
 
-        // Strip comments before scanning: the file's own DOCBLOCK explains
-        // the C-4 fix and legitimately contains the words "session()" in
-        // prose. We only care about executable code. (QA-Control-Center fix)
         $codeWithoutComments = trim(preg_replace([
             '~/\*.*?\*/~s',      // block comments / docblocks
             '~^\s*//.*$~m',      // line comments
@@ -182,9 +162,6 @@ class FrontendQueueAndApiTest extends TestCase
         // C-9 FIX: the service worker should NOT pre-cache /build/assets/app.css
         $swFile = file_get_contents(public_path('sw.js'));
 
-        // Strip // comment lines first: sw.js documents the C-9 fix in a
-        // comment that mentions the literal path. Only real code lines may
-        // trip this assertion. (QA-Control-Center fix)
         $codeWithoutComments = trim(preg_replace('~^\s*//.*$~m', '', $swFile));
 
         $this->assertStringNotContainsString("'/build/assets/app.css'", $codeWithoutComments,
@@ -207,11 +184,6 @@ class FrontendQueueAndApiTest extends TestCase
             'C-10: package.json should NOT have @tailwindcss/vite (dead dep — Tailwind 4, not wired into Vite).');
     }
 
-    /**
-     * ITERATION-1 FIX: Schedule::assertScheduled() does not exist in
-     * Laravel 11/12 (the old tests called an imaginary API and errored).
-     * Inspect the real scheduler's events instead.
-     */
     private function scheduledCommands(): array
     {
         return collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
@@ -252,16 +224,6 @@ class FrontendQueueAndApiTest extends TestCase
         );
     }
 
-    /**
-     * AUDIT-P0-1.7 FIX: GalleryApiController::formatImage previously referenced
-     * `$img->thumbnail` which is neither a column nor an accessor on
-     * GalleryImage — so thumbnail_url was always null. Now uses
-     * GalleryImage::conversionUrl('thumb') with a fallback to the original
-     * asset URL when no Spatie media conversion exists.
-     *
-     * This test verifies that thumbnail_url is non-null in API responses
-     * for galleries with at least one image.
-     */
     public function test_audit_p01_7_gallery_api_returns_non_null_thumbnail_url(): void
     {
         $user = User::factory()->create();

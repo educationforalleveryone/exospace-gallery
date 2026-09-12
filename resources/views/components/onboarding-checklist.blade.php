@@ -1,29 +1,3 @@
-{{--
-    Curator onboarding checklist (Task H49 / audit MX3 — resurrected ITERATION-2).
-
-    Shows a dismissible checklist on the dashboard for users mid-journey
-    (galleries exist but the first exhibition isn't published/shared yet).
-    Each step links to the relevant admin page. The checklist auto-hides
-    once all steps are done or the user dismisses it (localStorage).
-
-    ITERATION-2 fixes:
-      - Step 4 previously pointed at a nonexistent "Active" toggle in
-        gallery settings. Galleries now have a real publish flow: the
-        Publish button on the gallery edit page (POST
-        /admin/galleries/{id}/publish, requires at least one artwork).
-      - Steps are driven by the data the DashboardController already
-        computes (totalImages, hasPublishedGallery) — previously these
-        props were passed but the component was never rendered anywhere
-        (dead code since it was written).
-
-    Usage:
-        <x-onboarding-checklist
-            :user="$user"
-            :galleries-count="$galleriesCount"
-            :total-images="$totalImages"
-            :has-published-gallery="$hasPublishedGallery"
-        />
---}}
 @php
     $emailVerified = ! is_null($user->email_verified_at);
     $hasGallery = $galleriesCount > 0;
@@ -31,9 +5,6 @@
     $hasPublished = $hasPublishedGallery;
     $allDone = $emailVerified && $hasGallery && $hasImages && $hasPublished;
 
-    // Best targets for the mid-journey links: a gallery still missing
-    // artwork (upload step), else the newest gallery; and the first
-    // draft (publish step), else the newest live gallery (share step).
     $uploadTarget = $user->galleries()
         ->whereDoesntHave('images')
         ->orderBy('created_at')
@@ -152,7 +123,6 @@
     @endif
 </div>
 
-{{-- CSP-safe helper for the copy-to-clipboard step (replaced inline onclick) --}}
 <script nonce="@nonce">
 window.copyGalleryLink = function(url) {
     if (navigator.clipboard) {

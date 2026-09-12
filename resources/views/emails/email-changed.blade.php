@@ -1,6 +1,3 @@
-{{-- ITERATION-7: Security notice sent to a user's OLD email address after the
-    account's email address was changed. Informational only — no action links
-    (see EmailChangedNoticeMail docblock for the phishing-resistance rationale). --}}
 @extends('emails.partials.layout')
 
 @section('title', 'Your Exospace email address was changed')

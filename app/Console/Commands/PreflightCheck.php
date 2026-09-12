@@ -9,22 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
-/**
- * Pre-flight check for production Exospace deployments.
- *
- * Run after every deploy to catch configuration issues before users do:
- *
- *     php artisan exospace:preflight
- *
- * Exits with code 1 if any CRITICAL check fails (so it can be wired into
- * a CI/CD pipeline or a post-deploy Coolify health check).
- *
- * NOTE: do NOT add a {--verbose} option to the signature — Laravel's
- * base Command class (via Symfony Console) already registers -v|--verbose
- * globally, and re-declaring it throws "An option named 'verbose' already
- * exists" at command registration time. The built-in -v / -vv / -vvv
- * flags work automatically if you ever need them.
- */
 class PreflightCheck extends Command
 {
     protected $signature = 'exospace:preflight';
@@ -68,24 +52,12 @@ class PreflightCheck extends Command
         return 0;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  Individual checks
-    // ─────────────────────────────────────────────────────────────────────
-
     private function checkEnvConfig(): void
     {
         $this->section('Environment configuration');
 
         $appEnv = config('app.env');
 
-        // P3-20: The env-config checks below are PRODUCTION-ONLY. In CI / testing /
-        // local dev, APP_ENV is intentionally not 'production', APP_DEBUG is
-        // intentionally true, APP_URL is intentionally http://localhost, and
-        // TRUSTED_PROXIES is intentionally empty. Running these checks in
-        // non-production would always CRITICAL-fail and break CI.
-        //
-        // We still log what we see (info-level) so the CI output shows the
-        // current values, but we don't critical-fail.
         $isProduction = $appEnv === 'production';
 
         if ($isProduction) {
@@ -140,10 +112,6 @@ class PreflightCheck extends Command
         $required = ['pdo', 'mbstring', 'ctype', 'json', 'xml', 'tokenizer', 'curl', 'fileinfo', 'bcmath', 'gd', 'exif'];
         $optional = ['redis', 'imagick', 'zip', 'intl'];
 
-        // P3-20: Database driver extension is required but which one depends
-        // on DB_CONNECTION. In production it's pdo_mysql; in CI / testing it's
-        // pdo_sqlite. We check that AT LEAST ONE is loaded — failing only if
-        // neither is present.
         $pdoDrivers = array_filter(['pdo_mysql', 'pdo_sqlite'], fn($ext) => extension_loaded($ext));
         if (empty($pdoDrivers)) {
             $this->critical("ext-pdo_mysql AND ext-pdo_sqlite BOTH MISSING — at least one PDO driver is required.");
@@ -304,9 +272,6 @@ class PreflightCheck extends Command
         $mailer = config('mail.default');
         $this->info("  MAIL_MAILER = {$mailer}");
 
-        // P3-20: Skip mail-config critical checks in non-production. In CI
-        // and local dev, MAIL_MAILER is intentionally 'log' or 'array' —
-        // that's correct, not a config error. We still log what we see.
         if (config('app.env') !== 'production') {
             $this->info('  (non-production — mail-config critical checks skipped)');
             return;
@@ -338,9 +303,6 @@ class PreflightCheck extends Command
     {
         $this->section('Payments (2Checkout)');
 
-        // P3-20: Skip payment-config critical checks in non-production. In CI
-        // and local dev, 2Checkout credentials are intentionally empty — that's
-        // correct, not a config error. We still log what we see.
         if (config('app.env') !== 'production') {
             $this->info('  (non-production — payment-config critical checks skipped)');
             return;
@@ -380,10 +342,6 @@ class PreflightCheck extends Command
     {
         $this->section('Coolify integration (custom domain automation)');
 
-        // Read the three env vars that CoolifyDomainManager actually uses.
-        // NOTE: previous version of this check looked for COOLIFY_PROJECT_UUID
-        // and COOLIFY_ENVIRONMENT_UUID, which don't exist anywhere else in the
-        // codebase — false-positive warnings. Fixed in Round 3 patch.
         $token   = config('services.coolify.api_token');
         $baseUrl = config('services.coolify.api_base_url');
         $appUuid = config('services.coolify.application_uuid');
@@ -406,9 +364,6 @@ class PreflightCheck extends Command
             $this->ok("COOLIFY_APPLICATION_UUID = {$appUuid}");
         }
 
-        // Live API ping — catches the common failure mode where env vars are
-        // set but the values are wrong (expired token, typo in UUID, wrong
-        // base URL). Only run if all three are non-empty.
         if (!empty($token) && !empty($baseUrl) && !empty($appUuid)) {
             $this->info('  Pinging Coolify API to verify credentials…');
             $ping = $this->pingCoolifyApi($token, $baseUrl, $appUuid);
@@ -428,10 +383,6 @@ class PreflightCheck extends Command
         }
     }
 
-    /**
-     * Live-ping the Coolify API to verify the credentials actually work.
-     * Returns ['ok' => bool, 'error' => string|null, 'domain_count' => int|null].
-     */
     private function pingCoolifyApi(string $token, string $baseUrl, string $appUuid): array
     {
         try {
@@ -537,20 +488,6 @@ class PreflightCheck extends Command
             $this->critical('Discover route not registered.');
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  Output helpers
-    //
-    //  Named ok/critical/advisory instead of pass/fail/warn to avoid
-    //  colliding with Illuminate\Console\Command's public methods:
-    //    - warn()  — defined on InteractsWithIO trait (the actual blocker)
-    //    - fail()  — Symfony Console Command base class
-    //    - error() — InteractsWithIO trait (would also collide if used)
-    //  PHP requires child class methods to have equal or wider visibility
-    //  than the parent — declaring these as private here is a fatal error
-    //  at parse time, which is why `php artisan make:middleware` (which
-    //  bootstraps all commands) also failed.
-    // ─────────────────────────────────────────────────────────────────────
 
     private function section(string $title): void
     {

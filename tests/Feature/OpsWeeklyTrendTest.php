@@ -16,25 +16,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 9, Feature A — the weekly review's long memory.
- *
- * Two mechanisms, tested separately on purpose:
- *
- *   1. WEEK-OVER-WEEK DELTAS — computed LIVE from window pairs
- *      (current 7 d + the 7 d before it), so they stay accurate even
- *      when a Monday send was missed. Pinned per section: inline
- *      suffixes on lines that own their number, one dedicated line for
- *      title-held metrics (sweep findings, incident opened/resolved),
- *      NO delta for state metrics (active incidents, backups), and NO
- *      delta at all when both windows are zero (all-zero comparisons
- *      are silence, not information).
- *
- *   2. SNAPSHOTS — persisted by every send() invocation (NEVER by the
- *      preview: /ops/digest composes on every page load and must stay
- *      side-effect-free). The 8-week strip on /ops/digest reads the
- *      LATEST row per week_start; retention rides ops:prune-events.
- */
 class OpsWeeklyTrendTest extends TestCase
 {
     use RefreshDatabase;
@@ -60,8 +41,6 @@ class OpsWeeklyTrendTest extends TestCase
             'slack.test/*' => Http::response(['ok' => true]),
         ]);
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
 
     private function service(): OpsWeeklyReviewService
     {
@@ -154,8 +133,6 @@ class OpsWeeklyTrendTest extends TestCase
         ], $overrides));
     }
 
-    // ── 1. Live week-over-week deltas ───────────────────────────────────
-
     public function test_error_lines_carry_week_over_week_deltas(): void
     {
         // Current window: 3 QUEUE, 1 REDIS. Previous window: 1 QUEUE, 2 REDIS.
@@ -175,9 +152,6 @@ class OpsWeeklyTrendTest extends TestCase
 
     public function test_a_gone_dark_category_renders_no_zero_line(): void
     {
-        // The histogram answers "what kind of week was it" — a category
-        // with zero current events is ABSENT, not listed as 0. Its delta
-        // story was last week's message; absence is this week's.
         $this->event(['category' => 'QUEUE']);
         $this->event(['category' => 'REDIS', 'first_seen_at' => now()->subDays(9)]);
         $this->event(['category' => 'REDIS', 'first_seen_at' => now()->subDays(10)]);
@@ -204,9 +178,6 @@ class OpsWeeklyTrendTest extends TestCase
         // Current window: 2 opened, 1 resolved.
         $this->incident(['status' => 'resolved', 'first_event_at' => now()->subHours(10), 'resolved_at' => now()->subHours(2), 'last_event_at' => now()->subHours(2)]);
         $this->incident(['status' => 'open']);
-        // Previous window: 1 opened (and resolved), plus 2 more resolved
-        // last week that had OPENED the week before (first_event_at older
-        // than the 14-day boundary) — resolved counts, opened does not.
         $this->incident(['status' => 'resolved', 'first_event_at' => now()->subDays(9), 'resolved_at' => now()->subDays(8), 'last_event_at' => now()->subDays(8)]);
         $this->incident(['status' => 'resolved', 'first_event_at' => now()->subDays(20), 'resolved_at' => now()->subDays(9), 'last_event_at' => now()->subDays(9)]);
         $this->incident(['status' => 'resolved', 'first_event_at' => now()->subDays(21), 'resolved_at' => now()->subDays(10), 'last_event_at' => now()->subDays(10)]);
@@ -234,8 +205,6 @@ class OpsWeeklyTrendTest extends TestCase
 
     public function test_mta_line_has_no_delta_when_last_week_has_no_acknowledgements(): void
     {
-        // Current MTTA: 2 h (acknowledged). Previous window: resolved but
-        // never acknowledged → no comparable mean → NO invented prose.
         $this->incident(['status' => 'resolved',
             'first_event_at' => now()->subHours(4),
             'acknowledged_at' => now()->subHours(2),
@@ -309,8 +278,6 @@ class OpsWeeklyTrendTest extends TestCase
         $incidents = $this->section($review, 'incidents');
         $backups = $this->section($review, 'backups');
 
-        // The "still active" number rides the first line; the vs-line must
-        // speak ONLY about opened/resolved.
         $vsLine = collect($incidents['lines'])->first(fn ($l) => str_starts_with($l, 'vs last week'));
         $this->assertNotNull($vsLine);
         $this->assertStringNotContainsString('active', $vsLine, 'Active incidents are a state — no delta.');
@@ -329,8 +296,6 @@ class OpsWeeklyTrendTest extends TestCase
             }
         }
     }
-
-    // ── 2. Metrics + snapshots ───────────────────────────────────────────
 
     public function test_compose_exposes_the_window_pair_and_section_metrics(): void
     {
@@ -438,8 +403,6 @@ class OpsWeeklyTrendTest extends TestCase
         $this->assertTrue($result['sent'], 'The Slack delivery must not care about the snapshot store.');
         $this->assertFalse($result['snapshot'], 'The failure is reported honestly.');
     }
-
-    // ── 3. The trend strip surface ──────────────────────────────────────
 
     public function test_digest_page_renders_the_eight_week_strip(): void
     {

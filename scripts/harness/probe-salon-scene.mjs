@@ -1,10 +1,3 @@
-// probe-salon-scene.mjs — dump the live scene state of the Salon build:
-// camera, artwork transforms (wall/row metadata), structure mesh inventory,
-// obstacle registry, console errors. Also verifies the hang contract:
-// every artwork inside the wall span, clear of the doorcase zone, rows
-// separated vertically, nothing intersecting the trim.
-//
-//   node scripts/harness/probe-salon-scene.mjs [count]
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';

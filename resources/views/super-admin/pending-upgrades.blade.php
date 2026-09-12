@@ -4,8 +4,6 @@
     </x-slot>
 
     <div class="page-shell">
-    {{-- ITERATION-3: the inline session banner was removed — <x-toast> in the
-         app layout already announces this flash, so the user saw it twice. --}}
 
 
     <div class="table-wrap">
@@ -91,10 +89,4 @@
     </div>
 </div>
 
-{{-- ITERATION-3: the page-local exospaceConfirmWrapper definition was
-    removed — the canonical one lives in resources/js/app.js. Keeping it here
-    caused cross-page pollution: after visiting this page once, other pages
-    that use data-submit="exospaceConfirmWrapper" with a data-confirm-message
-    form attribute resolved THIS wrapper with a form element as the message
-    ("[object HTMLFormElement]" in the dialog). --}}
 </x-app-layout>

@@ -6,31 +6,8 @@ namespace App\Support\Seo;
 
 use Illuminate\Support\Arr;
 
-/**
- * Canonical URL normalizer.
- *
- * Single source of truth for "what is the clean URL of this page".
- *
- * Rules (see docs/SEO_AUDIT.md §5):
- *  - Tracking/display parameters are ALWAYS stripped (config list).
- *  - Pagination parameter is preserved only when explicitly allowed.
- *  - Additional params can be preserved per-call (e.g. nothing today, but
- *    future faceted pages may whitelist a param).
- *
- * Usage:
- *   CanonicalUrl::clean(url()->current());                        // strip tracking junk
- *   CanonicalUrl::clean(url()->current(), preserve: ['page']);    // paginated self-canonical
- *   CanonicalUrl::path('discover');                               // absolute clean URL for a path
- */
 final class CanonicalUrl
 {
-    /**
-     * Return $url with all non-essential query params removed.
-     *
-     * @param  string              $url      Absolute URL (may contain query string)
-     * @param  array<int,string>   $preserve Extra params to keep (beyond config-stripped list)
-     * @param  bool                $allowPagination  Whether the pagination param may be preserved
-     */
     public static function clean(string $url, array $preserve = [], bool $allowPagination = false): string
     {
         $parts = parse_url($url);
@@ -64,9 +41,6 @@ final class CanonicalUrl
                 }
                 continue;
             }
-            // Unknown params: drop by default. Conservative — a canonical
-            // URL should represent the page's identity, and unknown params
-            // are more likely tracking (there are none in the app today).
         }
 
         $base = self::baseUrl($parts);
@@ -86,10 +60,6 @@ final class CanonicalUrl
         return $base . '?' . http_build_query($ordered);
     }
 
-    /**
-     * Clean URL for a named route or path with NO query string at all.
-     * Used for hub/static pages whose canonical never has params.
-     */
     public static function path(string $path): string
     {
         $path = '/' . ltrim($path, '/');
@@ -97,23 +67,11 @@ final class CanonicalUrl
         return url($path);
     }
 
-    /**
-     * Pagination self-canonical: keeps only the page param, drops the rest.
-     */
     public static function paginated(string $url): string
     {
         return self::clean($url, preserve: [], allowPagination: true);
     }
 
-    /**
-     * rel="prev" / rel="next" URLs for a paginated listing.
-     * Returns [prev => ?string, next => ?string].
-     *
-     * @param  string $baseUrl  Clean (param-less) listing URL
-     * @param  int    $page     Current 1-based page
-     * @param  bool   $hasMore  Whether a next page exists
-     * @return array{prev: ?string, next: ?string}
-     */
     public static function paginationLinks(string $baseUrl, int $page, bool $hasMore): array
     {
         $paginationParam = (string) config('seo.canonical.pagination_param', 'page');
@@ -133,12 +91,6 @@ final class CanonicalUrl
         return ['prev' => $prev, 'next' => $next];
     }
 
-    /**
-     * "page=1" and "page=0"/non-numeric values are not meaningful pagination
-     * — they duplicate the unpaginated URL.
-     *
-     * @param mixed $value
-     */
     private static function isMeaningfulPagination($value): bool
     {
         if (is_array($value)) {
@@ -149,9 +101,6 @@ final class CanonicalUrl
         return ((string) $int === (string) $value) && $int > 1;
     }
 
-    /**
-     * @param array<string, mixed> $parts
-     */
     private static function baseUrl(array $parts): string
     {
         $scheme = $parts['scheme'] ?? 'https';

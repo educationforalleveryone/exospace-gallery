@@ -15,48 +15,6 @@ use Illuminate\Support\Str;
 use ReflectionProperty;
 use Tests\TestCase;
 
-/**
- * SESSION-ITERATION (Iteration 10) — session invalidation & active-session
- * safety tests.
- *
- * Complements (does not duplicate) the established suites:
- *   - LogoutTest            → logout invalidation, CSRF rotation, remember-me,
- *                             no-store caching, branded 419;
- *   - AuthenticationTest    → login-time session-ID regeneration;
- *   - RegistrationTest      → registration-time ID regeneration (CR-4);
- *   - OAuthSecurityTest     → OAuth-time ID regeneration (CR-4);
- *   - PasswordUpdateTest    → password-change session behavior (ID rotated,
- *                             user stays authenticated);
- *   - AccountDeletionTest   → deletion session termination;
- *   - MfaLifecycleTest      → MFA session flags + user binding.
- *
- * This file covers the remaining session-lifecycle behaviors:
- *   - the rotated session ID actually keeps authenticating (cookie ↔ store
- *     agreement) — rotation must never break legitimate requests;
- *   - the documented MULTI-SESSION model: two independent sessions of the
- *     same user; logging out one must NOT kill the other;
- *   - a session destroyed server-side (the TTL-expiry semantic) cannot be
- *     resurrected by a stale cookie — the server stays authoritative;
- *   - session cookie security flags + lifetime alignment;
- *   - the banned-user session purge command's REDIS branch (silently dead
- *     in production before Iter-10: wrong key pattern, plaintext matching
- *     against encrypted payloads, wrong payload key) and DATABASE branch;
- *   - the truthful `sessions_purged` audit payload on the ban route;
- *   - CheckBanned no longer attempts the (nonexistent) sessions-table purge
- *     on non-database drivers;
- *   - impersonation start/stop rotate the session ID (the only identity
- *     transitions that did not).
- *
- * Environment notes:
- *   - Redis SCAN is mocked (no redis-server in this environment); the
- *     payloads are written/read through the REAL cache repository and the
- *     REAL encrypter, so the decrypt→unserialize→match→forget path is the
- *     production path. The raw wire format (SCAN signature, key bytes) is
- *     verified against the framework source (CacheBasedSessionHandler +
- *     RedisStore) and exercised over live HTTP in the E2E harness.
- *   - The sessions TABLE only exists inside the database-branch test (the
- *     application ships no sessions migration — production runs redis).
- */
 class SessionLifecycleTest extends TestCase
 {
     use RefreshDatabase;
@@ -71,8 +29,6 @@ class SessionLifecycleTest extends TestCase
         $this->get('/login');
         $idBeforeLogin = session()->getId();
 
-        // Successful login rotates the ID (asserted in AuthenticationTest —
-        // here we additionally prove the NEW id is what the browser keeps).
         $login = $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
@@ -82,9 +38,6 @@ class SessionLifecycleTest extends TestCase
         $this->assertAuthenticatedAs($user);
         $this->assertNotSame($idBeforeLogin, session()->getId());
 
-        // Replay the exact cookie the browser was issued — authentication
-        // must hold across the rotation (regression: regeneration never
-        // breaks legitimate requests).
         $rawSessionCookie = $login->getCookie(config('session.cookie'), decrypt: false)?->getValue();
         $this->assertNotNull($rawSessionCookie, 'A successful login must issue a fresh session cookie.');
 
@@ -95,38 +48,16 @@ class SessionLifecycleTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    // ── Multi-session model (§6) ─────────────────────────────────────────
-
     public function test_logout_destroys_only_the_current_session_record_leaving_sibling_sessions_intact(): void
     {
-        // The documented multi-session model: parallel sessions of one user
-        // are independent records; signing out terminates the CURRENT one
-        // and must not touch the others (only ban and deletion terminate
-        // all). The two-browser end-to-end proof runs over real HTTP in the
-        // iteration's E2E harness — the in-process client shares container
-        // state across requests, which makes raw-cookie replay misleading.
-        // Here the same claim is asserted at the storage layer with the
-        // database handler.
         $this->createTestSessionsTable();
         config(['session.driver' => 'database']);
 
         $user = User::factory()->create();
         $guardKey = Auth::guard('web')->getName();
 
-        // SESSION-ITERATION FIX: the payload must be written in the app's
-        // REAL at-rest format. SEC-11 made SESSION_ENCRYPT=true the default
-        // (config/session.php), so sessions persist through EncryptedStore,
-        // and the database handler stores base64(encrypt(serialize($attrs)))
-        // — see DatabaseSessionHandler::write() (base64_encode) and
-        // EncryptedStore::prepareForStorage(). The previous
-        // base64_encode(serialize(...)) seed decrypted to an empty attribute
-        // bag, the guard never resolved the user, and the logout request was
-        // answered as a guest — a false-red caused by the seed deviating
-        // from the framework contract, not by the logout flow.
         $authPayload = base64_encode(app('encrypter')->encrypt(serialize([$guardKey => $user->id])));
 
-        // Session A (the one that will log out) and session B (a sibling
-        // browser of the SAME user, still signed in).
         $sessionA = Str::random(40);
         $sessionB = Str::random(40);
         foreach ([$sessionA, $sessionB] as $id) {
@@ -136,11 +67,6 @@ class SessionLifecycleTest extends TestCase
             ]);
         }
 
-        // Run the REAL logout flow on top of session A's record: the request
-        // carries session A's id (the test client applies the framework's
-        // CookieValuePrefix + cookie-encryption contract), StartSession loads
-        // row A, the guard authenticates from its payload, and invalidate()
-        // destroys exactly that record.
         $this->withCleanGuardState()
             ->withCookie(config('session.cookie'), $sessionA)
             ->post('/logout')
@@ -169,23 +95,15 @@ class SessionLifecycleTest extends TestCase
         $rawSessionCookie = $login->getCookie(config('session.cookie'), decrypt: false)?->getValue();
         $this->assertNotNull($rawSessionCookie);
 
-        // Destroy the stored session server-side — exactly what TTL expiry
-        // (redis key eviction / file GC) looks like to the handler — and
-        // reboot the session stack, the way a request on a NEW worker would
-        // resolve it (no in-memory state, only the stale cookie).
         $handler = $this->app['session.store']->getHandler();
         $storageProperty = new ReflectionProperty($handler, 'storage');
         $storageProperty->setValue($handler, []);
         $this->freshSessionStack();
 
-        // The stale cookie is worthless: the server answers as guest. The
-        // raw cookie value is replayed exactly as the browser holds it.
         $this->withUnencryptedCookie(config('session.cookie'), $rawSessionCookie)
             ->get('/profile')
             ->assertRedirect(route('login'));
     }
-
-    // ── Session cookie security (§8) ─────────────────────────────────────
 
     public function test_the_session_cookie_carries_secure_http_only_same_site_and_lifetime(): void
     {
@@ -203,8 +121,6 @@ class SessionLifecycleTest extends TestCase
         $this->assertTrue($cookie->isHttpOnly(), 'The session cookie must be HttpOnly.');
         $this->assertSame('lax', $cookie->getSameSite(), 'The session cookie must be SameSite=Lax.');
 
-        // Cookie lifetime mirrors config('session.lifetime') — an expired
-        // session cookie can never outlive the configured idle window.
         $this->assertSame(
             config('session.lifetime') * 60,
             $cookie->getMaxAge(),
@@ -214,9 +130,6 @@ class SessionLifecycleTest extends TestCase
 
     public function test_session_payload_is_encrypted_when_the_sec_11_toggle_is_enabled(): void
     {
-        // Mechanism test for the SEC-11 wiring: with encryption enabled the
-        // stored payload is ciphertext. (The store's encrypted wrapper is
-        // decided at build time, so this mode boots its own session stack.)
         $user = User::factory()->create();
 
         config(['session.driver' => 'array', 'session.encrypt' => true]);
@@ -232,8 +145,6 @@ class SessionLifecycleTest extends TestCase
 
     public function test_session_payload_is_readable_when_encryption_is_disabled_for_local_dev(): void
     {
-        // The disabled mode is the documented local-dev configuration — the
-        // serialized payload round-trips unencrypted.
         $user = User::factory()->create();
 
         config(['session.driver' => 'array', 'session.encrypt' => false]);
@@ -248,9 +159,6 @@ class SessionLifecycleTest extends TestCase
 
     public function test_session_idle_lifetime_and_close_behavior_are_the_configured_values(): void
     {
-        // The documented idle-expiration model: sessions expire after 120
-        // idle minutes, survive a browser close, and the handler's cookie
-        // window matches (asserted behaviorally in the cookie test above).
         $this->assertSame(120, config('session.lifetime'));
         $this->assertFalse(config('session.expire_on_close'));
     }
@@ -259,9 +167,6 @@ class SessionLifecycleTest extends TestCase
 
     public function test_purge_command_redis_branch_deletes_only_the_banned_users_encrypted_sessions(): void
     {
-        // Resolve the guard key and create users BEFORE the config swap:
-        // both touch the session manager, which cannot be rebuilt under the
-        // simulated redis-over-array combination (a harness-only state).
         $guardKey = Auth::guard('web')->getName();
         $bannedUser = User::factory()->create(['banned_at' => now()]);
         $healthyUser = User::factory()->create();
@@ -278,9 +183,6 @@ class SessionLifecycleTest extends TestCase
         $this->seedSessionPayload($healthySessionId, $guardKey, $healthyUser->id);
         Cache::store('array')->put($garbageSessionId, 'not-a-session-payload', 120);
 
-        // SCAN is the only mocked primitive — the exact production call
-        // shape (predis cursor + match/count options) with the REAL
-        // cache-prefix pattern the fix derives from config.
         Redis::shouldReceive('connection')->with('cache')->andReturnSelf();
         Redis::shouldReceive('scan')->with(null, ['match' => $prefix.'*', 'count' => 100])
             ->andReturn([0, [
@@ -309,8 +211,6 @@ class SessionLifecycleTest extends TestCase
         $prefix = config('cache.prefix');
         $sessionId = Str::random(40);
 
-        // Plaintext write path (dev parity): the cache store serializes the
-        // string payload; the command must match without decryption.
         Cache::store('array')->put($sessionId, serialize([
             '_token' => Str::random(40),
             $guardKey => $bannedUser->id,
@@ -384,8 +284,6 @@ class SessionLifecycleTest extends TestCase
 
         $response->assertRedirect();
 
-        // The audit payload must no longer claim sessions_purged=true for a
-        // driver that has no sessions table (S-2: false forensic record).
         $audit = AdminAuditLog::where('action', 'user_banned')
             ->where('target_id', $target->id)
             ->latest('id')
@@ -397,8 +295,6 @@ class SessionLifecycleTest extends TestCase
         );
         $this->assertTrue($audit->payload['tokens_revoked']);
 
-        // Ban time invalidates the remember-me series immediately — a
-        // remembered device cannot re-authenticate after the ban.
         $this->assertNull($target->fresh()->remember_token);
 
         // S-3: no per-request purge attempt against the nonexistent table.
@@ -406,8 +302,6 @@ class SessionLifecycleTest extends TestCase
             return str_contains($message, 'failed to purge');
         });
 
-        // The banned user's next request is still terminated by CheckBanned
-        // (current session invalidated, ban message, no exception).
         $bannedResponse = $this->actingAs($target)->get('/dashboard');
         $bannedResponse->assertRedirect(route('login'));
         $bannedResponse->assertSessionHasErrors(['email']);
@@ -500,14 +394,6 @@ class SessionLifecycleTest extends TestCase
         );
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
-
-    /**
-     * Simulate the production session store resolution with in-process
-     * primitives: driver=redis resolves its cache store via
-     * session.connection ?? (session.store ?: driver) — point that at the
-     * array store and encrypt payloads like production (SEC-11).
-     */
     private function simulateRedisSessionStore(): void
     {
         config([
@@ -518,11 +404,6 @@ class SessionLifecycleTest extends TestCase
         ]);
     }
 
-    /**
-     * Seed a session payload through the exact production write path:
-     * EncryptedStore encrypts the serialized payload, the cache store wraps
-     * it, and the cache key IS the raw session id.
-     */
     private function seedSessionPayload(string $sessionId, string $guardKey, int $userId): void
     {
         Cache::store('array')->put($sessionId, app('encrypter')->encrypt(serialize([
@@ -531,11 +412,6 @@ class SessionLifecycleTest extends TestCase
         ])), 120);
     }
 
-    /**
-     * Reset the session + auth singletons so the next request builds a
-     * store from the CURRENT configuration (the store's encrypted/plain
-     * wrapper is decided at build time).
-     */
     private function freshSessionStack(): void
     {
         $this->app->forgetInstance('session.store');
@@ -543,10 +419,6 @@ class SessionLifecycleTest extends TestCase
         $this->app['auth']->forgetGuards();
     }
 
-    /**
-     * A request that resolves authentication purely from its session cookie
-     * (no actingAs, no in-memory guard state).
-     */
     private function withCleanGuardState(): self
     {
         $this->app['auth']->forgetGuards();
@@ -554,11 +426,6 @@ class SessionLifecycleTest extends TestCase
         return $this;
     }
 
-    /**
-     * Build the raw (as-stored-in-the-browser) session cookie for a given
-     * session id, exactly the way EncryptCookies writes it:
-     * encrypt(CookieValuePrefix.value, serialize=false).
-     */
     private function rawSessionCookieFor(string $sessionId): string
     {
         $name = config('session.cookie');
@@ -567,10 +434,6 @@ class SessionLifecycleTest extends TestCase
         return app('encrypter')->encrypt($prefix.$sessionId, false);
     }
 
-    /**
-     * The application ships no sessions migration (production runs redis);
-     * create one in the test database only, for the database branch.
-     */
     private function createTestSessionsTable(): void
     {
         if (! \Schema::hasTable('sessions')) {
@@ -600,10 +463,6 @@ class SessionLifecycleTest extends TestCase
         config(['feature_flags.flags.admin_impersonation' => true]);
     }
 
-    /**
-     * A super-admin that passes the `mfa` middleware: MFA enrolled
-     * (google2fa_secret present) + a valid user-bound verification session.
-     */
     private function enrolledSuperAdmin(): User
     {
         return User::factory()->superAdmin()->create([

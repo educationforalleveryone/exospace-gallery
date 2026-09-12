@@ -1,11 +1,3 @@
-{{-- OpsCenter — sweep cadence panel (Iteration 7). ─────────────────────────
-     The measurement half of "tune OPS_SWEEP_CADENCES from real data":
-     per swept check — the configured cadence, when it was ACTUALLY
-     probed last (cadence skips never refresh the stamp), and whether
-     an open finding forces every-sweep probing. Watch the "last
-     probed" column for a few days, then set cadences to match reality.
-     $sweepStatus comes from OpsSweepStatusService::status() (fail-soft,
-     never throws). ───────────────────────────────────────────────────────--}}
 @if($sweepStatus !== null && (count($sweepStatus['checks']) > 0 || count($sweepStatus['ignored']) > 0))
 <section class="mb-10">
     <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-1">Sweep cadences — what the watch actually does</h2>

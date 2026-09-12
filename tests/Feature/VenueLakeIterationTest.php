@@ -2,38 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Mirror Lake iteration tests — v3.0.0 "The Still Shore".
- *
- * Pins the contract so future changes cannot silently break the venue:
- *
- *   - Declared identity: the seeder row carries structure_pass 'lake'
- *     (the waterfront body; 'phenomena' + void_lake stays the rollback),
- *     placement_mode 'lake' (the over-water art arc), the planar water
- *     reflection gate, environment 'none' (the PMREM night sky — the v1
- *     accidental rural_evening HDRI leak is structurally unreachable),
- *     the hemisphere night tints, the ceiling-orb opt-out, the field
- *     sizing (a lake needs shore + water + far shore), the hero focal
- *     declaration, the lake tuning block (sky_environment + the asset
- *     manifest), and the bloom-off post_fx.
- *   - Honesty matrix: the copy promises the landing, the shoreline walk,
- *     the pier, the pavilion and the reflections — the superseded v1
- *     wording is gone.
- *   - The migration is a safe, guarded rewrite: exact-match guards keep a
- *     super-admin's custom values, absent keys are added only when missing,
- *     the run is idempotent, and down() reverses each rewrite under the
- *     same guard (structure_pass back to 'phenomena' re-activates the v1
- *     void-lake body, untouched in the bundle).
- *   - The waterfront is venue-owned: 'lake' ships on the exporter's
- *     VENUE_OWNED_VISUAL_KEYS (a curator override cannot recompose the
- *     shoreline); placement_mode / floor_reflection / field sizing /
- *     hemisphere tints were already owned.
- *   - Preview/gallery payload parity: the declaration reaches the client on
- *     both the public view and the editor preview (the shared exporter).
- *
- * Run: php artisan test --filter=VenueLakeIterationTest
- */
-
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
@@ -67,10 +35,6 @@ class VenueLakeIterationTest extends TestCase
         'vignette_offset'   => 1.15,
         'vignette_blend'    => 'black',
     ];
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Declared identity — the seeder contract the JS interpreter consumes
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_seeded_row_declares_the_still_shore(): void
     {
@@ -121,10 +85,6 @@ class VenueLakeIterationTest extends TestCase
             $this->assertStringContainsString($word, (string) $venue->description, "[mirror-lake] the copy must name the '{$word}'.");
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The migration — guarded, idempotent, admin-respecting, reversible
-    // ─────────────────────────────────────────────────────────────────────
 
     private function v1ProductionRow(): void
     {
@@ -209,8 +169,6 @@ class VenueLakeIterationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         $this->v1ProductionRow();
 
-        // A super-admin retuned the mood before the migration ran: the
-        // guarded rewrites must keep the custom values.
         DB::table('venue_templates')->where('slug', 'mirror-lake')->update([
             'visual_config' => json_encode(array_merge(json_decode((string) DB::table('venue_templates')->where('slug', 'mirror-lake')->value('visual_config'), true), [
                 'tone_mapping_exposure' => 1.4,   // custom — not the v1 seeded 0.55
@@ -265,8 +223,6 @@ class VenueLakeIterationTest extends TestCase
 
         Artisan::call('migrate', ['--path' => 'database/migrations/2026_09_09_000013_mirror_lake_still_shore.php', '--force' => true]);
 
-        // The admin retunes the lake AFTER the migration: down() must leave
-        // the tuned block alone (remove only what up() wrote).
         $config = $this->visualConfig('mirror-lake');
         $config['lake']['assets_base'] = '/assets/venues/mirror-lake/custom/';
         DB::table('venue_templates')->where('slug', 'mirror-lake')->update([
@@ -278,10 +234,6 @@ class VenueLakeIterationTest extends TestCase
         $after = $this->visualConfig('mirror-lake');
         $this->assertSame('/assets/venues/mirror-lake/custom/', $after['lake']['assets_base'] ?? null, '[mirror-lake] a custom lake block survives down().');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Venue ownership + payload parity
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_waterfront_declaration_is_venue_owned(): void
     {
@@ -298,9 +250,6 @@ class VenueLakeIterationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // The shared exporter feeds BOTH the editor preview and the public
-        // view; if the declaration reaches the payload, parity holds by
-        // construction (one bundle, one payload).
         $venue = \App\Models\VenueTemplate::where('slug', 'mirror-lake')->firstOrFail();
         $exporter = new \App\Services\VenueConfigExporter();
         $payload = $exporter->forVenuePreview($venue);
@@ -310,8 +259,6 @@ class VenueLakeIterationTest extends TestCase
         $this->assertSame('lake', $vc['placement_mode'] ?? null);
         $this->assertSame(self::V3_LAKE, $vc['lake'] ?? null);
     }
-
-    // ─────────────────────────────────────────────────────────────────────
 
     private function visualConfig(string $slug): array
     {

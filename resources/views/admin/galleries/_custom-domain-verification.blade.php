@@ -1,21 +1,3 @@
-{{--
-    Custom-domain DNS verification panel (Task C06).
-
-    Include this from admin/galleries/edit.blade.php inside the custom-domain
-    form section. It renders three possible states:
-
-    1. No custom_domain set:
-       Nothing rendered.
-
-    2. Custom_domain set but NOT verified (custom_domain_verified_at is null):
-       Shows the TXT record the user must add to their DNS, plus a "Verify
-       domain" button that POSTs to the galleries.verify-domain route.
-
-    3. Custom_domain set AND verified:
-       Shows a "Verified" badge + the date the domain was verified.
-
-    Required variable: $gallery (the App\Models\Gallery being edited)
---}}
 @if(! empty($gallery->custom_domain))
     @php
         $isVerified = $gallery->isCustomDomainVerified();

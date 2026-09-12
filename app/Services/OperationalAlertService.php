@@ -7,76 +7,8 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-/**
- * A-10 FIX (Iter-006): Operational alerting service.
- *
- * Sends alerts for operational events that require human attention:
- *   - Failed jobs exceeding threshold
- *   - Scheduler not running (stale scheduler.log)
- *   - Disk usage exceeding threshold
- *   - Sentry error spikes (detected externally)
- *   - Coolify API unreachable
- *   - Failed / stuck 2Checkout webhooks piling up (ITERATION 5)
- *   - A scheduled job missing its cadence while the scheduler is alive
- *     (ITERATION 6 — per-job heartbeats)
- *
- * Alerts are sent via the configured webhook URL (Slack, PagerDuty, Discord).
- * The webhook URL is configured via the OPERATIONAL_ALERT_WEBHOOK env var.
- *
- * If no webhook is configured, alerts are logged at CRITICAL level —
- * Sentry picks them up (if Sentry is configured).
- *
- * ITERATION-7 (AUDIT-P1-7.1): Alert deduplication. Previously a persistent
- * condition (e.g. disk at 91%) fired a Slack alert every 5 minutes forever —
- * noise that trains operators to ignore the channel. Now callers can pass a
- * `dedupKey` to suppress repeat alerts within a severity-based TTL window:
- *   - critical: 30 min (re-alerts every 30 min if still critical)
- *   - warning:  2 hours
- *   - info:     6 hours
- *
- * Dedup is opt-in (only when `dedupKey` is non-null). Existing callers that
- * don't pass `dedupKey` behave exactly as before — no behavior change.
- *
- * ITERATION-10 (AUDIT-P1-10.1): Per-severity alert routing. Previously ALL
- * alerts went to a single webhook (OPERATIONAL_ALERT_WEBHOOK). Now each
- * severity can optionally route to its own webhook (e.g. critical →
- * PagerDuty or #exospace-critical, warning → #exospace-alerts). Falls back
- * to the default webhook when the per-severity env var is absent — fully
- * backward-compatible.
- *
- * ITERATION 9 — the escalation channel. All the routing above lives in
- * the SAME failure domain: if the Slack workspace (or the webhook
- * integration) dies, every route dies with it — including the watchdog's
- * alarm about the dead morning digest. An alert marked escalate=true
- * (currently only the digest watchdog — the meta-monitor) is ADDITIONALLY
- * posted, in an independent try/catch with its own timeout, to
- * OPS_ESCALATION_WEBHOOK. Deliberate design points:
- *   - The primary route STILL fires: a missed digest is often a dead
- *     scheduler with a perfectly healthy webhook — the operator's main
- *     channel stays the first line.
- *   - The escalation payload is byte-identical: one alert, two channels,
- *     the same words. A duplicate alarm (at most once per dedup TTL) is
- *     the honest cost of a guaranteed copy.
- *   - Dedup gates BOTH posts — a suppressed duplicate escalates nowhere.
- *   - Unset URL = a silent no-op: exactly the pre-Iteration-9 behavior.
- *
- * Usage:
- *   app(OperationalAlertService::class)->alert(
- *       'Queue backup detected',
- *       'Failed jobs: 25 (threshold: 10)',
- *       'warning',
- *       'failed_jobs_warning',  // ← dedup key
- *       true                    // ← ALSO post to the escalation channel
- *   );
- */
 class OperationalAlertService
 {
-    /**
-     * Dedup TTLs (in seconds) per severity.
-     * Critical re-alerts every 30 min so a real problem doesn't go silent.
-     * Warning re-alerts every 2 hours — enough to be noticed, not spammy.
-     * Info re-alerts every 6 hours.
-     */
     private const DEDUP_TTL_SECONDS = [
         'critical' => 1800,  // 30 min
         'error'    => 3600,  // 1 hour
@@ -86,10 +18,6 @@ class OperationalAlertService
 
     public function alert(string $title, string $message, string $severity = 'warning', ?string $dedupKey = null, bool $escalate = false): void
     {
-        // ITERATION-7 (AUDIT-P1-7.1): Dedup. If a dedupKey is provided AND
-        // a recent alert with the same key was sent within the TTL, skip
-        // this alert. The alert is still logged at debug level so the
-        // condition is traceable in logs without spamming Slack.
         if ($dedupKey !== null && $this->isRecentlyAlerted($dedupKey, $severity)) {
             Log::debug("OperationalAlertService: suppressed duplicate alert '{$title}' (dedupKey='{$dedupKey}')");
             return;
@@ -100,10 +28,6 @@ class OperationalAlertService
             $this->markAlertSent($dedupKey, $severity);
         }
 
-        // ITERATION-10 (AUDIT-P1-10.1): Per-severity webhook routing.
-        // Picks the per-severity webhook if configured, falls back to the
-        // default webhook. When neither is set, the alert is logged only
-        // (Sentry picks up via Log::critical).
         $webhookUrl = $this->resolveWebhookUrl($severity);
 
         $emoji = match ($severity) {
@@ -115,9 +39,6 @@ class OperationalAlertService
         };
 
         $payload = [
-            // 'text' is required for Slack's legacy Incoming Webhooks to
-            // render anything at all — without it, Slack accepts the POST
-            // (200 OK) but displays nothing in the channel.
             'text' => sprintf(
                 "%s *%s* [%s/%s]\n%s",
                 $emoji,
@@ -127,8 +48,6 @@ class OperationalAlertService
                 $message
             ),
 
-            // Kept for any future non-Slack endpoint (PagerDuty, custom
-            // receiver, etc.) that may want the structured fields instead.
             'title'    => $title,
             'message'  => $message,
             'severity' => $severity,
@@ -149,11 +68,6 @@ class OperationalAlertService
             }
         }
 
-        // ITERATION 9: the escape hatch. Placed AFTER the primary post so
-        // a dead primary can never prevent the escalation copy (and vice
-        // versa — the escalation post has its own net below). The primary
-        // still fires above: the point is a SECOND independent copy, not
-        // a replacement route.
         if ($escalate) {
             $this->postToEscalationChannel($payload);
         }
@@ -173,15 +87,6 @@ class OperationalAlertService
         ]);
     }
 
-    /**
-     * ITERATION 9: post the SAME payload to the independent escalation
-     * webhook (OPS_ESCALATION_WEBHOOK). Never throws — a dead escalation
-     * URL logs critically (Sentry picks it up) but cannot affect the
-     * primary delivery or the caller's flow. An unset URL is a silent
-     * no-op: the feature is opt-in by configuration.
-     *
-     * @param  array<string, mixed>  $payload
-     */
     private function postToEscalationChannel(array $payload): void
     {
         $url = config('services.operational_alerts.escalation_webhook_url');
@@ -199,28 +104,14 @@ class OperationalAlertService
         }
     }
 
-    /**
-     * ITERATION-7 (AUDIT-P1-7.1): Check if an alert with the given dedupKey
-     * was sent recently (within the severity-based TTL).
-     *
-     * Uses the cache (Redis in production, array/file in tests). The cache
-     * key is `alert:last_sent:{dedupKey}`. If the key exists, the alert
-     * was recently sent and should be suppressed.
-     */
     private function isRecentlyAlerted(string $dedupKey, string $severity): bool
     {
         $cacheKey = $this->dedupCacheKey($dedupKey);
         $ttl = self::DEDUP_TTL_SECONDS[$severity] ?? self::DEDUP_TTL_SECONDS['warning'];
 
-        // Cache::has() returns true if the key exists (even with null value).
-        // We store a truthy value (timestamp) so has() works correctly.
         return \Illuminate\Support\Facades\Cache::has($cacheKey);
     }
 
-    /**
-     * ITERATION-7 (AUDIT-P1-7.1): Mark that an alert was just sent, so
-     * future calls with the same dedupKey within the TTL are suppressed.
-     */
     private function markAlertSent(string $dedupKey, string $severity): void
     {
         $cacheKey = $this->dedupCacheKey($dedupKey);
@@ -229,8 +120,6 @@ class OperationalAlertService
         try {
             \Illuminate\Support\Facades\Cache::put($cacheKey, now()->toIso8601String(), $ttl);
         } catch (\Throwable $e) {
-            // Cache unavailable (Redis down, etc.) — don't block the alert.
-            // The worst case is duplicate alerts, which is better than no alerts.
             Log::debug('OperationalAlertService: cache unavailable for dedup tracking', [
                 'dedupKey' => $dedupKey,
                 'error'    => $e->getMessage(),
@@ -243,22 +132,6 @@ class OperationalAlertService
         return "alert:last_sent:{$dedupKey}";
     }
 
-    /**
-     * ITERATION-10 (AUDIT-P1-10.1): Resolve the webhook URL for a given
-     * severity.
-     *
-     * Precedence (per severity):
-     *   1. The per-severity webhook (e.g. OPERATIONAL_ALERT_CRITICAL_WEBHOOK)
-     *      if configured.
-     *   2. The default webhook (OPERATIONAL_ALERT_WEBHOOK) as fallback.
-     *   3. null if neither is set (alert is logged only — Sentry picks up
-     *      via Log::critical).
-     *
-     * This lets the operator route critical alerts to a dedicated channel
-     * (PagerDuty, #exospace-critical) while warnings stay in the general
-     * channel. Fully backward-compatible — when the per-severity env vars
-     * are absent, all alerts go to the default webhook (current behavior).
-     */
     private function resolveWebhookUrl(string $severity): ?string
     {
         // Map severity → config key for the per-severity webhook.
@@ -283,13 +156,6 @@ class OperationalAlertService
         return is_string($defaultUrl) && $defaultUrl !== '' ? $defaultUrl : null;
     }
 
-    /**
-     * Check operational health and fire alerts if thresholds are exceeded.
-     * Called by a scheduled command (e.g. every 5 minutes).
-     *
-     * ITERATION-6 (AUDIT-P1-6.2): Added checkQueueWorkerHealth().
-     * ITERATION-6 (AUDIT-P1-6.4): Added checkBackupHealth().
-     */
     public function checkAndAlert(): void
     {
         $this->checkFailedJobs();
@@ -301,30 +167,6 @@ class OperationalAlertService
         $this->checkJobHeartbeats();
     }
 
-    /**
-     * ITERATION 6 — per-job heartbeat alerting.
-     *
-     * checkSchedulerHealth() catches a dead scheduler LOOP (scheduler.log
-     * mtime). It cannot see a single job silently stopping while the
-     * scheduler is healthy: a schedule entry lost in a deploy, a crash
-     * before the job's own alerting runs, a stuck onOneServer mutex, or a
-     * job never registered on a new environment. The 2Checkout reconcile
-     * job is the sharpest case — it is the safety net for missed billing
-     * webhooks; if IT stops, money drift accumulates behind a green
-     * dashboard.
-     *
-     * Semantics (see JobHeartbeatService):
-     *   - 'stale'  → the job ran before but not within its max age → alert.
-     *   - 'missing'→ never stamped. Fresh installs must not page on day
-     *                one, so the FIRST observation only records an ack;
-     *                the alert fires once the ack has aged past max age
-     *                ("expectation window demonstrably elapsed").
-     *
-     * Deliberately NOT surfaced on /health: a stale weekly analytics job
-     * is a monitoring problem, not a reason to 503 the product out of an
-     * uptime monitor (the Iteration-5 decision — Slack is the paging
-     * channel for job cadence).
-     */
     public function checkJobHeartbeats(): void
     {
         $heartbeats = app(JobHeartbeatService::class);
@@ -372,29 +214,6 @@ class OperationalAlertService
         }
     }
 
-    /**
-     * ITERATION 5: failed-webhook pile-up alerting.
-     *
-     * The gap: a failed processed_webhooks row — a billing event 2Checkout
-     * sent us and we could not apply (refund, renewal, chargeback) — was
-     * only ever a Log::error line plus a passive tile on the Billing
-     * Review page. Webhook processing is synchronous HTTP, so failures
-     * never reach failed_jobs; nothing paged anyone. A payment provider
-     * hiccup could silently strand money events until a human happened to
-     * open Billing Review or the daily reconcile flagged downstream drift.
-     *
-     * Thresholds (deliberately lower than failed_jobs' 10/50 — webhooks
-     * are money, and one is already worth a look):
-     *   - failed > 20  → critical (money pipeline materially broken)
-     *   - failed > 5   → warning
-     *   - 'processing' rows stuck > 30 min → warning (crash mid-handler
-     *     without finalize; 2CO retries re-claim at 10 min, so a 30-min
-     *     pile means systematic breakage, e.g. replay also crashing)
-     *   - stuck > 2 h  → critical
-     *
-     * Alert copy points at Billing Review, where replay is one click.
-     * Table-guarded for rolling deploys (pre-Iteration-4 schema).
-     */
     public function checkWebhookLedger(): void
     {
         try {
@@ -422,18 +241,12 @@ class OperationalAlertService
                 );
             }
 
-            // Stuck 'processing' rows: ingress claimed them but no finalize
-            // ever ran. updated_at is maintained on every ledger write, so
-            // age = now - updated_at.
             $stuck = \Illuminate\Support\Facades\DB::table('processed_webhooks')
                 ->where('status', 'processing')
                 ->where('updated_at', '<', now()->subMinutes(30))
                 ->count();
 
             if ($stuck > 0) {
-                // Critical when any row has been stuck for 2+ hours, or the
-                // 30-minute pile is large (>20) — either way this is not a
-                // transient crash but a systematic breakage.
                 $stuckTwoHours = \Illuminate\Support\Facades\DB::table('processed_webhooks')
                     ->where('status', 'processing')
                     ->where('updated_at', '<', now()->subHours(2))
@@ -473,8 +286,6 @@ class OperationalAlertService
                 );
             }
         } catch (\Throwable $e) {
-            // DB error — can't check failed_jobs. Don't alert (the health check
-            // endpoint will catch DB errors).
         }
     }
 
@@ -512,14 +323,9 @@ class OperationalAlertService
 
     private function checkSchedulerHealth(): void
     {
-        // Check if the scheduler log has been written to recently.
-        // The scheduler loop in docker-start.sh writes to scheduler.log every 60s.
-        // If the log hasn't been updated in >5 minutes, the scheduler is likely dead.
         $logPath = storage_path('logs/scheduler.log');
 
         if (! file_exists($logPath)) {
-            // Log doesn't exist — scheduler hasn't run yet (fresh install) or
-            // the log path is wrong. Don't alert on fresh installs.
             return;
         }
 
@@ -541,29 +347,9 @@ class OperationalAlertService
         }
     }
 
-    /**
-     * ITERATION-6 (AUDIT-P1-6.2): Check queue worker health.
-     *
-     * The queue worker (started by docker-start.sh) doesn't write to a log
-     * file by default — its stdout/stderr is captured by Coolify's log driver.
-     * However, if the worker dies, the failed_jobs table will start accumulating
-     * (caught by checkFailedJobs above) AND the jobs table will stop draining.
-     *
-     * This check looks at the `jobs` table — if jobs have been sitting in the
-     * queue for >10 minutes without being processed, the worker is likely dead
-     * (even if failed_jobs hasn't crossed the threshold yet). This catches the
-     * "worker silently died without producing failed jobs" case (e.g. OOM kill
-     * before the job could throw).
-     *
-     * The check is defensive: if the `jobs` table doesn't exist (SQLite in
-     * tests) or the query fails, it skips silently. The existing
-     * checkFailedJobs() + checkSchedulerHealth() provide redundant coverage.
-     */
     public function checkQueueWorkerHealth(): void
     {
         try {
-            // Find the oldest job in the queue. If it's been waiting >10 min,
-            // the worker is likely not processing jobs.
             $oldestJob = \Illuminate\Support\Facades\DB::table('jobs')
                 ->orderBy('id')
                 ->first();
@@ -573,9 +359,6 @@ class OperationalAlertService
                 return;
             }
 
-            // The `jobs` table has `available_at` (unix timestamp when the job
-            // becomes available for processing) and `reserved_at` (null if
-            // not currently being processed).
             $availableAt = (int) ($oldestJob->available_at ?? 0);
             $ageSeconds = time() - $availableAt;
 
@@ -591,39 +374,9 @@ class OperationalAlertService
                 );
             }
         } catch (\Throwable $e) {
-            // DB error or table doesn't exist — skip. The checkFailedJobs()
-            // method provides redundant coverage via the failed_jobs table.
         }
     }
 
-    /**
-     * ITERATION-6 (AUDIT-P1-6.4): Check backup health.
-     *
-     * The spatie/laravel-backup package sends email notifications on failure,
-     * but for a premium SaaS, backup failures should ALSO appear in the same
-     * Slack channel as other operational alerts. This check runs every 5
-     * minutes as part of the existing checkAndAlert() schedule.
-     *
-     * Logic:
-     *   - Scans the backup destination disk(s) for backup zip files.
-     *   - If NO backup files exist at all → critical alert (backups have never run
-     *     or the disk is misconfigured).
-     *   - If the newest backup is older than 26 hours → critical alert (the daily
-     *     1am backup didn't run, or ran and failed silently). 26 hours gives a
-     *     1-hour buffer past the 24-hour daily schedule.
-     *   - Otherwise: healthy (no alert).
-     *
-     * ITERATION-9 (AUDIT-P1-9.1): Now checks ALL configured backup disks
-     * (not just the first). When the operator adds 'r2' via
-     * BACKUP_DISKS=local,r2, this method checks both. Each disk gets
-     * its own dedup key (e.g. 'backup_none_found:local',
-     * 'backup_none_found:r2') so a failure on one disk doesn't
-     * suppress the alert for the other.
-     *
-     * The check is defensive: if a disk doesn't exist or can't be read, it
-     * skips silently (the existing checkDiskUsage() provides redundant coverage
-     * for disk-level issues).
-     */
     public function checkBackupHealth(): void
     {
         // ITERATION-9: Get ALL configured backup disks (env-driven via BACKUP_DISKS).
@@ -643,26 +396,17 @@ class OperationalAlertService
         }
     }
 
-    /**
-     * ITERATION-9 (AUDIT-P1-9.1): Check a single backup disk for health.
-     * Extracted from checkBackupHealth() to support multi-disk configs.
-     */
     private function checkSingleBackupDisk(string $diskName): void
     {
         try {
             $disk = \Illuminate\Support\Facades\Storage::disk($diskName);
 
-            // Spatie backups are stored under a folder named after the app
-            // (config: 'backup.backup.name', default: "{APP_NAME} Backup").
-            // The folder contains zip files like "2026-08-21-01-00-00.zip".
             $backupName = config('backup.backup.name', config('APP_NAME', 'Laravel') . ' Backup');
             $backupPath = $backupName;
 
             // List all files in the backup directory.
             $files = $disk->files($backupPath);
 
-            // Filter to .zip files only (Spatie may also write .sql files
-            // temporarily during backup creation — those aren't complete backups).
             $zipFiles = array_filter($files, fn ($file) => str_ends_with($file, '.zip'));
 
             if (empty($zipFiles)) {
@@ -702,8 +446,6 @@ class OperationalAlertService
                 );
             }
         } catch (\Throwable $e) {
-            // Disk doesn't exist or can't be read — skip. The existing
-            // checkDiskUsage() provides redundant coverage.
         }
     }
 }

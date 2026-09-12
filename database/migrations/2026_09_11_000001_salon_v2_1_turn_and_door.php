@@ -3,49 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * THE SALON v2.1.0 — "turn + threshold" (post-deploy production pass).
- *
- * WHY (the field report, user screenshots 1 & 2)
- * ----------------------------------------------
- *   v2.0.0 shipped ten wall-architecture descriptors anchored on the SIDE
- *   walls (base/field/rail/cornice/cove × left/right) WITHOUT the
- *   `turn: 'in'` yaw. The descriptor vocabulary stretches `fit: 'wall'`
- *   geometry along the mesh's local X axis; a side wall's tangent is world
- *   Z, so the ten panels rendered UN-ROTATED — each side field became a
- *   8.06 m × 3.08 m slab standing PERPENDICULAR to its wall, one crossing
- *   the room from the left wall to the centre, its twin from the right.
- *   The pair met at x = ±0.084 with a 0.17 m gap at the room's midline —
- *   the visitor photographed it as "a wall or a curtain?" and walked
- *   straight through it (no collision on decorative geometry, correctly).
- *   The phantom crossing baseboards + picture rails framed it as furniture.
- *   Every Penthouse / Cyber side-wall fit element declares `turn: 'in'`;
- *   the salon payload simply missed it, and the QA suite had no
- *   orientation check to catch the class.
- *
- *   The same pass answers screenshot 2: the v2 doorcase was a single
- *   0.92 m leaf under a 3.8 m ceiling — correct for a corridor, mean for
- *   an enfilade threshold. v2.1 widens the doorcase into a classical
- *   double leaf (portes à deux vantaux): 2 × 0.74 m leaves (1.48 m clear),
- *   two recessed panels per leaf, 2.52 m leaves under a 1.66 m head and
- *   the ivory overdoor, brass knob at the meeting stile. keep_clear
- *   widens 1.05 → 1.9 so the hang respects the new assembly.
- *
- * THIS MIGRATION (DB side only — guarded, per-element, admin-respecting)
- * ----------------------------------------------------------------------
- *   • SIDE-ELEMENT HEAL: each of the ten side-wall descriptors gains
- *     'turn' => 'in' ONLY when its exact v2.0.0 form is found (an admin
- *     retune of any element keeps that element exactly as authored).
- *   • DOOR GROUP HEAL: the seven v2 door descriptors are replaced by the
- *     eleven v2.1 descriptors when ALL SEVEN match their v2 forms exactly
- *     (a partially edited doorcase is respected wholesale, never spliced).
- *   • KEEP-CLEAR HEAL: the v2 keep_clear block is replaced when exact.
- *   • VERSION: 2.0.0 → 2.1.0 only when at least one heal landed.
- *   • Idempotent (v2.1 forms never match v2 guards); down() reverses every
- *     rewrite under the mirrored exact guards.
- *   • FRESH INSTALLS: the seeder ships v2.1.0 directly; this migration
- *     no-ops there (guards match nothing).
- */
 return new class extends Migration
 {
     // ── The ten v2.0.0 side-wall descriptors (historical forms) ─────────
@@ -70,8 +27,6 @@ return new class extends Migration
         $out = [];
         foreach ($this->v2SideElements() as $id => $el) {
             $healed = $el;
-            // turn is inserted after the 'at' block, matching the seeder's
-            // key order so the payload pin stays byte-stable.
             $at = $el['at'];
             unset($healed['at']);
             $healed = ['id' => $el['id'], 'primitive' => $el['primitive'], 'at' => $at, 'turn' => 'in'] + $healed;
@@ -179,8 +134,6 @@ return new class extends Migration
             }
             if ($doorIsV2) {
                 $v21Door = $this->v21DoorElements();
-                // splice at the first v2 door element's position, drop the
-                // other six, insert the eleven v2.1 descriptors in order.
                 $firstIdx = $byId['door-leaf'];
                 $dropIdx  = array_map(fn ($id) => $byId[$id], array_keys($v2Door));
                 $head  = array_slice($vc['structure'], 0, $firstIdx);
@@ -261,8 +214,6 @@ return new class extends Migration
             }
             if ($doorIsV21) {
                 $v2Door = $this->v2DoorElements();
-                // the v2.1 door block occupies eleven consecutive slots
-                // starting at door-leaf-l — the splice put it there.
                 $firstIdx = $byId['door-leaf-l'];
                 $dropIdx  = array_map(fn ($id) => $byId[$id], array_keys($v21Door));
                 $head = array_slice($vc['structure'], 0, $firstIdx);

@@ -1,44 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// cyber-gallery-qa.mjs — the venue QA gate for Cyber Gallery (v2.0.0, the
-// "Signal Room": movement-reactive artwork media as the venue's signature).
-//
-//   node scripts/venue-qa/cyber-gallery-qa.mjs
-//
-// Same layering as nebula-drift-qa.mjs (plain Node over the repo checkout;
-// the material probe additionally uses the repo's `three` dependency): pins
-// CONTRACTS while tests/Feature pins the DB side and scripts/harness/shoot.mjs
-// captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the cyber-gallery row declares the Signal Room
-//      identity: visual_config.artwork_reactive (the signature), declared
-//      environment 'none', the rig lift, bloom identity + black-blend
-//      vignette, frame_override 'black', artwork standing glow + pool cap,
-//      the four-edge neon + floor rails structure, and the material parity
-//      fix (texture_tint + declared dark floor). The superseded v1.0.0 copy
-//      must be gone; the copy must promise exactly what renders.
-//   B. DB ↔ harness sync — the PHP-less harness renders the same JSON a
-//      fresh install seeds, INCLUDING the artwork_reactive tuning (drift
-//      here means the movement-state screenshots stop meaning anything).
-//   C. Signal + material invariants — driven through the REAL
-//      ArtworkReactive module + three.js (no GL, shader assembled by hand):
-//      the motion normalization curve (dead zone, perceptible slow walk,
-//      saturation at walking pace), the asymmetric exponential smoothing
-//      (attack ≪ release; frame-rate independence; decay never snaps),
-//      deterministic per-artwork variation (stable, distinct, bounded), the
-//      designed tier matrix (calm's 35% ceiling, reduced tiers, off), the
-//      onBeforeCompile shader surgery (map_fragment replaced exactly, shared
-//      uniforms shared, per-artwork uniforms static, one program cache key),
-//      the clean-state gate, bounded distortion amplitudes, and the runtime
-//      guardrails (velocity read only while the pointer is locked; QA
-//      override lands on target; dispose nulls the registry).
-//   D. JS/PHP hygiene — zero venue slugs in the shared module, no
-//      Math.random in the reactive path, the exporter ships the owned key,
-//      the animate loop consumes the signal AFTER movement integration, the
-//      registry initializes BEFORE artworks are placed, the guarded
-//      migration file exists, and the harness carries the ?motion= override.
-// ─────────────────────────────────────────────────────────────────────────────
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (cyber-gallery row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -136,7 +95,6 @@ ok('copy keeps the pinned neon + floor words (VenueRoomsIterationTest contract)'
 ok('version pinned 2.0.0 (Signal Room)',
     /'version'\s*=>\s*'2\.0\.0'/.test(row));
 
-// ── B. DB ↔ harness sync ────────────────────────────────────────────────────
 section('B. DB ↔ harness sync (cyber-gallery body)');
 const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
 function harnessVenue(key) {
@@ -320,7 +278,6 @@ try {
     ok('time is STEPPED (digital increments — living image, not wobbly watermark)',
         /floor\( uTime \* uSteps \) \/ uSteps/.test(reactiveSrc));
 
-    // ── C6. runtime guardrails on a fake scene ────────────────────────────
     ok('velocity read ONLY while pointer locked (no stuck-on glitch when the visitor opens UI)', (() => {
         const c = {
             _reactive: null, _venueSlug: 'cyber-gallery',
@@ -332,8 +289,6 @@ try {
         };
         AR.initArtworkReactive.call(c);
         AR.updateArtworkReactive.call(c);
-        // Full tier keeps a ≤0.02 idle presence — far under the 0.045
-        // clean-state gate, but not exactly 0. Assert quiet, not zero.
         return c._reactive.level < 0.01;
     })());
     ok('locked + moving: the signal flows', (() => {
@@ -418,7 +373,6 @@ try {
     ok('material probe executed', false, String(e).slice(0, 200));
 }
 
-// ── D. JS/PHP hygiene ───────────────────────────────────────────────────────
 section('D. JS/PHP hygiene');
 ok('ZERO venue slugs in ArtworkReactive.js (config-declared, zero slug knowledge)',
     !/cyber-gallery/.test(reactiveSrc));

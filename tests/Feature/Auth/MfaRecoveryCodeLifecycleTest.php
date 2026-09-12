@@ -13,26 +13,6 @@ use Illuminate\Support\Facades\Log;
 use PragmaRX\Google2FAQRCode\Google2FA;
 use Tests\TestCase;
 
-/**
- * ITERATION-11 — Recovery-code (backup-code) lifecycle tests.
- *
- * Narrow focus on the recovery-code lifecycle ON TOP of the existing
- * MfaLifecycleTest / MfaReplayProtectionTest coverage:
- *
- *   - generation: CSPRNG format + uniqueness within a set + per-user scoping
- *   - consumption: atomic single-use semantics (fresh read under the row
- *     lock), no consumption on failure, truthful audit
- *   - replay: a stale model (double submit / concurrent request from a
- *     stale browser page) can no longer re-consume or resurrect codes
- *   - regeneration: the disable → re-enable model replaces the whole set
- *     (old codes die, new codes work)
- *   - exhaustion: the final code works, afterwards recovery fails safely
- *     with guidance instead of a misleading "Invalid code"
- *   - security: hashes hidden from serialization, no code material in
- *     logs/audit payloads, another user's code neither verifies nor burns
- *
- * Run: php artisan test --filter=MfaRecoveryCodeLifecycleTest
- */
 class MfaRecoveryCodeLifecycleTest extends TestCase
 {
     use RefreshDatabase;
@@ -55,7 +35,6 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
         ], $attributes));
     }
 
-    /** An MFA-enabled user whose two plaintext backup codes are known. */
     private function enabledUser(array $attributes = []): User
     {
         $secret = $this->google2fa->generateSecretKey();
@@ -76,15 +55,12 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
         return $this->google2fa->getCurrentOtp($secret);
     }
 
-    /** Count unused (non-null) code hashes directly from the database. */
     private function remainingCodes(User $user): int
     {
         $raw = DB::table('users')->where('id', $user->id)->value('mfa_backup_codes');
 
         return collect(json_decode((string) $raw, true) ?? [])->filter(fn ($c) => $c !== null)->count();
     }
-
-    // ── Generation ───────────────────────────────────────────────────────
 
     public function test_generated_codes_have_the_intended_format_and_are_unique_within_the_set(): void
     {
@@ -125,8 +101,6 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
         $this->assertNull($other->google2fa_secret);
     }
 
-    // ── Consumption semantics ────────────────────────────────────────────
-
     public function test_failed_10char_attempt_does_not_consume_any_code(): void
     {
         $user = $this->enabledUser();
@@ -141,10 +115,6 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
 
     public function test_consumption_re_reads_the_row_inside_the_transaction_not_the_stale_model(): void
     {
-        // The concurrency guard at the mechanism level: the controller
-        // previously consumed against the (possibly stale) in-memory model.
-        // Replace the stored set AFTER the request's model was loaded —
-        // consumption must follow the DATABASE state, not the snapshot.
         $user = $this->enabledUser();
 
         $user->fresh()->forceFill([
@@ -171,10 +141,6 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
 
     public function test_double_submit_of_the_same_code_authenticates_only_once(): void
     {
-        // Two INDEPENDENT model snapshots — exactly what two overlapping
-        // requests hold in memory in real FPM workers. Both start from the
-        // pre-consumption set; the second request must still lose, because
-        // consumption serialises through the row lock and re-reads the row.
         $user = $this->enabledUser();
 
         $staleSnapshot = User::find($user->id); // separate instance, same moment
@@ -209,20 +175,11 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
 
         $this->assertSame(1, $payload['remaining_codes']);
         $this->assertIsInt($payload['code_index']);
-        // The audit payload must never embed the plaintext code (or any
-        // plausible fragment of one).
         $this->assertStringNotContainsString('BBBBB22222', json_encode($payload));
     }
 
-    // ── Replay / resurrection ────────────────────────────────────────────
-
     public function test_concurrent_different_codes_cannot_resurrect_a_consumed_code(): void
     {
-        // Lost-update regression: two independent snapshots of the same
-        // pre-consumption set (what two concurrent requests hold). B's
-        // stale write must not re-materialise the code A consumed. The
-        // row lock + fresh re-read make B's write follow A's, not clobber
-        // it — both consumptions stick.
         $user = $this->enabledUser();
 
         $staleSnapshot = User::find($user->id); // separate instance, same moment
@@ -273,9 +230,6 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
             ->post('/mfa/verify', ['code' => 'BBBBB22222'])
             ->assertSessionHasErrors('code');
 
-        // A brand-new code works. (Hashes are one-way: the plaintexts live
-        // only in the one-time flash, so assert on a hash from the new set
-        // being consumed by a code taken from that same flash.)
         $plaintext = $newCodes[0];
         $this->actingAs($user->refresh())
             ->post('/mfa/verify', ['code' => $plaintext])
@@ -283,8 +237,6 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
 
         $this->assertTrue(session('mfa_verified'));
     }
-
-    // ── Exhaustion ───────────────────────────────────────────────────────
 
     public function test_final_code_can_be_consumed_and_the_set_becomes_exhausted(): void
     {
@@ -315,15 +267,11 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
             session('errors')->first('code')
         );
 
-        // A failed 6-digit TOTP keeps the generic message (no oracle about
-        // backup-code state from the TOTP path).
         $this->actingAs($user)
             ->post('/mfa/verify', ['code' => '000000'])
             ->assertSessionHasErrors('code');
         $this->assertSame('Invalid code. Please try again.', session('errors')->first('code'));
     }
-
-    // ── Security surface ─────────────────────────────────────────────────
 
     public function test_backup_code_hashes_are_hidden_from_model_serialization(): void
     {
@@ -340,8 +288,6 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
     public function test_another_users_code_is_rejected_and_consumes_nothing(): void
     {
         $alice = $this->enabledUser(['email' => 'alice@example.test']);
-        // Distinct set for Bob — the shared synthetic fixture codes would
-        // make Alice's code ALSO a valid Bob code (his own first code).
         $bob = $this->enabledUser([
             'email' => 'bob@example.test',
             'mfa_backup_codes' => [

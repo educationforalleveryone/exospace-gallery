@@ -4,16 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * SEO Operating System (Iteration 4) — managed redirects.
- *
- * When content moves (slug changes, URL scheme changes, sunsets), a 301
- * preserves accumulated signals. Managed via super-admin UI (Iteration 6)
- * or `php artisan tinker`.
- *
- * source_path is the application path WITHOUT leading slash, lowercase,
- * query-free ("/old-exhibition"). destination may be a path or absolute URL.
- */
 return new class extends Migration
 {
     public function up(): void

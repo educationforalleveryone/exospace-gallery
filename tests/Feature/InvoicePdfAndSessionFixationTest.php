@@ -2,13 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-002 regression tests for audit 2CO-6 (PDF invoices via dompdf)
- * and the CR-4 deferred fix (session regeneration on registration).
- *
- * Run: php artisan test --filter=InvoicePdfAndSessionFixationTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Invoice;
@@ -26,8 +19,6 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
     public function test_2co6_invoice_generator_produces_pdf_when_dompdf_installed(): void
     {
-        // ITERATION-15 (M-1): invoice files now live on the PRIVATE disk —
-        // was Storage::fake('public') + a public-disk read before this.
         Storage::fake('local');
 
         $transaction = Transaction::factory()->create([
@@ -112,9 +103,6 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
     public function test_2co6_regenerate_invoices_command_exists(): void
     {
-        // ITERATION-1 FIX: Artisan::all() is keyed by command NAME; the
-        // command exists — assert via array_key_exists (assertContains
-        // checks VALUES).
         $this->assertArrayHasKey('exospace:regenerate-invoices', \Illuminate\Support\Facades\Artisan::all(),
             '2CO-6: exospace:regenerate-invoices command must be registered.');
     }
@@ -140,8 +128,6 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
     public function test_cr4_session_regenerated_on_invitation_acceptance(): void
     {
-        // CR-4 FIX (deferred from Iter-001): session ID must change on invitation acceptance
-        // This is the higher-risk path (invitation tokens are shared via email)
         $team = \App\Models\Team::factory()->create();
         $invitation = \App\Models\TeamInvitation::factory()->create([
             'team_id' => $team->id,

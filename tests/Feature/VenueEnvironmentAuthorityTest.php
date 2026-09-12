@@ -9,42 +9,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * ENVIRONMENT AUTHORITY (s4) — the last unguarded identity channel as CI.
- *
- * The incident: the environment (HDRI) was resolved at runtime from the
- * GALLERY's lighting_preset column. A stale gallery-era preset installed a
- * bright studio/dusk sky inside the Dark Museum and — combined with floor/
- * frame envMapIntensity computed from the PRESET instead of the venue's
- * declared env_intensity — reflected as a bright cloudy sheen on the
- * polished dark stone (the deployed "sky/cloud on the floor" report).
- *
- * Pins:
- *   1. The seeded venue rows DECLARE their environment (the DB is the sole
- *      source of venue identity — the runtime reads the declaration, not
- *      the seeder).
- *   2. `environment` is venue-owned at every layer: the exporter strips it
- *      from gallery overrides, re-asserts the venue value, and ships the
- *      owned-key lists inside the payload so the runtime patch guard
- *      mirrors this file (single definition, no drift).
- *   3. The preset + layout resolve through the venue for venue-managed
- *      galleries (preview/public parity; no stale-column divergence).
- *   4. The guarded migration stamps environment on existing rows only when
- *      absent (admin declarations win), is idempotent, and down() removes
- *      only the values it added.
- *   5. The editor form contract: `visual_config.environment` validates
- *      against VenueTemplate::ENVIRONMENTS.
- *
- * Portable patterns per the IT2–IT6 suites: sqlite-safe JSON
- * read-modify-write, migrations invoked directly.
- */
 class VenueEnvironmentAuthorityTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. The seeded baseline DECLARES its skies
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_seeded_venues_declare_their_environment(): void
     {
@@ -81,10 +48,6 @@ class VenueEnvironmentAuthorityTest extends TestCase
         $this->assertSame(0.14, (float) ($vc['env_intensity'] ?? -1), 'The environment stays at the declared whisper strength.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. environment is venue-owned at every layer
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_environment_is_in_the_venue_owned_visual_set(): void
     {
         $this->assertTrue(
@@ -104,8 +67,6 @@ class VenueEnvironmentAuthorityTest extends TestCase
 
         $venue = VenueTemplate::where('slug', 'dark-museum')->firstOrFail();
 
-        // A gallery carrying a STALE bright-era override layer (the incident
-        // shape: a legacy visual_overrides row trying to repaint the sky).
         $gallery = Gallery::factory()
             ->forVenue($venue)
             ->create([
@@ -155,10 +116,6 @@ class VenueEnvironmentAuthorityTest extends TestCase
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. Preset + layout resolve through the venue (preview/public parity)
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_preset_for_gallery_resolves_through_the_venue_not_the_stale_column(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -190,8 +147,6 @@ class VenueEnvironmentAuthorityTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        // dark-museum supports ['square','rotunda'] — a corridor value from
-        // a previous venue must fall back to the venue's default layout.
         $venue   = VenueTemplate::where('slug', 'dark-museum')->firstOrFail();
         $gallery = Gallery::factory()->forVenue($venue)->create(['room_layout' => 'corridor']);
 
@@ -216,10 +171,6 @@ class VenueEnvironmentAuthorityTest extends TestCase
             'Venue-less (legacy) galleries keep their own column value.'
         );
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. The guarded migration: add-when-absent, admin wins, reversible
-    // ─────────────────────────────────────────────────────────────────────
 
     private function migration(): object
     {
@@ -302,10 +253,6 @@ class VenueEnvironmentAuthorityTest extends TestCase
             'down() never removes an admin\'s different declaration.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. The editor contract
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_venue_template_request_validates_the_environment_vocabulary(): void
     {
         $rules = (new \App\Http\Requests\SuperAdmin\VenueTemplateRequest())->rules();
@@ -333,8 +280,6 @@ class VenueEnvironmentAuthorityTest extends TestCase
             'The model vocabulary is the single source the request + editor select mirror.'
         );
     }
-
-    // ─────────────────────────────────────────────────────────────────────
 
     private function venueRow(string $slug): ?object
     {

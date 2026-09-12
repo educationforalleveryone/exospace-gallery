@@ -1,23 +1,3 @@
-{{-- OpsCenter (Iteration 9): the weekly review's long memory — an 8-week
-     error-volume strip rendered from ops_review_snapshots (one row per
-     actual review delivery, latest per week). Same pure-Blade UI rules as
-     every other OpsCenter chart: inline SVG, NO JavaScript, NO npm, NO
-     chart library.
-
-     Receives $snapshots: array<int, OpsReviewSnapshot> ordered oldest →
-     newest (from OpsWeeklyReviewService::recentSnapshots()), already
-     fail-soft — an unreadable table arrives as [] and renders the honest
-     "accumulating" note, never a broken page.
-
-     Bars: one per week, height = metrics.errors.total. Peak week amber,
-     most recent week emerald, others slate — the same color language as
-     the 24-hour Sentry sparkline. Every bar carries a <title> tooltip
-     with the week's numbers (errors / incidents / MTTR / trigger).
-
-     The honest-cold-start note is the point, not a fallback: a control
-     plane that pretended to remember weeks it never recorded would be
-     lying with a chart. --}}
-
 @php
     $weeks = collect($snapshots ?? [])->filter(fn ($s) => $s instanceof \App\Ops\Models\OpsReviewSnapshot)->values();
     $bars = $weeks->map(fn ($s) => [

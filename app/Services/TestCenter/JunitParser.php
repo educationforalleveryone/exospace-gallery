@@ -6,34 +6,8 @@ namespace App\Services\TestCenter;
 
 use RuntimeException;
 
-/**
- * Minimal, dependency-free JUnit XML parser for PHPUnit artifacts.
- *
- * Supports the PHPUnit 9.3+/11 `<testsuites>` document shape:
- *   <testsuites>
- *     <testsuite name="..." tests="" assertions="" errors="" failures=""
- *                skipped="" time="">
- *       <testcase name="test_x" class="Tests\Feature\A" classname="Tests.Feature.A"
- *                 file="..." line=".." time="..">
- *         <failure type="...">message\n\nstack</failure>
- *         <error ...>…</error>
- *         <skipped>…</skipped>
- *         <warning>…</warning>
- *       </testcase>
- *
- * Data-provider cases appear as `test_x with data set "foo" (…)`.
- */
 class JunitParser
 {
-    /**
-     * @return array{
-     *   totals: array{tests:int, assertions:int, failures:int, errors:int, skipped:int, warnings:int, time:float},
-     *   cases:  list<array{identifier:string, classname:string, name:string, data_set:?string,
-     *                      status:string, time_ms:int|null, message:?string, detail:?string, exception_class:?string}>
-     * }
-     *
-     * @throws RuntimeException when XML is unreadable/malformed
-     */
     public function parseFile(string $path): array
     {
         if (! is_file($path)) {
@@ -90,13 +64,11 @@ class JunitParser
             'time'       => 0.0,
         ];
 
-        /** @var list<array> $cases */
+        /**
+ * @var list<array> $cases
+ */
         $cases = [];
 
-        // ⚠ Only TOP-LEVEL suites may feed totals: PHPUnit's <testsuite>
-        // hierarchy already AGGREGATES its descendants (suite → class suites
-        // → data-provider groups). Counting every level triple-counts a run.
-        // Cases are collected across all depths of each top-level branch.
         $suites = $root->getName() === 'testsuites'
             ? $root->xpath('./testsuite')
             : [$root];
@@ -147,12 +119,13 @@ class JunitParser
         ];
     }
 
-    /** @return array{0:string,1:?string,2:?string,3:?string} status, message, detail, exception class */
     private function extractOutcome(\SimpleXMLElement $case): array
     {
         $outcome = $case->xpath('./failure');
         if ($outcome !== [] && count($outcome)) {
-            /** @var \SimpleXMLElement $f */
+            /**
+ * @var \SimpleXMLElement $f
+ */
             $f = $outcome[0];
 
             return ['failed', trim((string) $f), (string) $f, (string) ($f['type'] ?? '') ?: null];
@@ -183,10 +156,6 @@ class JunitParser
         return ['passed', null, null, null];
     }
 
-    /**
-     * Stable cross-run identifier. Trailing "(#N)" removed so a data-set row
-     * reorders consistently; duplicates keyed by data_set column instead.
-     */
     private function identifier(string $classname, string $name): string
     {
         $method = preg_replace('/^([^\s]+).*$/', '$1', $name); // strip data-set suffix text

@@ -1,27 +1,8 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Renderer — WebGLRenderer init + low-end device detection
-//
-// All methods are exported as plain functions and bound to the GalleryScene
-// instance via .call(this). This keeps GalleryScene.js small while still
-// letting us use `this.renderer`, `this.camera`, etc.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { PostProcessing } from './PostProcessing.js';
 
-// Quick check that runs BEFORE renderer creation — used to decide antialias +
-// powerPreference. Returns true for low-core or low-RAM devices.
 export function earlyLowEndCheck() {
-    // QA instrumentation (Mirror Lake iteration): the visual harness runs on
-    // the SwiftShader rasterizer, whose UNMASKED_RENDERER string ALWAYS
-    // matches the software-renderer regex below — the static detector would
-    // pin every QA capture to the low tier and the shipping high-tier paths
-    // (water Reflector, PMREM sky, Standard materials) could never be
-    // render-verified. The HARNESS sets __EXOSPACE_QA_TIER via ?tier= to
-    // force the tier; the product never sets it. (The garden's ?shadows=0
-    // precedent: QA relief at the config/instrumentation level, never a
-    // product behaviour change.)
     if (typeof window !== 'undefined' && window.__EXOSPACE_QA_TIER === 'high') return false;
     if (typeof window !== 'undefined' && window.__EXOSPACE_QA_TIER === 'low') return true;
     if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) return true;
@@ -29,22 +10,12 @@ export function earlyLowEndCheck() {
     return false;
 }
 
-// PERF-B7 (3D audit F7): touch-primary device detection — the same signal
-// Mobile.js uses for its control scheme. Needed here (BEFORE loadAssets)
-// so the mobile quality tier and texture variant selection know the device
-// class as early as possible.
 export function isCoarsePointer() {
     return !!(window.matchMedia?.('(pointer: coarse)').matches
         || (navigator.maxTouchPoints > 0 && 'ontouchstart' in window));
 }
 
-// Creates the WebGLRenderer, attaches it to #canvas-container, sets tone-mapping
-// and color space. Called from GalleryScene.init().
 export function initRenderer() {
-    // PERF-B10 (3D audit F10): a WebGL context restore calls init() again,
-    // which used to create a SECOND renderer + canvas (duplicate WebGL
-    // contexts leak GPU memory) . If a renderer already exists, keep it —
-    // the restored context belongs to the same canvas — and just re-size.
     if (this.renderer) {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         return;
@@ -55,9 +26,6 @@ export function initRenderer() {
     const dpr = window.devicePixelRatio || 1;
 
     this.renderer = new THREE.WebGLRenderer({
-        // PERF-B7: MSAA is redundant when the device pixel ratio already
-        // exceeds ~1.5 (the extra samples are invisible) and it is one of the
-        // most expensive fixed-function features on mobile GPUs.
         antialias: !earlyLowEnd && !(coarse && dpr >= 1.5),
         powerPreference: earlyLowEnd ? 'low-power' : 'high-performance',
     });
@@ -68,18 +36,10 @@ export function initRenderer() {
     this.renderer.toneMapping       = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.8;
     this.renderer.outputColorSpace  = THREE.SRGBColorSpace;
-    // PERF-D24 (3D audit): counters accumulate across ALL composer passes
-    // (autoReset would wipe them at each intermediate render). GalleryScene
-    // resets them once per frame — the ?debug=1 panel then shows TRUE
-    // per-frame draw calls, which is how the PERF-D21 merges get verified.
     this.renderer.info.autoReset = false;
 
     this.container.appendChild(this.renderer.domElement);
 
-    // S-7: WebGL context-loss handling.
-    // On Windows with switchable GPUs, driver crashes, or sleep/wake,
-    // the WebGL context can be lost. Without handling, the renderer
-    // silently stops and the visitor sees a frozen frame.
     this._contextLost = false;
 
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
@@ -94,8 +54,6 @@ export function initRenderer() {
 
     this.renderer.domElement.addEventListener('webglcontextrestored', () => {
         console.log('WebGL context restored — rebuilding scene...');
-        // PERF-B10: if the page was disposed (pagehide/beforeunload) before
-        // the restore fired, do NOT resurrect a dead scene.
         if (this._disposed) {
             this._contextLost = true;
             return;
@@ -105,10 +63,6 @@ export function initRenderer() {
         const overlay = document.getElementById('webgl-recovery');
         if (overlay) overlay.style.display = 'none';
 
-        // The scene needs to be re-initialized — re-create materials,
-        // re-upload textures, re-set renderer state.
-        // GalleryScene.dispose() was called on context loss (if wired),
-        // so we re-init from scratch.
         if (this.init) {
             try {
                 this.init();
@@ -119,29 +73,18 @@ export function initRenderer() {
     }, false);
 }
 
-// Full hardware tier detection: CPU + GPU + RAM + runtime FPS benchmark.
-// Sets this.isLowEnd, applies quality reductions, and starts a deferred
-// FPS benchmark that can downgrade mid-session.
 export function detectLowEnd() {
     let isLowEnd = earlyLowEndCheck();
     const reasons = [];
-    // QA instrumentation — see earlyLowEndCheck. The forced tier skips the
-    // static GPU-string classification (the rasterizer IS SwiftShader; the
-    // point of ?tier=high is to exercise the high-tier code on it anyway).
     const qaTier = (typeof window !== 'undefined' && window.__EXOSPACE_QA_TIER) || null;
 
-    // PERF-B7 (3D audit F7): establish the device class BEFORE textures load
-    // so pickTextureUrl() and the mobile tier below take effect from the
-    // first request. Mobile.js re-sets this.isMobile later to the same value.
     this.isMobile = isCoarsePointer();
 
-    // ── CPU cores ─────────────────────────────────────────────────────────
     if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
         isLowEnd = true;
         reasons.push(`CPU cores: ${navigator.hardwareConcurrency}`);
     }
 
-    // ── GPU string analysis (best effort) ──────────────────────────────────
     try {
         const gl = this.renderer.getContext();
         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
@@ -162,39 +105,14 @@ export function detectLowEnd() {
         reasons.push('GPU info unavailable');
     }
 
-    // ── RAM ────────────────────────────────────────────────────────────────
     if (navigator.deviceMemory && navigator.deviceMemory < 4) {
         isLowEnd = true;
         reasons.push(`RAM: ${navigator.deviceMemory}GB`);
     }
 
-    // Schedule a deferred FPS benchmark that can downgrade mid-session if
-    // the GPU detection missed a slow device. The benchmark warms up for 2s
-    // then samples 20 frames — if average FPS is below 35, we apply low-end
-    // settings retroactively.
     this._scheduleFpsBenchmark = _scheduleFpsBenchmark;
     this._scheduleFpsBenchmark();
 
-    // (Task H37 / audit C4) — respect prefers-reduced-motion: disable
-    // MOTION (bloom pulse, vignette shift, camera lean, tour tweens,
-    // arrival dolly, particle drift) for vestibular safety.
-    //
-    // PREVIEW/PUBLIC PARITY FIX (Industrial Loft forensic audit):
-    // reduced-motion used to FORCE THE LOW-END TIER (isLowEnd = true),
-    // which conflated an accessibility preference with device capability.
-    // The admin Edit-Gallery preview iframe never published the flag while
-    // every public page does — so a curator with reduced motion enabled saw
-    // the full-quality venue in the editor and a degraded stand-in publicly:
-    // flat Lambert walls, zero pooled artwork lights, no HDRI, no post-fx.
-    // That is exactly the "preview rich, public bare-minimum" report.
-    //
-    // Now: this.reducedMotion only trims MOTION-class effects (the modules
-    // already read it); the RENDER TIER is decided by the device alone.
-    // A reduced-motion visitor on a strong device still gets lit, textured,
-    // PBR artwork — the venue keeps its identity — while bloom/vignette
-    // (PostProcessing), camera lean (Movement), tweens (Tour/Arrival) and
-    // particle drift (GalleryScene) stay off. Genuine low-end devices are
-    // still detected by the hardware checks below, unchanged.
     const reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
     this.reducedMotion = reducedMotion;
     if (reducedMotion) {
@@ -206,27 +124,10 @@ export function detectLowEnd() {
         console.log('⚡ Low-end mode:', reasons.join(', '));
         applyLowEndSettings.call(this);
     } else if (this.isMobile) {
-        // PERF-B7 (3D audit F7): modern phones pass every check above (8
-        // cores, 8 GB) and used to receive the FULL desktop quality stack —
-        // DPR 1.5 + MSAA + bloom + 6 proximity lights + a ~10 MB HDRI. Mid-
-        // range phones cannot sustain that. The mobile tier trims cost in
-        // ways that are genuinely invisible at phone screen sizes:
-        //   • pixel ratio capped at 1.25 (the canvas is ≤ ~420 CSS px wide)
-        //   • HDRI skipped (ambient + hemisphere carry the lighting)
-        //   • 4 pooled artwork lights instead of 6-8
-        //   • anisotropy capped at 2
-        //   • bloom off by default (PerformanceControls 'auto' → mobile)
-        // The deferred FPS benchmark can still downgrade further, and users
-        // can override via the ?debug=1 quality panel.
         console.log('📱 Mobile tier: pixelRatio 1.25, HDRI off, 4 pooled lights');
         applyMobileSettings.call(this);
     } else {
         console.log('🚀 High-end mode: full quality enabled');
-        // Initialize post-processing only on high-end.
-        // Re-init safety (context restore): the previous composer references
-        // the DEAD context's render targets and the OLD scene/camera objects —
-        // dispose it before creating a fresh one (its window resize listener
-        // used to leak on every rebuild).
         if (this._postFx) { this._postFx.dispose(); this._postFx = null; }
         this._postFx = new PostProcessing(this.renderer, this.scene, this.camera);
     }
@@ -234,19 +135,6 @@ export function detectLowEnd() {
     return isLowEnd;
 }
 
-// ── FPS benchmark — waits for the scene to settle, then samples real frames ─
-// POST-DEPLOY HOTFIX (2026-09-05): the benchmark used to start from
-// detectLowEnd() — i.e. DURING asset load. Its 2 s warm-up + 20-frame window
-// overlapped texture uploads, shader compilation and HDRI decoding, so a
-// healthy desktop GPU (RX 580 field report) measured 13 fps behind the
-// loading curtain and was falsely downgraded to the low-end tier mid-arrival
-// (PR 1.0, fog collapse, HDRI skip — no way back). The benchmark now:
-//   1. waits until the loader reports the scene settled
-//      (GalleryScene.hideLoader → _assetsSettledAt), then
-//   2. warms up 2 s of RENDERED frames, then
-//   3. samples up to 60 frames over ≥ 1 s (5 s cap), subtracting the time
-//      the tab spent hidden so background throttling can't fake a low score.
-// The decision itself is unchanged: mean < 35 fps ⇒ low-end settings.
 function _scheduleFpsBenchmark() {
     // Already flagged low-end? Skip — no point burning 3s of rAF to confirm.
     if (this.isLowEnd) return;
@@ -287,8 +175,6 @@ function _scheduleFpsBenchmark() {
     };
     document.addEventListener('visibilitychange', onVisibility);
 
-    // Total hidden time within [start, end] — subtracted from the measured
-    // window so background throttling can't fake a low score.
     const hiddenWithin = (start, end) => {
         let t = 0;
         for (const [a, b] of hiddenRanges) {
@@ -337,14 +223,6 @@ function _scheduleFpsBenchmark() {
 export function applyLowEndSettings() {
     this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.enabled = false;
-    // DEGRADATION-PARITY FIX (Industrial Loft forensic audit): scale the fog
-    // reach ONLY while it is still the generic boot fog. A VENUE-DECLARED
-    // fog (visual_config.fog_* — applied later by applyVenueConfig, or
-    // already live when the mid-session FPS benchmark downgrades) is the
-    // venue's identity: compressing it turned a benchmark downgrade into a
-    // mid-walk "different venue" (the venue's murk collapsed onto the
-    // visitor). The venue declaration now survives every tier change; the
-    // boot-fog squash still applies to config-less galleries.
     if (this.scene.fog && !this._venueFogDeclared) {
         this.scene.fog.near = Math.max(2, this.scene.fog.near * 0.4);
         this.scene.fog.far  = Math.max(8, this.scene.fog.far  * 0.5);
@@ -355,14 +233,9 @@ export function applyLowEndSettings() {
     this._maxAnisotropy = 1;     // anisotropic filtering is expensive on budget GPUs
 }
 
-// PERF-B7 (3D audit F7): mobile quality tier — see detectLowEnd for rationale.
-// Distinct from low-end: PBR materials + per-artwork lighting stay on; only
-// the costs that are invisible at phone sizes are trimmed.
 export function applyMobileSettings() {
     this._isMobileTier = true;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
-    // Same venue-fog guard as applyLowEndSettings — the mobile tier must not
-    // recompose a declared fog either (see the parity note there).
     if (this.scene.fog && !this._venueFogDeclared) {
         this.scene.fog.near = Math.min(this.scene.fog.near, 8);
         this.scene.fog.far  = Math.min(this.scene.fog.far, 24);
@@ -371,9 +244,6 @@ export function applyMobileSettings() {
     this._skipHdri        = true;   // the single biggest mobile payload
     this._maxAnisotropy   = 2;
     document.body.classList.add('mobile-tier');
-    // Post-processing stays available (vignette is cheap); PerformanceControls
-    // resolves 'auto' → the mobile quality level, which disables bloom.
-    // Re-init safety: dispose the previous composer first (see detectLowEnd).
     if (this._postFx) { this._postFx.dispose(); this._postFx = null; }
     this._postFx = new PostProcessing(this.renderer, this.scene, this.camera);
 }

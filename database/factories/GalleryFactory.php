@@ -6,18 +6,6 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Gallery>
- *
- * TD-17 FIX: Factory now includes all required columns from the consolidated
- * galleries migration. Previously missing:
- *   - venue_template_id (added in Round 1 — galleries belong to a venue)
- *   - team_id (added in Round 4 — team galleries)
- *   - is_featured (added in Round 4 — featured exhibitions)
- *
- * SoftDeletes (deleted_at) is managed by the model via SoftDeletes trait —
- * no factory field needed; the column defaults to NULL.
- */
 class GalleryFactory extends Factory
 {
     public function definition(): array
@@ -46,8 +34,6 @@ class GalleryFactory extends Factory
         ];
     }
 
-    // ── States ──────────────────────────────────────────────────────────
-
     public function inactive(): static
     {
         return $this->state(fn (array $attributes) => ['is_active' => false]);
@@ -61,8 +47,6 @@ class GalleryFactory extends Factory
 
     public function forTeam(\App\Models\Team $team): static
     {
-        // TD-17: team gallery state — sets team_id + keeps user_id as the
-        // gallery creator (the team owner).
         return $this->state(fn (array $attributes) => [
             'team_id' => $team->id,
             'user_id' => $team->owner_id,

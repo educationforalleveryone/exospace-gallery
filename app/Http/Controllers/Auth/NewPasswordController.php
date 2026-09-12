@@ -18,26 +18,11 @@ use Illuminate\View\View;
 
 class NewPasswordController extends Controller
 {
-    /**
-     * Display the password reset view.
-     */
     public function create(Request $request): View
     {
         return view('auth.reset-password', ['request' => $request]);
     }
 
-    /**
-     * Handle an incoming new password request.
-     *
-     * D-4 FIX (Iter-004): Now checks password history (reuse prevention)
-     * AND stores the old password in history. Previously, the forgot-password
-     * reset flow did NOT check password_histories — an attacker (or a user
-     * complying with a rotation policy) could bypass the reuse check by
-     * going through /forgot-password and setting their new password to be
-     * identical to their last 5 passwords.
-     *
-     * @throws \Illuminate\Validation\ValidationException
-     */
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
@@ -46,24 +31,15 @@ class NewPasswordController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // Here we will attempt to reset the user's password. If it is successful we
-        // will update the password on an actual user model and persist it to the
-        // database. Otherwise we will parse the error and return the response.
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user) use ($request) {
-                // D-4 FIX: Check new password against last 5 historical passwords.
-                // This mirrors the check in PasswordController::update() (the
-                // profile password-change flow). Without this, the forgot-password
-                // flow bypasses the reuse-prevention rule.
                 if ($user->isPasswordInHistory($request->password)) {
                     throw ValidationException::withMessages([
                         'password' => 'You cannot reuse one of your last 5 passwords. Please choose a different password.',
                     ])->redirectTo(back()->getTargetUrl());
                 }
 
-                // D-4 FIX: Store the current password hash in history BEFORE
-                // updating. This mirrors the behavior in PasswordController.
                 $user->storePasswordInHistory();
 
                 $user->forceFill([
@@ -78,9 +54,6 @@ class NewPasswordController extends Controller
             }
         );
 
-        // If the password was successfully reset, we will redirect the user back to
-        // the application's home authenticated view. If there is an error we can
-        // redirect them back to where they came from with their error message.
         return $status == Password::PASSWORD_RESET
                     ? redirect()->route('login')->with('status', __($status))
                     : back()->withInput($request->only('email'))

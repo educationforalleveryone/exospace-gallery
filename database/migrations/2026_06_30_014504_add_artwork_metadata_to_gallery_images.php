@@ -4,17 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Adds per-artwork metadata columns to `gallery_images`.
- *
- * These fields power the future "Inquire" button (Round 5 candidate) and
- * the public artist profile pages (which list an artist's works with
- * full metadata). They're also displayed in the focus-mode info panel
- * when a visitor inspects an artwork.
- *
- * All columns are nullable — existing artworks (which have only title +
- * description) continue to work unchanged.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -39,19 +28,9 @@ return new class extends Migration
 
     public function down(): void
     {
-        // ITERATION-1 FIX (consolidated-migration coexistence): rollback
-        // runs additive migrations' down() in reverse batch order — the
-        // target table may already be gone (owned by the consolidated
-        // migration that runs later in the same batch on fresh installs).
         if (! Schema::hasTable('gallery_images')) {
             return;
         }
-        // ITERATION-1 FIX: dropping ALL of these columns at once can empty
-        // the column set on consolidated-schema installs (the table was
-        // created WITH these columns by the consolidated migration that
-        // already rolled back... it hasn't — but when every listed column
-        // is absent, Blueprint compiles `create table __temp__ ()` — a
-        // syntax error). Compute the surviving set and skip when empty.
         $drop = array_values(array_filter(
             ['price', 'currency', 'for_sale', 'medium', 'year',
              'dimensions', 'edition_size', 'edition_number', 'external_url'],
@@ -60,10 +39,6 @@ return new class extends Migration
         if ($drop === []) {
             return;
         }
-        // ITERATION-1 FIX (empty temp-table guard): SQLite rebuilds the
-        // table via __temp__ on column drop. If the drop set covers EVERY
-        // remaining column, the rebuild compiles empty parentheses — a
-        // syntax error. Drop the whole table instead in that case.
         $remaining = collect(Schema::getColumnListing('gallery_images'))
             ->diff($drop)
             ->values()

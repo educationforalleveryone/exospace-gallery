@@ -7,18 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/**
- * App\Models\GalleryScheduleEvent
- *
- * An actual calendar event tied to a gallery — opening reception,
- * artist talk, walkthrough, workshop, closing, etc.
- *
- * NOT to be confused with AnalyticsEvent (which stores analytics events
- * like views and dwell time).
- *
- * Visitors can RSVP via the EventRsvp model — email capture doubles as
- * a marketing asset for the curator.
- */
 class GalleryScheduleEvent extends Model
 {
     protected $table = 'gallery_schedule_events';
@@ -46,8 +34,6 @@ class GalleryScheduleEvent extends Model
         'event'       => 'General event',
     ];
 
-    // ─── Relationships ──────────────────────────────────────────────────
-
     public function gallery(): BelongsTo
     {
         return $this->belongsTo(Gallery::class);
@@ -57,8 +43,6 @@ class GalleryScheduleEvent extends Model
     {
         return $this->hasMany(EventRsvp::class, 'schedule_event_id');
     }
-
-    // ─── Scopes ─────────────────────────────────────────────────────────
 
     public function scopeUpcoming(Builder $q): Builder
     {
@@ -74,8 +58,6 @@ class GalleryScheduleEvent extends Model
     {
         return $q->where('is_active', true);
     }
-
-    // ─── Helpers ────────────────────────────────────────────────────────
 
     public function typeLabel(): string
     {
@@ -96,17 +78,6 @@ class GalleryScheduleEvent extends Model
     {
         if (!$this->capacity) return false;
 
-        // PERF-15 FIX: Use withCount('rsvps') cache when available
-        // instead of issuing a separate COUNT query on every call.
-        // The gallery events page renders up to 20 events per gallery
-        // — calling isAtCapacity() on each would issue 20 separate
-        // COUNT queries. When the events are eager-loaded via
-        // ->withCount('rsvps'), the count is available as
-        // $event->rsvps_count (set by Laravel withCount magic) and
-        // we use it directly.
-        //
-        // Callers that load events without withCount fall back to a
-        // per-call COUNT query — still correct, just slower.
         if (array_key_exists('rsvps_count', $this->attributesToArray())) {
             return $this->rsvps_count >= $this->capacity;
         }
@@ -118,8 +89,6 @@ class GalleryScheduleEvent extends Model
     {
         if (!$this->capacity) return null;
 
-        // PERF-15: Same pattern as isAtCapacity() — prefer the
-        // eager-loaded rsvps_count when available.
         if (array_key_exists('rsvps_count', $this->attributesToArray())) {
             return max(0, $this->capacity - $this->rsvps_count);
         }

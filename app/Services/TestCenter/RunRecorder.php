@@ -10,28 +10,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
-/**
- * Persists a run record + per-case results from a parsed JUnit artifact.
- *
- * Honesty contract: aggregates written here ALWAYS come from the artifact —
- * this class never invents numbers. A run whose totals say zero cases is
- * recorded as NOT EXECUTED with the provided reason, never as "passed".
- */
 class RunRecorder
 {
     public function __construct(
         private readonly JunitParser $parser = new JunitParser(),
     ) {}
 
-    /**
-     * Import (or record) a finished run.
-     *
-     * @param  array<string,mixed> $metadata  profile, environment, safety, trigger,
-     *                                        git_commit, git_branch, git_tag, app_version, runner,
-     *                                        ci_run_url, db_driver, php_version, blocked_reason, meta
-     * @param  string|null         $junitPath absolute path to JUnit XML (null when blocked/not executed)
-     * @param  array{status?:string, blocked_reason?:string, started_at?:\Carbon\CarbonInterface, finished_at?:\Carbon\CarbonInterface, duration_ms?:int} $overrides
-     */
     public function record(array $metadata, ?string $junitPath, array $overrides = []): QaTestRun
     {
         $parsed = null;
@@ -56,7 +40,9 @@ class RunRecorder
                 $disk->put($artifactRelPath, file_get_contents($junitPath));
             }
 
-            /** @var QaTestRun $run */
+            /**
+ * @var QaTestRun $run
+ */
             $run = QaTestRun::create([
                 'uuid'          => (string) \Illuminate\Support\Str::uuid(),
                 'profile'       => $metadata['profile'],
@@ -142,11 +128,6 @@ class RunRecorder
             : QaTestRun::STATUS_PASSED;
     }
 
-    /**
-     * Fire-and-forget Slack alert through OperationalAlertService when a
-     * BLOCKING profile goes red. Never throws into the recording path —
-     * notification problems must not lose test truth.
-     */
     private function notifyOnFailure(QaTestRun $run): void
     {
         try {

@@ -11,9 +11,6 @@
         "Active in week {{ $weekIndex }}" = a login (users.last_login_at) OR a gallery update in the period.
     </p>
 
-    {{-- ITERATION 8: CSV export — same audit-logged PII surface as the page itself.
-         The audit row (retention.cohort_exported) is written BEFORE the stream
-         starts, so an interrupted export is still attributable. --}}
     <div class="mb-4">
         <a href="{{ route('super.retention.cohort.export', ['cohort' => $cohort->format('Y-m-d'), 'week' => $weekIndex]) }}"
            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 text-xs font-medium hover:bg-emerald-600/30 transition"
@@ -23,10 +20,6 @@
         </a>
     </div>
 
-    {{-- Cohort facts — counts are derived live from the same bounded activity
-         definition as the matrix (countActive), so they reconcile with the
-         cell the operator clicked. Tiny drift from the cached matrix is
-         possible if users registered between cache TTL and click — documented. --}}
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         <div class="bg-gray-900 border border-gray-700 rounded-xl p-3 text-center">
             <div class="text-2xl font-bold text-white">{{ number_format($size) }}</div>
@@ -46,17 +39,6 @@
         </div>
     </div>
 
-    {{-- ITERATION 9 — per-cohort retention curve W0..W7. The Master Control
-         matrix trends only W1 + W2 (the headline metric); this chart closes
-         the "which week did churn happen?" loop by showing the cohort's
-         retention curve across all 8 weeks on one canvas. W{weekIndex} is
-         highlighted so the page the operator landed on is visually anchored
-         (the cell they clicked in the matrix). Data: cohortCurve() reads
-         the latest complete snapshot per week_index from retention_snapshots
-         (the same table the weekly exospace:cohort-retention command writes).
-         Partial weeks (still-running follow-up weeks) render dimmed — same
-         convention as the matrix cells. The chart is hidden entirely when
-         the curve is empty (size-0 cohort or no snapshots persisted yet). --}}
     @if(!empty($curve) && collect($curve)->pluck('retained_pct')->filter()->isNotEmpty())
         @php
             $curvePoints = collect($curve)->filter(fn ($c) => $c['retained_pct'] !== null)->count();
@@ -133,13 +115,6 @@
     @endif
 </div>
 
-{{-- ITERATION 9 — per-cohort retention curve chart. Same waitForChart
-     pattern as the Master Control TTFE + retention charts (poll for
-     window.Chart loaded by admin-vendor.js). The highlight plugin rings
-     the W{weekIndex} point so the page the operator landed on is
-     visually anchored (the cell they clicked in the matrix). Partial
-     weeks render as dimmed points (rgba(156,163,175,0.4)) — same
-     convention as the matrix cells (italic + opacity-50). --}}
 @if(!empty($curve) && collect($curve)->pluck('retained_pct')->filter()->isNotEmpty())
     <script nonce="@nonce">
     (function () {
@@ -149,10 +124,6 @@
         var curve = @json($curve);
         var highlight = {{ (int) $weekIndex }};
 
-        // Pluck W0..W7 labels + retention % per row. Partial weeks
-        // (still-running follow-up weeks where complete=false) get a
-        // dimmer point color so the operator can see how much of the
-        // curve is final vs provisional — same convention as the matrix.
         var labels = curve.map(function (c) { return 'W' + c.week_index; });
         var data = curve.map(function (c) { return c.retained_pct; });
         var pointColors = curve.map(function (c) {

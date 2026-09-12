@@ -13,47 +13,12 @@ use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Tests\TestCase;
 
-/**
- * Artwork ownership & mutation authorization boundary (Iteration 14).
- *
- * The artwork record in Exospace is App\Models\GalleryImage. It has NO
- * row-level owner: authority flows exclusively through the parent gallery —
- *
- *     authenticated actor → GalleryPolicy (personal user_id / team roles)
- *         → authorized gallery context → GalleryImage (gallery_id)
- *
- * Adversarial coverage for the exact mission: a user who is not authorized
- * to manage the relevant gallery must not be able to manage its artwork by
- * supplying a different artwork ID, gallery ID, route parameter, request
- * payload, or reorder/bulk payload — while legitimate artwork management and
- * public presentation keep working.
- *
- * Sections:
- *   A. Authorized owner  — the full personal-gallery artwork lifecycle works
- *   B. Team context      — team→gallery→artwork chain via existing roles
- *   C. Cross-gallery     — identifier/payload manipulation cannot cross the
- *                          artwork↔gallery boundary
- *   D. Creation          — target gallery is derived server-side, never from
- *                          the payload
- *   E. Public behavior   — public artwork presentation stays public
- *
- * NOTE (process isolation, see Iteration 12/13 precedent): Team::memberRole()
- * memoizes (team_id, user_id) → role in a PHP static. Correct per-request in
- * production FPM, but a PHPUnit run is ONE process and RefreshDatabase re-uses
- * synthetic ids — so every test that reaches team-role resolution runs in its
- * own process, faithfully simulating a fresh FPM request cycle.
- */
 class ArtworkAuthorizationBoundaryTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ── Helpers ──────────────────────────────────────────────────────────
-
     private function makeImage(Gallery $gallery, array $overrides = []): GalleryImage
     {
-        // NOTE: the path column follows the app's real convention of a
-        // 'storage/' public-disk prefix (see GalleryImageFactory) —
-        // ImageProcessingService::delete() strips it via Str::after.
         return GalleryImage::factory()->create(array_merge([
             'gallery_id' => $gallery->id,
             'title' => 'Artwork '.uniqid(),
@@ -92,7 +57,6 @@ class ArtworkAuthorizationBoundaryTest extends TestCase
         $this->assertSame($gallery->id, GalleryImage::findOrFail($response->json('id'))->gallery_id);
         $this->assertSame(1, (int) GalleryImage::findOrFail($response->json('id'))->position_order);
 
-        // Second upload appends after the first (server-side ordering).
         $second = $this->actingAs($owner)
             ->post(route('admin.images.store', $gallery), ['file' => $this->uploadFile('second.jpg')]);
         $second->assertOk();
@@ -127,9 +91,6 @@ class ArtworkAuthorizationBoundaryTest extends TestCase
         $owner = User::factory()->create();
         $gallery = Gallery::factory()->create(['user_id' => $owner->id]);
         $image = $this->makeImage($gallery, ['path' => 'storage/galleries/'.$gallery->id.'/seeded.jpg']);
-        // The DB path carries a 'storage/' URL prefix; the FILE lives on the
-        // public disk at the stripped path (exactly how ImageProcessingService
-        // saves uploads, and how ::delete() strips it back).
         $diskPath = str($image->path)->after('storage/')->toString();
         Storage::disk('public')->put($diskPath, 'content');
         $this->assertTrue(Storage::disk('public')->exists($diskPath));
@@ -234,8 +195,6 @@ class ArtworkAuthorizationBoundaryTest extends TestCase
         $gallery = Gallery::factory()->forTeam($team)->create(['user_id' => $owner->id]);
         $image = $this->makeImage($gallery, ['title' => 'Untouchable']);
 
-        // Viewers hold the documented view right on the team gallery
-        // (show() authorizes the view policy, then redirects to the edit page).
         $this->actingAs($viewer)
             ->get(route('admin.galleries.show', $gallery))
             ->assertRedirect(route('admin.galleries.edit', $gallery));
@@ -270,8 +229,6 @@ class ArtworkAuthorizationBoundaryTest extends TestCase
     {
         Storage::fake('public');
         [$owner, $member, $team] = $this->teamWithMember('editor');
-        // Gallery once created by the now-removed member (user_id is stale
-        // after removal — team authority is the only anchor).
         $gallery = Gallery::factory()->forTeam($team)->create(['user_id' => $member->id]);
         $image = $this->makeImage($gallery);
 
@@ -387,10 +344,6 @@ class ArtworkAuthorizationBoundaryTest extends TestCase
         $galleryB = Gallery::factory()->create(['user_id' => $owner->id]);
         $image = $this->makeImage($galleryA, ['title' => 'Pinned In Place']);
 
-        // Both galleries belong to the actor — the ONLY thing under test is
-        // that the payload cannot move the artwork across the persisted
-        // gallery relationship (the actual relationship determines
-        // authorization, never the independently-presented gallery_id).
         $this->actingAs($owner)
             ->putJson(route('admin.galleries.images.metadata', [$galleryA, $image]), [
                 'title' => 'Renamed In Place',
@@ -415,8 +368,6 @@ class ArtworkAuthorizationBoundaryTest extends TestCase
         $mineOne = $this->makeImage($galleryA, ['position_order' => 1]);
         $mineTwo = $this->makeImage($galleryA, ['position_order' => 2]);
 
-        // Authorized gallery context + a payload stuffed with a foreign
-        // artwork ID: the scoped relationship update must ignore it.
         $this->actingAs($owner)
             ->postJson(route('admin.galleries.reorder-images', $galleryA), [
                 'order' => [$foreign->id, $mineTwo->id, $mineOne->id],
@@ -477,8 +428,6 @@ class ArtworkAuthorizationBoundaryTest extends TestCase
         $galleryA = Gallery::factory()->create(['user_id' => $owner->id]);
         $galleryB = Gallery::factory()->create(['user_id' => $owner->id]);
 
-        // The route gallery (A) is the trusted server-side target; a
-        // payload gallery_id pointing at B must be ignored entirely.
         $response = $this->actingAs($owner)
             ->post(route('admin.images.store', $galleryA), [
                 'file' => $this->uploadFile(),

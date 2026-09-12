@@ -1,5 +1,3 @@
-// probe-salon-geom.mjs — dump world-space bounding boxes of every merged
-// structure group + unmerged structure mesh: where did the baked parts land?
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';

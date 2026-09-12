@@ -8,61 +8,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-/**
- * M-11 / 2CO-7 / O-10 FIX (Iteration-008): VAT/TAX handling service.
- *
- * Previous state (pre-Iter-008):
- *   - calculateTax() took an Illuminate\Http\Request — coupled the service
- *     to HTTP, making it untestable from console commands / queued jobs
- *     (audit L-4 / F-4 code smell).
- *   - Only covered EU VAT rates. Audit 2CO-7 requires UK, Norway,
- *     Switzerland, Australia, Singapore, and India rates.
- *   - VIES validation was format-only. EU B2B reverse-charge relief
- *     requires actually verifying the customer's VAT number against
- *     the EU VIES database. A format-only check is trivially bypassed
- *     (any 8-12 digit string passes).
- *   - TaxService was NEVER called by InvoiceGenerator (audit 2CO-7) —
- *     every invoice had tax_amount=0. EU/UK/AU/SG/IN tax compliance
- *     exposure.
- *
- * Iter-008 fixes:
- *   - calculateTax() now takes (string $ip, float $amount, ?string
- *     $countryCode, ?string $vatNumber). Callable from anywhere.
- *   - Adds UK (20%), Norway (25%), Switzerland (8.1%), Australia (10%),
- *     Singapore (9%), India (18% digital goods) rates.
- *   - VIES validation via the EU SOAP API with a 24h cache. VIES is
- *     rate-limited (~5 req/sec per IP) and goes down regularly; the
- *     cache + graceful format-only fallback handle this.
- *   - Returns a TaxBreakdown DTO-like array including the fields needed
- *     for the invoice PDF (supplier_vat_number, customer_vat_number,
- *     reverse_charge flag, country code).
- *
- * Tax rules (EU VAT as primary use case):
- *   - EU B2C: charge VAT based on customer's country (destination rule)
- *   - EU B2B: reverse charge (0% VAT) if valid VAT number verified via VIES
- *   - UK B2C: 20% VAT
- *   - UK B2B: 0% reverse charge if valid UK VAT number (post-Brexit, UK
- *     is treated as a third country for EU VAT purposes — sale from EU
- *     supplier to UK business is reverse-charge; sale from UK supplier
- *     to UK customer is normal VAT)
- *   - Norway B2C: 25% VAT on digital services (VOEC regime)
- *   - Switzerland B2C: 8.1% VAT on digital services (Swiss VAT Act)
- *   - Australia B2C: 10% GST (GST-free if customer is GST-registered
- *     and provides an ABN)
- *   - Singapore B2C: 9% GST (overseas vendor registration regime)
- *   - India B2C: 18% GST on digital services (equalisation levy is 6%
- *     but applies separately; IGST 18% is the standard digital rate)
- *   - Non-EU/UK/NO/CH/AU/SG/IN: no VAT charged (0%)
- *
- * The InvoiceGenerator now calls this service to set tax_amount + tax_rate
- * on invoices. The billing portal displays the tax-inclusive price.
- */
 class TaxService
 {
-    /**
-     * EU VAT rates (2024 standard rates).
-     * Source: https://ec.europa.eu/taxation_customs/business/vat/telecommunications-broadcasting-electronic-services_en
-     */
     private const EU_VAT_RATES = [
         'AT' => 20.0, // Austria
         'BE' => 21.0, // Belgium
@@ -99,10 +46,6 @@ class TaxService
         'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
     ];
 
-    /**
-     * Non-EU jurisdiction rates for digital services (2024).
-     * Audit 2CO-7: previously missing — every non-EU invoice had tax=0.
-     */
     private const NON_EU_VAT_RATES = [
         'GB' => 20.0, // United Kingdom (VAT, standard rate)
         'NO' => 25.0, // Norway (VAT on digital services, VOEC regime)
@@ -112,39 +55,14 @@ class TaxService
         'IN' => 18.0, // India (IGST on digital services)
     ];
 
-    /**
-     * Countries where B2B reverse charge applies (supplier outside the
-     * country, customer inside with a valid VAT number).
-     */
     private const REVERSE_CHARGE_COUNTRIES = [
         ...self::EU_COUNTRIES, // EU B2B reverse charge (intra-community)
         'GB',                  // UK B2B reverse charge (post-Brexit)
         'NO',                  // Norway B2B reverse charge
     ];
 
-    /** VIES validation cache TTL — 24h. VIES is rate-limited and flaky. */
     private const VIES_CACHE_TTL_SECONDS = 86400;
 
-    /**
-     * Iter-008 FIX: Calculate tax for a transaction.
-     *
-     * @param  string      $ip           Customer's IP address (for GeoIP fallback)
-     * @param  float       $amount       The total amount (tax-INCLUSIVE if your
-     *                                   catalog prices include tax; tax-EXCLUSIVE
-     *                                   otherwise — InvoiceGenerator passes
-     *                                   the ex-tax amount).
-     * @param  string|null $countryCode  Override country (e.g. from billing_address)
-     * @param  string|null $vatNumber    Customer's VAT number (for B2B reverse charge)
-     * @return array{
-     *     rate: float,
-     *     amount: float,
-     *     country: string,
-     *     is_eu: bool,
-     *     is_reverse_charge: bool,
-     *     vat_number_valid: bool,
-     *     jurisdiction_name: string,
-     * }
-     */
     public function calculateTax(string $ip, float $amount, ?string $countryCode = null, ?string $vatNumber = null): array
     {
         $country = $countryCode ?? $this->detectCountry($ip);
@@ -152,9 +70,6 @@ class TaxService
         $isEu = in_array($country, self::EU_COUNTRIES, true);
         $isNonEuVat = array_key_exists($country, self::NON_EU_VAT_RATES);
 
-        // B2B reverse charge: customer has a VAT number + country is in the
-        // reverse-charge list + the number validates via VIES (or format-only
-        // if VIES is unreachable). 0% VAT, with reverse_charge=true.
         if ($vatNumber && in_array($country, self::REVERSE_CHARGE_COUNTRIES, true)) {
             $vatValid = $this->validateVatNumber($vatNumber, $country);
             if ($vatValid) {
@@ -168,8 +83,6 @@ class TaxService
                     'jurisdiction_name' => $this->jurisdictionName($country),
                 ];
             }
-            // If VAT number is invalid, fall through to B2C rate (charge VAT).
-            // Log this — invalid VAT number on a B2B claim is suspicious.
             Log::warning('TaxService: VAT number failed VIES validation; charging B2C rate', [
                 'country'    => $country,
                 'vat_number' => substr($vatNumber, 0, 4) . '...', // don't log full VAT
@@ -197,37 +110,8 @@ class TaxService
         ];
     }
 
-    /**
-     * Iter-008 FIX: Detect the customer's country from their IP address.
-     *
-     * No longer takes a Request — accepts the IP string directly.
-     * Tries (in order):
-     *   1. Cloudflare's CF-IPCountry header (if app is behind Cloudflare)
-     *   2. The app's configured default country (config('app.tax_default_country'))
-     *
-     * For production accuracy, install stevebauman/location or torann/geoip
-     * for MaxMind GeoIP2 lookup. The default fallback (US) is conservative
-     * — it produces 0% VAT for unknown IPs, which is the lowest-risk
-     * default for a non-EU supplier.
-     */
     private function detectCountry(string $ip): string
     {
-        // ITERATION-1 FIX (VAT correctness): this method previously IGNORED
-        // the $ip argument entirely and read the current request's
-        // CF-IPCountry header. In webhook/queue context (where invoices are
-        // actually generated) there IS no browser request — the header is
-        // absent and every invoice fell back to the default country (US →
-        // 0% VAT), drifting from the VAT 2Checkout actually charged.
-        //
-        // Resolution order:
-        //   1. Explicit country code passed by the caller (2Checkout's
-        //      billing country from the IPN payload) — handled in
-        //      calculateTax() BEFORE this method runs.
-        //   2. CF-IPCountry when we're in a real browser request context
-        //      (checkout upgrade flow).
-        //   3. Configured default.
-        // The raw $ip alone cannot be resolved offline (no bundled GeoIP
-        // database); callers that care pass the country explicitly.
         $cfCountry = request()?->header('CF-IPCountry');
         if ($cfCountry && $cfCountry !== 'XX') {
             return strtoupper($cfCountry);
@@ -236,35 +120,15 @@ class TaxService
         return strtoupper(config('app.tax_default_country', 'US'));
     }
 
-    /**
-     * Iter-008 FIX: Validate a VAT number against the EU VIES database.
-     *
-     * VIES is the official EU VAT number validation service:
-     *   https://ec.europa.eu/taxation_customs/vies/
-     *
-     * VIES is rate-limited (~5 req/sec per IP) and goes down regularly
-     * (each member state's VIES endpoint can be unavailable independently).
-     * We cache successful validations for 24h. On VIES failure, we fall
-     * back to format-only validation and log a warning so the operator
-     * knows the validation wasn't real.
-     *
-     * For UK VAT numbers (post-Brexit), VIES does NOT validate them —
-     * HMRC has a separate API. We use format-only validation for UK.
-     */
     public function validateVatNumber(string $vatNumber, string $countryCode): bool
     {
         $vatNumber = $this->normalizeVatNumber($vatNumber, $countryCode);
         $countryCode = strtoupper($countryCode);
 
-        // UK VAT numbers — VIES doesn't validate post-Brexit. Format check only.
-        // HMRC's API requires OAuth; out of scope for this iteration.
         if ($countryCode === 'GB') {
             return $this->validateUkVatFormat($vatNumber);
         }
 
-        // Non-EU countries with no VAT (e.g. NO, CH, AU, SG, IN) — use
-        // format-only validation for those local tax IDs. Reverse charge
-        // for these is a local rule, not a VIES-verified one.
         if (! in_array($countryCode, self::EU_COUNTRIES, true)) {
             return $this->validateVatNumberFormat($vatNumber, $countryCode);
         }
@@ -292,25 +156,9 @@ class TaxService
         return $isValid;
     }
 
-    /**
-     * Call the EU VIES SOAP API to validate a VAT number.
-     *
-     * Returns:
-     *   - true: VAT number is valid
-     *   - false: VAT number is invalid
-     *   - null: VIES API unreachable / error (caller should fall back)
-     *
-     * VIES WSDL: https://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl
-     *
-     * We use a raw SOAP request via Http:: with a short timeout — PHP's
-     * SoapClient has historically been flaky on VIES's WSDL, and Http::
-     * gives us better control over timeouts.
-     */
     private function callViesApi(string $countryCode, string $vatNumber): ?bool
     {
         try {
-            // VIES SOAP endpoint. Timeout: 5s connect, 10s total.
-            // VIES is normally fast (~200ms) but can hang.
             $soapEnvelope = '<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>

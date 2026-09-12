@@ -1,17 +1,4 @@
 <?php
-/**
- * zen-propagation-check.php — §11 live template-update propagation for zen.
- *
- * Edits one obvious venue-owned value (tone_mapping_exposure 0.95 → 1.05) on
- * the zen TEMPLATE row, then proves:
- *   1. a gallery on zen receives the new value through the exporter
- *   2. a SECOND gallery on zen receives it too
- *   3. the customer's exhibition finishes survive untouched
- *   4. an unrelated venue (white-cube) is not affected
- *   5. the cache re-keys (payload changes WITHOUT any gallery touch — the
- *      venue.updated_at half of the cache key)
- *   6. rollback restores the exact prior payload
- */
 require __DIR__.'/../../vendor/autoload.php';
 $app = require_once __DIR__.'/../../bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
@@ -56,7 +43,6 @@ $beforeA = $exp($gA);
 $beforeFrameB = $exporter->forGallery($gB->refresh())['effective_settings']['frame_style'];
 $beforeCube = $exp($gC)['tone_mapping_exposure'] ?? null;
 
-// ── 1. the venue edit ────────────────────────────────────────────────────────
 DB::table('venue_templates')->where('id', $zen->id)->update([
     'visual_config' => json_encode(array_merge(json_decode($zen->visual_config, true),
         ['tone_mapping_exposure' => 1.05])),
@@ -80,7 +66,6 @@ $check('unrelated venue (white-cube) exposure untouched',
 $check('the payload actually CHANGED for A (cache re-keyed on venue.updated_at)',
     $afterA !== $beforeA);
 
-// ── 2. rollback ──────────────────────────────────────────────────────────────
 DB::table('venue_templates')->where('id', $zen->id)->update([
     'visual_config' => $zen->visual_config,
     'updated_at'    => now(),

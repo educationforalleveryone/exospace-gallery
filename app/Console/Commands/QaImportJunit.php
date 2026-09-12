@@ -8,16 +8,6 @@ use App\Services\TestCenter\JunitParser;
 use App\Services\TestCenter\RunRecorder;
 use Illuminate\Console\Command;
 
-/**
- * qa:import — ingest a JUnit artifact produced elsewhere (a CI runner, a
- * teammate's machine, the GitHub Actions workflow shipped in this repo)
- * into structured run history.
- *
- * Used by:
- *   - CI post-step (qa:import junit.xml --profile=pre_release --env=ci ...)
- *   - Control Center ingest API payload handling
- *   - Manual backfill: "I have junit from yesterday's failed release check"
- */
 class QaImportJunit extends Command
 {
     protected $signature = 'qa:import

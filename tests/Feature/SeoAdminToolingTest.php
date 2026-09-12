@@ -2,20 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * SEO OPERATING SYSTEM — Iteration 6 (admin/operations tooling) tests.
- *
- * Covers:
- *   - Super-admin SEO console: health tab (real stats), gallery/artist
- *     profile editing, redirect CRUD, page publish toggle, cache rebuild
- *   - Access control: super-admin + MFA middleware gates the console
- *   - Curator-level SEO fields on gallery + artist edit flows
- *   - seo:audit command output + scheduled registration
- *   - AdminAuditLog entries for mutations
- *
- * Run: php artisan test --filter=SeoAdminToolingTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Artist;
@@ -40,21 +26,12 @@ class SeoAdminToolingTest extends TestCase
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
 
-        // ITERATION-1 FIX: super-admin routes sit behind the `mfa`
-        // middleware, which REQUIRES MFA for super-admins — the old
-        // factory state had no MFA secret, so every /master-control/seo
-        // POST silently redirected to /mfa/setup and the assertions below
-        // inspected state that was never written.
         $this->superAdmin = User::factory()->withMfa()->create([
             'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
     }
 
-    /**
-     * actingAs + a valid in-session MFA verification (the super_admin
-     * middleware group demands both).
-     */
     private function actingAsMfaSuperAdmin(): self
     {
         return $this->actingAs($this->superAdmin)->withSession([
@@ -65,12 +42,8 @@ class SeoAdminToolingTest extends TestCase
 
     private function actingAsSuperAdmin(): self
     {
-        // The super-admin group requires the 'mfa' middleware, which passes
-        // through for users who haven't enabled MFA.
         return $this->actingAs($this->superAdmin);
     }
-
-    // ── Access control ──────────────────────────────────────────────────
 
     public function test_seo_console_requires_super_admin(): void
     {
@@ -87,8 +60,6 @@ class SeoAdminToolingTest extends TestCase
 
         $response->assertRedirect('/login');
     }
-
-    // ── Health dashboard ────────────────────────────────────────────────
 
     public function test_health_tab_shows_real_counts(): void
     {
@@ -118,8 +89,6 @@ class SeoAdminToolingTest extends TestCase
         $html = $response->getContent();
         $this->assertStringContainsString('Indexable galleries', $html);
 
-        // ITERATION-1 FIX: gallery titles render on the galleries tab, not
-        // the health tab — the old assertion looked in the wrong place.
         $galleries = $this->actingAsMfaSuperAdmin()->get('/master-control/seo?tab=galleries');
         $galleries->assertOk();
         $this->assertStringContainsString('Counted Show', $galleries->getContent());
@@ -132,10 +101,6 @@ class SeoAdminToolingTest extends TestCase
             'title' => 'No Desc Show', 'slug' => 'no-desc-show',
             'is_active' => true,
         ]);
-        // ITERATION-1 FIX: the audit only counts galleries with at least one
-        // artwork (empty exhibitions are thin content, excluded from SEO
-        // accounting) — the old setup created an image-less gallery that
-        // was never counted.
         GalleryImage::create([
             'gallery_id' => $gallery->id, 'filename' => 'c.jpg', 'original_name' => 'c.jpg',
             'path' => 'artworks/c.jpg', 'mime_type' => 'image/jpeg', 'size' => 1,
@@ -147,8 +112,6 @@ class SeoAdminToolingTest extends TestCase
         $response->assertOk();
         $this->assertStringContainsString('galleries with no curator description', $response->getContent());
     }
-
-    // ── Profile editing ─────────────────────────────────────────────────
 
     public function test_super_admin_can_set_gallery_seo_profile(): void
     {
@@ -208,8 +171,6 @@ class SeoAdminToolingTest extends TestCase
         ]);
     }
 
-    // ── Redirects CRUD ──────────────────────────────────────────────────
-
     public function test_super_admin_can_create_and_delete_redirects(): void
     {
         $this->actingAsMfaSuperAdmin()->post('/master-control/seo/redirects', [
@@ -229,8 +190,6 @@ class SeoAdminToolingTest extends TestCase
 
         $this->assertDatabaseMissing('seo_redirects', ['id' => $redirect->id]);
     }
-
-    // ── SEO page management ─────────────────────────────────────────────
 
     public function test_super_admin_can_toggle_page_publish_state(): void
     {
@@ -258,8 +217,6 @@ class SeoAdminToolingTest extends TestCase
         $this->assertStringContainsString('Listed Guide', $response->getContent());
     }
 
-    // ── Cache rebuild ───────────────────────────────────────────────────
-
     public function test_cache_rebuild_bumps_sitemap_version(): void
     {
         \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 7);
@@ -269,8 +226,6 @@ class SeoAdminToolingTest extends TestCase
         $response->assertRedirect();
         $this->assertSame(8, (int) \Illuminate\Support\Facades\Cache::get('seo:sitemap:version'));
     }
-
-    // ── Curator SEO fields ──────────────────────────────────────────────
 
     public function test_curator_gallery_update_persists_seo_fields(): void
     {
@@ -324,8 +279,6 @@ class SeoAdminToolingTest extends TestCase
         $this->assertSame('Artist SEO Title', $profile->title_override);
     }
 
-    // ── seo:audit command ───────────────────────────────────────────────
-
     public function test_seo_audit_command_runs_and_reports(): void
     {
         Gallery::create([
@@ -340,8 +293,6 @@ class SeoAdminToolingTest extends TestCase
 
     public function test_seo_audit_is_scheduled_daily(): void
     {
-        // Boot the console kernel so routes/console.php schedule definitions
-        // are registered on the Schedule singleton.
         $this->artisan('list');
 
         $schedule = app(\Illuminate\Console\Scheduling\Schedule::class);
@@ -351,8 +302,6 @@ class SeoAdminToolingTest extends TestCase
 
         $this->assertCount(1, $events, 'exospace:seo-audit must be registered in the scheduler.');
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
 
     private function addArtworkTo(Gallery $gallery): void
     {

@@ -6,10 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Add lifecycle_nudged_at column to users for tracking lifecycle
-     * email dispatch. (Task H55)
-     */
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
@@ -19,10 +15,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // ITERATION-1 FIX (consolidated-migration coexistence): rollback
-        // runs additive migrations' down() in reverse batch order — the
-        // target table may already be gone (owned by the consolidated
-        // migration that runs later in the same batch on fresh installs).
         if (! Schema::hasTable('users')) {
             return;
         }

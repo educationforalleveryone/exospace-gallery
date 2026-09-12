@@ -9,58 +9,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * OpsCenter — SentryApiClient (Iteration 4; error trend in 6; per-app
- * trend in 8; per-app issue headlines in 9).
- *
- * A read-only, FOUR-call bridge to the Sentry REST API backing the
- * overview's "Sentry — Unresolved Issues" tile and the Applications
- * page's per-app trend column + per-app issue headlines:
- *   summary() (Iteration 4) — issue HEADLINES via
- *     GET /api/0/organizations/{org}/issues/ (title, culprit, counts,
- *     permalink) so the operator sees the full platform picture in
- *     OpsCenter and clicks through to Sentry for stack traces and
- *     release tagging (ADR: summarize + link out, never clone).
- *   trend() (Iteration 6) — the hourly error-RATE for the last 24 h via
- *     GET /api/0/organizations/{org}/events-stats/ (yAxis=count(),
- *     interval=1h), rendered as a pure-SVG sparkline in the same tile:
- *     "is this spike new or the baseline?" answered at a glance.
- *   trendFor() (Iteration 8) — the SAME stats endpoint scoped to ONE
- *     project slug (the operator-supplied ops_applications.
- *     sentry_project_slug mapping), so the Applications page can answer
- *     "which app is actually throwing?" without leaving OpsCenter.
- *   summaryFor() (Iteration 9) — the SAME issues endpoint scoped to ONE
- *     project slug: the trend answers "how MUCH is this app throwing?",
- *     the headlines answer "WHAT is it throwing?" — top issues by
- *     frequency with permalinks, one card per mapped app on the
- *     Applications page. Same per-project cache isolation as trendFor
- *     (ops:sentry:summary:{slug}): a failing project degrades exactly
- *     its own card, never the org summary or its siblings.
- *
- * Independence note: SENTRY_LARAVEL_DSN (error REPORTING) and
- * SENTRY_API_TOKEN (this summary pull) are separate concerns on purpose.
- * The tile degrades honestly when either is absent.
- *
- * Degradation contract (same family as CoolifyApiClient): NOTHING here
- * throws and the token NEVER appears in any returned payload. Every
- * failure mode — unconfigured, timeout, 401/403, 404, 429, malformed
- * JSON — returns a structured array the tile renders verbatim. Results
- * (success AND failure) are cached so a slow or broken Sentry API can
- * never slow the dashboard or be hammered by every page load. The trend
- * is cached under its OWN key: a failing stats endpoint (e.g. a token
- * without the event:read scope) must not poison the headlines cache, and
- * vice versa. trendFor() extends the same rule PER PROJECT: each mapped
- * application gets its own cache key (ops:sentry:trend:{slug}), so one
- * app's failing/absent project can never poison the org trend or its
- * siblings' caches.
- *
- * API: GET /api/0/organizations/{org}/issues/ with
- *   query=is:unresolved, statsPeriod=24h, project={slug} (repeated)
- * API: GET /api/0/organizations/{org}/events-stats/ with
- *   yAxis=count(), statsPeriod=24h, interval=1h, project={slug}
- * Docs: https://docs.sentry.io/api/events/list-an-projects-issues/
- *       https://docs.sentry.io/api/events/get-organization-events-stats/
- */
 class SentryApiClient
 {
     private ?string $token;
@@ -69,7 +17,9 @@ class SentryApiClient
 
     private string $org;
 
-    /** @var array<int, string> */
+    /**
+ * @var array<int, string>
+ */
     private array $projects;
 
     private int $timeout;
@@ -96,19 +46,6 @@ class SentryApiClient
             && $this->baseUrl !== '';
     }
 
-    /**
-     * The cached summary the overview tile renders.
-     *
-     * @return array{
-     *     configured: bool,
-     *     error?: string,
-     *     fetched_at?: string,
-     *     total_issues?: int,
-     *     total_events?: int,
-     *     total_users?: int,
-     *     issues?: array<int, array{title: string, culprit: string, level: string, count: int, user_count: int, first_seen: string, last_seen: string, link: string, project: string}>
-     * }
-     */
     public function summary(): array
     {
         if (! $this->isConfigured()) {
@@ -124,34 +61,11 @@ class SentryApiClient
 
         $result = $this->fetch(null);
 
-        // Cache failures too (short TTL is per config) — an unreachable
-        // Sentry must not turn every dashboard load into an API attempt.
         Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
 
         return $result;
     }
 
-    /**
-     * The cached issue headlines for ONE Sentry project (Iteration 9 —
-     * the per-application cards on the Applications page).
-     *
-     * Same contract as summary(): nothing throws, the token never appears
-     * in any payload, and results (success AND failure) are cached under
-     * a per-project key so the org summary, the org trend, every mapped
-     * app's trend and every sibling app's headlines can never be poisoned
-     * by one project's failure. An empty slug returns the unconfigured
-     * shape — the caller renders "not mapped", never a network call.
-     *
-     * @return array{
-     *     configured: bool,
-     *     error?: string,
-     *     fetched_at?: string,
-     *     total_issues?: int,
-     *     total_events?: int,
-     *     total_users?: int,
-     *     issues?: array<int, array{title: string, culprit: string, level: string, count: int, user_count: int, first_seen: string, last_seen: string, link: string, project: string}>
-     * }
-     */
     public function summaryFor(string $projectSlug): array
     {
         if (! $this->isConfigured() || trim($projectSlug) === '') {
@@ -168,27 +82,11 @@ class SentryApiClient
 
         $result = $this->fetch($slug);
 
-        // Cache failures too — a mapped-but-deleted project must not turn
-        // every Applications page load into an API attempt.
         Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
 
         return $result;
     }
 
-    /**
-     * The cached hourly error trend the tile's sparkline renders.
-     *
-     * @return array{
-     *     configured: bool,
-     *     error?: string,
-     *     fetched_at?: string,
-     *     points?: int,
-     *     total?: int,
-     *     peak?: int,
-     *     peak_hour?: string,
-     *     series?: array<int, array{ts: int, count: int}>
-     * }
-     */
     public function trend(): array
     {
         if (! $this->isConfigured()) {
@@ -204,35 +102,11 @@ class SentryApiClient
 
         $result = $this->fetchTrend(null);
 
-        // Cache failures too — same rationale as the summary (an unhappy
-        // endpoint must not turn every dashboard load into an API hit).
         Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
 
         return $result;
     }
 
-    /**
-     * The cached hourly error trend for ONE Sentry project (Iteration 8 —
-     * the per-application mapping on the Applications page).
-     *
-     * Same contract as trend(): nothing throws, the token never appears
-     * in any payload, and results (success AND failure) are cached under
-     * a per-project key so sibling apps and the org-wide trend can never
-     * be poisoned by one project's failure. An empty slug returns the
-     * unconfigured shape — the caller renders "not mapped", never a
-     * network call.
-     *
-     * @return array{
-     *     configured: bool,
-     *     error?: string,
-     *     fetched_at?: string,
-     *     points?: int,
-     *     total?: int,
-     *     peak?: int,
-     *     peak_hour?: string,
-     *     series?: array<int, array{ts: int, count: int}>
-     * }
-     */
     public function trendFor(string $projectSlug): array
     {
         if (! $this->isConfigured() || trim($projectSlug) === '') {
@@ -249,20 +123,11 @@ class SentryApiClient
 
         $result = $this->fetchTrend($slug);
 
-        // Cache failures too — a mapped-but-deleted project must not turn
-        // every Applications page load into an API attempt.
         Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
 
         return $result;
     }
 
-    /**
-     * @param  string|null  $projectSlug  null = the org-wide trend (the
-     *                                     config project filter still
-     *                                     applies); a slug = exactly that
-     *                                     project, config filter ignored.
-     * @return array<string, mixed>
-     */
     private function fetchTrend(?string $projectSlug = null): array
     {
         $base = ['configured' => true, 'fetched_at' => now()->toIso8601String()];
@@ -273,18 +138,12 @@ class SentryApiClient
 
         try {
             $query = [
-                // yAxis/count are spelled exactly as the events-stats
-                // endpoint expects; interval=1h gives 24 points.
                 'yAxis' => 'count()',
                 'statsPeriod' => '24h',
                 'interval' => '1h',
             ];
 
             if ($projectSlug !== null) {
-                // Exactly ONE project — the operator's mapping for this
-                // application. The config-wide filter (SENTRY_PROJECT_
-                // SLUGS) is deliberately ignored here: it scopes the
-                // org-wide surfaces, not a per-app question.
                 $query['project'] = $projectSlug;
             } elseif ($this->projects !== []) {
                 $query['project'] = $this->projects;
@@ -319,9 +178,6 @@ class SentryApiClient
             return $base + ['error' => 'Sentry API returned an unexpected response shape'];
         }
 
-        // Normalize: entries have been [time, {count: N}] and
-        // [{time, count}] shapes across API versions — both are handled,
-        // non-numeric rows are dropped rather than guessed at.
         $series = [];
         $total = 0;
         $peak = 0;
@@ -361,8 +217,6 @@ class SentryApiClient
             return $base + ['error' => 'Sentry API returned no usable data points'];
         }
 
-        // Chronological order (Sentry returns ascending, but the chart
-        // must not depend on it).
         usort($series, fn ($a, $b) => $a['ts'] <=> $b['ts']);
 
         return $base + [
@@ -376,15 +230,6 @@ class SentryApiClient
         ];
     }
 
-    /**
-     * @param  string|null  $projectSlug  null = the org-wide summary (the
-     *                                     config project filter still
-     *                                     applies); a slug = exactly that
-     *                                     project, config filter ignored —
-     *                                     the same scoping rule fetchTrend
-     *                                     established in Iteration 8.
-     * @return array<string, mixed>
-     */
     private function fetch(?string $projectSlug = null): array
     {
         $base = ['configured' => true, 'fetched_at' => now()->toIso8601String()];
@@ -397,15 +242,8 @@ class SentryApiClient
             $query = ['query' => 'is:unresolved', 'statsPeriod' => '24h'];
 
             if ($projectSlug !== null) {
-                // Exactly ONE project — the operator's mapping for this
-                // application. The config-wide filter (SENTRY_PROJECT_
-                // SLUGS) scopes the org-wide surfaces, not a per-app
-                // question.
                 $query['project'] = $projectSlug;
             } elseif ($this->projects !== []) {
-                // Repeated `project` params — Laravel's HTTP client
-                // expands arrays into project[]=slug form, which Sentry
-                // accepts.
                 $query['project'] = $this->projects;
             }
 
@@ -414,8 +252,6 @@ class SentryApiClient
                 ->acceptJson()
                 ->get($this->baseUrl.'/api/0/organizations/'.$this->org.'/issues/', $query);
         } catch (Throwable $e) {
-            // Connection-level failure (timeout, DNS). Status code only —
-            // the exception message can echo request internals.
             Log::warning('SentryApiClient: request failed', ['reason' => get_class($e)]);
 
             return $base + ['error' => 'Sentry API unreachable (network timeout or DNS failure)'];
@@ -465,8 +301,6 @@ class SentryApiClient
             $totalUsers += $this->normalizeCount($issue['userCount'] ?? ($issue['user_count'] ?? 0));
         }
 
-        // Most frequent first (Sentry's default sort is 'last seen' —
-        // frequency surfaces what users actually hit).
         usort($normalized, fn ($a, $b) => $b['count'] <=> $a['count']);
 
         return $base + [
@@ -477,11 +311,6 @@ class SentryApiClient
         ];
     }
 
-    /**
-     * Sentry has shipped both int and object shapes for these fields
-     * across API versions (count: 42 vs count: {count: 42}, userCount:
-     * 87 vs userCount: {userCount: 87}) — normalize defensively.
-     */
     private function normalizeCount(mixed $value): int
     {
         if (is_array($value)) {
@@ -491,10 +320,6 @@ class SentryApiClient
         return max(0, (int) $value);
     }
 
-    /**
-     * Direct issue link when the payload omits permalink (self-hosted or
-     * API-version differences).
-     */
     private function fallbackLink(string $issueId): string
     {
         if ($issueId === '') {
@@ -504,9 +329,6 @@ class SentryApiClient
         return $this->baseUrl.'/organizations/'.$this->org.'/issues/'.$issueId.'/';
     }
 
-    /**
-     * The "open Sentry" link for the tile footer.
-     */
     public function issuesUrl(): string
     {
         return $this->baseUrl.'/organizations/'.$this->org.'/issues/?query=is:unresolved&statsPeriod=24h';

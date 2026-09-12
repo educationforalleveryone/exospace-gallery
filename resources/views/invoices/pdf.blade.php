@@ -1,17 +1,3 @@
-{{-- M-10 + Iter-008 (2CO-7 + O-10): VAT-compliant Invoice PDF template.
-
-    Iter-008 changes:
-      - Now renders customer VAT number (B2B)
-      - Now renders supplier VAT number (always shown if configured)
-      - Now renders tax_country_code alongside the tax line
-      - Now renders "Reverse charge — VAT accounted for by customer"
-        notation when reverse_charge=true (B2B intra-EU / EU→UK)
-      - Tax block hidden entirely when no tax AND no reverse charge
-        (avoids showing a meaningless "Tax (0%): $0.00" line on US invoices)
-
-    Rendered by InvoiceGenerator::generatePdf() and stored on the public disk.
-    Uses dompdf-compatible HTML (simple table layout, no external CSS/JS).
---}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -139,10 +125,6 @@
             </div>
         @elseif($invoice->tax_amount > 0)
             <div class="totals-row">
-                {{-- ITERATION-1 FIX: tax_rate renders with locale-dependent decimal
-                        separators (19.0 in some locales prints "19"); cast to
-                        a clean percentage, and use the typographic middot
-                        consistently with the test expectation. --}}
 <span>Tax ({{ rtrim(rtrim(number_format((float) $invoice->tax_rate, 1, '.', ''), '0'), '.') }}%{{ $invoice->tax_country_code ? ' · ' . $invoice->tax_country_code : '' }})</span>
                 <span>{{ $invoice->formattedTax() }}</span>
             </div>

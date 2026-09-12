@@ -13,27 +13,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 9, Feature C — the watchdog's escape hatch.
- *
- * Every alert route (default + the four per-severity routes) lives in
- * the SAME failure domain: if the Slack workspace or the webhook
- * integration dies, the watchdog's alarm about the dead morning digest
- * dies with it. The escalation channel is the independent copy:
- *
- *   1. alert(..., escalate: true) posts the IDENTICAL payload to BOTH
- *      the primary route and OPS_ESCALATION_WEBHOOK — the primary still
- *      fires (a missed digest is often a dead scheduler with a healthy
- *      webhook; the operator's main channel stays the first line).
- *   2. Unset URL = the pre-Iteration-9 behavior, byte for byte.
- *   3. Default alerts NEVER touch the escalation channel.
- *   4. Dedup gates BOTH posts — a suppressed duplicate escalates nowhere.
- *   5. A DEAD PRIMARY cannot prevent the escalation copy (independent
- *      try/catch + timeout) — the whole point of the feature.
- *   6. The watchdog's miss alarm escalates; its recovery note does NOT
- *      (the all-clear is informational; the resolved event row already
- *      records it durably).
- */
 class OpsEscalationChannelTest extends TestCase
 {
     use RefreshDatabase;
@@ -60,8 +39,6 @@ class OpsEscalationChannelTest extends TestCase
         ]);
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────
-
     private function alerts(): OperationalAlertService
     {
         return app(OperationalAlertService::class);
@@ -83,8 +60,6 @@ class OpsEscalationChannelTest extends TestCase
 
         return $requests;
     }
-
-    // ── 1. Both channels ────────────────────────────────────────────────
 
     public function test_an_escalated_alert_posts_to_both_channels(): void
     {
@@ -141,8 +116,6 @@ class OpsEscalationChannelTest extends TestCase
 
     public function test_a_dead_primary_webhook_cannot_kill_the_escalation_copy(): void
     {
-        // The whole point: the primary channel is dead — the alarm about
-        // the dead channel must still arrive somewhere independent.
         $this->withEscalation();
 
         Http::fake(function ($request) {
@@ -157,8 +130,6 @@ class OpsEscalationChannelTest extends TestCase
 
         $this->assertCount(1, $this->requestsTo('escalation.test'), 'The escalation copy survives the dead primary.');
     }
-
-    // ── 2. The watchdog wiring ──────────────────────────────────────────
 
     public function test_the_watchdogs_missing_digest_alarm_escalates(): void
     {
@@ -199,8 +170,6 @@ class OpsEscalationChannelTest extends TestCase
             'last_seen_at' => now()->subDay(),
         ]);
 
-        // Today's digest arrived — the healthy path resolves the prior
-        // event with ONE recovery note on the PRIMARY channel only.
         Cache::put('ops:morning-digest:last', ['at' => now(), 'trigger' => 'scheduled'], now()->addDays(7));
 
         $this->artisan('ops:check-digest-delivery')->assertSuccessful();

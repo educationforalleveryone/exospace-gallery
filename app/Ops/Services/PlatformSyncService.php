@@ -10,32 +10,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * OpsCenter — PlatformSyncService.
- *
- * Pulls the WHOLE Coolify platform into ops_applications and turns notable
- * changes into ops_events. This is what makes the control plane
- * PLATFORM-WIDE: every application/database/service/server on the box
- * becomes visible — not just Exospace — WITHOUT agents, SSH, or Docker
- * socket access (ADR-2 in docs/OPS_DISCOVERY_AUDIT.md).
- *
- * Idempotent: run it every 5 minutes (scheduled) or manually. Each sync:
- *
- *   1. Upserts servers / applications / databases / services into
- *      ops_applications (matching by Coolify resource UUID).
- *   2. Creates an event when a resource's status DEGRADES (running →
- *      exited/unhealthy/restarting) — recovery is visible on the
- *      application row itself.
- *   3. Inspects recent deployments per application; failed deployments
- *      become BUILD/DEPLOYMENT events with commit + duration context
- *      (deduped by fingerprint — an old failure never re-pages).
- *   4. Records a single INFRASTRUCTURE event (rate-limited via cache, like
- *      OperationalAlertService's dedup) when the Coolify API itself is
- *      unreachable, so a dead control-plane feed is itself observable.
- *
- * Every field is optional-tolerant: Coolify's API surface differs between
- * versions; missing fields degrade to 'unknown', never to an exception.
- */
 class PlatformSyncService
 {
     private const COOLIFY_UNREACHABLE_CACHE_KEY = 'ops:sync:coolify-unreachable-alerted';
@@ -45,9 +19,6 @@ class PlatformSyncService
         private readonly OpsEventIngestor $ingestor,
     ) {}
 
-    /**
-     * @return array{applications: int, events_created: int, api_ok: bool}
-     */
     public function sync(): array
     {
         if (! $this->coolify->isConfigured()) {
@@ -57,10 +28,6 @@ class PlatformSyncService
         $events = 0;
         $appsSeen = 0;
 
-        // ── Servers ────────────────────────────────────────────────────
-        // Servers are resources too (kind=server) so the dashboard can show
-        // the DigitalOcean box itself, its health and (where the Coolify
-        // version exposes it) utilization in meta.
         foreach ($this->coolify->servers() as $server) {
             $this->upsertResource($server, 'server', 'coolify');
             $appsSeen++;
@@ -77,14 +44,10 @@ class PlatformSyncService
             if ($opsApp !== null) {
                 $appsSeen++;
 
-                // Tie the self application (Exospace) to its Coolify row so
-                // local errors and Coolify deployments correlate on one row.
                 if ($selfUuid && $uuid === $selfUuid) {
                     $this->markSelf($opsApp);
                 }
 
-                // Deployments (best-effort per application; endpoint varies
-                // by Coolify version).
                 $events += $this->syncDeployments($opsApp, $uuid);
             }
         }
@@ -105,10 +68,6 @@ class PlatformSyncService
         return ['applications' => $appsSeen, 'events_created' => $events, 'api_ok' => true];
     }
 
-    /**
-     * Upsert one Coolify resource row; emit a degrade event on status
-     * transitions into an unhealthy state.
-     */
     private function upsertResource(array $data, string $kind, string $provider): ?OpsApplication
     {
         try {
@@ -138,8 +97,6 @@ class PlatformSyncService
                     'meta' => $this->extractMeta($data),
                 ]);
 
-                // First observation of an UNHEALTHY resource is immediately
-                // notable (a resource added in a bad state).
                 if (in_array($app->health, ['degraded', 'stopped'], true)) {
                     $this->ingestStatusEvent($app, 'unknown', $status);
                 }
@@ -158,9 +115,6 @@ class PlatformSyncService
             ]);
 
             if ($app->isDirty('health')) {
-                // Transition into a bad state = event. Recovery (bad →
-                // running) updates the row; no event needed — the dashboard
-                // shows current status, and recovery pages would be noise.
                 if (in_array($app->health, ['degraded', 'stopped'], true)) {
                     $this->ingestStatusEvent($app, $previousHealth, $status);
                 }
@@ -181,10 +135,6 @@ class PlatformSyncService
         }
     }
 
-    /**
-     * Inspect recent deployments of one application; emit events for failed
-     * ones (deduped by fingerprint — a deployment failure pages once).
-     */
     private function syncDeployments(OpsApplication $app, string $uuid): int
     {
         $limit = max(1, (int) config('ops.platform_sync.deployments_limit', 5));
@@ -236,10 +186,6 @@ class PlatformSyncService
         return $created;
     }
 
-    /**
-     * Alert (once per cooldown, cache-guarded exactly like
-     * OperationalAlertService dedup) that the platform feed itself is down.
-     */
     public function recordApiUnreachable(): void
     {
         // 2-hour cooldown — a persistent outage re-pages; a blip doesn't.
@@ -291,10 +237,6 @@ class PlatformSyncService
             return;
         }
 
-        // The 'self' row (created by OpsEventIngestor::selfApplication) and
-        // this Coolify row are the same application. Prefer the self row's
-        // stable slug; merge identity onto the Coolify row so ALL events
-        // (local errors + Coolify deployments) correlate on ONE row.
         $self = OpsApplication::where('is_self', true)->first();
 
         if ($self !== null && $self->id !== $app->id) {
@@ -311,8 +253,6 @@ class PlatformSyncService
                 'meta' => array_merge($app->meta ?? [], $self->meta ?? []),
             ]);
 
-            // Keep the richer URL: Coolify's fqdn beats a missing self URL;
-            // an explicitly configured APP_URL wins over both.
             if ($app->url && ! $self->url) {
                 $self->url = $app->url;
             }
@@ -328,9 +268,6 @@ class PlatformSyncService
         $app->save();
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     private function extractMeta(array $data): array
     {
         $meta = [];

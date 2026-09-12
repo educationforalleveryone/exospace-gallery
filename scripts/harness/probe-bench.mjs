@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-// probe-bench.mjs — standalone render of the sculpture garden's authored
-// bench_01.glb (garden-iteration-5). Verifies: DRACO+WebP decode through the
-// SAME decoder path the app uses (/decoders/draco/), height normalization to
-// the manifest role target (0.85 m), material sanity under a daylight rig,
-// and silhouette quality from the two angles a visitor actually sees.
-//   node scripts/harness/probe-bench.mjs        → shots-bench/*.png
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -22,8 +16,6 @@ const vendor = {
     '/probe-vendor/three.core.js': 'node_modules/three/build/three.core.js',
     '/probe-vendor/GLTFLoader.js': 'node_modules/three/examples/jsm/loaders/GLTFLoader.js',
     '/probe-vendor/DRACOLoader.js': 'node_modules/three/examples/jsm/loaders/DRACOLoader.js',
-    // GLTFLoader's internal relative import ('../utils/BufferGeometryUtils.js')
-    // resolves against /probe-vendor/ → /utils/… — keep the graph alive.
     '/utils/BufferGeometryUtils.js': 'node_modules/three/examples/jsm/utils/BufferGeometryUtils.js',
     '/loaders/DRACOLoader.js': 'node_modules/three/examples/jsm/loaders/DRACOLoader.js',
 };

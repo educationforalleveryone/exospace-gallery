@@ -73,9 +73,6 @@
             <p>You'll stop receiving abandoned-cart reminders and product tips. You can re-subscribe anytime from your profile settings.</p>
             <p style="font-size: 12px; color: #6b7280;">Account: {{ $user->email }}</p>
 
-            {{-- P0-3 AUDIT FIX: The form action MUST include the signature query
-                 parameter so the POST route's `signed` middleware can verify it.
-                 Without this, the POST would be rejected as an unsigned URL. --}}
             <form method="POST" action="{{ URL::signedRoute('unsubscribe.confirm', ['user' => $user->id]) }}">
                 @csrf
                 <button type="submit" class="btn">Yes, unsubscribe me</button>

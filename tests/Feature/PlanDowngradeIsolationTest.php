@@ -9,33 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * P0-1 regression test: PlanDowngradeService orWhere scope leak.
- *
- * Before the fix, the downgrade query was:
- *
- *     $user->galleries()
- *         ->whereNotNull('custom_domain')
- *         ->orWhereNotNull('custom_logo_path')
- *         ->orWhereNotNull('curtain_logo_path')
- *         ->orWhereNotNull('audio_path')
- *         ->chunkById(50, ...);
- *
- * SQL operator precedence (AND binds tighter than OR) compiled this to:
- *
- *     WHERE (user_id = ? AND custom_domain IS NOT NULL)
- *        OR (custom_logo_path IS NOT NULL)        -- UN-SCOPED to user!
- *        OR (curtain_logo_path IS NOT NULL)       -- UN-SCOPED to user!
- *        OR (audio_path IS NOT NULL)              -- UN-SCOPED to user!
- *
- * Downgrading ANY single user wiped custom_logo_path, curtain_logo_path,
- * and audio_path (and deleted the corresponding files on disk) for EVERY
- * gallery in the entire database that had any of those fields populated.
- *
- * This test creates two Studio users — each with galleries that have the
- * Studio-only fields populated — downgrades User A, and asserts that
- * User B's galleries are completely untouched.
- */
 class PlanDowngradeIsolationTest extends TestCase
 {
     use RefreshDatabase;
@@ -43,20 +16,11 @@ class PlanDowngradeIsolationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Fake the public disk so file deletes are no-ops on the real FS.
-        // We pre-create the files via Storage::disk('public')->put() so
-        // the delete path is exercised, but nothing touches the host.
         Storage::fake('public');
     }
 
-    /**
-     * The headline regression test: downgrading User A must not touch
-     * User B's Studio-only resources.
-     */
     public function test_downgrading_one_user_does_not_clear_another_users_studio_fields(): void
     {
-        // ── Setup: two Studio users, each with a gallery that has all four
-        //    Studio-only fields populated. ───────────────────────────────
         [$userA, $galleryA] = $this->createStudioUserWithGallery('user-a');
         [$userB, $galleryB] = $this->createStudioUserWithGallery('user-b');
 
@@ -73,17 +37,10 @@ class PlanDowngradeIsolationTest extends TestCase
         $this->assertNotNull($originalB['curtain_logo_path']);
         $this->assertNotNull($originalB['audio_path']);
 
-        // ── Act: downgrade User A only. ─────────────────────────────────
-        // We call the service directly to bypass the Coolify HTTP call
-        // that the middleware path would trigger for User A's custom_domain.
-        // User A's domain cleanup calls CoolifyDomainManager::removeDomain
-        // which would fail in a test env without HTTP. Mocking the service
-        // container binding here lets the call succeed silently.
         $this->mockCoolifyDomainManager();
 
         app(PlanDowngradeService::class)->downgradeToFree($userA, 'Test: P0-1 regression');
 
-        // ── Assert: User A was downgraded. ──────────────────────────────
         $userA->refresh();
         $this->assertEquals('free', $userA->plan);
 
@@ -137,10 +94,6 @@ class PlanDowngradeIsolationTest extends TestCase
         $this->assertEquals('studio', $userB->plan, 'User B was downgraded by downgrading User A.');
     }
 
-    /**
-     * A user with NO Studio fields populated should be downgraded safely
-     * without errors (the closure should produce zero matching rows).
-     */
     public function test_downgrading_user_with_no_studio_fields_is_a_safe_noop(): void
     {
         $user = User::factory()->studio()->create();
@@ -159,20 +112,12 @@ class PlanDowngradeIsolationTest extends TestCase
         $this->assertEquals('free', $user->plan);
     }
 
-    /**
-     * A user with MORE than 50 galleries (the chunk size) must have all of
-     * them cleaned up — the chunkById + closure pattern must paginate
-     * correctly across multiple chunks.
-     */
     public function test_downgrading_user_with_more_than_50_galleries_clears_all_of_them(): void
     {
         $this->mockCoolifyDomainManager();
 
         $user = User::factory()->studio()->create();
 
-        // Create 60 galleries, each with custom_logo_path set.
-        // (Avoid custom_domain to skip the Coolify mock path; we already
-        // mock it but keeping the test focused on the chunking behavior.)
         for ($i = 0; $i < 60; $i++) {
             $logoPath = 'logos/logo-' . $i . '-' . uniqid() . '.png';
             Storage::disk('public')->put($logoPath, 'fake-image-bytes');
@@ -195,11 +140,6 @@ class PlanDowngradeIsolationTest extends TestCase
         $this->assertEquals(0, $remaining, 'chunkById + closure failed: some galleries were skipped.');
     }
 
-    /**
-     * Team galleries owned by the downgraded user should also be cleaned up.
-     * The user_id on the gallery points at the original creator (the team
-     * owner), so $user->galleries() includes them.
-     */
     public function test_downgrading_team_owner_clears_team_gallery_studio_fields(): void
     {
         $this->mockCoolifyDomainManager();
@@ -223,12 +163,6 @@ class PlanDowngradeIsolationTest extends TestCase
         $this->assertNull($teamGallery->getOriginal('custom_logo_path'));
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
-
-    /**
-     * Create a Studio-tier user with one gallery that has ALL four
-     * Studio-only fields populated. Returns [$user, $gallery].
-     */
     private function createStudioUserWithGallery(string $label): array
     {
         $user = User::factory()->studio()->create();
@@ -241,8 +175,6 @@ class PlanDowngradeIsolationTest extends TestCase
         Storage::disk('public')->put($curtainPath, 'fake-curtain-bytes');
         Storage::disk('public')->put($audioPath, 'fake-audio-bytes');
 
-        // custom_domain is set + verified so the full cleanup path runs.
-        // The CoolifyDomainManager::removeDomain call is mocked.
         $gallery = Gallery::factory()->withCustomDomain("{$label}.example.com")->create([
             'user_id'           => $user->id,
             'custom_logo_path'  => 'storage/' . $logoPath,
@@ -253,11 +185,6 @@ class PlanDowngradeIsolationTest extends TestCase
         return [$user, $gallery];
     }
 
-    /**
-     * Bind a mock CoolifyDomainManager in the container so
-     * PlanDowngradeService can call removeDomain() without making real
-     * HTTP requests during tests.
-     */
     private function mockCoolifyDomainManager(): void
     {
         $mock = \Mockery::mock(\App\Services\CoolifyDomainManager::class);

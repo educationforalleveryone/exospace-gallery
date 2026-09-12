@@ -12,22 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 5 — the credential inventory & rotation ledger.
- *
- * These tests pin the governance surface's three contracts:
- *
- *   1. The catalog: complete (the §15 nine + the OpsCenter-era tokens),
- *      every entry well-formed, and the inventory NEVER carries a secret
- *      value — only presence booleans, timestamps and cadences.
- *   2. The status logic: exposed-never-rotated → ROTATE NOW; overdue /
- *      due-soon / ok around the per-credential cadence; untracked for
- *      the optional tokens; §15-first ordering.
- *   3. The ledger: markRotated upserts one row per key (no duplicates),
- *      rejects unknown keys, audits (ops.credential.rotated) and
- *      announces on Slack — and the page renders it all WITHOUT ever
- *      displaying a configured value.
- */
 class OpsCredentialInventoryTest extends TestCase
 {
     use RefreshDatabase;
@@ -56,8 +40,6 @@ class OpsCredentialInventoryTest extends TestCase
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
-
-    // ── 1. The catalog ──────────────────────────────────────────────────
 
     public function test_catalog_covers_the_section_15_nine_plus_opscenter_tokens(): void
     {
@@ -126,8 +108,6 @@ class OpsCredentialInventoryTest extends TestCase
         $this->assertStringNotContainsString('VALUE-THAT-MUST-NEVER-APPEAR', $payload);
         $this->assertStringNotContainsString('ANOTHER-FORBIDDEN-VALUE', $payload);
     }
-
-    // ── 2. Status logic ─────────────────────────────────────────────────
 
     public function test_exposed_and_never_rotated_is_rotate_now(): void
     {
@@ -210,8 +190,6 @@ class OpsCredentialInventoryTest extends TestCase
         );
     }
 
-    // ── 3. The ledger ───────────────────────────────────────────────────
-
     public function test_mark_rotated_creates_and_then_updates_one_row(): void
     {
         $actor = User::factory()->create();
@@ -262,8 +240,6 @@ class OpsCredentialInventoryTest extends TestCase
         $this->assertStringNotContainsString('TOP-SECRET-TOKEN', json_encode($log->payload));
     }
 
-    // ── 4. The page ─────────────────────────────────────────────────────
-
     public function test_credentials_page_requires_super_admin(): void
     {
         $user = User::factory()->withMfa()->create([
@@ -300,8 +276,6 @@ class OpsCredentialInventoryTest extends TestCase
             'notes' => 'rotated in DO panel',
         ]);
 
-        // The ledger row renders on the page (note + recency), proving
-        // the rotation is visible to the next operator.
         $this->asMfaSuperAdmin()->get('/ops/credentials')
             ->assertOk()
             ->assertSee('rotated in DO panel')

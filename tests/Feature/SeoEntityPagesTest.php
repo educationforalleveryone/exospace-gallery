@@ -2,26 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * SEO OPERATING SYSTEM — Iteration 2 (public entity SEO) tests.
- *
- * Covers:
- *   - Artist profiles: indexable (no more noindex from guest layout), unique
- *     title/canonical, Person JSON-LD, breadcrumbs, noindex when no public works
- *   - Artist directory /artists: hub renders, canonical + pagination prev/next
- *   - Artwork pages: quality gate (indexable vs noindex), VisualArtwork schema,
- *     canonical URL shape, 404 on cross-gallery artwork access
- *   - Gallery view: canonical link present (audit C3), semantic layer in DOM,
- *     embed noindex, empty-gallery noindex
- *   - Venue pages: hub + detail, noindex for venue without exhibitions
- *   - Events page: no longer inside guest layout, noindex when empty
- *   - Discover: canonical policy (filtered → clean canonical + noindex,follow;
- *     paginated → self canonical with page param; default → clean)
- *   - /gallery/demo never leaks PIN-protected or scheduled galleries
- *
- * Run: php artisan test --filter=SeoEntityPagesTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Artist;
@@ -43,11 +23,6 @@ class SeoEntityPagesTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
-        // ITERATION-1 FIX: config('app.url') alone does not change what
-        // url() generates in feature tests — the UrlGenerator uses the
-        // request root (http://localhost) unless the root is forced.
-        // Without this, every canonical/OG assertion below compared the
-        // rendered localhost URLs against exospace.gallery and failed.
         \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
         \Illuminate\Support\Facades\URL::forceScheme('https');
     }
@@ -79,8 +54,6 @@ class SeoEntityPagesTest extends TestCase
             'orientation'   => 'landscape',
         ], $attrs));
     }
-
-    // ── Artist profiles (audit C1) ──────────────────────────────────────
 
     public function test_artist_profile_is_indexable_with_unique_title_and_canonical(): void
     {
@@ -135,8 +108,6 @@ class SeoEntityPagesTest extends TestCase
         $this->assertStringNotContainsString('Secret Show', $html);
     }
 
-    // ── Artist directory ────────────────────────────────────────────────
-
     public function test_artists_directory_renders_with_hub_metadata(): void
     {
         $artist = Artist::create(['name' => 'Directory Artist', 'location' => 'Oslo']);
@@ -161,8 +132,6 @@ class SeoEntityPagesTest extends TestCase
         $this->assertStringContainsString('href="https://exospace.gallery/artists?page=2"', $html);
         $this->assertStringContainsString('rel="prev"', $html);
     }
-
-    // ── Artwork pages ───────────────────────────────────────────────────
 
     public function test_artwork_page_passing_quality_gate_is_indexable(): void
     {
@@ -220,9 +189,6 @@ class SeoEntityPagesTest extends TestCase
 
     public function test_artwork_page_in_pin_gallery_redirects_to_pin_screen(): void
     {
-        // ITERATION-3: the artwork page previously rendered the full
-        // artwork with only a noindex tag — noindex stops crawlers, not
-        // humans. It now enforces the same PIN gate as the gallery view.
         $gallery = $this->makePublicGallery([
             'slug' => 'locked-show', 'title' => 'Locked Show',
             'pin_hash' => \Illuminate\Support\Facades\Hash::make('1234'),
@@ -293,8 +259,6 @@ class SeoEntityPagesTest extends TestCase
         $this->assertStringNotContainsString('<meta name="description" content="">', $html);
     }
 
-    // ── Venue pages ─────────────────────────────────────────────────────
-
     public function test_venue_pages_render_with_metadata(): void
     {
         $venue = VenueTemplate::create([
@@ -340,8 +304,6 @@ class SeoEntityPagesTest extends TestCase
         $this->assertStringContainsString('noindex,follow', $response->getContent());
     }
 
-    // ── Events page ─────────────────────────────────────────────────────
-
     public function test_events_page_has_seo_and_noindex_when_empty(): void
     {
         $gallery = $this->makePublicGallery();
@@ -354,8 +316,6 @@ class SeoEntityPagesTest extends TestCase
         $this->assertStringContainsString('noindex,follow', $html, 'Empty events calendar is thin content.');
         $this->assertStringContainsString('<link rel="canonical" href="https://exospace.gallery/gallery/echoes-of-the-void/events">', $html);
     }
-
-    // ── Discover canonical policy ───────────────────────────────────────
 
     public function test_discover_default_view_is_clean_canonical(): void
     {
@@ -388,8 +348,6 @@ class SeoEntityPagesTest extends TestCase
         $this->assertStringNotContainsString('noindex', $html);
     }
 
-    // ── Demo route quality (audit M9) ───────────────────────────────────
-
     public function test_demo_route_skips_pin_protected_galleries(): void
     {
         $pinGallery = $this->makePublicGallery([
@@ -406,8 +364,6 @@ class SeoEntityPagesTest extends TestCase
         $response->assertRedirect();
         $this->assertStringNotContainsString('first-pin', $response->headers->get('Location') ?? '');
     }
-
-    // ── Quality gate unit-level ─────────────────────────────────────────
 
     public function test_quality_gate_logic(): void
     {

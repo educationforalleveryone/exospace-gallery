@@ -9,24 +9,10 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Managed redirects (SEO OS Iteration 4).
- *
- * Runs BEFORE routing (prepended in bootstrap/app.php, right after
- * DetectCustomDomain): if the request path matches an active seo_redirect,
- * respond with its redirect status — regardless of whether a real route
- * exists at that path. This is deliberate: if an operator has declared a
- * redirect for a path, that declaration wins.
- *
- * The lookup is a cached in-memory map fetch (one Cache::remember per
- * 10 minutes), so the hot-path cost is a single cache GET.
- */
 class SeoRedirects
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Only GET/HEAD requests are redirected; POST/PUT/DELETE to an old
-        // path is a client bug and should surface normally.
         if ($request->isMethod('get') || $request->isMethod('head')) {
             $map = SeoRedirect::cachedMap();
 

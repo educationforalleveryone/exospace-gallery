@@ -14,82 +14,12 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
-/**
- * OpsCenter — OpsWeeklyReviewService (Iteration 8; the long memory in 9).
- *
- * The Monday deep-dive: the daily digest answers "what is broken RIGHT
- * NOW"; the weekly review answers "what KIND of week was it" — the
- * trailing-7-day trends the daily cadence cannot show: error volume by
- * category, incident throughput (opened / resolved / MTTA / MTTR),
- * deployment activity and failures, the autonomous sweep's finding
- * history, and the week's operator activity.
- *
- * ITERATION 9 — THE LONG MEMORY: every flow metric is now computed for
- * BOTH the current 7-day window AND the one before it, so each review
- * states its own week-over-week delta ("▲ +23 vs last week"). And every
- * actual delivery persists its metrics as an ops_review_snapshots row —
- * the strip on /ops/digest turns a stack of Mondays into an 8-week arc.
- * Two mechanisms, two purposes, deliberately NOT interchangeable:
- *
- *   - DELTAS are computed LIVE from window pairs, so they stay accurate
- *     even when a Monday send was missed or the platform is brand new.
- *   - SNAPSHOTS are written by every send() invocation (the /ops/digest
- *     preview composes on every page load and stays side-effect-free).
- *     The Slack dedup lives INSIDE alert(), invisible to send(), so a
- *     suppressed scheduler re-fire still records — every row's metrics
- *     are true for its week, and the strip dedupes by latest row per
- *     week_start, so duplicates are harmless by design.
- *
- * Same design contract as the morning digest (Iteration 7), inherited
- * verbatim:
- *
- *   - FAIL-SOFT PER SECTION — a throwing data source degrades exactly
- *     its own section to 'unavailable'; the review still ships.
- *   - READ-ONLY — composing reads existing tables; the only writes are
- *     the Slack message, the last-sent stamp and (Iteration 9) one
- *     snapshot row per delivery. The review records NO event rows: it
- *     REPORTS on events, it must not become one.
- *   - SILENCE IS FOR PROBLEMS — the weekly review is NOT a dead-man's
- *     switch. Unlike the daily digest it is informational: kill switch
- *     OPS_WEEKLY_REVIEW_ENABLED (default on) turns it off without
- *     suspending any contract — the daily digest + the watchdog carry
- *     the silence contract, this carries the long view.
- *   - THE PREVIEW IS THE MESSAGE — /ops/digest renders the exact text
- *     from the same compose()+render() pair the Monday 08:30 task uses.
- *   - LOCAL DATA ONLY — every section derives from the control plane's
- *     own tables (ops_events, ops_incidents, ops_diagnostic_runs,
- *     admin_audit_logs). No new Sentry endpoint is speculated: the 24 h
- *     trend already rides the daily digest, and a weekly Sentry window
- *     is a separate API surface nobody has asked for yet.
- *
- * DELTA RENDERING RULES (Iteration 9):
- *   - A line whose number is the line's primary metric gets an inline
- *     suffix: " — ▲ +N vs last week" / " — ▼ −N vs last week" /
- *     " — ±0 vs last week". Lines whose number lives in the SECTION
- *     TITLE (sweep findings, incidents opened/resolved) get one
- *     dedicated "vs last week: …" line instead — the title stays clean.
- *   - BOTH WINDOWS EMPTY → no suffix at all: an all-zero comparison is
- *     silence, not information.
- *   - MTTA/MTTR deltas render only when the previous window has its own
- *     comparable mean; "no comparison yet" states are NOT invented for
- *     missing acks — the existing acknowledge prompt already says it.
- *   - STATE metrics (active incidents, still-open sweep findings,
- *     backups) never get deltas: they are readings of NOW, not flows.
- *   - Per-check sweep lines get no per-title delta: title-keyed
- *     matching across weeks is fragile and the total delta carries the
- *     signal.
- */
 class OpsWeeklyReviewService
 {
-    /** Cache stamp: when the weekly review last went out, and from where. */
     private const STAMP_KEY = 'ops:weekly-review:last';
 
-    /** The scheduled send's Slack dedup key (info TTL: 6 h). */
     private const DEDUP_KEY = 'ops.weekly.review';
 
-    /**
-     * The human-facing section names (Slack + preview share them).
-     */
     public const SECTION_LABELS = [
         'errors' => 'Errors by category (7 d)',
         'incidents' => 'Incident throughput (7 d)',
@@ -103,27 +33,12 @@ class OpsWeeklyReviewService
         private readonly OpsStatusTilesService $tiles,
     ) {}
 
-    /**
-     * Assemble the review. Never throws — every section is guarded.
-     *
-     * @return array{
-     *     generated_at: CarbonInterface,
-     *     window: array{start: CarbonInterface, previous_start: CarbonInterface},
-     *     sections: array<int, array{key: string, label: string, title: string, status: string, lines: string[], metrics: array<string, mixed>}>,
-     *     omitted: array<int, array{key: string, reason: string}>,
-     *     metrics: array<string, array<string, mixed>>,
-     * }
-     */
     public function compose(): array
     {
         $sections = [];
         $omitted = [];
         $metrics = [];
 
-        // The window pair — computed ONCE so every section compares the
-        // same two windows (contiguous: [previous_start, start) then
-        // [start, now]). Rolling windows anchored on now(), matching the
-        // pre-Iteration-9 queries exactly.
         $currentStart = now()->subDays(7);
         $previousStart = now()->subDays(14);
 
@@ -168,14 +83,6 @@ class OpsWeeklyReviewService
         ];
     }
 
-    /**
-     * Render the exact Slack message for a compose() result. Pure and
-     * deterministic — the /ops/digest preview and the real send share it.
-     * Delta suffixes ride inside the section lines, so Slack and preview
-     * can never drift apart on the comparison.
-     *
-     * @param  array<string, mixed>  $review
-     */
     public function render(array $review): string
     {
         $blocks = [];
@@ -193,17 +100,6 @@ class OpsWeeklyReviewService
         return implode("\n\n", $blocks)."\n\n".$footer;
     }
 
-    /**
-     * Compose, render and deliver. $trigger 'scheduled' (Mondays 08:30 —
-     * dedup-suppressed within the 6 h info TTL) or 'manual' (the digest
-     * page button — never dedup-suppressed, same rationale as the daily
-     * digest's manual send). Both record the last-sent stamp and one
-     * snapshot row (Iteration 9): the snapshot describes the WEEK, so it
-     * is written on every delivery attempt that got past the caller —
-     * a failed webhook must not also erase the week's memory.
-     *
-     * @return array{sent: bool, text: string, sections: int, snapshot: bool, review: array<string, mixed>}
-     */
     public function send(string $trigger = 'scheduled'): array
     {
         $review = $this->compose();
@@ -219,8 +115,6 @@ class OpsWeeklyReviewService
             );
             $sent = true;
         } catch (Throwable) {
-            // Same contract as the digest: never fatal, the stamp is
-            // still written, the failure is visible on the digest page.
         }
 
         try {
@@ -240,11 +134,6 @@ class OpsWeeklyReviewService
         ];
     }
 
-    /**
-     * When did the weekly review last go out? (shown on /ops/digest).
-     *
-     * @return array{at: CarbonInterface, trigger: string}|null
-     */
     public function lastSent(): ?array
     {
         try {
@@ -260,16 +149,6 @@ class OpsWeeklyReviewService
         return null;
     }
 
-    /**
-     * The 8-week arc for the /ops/digest trend strip (Iteration 9):
-     * the LATEST snapshot per week_start, oldest → newest, at most
-     * $limit weeks. A week with both a scheduled send and a manual
-     * re-send appears once (the manual row is the later truth). Never
-     * throws — a missing/unreadable table renders an empty strip, not
-     * a broken page.
-     *
-     * @return array<int, OpsReviewSnapshot>
-     */
     public function recentSnapshots(int $limit = 8): array
     {
         try {
@@ -278,9 +157,6 @@ class OpsWeeklyReviewService
             return [];
         }
 
-        // Descending id order: the FIRST row seen for a week_start is
-        // that week's most recent delivery — later (lower-id) duplicates
-        // for the same week are skipped, not overwritten.
         $latest = [];
         foreach ($rows as $row) {
             $key = $row->week_start->toDateString();
@@ -289,8 +165,6 @@ class OpsWeeklyReviewService
             }
         }
 
-        // Id order approximates week order but re-sends interleave —
-        // sort by the week itself, then keep the most recent N weeks.
         $weeks = array_values($latest);
         usort($weeks, fn ($a, $b) => $a->week_start->timestamp <=> $b->week_start->timestamp);
 
@@ -298,14 +172,6 @@ class OpsWeeklyReviewService
         return array_slice($weeks, -max(1, $limit));
     }
 
-    /**
-     * Persist one delivery's metrics. Aggregate counts only — see the
-     * OpsReviewSnapshot docblock. A failure here must never fail the
-     * send: the strip loses one week, the operator still gets Monday's
-     * message.
-     *
-     * @param  array<string, mixed>  $review
-     */
     private function persistSnapshot(array $review, string $trigger): bool
     {
         try {
@@ -323,18 +189,6 @@ class OpsWeeklyReviewService
         return true;
     }
 
-    // ── Delta helpers ─────────────────────────────────────────────────────
-
-    /**
-     * The compact week-over-week delta for an integer flow metric:
-     * '▲ +N' / '▼ −N' / '±0' / '' — for dedicated "vs last week:" lines.
-     * Empty string when BOTH windows are zero (all-zero comparisons are
-     * silence, not information). The arrow states DIRECTION only — the
-     * reader knows whether "more" is bad for the metric in question.
-     *
-     * No multibyte trim() anywhere near this: the arrows are 3-byte UTF-8
-     * and byte-wise trimming would corrupt them.
-     */
     private function deltaText(int $current, int $previous): string
     {
         if ($current === 0 && $previous === 0) {
@@ -351,10 +205,6 @@ class OpsWeeklyReviewService
         return '±0';
     }
 
-    /**
-     * The inline suffix form (" — ▲ +N vs last week") for lines whose
-     * primary metric is the line's own number.
-     */
     private function deltaSuffix(int $current, int $previous): string
     {
         $text = $this->deltaText($current, $previous);
@@ -362,11 +212,6 @@ class OpsWeeklyReviewService
         return $text === '' ? '' : ' — '.$text.' vs last week';
     }
 
-    /**
-     * The inline suffix for an hour-valued mean (MTTA/MTTR). Empty when
-     * the previous window has no comparable mean — no "no comparison"
-     * prose is invented (see the class docblock's delta rules).
-     */
     private function deltaSuffixHours(?float $currentHours, ?float $previousHours): string
     {
         if ($currentHours === null || $previousHours === null) {
@@ -383,15 +228,6 @@ class OpsWeeklyReviewService
             : sprintf(' — ▼ −%.1f h vs last week', abs($diff));
     }
 
-    // ── Section builders ──────────────────────────────────────────────────
-
-    /**
-     * Error volume by category: events FIRST SEEN in the trailing 7 d,
-     * grouped by category — the "what kind of week was it" histogram.
-     * Top 5 categories by occurrence-weighted count + the total.
-     *
-     * @return array{title: string, status: string, lines: string[], metrics: array<string, mixed>}
-     */
     private function errorsSection(CarbonInterface $currentStart, CarbonInterface $previousStart): array
     {
         $counts = OpsEvent::query()
@@ -452,13 +288,6 @@ class OpsWeeklyReviewService
         ];
     }
 
-    /**
-     * Incident throughput: opened / still-active / resolved in the
-     * window, plus MTTA + MTTR computed over the incidents RESOLVED in
-     * the last 7 d (the only population with a complete timeline).
-     *
-     * @return array{title: string, status: string, lines: string[], metrics: array<string, mixed>}
-     */
     private function incidentsSection(CarbonInterface $currentStart, CarbonInterface $previousStart): array
     {
         $opened = (int) OpsIncident::query()
@@ -501,11 +330,6 @@ class OpsWeeklyReviewService
             sprintf('%d opened, %d resolved, %d still active.', $opened, $resolvedRows->count(), $active),
         ];
 
-        // The dedicated delta line — opened/resolved live in the title
-        // and the first line already packs three numbers. deltaText()
-        // returns '' only when BOTH windows are zero, which the guard
-        // already excluded per pair — '±0' covers a zero/zero PAIR inside
-        // a line whose other half has a story.
         if (! ($opened === 0 && $previousOpened === 0 && $resolvedRows->isEmpty() && $previousResolvedRows->isEmpty())) {
             $lines[] = sprintf(
                 'vs last week: opened %s, resolved %s',
@@ -518,9 +342,6 @@ class OpsWeeklyReviewService
         $previousMttaMinutes = $this->previousAckMeanMinutes($previousResolvedRows);
 
         if ($resolvedRows->isNotEmpty()) {
-            // MTTR: first event → resolved, over the resolved population.
-            // (Carbon 3's diffInSeconds is SIGNED: start.diff(end) is
-            // positive — resolved.diff(first) would go backwards.)
             $durations = $resolvedRows
                 ->filter(fn ($i) => $i->first_event_at !== null && $i->resolved_at !== null)
                 ->map(fn ($i) => $i->first_event_at->diffInSeconds($i->resolved_at));
@@ -565,12 +386,6 @@ class OpsWeeklyReviewService
         ];
     }
 
-    /**
-     * Deployment activity: BUILD/DEPLOYMENT-category events first seen
-     * in the window, with the failure slice broken out.
-     *
-     * @return array{title: string, status: string, lines: string[], metrics: array<string, mixed>}
-     */
     private function deploymentsSection(CarbonInterface $currentStart, CarbonInterface $previousStart): array
     {
         $deployments = OpsEvent::query()
@@ -612,14 +427,6 @@ class OpsWeeklyReviewService
         ];
     }
 
-    /**
-     * The autonomous sweep's week: how many findings fired, which checks
-     * produced them, and how many are still open. A busy-but-clean week
-     * (many findings, all resolved) is the sweep doing its job — the
-     * still-open count is the part that needs a human.
-     *
-     * @return array{title: string, status: string, lines: string[], metrics: array<string, mixed>}
-     */
     private function sweepSection(CarbonInterface $currentStart, CarbonInterface $previousStart): array
     {
         $findings = OpsEvent::query()
@@ -667,15 +474,6 @@ class OpsWeeklyReviewService
         ];
     }
 
-    /**
-     * Backups — CURRENT state, framed honestly: the weekly review does
-     * not fabricate a 7-day history the control plane does not store; it
-     * restates the same freshness facts the daily digest and the score's
-     * data-protection component use (one fact layer — three surfaces).
-     * No delta by design: freshness is a reading of NOW, not a flow.
-     *
-     * @return array{title: string, status: string, lines: string[], metrics: array<string, mixed>}
-     */
     private function backupsSection(): array
     {
         $backup = $this->tiles->backupStatus();
@@ -703,12 +501,6 @@ class OpsWeeklyReviewService
         return ['title' => 'current freshness (not a 7-day history)', 'status' => $status, 'lines' => $lines, 'metrics' => ['status' => (string) ($backup['status'] ?? 'unknown')]];
     }
 
-    /**
-     * The week's operator activity: diagnostic runs + audited ops.*
-     * actions + the most active actor. Informational by design.
-     *
-     * @return array{title: string, status: string, lines: string[], metrics: array<string, mixed>}
-     */
     private function activitySection(CarbonInterface $currentStart, CarbonInterface $previousStart): array
     {
         $runs = OpsDiagnosticRun::query()
@@ -751,10 +543,6 @@ class OpsWeeklyReviewService
         return ['title' => $runs->count().' run(s), '.$actions.' action(s)', 'status' => 'ok', 'lines' => $lines, 'metrics' => ['runs' => (int) $runs->count(), 'actions' => $actions]];
     }
 
-    /**
-     * The previous window's MTTR mean in MINUTES (null when the previous
-     * window resolved nothing — no comparable baseline).
-     */
     private function previousMeanMinutes($previousResolvedRows): ?float
     {
         $durations = $previousResolvedRows
@@ -764,10 +552,6 @@ class OpsWeeklyReviewService
         return $durations->isNotEmpty() ? $durations->average() / 60 : null;
     }
 
-    /**
-     * The previous window's MTTA mean in MINUTES (null when nothing
-     * resolved last week was ever acknowledged).
-     */
     private function previousAckMeanMinutes($previousResolvedRows): ?float
     {
         $acks = $previousResolvedRows

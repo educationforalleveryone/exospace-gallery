@@ -2,35 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Cyber Gallery v2.0.0 "SIGNAL ROOM" iteration tests (movement-reactive
- * artwork identity).
- *
- * Pins the contract so future changes cannot silently break the signature:
- *
- *   - Declared identity: the seeder row carries visual_config.artwork_reactive
- *     (the movement-reactive artwork declaration the JS interpreter consumes),
- *     the declared environment absence ('none' + env_intensity 0 — the room
- *     refuses a sky), the rig lift, bloom identity + black-blend vignette,
- *     frame_override 'black', artwork standing glow + pool cap, and the
- *     material parity fix (texture_tint + declared dark floor).
- *   - Honesty matrix: the copy promises the reactive mechanic, keeps the
- *     pinned neon/floor words (VenueRoomsIterationTest contract), and no
- *     longer carries the superseded v1.0.0 wording.
- *   - The migration is a safe, guarded rewrite: exact-match guards keep a
- *     super-admin's custom values, absent keys are added only when missing,
- *     the run is idempotent, and down() reverses each rewrite under the same
- *     guard.
- *   - The signature is venue-owned: 'artwork_reactive' ships on the
- *     exporter's VENUE_OWNED_VISUAL_KEYS (a curator override that retuned or
- *     disabled it would recompose the venue into a different one).
- *   - Preview/gallery payload parity: the declaration reaches the client on
- *     both the public view and the editor preview (VenuePreviewController /
- *     buildGalleryData share the exporter).
- *
- * Run: php artisan test --filter=VenueCyberSignalRoomIterationTest
- */
-
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
@@ -51,10 +22,6 @@ class VenueCyberSignalRoomIterationTest extends TestCase
     private const V1_DESCRIPTION = 'A dark electric space ringed with neon on every edge, the floor traced in light. For digital and web3 creators.';
 
     private const V2_DESCRIPTION = 'A signal room for digital natives: dark anodized walls, a floor traced in light, neon ringing every edge — and artworks that behave like living media. Stand still and they hold still. Move, and they react to you.';
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Declared identity — the seeder contract the JS interpreter consumes
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_seeded_row_declares_the_signal_room(): void
     {
@@ -94,10 +61,6 @@ class VenueCyberSignalRoomIterationTest extends TestCase
         $this->assertSame('2.0.0', (string) DB::table('venue_templates')->where('slug', 'cyber-gallery')->value('version'), '[cyber-gallery] version must pin 2.0.0 (Signal Room).');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Honesty matrix — the copy promises exactly what renders
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_the_copy_promise_matches_the_delivered_mechanic(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -111,10 +74,6 @@ class VenueCyberSignalRoomIterationTest extends TestCase
         $this->assertMatchesRegularExpression('/neon/i', (string) $row->description, 'The rooms-pass contract (VenueRoomsIterationTest) pins the neon promise.');
         $this->assertMatchesRegularExpression('/floor/i', (string) $row->description, 'The rooms-pass contract (VenueRoomsIterationTest) pins the floor light promise.');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The migration — guarded, idempotent, reversible, admin-respecting
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_the_migration_upgrades_a_v100_production_row(): void
     {
@@ -233,10 +192,6 @@ class VenueCyberSignalRoomIterationTest extends TestCase
         $this->assertSame(['enabled' => true, 'dead_zone' => 0.4, 'release' => 2.5], $config['artwork_reactive'] ?? null, 'down() must preserve an admin post-pass edit of the signature.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Ownership + payload parity
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_the_reactive_declaration_is_venue_owned(): void
     {
         $exporter = \Illuminate\Support\Facades\File::get(app_path('Services/VenueConfigExporter.php'));
@@ -266,16 +221,11 @@ class VenueCyberSignalRoomIterationTest extends TestCase
         $this->assertTrue($config['material_config']['texture_tint'] ?? false, 'The parity fix must reach the client material config.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────
-
     private function migration(): object
     {
         return require database_path('migrations/2026_09_09_000010_cyber_gallery_signal_room.php');
     }
 
-    /** The v1.0.0 row exactly as production holds it pre-pass. */
     private function seedLegacyCyberRow(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);

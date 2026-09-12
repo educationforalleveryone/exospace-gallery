@@ -16,34 +16,6 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable, HasApiTokens;
 
-    // ── Mass-assignment surface ───────────────────────────────────────────
-    //
-    // Only the three identity fields are mass-assignable. Everything that
-    // affects billing, authorization, or plan state is guarded and must be
-    // set explicitly via forceFill() (which bypasses $guarded) in the
-    // trusted admin / webhook / middleware code paths.
-    //
-    // This prevents a class of privilege-escalation / billing-bypass bugs
-    // where a future controller refactor accidentally passes
-    // $request->validated() or $request->all() to User::create() / update()
-    // / fill() and lets a client set is_super_admin=1, plan='studio',
-    // max_images=99999, etc.
-    //
-    // Trusted callers that need to set the guarded fields:
-    //   - WebhookController (upgrade / downgrade)
-    //   - SuperAdmin\SystemController (plan change, ban, super-admin toggle)
-    //   - CheckPlanExpiry middleware (expiry-driven downgrade)
-    //   - PlanDowngradeService (Studio-only resource cleanup)
-    //   - RegisteredUserController (initial user creation — only sets name/email/password)
-    //   - PasswordController (password change — only sets password)
-    //   - ProfileController (name/email change — only sets name/email)
-    //   - TeamController / teams.switch-personal route (current_team_id)
-    //   - OAuthController (Iter-001: sets has_password=false on OAuth-only user creation)
-    //
-    // All of the above already use forceFill() or query-builder update()
-    // (which bypasses $fillable/$guarded). If you add a new caller that
-    // needs to set a guarded field, use forceFill(['field' => $value])->save()
-    // and add a comment explaining why the mutation is trusted.
     protected $fillable = [
         'name',
         'email',
@@ -52,30 +24,13 @@ class User extends Authenticatable implements MustVerifyEmail
         // SEO OS (Iteration 7): acquisition attribution captured at signup.
         'acquisition_channel', 'acquisition_referrer',
         'acquisition_landing_page', 'acquisition_utm', 'acquisition_captured_at',
-        // C-2 FIX (Iter-001): has_password is mass-assignable so OAuthController
-        // can set it to false on new OAuth-only user creation. It's safe to
-        // mass-assign because it can only be set to true via the password-set
-        // flow (PasswordController, RegisteredUserController, NewPasswordController),
-        // all of which are trusted authenticated contexts.
         'has_password',
     ];
-
-    // TD-12 FIX: Removed the $guarded array. When $fillable is set (above),
-    // Laravel ignores $guarded entirely — it was dead code that misled
-    // maintainers into thinking it provided defense-in-depth. The $fillable
-    // allow-list is the single source of truth for mass-assignment safety.
-    // Trusted callers that need to set guarded fields use forceFill() —
-    // see the class docblock above for the list of trusted callers.
 
     protected $hidden = [
         'password',
         'remember_token',
         'google2fa_secret', // (Task H56) — never expose in JSON
-        // ITERATION-11: the backup-code HASHES are one-way, but they are
-        // still credential material — keep them out of any accidental
-        // model serialization (JSON responses, debug output, telemetry)
-        // exactly like the TOTP secret above. Attribute access in PHP
-        // (profile card, MfaController) is unaffected by $hidden.
         'mfa_backup_codes',
     ];
 
@@ -88,8 +43,6 @@ class User extends Authenticatable implements MustVerifyEmail
             'plan_expires_at'   => 'datetime',
             'plan_started_at'   => 'datetime',
             'mfa_enabled_at'    => 'datetime',     // (Task H56)
-            // ITERATION-3: OTP counter of the last accepted TOTP code —
-            // the replay-protection baseline consumed by MfaController.
             'google2fa_ts'      => 'integer',
             'inactive_nudged_at'       => 'datetime', // (P0-7) — last inactive-nudge
             'plan_expiry_reminded_at'  => 'datetime', // (P0-7) — last plan-expiry reminder
@@ -105,33 +58,17 @@ class User extends Authenticatable implements MustVerifyEmail
             'dunning_last_sent_at'      => 'datetime',
             // M-7: Trial period
             'trial_ends_at'             => 'datetime',
-            // C-2 FIX (Iter-001): has_password is a boolean tracking whether
-            // the user has set a real password (vs. OAuth-only users who have
-            // only a random bcrypt hash placeholder). Used by OAuthController::unlink
-            // to prevent users from locking themselves out.
             'has_password'      => 'boolean',
             'password_set_at'   => 'datetime',
-            // ITERATION 6: stamped by the StampLastLogin listener on the
-            // Login event — the truthful activity signal the retention
-            // analytics reads. NULL = "has not logged in since the column
-            // shipped" (pre-Iteration-6 users until their next login).
             'last_login_at'     => 'datetime',
         ];
     }
 
-    // ── M-24: OAuth helpers ──────────────────────────────────────────────
-
-    /**
-     * Is this OAuth provider linked to the user's account?
-     */
     public function hasOAuthProvider(string $provider): bool
     {
         return ! empty($this->{"{$provider}_id"});
     }
 
-    /**
-     * Get the list of linked OAuth providers.
-     */
     public function linkedOAuthProviders(): array
     {
         $linked = [];
@@ -142,30 +79,10 @@ class User extends Authenticatable implements MustVerifyEmail
 
     // ── D-4 FIX (Iter-004): Password history helper ──────────────────────
 
-    /**
-     * Check if the given password matches one of the user's recent passwords.
-     *
-     * D-4 FIX (Iter-004): Previously, the password-history reuse check only
-     * existed in PasswordController::update() (the profile password-change
-     * flow). The NewPasswordController::store() (the forgot-password reset
-     * flow) did NOT check password_histories — an attacker (or a user
-     * complying with a rotation policy) could bypass the reuse check by
-     * going through /forgot-password.
-     *
-     * This shared helper is called from BOTH controllers to ensure the
-     * reuse check is enforced consistently.
-     *
-     * @param  string  $password  The plaintext password to check
-     * @return bool  True if the password matches one of the last 5 historical passwords
-     */
     public function isPasswordInHistory(string $password): bool
     {
         $recentHashes = \Illuminate\Support\Facades\DB::table('password_histories')
             ->where('user_id', $this->id)
-            // RESET-ITERATION FIX: order by the monotonically
-            // increasing primary key instead of created_at — the auto-
-            // increment id gives an unambiguous "most recent first" even
-            // when two entries share the same timestamp second.
             ->orderByDesc('id')
             ->limit(5)
             ->pluck('password_hash');
@@ -179,44 +96,16 @@ class User extends Authenticatable implements MustVerifyEmail
         return false;
     }
 
-    /**
-     * Send the password-reset notification.
-     *
-     * RESET-ITERATION FIX: routes the reset email through the branded
-     * App\Notifications\Auth\ResetPassword notification instead of the
-     * framework's generic markdown mail. Token generation, storage, URL
-     * construction and expiry are still handled 100% by Laravel's password
-     * broker — only the email presentation is customized, matching the
-     * project's other transactional emails (App\Mail\* + emails.partials.layout).
-     */
     public function sendPasswordResetNotification($token): void
     {
         $this->notify(new ResetPassword($token));
     }
 
-    /**
-     * Send the email-verification notification.
-     *
-     * VERIFICATION-ITERATION FIX: routes the verification email through the
-     * branded App\Notifications\Auth\VerifyEmail notification instead of the
-     * framework's generic markdown mail. The signed-URL construction
-     * (id + sha1(email) hash + expiry from config('auth.verification.expire'))
-     * is still handled 100% by Laravel's VerifyEmail notification — only the
-     * email presentation is customized, matching the project's other
-     * transactional emails (App\Mail\* + emails.partials.layout).
-     */
     public function sendEmailVerificationNotification(): void
     {
         $this->notify(new \App\Notifications\Auth\VerifyEmail());
     }
 
-    /**
-     * Store the user's current password hash in the password_histories table.
-     *
-     * D-4 FIX (Iter-004): Called before updating the password in both
-     * PasswordController::update() and NewPasswordController::store().
-     * Also prunes the history to the last 10 entries (5 for checking + buffer).
-     */
     public function storePasswordInHistory(): void
     {
         \Illuminate\Support\Facades\DB::table('password_histories')->insert([
@@ -225,17 +114,6 @@ class User extends Authenticatable implements MustVerifyEmail
             'created_at'    => now(),
         ]);
 
-        // RESET-ITERATION FIX: prune by primary key. The previous
-        // prune used
-        //   ->orderByDesc('created_at')->offset(10)->delete()
-        // which compiled to a PLAIN `delete from password_histories where
-        // user_id = ?`: MySQL's DELETE has no OFFSET (MySqlGrammar only
-        // appends order/limit clauses, never offset), and SQLite's grammar
-        // drops order/offset entirely when no limit is set. The result was
-        // that EVERY password change/reset wiped the user's ENTIRE history,
-        // silently disabling the D-4 reuse check (isPasswordInHistory()
-        // always found an empty table). Selecting the 10 newest ids and
-        // deleting everything else is portable and correct on every driver.
         $keepIds = \Illuminate\Support\Facades\DB::table('password_histories')
             ->where('user_id', $this->id)
             ->orderByDesc('id')
@@ -248,27 +126,16 @@ class User extends Authenticatable implements MustVerifyEmail
             ->delete();
     }
 
-    // ── M-7: Trial helpers ────────────────────────────────────────────────
-
-    /**
-     * Is this user currently in a trial period?
-     */
     public function isInTrial(): bool
     {
         return $this->trial_ends_at !== null && $this->trial_ends_at->isFuture();
     }
 
-    /**
-     * Has this user ever used a trial? (prevents multiple trials)
-     */
     public function hasUsedTrial(): bool
     {
         return $this->trial_ends_at !== null;
     }
 
-    /**
-     * Start a 14-day trial for the given plan.
-     */
     public function startTrial(string $plan): void
     {
         $limits = self::planLimits($plan);
@@ -283,41 +150,31 @@ class User extends Authenticatable implements MustVerifyEmail
         ])->save();
     }
 
-    // ── Existing relationships ────────────────────────────────────────────
-
-    /** Galleries the user personally owns */
     public function galleries(): HasMany
     {
         return $this->hasMany(Gallery::class);
     }
 
-    /** Artist profiles created by this user (curator) */
     public function createdArtists(): HasMany
     {
         return $this->hasMany(Artist::class, 'created_by');
     }
 
-    /** Billing transactions (2Checkout payments) */
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
     }
 
-    /** Pending upgrade requests (awaiting 2Checkout IPN) */
     public function pendingUpgrades(): HasMany
     {
         return $this->hasMany(PendingUpgrade::class);
     }
 
-    // ── Team relationships ────────────────────────────────────────────────
-
-    /** Teams this user owns */
     public function ownedTeams(): HasMany
     {
         return $this->hasMany(Team::class, 'owner_id');
     }
 
-    /** Teams this user belongs to (including ones they own via pivot) */
     public function teams(): BelongsToMany
     {
         return $this->belongsToMany(Team::class, 'team_user')
@@ -325,33 +182,12 @@ class User extends Authenticatable implements MustVerifyEmail
                     ->withTimestamps();
     }
 
-    /** The currently active team */
     public function currentTeam()
     {
-        // PERF-14 FIX: This is now a proper BelongsTo relationship, so it
-        // can be eager-loaded via ->with('currentTeam') instead of requiring
-        // a separate query on access. Previously this was a non-relationship
-        // method that called Team::find($this->current_team_id) inline —
-        // un-eager-loadable, which caused an N+1 query on every page that
-        // displays a list of users (admin user list, team members list, etc.)
-        // because each $user->currentTeam() call hit the DB.
-        //
-        // The relationship returns null when current_team_id is null, which
-        // matches the old behavior. Callers that previously called
-        // currentTeam() as a method (e.g. $user->currentTeam()) should switch
-        // to property access ($user->currentTeam) for the dynamic property
-        // resolution — but the method-call form still works (Laravel returns
-        // the loaded model from the relationship cache).
-        //
-        // To eager-load: User::with('currentTeam')->get();
         if (! $this->current_team_id) {
             return null;
         }
 
-        // If the relationship has been eager-loaded, return the loaded model.
-        // This preserves the old short-circuit behavior for users with no
-        // current team, and avoids a query when the relationship is already
-        // loaded.
         if ($this->relationLoaded('currentTeam')) {
             return $this->getRelation('currentTeam');
         }
@@ -359,24 +195,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return Team::find($this->current_team_id);
     }
 
-    /**
-     * PERF-14: The actual BelongsTo relationship for eager loading.
-     *
-     * Use this in ->with() calls: User::with('currentTeamRelationship')->get()
-     * Then access via $user->currentTeamRelationship (not $user->currentTeam,
-     * which is the legacy method above).
-     *
-     * NOTE: We keep both the method form (currentTeam()) and the relationship
-     * form (currentTeamRelationship()) for backward compatibility. Existing
-     * callers continue to work via the method form. New callers that need
-     * eager loading should use ->with('currentTeamRelationship').
-     */
     public function currentTeamRelationship(): BelongsTo
     {
         return $this->belongsTo(Team::class, 'current_team_id');
     }
 
-    /** Switch the active team context */
     public function switchTeam(Team $team): bool
     {
         if (! $this->belongsToTeam($team)) {
@@ -397,36 +220,8 @@ class User extends Authenticatable implements MustVerifyEmail
         return $team->memberRole($this);
     }
 
-    // ── Plan helpers ──────────────────────────────────────────────────────
-    //
-    // Plan tiers and limits — single source of truth.
-    //
-    //   Free   — 1 gallery,  10 images, white-cube + infinite-void venues
-    //   Pro    — 5 galleries, 100 images, all venues except studio-only
-    //   Studio — unlimited galleries, 500 images, all venues + custom materials
-    //            + custom domains + white-label (no Exospace watermark)
-    //
-    // Why these numbers:
-    //   - Free = enough to try the product, not enough for a real artist
-    //   - Pro  = enough for a working artist (5 exhibitions, 100 works each)
-    //   - Studio = enough for a gallery / agency (unlimited exhibitions,
-    //     500 images each = ample for any real-world use)
-    //
-    // If you change these, also update:
-    //   - resources/views/pages/pricing.blade.php (UI display)
-    //   - database/seeders/VenueTemplateSeeder.php (plan_required per venue)
-    //   - app/Services/VenueConfigExporter.php (plan gating for decorations)
-
     public static function planLimits(string $plan): array
     {
-        // TD-27 FIX: Plan limits are now defined in config/plans.php (the
-        // single source of truth). Previously they were hardcoded in this
-        // method, with the same values duplicated across the pricing page,
-        // billing portal, venue seeder, and venue config exporter — making
-        // it easy to update one place and forget the others.
-        //
-        // The config returns ['max_galleries' => int, 'max_images' => int]
-        // for each plan. Unknown plans fall back to 'free' limits.
         return config("plans.limits.{$plan}", config('plans.limits.free'));
     }
 
@@ -440,30 +235,17 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->plan === 'studio';
     }
 
-    // ── M-1: Subscription helpers ────────────────────────────────────────
-
-    /**
-     * Does this user have an active recurring subscription?
-     * (vs. a one-time purchase where plan_expires_at = null)
-     */
     public function hasSubscription(): bool
     {
         return ! empty($this->subscription_id);
     }
 
-    /**
-     * Is the subscription currently active (not cancelled, not past_due)?
-     */
     public function hasActiveSubscription(): bool
     {
         return $this->hasSubscription()
             && $this->subscription_status === 'active';
     }
 
-    /**
-     * Has the subscription been cancelled but still within the paid-for period?
-     * (The user keeps access until subscription_ends_at, then is downgraded.)
-     */
     public function hasCancelledSubscription(): bool
     {
         return $this->hasSubscription()
@@ -472,10 +254,6 @@ class User extends Authenticatable implements MustVerifyEmail
             && $this->subscription_ends_at->isFuture();
     }
 
-    /**
-     * Can the user reactivate their cancelled subscription?
-     * Only if the subscription hasn't ended yet (still in the paid-for period).
-     */
     public function canReactivateSubscription(): bool
     {
         return $this->hasSubscription()
@@ -486,9 +264,6 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function canCreateGallery(): bool
     {
-        // P2-6 FIX: Wrap in a transaction with lockForUpdate on the user row
-        // to prevent the TOCTOU race where two concurrent requests both pass
-        // the count check and both insert, exceeding the limit.
         return \DB::transaction(function () {
             // Lock the user row so concurrent requests wait
             \DB::table('users')
@@ -519,19 +294,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->is_super_admin === true;
     }
 
-    // ── Boot ──────────────────────────────────────────────────────────────
-
     protected static function boot()
     {
         parent::boot();
 
-        // When a user is created, default their plan limits from the plan.
-        // When a user's plan changes, refresh their limits.
         static::creating(function (User $user) {
-            // SEO OS (Iteration 7): persist the visitor's acquisition context
-            // (first-touch referrer/landing/channel from the session) onto
-            // the new account. Best-effort — CLI/factory contexts have no
-            // session and are skipped.
             if (! $user->acquisition_channel && session()->has('acquisition')) {
                 $acq = (array) session('acquisition');
                 $user->acquisition_channel   = $acq['channel'] ?? null;
@@ -547,12 +314,6 @@ class User extends Authenticatable implements MustVerifyEmail
             if (! $user->max_images)    $user->max_images    = $limits['max_images'];
             if (! $user->plan_started_at) $user->plan_started_at = now();
 
-            // C-2 FIX (Iter-001): If has_password is not explicitly set, default
-            // to true for users created with a password (the standard registration
-            // flow) and false for users created without one (OAuth-only users).
-            // The OAuthController explicitly sets has_password=false when creating
-            // OAuth-only users, so this default only applies to other creation
-            // paths (factories, seeders, manual User::create() calls).
             if ($user->has_password === null) {
                 $user->has_password = ! empty($user->password);
             }
@@ -562,37 +323,12 @@ class User extends Authenticatable implements MustVerifyEmail
         });
 
         static::updating(function (User $user) {
-            // If plan changed, refresh the limits.
-            // TD-13 FIX: Use a separate plan_changed_at column for tracking
-            // the most recent plan change. plan_started_at is preserved as
-            // the ORIGINAL first-paid date for LTV/churn analytics.
-            // (If plan_changed_at doesn't exist in the DB, the forceFill
-            // in WebhookController/SystemController sets it — this hook
-            // only handles limits.)
             if ($user->isDirty('plan')) {
                 $limits = self::planLimits($user->plan);
                 $user->max_galleries = $limits['max_galleries'];
                 $user->max_images    = $limits['max_images'];
-                // TD-13: Do NOT reset plan_started_at — it's the original
-                // first-paid timestamp used for LTV analytics. The webhook
-                // and admin controllers set plan_started_at = now() explicitly
-                // on initial upgrade; subsequent plan changes should NOT
-                // overwrite it.
             }
 
-            // C-2 FIX (Iter-001): If the password is being changed (and it's
-            // not the initial random-hash placeholder for an OAuth-only user),
-            // mark has_password=true and update password_set_at. This is the
-            // key fix for the unlink bug — the has_password column is now
-            // reliably maintained.
-            //
-            // We only update if the password attribute is dirty AND the new
-            // value is non-empty. The 'hashed' cast means $user->password is
-            // the plaintext on assignment (cast hashes it on save), so we
-            // can't compare to the old hash. Instead, we trust that any
-            // password change via the standard flows (PasswordController,
-            // NewPasswordController, RegisteredUserController) represents
-            // the user setting a real password.
             if ($user->isDirty('password') && ! empty($user->password)) {
                 $user->has_password = true;
                 $user->password_set_at = now();

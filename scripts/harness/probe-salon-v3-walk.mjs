@@ -1,20 +1,4 @@
 #!/usr/bin/env node
-// probe-salon-v3-walk.mjs — the two-room walkability probe.
-//
-//   node scripts/harness/probe-salon-v3-walk.mjs [count]
-//
-// Boots the harness (the-salon v3), freezes the live loop, then drives the
-// REAL movement pipeline (velocity → enforceRoomBounds → obstacle push-out)
-// through the v3 scenarios and asserts the field contract:
-//   • the curtain fabric BLOCKS (walking into a panel stops at the AABB —
-//     the v2.0 "I can walk through it" defect stays dead);
-//   • the 2.4 m opening PASSES (the declared walk gap is the actual gap,
-//     including a graze along the box edge);
-//   • the walnut double door is never clipped (the wall skin stops the
-//     visitor in front of the leaves);
-//   • the bench still blocks (furniture collision sanity);
-//   • every artwork in BOTH rooms is approachable to viewing distance;
-//   • no teleports (max per-frame step ≤ the speed cap).
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
@@ -104,18 +88,15 @@ const report = await page.evaluate(async () => {
     // lateral along the fabric (push-out slides, never tunnels)
     R('A/fabric-lateral', -2.0, 0.0, 1, 0, 5);
 
-    // ── B. THE OPENING PASSES ────────────────────────────────────────────
     R('B/opening-centre', 0, 3.6, 0, -1, 8);              // straight through
     R('B/opening-graze-west', 1.02, 1.2, 0, -1, 8);       // along the box edge
     R('B/opening-graze-east', -1.02, 1.2, 0, -1, 8);
     R('B/roundtrip', 0, -2.4, 0, 1, 8);                   // room B (in front of the bench) back to A
     R('B/spawn-axis-to-hero', 0, 3.4, 0, -1, 12);         // the full arrival axis: opening, then the bench stops the walk
 
-    // ── C. THE DOOR IS NEVER CLIPPED ─────────────────────────────────────
     R('C/door-centre', 0, 3.0, 0, 1, 8);
     R('C/door-diagonal', -2.5, 3.0, 0.55, 1, 8);
 
-    // ── D. FURNITURE STILL BLOCKS ────────────────────────────────────────
     R('D/bench', 0, -3.0, 0, -1, 6);
     R('D/table', 2.25, 0.9, 0, 1, 6);
 
@@ -144,7 +125,6 @@ const report = await page.evaluate(async () => {
     return out;
 });
 
-// ── assertions ────────────────────────────────────────────────────────────
 let fails = 0;
 const ok = (name, cond, detail = '') => {
     if (cond) console.log(`  ✓ ${name}`);
@@ -181,9 +161,6 @@ for (const name of ['B/opening-centre', 'B/opening-graze-west', 'B/opening-graze
     ok('B/roundtrip: returns to room A', s && !s.teleported && s.end.z > 1.0, JSON.stringify(s?.end));
 }
 {
-    // the spawn axis: through the opening, then the hero bench stops the
-    // walk — the v2 composition, preserved in room B. The bench stands at
-    // wall_front + 0.85; its padded box face is −L/2 + 1.405.
     const s = S['B/spawn-axis-to-hero'];
     const benchFace = -(report.L / 2) + 1.405;
     ok('B/spawn-axis: crosses the opening, the bench ends the axis at viewing distance',
@@ -192,8 +169,6 @@ for (const name of ['B/opening-centre', 'B/opening-graze-west', 'B/opening-graze
 }
 {
     const s = S['C/door-centre'];
-    // the square room's walk skin: wallDepth/2 + 0.3 (salon wall_depth 0.15
-    // → 0.375) — the leaves' front face stands ~0.23 m BEHIND that bound
     const skin = (report.L / 2) - 0.375;
     ok('C/door-centre: stops on the wall skin, never inside the leaves',
         s && s.end.z <= skin + 0.02, `${JSON.stringify(s?.end)} skin ${skin.toFixed(2)}`);

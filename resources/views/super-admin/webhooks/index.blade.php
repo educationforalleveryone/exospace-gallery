@@ -25,7 +25,6 @@
         <div class="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-300" role="alert">{{ session('error') }}</div>
     @endif
 
-    {{-- ── Env-var state tile ─────────────────────────────────────────── --}}
     <div class="card card-pad mb-8">
         <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
             <h2 class="modal-title">Environment default</h2>
@@ -60,7 +59,6 @@
         </div>
     </div>
 
-    {{-- ── Add subscription form ─────────────────────────────────────── --}}
     <div class="card card-pad mb-8">
         <h2 class="modal-title mb-3">Add a subscription</h2>
         <form method="POST" action="{{ route('super.webhooks.store') }}" class="space-y-3" x-data="{ custom: false }">
@@ -115,10 +113,6 @@
 
     {{-- ── Per-event subscription count tiles (ITERATION 11) ─────────── --}}
     @php
-        // Pivot the {event_type, is_active, count} rows into a per-event
-        // shape: [event_type => ['active' => N, 'paused' => M]]. Done in
-        // PHP instead of SQL so the rendering is one @foreach over
-        // events + one @isset for each branch (no SQL CASE WHEN).
         $byEvent = [];
         foreach ($eventCounts as $row) {
             $et = $row->event_type;
@@ -157,7 +151,6 @@
     </div>
     @endif
 
-    {{-- ── Subscriptions list ────────────────────────────────────────── --}}
     <div class="card overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
             <h2 class="modal-title">Active subscriptions</h2>
@@ -185,9 +178,6 @@
             <tbody class="divide-y divide-gray-800">
                 @forelse($subscriptions as $sub)
                     @php
-                        // Look up the latest delivery for this subscription (already
-                        // fetched in the controller via latestForSubscriptions() —
-                        // one query for the page, not N+1).
                         $latest = $latestDeliveries->get($sub->id);
                     @endphp
                     <tr class="hover:bg-gray-800/30">
@@ -274,9 +264,4 @@
     </div>
 </div>
 
-{{-- ITERATION-3: the @once confirm script here carried NO nonce, so the CSP
-     ('strict-dynamic', no unsafe-inline) silently blocked it in production —
-     pause/remove ran with NO confirmation at all. Confirmation now flows
-     through the canonical window.exospaceConfirmWrapper defined in
-     resources/js/app.js (delegated by the layout, Turbo-safe, styled). --}}
 </x-app-layout>

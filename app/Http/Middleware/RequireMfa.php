@@ -7,29 +7,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Require TOTP MFA verification. (Task H56)
- *
- * SEC-4 FIX: MFA is now available to ALL users (not just super-admins).
- *   - Super-admins: MFA is REQUIRED (existing behavior — they manage all
- *     users' data and can change plans).
- *   - Regular users: MFA is OPTIONAL (opt-in via /mfa/setup). Once enabled,
- *     the user is prompted to verify MFA when accessing sensitive routes
- *     (currently: /profile, /billing). Non-sensitive routes (admin dashboard,
- *     gallery view, analytics) do NOT require MFA re-verification — that
- *     would be too aggressive for a one-time-purchase SaaS where the user
- *     just wants to manage their galleries.
- *
- * P3-8: MFA session expires after 30 minutes. The RequireMfa middleware
- * checks both the mfa_verified flag AND the mfa_verified_at timestamp.
- * If the session is older than 30 minutes, the user must re-enter their
- * TOTP code (GitHub sudo-mode pattern).
- *
- * SEC-5 FIX: The session timestamp check now applies to regular users too
- * (was super-admin-only). Without the timestamp, a stolen session cookie
- * would grant indefinite MFA-verified access. With the 30-min TTL, the
- * attacker has at most 30 minutes before re-verification is required.
- */
 class RequireMfa
 {
     public function handle(Request $request, Closure $next): Response
@@ -44,9 +21,6 @@ class RequireMfa
         $isSuperAdmin = $user->is_super_admin === true;
         $mfaEnabled   = ! empty($user->google2fa_secret);
 
-        // ── Super-admin enforcement ───────────────────────────────────────
-        // Super-admins MUST have MFA enabled. If they don't, redirect to
-        // setup (existing behavior from Task H56).
         if ($isSuperAdmin) {
             if (! $mfaEnabled) {
                 if (! $request->routeIs('mfa.setup') && ! $request->routeIs('mfa.verify') && ! $request->routeIs('mfa.backup-codes')) {
@@ -56,17 +30,11 @@ class RequireMfa
                 return $next($request);
             }
         } else {
-            // ── Regular user enforcement (SEC-4) ──────────────────────────
-            // Regular users who have NOT enabled MFA skip this middleware
-            // entirely — MFA is opt-in for them. Only users who HAVE enabled
-            // MFA are prompted to verify on sensitive routes.
             if (! $mfaEnabled) {
                 return $next($request);
             }
         }
 
-        // ── MFA verification check (applies to both super-admins + opted-in
-        // regular users) — SEC-5: timestamp TTL now enforced for both. ──
         if (! MfaController::isMfaSessionValid($request)) {
             // Clear stale session flag
             $request->session()->forget('mfa_verified');
@@ -74,13 +42,6 @@ class RequireMfa
             $request->session()->forget('mfa_verified_user_id');
 
             if (! $request->routeIs('mfa.verify')) {
-                // ITERATION-6: remember WHERE the user was heading so the
-                // verify controller can send them back after the challenge
-                // (deep links like /billing/upgrade/pro survive the
-                // detour). GET only — storing a POST endpoint as the
-                // intended destination would 405 on the way back. The URL
-                // is the app's own route, never user input, so this cannot
-                // become an open redirect.
                 if ($request->isMethod('GET')) {
                     redirect()->setIntendedUrl($request->fullUrl());
                 }

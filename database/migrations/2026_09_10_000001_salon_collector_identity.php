@@ -3,64 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * THE SALON v2.0.0 — "The Collector's Salon" (the final venue production
- * pass; the whole 12-venue catalog reads authored after this one).
- *
- * WHY (the forensic audit, worklog: Salon Task 1)
- * -----------------------------------------------
- *   v1.0.0 shipped as the pipeline's cheapest stub: a default square room
- *   whose entire identity was eight descriptors (four picture rails, a
- *   centre bench, a rug). Rendered, it failed every salon test:
- *     • the rails ran at 0.9 m — mid-wall, slicing horizontally THROUGH
- *       the artwork frames (render-verified, both tiers);
- *     • the rig (exposure 0.6, fog 10–32, ambient 0.26, fill 0.16) read
- *       as murk — artworks as dark smears (the Dark Museum owns dark);
- *     • material_config colours were DEAD on textured builds (no
- *       texture_tint — the documented preview/product split class);
- *     • intimate 2.8 m spacing with the shared 3.0 m width cap let two
- *       adjacent wide landscapes intersect (the Mirror Lake defect class);
- *     • the room scaled linearly with count — a "small, warm room" became
- *       a 25.2 m hall at its own capacity ceiling (30 works);
- *     • no threshold, no ceiling design, no wall architecture, metronome
- *       hang, furniture floating off-axis — strip three props and it was
- *       literally the default room;
- *     • the seeder entry and migration 2026_09_01_000006 payload had
- *       DRIFTED ('turn' on bench-top), breaking the pinned byte-equality
- *       test — the venue shipped without its QA suite green.
- *
- * THIS MIGRATION (DB side only — the JS gains generic, config-declared
- * placement capabilities: resolveSquareHang/squareLinePlan rows +
- * keep_clear + per-row caps, default bit-identical for every other venue):
- *   visual_config   : the authored venue — 3.8 m section (baseboard, ivory
- *                     hanging field, picture rail at 3.53, lit cornice
- *                     reveal, plaster ceiling rose), the enfilade axis
- *                     (walnut doorcase behind the spawn, hero wall + bench
- *                     ahead), the two-row salon hang block (wall_length_cap
- *                     12.6 + salon_rows 2 + keep_clear + row_caps), warm
- *                     readable rig (exposure 1.0, ambient 0.5, artwork
- *                     standing glow 0.3, pool cap 12), fog pushed to 22/70,
- *                     post_fx restraint (bloom off, warm black vignette).
- *   material_config : texture_tint ON (the declared colours reach textured
- *                     builds), deeper plaster wall, mid-oak floor, tile 2.4.
- *   default_settings: plaster walls, classic frames.
- *   description     : verifiable copy (doorcase, hero wall, salon-style
- *                     rows, walnut trim, picture rail, coved light).
- *   version         : 1.0.0 → 2.0.0 under guard.
- *
- * SAFETY (production data protection — the mirror-lake pattern):
- *   • every rewrite is guarded by the EXACT v1.0.0 value (strings strictly,
- *     numbers numerically, blocks by deep equals); a super-admin's custom
- *     value never matches and is never touched;
- *   • the structure guard accepts BOTH v1 payload variants (migration-6's
- *     and the drifted seeder's 'turn' variant) so every pre-v2 row heals;
- *   • new keys are added only while absent; down() reverses every rewrite
- *     and removes the added keys under exact v2 guards;
- *   • idempotent; no destructive commands; no seeding of production.
- */
 return new class extends Migration
 {
-    /** Exact-match guard: strings strictly, numbers numerically. */
     private function guardedEquals($current, $from): bool
     {
         if ($current === null) return false;
@@ -69,7 +13,6 @@ return new class extends Migration
         return is_numeric($current) && (float) $current === (float) $from;
     }
 
-    /** Numeric-tolerant deep equals for decoded config blocks. */
     private function blockEquals($a, $b): bool
     {
         if (is_array($a) || is_array($b)) {
@@ -95,9 +38,6 @@ return new class extends Migration
         return 'A warm collector\u2019s salon in the domestic tradition: a doorcase behind you, a hero wall ahead, works hung salon-style \u2014 large at eye level, smaller above \u2014 between walnut trim and a picture rail, under a coved warm light. Made for studies, prints, photography and portrait formats.';
     }
 
-    /** The v1.0.0 structure (migration-6 shape). $benchTurn: the drifted
-     *  seeder variant carried 'turn' => 'in' on the bench top — accepted
-     *  as v1 too, so every pre-v2 row heals (the drift is the bug). */
     private function v1Structure(bool $benchTurn = false): array
     {
         $bench = ['id' => 'bench-top', 'primitive' => 'box', 'at' => ['from' => 'center', 'offset' => [0, 0.42, 1.4]]]
@@ -221,7 +161,6 @@ return new class extends Migration
             return; // venue removed by the operator — respect that
         }
 
-        // ── visual_config ────────────────────────────────────────────────
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $scalarRewrites = [
@@ -244,8 +183,6 @@ return new class extends Migration
             }
         }
 
-        // frame_override: v1 declared null (default minimal frames) — the
-        // v2 salon hangs classic frames.
         if (!isset($vc['frame_override']) || $vc['frame_override'] === null) {
             $vc['frame_override'] = 'classic';
         }
@@ -317,7 +254,6 @@ return new class extends Migration
             ]);
         }
 
-        // ── copy + version ───────────────────────────────────────────────
         DB::table('venue_templates')->where('id', $row->id)->update([
             'description' => ((string) $row->description === $this->v1Description())
                 ? $this->v2Description()
@@ -369,8 +305,6 @@ return new class extends Migration
             $vc['structure'] = $this->v1Structure(false);
         }
 
-        // Added keys come off again — but ONLY at their exact v2 values
-        // (a super-admin's retuned value survives the rollback untouched).
         $vcValueRemoves = [
             'environment'             => 'studio',
             'env_intensity'           => 0.18,

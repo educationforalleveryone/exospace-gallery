@@ -10,37 +10,10 @@ use App\Models\GalleryImage;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * Internal linking engine (SEO OS Iteration 3).
- *
- * Produces RELEVANCE-BASED related content — the connective tissue of the
- * public web graph:
- *
- *   exhibition → related exhibitions   (shared artists, then shared venue)
- *   artist     → related artists       (shared exhibitions)
- *   artwork    → more by artist        (same artist, other public galleries)
- *
- * Design rules (anti-spam):
- *  - Hard cap on link count (config seo.related.*), default 6.
- *  - Only publiclyViewable, non-empty galleries — never link to private,
- *    PIN-protected, closed, scheduled or empty pages.
- *  - Deterministic ordering (relevance, then view_count, then id) so
- *    sections are stable between renders and crawl passes.
- *  - Cached 15 minutes per entity; the cache is a size optimization, not
- *    a correctness mechanism.
- */
 class InternalLinkingService
 {
     private const CACHE_TTL = 900; // 15 minutes
 
-    /**
-     * Exhibitions related to the given gallery.
-     *
-     * Relevance: number of shared artists (desc), then same venue, then
-     * view_count. Self and empty galleries are excluded.
-     *
-     * @return Collection<int, Gallery>
-     */
     public function relatedGalleries(Gallery $gallery, ?int $limit = null): Collection
     {
         $limit ??= (int) config('seo.related.galleries_max', 6);
@@ -84,12 +57,6 @@ class InternalLinkingService
         });
     }
 
-    /**
-     * Artists related to the given artist (they share at least one public
-     * exhibition). Ordered by number of shared exhibitions, then works.
-     *
-     * @return Collection<int, Artist>
-     */
     public function relatedArtists(Artist $artist, ?int $limit = null): Collection
     {
         $limit ??= (int) config('seo.related.artists_max', 6);
@@ -120,12 +87,6 @@ class InternalLinkingService
         });
     }
 
-    /**
-     * Other works by the same artist (across all PUBLIC galleries),
-     * excluding the current artwork and its own gallery's siblings.
-     *
-     * @return Collection<int, GalleryImage>
-     */
     public function relatedArtworks(GalleryImage $artwork, ?int $limit = null): Collection
     {
         $limit ??= (int) config('seo.related.artworks_max', 6);

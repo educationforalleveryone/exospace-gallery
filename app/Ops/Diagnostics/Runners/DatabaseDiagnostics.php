@@ -13,27 +13,6 @@ use Illuminate\Support\Facades\Schema;
 use PDO;
 use Throwable;
 
-/**
- * OpsCenter — DatabaseDiagnostics (Iteration 3).
- *
- * database.connectivity | database.health | database.connection-health |
- * database.migration-status
- *
- * The brief's flagship distinction lives here: the operator must be able to
- * tell "DATABASE IS DOWN" apart from "DATABASE IS HEALTHY BUT THE APP CANNOT
- * CONNECT" apart from "DATABASE IS CONNECTED BUT A QUERY FAILED" apart from
- * "MIGRATION FAILED". Each diagnostic answers exactly one of those questions
- * and says so in plain language.
- *
- * Read-only guarantees:
- *   - only SELECT / SHOW statements;
- *   - the raw-PDO reachability probe opens a SEPARATE short-lived connection
- *     (never persists credentials, reports only the failure MODE — refused
- *     vs denied vs unknown database vs saturated) and is only used where the
- *     configured driver is mysql;
- *   - migration status is computed from the migrator's file list vs the
- *     migrations table — it never RUNS anything.
- */
 class DatabaseDiagnostics implements RunsDiagnostics
 {
     public function runDiagnostic(string $id, ?OpsApplication $application): DiagnosticResult
@@ -50,18 +29,10 @@ class DatabaseDiagnostics implements RunsDiagnostics
         };
     }
 
-    // ── database.connectivity ───────────────────────────────────────────
-
-    /**
-     * THE question: is the database reachable, and if not, WHY.
-     */
     private function connectivity(): DiagnosticResult
     {
         $findings = [];
 
-        // 1) A fresh, separate connection (driver-aware) so we can
-        //    distinguish server-down from bad credentials from the app's
-        //    own (possibly pooled/cached) connection state.
         $probe = $this->probeFreshConnection();
         $findings[] = $probe['finding'];
 
@@ -84,8 +55,6 @@ class DatabaseDiagnostics implements RunsDiagnostics
             ];
         }
 
-        // null = probe not applicable (non-MySQL driver) — the framework
-        // query below is then the authoritative connectivity answer.
         $reachable = $probe['reachable'] !== false;
 
         if ($reachable && $latencyMs !== null) {
@@ -117,20 +86,12 @@ class DatabaseDiagnostics implements RunsDiagnostics
         );
     }
 
-    /**
-     * Open a throwaway connection using the configured credentials — reports
-     * only the failure mode, never the credentials or DSN.
-     *
-     * @return array{reachable: bool|null, mode: string|null, finding: array{label: string, status: string, detail: string}}
-     */
     private function probeFreshConnection(): array
     {
         $config = config('database.connections.'.config('database.default'));
         $driver = (string) ($config['driver'] ?? 'mysql');
 
         if ($driver !== 'mysql') {
-            // SQLite/other drivers: the framework probe below is the honest
-            // connectivity answer; a raw socket probe is meaningless.
             return [
                 'reachable' => null,
                 'mode' => null,
@@ -188,9 +149,6 @@ class DatabaseDiagnostics implements RunsDiagnostics
         }
     }
 
-    /**
-     * Map a PDO connection failure to an operational failure mode.
-     */
     private function classifyPdoFailure(Throwable $e): string
     {
         $message = $e->getMessage();
@@ -217,11 +175,6 @@ class DatabaseDiagnostics implements RunsDiagnostics
         };
     }
 
-    // ── database.health ─────────────────────────────────────────────────
-
-    /**
-     * Connectivity + schema sanity + recent database-side errors.
-     */
     private function health(): DiagnosticResult
     {
         $findings = [];
@@ -302,11 +255,6 @@ class DatabaseDiagnostics implements RunsDiagnostics
         return 'The database is reachable, credentials work, the schema\'s core tables exist and there are no recent database-level errors captured by the control plane. If the application misbehaves anyway, the cause is more likely on the application side (see Application health).';
     }
 
-    // ── database.connection-health ──────────────────────────────────────
-
-    /**
-     * Pool utilization: Threads_connected vs max_connections (+ MySQL only).
-     */
     private function connectionHealth(): DiagnosticResult
     {
         $findings = [];
@@ -367,10 +315,6 @@ class DatabaseDiagnostics implements RunsDiagnostics
         );
     }
 
-    /**
-     * Threads_connected / max_connections utilization finding, or null when
-     * the driver isn't MySQL. READ-ONLY (SHOW STATUS / SHOW VARIABLES).
-     */
     private function connectionUtilization(): ?array
     {
         $driver = (string) config('database.connections.'.config('database.default').'.driver');
@@ -405,13 +349,6 @@ class DatabaseDiagnostics implements RunsDiagnostics
         }
     }
 
-    // ── database.migration-status ───────────────────────────────────────
-
-    /**
-     * Are migrations pending? Did one fail recently? Read-only — the brief
-     * forbids auto-running production migrations, and this diagnostic never
-     * will.
-     */
     private function migrationStatus(): DiagnosticResult
     {
         $findings = [];
@@ -511,9 +448,6 @@ class DatabaseDiagnostics implements RunsDiagnostics
         return 'The schema is fully migrated: every migration file on disk is recorded in the database, and the control plane has no unresolved migration errors. If errors still point at the schema, they are more likely stale-code (a container still running old code after a deploy) — check Container health and Recent deployments.';
     }
 
-    /**
-     * Shared: recent DATABASE/MIGRATION events finding for database.health.
-     */
     private function recentErrorFinding(): array
     {
         $recent = OpsEvent::query()

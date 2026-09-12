@@ -2,31 +2,7 @@
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Filesystem Disk
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify the default filesystem disk that should be used
-    | by the framework. The "local" disk, as well as a variety of cloud
-    | based disks are available to your application for file storage.
-    |
-    */
-
     'default' => env('FILESYSTEM_DISK', 'local'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Filesystem Disks
-    |--------------------------------------------------------------------------
-    |
-    | Below you may configure as many filesystem disks as necessary, and you
-    | may even configure multiple disks for the same driver. Examples for
-    | most supported storage drivers are configured here for reference.
-    |
-    | Supported drivers: "local", "ftp", "sftp", "s3"
-    |
-    */
 
     'disks' => [
 
@@ -60,11 +36,6 @@ return [
             'report' => false,
         ],
 
-        // P3-14: CDN disk for horizontal scaling.
-        // Set FILESYSTEM_DISK=cdn in production to use S3-compatible storage
-        // (DigitalOcean Spaces, Cloudflare R2, AWS S3) for uploaded images.
-        // This enables multi-container deployments where containers don't
-        // share a filesystem. Configure with the same AWS_* env vars as s3.
         'cdn' => [
             'driver' => 's3',
             'key' => env('CDN_ACCESS_KEY_ID', env('AWS_ACCESS_KEY_ID')),
@@ -79,27 +50,6 @@ return [
             'visibility' => 'public',
         ],
 
-        // ITERATION-9 (AUDIT-P1-9.1): Off-site backup destination.
-        //
-        // Cloudflare R2 is S3-compatible object storage. Backups written
-        // here survive even if the entire Coolify container + persistent volume
-        // are destroyed. The disk is defined but NOT used until the operator:
-        //   1. Creates an R2 bucket (see docs/AI_MANUAL_TASKS.md → I9-1)
-        //   2. Sets the R2_* env vars in Coolify
-        //   3. Sets BACKUP_DISKS=local,r2 in Coolify (see config/backup.php)
-        //
-        // When the env vars are absent, the disk config resolves to null values
-        // and the disk is never accessed (no error). It only activates when the
-        // operator explicitly adds 'r2' to BACKUP_DISKS.
-        //
-        // R2 has no regions in the S3 sense (buckets are globally addressable),
-        // so 'region' is set to 'auto' per Cloudflare's S3-compat docs — this
-        // is required by the AWS SDK's request signing even though R2 ignores it.
-        //
-        // Cost: R2 charges ~$0.015/GB/month storage and, notably, ZERO egress
-        // fees (unlike DO Spaces / AWS S3) — meaning a restore never incurs a
-        // bandwidth bill. Exospace's backup retention (7 daily + 4 weekly + 2
-        // yearly = ~13 zips, each <500MB = ~6.5GB total) costs well under $1/mo.
         'r2' => [
             'driver' => 's3',
             'key' => env('R2_ACCESS_KEY_ID'),
@@ -113,17 +63,6 @@ return [
         ],
 
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Symbolic Links
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure the symbolic links that will be created when the
-    | `storage:link` Artisan command is executed. The array keys should be
-    | the locations of the links and the values should be their targets.
-    |
-    */
 
     'links' => [
         public_path('storage') => storage_path('app/public'),

@@ -15,9 +15,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // ITERATION-1 FIX (consolidated-migration coexistence): guard for
-        // fresh installs where the consolidated galleries migration owns
-        // the column.
         if (! Schema::hasTable('galleries')
             || ! Schema::hasColumn('galleries', 'venue_template_id')) {
             return;

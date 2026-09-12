@@ -11,16 +11,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-/**
- * Executes a profile from the dashboard queue path.
- *
- * Runs `qa:run` as a SHELL-OUT (Artisan::call would entangle the HTTP
- * process with long-running subprocess output). The phpunit run writes its
- * JUnit artifact; this job then merges queued-run metadata into the final
- * record by marking the placeholder row CANCELLED-and-superseded and letting
- * qa:run create the canonical finished row — history stays append-only,
- * honest, and free of half-baked rows.
- */
 class RunQaProfile implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -60,8 +50,6 @@ class RunQaProfile implements ShouldQueue
         ), $exit);
 
         if ($exit !== 0) {
-            // qa:run already records its own honest outcomes (incl. blocked);
-            // only the placeholder needs closing out.
             $run->forceFill([
                 'status'         => QaTestRun::STATUS_CANCELLED,
                 'blocked_reason' => "Superseded by shell-out execution (exit {$exit}) — see newest run for {$run->profile}.",

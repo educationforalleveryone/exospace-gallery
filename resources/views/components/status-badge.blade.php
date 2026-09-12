@@ -1,22 +1,3 @@
-{{--
-    Operational status pill (ITERATION 2) — the shared four-state vocabulary
-    for OpsCenter, Control Center and Master Control.
-
-    HEALTHY (emerald) · WARNING (amber) · CRITICAL (red) · UNKNOWN (gray)
-    plus INFO (blue) for running/neutral activity.
-
-    Renders dot + word so state is never conveyed by color alone. Pairs with
-    the .status-* classes in resources/css/app.css.
-
-    Usage:
-        <x-status-badge state="healthy" />                     → "● Healthy"
-        <x-status-badge state="degraded" label="Degraded" />   → custom label
-        <x-status-badge state="failed" :label="__('Failed')" dot="{{ false }}" />
-
-    Aliases let each domain keep its own vocabulary (ok/passed, degraded/
-    due_soon/flaky, failed/overdue/down, queued/pending/blocked …) while
-    rendering one identical visual language.
---}}
 @props([
     'state' => 'unknown',
     'label' => null,

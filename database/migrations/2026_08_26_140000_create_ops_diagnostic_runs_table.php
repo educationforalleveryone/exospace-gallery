@@ -6,24 +6,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * OpsCenter — Iteration 3: the diagnostic run store.
- *
- * One row per execution of an allow-listed diagnostic (read-only checks:
- * database/Redis/queue/container/server/deployment/application). Rows are
- * immutable snapshots — re-running creates a new row — and are pruned after
- * ops.diagnostics.retention_days (default 30) by the existing
- * ops:prune-events command (runs are reproducible on demand, so short
- * retention loses nothing).
- *
- * actor_id is nullable on purpose: today every run is operator-triggered
- * (super-admin + MFA), but the schema allows scheduled/automated runs later
- * without a migration.
- *
- * No secrets by construction: the DiagnosticEngine runs every finding and
- * summary through LogRedactor BEFORE persisting (defense in depth on top of
- * runners that already avoid sensitive values).
- */
 return new class extends Migration
 {
     public function up(): void

@@ -12,19 +12,6 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-/**
- * ITERATION 4 — webhook ledger + billing review + replay tooling.
- *
- * Covers the three Iteration-4 billing-truth mechanisms:
- *   1. Payload persistence at ingress (processed_webhooks is now a ledger,
- *      not a delete-on-failure marker)
- *   2. Status lifecycle: processing → processed / failed; failed and
- *      stuck-processing rows are claimable (2CO retry semantics preserved
- *      from Iteration 1, but the evidence survives)
- *   3. Webhook.* admin audit records + the super-admin Billing Review
- *      page with password.confirm-gated replay
- *   4. 90-day ledger retention (GDPR bound on stored PII)
- */
 class WebhookLedgerAndReplayTest extends TestCase
 {
     use RefreshDatabase;
@@ -44,8 +31,6 @@ class WebhookLedgerAndReplayTest extends TestCase
         Config::set('services.2checkout.buy_link_secret_word', null);
         Config::set('services.2checkout.allow_md5_only', true);
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────
 
     private function validIpnPayload(array $overrides = []): array
     {
@@ -104,8 +89,6 @@ class WebhookLedgerAndReplayTest extends TestCase
         ];
     }
 
-    // ── 1. Payload persistence ───────────────────────────────────────────
-
     public function test_webhook_payload_is_persisted_and_marked_processed(): void
     {
         User::factory()->create(['email' => 'buyer@example.com']);
@@ -136,17 +119,11 @@ class WebhookLedgerAndReplayTest extends TestCase
         $this->assertSame('processed', $this->ledgerRow($payload['message_id'])->status);
     }
 
-    // ── 2. Status lifecycle ──────────────────────────────────────────────
-
     public function test_failed_webhook_row_is_marked_failed_and_payload_survives(): void
     {
         $user = User::factory()->create(['email' => 'buyer@example.com']);
         $payload = $this->validIpnPayload();
 
-        // Force the upgrade transaction to throw after the ledger row is
-        // inserted (User::updating fires inside DB::transaction inside the
-        // lock — exactly the crash window Iteration 1 handled by deleting
-        // the marker and Iteration 4 handles by marking the row failed).
         User::updating(function () {
             throw new \RuntimeException('simulated transaction crash');
         });
@@ -218,8 +195,6 @@ class WebhookLedgerAndReplayTest extends TestCase
         $this->assertSame(0, Transaction::where('invoice_id', $payload2['invoice_id'])->count(), 'fresh processing row must block (in-flight worker owns it)');
     }
 
-    // ── 3. Audit records ─────────────────────────────────────────────────
-
     public function test_refund_webhook_writes_system_actor_audit_record(): void
     {
         $user = User::factory()->create(['email' => 'buyer@example.com', 'plan' => 'pro']);
@@ -252,16 +227,12 @@ class WebhookLedgerAndReplayTest extends TestCase
 
     public function test_webhook_audit_actions_never_email_super_admins(): void
     {
-        // The SendSuperAdminActionAlert whitelist must NOT include the new
-        // webhook.* actions — recurring renewals would spam every super-admin.
         $listener = new \App\Listeners\SendSuperAdminActionAlert();
         $source = file_get_contents((new \ReflectionClass($listener))->getFileName());
 
         $this->assertStringNotContainsString("'webhook.", $source,
             'webhook.* audit actions must stay off the destructive-action email whitelist');
     }
-
-    // ── 4. Billing Review page ───────────────────────────────────────────
 
     public function test_billing_review_requires_super_admin(): void
     {
@@ -271,8 +242,6 @@ class WebhookLedgerAndReplayTest extends TestCase
 
     public function test_billing_review_rejects_guests(): void
     {
-        // Separate test — actingAs() from a prior assertion in the same
-        // test would leak into this request.
         $this->get('/master-control/billing')->assertRedirect('/login');
     }
 
@@ -331,8 +300,6 @@ class WebhookLedgerAndReplayTest extends TestCase
         $all->assertOk()->assertSee('INV-C-1');
     }
 
-    // ── 5. Replay ────────────────────────────────────────────────────────
-
     public function test_replay_requires_password_confirmation(): void
     {
         $admin = User::factory()->withMfa()->create([
@@ -367,8 +334,6 @@ class WebhookLedgerAndReplayTest extends TestCase
             'status'         => 'completed',
         ]);
 
-        // The payload exactly as 2CO sent it (signature-valid at original
-        // ingress; replay re-runs processing without re-verification).
         $saleId = 'SALE-REPLAY-1';
         $invoiceId = 'INV-REPLAY-1';
         $stringToHash = strlen($saleId) . $saleId . strlen(self::VENDOR_ID) . self::VENDOR_ID
@@ -432,8 +397,6 @@ class WebhookLedgerAndReplayTest extends TestCase
         $response->assertSessionHas('error');
         $this->assertSame(0, $row->fresh()->replay_count);
     }
-
-    // ── 6. Retention ─────────────────────────────────────────────────────
 
     public function test_cleanup_prunes_webhook_ledger_rows_beyond_90_days(): void
     {

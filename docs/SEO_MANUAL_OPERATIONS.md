@@ -332,3 +332,21 @@ Access: super-admin + MFA (same middleware as the rest of master-control). Every
 2. Full test suite: `php artisan test --filter=Seo` (6 test files, ~130 tests)
 3. Spot-check acquisition: visit `/` with a Google referrer (`curl -H 'Referer: https://www.google.com/search?q=x' https://exospace.gallery/`), register a test account, confirm the Acquisition tab shows it
 4. Confirm sitemap gzip: `curl -sH 'Accept-Encoding: gzip' -o /dev/null -w '%{size_download}' https://exospace.gallery/sitemap.xml`
+
+---
+
+## 16. Codebase comment cleanup (2026-09-13)
+
+A repo-wide comment-cleanup pass was performed on the source code. 823
+source files (PHP, JS, Blade, CSS, dev scripts) had AI-generated narrative
+comments removed: multi-line explanatory paragraphs, audit/iteration
+histories, section banners, and redundant docblocks. Functional annotations
+(PHPUnit `@group`/`@dataProvider`-class, `@var` type hints, `@jest-environment`,
+eslint/ts directives) were preserved. No code, routes, config, or behavior
+changed — validation confirmed the code-token stream of every modified file
+is byte-identical to the pre-cleanup file (38,052 comment lines removed).
+
+**Project comment standard going forward:** do not add long paragraph-style
+explanatory comments to source code. Concise comments that communicate a
+non-obvious constraint are fine. Keep longer explanations in `docs/`, not in
+implementation files.

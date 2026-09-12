@@ -1,11 +1,8 @@
-{{-- B-9 + B-10 FIX (Iter-004): Welcome email — now uses shared table-based layout
-    with inline CSS (Outlook/Gmail compatible) + preheader text (5-15% open rate lift). --}}
 @extends('emails.partials.layout')
 
 @section('title', 'Welcome to Exospace')
 
 @section('preheader')
-    {{-- B-10 FIX: Preheader text — hidden but visible in inbox preview. Max 85 chars. --}}
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">
         Your 3D gallery awaits — create your first exhibition in 5 minutes.
     </div>

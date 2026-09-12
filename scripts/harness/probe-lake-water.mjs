@@ -1,15 +1,3 @@
-// probe-lake-water.mjs — the high-tier WATER REFLECTOR proof.
-//
-// The formal matrix captures on the ?reflect=0 strip (the Reflector's extra
-// scene render is minutes-per-frame under SwiftShader — the documented
-// cathedral cost class). THIS probe is the reflector's own evidence: it
-// enters the venue via the DOM click path, waits patiently for the first
-// mirrored frames, then captures two poses:
-//   1. the landing sightline (moon + arc + their reflections), and
-//   2. a low water-level view from the shore walk (the reflection language:
-//      artwork doubled, sky band, moon glitter).
-//
-//   node scripts/harness/probe-lake-water.mjs [count=5]
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -81,8 +69,6 @@ const pose = async (name, p, t, settle) => {
     }, [p, t]);
     await page.waitForTimeout(settle);
     await page.addStyleTag({ content: '#crosshair,#ui-layer,#controls-hint{display:none!important}' }).catch(() => {});
-    // The reflector doubles the scene render — one composited frame under
-    // SwiftShader can take minutes. Screenshot timeout must cover it.
     await page.screenshot({ path: resolve(rootDir, OUT, name), timeout: 240000 });
     console.log(`[water] ${name} captured`);
 };

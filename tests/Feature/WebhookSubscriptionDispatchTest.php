@@ -11,26 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 10 — outbound webhook subscription dispatch fan-out.
- *
- * Coverage: the Iter-10 headline gap — OutboundWebhookService::dispatch
- * fans out per-event to every active webhook_subscriptions row
- * matching the event type. The env-var OUTBOUND_WEBHOOK_URL is
- * treated as an always-on "default" subscription (preserved
- * Iter-9 dispatch contract for fresh installs).
- *
- * Precedence (codified in the dispatch docblock):
- *   - 0 DB rows for an event  → only env (if configured)
- *   - ≥1 DB rows for an event  → each row + env (if configured)
- *   - neither configured        → silent-skip
- *
- * Per-subscription secrets override the global OUTBOUND_WEBHOOK_SECRET
- * when set; otherwise the global secret is used (preserves the Iter-9
- * HMAC contract for a fresh subscription that doesn't override).
- *
- * Run: php artisan test --filter=WebhookSubscriptionDispatchTest
- */
 class WebhookSubscriptionDispatchTest extends TestCase
 {
     use RefreshDatabase;
@@ -47,9 +27,6 @@ class WebhookSubscriptionDispatchTest extends TestCase
         $this->withoutVite();
         Http::fake();
 
-        // Configure the env-var default subscription so the fan-out
-        // path includes it (the precedence rule). The silent-skip
-        // path is asserted explicitly in its own test.
         config(['services.outbound_webhook.url' => self::ENV_URL]);
         config(['services.outbound_webhook.secret' => self::ENV_SECRET]);
         config(['services.operational_alerts.webhook_url' => null]);
@@ -57,8 +34,6 @@ class WebhookSubscriptionDispatchTest extends TestCase
 
     public function test_dispatch_with_no_db_subscriptions_still_posts_to_env_url(): void
     {
-        // Backward-compat: a fresh install with no DB subscriptions
-        // behaves exactly like pre-Iter-10 (single env URL, single POST).
         \App\Services\OutboundWebhookService::dispatch('gallery.published', ['id' => 1]);
 
         Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
@@ -167,8 +142,6 @@ class WebhookSubscriptionDispatchTest extends TestCase
                 return false;
             }
 
-            // The signature matches the GLOBAL secret (env) — the per-sub
-            // secret was null, so the global secret is used.
             $expected = hash_hmac('sha256', $request->body(), self::ENV_SECRET);
             return hash_equals($expected, $sig);
         });
@@ -212,8 +185,6 @@ class WebhookSubscriptionDispatchTest extends TestCase
 
     public function test_dispatch_silently_skips_for_events_with_no_subscribers_and_no_env(): void
     {
-        // Env is configured (so we exit the silent-skip-if-neither path),
-        // but this event has zero subscriptions.
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,

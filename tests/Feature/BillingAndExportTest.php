@@ -12,15 +12,9 @@ use DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * Billing portal + GDPR export + custom-domain verification tests.
- * (Task H62)
- */
 class BillingAndExportTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ── Billing portal ───────────────────────────────────────────────────
 
     public function test_billing_portal_requires_auth(): void
     {
@@ -57,18 +51,6 @@ class BillingAndExportTest extends TestCase
         $response->assertSee('Completed');
     }
 
-    /**
-     * AUDIT-P0-1.6 FIX: Previously the billing portal queried
-     * `Invoice::where('transaction_id', $tx->id)->first()` inside a foreach
-     * loop — an N+1. Now BillingController::index eager-loads via
-     * ->with('invoice') and the view reads $tx->invoice directly.
-     *
-     * This test verifies that:
-     *   1. The Transaction::invoice() relationship exists and resolves.
-     *   2. The billing portal renders the "Download" link when an invoice
-     *      with a pdf_path is associated with a transaction.
-     *   3. The page does NOT issue an N+1 query (asserted via DB::listen query count).
-     */
     public function test_audit_p01_6_billing_portal_eager_loads_invoice(): void
     {
         $user = User::factory()->pro()->create();
@@ -91,17 +73,10 @@ class BillingAndExportTest extends TestCase
         $this->assertNotNull($transaction->fresh()->invoice);
         $this->assertEquals('invoices/test-invoice.pdf', $transaction->fresh()->invoice->pdf_path);
 
-        // The page renders the "Download" link (proving the eager-loaded
-        // invoice reaches the view without an extra query).
         $response = $this->actingAs($user)->get('/billing');
         $response->assertOk();
         $response->assertSee('Download');
 
-        // Query count: with eager loading, we should see at most a handful of
-        // queries (transactions paginate + invoice eager load + user + session
-        // + pending upgrades). Without eager loading, we'd see 1 + N queries.
-        // We assert "fewer than 15 queries" — generous enough to avoid
-        // flakiness but tight enough to catch a regression.
         $queryCount = 0;
         DB::listen(function () use (&$queryCount) {
             $queryCount++;
@@ -115,10 +90,6 @@ class BillingAndExportTest extends TestCase
         );
     }
 
-    /**
-     * AUDIT-P0-1.6 FIX: When a transaction has no invoice, the view should
-     * render an em-dash placeholder, not crash.
-     */
     public function test_audit_p01_6_billing_portal_handles_missing_invoice_gracefully(): void
     {
         $user = User::factory()->pro()->create();
@@ -187,10 +158,6 @@ class BillingAndExportTest extends TestCase
 
     public function test_billing_upgrade_blocks_same_plan(): void
     {
-        // ITERATION-1 FIX: same-plan purchases are intentionally ALLOWED
-        // since the 2CO-7 change (lifetime conversion / re-purchase flows)
-        // — the old test asserted the pre-2CO-7 block. The user proceeds
-        // to 2Checkout.
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
         $user = User::factory()->pro()->create();
 
@@ -207,8 +174,6 @@ class BillingAndExportTest extends TestCase
     {
         $user = User::factory()->create();
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
-        // SEC-8: coupons are validated against an allowlist — the old test
-        // never configured one, so the coupon was (correctly) stripped.
         config(['services.2checkout.coupon_allowlist' => 'LAUNCH20,WELCOME10']);
 
         $response = $this->actingAs($user)->get('/billing/upgrade/pro?coupon=LAUNCH20');
@@ -230,8 +195,6 @@ class BillingAndExportTest extends TestCase
         $this->assertStringContainsString('affiliate=AFF123', $location);
     }
 
-    // ── GDPR export ──────────────────────────────────────────────────────
-
     public function test_profile_export_requires_auth(): void
     {
         $response = $this->get('/profile/export');
@@ -244,18 +207,11 @@ class BillingAndExportTest extends TestCase
 
         $response = $this->actingAs($user)->get('/profile/export');
 
-        // ITERATION-1 FIX: the export was upgraded to a ZIP archive
-        // (profile.json + CSVs + README) — the old test asserted the
-        // legacy raw-JSON response.
         $response->assertOk();
         $response->assertHeader('Content-Type', 'application/zip');
         $response->assertHeader('Content-Disposition');
     }
 
-    /**
-     * Unzip the export archive and decode profile.json — shared helper
-     * for the content assertions below.
-     */
     private function exportJson($response): array
     {
         $zipPath = tempnam(sys_get_temp_dir(), 'exo-export') . '.zip';
@@ -316,10 +272,6 @@ class BillingAndExportTest extends TestCase
         $user = User::factory()->pro()->create();
         $gallery = Gallery::factory()->create(['user_id' => $user->id]);
         $artist = \App\Models\Artist::factory()->create(['created_by' => $user->id]);
-        // ITERATION-1 FIX: duplicate() copies image FILES on disk — the old
-        // test referenced a path that didn't exist, so the artwork was
-        // (correctly) skipped and the clone had no images. Create a real
-        // file so the copy succeeds.
         \Illuminate\Support\Facades\Storage::fake('public');
         $image = GalleryImage::factory()->create([
             'gallery_id'  => $gallery->id,
@@ -360,8 +312,6 @@ class BillingAndExportTest extends TestCase
         ]);
         GalleryImage::factory()->create(['gallery_id' => $gallery->id]);
 
-        // The DetectCustomDomain middleware should NOT resolve this gallery
-        // because custom_domain_verified_at is null
         $response = $this->get('/gallery/' . $gallery->slug);
         $response->assertOk(); // loads via slug, not custom domain
     }
@@ -376,8 +326,6 @@ class BillingAndExportTest extends TestCase
         ]);
         GalleryImage::factory()->create(['gallery_id' => $gallery->id]);
 
-        // Simulate a custom-domain request by setting the resolved_gallery
-        // attribute (the middleware would do this in production)
         $response = $this->withSession([])
             ->get('/gallery/anything', [], ['X-Forwarded-Host' => 'test.example.com']);
 

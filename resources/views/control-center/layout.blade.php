@@ -1,5 +1,3 @@
-{{-- Control Center layout — intentionally self-contained (no app nav coupling).
-    CSP-safe: no inline JS; polling via meta refresh on live pages only. --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
 <head>

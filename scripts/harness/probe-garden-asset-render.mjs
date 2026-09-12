@@ -1,8 +1,3 @@
-// probe-garden-asset-render.mjs — minimal standalone render of the garden's
-// ASSET LAYER: verifies GLB decode (DRACO+WebP), height normalization,
-// instancing placement, foliage alpha cutout and per-role scale — decoupled
-// from the full venue scene (which SwiftShader cannot rasterize in QA time).
-//   node scripts/harness/probe-garden-asset-render.mjs
 import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -50,11 +45,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from '/harness/assets/three/addons loaders placeholder.js';
 </script></body></html>`;
 
-// The harness bundle exposes three via importmap-less bundling; simplest is a
-// CDN-free page importing the installed three from the dev server — but we
-// serve only public/. So: build the probe page around the ALREADY BUNDLED
-// three chunk shipped in public/build (it's an ES module with imports we can
-// reuse via a tiny import map).
 const pageHtml = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>body{margin:0;overflow:hidden}canvas{display:block}</style>
 <script type="importmap">

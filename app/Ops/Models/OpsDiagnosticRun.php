@@ -7,15 +7,6 @@ namespace App\Ops\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * App\Ops\Models\OpsDiagnosticRun
- *
- * One execution of an allow-listed diagnostic (Iteration 3). Immutable after
- * creation: a run is a point-in-time snapshot — re-running creates a NEW row.
- * Retention: pruned after ops.diagnostics.retention_days (default 30) by the
- * existing ops:prune-events command; a run is always reproducible on demand,
- * so short retention loses nothing.
- */
 class OpsDiagnosticRun extends Model
 {
     public const STATUSES = ['healthy', 'degraded', 'failed', 'inconclusive'];
@@ -48,9 +39,6 @@ class OpsDiagnosticRun extends Model
         return $this->belongsTo(\App\Models\User::class, 'actor_id');
     }
 
-    /**
-     * UI label for the run's status.
-     */
     public function statusLabel(): string
     {
         return match ($this->status) {
@@ -62,12 +50,6 @@ class OpsDiagnosticRun extends Model
         };
     }
 
-    /**
-     * Where this run was triggered from (UI rendering):
-     *  manual  — the diagnostics catalog page
-     *  event   — a one-click button on an error detail page (source_id = event)
-     *  incident — a one-click button on an incident timeline page (source_id = incident)
-     */
     public function sourceLabel(): string
     {
         return match ($this->source) {

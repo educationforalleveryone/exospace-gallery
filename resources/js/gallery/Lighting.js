@@ -1,33 +1,12 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Lighting — ambient + per-artwork proximity lights + custom venue fixtures
-//
-// INDUSTRIAL LOFT FLICKER FIX:
-// The old code binary-switched which artwork light was "on" — only the closest
-// one lit up, all others dimmed to 0. As the player walked, the closest artwork
-// flipped rapidly between two pieces, causing visible flicker.
-//
-// New behaviour: every artwork light stays on at a low base intensity; the
-// closest artwork gets a smooth boost. No more rapid on/off = no flicker.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 import { CONFIG, parseColor } from './config.js';
 
-// ── Ambient + key + fill setup ──────────────────────────────────────────────
 export function setupLighting(preset) {
     this.lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
     const cfg = this.lightingConfig;
 
-    // ── Ambient — the venue's declaration REPLACES the preset ───────────
-    // The old path stacked TWO ambient lights: the preset's white ambient
-    // AND a "tinted" venue ambient at half strength. Because the venue
-    // check was object-truthy, a venue declaring PURE WHITE ambient (white
-    // cube) still triggered the duplicate → the room ran at preset+50%
-    // intensity instead of its declared value. One declaration, one light.
     if (this._venueAmbientColor) {
         const declared = this._venueAmbientIntensity ?? cfg.ambient;
-        // Low-end loses the per-artwork pool lights — lift the declared
-        // ambient to compensate (capped so bright venues don't blow out).
         const intensity = this.isLowEnd
             ? Math.min(1.2, declared * 2.5)
             : declared;
@@ -37,20 +16,6 @@ export function setupLighting(preset) {
         this.scene.add(new THREE.AmbientLight(0xffffff, ambientIntensity));
     }
 
-    // Hemisphere light — soft fill from above.
-    // Dark-museum audit: this was a hard-coded 0.15 white wash in every
-    // venue — in a controlled-darkness venue a constant neutral top-down
-    // wash flattens the exact hierarchy the venue exists to create. Now
-    // venue-declarable via visual_config.hemisphere_intensity; absent ⇒
-    // the historical 0.15 (every existing venue renders unchanged). The
-    // low-end tier keeps its boosted compensation, scaled from the same
-    // declaration so degradation never recomposes the venue's darkness.
-    //
-    // Sculpture Garden iteration: the SKY and GROUND tint are also venue-
-    // declarable (hemisphere_sky_color / hemisphere_ground_color) — outdoor
-    // ambient IS the sky dome above and the lawn below, so an open-air
-    // venue declares blue sky over grass instead of neutral white over
-    // gray. Undeclared ⇒ the historical neutral pair (no venue changes).
     const vcHemi = this._venueVisualConfig || {};
     const hemiSky = parseColor(vcHemi.hemisphere_sky_color) || 0xffffff;
     const hemiGround = parseColor(vcHemi.hemisphere_ground_color) || 0x404040;
@@ -61,42 +26,11 @@ export function setupLighting(preset) {
     this.scene.add(hemi);
 }
 
-// ── Ceiling-grid fill intensity (venue declaration → preset fallback) ──────
-// visual_config.fill_intensity used to be stored and never read — every
-// ceiling light read the lighting PRESET's fillLight instead of the venue's
-// declared value (a config-authority violation: the declaration was dead
-// config). All grid builders resolve through this one function so the venue
-// declaration controls every layout identically. `mult` preserves each
-// builder's historical ratio (square 2.0, corridor 2.5, l-shape 2.5,
-// rotunda 3.0, circular 2.5).
 export function venueFillIntensity(mult) {
     const declared = this._venueFillIntensity ?? this.lightingConfig?.fillLight ?? 0.12;
     return declared * (mult ?? 1);
 }
 
-// ── Per-artwork proximity light — POOLED ──────────────────────────────────
-// PERF-B2 (3D audit F2): every artwork used to get its own PointLight, and
-// updateProximityLighting toggled `light.visible` as intensities crossed
-// 0.01. The visible point-light COUNT therefore changed while the visitor
-// walked — three.js includes the light count in its program cache key, so
-// each change compiled a new shader variant (10–100 ms hitch, worst on
-// mobile). This was almost certainly the source of the periodic stutter.
-//
-// Now a fixed pool of PointLights is created once and REASSIGNED to the
-// nearest artworks every update. Pool lights are never toggled invisible,
-// so the scene's light count is constant → zero mid-walk recompiles.
-// A 100-artwork gallery also no longer allocates 100 PointLight objects.
-//
-// On low-end: skipped entirely (ambient + hemisphere carry the scene).
-//
-// visual_config.artwork_light_base (0..1, default 0.15): the BASE glow an
-// artwork carries even when the visitor is far away, as a fraction of the
-// proximity boost target. Wall galleries keep 0.15 — artworks flank the
-// walk path, so the proximity boost does the work. Venues whose artworks
-// sit BEYOND the proximity radius (void family: a ring metres from the
-// spawn, nothing flanking the visitor) declare a higher base — their
-// pieces are lit by their own standing pool, like islands of light, and
-// the walk still brightens the nearest ones. Config-declared, no slugs.
 export function addArtworkLight(artworkGroup, preset) {
     if (this.isLowEnd) return;
 
@@ -105,9 +39,6 @@ export function addArtworkLight(artworkGroup, preset) {
     const baseFraction = Math.min(1, Math.max(0, this._venueArtworkLightBase ?? 0.15));
     const baseIntensity = targetMax * baseFraction; // standing glow (was hard-coded 0.15)
 
-    // Where this artwork's pooled light sits when assigned (in front of the
-    // canvas, slightly above centre — same anchor the old per-artwork light
-    // used). Computed once; the pool copies it on assignment.
     const anchor = artworkGroup.position.clone();
     const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(artworkGroup.quaternion);
     anchor.y += 0.3;
@@ -119,20 +50,9 @@ export function addArtworkLight(artworkGroup, preset) {
     artworkGroup.userData.lightCurrent = baseIntensity;
 }
 
-// Create / resize the shared light pool. Idempotent; called from
-// updateProximityLighting so quality changes (which alter _maxActiveLights)
-// are picked up on the next tick.
-//
-// A venue declaring artwork_light_pool_cap raises the pool (desktop tier
-// only; the mobile tier keeps its designed 4-light budget) so EVERY artwork
-// of a typical hang can carry its standing glow at once. The pool is still
-// fixed per size — no mid-walk resizing, no shader-recompile churn.
-// Without the declaration the tier's pool size applies unchanged.
 function _ensureLightPool(artworkCount = 0) {
     let desired = this._maxActiveLights || 6;
     const cap = this._venueArtworkLightPoolCap;
-    // The cap raises the DESKTOP tier only — the mobile tier's 4-light pool
-    // is a designed budget (Renderer.applyMobileSettings), not an accident.
     if (Number.isFinite(cap) && cap > 0 && !this.isLowEnd && !this._isMobileTier) {
         desired = Math.max(6, Math.min(Math.max(artworkCount, 6), cap));
     }
@@ -145,20 +65,11 @@ function _ensureLightPool(artworkCount = 0) {
     for (let i = 0; i < desired; i++) {
         const light = new THREE.PointLight(0xfff5e6, 0, 10);
         light.castShadow = false;
-        // NOTE: never toggle .visible on pool lights — that would change the
-        // light count and trigger exactly the recompile this pool prevents.
-        // Unassigned lights simply sit at intensity 0.
         this.scene.add(light);
         this._lightPool.push(light);
     }
 }
 
-// ── Update proximity lighting — smooth distance-based falloff, pooled ───────
-// PERF-B12 (3D audit F12): the old implementation allocated an array of
-// {art, distSqr} objects on EVERY call (every 2nd frame) and sorted it —
-// pure GC pressure. This version reuses pre-allocated scratch storage and
-// selects the top-K artworks with a fixed number of linear scans (no sort,
-// no per-call allocations).
 export function updateProximityLighting() {
     if (!this.artworks || this.artworks.length === 0) return;
     if (this.isLowEnd) return;
@@ -187,12 +98,6 @@ export function updateProximityLighting() {
         const dz = playerPos.z - art.position.z;
         const distSqr = dx * dx + dz * dz;
 
-        // Smoothstep falloff: 1.0 at distance 0, base at proximityDist.
-        // BEYOND proximity the target is the artwork's BASE — never zero.
-        // The old `target = 0` starved every non-nearest piece: far artworks
-        // lerped their light to black and rendered as dark rectangles across
-        // the room (an exhibition rule: no artwork sits in the dark — the
-        // fixture wash is constant, only the visitor-proximity boost fades).
         let target;
         if (distSqr < sqrProximityDist) {
             const t = 1.0 - Math.sqrt(distSqr) / proximityDist;
@@ -207,10 +112,6 @@ export function updateProximityLighting() {
         scratch[count++] = art;
     }
 
-    // ── Assign the fixed pool to the artworks with the highest current ────
-    // intensity (≈ the closest). Reassignment only ever happens at the rank
-    // boundary, where both artworks' intensities are near base — the light
-    // teleport is imperceptible, and it costs zero shader recompiles.
     _ensureLightPool.call(this, count);
     const pool = this._lightPool;
     const K = Math.min(pool.length, count);

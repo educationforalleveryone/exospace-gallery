@@ -9,35 +9,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Iteration-010 (audit G-6): PII retention for the admin_audit_logs table.
- *
- * The audit log stores `_changed` dirty attributes on every admin action.
- * Pre-Iter-010, these could contain raw PII (email, customer_email,
- * customer_name, ban_reason, etc.). The Iter-010 AdminAuditLog::record()
- * fix scrubs PII at write time, but OLD rows (pre-Iter-010) still contain
- * raw PII.
- *
- * This command:
- *   1. Walks all admin_audit_logs rows older than the retention window
- *      (default: 18 months, matching AnonymizeTransactionPii).
- *   2. For each row, decodes the JSON payload.
- *   3. For each PII key (per AdminAuditLog::piiKeys()), if the value is
- *      present AND not already scrubbed (doesn't start with 'pii:' or
- *      'anonymized:'), replaces it with 'pii:' + hash.
- *   4. Also scrubs nested `_changed` array.
- *   5. Saves the row back.
- *
- * Schedule: monthly (1st of each month), running AFTER AnonymizeTransactionPii.
- *
- * Idempotent: re-running on already-scrubbed rows is a no-op (the hash is
- * stable, and the 'pii:' prefix check skips already-scrubbed values).
- *
- * Trade-off: we hash rather than null. A null would lose the "field changed"
- * signal — you couldn't tell whether the email was actually changed or just
- * absent. The hash preserves the "changed to a new value" signal (two
- * different emails produce two different hashes) while removing the PII.
- */
 class AnonymizeAuditLogPii extends Command
 {
     protected $signature = 'exospace:anonymize-audit-pii
@@ -128,15 +99,6 @@ class AnonymizeAuditLogPii extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Recursively scrub PII from a payload array.
-     *
-     * Handles both flat top-level keys AND nested `_changed` arrays (which
-     * is where most dirty-attribute PII lives).
-     *
-     * @param  array<string,mixed> $data
-     * @return array<string,mixed>
-     */
     private function scrubArrayRecursive(array $data): array
     {
         $appId = config('app.key');

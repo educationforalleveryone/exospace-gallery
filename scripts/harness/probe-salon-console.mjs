@@ -1,6 +1,3 @@
-// probe-salon-console.mjs — high-tier boot: capture ALL console traffic,
-// assert the RGBELoader deprecation warning is gone and the ao.jpg 404s are
-// gone (the two console defects from the deployed field report).
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';

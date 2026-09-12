@@ -7,18 +7,6 @@ namespace App\Services\TestCenter;
 use App\Models\QaTestRun;
 use Illuminate\Support\Collection;
 
-/**
- * Flaky-test detection over recorded run history.
- *
- * A test is flagged FLAKY when, within a profile's recent window, it:
- *   - has executed at least min_executions times,
- *   - shows BOTH passes and problems (0% < pass-rate < 100%),
- *   - and its status stream contains alternation (not a permanent regression,
- *     which would show as a suffix of failures).
- *
- * Permanently-failing and permanently-green tests are excluded on purpose —
- * the first belongs to release gates, the second needs no attention.
- */
 class FlakyDetector
 {
     public function __construct(
@@ -27,11 +15,6 @@ class FlakyDetector
         private readonly float $flakyBelowPassRate = 95.0,
     ) {}
 
-    /**
-     * @return Collection<int, array{test_identifier:string, executions:int,
-     *   passes:int, problems:int, pass_rate:float, kind:'flaky'|'perma-red',
-     *   last_status:?string, last_problem_message:?string}>
-     */
     public function detect(?string $profile = null): Collection
     {
         $runsQuery = QaTestRun::query()
@@ -58,8 +41,6 @@ class FlakyDetector
             ->orderByDesc('c.qa_test_run_id')
             ->get(['c.qa_test_run_id', 'c.test_identifier', 'c.status', 'c.message', 'r.profile']);
 
-        // group by identifier+profile; per RUN keep the worst outcome so a
-        // data-provider set counts its test exactly once per execution.
         $grouped = [];
 
         foreach ($rows as $row) {
@@ -141,7 +122,6 @@ class FlakyDetector
         return $results->sortBy([['kind', 'asc'], ['pass_rate', 'asc']])->values();
     }
 
-    /** Quick profile-level suspicion stat for cards/badges. */
     public function flakyCountForProfile(string $profile): int
     {
         return $this->detect($profile)->filter(fn ($t) => $t['kind'] === 'flaky')->count();

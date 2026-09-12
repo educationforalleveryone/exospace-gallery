@@ -42,8 +42,6 @@ class GalleryController extends Controller
         return view('admin.galleries.index', compact('galleries', 'team', 'userTeams'));
     }
 
-    // ── Create ────────────────────────────────────────────────────────────
-
     public function create(Request $request): View|RedirectResponse
     {
         $user = Auth::user();
@@ -53,22 +51,12 @@ class GalleryController extends Controller
             return $redirect;
         }
 
-        // Iteration 0 (roadmap P0.2 — draft-leak fix): pickers previously
-        // fetched by is_active only, so a DRAFT venue (is_active=true,
-        // is_draft=true) appeared in customer pickers and then failed
-        // server-side validation on submit — experienced as "this venue
-        // saves with an error". published() excludes drafts. Plan filtering
-        // intentionally NOT applied here: locked venues must stay visible
-        // (lock overlay = upsell surface); entitlement is enforced
-        // server-side in store()/update() via assertVenueAccessibleForPlan().
         $venueTemplates = \App\Models\VenueTemplate::active()
             ->published()
             ->orderBy('sort_order')
             ->get();
         return view('admin.galleries.create', compact('team', 'venueTemplates'));
     }
-
-    // ── Store ─────────────────────────────────────────────────────────────
 
     public function store(Request $request): RedirectResponse
     {
@@ -88,9 +76,6 @@ class GalleryController extends Controller
 
         $planHolder = $team ? $team->owner : $user;
 
-        // ITERATION-1 P0 FIX (entitlement bypass): server-side venue tier
-        // enforcement — see galleryValidationRules() note. The UI locks
-        // paid venues, but a direct POST could previously bypass it.
         if (!empty($validated['venue_template_id'])
             && ($redirect = $this->assertVenueAccessibleForPlan($validated['venue_template_id'], $planHolder))) {
             return $redirect;
@@ -123,13 +108,6 @@ class GalleryController extends Controller
                 'user_id'          => $user->id,
                 'team_id'          => $team?->id,
                 'title'            => $validated['title'],
-                // ITERATION-2 (TTFE / publish moment): new galleries start
-                // as DRAFTS. Before this, galleries went live the instant
-                // they were created — an empty room was instantly public
-                // (the "empty live gallery" problem) and there was no
-                // publish moment at all. The DB column default is also
-                // flipped by the paired migration; setting it explicitly
-                // here keeps the intent readable regardless of DB default.
                 'is_active'        => false,
                 'description'      => $validated['description'] ?? null,
                 'wall_texture'     => $validated['wall_texture'],
@@ -159,15 +137,8 @@ class GalleryController extends Controller
             ]);
             return back()
                 ->withInput()
-                // ITERATION-9: the raw exception message (paths, SQL) used to be
-                // echoed to curators. Calm, actionable copy; details stay in the log.
                 ->with('error', 'We couldn\'t create your gallery — nothing was lost. Please try again; if it keeps failing, contact support and mention what you were doing.');
         }
-
-        // If a custom domain was set, register it in Coolify so Traefik
-        // routes it + Let's Encrypt provisions a cert. Failures are logged
-        // but do NOT fail the gallery creation — the user can retry the
-        // domain setup separately.
 
         if ($customDomain) {
             $result = $this->coolify->addDomain($customDomain);
@@ -184,8 +155,6 @@ class GalleryController extends Controller
             }
         }
 
-        // (Task H64) — send "first gallery created" email if this is the
-        // user's first personal gallery. Part of the activation sequence.
         $personalGalleryCount = Gallery::where('user_id', $user->id)
             ->whereNull('team_id')
             ->count();
@@ -202,27 +171,12 @@ class GalleryController extends Controller
             }
         }
 
-        // ITERATION-2 (TTFE): land the curator directly on the edit page —
-        // the upload dropzone, artwork metadata editor and the Publish
-        // button all live there. Redirecting to the gallery index after
-        // creation forced an extra navigation + hunt for the "Edit" button
-        // on every single first-gallery journey.
         return redirect()->route('admin.galleries.edit', $gallery)
                          ->with('status', 'Gallery created as a draft — upload your artworks, then publish.');
     }
 
     // ── Publish / Unpublish (ITERATION-2: the publish moment) ────────────
 
-    /**
-     * Publish (make live) a draft gallery.
-     *
-     * Guards:
-     *  - editor rights (GalleryPolicy::update — owner or team editor)
-     *  - at least one artwork: publishing an empty room shows visitors a
-     *    blank exhibition, which destroys professional trust. The curator
-     *    must upload at least one image first (preview still works on
-     *    drafts, so the work can be reviewed before this gate).
-     */
     public function publish(Request $request, Gallery $gallery): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
@@ -237,13 +191,6 @@ class GalleryController extends Controller
 
         if (! $gallery->is_active) {
             $gallery->is_active = true;
-            // ITERATION-3: stamp the FIRST-publish timestamp. Only set when
-            // null — an unpublish→publish cycle must not overwrite it,
-            // because time-to-first-exhibition analytics is derived as
-            // published_at − created_at and re-publishing an old exhibition
-            // is not a new "first exhibition" moment. (Backfill semantics
-            // for pre-iteration live galleries: published_at = created_at,
-            // set by migration 2026_08_25_110000.)
             if ($gallery->published_at === null) {
                 $gallery->published_at = now();
             }
@@ -258,13 +205,6 @@ class GalleryController extends Controller
         return back()->with('status', $message);
     }
 
-    /**
-     * Unpublish (return to draft). The public URL 404s immediately; the
-     * gallery and all its artwork/settings are untouched. published_at is
-     * intentionally RETAINED (ITERATION-3): it records the historical fact
-     * "this exhibition was published at …" and keeps the
-     * time-to-first-exhibition metric stable across publish cycles.
-     */
     public function unpublish(Request $request, Gallery $gallery): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
@@ -281,12 +221,6 @@ class GalleryController extends Controller
         }
         return back()->with('status', $message);
     }
-
-    // ── Duplicate (clone) ─────────────────────────────────────────────────
-    //
-    // Creates a new gallery that copies all settings from an existing one,
-    // including image files (copied on disk so the clone is independent).
-    // The clone's title gets " (Copy)" appended; its slug is auto-generated.
 
     public function duplicate(Gallery $gallery): RedirectResponse
     {
@@ -305,22 +239,13 @@ class GalleryController extends Controller
             'id', 'slug', 'view_count', 'pin_hash', 'opens_at', 'closes_at',
             'custom_domain', // custom domains are unique — never copy
             'created_at', 'updated_at',
-            // ITERATION-3: publish history is never inherited — a clone that
-            // goes live is a NEW publication (stamped below), and a draft
-            // clone starts with a clean slate.
             'published_at',
         ]);
 
         $clone->title       = $gallery->title . ' (Copy)';
         $clone->slug        = null; // boot() will generate a new one
         $clone->view_count  = 0;
-        // ITERATION-2 FIX: the clone previously forced is_active = true,
-        // publishing a copy of a DRAFT gallery instantly. The clone now
-        // inherits the source's publish state (replicate() already copies
-        // it — this line just resets the volatile fields).
         $clone->is_active   = $gallery->is_active;
-        // ITERATION-3: a live clone is a new publication — stamp it now.
-        // A draft clone has never been published — stays null.
         $clone->published_at = $gallery->is_active ? now() : null;
 
         // Copy audio + logo files on disk so the clone is independent
@@ -361,8 +286,6 @@ class GalleryController extends Controller
                 'wall_position'  => $image->wall_position,
                 'title'          => $image->title,
                 'description'    => $image->description,
-                // (Task H59 / audit S10) — preserve artist attribution +
-                // artwork metadata that was previously lost on duplicate.
                 'artist_id'      => $image->artist_id,
                 'price'          => $image->price,
                 'currency'       => $image->currency,
@@ -382,42 +305,21 @@ class GalleryController extends Controller
             ->with('status', "Gallery duplicated as \"{$clone->title}\".");
     }
 
-    // ── Show (redirects to edit) ──────────────────────────────────────────
-
     public function show(Gallery $gallery)
     {
-        // ITERATION-1 FIX (authz): authorize BEFORE redirecting. Previously
-        // any authenticated user could probe /admin/galleries/{id} and get a
-        // redirect (confirming the gallery exists) before the edit page's
-        // 403. Enforcing the view policy here returns 403 directly for
-        // non-members, matching every other gallery route.
         $this->authorizeGalleryAccess($gallery);
         return redirect()->route('admin.galleries.edit', $gallery);
     }
 
-    // ── Edit ──────────────────────────────────────────────────────────────
-
     public function edit(Gallery $gallery): View
     {
         $this->authorizeGalleryAccess($gallery);
-        // 'team.owner' is eager-loaded for the plan-holder-aware quota
-        // display in the upload section (ITERATION-2).
         $gallery->load('images', 'venueTemplate', 'team.owner');
-        // Iteration 0 (roadmap P0.2): exclude draft venues from the picker
-        // (see create() for the full rationale). The gallery's CURRENT venue
-        // always stays visible here even if it were hidden by a future
-        // filter — grandfathered venues must remain editable.
         $venueTemplates = \App\Models\VenueTemplate::active()
             ->published()
             ->orderBy('sort_order')
             ->get();
 
-        // ITERATION-2 (artwork metadata UI): artist options for the
-        // per-artwork metadata modal. Scoped to artists the curator
-        // created PLUS artists already attributed inside this gallery —
-        // keeps the dropdown small without hiding attributions that are
-        // already on the wall. The full artist directory stays at
-        // /admin/artists.
         $artistOptions = \App\Models\Artist::query()
             ->where('created_by', $gallery->user_id)
             ->orWhereIn('id', $gallery->images->pluck('artist_id')->filter())
@@ -427,26 +329,9 @@ class GalleryController extends Controller
         return view('admin.galleries.edit', compact('gallery', 'venueTemplates', 'artistOptions'));
     }
 
-    // ── Live Preview iframe target ────────────────────────────────────────
-    //
-    // Renders a stripped-down version of the public gallery view:
-    //   - no entrance curtain (auto-enters)
-    //   - no view_count increment (preview is not a "view")
-    //   - no PIN gate (the curator owns the gallery)
-    //   - no time-gate (the curator may preview before opens_at)
-    //
-    // Accepts an optional `?override=<base64-json>` query param so the
-    // iframe can be reloaded with un-saved slider tweaks baked in. The
-    // override is merged on top of the gallery's stored visual_overrides
-    // via VenueConfigExporter::forGalleryPreview().
-
     public function preview(Request $request, Gallery $gallery): View
     {
         $this->authorizeGalleryAccess($gallery);
-        // PERF-A1 (3D audit F1): 'images.media' eager-loaded so the new
-        // per-artwork texture variant URLs (see buildGalleryData) read the
-        // memoized Spatie media relation instead of issuing one query per
-        // image. Matches the public GalleryViewController::show eager-load.
         $gallery->load(['images.artist', 'images.media', 'user', 'venueTemplate']);
 
         $runtimeOverrides = [];
@@ -466,32 +351,13 @@ class GalleryController extends Controller
 
         $galleryData = $this->buildGalleryData($gallery, $venueConfig, isPreview: true);
 
-        // Preview flag tells the blade to: skip curtain, hide newsletter form,
-        // hide share buttons, and load the PreviewClient listener.
         $galleryData['isPreview'] = true;
 
         return view('admin.galleries.preview', compact('gallery', 'galleryData'));
     }
 
-    // ── Update ────────────────────────────────────────────────────────────
-    //
-    // P1-9 FIX (audit): Previously a 162-line method handling 8 concerns.
-    // Now a thin orchestrator that delegates to well-named private methods:
-    //   - handleFileUploads()      — audio, custom_logo, curtain_logo
-    //   - handlePinAndSchedule()   — PIN set/clear, date normalization
-    //   - handleVenueTemplate()    — empty string to null
-    //   - handleCustomDomain()     — uniqueness check, Coolify, cache, tokens
-    //   - applyPostUpdateGuardedFields() — verification tokens after save
-    //
-    // No behavior change — just extraction for readability + testability.
-
     public function update(Request $request, Gallery $gallery): \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
-        // ITERATION-1 P0 SECURITY FIX: update() previously used the VIEW
-        // policy (any team member, including viewers). A team "viewer"
-        // could change the gallery title, PIN, schedule, custom domain and
-        // every other setting — contradicting GalleryPolicy::update
-        // (owner/editor only). Mutations must require edit rights.
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         // Strip emoji from title (Task H22)
@@ -503,9 +369,6 @@ class GalleryController extends Controller
 
         $planHolder = $this->galleryPlanHolder($gallery);
 
-        // ITERATION-1 P0 FIX (entitlement bypass): venue tier must be
-        // re-checked on update — a downgraded account (or a crafted POST)
-        // could otherwise switch a gallery to a venue above the plan.
         if (!empty($validated['venue_template_id'])
             && ($redirect = $this->assertVenueAccessibleForPlan($validated['venue_template_id'], $planHolder))) {
             return $redirect;
@@ -516,33 +379,12 @@ class GalleryController extends Controller
         $this->handlePinAndSchedule($request, $validated);
         $this->handleVenueTemplate($validated);
 
-        // VENUE-SWITCH RESET (Dark Museum deployed-screenshot incident,
-        // 2026-09-06): overrides saved under one venue are meaningless under
-        // another — the atmosphere/rig values they carry recompose the NEW
-        // venue into a hybrid of the old one (a gallery that ever lived in a
-        // void venue carried open_air + fog + a dim rig straight into the
-        // Dark Museum). A venue switch therefore starts the gallery FRESH on
-        // the new venue: the submitted override blob is discarded wholesale.
-        // Re-saving curator tweaks afterwards is one click; shipping an
-        // imported atmosphere is a silent identity break.
         $submittedVenueId = $validated['venue_template_id'] ?? null;
         if (!empty($submittedVenueId)
             && (int) $submittedVenueId !== (int) $gallery->venue_template_id) {
             $validated['visual_overrides'] = null;
             unset($validated['visual_overrides_json']);
 
-            // s4 SERVER-SIDE EXHIBITION RESTAMP: the venue picker JS restamps
-            // the five exhibition hidden inputs client-side, but any submit
-            // path that skips that JS (a stale form tab open across a venue
-            // switch, a crafted POST) let the OLD venue's exhibition columns
-            // ride into the NEW venue — state leakage at the column layer.
-            // The write-side reset is the new venue's default_settings: they
-            // ARE "how a gallery starts life in this venue" (the layout half
-            // is additionally caught render-side by layoutForGallery; this
-            // restamp is the authoritative write). Values come from the
-            // super-admin-authored venue row — the same vocabularies the
-            // validation `in:` rules whitelist — and the customer re-tunes
-            // legitimate lanes afterwards in one click.
             $newVenue = VenueTemplate::find($submittedVenueId);
             if ($newVenue) {
                 $venueDefaults = $newVenue->default_settings ?? [];
@@ -553,11 +395,6 @@ class GalleryController extends Controller
                 }
             }
         } else {
-            // Persisted overrides are normalized against the venue's CURRENT
-            // declaration (see normalizeVisualOverrides) so a curator save can
-            // never lay a silent no-op layer over the venue row. The venue is
-            // resolved from the VALIDATED id (not the stale relation) because a
-            // single save may switch venues AND submit overrides together.
             $normalizedAgainstId = $validated['venue_template_id'] ?? $gallery->venue_template_id;
             $validated['visual_overrides'] = $this->normalizeVisualOverrides(
                 $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null),
@@ -571,8 +408,6 @@ class GalleryController extends Controller
             return $domainResult; // Redirect back with error
         }
 
-        // SEO OS (Iteration 6): persist curator SEO overrides into the
-        // gallery's seo_profile (creates on demand).
         if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
             $profile = $gallery->seoProfileOrCreate();
             $profile->fill([
@@ -593,12 +428,6 @@ class GalleryController extends Controller
         // Post-update: set guarded custom-domain verification fields
         $this->applyPostUpdateGuardedFields($request, $gallery);
 
-        // P3-16: Bulk-invalidate all caches tagged with this gallery's ID.
-        // Gallery title/description changes affect: analytics displays,
-        // OG image, sitemap, custom-domain gallery cache. Without bulk
-        // invalidation, we'd need to track each cache key individually —
-        // error-prone and incomplete. CacheTagService handles both Redis
-        // native tags (production) and key-tracking fallback (dev/CI).
         $this->invalidateGalleryCaches($gallery);
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -607,9 +436,6 @@ class GalleryController extends Controller
         return back()->with('status', 'Gallery settings updated!');
     }
 
-    /**
-     * P1-9: Handle audio, custom_logo, and curtain_logo file uploads + clears.
-     */
     private function handleFileUploads(Request $request, Gallery $gallery, $planHolder, array &$validated): void
     {
         // Audio (Pro+)
@@ -645,9 +471,6 @@ class GalleryController extends Controller
         }
     }
 
-    /**
-     * P1-9: Handle PIN set/clear and schedule date normalization.
-     */
     private function handlePinAndSchedule(Request $request, array &$validated): void
     {
         if ($request->boolean('clear_pin')) {
@@ -656,18 +479,10 @@ class GalleryController extends Controller
             $validated['pin_hash'] = Hash::make($validated['gallery_pin']);
         }
 
-        // ITERATION-1 FIX (500 on gallery settings save): validation strips
-        // absent nullable fields, so these keys are missing whenever the
-        // form omits them (e.g. a curator saving only SEO overrides) —
-        // reading them with ?: threw "Undefined array key". Use ?? null
-        // and only normalize when present.
         $validated['opens_at']  = $validated['opens_at']  ?? null;
         $validated['closes_at'] = $validated['closes_at'] ?? null;
     }
 
-    /**
-     * P1-9: Normalize venue_template_id — empty string to null.
-     */
     private function handleVenueTemplate(array &$validated): void
     {
         if (array_key_exists('venue_template_id', $validated)) {
@@ -677,13 +492,6 @@ class GalleryController extends Controller
         }
     }
 
-    /**
-     * P1-9: Handle custom domain — uniqueness check, Coolify registration/removal,
-     * cache invalidation, and verification token management.
-     *
-     * Returns a RedirectResponse if the domain is already in use (early return
-     * from the caller). Returns null on success.
-     */
     private function handleCustomDomain(Request $request, Gallery $gallery, $planHolder, array &$validated): ?\Illuminate\Http\RedirectResponse
     {
         if (! array_key_exists('custom_domain', $validated)) {
@@ -713,10 +521,6 @@ class GalleryController extends Controller
                 \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
             }
 
-            // PERF-16: Invalidate the eager-loaded gallery-object cache so
-            // the next custom-domain request picks up the new custom_domain /
-            // custom_logo_path / audio_path / venue_template_id values rather
-            // than serving the stale cached copy for up to 5 minutes.
             \Illuminate\Support\Facades\Cache::forget("custom_domain_gallery:{$gallery->id}");
 
             if ($domainChanged) {
@@ -745,12 +549,6 @@ class GalleryController extends Controller
         return null;
     }
 
-    /**
-     * P1-9: Apply guarded custom-domain verification fields after the gallery
-     * update has been saved. These columns are NOT in $fillable, so update()
-     * won't touch them — we use forceFill() based on flags stashed in the
-     * request attributes by handleCustomDomain().
-     */
     private function applyPostUpdateGuardedFields(Request $request, Gallery $gallery): void
     {
         if ($request->attributes->has('_pending_domain_token')) {
@@ -768,16 +566,6 @@ class GalleryController extends Controller
         }
     }
 
-    // ── Verify custom domain (Task C06) ───────────────────────────────────
-
-    /**
-     * Check DNS for the verification TXT record. If found, mark the domain
-     * as verified and register it with Coolify.
-     *
-     * Called when the user clicks "Verify now" in the gallery edit page.
-     * Also called by the scheduled `exospace:verify-pending-domains` command
-     * for galleries with pending verifications.
-     */
     public function verifyCustomDomain(Request $request, Gallery $gallery)
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
@@ -791,8 +579,6 @@ class GalleryController extends Controller
         }
 
         if (empty($gallery->custom_domain_verification_token)) {
-            // Defensive — should never happen because the token is generated
-            // when the domain is set. But if it does, generate one now.
             $gallery->generateDomainVerificationToken();
             $gallery->refresh();
         }
@@ -809,8 +595,6 @@ class GalleryController extends Controller
         // ── Verified! Mark + register with Coolify ──────────────────────
         $gallery->forceFill(['custom_domain_verified_at' => now()])->save();
 
-        // Clear the lookup cache so DetectCustomDomain middleware picks up
-        // the now-verified gallery on the next request.
         \Illuminate\Support\Facades\Cache::forget("custom_domain:{$gallery->custom_domain}");
 
         $coolifyResult = $this->coolify->addDomain($gallery->custom_domain);
@@ -826,24 +610,12 @@ class GalleryController extends Controller
         return back()->with('status', "Domain \"{$gallery->custom_domain}\" verified! SSL cert will be provisioned automatically (may take 1–5 minutes).");
     }
 
-    /**
-     * Look up DNS TXT records for $host and return true if any record's
-     * text matches $expectedValue exactly.
-     *
-     * Uses dns_get_record() which is available on PHP 8.2+ without
-     * extensions. The lookup respects the system resolver's DNS cache
-     * (so propagation delays apply — this is intentional, we want to
-     * see what visitors will see).
-     */
     private function checkDnsTxtRecord(string $host, string $expectedValue): bool
     {
         if (empty($host) || empty($expectedValue)) {
             return false;
         }
 
-        // dns_get_record can return false on resolver failure. Suppress
-        // warnings (the function emits E_WARNING on DNS errors) and treat
-        // false as "no match" — the user can retry.
         $records = @dns_get_record($host, DNS_TXT);
 
         if (! is_array($records)) {
@@ -854,9 +626,6 @@ class GalleryController extends Controller
         }
 
         foreach ($records as $record) {
-            // TXT records come back as either:
-            //   ['host' => ..., 'txt' => 'exospace-verify=abc123']
-            //   ['host' => ..., 'entries' => ['exospace-verify=abc123']]
             $candidates = [];
             if (isset($record['txt'])) {
                 $candidates[] = trim($record['txt'], '"');
@@ -877,15 +646,11 @@ class GalleryController extends Controller
         return false;
     }
 
-    // ── Destroy ───────────────────────────────────────────────────────────
-
     public function destroy(Gallery $gallery): RedirectResponse
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
         $teamId = $gallery->team_id;
 
-        // Clean up custom domain cache + remove from Coolify if the domain
-        // was actually verified + registered. (Task C06.)
         if ($gallery->custom_domain) {
             $oldDomain = $gallery->custom_domain;
             \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
@@ -898,9 +663,6 @@ class GalleryController extends Controller
 
         // AUDIT-P1-4.14: Log gallery deletion. 'name' is PII — auto-scrubbed.
         AdminAuditLog::record('gallery.deleted', $gallery, [
-            // ITERATION-1 FIX: galleries have `title`, not `name` — the
-            // audit payload always recorded name: null (useless for
-            // forensics). Capture the title (PII-scrubbed by AdminAuditLog).
             'title'                 => $gallery->title,
             'slug'                  => $gallery->slug,
             'team_id'               => $teamId,
@@ -912,12 +674,8 @@ class GalleryController extends Controller
                          ->with('status', 'Gallery deleted.');
     }
 
-    // ── Image reorder ─────────────────────────────────────────────────────
-
     public function reorderImages(Request $request, Gallery $gallery)
     {
-        // ITERATION-1 P0 SECURITY FIX: was view-level — a team viewer could
-        // reorder artworks. Reordering is a curation mutation → editor only.
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
         $request->validate(['order' => 'required|array', 'order.*' => 'integer']);
 
@@ -928,12 +686,8 @@ class GalleryController extends Controller
         return response()->json(['success' => true]);
     }
 
-    // ── Audio upload ──────────────────────────────────────────────────────
-
     public function uploadAudio(Request $request, Gallery $gallery)
     {
-        // ITERATION-1 P0 SECURITY FIX: was view-level — a team viewer could
-        // replace the gallery's audio track. Media upload → editor only.
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         if (! $this->galleryPlanHolder($gallery)->isPro()) {
@@ -952,12 +706,8 @@ class GalleryController extends Controller
         }
     }
 
-    // ── Logo upload ───────────────────────────────────────────────────────
-
     public function uploadLogo(Request $request, Gallery $gallery)
     {
-        // ITERATION-1 P0 SECURITY FIX: was view-level — a team viewer could
-        // replace the gallery's branding logo. Media upload → editor only.
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         if ($this->galleryPlanHolder($gallery)->plan !== 'studio') {
@@ -975,8 +725,6 @@ class GalleryController extends Controller
             return response()->json(['success' => false, 'message' => 'Upload failed. Please try again.'], 500);
         }
     }
-
-    // ── Private helpers ───────────────────────────────────────────────────
 
     private function resolveTeamContext($user, ?string $teamId): ?Team
     {
@@ -1017,11 +765,6 @@ class GalleryController extends Controller
         return null;
     }
 
-    /**
-     * Normalise a custom domain: lowercase, strip scheme/path/port.
-     * The Gallery model's saving() event also does this, but doing it
-     * here lets us do the uniqueness check on the normalised value.
-     */
     private function normaliseCustomDomain(string $domain): string
     {
         $domain = strtolower(trim($domain));
@@ -1031,10 +774,6 @@ class GalleryController extends Controller
         return $domain;
     }
 
-    /**
-     * Copy a file within the public disk and return the new path,
-     * or null on failure.
-     */
     private function copyFile(?string $path, string $folder): ?string
     {
         if (!$path) return null;
@@ -1051,82 +790,28 @@ class GalleryController extends Controller
         }
     }
 
-    /**
-     * Parse the visual_overrides JSON string from the edit form's hidden
-     * input. Returns a structured array with the three buckets
-     * (visual_config, material_config, post_fx), or null if the input is
-     * empty/invalid — which clears the column so the venue defaults take over.
-     *
-     * Validation lives in galleryValidationRules() — this method only
-     * decodes + sanitises.
-     */
     private function parseVisualOverrides(?string $json): ?array
     {
         if (!$json || trim($json) === '') return null;
         $decoded = json_decode($json, true);
         if (!is_array($decoded)) return null;
 
-        // Whitelist the three buckets so a malicious payload can't inject
-        // arbitrary top-level keys that would later be merged into the
-        // venue config exported to the browser.
         $clean = [
             'visual_config'   => is_array($decoded['visual_config']   ?? null) ? $decoded['visual_config']   : [],
             'material_config' => is_array($decoded['material_config'] ?? null) ? $decoded['material_config'] : [],
             'post_fx'         => is_array($decoded['post_fx']         ?? null) ? $decoded['post_fx']         : [],
         ];
 
-        // Strip empty buckets entirely so the column stays small + so
-        // hasVisualOverrides() returns false when the curator hits "Reset all".
         $clean = array_filter($clean, fn ($bucket) => !empty($bucket));
         return empty($clean) ? null : $clean;
     }
 
-    /**
-     * Normalize persisted visual_overrides against the venue template's
-     * CURRENT declaration, then drop what stopped being an override.
-     *
-     * WHY (deployed-screenshot incident, 2026-09-05): a gallery served a
-     * broken-looking Infinite Void for days because its override column
-     * carried a purple background + a pre-polish dim rig + a stale
-     * post_fx {bloom_strength, vignette_darkness} saved from an old panel
-     * session — an invisible layer the admin UI only reveals when you open
-     * the Live Preview panel. Because the override layer ALWAYS wins over
-     * the venue row (by design), every later venue-side remediation
-     * silently no-ops for such galleries. This normalization removes the
-     * classes of override that carry no curator intent:
-     *
-     *   • no-op values — a key whose (canonicalized) value equals the
-     *     venue's current value is NOT a customization; persisting it only
-     *     freezes the venue's today-state over its future fixes.
-     *   • colour-format drift — '#6D0DA0' vs '0x6d0da0' are the same
-     *     colour to the renderer; the column stores the canonical '0x…'
-     *     form so future equality checks and diffs are exact.
-     *
-     * Real deviations (the purple experiment itself, e.g.) still persist —
-     * curator intent is untouched. Keys the venue does not declare are
-     * kept as-is: deviating from an undeclared key IS intent.
-     *
-     * VENUE-OWNED ATMOSPHERE (post-deploy hotfix): background_color is
-     * additionally stripped UNCONDITIONALLY. The venue's bodies derive from
-     * it (floor_edge_fade ramps to it), so an override there recomposes the
-     * venue instead of tuning it — the class of breakage that produced the
-     * purple belt. The panel no longer offers the control; anything that
-     * still submits the key (stale panel build, old tab, hand-crafted form)
-     * is dropped here so the column can never carry it again.
-     */
     private function normalizeVisualOverrides(?array $overrides, ?VenueTemplate $venue): ?array
     {
         if (!$overrides || !$venue) {
             return $overrides;
         }
 
-        // Venue-owned keys are never a curator override, regardless of value.
-        // (2026-09-06: expanded from background_color alone to the full
-        // atmosphere/architecture/rig set — see
-        // VenueConfigExporter::VENUE_OWNED_VISUAL_KEYS for the incident
-        // history. The Dark Museum deployed-screenshot incident rode in
-        // through fog_color + the rig + undeclared void keys, all of which
-        // this loop now kills so the column can never carry them again.)
         foreach (array_keys($overrides['visual_config'] ?? []) as $key) {
             if (VenueConfigExporter::isVenueOwnedKey((string) $key)) {
                 unset($overrides['visual_config'][$key]);
@@ -1137,16 +822,6 @@ class GalleryController extends Controller
                 unset($overrides['material_config'][$owned]);
             }
         }
-        // LEGACY SIBLING post_fx BUCKET (s3): older rows carry post-processing
-        // as a top-level overrides['post_fx'] object next to visual_config.
-        // The export path stopped reading it (dead bytes with a trap — see
-        // VenueConfigExporter's merge-order note), and the panel's post-fx
-        // controls are retired with s3, so a saved sibling can never express
-        // intent again — it is presentation the venue owns. Strip it here so
-        // the column converges to the venue-owned shape. (The NESTED
-        // visual_config.post_fx object is already killed by the
-        // isVenueOwnedKey loop above — 'post_fx' joined the owned set in s3,
-        // alongside 'placement'.)
         unset($overrides['post_fx']);
         if (empty($overrides['visual_config'])) {
             unset($overrides['visual_config']);
@@ -1190,8 +865,6 @@ class GalleryController extends Controller
         return empty($overrides) ? null : $overrides;
     }
 
-    /** Equality that forgives representation: '0.90' == 0.9 for numbers,
-     * '#FF0000' == '0xff0000' for colours. Everything else is strict. */
     private function overrideValueEquals($a, $b): bool
     {
         if (is_numeric($a) && is_numeric($b)) {
@@ -1205,8 +878,6 @@ class GalleryController extends Controller
         return $a === $b;
     }
 
-    /** Canonical form for persisted override values: '0xrrggbb' (lowercase)
-     * for six-digit hex colours (both 0x… and #… spellings), else unchanged. */
     private function canonicalizeOverrideValue($value)
     {
         if (is_string($value) && preg_match('/^(?:0x|#)([0-9a-fA-F]{6})$/', $value, $m)) {
@@ -1215,19 +886,8 @@ class GalleryController extends Controller
         return $value;
     }
 
-    /**
-     * Build the gallery data array consumed by the 3D viewer.
-     * Extracted from GalleryViewController::show() so the preview route
-     * and the public route produce identical data shapes (the preview
-     * just skips the time-gate, PIN, and view-count bump).
-     */
     private function buildGalleryData(Gallery $gallery, ?array $venueConfig, bool $isPreview = false): array
     {
-        // s4 environment/layout authority (mirrors GalleryViewController):
-        // the admin Live Preview iframe must render the SAME venue-resolved
-        // preset + layout the public view renders — the old gallery-column
-        // passthrough made the editor disagree with the public page (and
-        // let a stale preset repaint the venue's sky inside the editor).
         [$preset, $layout] = [
             $this->venueExporter->presetForGallery($gallery),
             $this->venueExporter->layoutForGallery($gallery),
@@ -1243,23 +903,10 @@ class GalleryController extends Controller
             'lighting_preset' => $preset,
             'room_layout'     => $layout,
             'venue_slug'      => $gallery->venueTemplate?->slug,
-            // WHITE CUBE POLISH audit: the old 'white-cube' fallback here lied —
-            // with venueConfig null the viewer renders a generic default room,
-            // never White Cube's declared identity. The slug is now honest
-            // (null for venue-less/legacy galleries; JS uses it as PRNG seed
-            // only). Archive-not-delete means live galleries keep their row.
             'venueConfig'     => $venueConfig,
-            // PERF-E30 (3D audit): array_filter strips null fields — a
-            // 100-artwork gallery otherwise ships ~500 dead bytes of nulls
-            // per image (description, artist, price, medium, year...) inside
-            // the inline GALLERY_DATA JSON. Every JS consumer already treats
-            // missing keys and null identically (|| defaults, ?. chains).
             'images' => $gallery->images->map(fn($img) => array_filter([
                 'id'             => $img->id,
                 'url'            => asset($img->path),
-                // PERF-A1 (3D audit F1): WebP conversion variants for the 3D
-                // viewer — mirrors GalleryViewController::show. 'url' stays
-                // the legacy fallback.
                 'textures'       => [
                     'thumb'  => $img->conversionUrl('thumb'),
                     'small'  => $img->conversionUrl('small'),
@@ -1304,27 +951,10 @@ class GalleryController extends Controller
             'eventsUrl'      => $isPreview ? null : route('gallery.events.index', $gallery->slug),
             'hasUpcomingEvents' => $isPreview ? false : $gallery->scheduleEvents()->active()->upcoming()->exists(),
 
-            // Iteration 4 "Arrival": the admin live preview exercises the
-            // SAME first frame a visitor gets — authors tune the opening
-            // shot, not just the room. Same flag as the public viewer.
             'arrival_enabled' => \App\Services\FeatureFlag::isEnabled('arrival_choreography'),
         ];
     }
 
-    /**
-     * ITERATION-1 P0 FIX (entitlement bypass): server-side venue-tier gate.
-     *
-     * Previously the venue's plan_required was enforced ONLY in the UI
-     * (locked venue cards that link to /pricing). A crafted POST with a
-     * studio venue_template_id sailed through validation — the rule only
-     * checked is_active/is_draft — so a Free user could host their gallery
-     * in a paid venue indefinitely.
-     *
-     * Returns a redirect response when the venue is above the plan holder's
-     * tier (the caller returns it directly), or null when access is fine.
-     * The plan holder — not the acting user — is authoritative: team
-     * galleries bill against the team owner's plan.
-     */
     private function assertVenueAccessibleForPlan(int $venueTemplateId, \App\Models\User $planHolder): ?\Illuminate\Http\RedirectResponse
     {
         $venue = \App\Models\VenueTemplate::find($venueTemplateId);
@@ -1346,12 +976,6 @@ class GalleryController extends Controller
         );
     }
 
-    /**
-     * ITERATION-2: shared cache invalidation for publish-state changes.
-     * A gallery flipping draft↔live affects the public gallery view, the
-     * OG image, the sitemap (published galleries only) and analytics
-     * displays — the same tag set the settings-update path invalidates.
-     */
     private function invalidateGalleryCaches(Gallery $gallery): void
     {
         app(\App\Services\CacheTagService::class)->invalidateTags([
@@ -1367,33 +991,13 @@ class GalleryController extends Controller
         $rules = [
             'title'           => 'required|string|max:255',
             'description'     => 'nullable|string|max:1000',
-            // SEO OS (Iteration 6): curator-facing SEO overrides. Only
-            // title/description — robots/canonical/sitemap controls stay
-            // in the super-admin SEO console (legitimate-use split).
             'seo_title'       => 'nullable|string|max:200',
             'seo_description' => 'nullable|string|max:300',
-            // NOTE: validation is intentionally a whitelist. If you want to
-            // allow custom material slugs (e.g. from your own 3D model
-            // pipeline), broaden these to 'string|max:50' and add a
-            // registration step that drops the matching texture folder
-            // under public/assets/textures/<surface>/<material>/.
             'wall_texture'    => 'required|in:white,concrete,brick,wood,plaster,marble,velvet',
             'frame_style'     => 'required|in:modern,classic,minimal,gold,silver,bronze,black',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
             'floor_material'  => 'required|in:wood,marble,concrete,terrazzo,grass,sand',
             'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',
-            // Only active + published venues are selectable. Drafts and
-            // disabled templates would otherwise be injectable via direct POST.
-            //
-            // ITERATION-1 P0 FIX (entitlement bypass): the venue's PLAN TIER
-            // is deliberately NOT checked here — the plan holder differs by
-            // context (personal gallery → acting user; team gallery → team
-            // owner), which the rule closure cannot know reliably. Tier
-            // enforcement happens in store()/update() via
-            // assertVenueAccessibleForPlan() right after the plan holder is
-            // resolved. Previously tier was checked ONLY in the UI (locked
-            // card grid) — a Free user could POST a studio-only
-            // venue_template_id directly and keep the paid venue forever.
             'venue_template_id' => ['nullable', 'integer',
                 \Illuminate\Validation\Rule::exists('venue_templates', 'id')
                     ->where(fn ($q) => $q->where('is_active', true)->where('is_draft', false)),
@@ -1403,17 +1007,11 @@ class GalleryController extends Controller
             'closes_at'       => 'nullable|date|after_or_equal:opens_at',
             'audio'           => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
             'custom_logo'     => 'nullable|file|mimes:png,jpg,jpeg|max:2048',
-            // NEW: custom domain — Studio plan only, validated for shape here.
-            // Plan-tier enforcement happens in the controller.
             'custom_domain'   => ['nullable', 'string', 'max:255', 'regex:/^([a-z0-9-]+\.)+[a-z]{2,}$/i'],
             // NEW (Round 4) — Branded entrance curtain (Studio only)
             'curtain_logo'        => 'nullable|file|mimes:png,jpeg,webp|max:2048',
             'curtain_bg_color'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'curtain_bg_color_text' => 'nullable|string|max:20',
-            // NEW (Live Preview) — JSON string from the hidden input. The
-            // controller decodes + sanitises via parseVisualOverrides().
-            // The regex is a coarse shape check; the controller does the
-            // structural validation.
             'visual_overrides_json' => ['nullable', 'string', 'max:16000', 'regex:/^\s*(\{.*\}|\[\])?\s*$/s'],
         ];
 

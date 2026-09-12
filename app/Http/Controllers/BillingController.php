@@ -15,54 +15,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
 
-/**
- * User-facing billing controller.
- *
- * ITERATION-002 CHANGES (audit 2CO-1 + 2CO-2 + 2CO-7 + 2CO-8):
- *
- *   2CO-1 — cancelSubscription and reactivateSubscription now use the real
- *     TwoCheckoutApiClient (X-Avangate-Authentication header) instead of the
- *     placeholder auth scheme that 2Checkout's API rejected. Customers can
- *     now self-serve cancel/reactivate.
- *
- *   2CO-2 — Upgrade URL now includes a signed buy link (&sign=...). 2Checkout
- *     rejects buy links whose computed signature does not match, preventing
- *     price/quantity/product tampering.
- *
- *   2CO-7 — Same-plan renewal is now allowed at any time (was: only within
- *     30 days of expiry). For subscriptions converting to one-time, the
- *     subscription is cancelled via the API before redirecting to checkout.
- *     The webhook handles the conversion.
- *
- *   2CO-8 — Trial start now has a per-IP rate limit (max 2 trials per IP per
- *     30 days) to prevent unlimited free trials via throwaway emails.
- *
- * PRESERVED FROM PRIOR VERSION:
- *   - GET  /billing — billing portal (current plan, transactions, pending upgrades)
- *   - GET  /billing/upgrade/{plan} — generates pending_upgrade, redirects to 2Checkout
- *   - POST /billing/cancel-subscription — cancels via 2Checkout API
- *   - POST /billing/reactivate-subscription — reactivates via 2Checkout API
- *   - POST /billing/downgrade — self-serve downgrade flow
- *   - POST /billing/start-trial/{plan} — 14-day free trial
- *   - GET  /billing/invoice/{invoice} — invoice download
- *
- * Handles:
- *   - GET  /billing                — billing portal (current plan, transactions,
- *                                    plan-expiry status, refund-request link)
- *   - GET  /billing/upgrade/{plan} — generates a pending_upgrade token,
- *                                    redirects to 2Checkout with
- *                                    external-reference=<token> +
- *                                    customer_email=<user_email> pre-filled
- *
- * Task H01 — closes the silent revenue leak where the 2Checkout buy URL had
- * no user binding. A logged-in user could pay with a PayPal email different
- * from their account email → the webhook's customer_email lookup failed →
- * user paid but was never upgraded, and nobody was notified.
- *
- * Task H02 — adds the missing self-serve billing UI. Users can now see their
- * current plan, plan-expiry status, transaction history, and download a
- * basic receipt.
- */
 class BillingController extends Controller
 {
     public function __construct(
@@ -70,16 +22,6 @@ class BillingController extends Controller
         private readonly TwoCheckoutApiClient $twoCheckout,
     ) {}
 
-    /**
-     * Show the user's billing portal.
-     *
-     * AUDIT-P0-1.6 FIX: Previously the transactions query was a plain
-     * `->orderBy('created_at', 'desc')->paginate(20)` and the Blade view
-     * called `Invoice::where('transaction_id', $tx->id)->first()` inside a
-     * foreach loop — a classic N+1 (one extra query per row, 20 rows per
-     * page = 21 queries instead of 2). Now eager-loads the `invoice`
-     * relationship so the view reads `$tx->invoice` directly.
-     */
     public function index(Request $request): View
     {
         $user = $request->user();
@@ -105,33 +47,10 @@ class BillingController extends Controller
         ]);
     }
 
-    /**
-     * Generate a pending_upgrade token and redirect to 2Checkout.
-     *
-     * ITERATION-002 FIXES:
-     *   - 2CO-2: signed buy link (&sign=...) added
-     *   - 2CO-7: same-plan renewal allowed at any time (subscription cancels first)
-     *
-     * The 2Checkout buy URL includes:
-     *   - sid             = account number
-     *   - product_id      = the plan's product ID
-     *   - quantity        = 1
-     *   - external-reference = the pending_upgrade token (our idempotency key)
-     *   - merchant_item_id_1 = the user_id (secondary lookup, in case
-     *                       external-reference is stripped by 2Checkout
-     *                       in some IPN versions)
-     *   - sign            = MD5 signature over (sid + product_id + quantity + price + secret_word)
-     *                       (2CO-2 FIX — prevents price/quantity/product tampering)
-     *
-     * @param  string  $plan  'pro' | 'studio'
-     */
     public function upgrade(Request $request, string $plan): RedirectResponse
     {
         $user = $request->user();
 
-        // M-1: Determine if this is a recurring (subscription) purchase.
-        // When ?recurring=1 is passed, use the recurring product ID; otherwise
-        // use the one-time product ID (existing behavior).
         $isRecurring = $request->boolean('recurring');
 
         // Validate plan + product ID is configured
@@ -153,34 +72,12 @@ class BillingController extends Controller
                 ->with('error', $error);
         }
 
-        // Don't allow downgrading via this flow — if a Studio user clicks
-        // "Upgrade to Pro", redirect them to the billing portal with an
-        // explanation. (Audit M1 — pricing page doesn't know current plan.)
-        // TD-27: Plan rank now read from config/plans.php (single source
-        // of truth) instead of being hardcoded here.
         $planRank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
         if (($planRank[$user->plan] ?? 0) > ($planRank[$plan] ?? 0)) {
             return redirect()->route('billing.index')
                 ->with('warning', "You're currently on the " . ucfirst($user->plan) . " plan, which is a higher tier than " . ucfirst($plan) . ". Downgrades are not available via the upgrade flow — please contact support if you need to downgrade.");
         }
 
-        // 2CO-7 FIX: Same-plan renewal is now allowed at any time.
-        // Previously: only allowed if plan_expires_at was within 30 days of
-        // expiry OR already past. This blocked legitimate mid-cycle conversions
-        // (e.g. a monthly subscriber wanting to convert to lifetime one-time).
-        //
-        // New behavior:
-        //   - If the user is on the same plan AND has an active subscription
-        //     AND is buying a one-time product → cancel the subscription first
-        //     (the webhook will overwrite plan_expires_at = null on the new
-        //     one-time purchase). This is the "convert to lifetime" flow.
-        //   - If the user is on the same plan AND has a one-time purchase
-        //     (plan_expires_at = null) → allow the renewal (effectively a
-        //     re-purchase; the webhook is idempotent).
-        //   - If the user is on the same plan AND has an active subscription
-        //     AND is buying a recurring product → allow (the webhook will
-        //     update subscription_ends_at; this is a "renewal" or "switch
-        //     cycle" flow).
         if ($user->plan === $plan) {
             // If converting from subscription to one-time, cancel the subscription first.
             if ($user->hasActiveSubscription() && ! $isRecurring) {
@@ -190,9 +87,6 @@ class BillingController extends Controller
                     'subscription_id' => $user->subscription_id,
                 ]);
 
-                // Cancel the subscription via 2Checkout API. The user keeps
-                // access until subscription_ends_at. The new one-time purchase
-                // will overwrite plan_expires_at = null when the webhook fires.
                 $cancelResult = $this->planLock->withUserLock($user->id, function () use ($user) {
                     $user->refresh();
                     if (! $user->hasActiveSubscription()) {
@@ -241,24 +135,9 @@ class BillingController extends Controller
             ]);
         }
 
-        // P3-11 FIX: Acquire a per-user plan lock so concurrent clicks of
-        // "Upgrade" can't create multiple pending_upgrades for the same user.
-        // The lock is also held by WebhookController, SystemController::updatePlan,
-        // and CheckPlanExpiry — so an upgrade-in-progress blocks an admin
-        // downgrade or an expiry-triggered downgrade until the upgrade
-        // completes (or the 60-second TTL expires).
-        // ITERATION-1 P0 FIX (checkout crash): $isRecurring was NOT captured
-        // by this closure's `use` — the signed-buy-link signature block that
-        // reads it (~line 308) raised "Undefined variable $isRecurring",
-        // which Laravel's error handler promotes to an ErrorException:
-        // every upgrade click 500'd before reaching 2Checkout.
         $result = $this->planLock->withUserLock($user->id, function () use ($user, $plan, $productId, $request, $isRecurring) {
-            // Re-fetch the user inside the lock in case another path changed
-            // their plan between the outer read and the lock acquisition.
             $user->refresh();
 
-            // Re-check the plan-rank guard inside the lock — a concurrent
-            // upgrade could have just moved them to a higher plan.
             $planRank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
             if (($planRank[$user->plan] ?? 0) > ($planRank[$plan] ?? 0)) {
                 return redirect()->route('billing.index')
@@ -268,20 +147,6 @@ class BillingController extends Controller
             // Create the pending upgrade
             $pending = PendingUpgrade::createForUser($user, $plan, $productId);
 
-            // Build the 2Checkout buy URL.
-            //
-            // SEC-7 FIX: customer_email is NO LONGER included in the URL.
-            //   Previously the URL had &customer_email=<user_email> which:
-            //     - pre-filled the checkout form (mild convenience)
-            //     - leaked PII into browser history, server access logs, and
-            //       any Referer header 2Checkout's checkout page might send
-            //       to third-party assets
-            //   The webhook matches the user by external-reference (the pending
-            //   upgrade token) first, then falls back to merchant_item_id_1
-            //   (user_id), and only as a LAST resort by customer_email. So
-            //   omitting it from the URL doesn't break the upgrade flow — the
-            //   user types their email at checkout, and the webhook still
-            //   finds them via the token.
             $sid = config('services.2checkout.account_number');
             $secretWord = config('services.2checkout.secret_word');
 
@@ -293,23 +158,6 @@ class BillingController extends Controller
                 urlencode((string) $user->id),
             );
 
-            // 2CO-2 FIX: Signed buy link.
-            //
-            // 2Checkout supports a "signed buy link" mode where the merchant
-            // computes an MD5 signature over (sid + product_id + quantity +
-            // price + secret_word) and appends it as &sign=... (or as the
-            // buy-link secret hash). Without it, a buyer can edit the URL to
-            // change quantity to 100, change product_id to a cheaper product,
-            // or strip the external-reference and pay without an account binding.
-            //
-            // The signature format per 2Checkout's documentation:
-            //   sign = strtoupper(md5(sid + product_id + quantity + price + secret_word))
-            //
-            // The "price" is the product's unit price as configured in the
-            // 2Checkout merchant dashboard. We read it from config so the
-            // signature matches what 2Checkout expects. If the price is not
-            // configured, we skip the signature (and log a warning) — 2Checkout
-            // will still process the buy link, but without tamper protection.
             $price = $this->getProductPrice($plan, $isRecurring);
             if ($price !== null && $secretWord) {
                 $signPayload = $sid . $productId . '1' . $price . $secretWord;
@@ -327,9 +175,6 @@ class BillingController extends Controller
                 ]);
             }
 
-            // (Task H54) — optional coupon code.
-            // SEC-8 FIX: coupon is now validated against an allowlist configured
-            //   via TWOCHECKOUT_COUPON_ALLOWLIST (comma-separated).
             $couponCode = $request->query('coupon');
             if ($couponCode !== null) {
                 $allowlist = array_filter(array_map('trim', explode(
@@ -349,9 +194,6 @@ class BillingController extends Controller
                 $buyUrl .= '&coupon=' . urlencode($couponCode);
             }
 
-            // (Task H58) — affiliate/referral tracking.
-            // SEC-8 FIX: ref is now validated against an allowlist configured
-            //   via TWOCHECKOUT_AFFILIATE_ALLOWLIST (comma-separated).
             $affiliateId = $request->query('ref');
             if ($affiliateId !== null) {
                 $affiliateAllowlist = array_filter(array_map('trim', explode(
@@ -393,14 +235,6 @@ class BillingController extends Controller
         return $result;
     }
 
-    /**
-     * 2CO-2 FIX: Get the product price for signed buy link generation.
-     *
-     * The price must match what's configured in the 2Checkout merchant
-     * dashboard. We read from config so the signature matches. If the price
-     * is not configured, return null (the signed link is skipped — see
-     * the warning in upgrade()).
-     */
     private function getProductPrice(string $plan, bool $isRecurring): ?string
     {
         if ($isRecurring) {
@@ -408,8 +242,6 @@ class BillingController extends Controller
                 ? config('services.2checkout.recurring_price_pro_monthly')
                 : ($plan === 'studio' ? config('services.2checkout.recurring_price_studio_monthly') : null);
         } else {
-            // One-time prices — add to config/services.php if not already there.
-            // For now, read from a separate config key (TWOCHECKOUT_PRICE_PRO / _STUDIO).
             $price = $plan === 'pro'
                 ? config('services.2checkout.price_pro')
                 : ($plan === 'studio' ? config('services.2checkout.price_studio') : null);
@@ -418,22 +250,6 @@ class BillingController extends Controller
         return $price !== null ? (string) $price : null;
     }
 
-    // ── M-1: Subscription management ──────────────────────────────────────
-
-    /**
-     * Cancel the user's active subscription.
-     *
-     * 2CO-1 FIX: Now uses the TwoCheckoutApiClient with proper
-     * X-Avangate-Authentication header. Previously used a "simplified
-     * placeholder" that 2Checkout's API rejected (401/403 on every call).
-     *
-     * Calls 2Checkout's cancel subscription API, which triggers a
-     * RECURRING_ORDER_CANCELLED webhook. The user keeps access until
-     * subscription_ends_at (the end of the already-paid-for period), then
-     * is downgraded by CheckPlanExpiry.
-     *
-     * Route: POST /billing/cancel-subscription
-     */
     public function cancelSubscription(Request $request): RedirectResponse
     {
         $user = $request->user();
@@ -443,8 +259,6 @@ class BillingController extends Controller
                 ->with('error', 'You do not have an active subscription to cancel.');
         }
 
-        // P3-11: Acquire the per-user plan lock to prevent races with
-        // concurrent webhook events.
         $result = $this->planLock->withUserLock($user->id, function () use ($user) {
             // Re-check inside the lock — a webhook may have just cancelled it.
             $user->refresh();
@@ -480,17 +294,11 @@ class BillingController extends Controller
                     ->with('error', 'Could not reach 2Checkout to cancel your subscription. Please try again or contact support.');
             }
 
-            // The RECURRING_ORDER_CANCELLED webhook will set subscription_status
-            // to 'cancelled' + subscription_cancelled_at. But we set it here
-            // too so the UI updates immediately (the webhook may take a few
-            // seconds to arrive).
             $user->forceFill([
                 'subscription_status'       => 'cancelled',
                 'subscription_cancelled_at' => now(),
             ])->save();
 
-            // AUDIT-P1-4.4: Log subscription cancellation. Billing mutation
-            // by the user themselves — silent-logged (no super-admin email).
             AdminAuditLog::record('subscription.cancelled', $user, [
                 'subscription_id' => $subscriptionId,
                 'ends_at'         => $user->subscription_ends_at?->toIso8601String(),
@@ -518,13 +326,6 @@ class BillingController extends Controller
         return redirect()->route('billing.index');
     }
 
-    /**
-     * Reactivate a cancelled subscription (if still within the paid-for period).
-     *
-     * 2CO-1 FIX: Now uses the TwoCheckoutApiClient with proper auth.
-     *
-     * Route: POST /billing/reactivate-subscription
-     */
     public function reactivateSubscription(Request $request): RedirectResponse
     {
         $user = $request->user();
@@ -576,18 +377,6 @@ class BillingController extends Controller
             ->with('success', 'Your subscription has been reactivated. The next billing date remains unchanged.');
     }
 
-    // ── M-2: Self-serve downgrade flow ─────────────────────────────────────
-
-    /**
-     * Downgrade the user's plan to a lower tier.
-     *
-     * For one-time purchases: immediately changes the plan (no refund —
-     * the user paid for lifetime access, they're choosing to use less).
-     * For subscriptions: cancels the subscription via 2Checkout, access
-     * continues until the end of the paid period.
-     *
-     * Route: POST /billing/downgrade
-     */
     public function downgrade(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -614,8 +403,6 @@ class BillingController extends Controller
         $result = $this->planLock->withUserLock($user->id, function () use ($user, $targetPlan) {
             $user->refresh();
 
-            // If the user has an active subscription, cancel it via 2Checkout
-            // 2CO-1 FIX: use TwoCheckoutApiClient.
             if ($user->hasActiveSubscription()) {
                 try {
                     $response = $this->twoCheckout->cancelSubscription($user->subscription_id);
@@ -649,8 +436,6 @@ class BillingController extends Controller
                     'ends_at'              => $user->subscription_ends_at?->toIso8601String(),
                 ]);
 
-                // Subscription downgrades: access continues until subscription_ends_at
-                // then CheckPlanExpiry will handle the actual downgrade
                 return redirect()->route('billing.index')
                     ->with('success', "Your subscription has been cancelled. You'll keep access until {$user->subscription_ends_at?->format('M j, Y')}, then be downgraded to " . ucfirst($targetPlan) . '.');
             }
@@ -669,8 +454,6 @@ class BillingController extends Controller
                 ])->save();
             }
 
-            // AUDIT-P1-4.7: Log immediate plan downgrade (one-time purchase path).
-            // Covers both PlanDowngradeService::downgradeToFree and inline forceFill.
             AdminAuditLog::record('plan.downgraded', $user, [
                 'from' => $oldPlan,
                 'to'   => $targetPlan,
@@ -692,19 +475,6 @@ class BillingController extends Controller
         return redirect()->route('billing.index');
     }
 
-    // ── M-7: Trial period ──────────────────────────────────────────────────
-
-    /**
-     * Start a 14-day free trial for a plan.
-     *
-     * 2CO-8 FIX: Per-IP rate limit (max 2 trials per IP per 30 days) to
-     * prevent unlimited free trials via throwaway emails. Previously: no
-     * fraud screening — an attacker could create unlimited accounts with
-     * test+1@gmail.com, test+2@gmail.com, etc. and get unlimited 14-day
-     * Studio trials.
-     *
-     * Route: POST /billing/start-trial/{plan}
-     */
     public function startTrial(Request $request, string $plan): RedirectResponse
     {
         if (! in_array($plan, ['pro', 'studio'], true)) {
@@ -726,14 +496,6 @@ class BillingController extends Controller
                 ->with('error', 'You\'ve already used your free trial. Choose a plan to continue.');
         }
 
-        // 2CO-8 FIX: Per-IP rate limit.
-        // Max 2 trials per IP per 30 days. Thwarts the "unlimited throwaway
-        // email" attack. The key is per-IP (not per-user) so an attacker
-        // cycling through VPN IPs is slowed but not fully blocked — full
-        // blocking requires card-required trials (future iteration).
-        //
-        // The 30-day window matches the trial duration + buffer. An attacker
-        // who waits 30 days can get 2 more trials — acceptable tradeoff.
         $ipKey = 'trial:' . $request->ip();
         $maxTrialsPerIp = 2;
         $decayMinutes = 30 * 24 * 60; // 30 days
@@ -757,8 +519,6 @@ class BillingController extends Controller
 
         $user->startTrial($plan);
 
-        // AUDIT-P1-4.8: Log trial start. 'trial_ends_at' is on the PII list
-        // and will be auto-scrubbed to a pii:hash by AdminAuditLog::scrubPii.
         AdminAuditLog::record('trial.started', $user, [
             'plan'              => $plan,
             'trial_ends_at'     => $user->fresh()->trial_ends_at?->toIso8601String(),
@@ -786,20 +546,6 @@ class BillingController extends Controller
             ->with('status', "Your 14-day free trial of " . ucfirst($plan) . " has started! You have full access to all {$plan} features until " . $user->trial_ends_at->format('M j, Y') . '.');
     }
 
-    // ── M-10: Invoice download ────────────────────────────────────────────
-
-    /**
-     * Download an invoice PDF (or HTML fallback).
-     *
-     * Only the invoice's owner can download it — the route is behind the
-     * 'auth' + 'verified' + 'mfa' middleware (same as other billing routes).
-     *
-     * 2CO-6 FIX (in InvoiceGenerator, not here): the file is now a real PDF
-     * (generated via dompdf), not HTML. This method serves the file with the
-     * correct Content-Type based on the file extension.
-     *
-     * Route: GET /billing/invoice/{invoice}
-     */
     public function downloadInvoice(Request $request, \App\Models\Invoice $invoice)
     {
         $user = $request->user();
@@ -813,20 +559,6 @@ class BillingController extends Controller
             abort(404, 'Invoice PDF not available.');
         }
 
-        // ITERATION-15 (media authorization M-1): invoice files now live on
-        // the PRIVATE 'local' disk (storage/app/private — not under the
-        // public/storage symlink nginx serves). Invoice numbers are
-        // sequential, so public-disk storage let anyone scrape every
-        // customer's financial documents at /storage/invoices/... without an
-        // account. Files are now served EXCLUSIVELY through this
-        // owner-authorized endpoint.
-        //
-        // Backward compatibility: invoices generated before this change still
-        // sit on the public disk. Until the operator runs the documented
-        // one-time migration (exospace:migrate-invoices-to-private), this
-        // endpoint falls back to the public disk for those legacy files — the
-        // authorized path keeps working, while new files are private from
-        // day one. Once migrated, the fallback simply never matches.
         $local  = \Illuminate\Support\Facades\Storage::disk('local');
         $public = \Illuminate\Support\Facades\Storage::disk('public');
 
@@ -842,10 +574,6 @@ class BillingController extends Controller
             abort(404, 'Invoice file not found.');
         }
 
-        // 2CO-6 FIX: serve with the correct Content-Type based on extension.
-        // New invoices are .pdf (real PDF via dompdf). Old invoices may still
-        // be .html (the backfill command in this iteration regenerates them
-        // as PDF — see exospace:regenerate-invoices).
         $extension = pathinfo($invoice->pdf_path, PATHINFO_EXTENSION);
         $mimeType = match ($extension) {
             'pdf'  => 'application/pdf',

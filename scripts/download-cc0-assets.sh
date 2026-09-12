@@ -1,24 +1,4 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# download-cc0-assets.sh — fetches CC0 textures + HDRIs from ambientCG + PolyHaven
-#
-# All assets are CC0 (public domain) — no attribution required, no API keys,
-# no rate limits worth worrying about. Total download: ~150 MB.
-#
-# Usage:
-#   bash scripts/download-cc0-assets.sh
-#
-# What this script downloads:
-#   - Wall PBR sets:   white plaster, concrete, brick, wood
-#   - Floor PBR sets:  wood, marble, concrete, grass, terrazzo
-#   - HDRIs:           studio, rural evening, night
-#   - Misc:            canvas normal map (artwork surface texture)
-#
-# After download:
-#   - Run `bash scripts/copy-decoders.sh` to set up DRACO/KTX2 decoders
-#   - Run `php artisan preflight:assets` to verify
-#   - Run `npm run optimize-glbs` if you have any GLBs to compress
-# ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 TEXTURES_DIR="public/assets/textures"
@@ -27,9 +7,6 @@ SHARED_DIR="$TEXTURES_DIR/shared"
 
 mkdir -p "$ENV_DIR" "$SHARED_DIR"
 
-# Helper: download + unzip an ambientCG PBR set into a target directory
-# Usage: download_ambientcg <asset_id> <target_dir>
-# ambientCG zip contains: <id>_<map>_<resolution>.jpg — we rename to color/normal/roughness/ao.
 download_ambientcg() {
     local ID="$1"
     local TARGET="$2"
@@ -52,11 +29,6 @@ download_ambientcg() {
         return 0
     fi
 
-    # ambientCG's internal zip filenames have changed format over time and vary
-    # by asset (e.g. "ID_Color_1K.jpg" vs "ID 1K Color.jpg" vs "ID 1K-JPG Color.jpg").
-    # Rather than guess the exact separator/order, match by substring anywhere
-    # in the filename — this is robust to whatever format a given asset uses.
-    # Prefer NormalGL over NormalDX (GL = correct convention for Three.js/WebGL).
     local COLOR=$(find "$UNZIP_DIR" -type f -iname "*color*" ! -iname "*preview*" | head -1)
     local NORMAL=$(find "$UNZIP_DIR" -type f -iname "*normalgl*" | head -1)
     if [[ -z "$NORMAL" ]]; then
@@ -73,7 +45,6 @@ download_ambientcg() {
     rm -rf "$UNZIP_DIR" "$TMP"
 }
 
-# ── Wall materials ────────────────────────────────────────────────────────────
 echo "─── Wall materials ──────────────────────────────────────────────"
 mkdir -p "$TEXTURES_DIR/walls"
 download_ambientcg "Plaster001"  "$TEXTURES_DIR/walls/white"
@@ -84,7 +55,6 @@ download_ambientcg "Plaster003"  "$TEXTURES_DIR/walls/plaster"
 download_ambientcg "Marble013"   "$TEXTURES_DIR/walls/marble"
 download_ambientcg "Fabric030"   "$TEXTURES_DIR/walls/velvet"
 
-# ── Floor materials ───────────────────────────────────────────────────────────
 echo "─── Floor materials ─────────────────────────────────────────────"
 mkdir -p "$TEXTURES_DIR/floors"
 download_ambientcg "Wood025"     "$TEXTURES_DIR/floors/wood"
@@ -99,13 +69,11 @@ mkdir -p "$TEXTURES_DIR/floors/water"
 # Create a tiny solid-color placeholder so Materials.js's preload doesn't 404
 echo -n "" > "$TEXTURES_DIR/floors/water/.gitkeep"
 
-# ── Ceiling materials ─────────────────────────────────────────────────────────
 echo "─── Ceiling materials ───────────────────────────────────────────"
 mkdir -p "$TEXTURES_DIR/ceilings"
 download_ambientcg "Plaster001"  "$TEXTURES_DIR/ceilings/flat"
 download_ambientcg "Wood021"     "$TEXTURES_DIR/ceilings/beamed"
 
-# ── HDRIs (from PolyHaven) ────────────────────────────────────────────────────
 echo "─── HDRIs (PolyHaven) ──────────────────────────────────────────"
 download_hdri() {
     local NAME="$1"
@@ -124,8 +92,6 @@ download_hdri "qwantani_night_puresky_1k.hdr"
 
 # ── Canvas normal map (artwork surface texture) ────────────────────────────────
 echo "─── Shared ──────────────────────────────────────────────────────"
-# Use ambientCG's Fabric030 as a stand-in for canvas texture — looks great as
-# a normal map on paintings.
 if [[ ! -f "$SHARED_DIR/canvas_normal.jpg" ]]; then
     if [[ -f "$TEXTURES_DIR/walls/velvet/normal.jpg" ]]; then
         cp "$TEXTURES_DIR/walls/velvet/normal.jpg" "$SHARED_DIR/canvas_normal.jpg"

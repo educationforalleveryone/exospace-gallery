@@ -7,38 +7,9 @@ use Illuminate\Support\Str;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/**
- * DARK MUSEUM DEEPENING iteration — the forensic-audit remediation as CI.
- *
- * Pins:
- *   1. The seeded dark-museum row declares the deepened "night wing"
- *      identity: the texture_tint authority (the audit's headline material
- *      find — the v1.0.0 row declared wall colours that never reached a
- *      textured build), a readable-dark rig, a fog reach that covers its own
- *      rooms, post-fx restraint with the BLACK vignette blend (the stock
- *      Eskil shader blends edges toward LIGHT GREY — a dark scene glowed),
- *      dark-venue artwork legibility, the silenced hemisphere wash, and
- *      curation placement.
- *   2. The guarded migration rewrites ONLY the previously seeded values
- *      (admin customisations survive), is idempotent, adds its new keys only
- *      when absent, and down() reverses each rewrite under the same
- *      exact-match guard.
- *   3. The dark-rig legibility contract extends to this venue: exposure
- *      below 1.0 ⇒ artwork_light_base must be declared at a real standing
- *      glow.
- *   4. The harness venue payload stays in sync with the seeder row, and the
- *      v1.0.0 forensic body remains for before/after evidence.
- *
- * Portable patterns per the IT2–IT6 suites: sqlite-safe JSON
- * read-modify-write, migrations invoked directly.
- */
 class VenueDarkMuseumIterationTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ─────────────────────────────────────────────────────────────────────
-    // The deepened identity (mirrors the seeder + harness payload)
-    // ─────────────────────────────────────────────────────────────────────
 
     public const DEEPENED_VISUAL = [
         'fog_near'              => 12,
@@ -98,10 +69,6 @@ class VenueDarkMuseumIterationTest extends TestCase
         return $this->jsonCol($slug, 'material_config');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. The fresh-install baseline IS the deepened identity
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_seeded_dark_museum_declares_the_deepened_identity(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -155,14 +122,8 @@ class VenueDarkMuseumIterationTest extends TestCase
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. The guarded migration: exact-match, idempotent, reversible
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_migration_rewrites_only_the_previous_seeded_values(): void
     {
-        // Start from the PRE-deepening row: re-seed, then hand-rewind the row
-        // to the v1.0.0 values (the exact bytes the migration guards on).
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         DB::table('venue_templates')->where('slug', 'dark-museum')->update([
             'version'       => '1.0.0',
@@ -240,16 +201,10 @@ class VenueDarkMuseumIterationTest extends TestCase
         $vc = $this->visualConfig('dark-museum');
         $this->assertSame(2.5, (float) $vc['ambient_intensity'], '[migration] admin ambient survives.');
         $this->assertSame(1.1, (float) $vc['tone_mapping_exposure'], '[migration] admin exposure survives.');
-// The curated bloom survives; the dark-scene blend fix is the one
-        // documented key-add (a post_fx block never has curated values clobbered).
         $this->assertTrue($vc['post_fx']['bloom'] ?? false, 'igration] admin post_fx survives (curated bloom intact).');
         $this->assertSame('black', $vc['post_fx']['vignette_blend'] ?? null, 'igration] curated post_fx gains only the blend fix.');
         $this->assertCount(2, $vc['post_fx'], 'igration] nothing else is added to curated post_fx.');
-        // Untouched keys keep their deepened values (their guards no longer
-        // match the stored values — nothing to rewrite).
         $this->assertSame(1.9, (float) $vc['spot_intensity'], '[migration] deepened keys keep their values when no guard matches.');
-        // The blend-only add path: a saved post_fx without the blend key
-        // gains ONLY the blend key.
         DB::table('venue_templates')->where('slug', 'dark-museum')->update([
             'visual_config' => json_encode(array_merge($this->visualConfig('dark-museum'), [
                 'post_fx' => ['bloom' => false, 'vignette' => true, 'vignette_darkness' => 0.4],
@@ -285,10 +240,6 @@ class VenueDarkMuseumIterationTest extends TestCase
         $this->assertStringContainsString('Dramatic lighting with black walls', (string) $this->venueRow('dark-museum')->description, '[down] the v1.0.0 copy restored.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. The dark-rig legibility contract (this venue joins the club)
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_dark_museum_declares_artwork_legibility(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -312,10 +263,6 @@ class VenueDarkMuseumIterationTest extends TestCase
             '[dark-museum] the pool must carry a typical hang at once (≥ 12).'
         );
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. The harness payload stays in sync with the seeder row
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_harness_payload_matches_the_seeded_row(): void
     {

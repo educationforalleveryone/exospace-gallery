@@ -16,7 +16,6 @@
     ][$incident->severity] ?? ['text' => strtoupper($incident->severity), 'chip' => 'bg-slate-800/60 text-slate-300 border-slate-600/50'];
 @endphp
 
-{{-- ── Header + actions ───────────────────────────────────────────────── --}}
 <div class="rounded-xl border {{ $sev['chip'] }} border-slate-800 p-5 mb-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -61,11 +60,6 @@
 
 <div class="grid lg:grid-cols-3 gap-6">
 
-    {{-- ── Main column ──────────────────────────────────────────────
-         ITERATION-9 hierarchy fix — an incident reads in the order a
-         responder needs: Impact → Likely cause → Timeline → Action.
-         Previously the 40-row timeline came first and the impact
-         statement was buried third. --}}
     <div class="lg:col-span-2 space-y-6">
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
@@ -103,10 +97,6 @@
                                 'warning'  => 'bg-amber-400',
                                 'info'     => 'bg-slate-400',
                             ][$event->severity] ?? 'bg-slate-400';
-                            // ITERATION-9 BUG FIX: the chip below previously reused
-                            // $sev — the INCIDENT's severity — so every timeline
-                            // event of a CRITICAL incident rendered a red chip,
-                            // even INFO ones. Each event now maps its own chip.
                             $eventChip = [
                                 'critical' => 'bg-red-950/60 text-red-300 border-red-700/60',
                                 'error'    => 'bg-orange-950/50 text-orange-300 border-orange-700/50',
@@ -164,7 +154,6 @@
         </section>
     </div>
 
-    {{-- ── Side column ────────────────────────────────────────────────── --}}
     <div class="space-y-6">
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
             <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Related</h2>

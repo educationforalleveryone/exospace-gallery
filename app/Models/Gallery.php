@@ -24,19 +24,12 @@ class Gallery extends Model
         'room_layout', 'venue_template_id', 'pin_hash',
         'is_active', 'view_count',
         'opens_at', 'closes_at',
-        // ITERATION-3: first-publish timestamp (set once by publish(); see
-        // migration 2026_08_25_110000 for semantics). Fillable so factory
-        // seeding and tests can construct realistic states directly.
         'published_at',
         'custom_domain',  // Studio-plan white-label CNAME support
         'is_featured',    // NEW (Round 4) — super-admin curated for /discover
         'curtain_logo_path',  // NEW (Round 4) — Studio-only custom entrance curtain logo
         'curtain_bg_color',   // NEW (Round 4) — Studio-only custom entrance curtain bg color
         'visual_overrides',   // NEW (Live Preview) — per-gallery tweaks on top of venue config
-        // NOTE: custom_domain_verification_token and custom_domain_verified_at
-        // are intentionally NOT fillable — they're set via forceFill() in
-        // GalleryController::update / verifyCustomDomain to prevent a client
-        // from forging a verification status. (Task C06.)
     ];
 
     protected $casts = [
@@ -68,8 +61,6 @@ class Gallery extends Model
                 $domain = explode('/', $domain)[0];
                 // Strip :port
                 $domain = explode(':', $domain)[0];
-                // Strip leading www. (we treat www and non-www as the same)
-                // Actually keep www. — let DNS decide. Just trim whitespace.
                 $gallery->custom_domain = $domain;
             }
         });
@@ -95,43 +86,30 @@ class Gallery extends Model
         return $this->hasMany(GalleryImage::class)->orderBy('position_order');
     }
 
-    /** First image only — efficient thumbnail without loading full collection */
     public function coverImage(): HasOne
     {
         return $this->hasOne(GalleryImage::class)->orderBy('position_order');
     }
 
-    /** Analytics events (view, focus, tour_start, dwell) — renamed from GalleryEvent in Round 4 */
     public function events(): HasMany
     {
         return $this->hasMany(AnalyticsEvent::class);
     }
 
-    /** Schedule events (calendar) — opening receptions, artist talks, etc. */
     public function scheduleEvents(): HasMany
     {
         return $this->hasMany(GalleryScheduleEvent::class)->orderBy('starts_at');
     }
 
-    /** Newsletter signups captured in the entrance curtain */
     public function newsletterSignups(): HasMany
     {
         return $this->hasMany(NewsletterSignup::class);
     }
 
-    /**
-     * All artists featured in this gallery (via images).
-     *
-     * P2-4 FIX: Previously returned a query builder via whereHas, which
-     * broke eager loading. Now uses belongsToMany through the
-     * gallery_images pivot table.
-     */
     public function artists(): BelongsToMany
     {
         return $this->belongsToMany(Artist::class, 'gallery_images')->distinct()->orderBy('name');
     }
-
-    // ─── Scopes ────────────────────────────────────────────────────────
 
     public function scopePubliclyViewable(Builder $q): Builder
     {
@@ -151,8 +129,6 @@ class Gallery extends Model
         return $q->where('custom_domain', $host);
     }
 
-    // ─── Accessors ─────────────────────────────────────────────────────
-
     public function getPublicUrlAttribute(): string
     {
         // If a custom domain is set, use it; otherwise use the standard slug URL.
@@ -167,8 +143,6 @@ class Gallery extends Model
         $img = $this->coverImage;
         return $img ? asset($img->path) : null;
     }
-
-    // ─── Helpers ───────────────────────────────────────────────────────
 
     public function hasPinProtection(): bool
     {
@@ -219,28 +193,12 @@ class Gallery extends Model
 
     // ─── Custom-domain verification (Task C06) ──────────────────────────
 
-    /**
-     * Has the gallery's custom_domain been DNS-verified?
-     *
-     * DetectCustomDomain middleware only routes verified galleries on
-     * their custom domain. Unverified galleries get a 404 (or a "pending
-     * verification" page) so a squatter who claims a domain they don't
-     * own can never serve traffic on it.
-     */
     public function isCustomDomainVerified(): bool
     {
         return ! empty($this->custom_domain)
             && ! empty($this->custom_domain_verified_at);
     }
 
-    /**
-     * Generate (and persist) a new random verification token for the
-     * current custom_domain. Resets custom_domain_verified_at to NULL
-     * because a new token has not yet been verified.
-     *
-     * Called by GalleryController::update when the user changes their
-     * custom_domain — the new domain must be re-verified.
-     */
     public function generateDomainVerificationToken(): string
     {
         $token = Str::random(32);
@@ -253,14 +211,6 @@ class Gallery extends Model
         return $token;
     }
 
-    /**
-     * The TXT record hostname the user must add to their DNS.
-     *
-     * For domain "gallery.janedoe.com", this returns
-     * "_exospace.gallery.janedoe.com". The user adds:
-     *
-     *   _exospace.gallery.janedoe.com.  IN  TXT  "exospace-verify=<token>"
-     */
     public function domainVerificationTxtHost(): ?string
     {
         if (empty($this->custom_domain)) {
@@ -269,9 +219,6 @@ class Gallery extends Model
         return '_exospace.' . $this->custom_domain;
     }
 
-    /**
-     * The TXT record value the user must add to their DNS.
-     */
     public function domainVerificationTxtValue(): ?string
     {
         if (empty($this->custom_domain_verification_token)) {
@@ -280,18 +227,6 @@ class Gallery extends Model
         return 'exospace-verify=' . $this->custom_domain_verification_token;
     }
 
-    // ─── Live Preview helpers ──────────────────────────────────────────
-
-    /**
-     * Returns the gallery's visual_overrides as a clean associative array
-     * with the three expected buckets: visual_config, material_config, post_fx.
-     *
-     * Missing buckets default to empty arrays — so callers can safely
-     * array_merge() without null checks.
-     *
-     * Used by VenueConfigExporter::forGallery() and by the Live Preview
-     * panel's initial state hydration.
-     */
     public function visualOverridesArray(): array
     {
         $v = $this->visual_overrides;
@@ -305,11 +240,6 @@ class Gallery extends Model
         ];
     }
 
-    /**
-     * True if the gallery has any non-empty override bucket.
-     * Used by the edit page to decide whether to show the "Reset all
-     * overrides" button.
-     */
     public function hasVisualOverrides(): bool
     {
         $v = $this->visualOverridesArray();

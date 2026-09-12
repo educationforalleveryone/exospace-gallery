@@ -51,12 +51,7 @@
 
     <div class="page-shell space-y-5">
 
-            {{-- ── Flash ─────────────────────────────────────────────────────── --}}
-            {{-- ITERATION-3: the session('status') banner was removed — the
-                 layout <x-toast> announces the same flash, so it appeared twice. --}}
 
-
-            {{-- ── Contextual Alerts ─────────────────────────────────────────── --}}
             @if(count($alerts))
             <div class="space-y-2">
                 @foreach($alerts as $i => $alert)
@@ -70,7 +65,6 @@
             </div>
             @endif
 
-            {{-- ── Pending invitations notice ────────────────────────────────── --}}
             @if($pendingInvitations->isNotEmpty())
                 <x-dashboard.alert-banner
                     type="info"
@@ -99,9 +93,6 @@
             </div>
             @endif
 
-            {{-- ── Onboarding strip (zero-gallery users only) ──────────────────
-                 ITERATION-9: dropped the stacked radial-gradient decoration —
-                 one gradient is the voice; two compete. --}}
             @if($galleriesCount === 0)
             <div class="relative overflow-hidden rounded-xl border border-brand-500/25 bg-gradient-to-r from-brand-950/60 to-brand-900/30 p-5">
                 <div class="relative flex flex-col sm:flex-row sm:items-center gap-4">
@@ -145,12 +136,6 @@
             </div>
             @endif
 
-            {{-- ── Onboarding checklist (ITERATION-2: resurrected dead code) ────
-                 The 5-step component (verify email → create gallery → upload
-                 artwork → publish → share) was written in Task H49 but never
-                 rendered anywhere; its step 4 also pointed at a nonexistent
-                 "Active" toggle. Takes over from the 3-step strip above once
-                 the first gallery exists — exactly the TTFE mid-journey. --}}
             @if(!$team && $galleriesCount > 0)
                 <x-onboarding-checklist
                     :user="$user"
@@ -160,13 +145,6 @@
                 />
             @endif
 
-            {{-- ── Stat Cards ───────────────────────────────────────────────────
-                 ITERATION-9 de-duplication: gallery counts appeared in THREE
-                 of the four tiles (Total, Live, Quota) and the views trend
-                 appeared in BOTH the stat card and the sparkline card below.
-                 Now: Total (with live·draft as its sub-line), Views (count +
-                 today badge — the chart owns the trend), and Quota/Team.
-                 Three questions, three tiles, one answer each. --}}
             <div class="grid grid-cols-2 xl:grid-cols-3 gap-4" data-stat-grid>
 
                 <x-dashboard.stat-card
@@ -211,7 +189,6 @@
 
             </div>
 
-            {{-- ── Main content grid ──────────────────────────────────────────── --}}
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
                 {{-- LEFT: Activity chart + Recent galleries ──────────────────── --}}
@@ -516,7 +493,6 @@
         </div>
     </div>
 
-    {{-- ── Upgrade Modal ────────────────────────────────────────────────── --}}
     <div id="upgrade-modal"
          role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title"
          style="display:none;"
@@ -538,10 +514,6 @@
     </div>
 
     {{-- ── First-visit welcome modal (only for brand-new users < 48h) ─────── --}}
-    {{-- ITERATION-4 FIX: the root tag used to close before its transition
-         attributes, leaking them as visible stray text above the panel and
-         dropping `flex` (items-center/justify-center had no effect). Also
-         marked data-focus-trap — Tab used to escape into the page behind. --}}
     @if($isNewUser && !$team)
     <div x-data="{ show: !localStorage.getItem('exospace_welcomed') }"
          x-show="show" x-cloak
@@ -599,7 +571,6 @@
     @endif
 
     <script nonce="@nonce">
-    // ── Share modal ──────────────────────────────────────────────────────────
     function dashboardShare(url, title) {
         document.getElementById('ds-url').value   = url;
         document.getElementById('ds-title').textContent = title;
@@ -626,26 +597,8 @@
         openModal('upgrade-modal');
     }
 
-    // ITERATION-3: closeDashboardShare/showUpgradeModal + both modals now run
-    // on the shared modal system (scroll lock, trap, focus restore). The
-    // page-local closeModalById / closeBackdropIfTarget helpers are handled
-    // by the global system; closeModalById is kept as a thin alias because
-    // upgrade-modal's "Maybe later" button still references it.
     window.closeModalById = function(id) { closeModal(id); };
 
-    // ── ESC handling ──────────────────────────────────────────────────────────
-    // ITERATION-4: page-local Escape sweep removed — the kernel in app.js
-    // already closes the top of the modal stack on Escape (and correctly
-    // leaves Alpine-owned dialogs to their own @keydown.escape handlers).
-    // The old handler force-closed BOTH page modals in one keystroke,
-    // bypassing stack order.
-
-    // ── Auto-refresh stat cards every 60s (near-real-time) ──────────────────
-    // Only refresh when the tab is visible and user has galleries.
-    // ITERATION-3: the refresh chain previously kept running AFTER navigating
-    // away (Turbo swaps the body but the timeout lives on window), polling the
-    // WHATEVER page was current forever, and a second visit stacked a second
-    // chain. Now: one global chain slot + cancelled on turbo:before-visit.
     @if($galleriesCount > 0)
     (function () {
         if (window.__exospaceStatRefreshChain) clearTimeout(window.__exospaceStatRefreshChain);

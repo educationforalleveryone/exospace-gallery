@@ -16,14 +16,9 @@ class DashboardController extends Controller
     public function index(): View
     {
         $user = Auth::user();
-        // PERF-14: Eager-load currentTeamRelationship to avoid the N+1 query
-        // that the legacy currentTeam() method form would issue. The legacy
-        // method still works (it returns the loaded relation from the cache),
-        // but this way we don't pay the query cost on the first access.
         $user->loadMissing('currentTeamRelationship');
         $team = $user->current_team_id ? $user->currentTeamRelationship : null;
 
-        // ── Gallery scope ───────────────────────────────────────────────────
         $galleriesScope = $team
             ? Gallery::where('team_id', $team->id)
             : Gallery::where('user_id', $user->id)->whereNull('team_id');
@@ -53,20 +48,6 @@ class DashboardController extends Controller
             ->with('coverImage')
             ->first();
 
-        // ── Analytics: views last 7 days + prior 7 days (for trend) ─────────
-        // FIXED (Round 4): uses AnalyticsEvent instead of the deleted GalleryEvent.
-        // The table was renamed from gallery_events to analytics_events by
-        // migration 2026_06_22_000001.
-        //
-        // E-2 FIX (Iter-011): Mirrors the AnalyticsController::show pattern —
-        // read from analytics_daily for days 1-6 (pre-aggregated, fast) and
-        // raw analytics_events ONLY for today (not yet rolled up). Previously
-        // every dashboard load ran 3 COUNT queries + 1 DATE() GROUP BY query
-        // against the raw events table — slow at scale (1000+ galleries ×
-        // 100+ views/day × 7 days = 700k+ rows scanned per dashboard load).
-        //
-        // Also cached for 5 minutes via Cache::flexible — the dashboard is
-        // the most-visited admin page; making it the slowest was backwards.
         $galleryIds = (clone $galleriesScope)->pluck('id');
 
         $viewsToday = 0;
@@ -132,7 +113,6 @@ class DashboardController extends Controller
             ? (int) round((($views7 - $viewsPrev7) / $viewsPrev7) * 100)
             : ($views7 > 0 ? 100 : null);
 
-        // ── Contextual alerts ────────────────────────────────────────────────
         $alerts = $this->buildAlerts($user, $team, $recentGalleries, $galleryQuotaPercent);
 
         // ── Pending team invitations (for teams the user owns) ───────────────
@@ -149,7 +129,6 @@ class DashboardController extends Controller
             }
         }
 
-        // ── Activation flags for onboarding UX ──────────────────────────────
         $isNewUser          = !$team && $galleriesCount === 0 && $user->created_at->gt(now()->subHours(48));
         $hasUnsharedGallery = !$team && $galleriesCount > 0 && $totalViews === 0 && $activeCount > 0;
 

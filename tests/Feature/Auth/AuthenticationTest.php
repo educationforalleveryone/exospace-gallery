@@ -127,9 +127,6 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        // WHATWG URL parsing treats "\" as "/", so "/\evil.example" is a
-        // scheme-relative form in disguise — it must never be stored as
-        // the intended URL. (LOGIN-ITERATION hardening.)
         $this->get('/login?redirect=/\\evil.example');
 
         $response = $this->post('/login', [
@@ -161,8 +158,6 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        // Guest hits a protected route → bounced to login with
-        // url.intended set by the framework's redirect()->guest().
         $this->get('/dashboard');
 
         $response = $this->post('/login', [
@@ -199,9 +194,6 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticated();
 
-        // A fresh request on the same session must still resolve the user
-        // (refresh/navigation after login) — the guest middleware proves
-        // it by bouncing the now-authenticated user away from /login.
         $this->get('/login')->assertRedirect(route('dashboard', absolute: false));
     }
 
@@ -298,8 +290,6 @@ class AuthenticationTest extends TestCase
 
         $this->assertGuest();
 
-        // The ban message must surface on the login error bag (same
-        // sanitized format the CheckBanned middleware uses).
         $response->assertSessionHasErrors('email');
         $this->assertStringContainsString(
             'Your account has been banned. Reason: Terms violation',
@@ -309,8 +299,6 @@ class AuthenticationTest extends TestCase
 
     public function test_banned_users_get_a_clean_error_without_reason_leakage(): void
     {
-        // Ban reason entered as markup — must be sanitized before display
-        // (same contract as CheckBanned's SEC-16 fix).
         $user = User::factory()->banned('<script>alert(1)</script> spam')->create();
 
         $this->post('/login', [
@@ -338,18 +326,6 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
-    // ── LOGIN-ITERATION: remember-me end-to-end behavior ────────────────
-    //
-    // The login form exposes a "remember me" checkbox, so the suite must
-    // pin BOTH halves of its contract:
-    //   checked  → a recaller cookie is issued and a later request whose
-    //              server-side session is GONE is still re-authenticated
-    //              from the remember token (the core promise of the box);
-    //   unchecked → no recaller is issued and losing the session really
-    //              logs the user out.
-    // LogoutTest already covers the logout-side remember handling (cookie
-    // expiry + token cycling); these tests cover the login-side restore.
-
     public function test_checked_remember_me_restores_authentication_after_server_side_session_loss(): void
     {
         $user = User::factory()->create();
@@ -365,14 +341,8 @@ class AuthenticationTest extends TestCase
         $recaller = $login->getCookie($rememberCookie, decrypt: false)?->getValue();
         $this->assertNotNull($recaller, 'A remember-me login must issue the recaller cookie.');
 
-        // Simulate the server-side session being gone (TTL expiry / redis
-        // eviction): flush the store's records AND forget the in-process
-        // singletons, so the next request starts from a brand-new empty
-        // session. The recaller cookie is the ONLY credential carried over.
         $this->flushServerSideSession();
 
-        // Replay the recaller exactly as the browser holds it (raw wire
-        // value — the client would double-encrypt it via withCookie()).
         $this->withUnencryptedCookie($rememberCookie, $recaller)
             ->get('/profile')
             ->assertOk();
@@ -395,20 +365,12 @@ class AuthenticationTest extends TestCase
         $login->assertCookieMissing($rememberCookie,
             'A login without remember-me must not issue the recaller cookie.');
 
-        // Losing the session really logs the user out — there is no way
-        // back in without the checkbox.
         $this->flushServerSideSession();
 
         $this->get('/profile')->assertRedirect(route('login', absolute: false));
         $this->assertGuest();
     }
 
-    /**
-     * Drop everything the session stack could use to resolve authenticated
-     * state: stored session records (array driver storage) and the cached
-     * session/auth singletons, the way a request on a NEW worker with a
-     * fresh empty session would start.
-     */
     private function flushServerSideSession(): void
     {
         $handler = $this->app['session.store']->getHandler();

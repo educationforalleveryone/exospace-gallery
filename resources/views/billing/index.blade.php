@@ -6,14 +6,8 @@
 <div class="page-shell">
 
 
-    {{-- ITERATION-3: flash banners removed — every flash key here is already
-         announced by the layout's <x-toast>, so this page showed each message
-         TWICE (banner + toast). The toast is the single transient-feedback
-         channel; persistent plan-state context stays in the cards below. --}}
-
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {{-- ── Current plan ─────────────────────────────────────────────── --}}
         <div class="lg:col-span-1">
             <div class="card card-pad">
                 <h2 class="eyebrow mb-4">Current Plan</h2>
@@ -113,10 +107,6 @@
 
                 {{-- Upgrade CTAs --}}
                 @php
-                    // M-1: Offer both one-time + recurring (subscription) options.
-                    // ITERATION-5: moved ABOVE the plan branches — the pro→studio
-                    // branch below also needs these vars (it previously lived
-                    // inside the free branch only).
                     $recurringProPrice = config('services.2checkout.recurring_price_pro_monthly', '4.99');
                     $recurringStudioPrice = config('services.2checkout.recurring_price_studio_monthly', '14.99');
                     $hasRecurringPro = config('services.2checkout.recurring_product_id_pro');
@@ -124,10 +114,6 @@
                 @endphp
                 @if($user->plan === 'free')
                 <div class="mt-6 space-y-2">
-                    {{-- ITERATION-2 (trial wiring): the 14-day trial backend
-                         (rate-limited, no card, one per user) existed since
-                         2CO-8 but NOTHING linked to it. Offer it to eligible
-                         free users right above the paid CTAs. --}}
                     @if(! $user->hasUsedTrial())
                     <div class="mb-3 rounded-xl border border-brand-500/30 bg-brand-950/30 px-4 py-3">
                         <p class="text-xs text-brand-200 leading-relaxed">
@@ -167,8 +153,6 @@
                         Upgrade to Studio — $99
                     </a>
                     @if($hasRecurringStudio)
-                    {{-- ITERATION-5: monthly alternative — same parity the free
-                         plan branch above already had. --}}
                     <a href="{{ route('billing.upgrade', 'studio') }}?recurring=1" class="btn btn-secondary w-full">
                         Studio — ${{ $recurringStudioPrice }}/month
                     </a>
@@ -178,7 +162,6 @@
             </div>
         </div>
 
-        {{-- ── Transactions + pending upgrades ──────────────────────────── --}}
         <div class="lg:col-span-2 space-y-6">
 
             {{-- Pending upgrades (awaiting payment confirmation) --}}
@@ -248,9 +231,6 @@
                                     </td>
                                     <td class="table-cell">
                                         @php
-                                            // AUDIT-P0-1.6 FIX: Previously queried Invoice::where('transaction_id', $tx->id)->first()
-                                            // inside this foreach — an N+1 query. Now eager-loaded in BillingController::index
-                                            // via ->with('invoice'). Reads the loaded relationship directly.
                                             $invoice = $tx->invoice;
                                         @endphp
                                         @if($invoice && $invoice->pdf_path)
@@ -276,8 +256,6 @@
                 @endif
             </div>
 
-            {{-- Refund policy link — quiet section, not a card (ITERATION-9:
-                 one sentence + one link doesn't earn a full surface) --}}
             <div class="pt-2">
                 <h2 class="eyebrow mb-3">Need a Refund?</h2>
                 <p class="text-sm text-gray-400 mb-3">We offer a 14-day money-back guarantee. To request a refund, please email <a href="mailto:support@exospace.gallery" class="text-brand-400 hover:text-brand-300 underline">support@exospace.gallery</a> with your invoice ID.</p>

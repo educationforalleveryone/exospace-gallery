@@ -6,15 +6,6 @@ namespace App\Services\TestCenter;
 
 use InvalidArgumentException;
 
-/**
- * Resolves test profiles and taxonomy groups from config/test-profiles.php.
- *
- * Guarantees for the rest of the system:
- *  - profile keys always exist in config (fail loudly otherwise);
- *  - path globs are expanded to concrete file paths against an injectable
- *    base directory (unit-testable without booting the framework);
- *  - "*" group references expand to every defined group minus excludes.
- */
 class TestProfileRegistry
 {
     private array $config;
@@ -29,13 +20,11 @@ class TestProfileRegistry
         $this->basePath = rtrim($basePath ?: base_path(), '/');
     }
 
-    /** Absolute prefix used when expanding configured relative paths. */
     private function root(): string
     {
         return $this->basePath;
     }
 
-    /** @return array<string, array> all configured profiles keyed by key */
     public function profiles(): array
     {
         return $this->config['profiles'] ?? [];
@@ -46,10 +35,6 @@ class TestProfileRegistry
         return array_key_exists($key, $this->profiles());
     }
 
-    /**
-     * @throws InvalidArgumentException when the profile is unknown — callers
-     *                                  surface this as a config bug, never as a test failure.
-     */
     public function profile(string $key): array
     {
         if (! $this->has($key)) {
@@ -59,19 +44,11 @@ class TestProfileRegistry
         return $this->profiles()[$key];
     }
 
-    /** @return array<string,array> groups keyed by key */
     public function groups(): array
     {
         return $this->config['groups'] ?? [];
     }
 
-    /**
-     * Resolve the concrete ordered list of file/directory paths making up a
-     * profile. '*' expands to every group. Explicit profile 'paths' are
-     * appended last (used by e.g. `database`).
-     *
-     * @return string[] absolute paths (files or directories)
-     */
     public function resolvePaths(string $profileKey): array
     {
         $profile   = $this->profile($profileKey);
@@ -123,7 +100,6 @@ class TestProfileRegistry
         return array_values(array_unique($resolved));
     }
 
-    /** Metadata summary consumed by `qa:run --list` and dashboard cards. */
     public function summarizeForList(): array
     {
         $out = [];

@@ -8,15 +8,6 @@ use App\Models\QaTestRun;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
-/**
- * Evaluates config/release-gates.php into a concrete ship/no-ship verdict.
- *
- * Philosophy encoded here (mirrors MASTER_MANUAL):
- *  - A missing/never-run blocking profile = NOT proven = BLOCKED.
- *  - Advisory failures warn but never block.
- *  - Runs are pinned to a freshness window so last month's green cannot
- *    vouch for today's build.
- */
 class ReleaseReadinessService
 {
     private array $config;
@@ -26,9 +17,6 @@ class ReleaseReadinessService
         $this->config = $config ?? config('release-gates', []);
     }
 
-    /**
-     * @return array{verdict:string, summary:array, gates:Collection, evaluated_at:Carbon}
-     */
     public function evaluate(string $environment = 'production'): array
     {
         $envConfig = ($this->config['environments'] ?? [])[$environment] ?? null;
@@ -53,14 +41,14 @@ class ReleaseReadinessService
         foreach (($envConfig['gates'] ?? []) as $key => $gate) {
             $profileKey  = $gate['profile'] ?? $key;
             $requirePass = (bool) ($gate['require_passed'] ?? true);
-            // Freshness rules: no key ⇒ global freshness window applies;
-            // explicit null ⇒ never expires (build gate is re-proven every push).
             $hasExplicitKey = array_key_exists('max_age_hours', $gate);
             $expires        = ! ($hasExplicitKey && $gate['max_age_hours'] === null);
             $maxAgeHrs      = (float) ($hasExplicitKey ? $gate['max_age_hours'] : ($this->config['freshness_hours'] ?? 48));
             $isBlocking     = ($gate['mode'] ?? 'blocking') === 'blocking';
 
-            /** @var QaTestRun|null $run */
+            /**
+ * @var QaTestRun|null $run
+ */
             $run = $this->latestQualifyingRun($profileKey);
 
             if ($run === null) {
@@ -141,11 +129,6 @@ class ReleaseReadinessService
         ];
     }
 
-    /**
-     * Most recent run for a profile. `ci_build` is a synthetic gate fed by ANY
-     * ci-triggered artifact arrival within freshness (the build pipeline posts
-     * status through ingest even when it only lints/builds).
-     */
     private function latestQualifyingRun(string $profile): ?QaTestRun
     {
         if ($profile === 'ci_build') {

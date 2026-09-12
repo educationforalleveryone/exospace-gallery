@@ -2,9 +2,6 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 
-    {{-- SEO OS (Iteration 4): generic urlset renderer. $entries is a list of
-         ['loc' => ..., 'lastmod' => ?string, 'changefreq' => ?string,
-          'priority' => ?string, 'image' => ?['loc' => ..., 'title' => ...]] --}}
     @foreach(($entries ?? []) as $entry)
     <url>
         <loc>{{ $entry['loc'] }}</loc>

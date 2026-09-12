@@ -1,19 +1,4 @@
 #!/usr/bin/env node
-// probe-csp.mjs — proves the CSP `connect-src blob:` fix mechanism both ways
-// (garden-iteration-5, user §15/§24: do not weaken CSP without understanding).
-//
-// The three.js GLTFLoader converts every GLB-EMBEDDED image into a blob:
-// object URL and loads it through ImageBitmapLoader, which fetch()es the URL.
-// fetch() is governed by connect-src. This probe loads the SAME GLB twice
-// under two policies and captures the console both times:
-//
-//   run 1 — connect-src 'self'            → the production incident:
-//                                           CSP violations + "Couldn't load
-//                                           texture blob:…" + texture=null
-//   run 2 — connect-src 'self' blob:      → the shipped fix:
-//                                           zero violations, texture applied
-//
-//   node scripts/harness/probe-csp.mjs
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -130,8 +115,6 @@ console.log('   textures:', JSON.stringify(allowed.result.textures), allowed.res
 console.log('   console:'); allowed.consoleLines.slice(0, 5).forEach(l => console.log('     ' + l) || (allowed.consoleLines.length === 0 && console.log('     (clean — no CSP/texture errors)')));
 if (allowed.consoleLines.length === 0) console.log('     (clean — no CSP/texture errors)');
 
-// PASS = the incident reproduces under the old policy (CSP errors + no
-// texture ever attaches → total 0) and the fix loads every texture cleanly.
 const incidentReproduced = blocked.consoleLines.some(l => l.includes('Content Security Policy') || l.includes("Couldn't load texture"))
     && blocked.result.textures.total === 0;
 const fixWorks = allowed.result.textures.total > 0

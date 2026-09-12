@@ -2,20 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration-003 regression tests for database integrity fixes.
- *
- * Covers:
- *   - C-1: PruneTransactionsByPartition uses FROM_UNIXTIME (not FROM_DAYS)
- *   - C-3: AnalyticsEvent does not have 'country' in $fillable
- *   - G-1: invoices.user_id FK is nullOnDelete (not cascade)
- *   - G-2: UserDeletionService anonymizes transactions on user delete
- *   - G-5: UserDeletionService anonymizes invoices on user delete
- *        + AnonymizeTransactionPii covers invoices
- *
- * Run: php artisan test --filter=DatabaseIntegrityTest
- */
-
 namespace Tests\Feature;
 
 use App\Console\Commands\AnonymizeTransactionPii;
@@ -36,19 +22,12 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_c3_analytics_event_fillable_does_not_include_country(): void
     {
-        // C-3 FIX: 'country' was removed from $fillable because the column
-        // was dropped by 2026_07_04_000004_drop_country_from_analytics_events.php.
         $this->assertNotContains('country', (new AnalyticsEvent())->getFillable(),
             'C-3: AnalyticsEvent::$fillable must not include "country" (the column was dropped).');
     }
 
     public function test_c3_analytics_event_can_be_created_without_country(): void
     {
-        // C-3 FIX: creating an AnalyticsEvent should not try to write a
-        // 'country' column (which doesn't exist).
-        // ITERATION-1 FIX: analytics_events.gallery_id is FK-constrained —
-        // the old test inserted gallery_id=1 with no gallery row and only
-        // passed on drivers with FK enforcement off.
         $gallery = \App\Models\Gallery::factory()->create();
         $event = AnalyticsEvent::create([
             'gallery_id' => $gallery->id,
@@ -64,9 +43,6 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_g2_user_deletion_anonymizes_transactions(): void
     {
-        // G-2 FIX: When a user is deleted, their transactions should be
-        // ANONYMIZED (not deleted), preserving the financial record for
-        // tax audit compliance.
         $user = User::factory()->create([
             'email' => 'gdpr-test@example.com',
             'name' => 'GDPR Test User',
@@ -107,8 +83,6 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_g5_user_deletion_anonymizes_invoices(): void
     {
-        // G-5 FIX: When a user is deleted, their invoices should be
-        // ANONYMIZED (not deleted), preserving the financial record.
         $user = User::factory()->create([
             'email' => 'invoice-gdpr@example.com',
             'name' => 'Invoice GDPR User',
@@ -152,8 +126,6 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_g5_anonymize_pii_command_covers_invoices(): void
     {
-        // G-5 FIX: The exospace:anonymize-pii command should anonymize
-        // invoices older than the retention window, not just transactions.
         $oldDate = now()->subMonths(20); // older than 18-month retention
 
         $invoice = Invoice::factory()->create([
@@ -178,8 +150,6 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_g5_anonymize_pii_command_preserves_recent_invoices(): void
     {
-        // G-5 FIX: Recent invoices (within the retention window) should NOT
-        // be anonymized.
         $recentDate = now()->subMonths(6); // within 18-month retention
 
         $invoice = Invoice::factory()->create([
@@ -201,8 +171,6 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_g5_anonymize_pii_command_is_idempotent(): void
     {
-        // G-5 FIX: Running the command twice should be a no-op on already-
-        // anonymized rows.
         $oldDate = now()->subMonths(20);
 
         $invoice = Invoice::factory()->create([
@@ -243,11 +211,6 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_g1_invoices_user_id_fk_is_set_null_not_cascade(): void
     {
-        // G-1 FIX: When a user is deleted, the invoice row should survive
-        // with user_id = null (not be cascade-deleted).
-        // This is verified by test_g5_user_deletion_anonymizes_invoices above
-        // (the invoice still exists after user deletion). This test explicitly
-        // checks the user_id is null.
         $user = User::factory()->create();
         $invoice = Invoice::factory()->create(['user_id' => $user->id]);
 
@@ -262,20 +225,10 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_c1_prune_command_uses_unix_timestamp_not_from_days(): void
     {
-        // C-1 FIX: The PruneTransactionsByPartition command should interpret
-        // PARTITION_DESCRIPTION as a Unix timestamp (not a day number for
-        // FROM_DAYS). This test verifies the command source code contains
-        // the correct conversion.
-        //
-        // We can't test the actual partition-pruning behavior without a
-        // MySQL partitioned table (SQLite doesn't support partitioning),
-        // but we can verify the command uses the correct API.
         $commandFile = file_get_contents(
             app_path('Console/Commands/PruneTransactionsByPartition.php')
         );
 
-        // Strip comments first — the command's own docblock documents the
-        // FROM_DAYS removal history and mentions it verbatim. (QA-Control-Center fix)
         $commandCode = trim(preg_replace([
             '~/\*.*?\*/~s',
             '~^\s*//.*$~m',
@@ -290,9 +243,6 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_g3_consolidated_users_migration_has_all_columns(): void
     {
-        // G-3 FIX: The consolidated users migration should include all
-        // columns from the additive migrations. This test verifies the
-        // migration source code contains the missing columns.
         $migrationFile = file_get_contents(
             database_path('migrations/2026_07_02_160000_create_users_table_consolidated.php')
         );
@@ -327,8 +277,6 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_g4_consolidated_galleries_migration_has_soft_deletes(): void
     {
-        // G-4 FIX: The consolidated galleries migration should include
-        // $table->softDeletes().
         $migrationFile = file_get_contents(
             database_path('migrations/2026_07_02_150000_create_galleries_table_consolidated.php')
         );

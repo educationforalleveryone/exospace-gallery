@@ -10,20 +10,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 6 — per-job heartbeat alerting.
- *
- * checkSchedulerHealth() only catches a dead scheduler LOOP. These tests
- * pin the layer that catches an individual job silently stopping while
- * the scheduler is healthy:
- *   1. stamp() → 'fresh'; expired stamp → 'stale'; never stamped → 'missing'
- *   2. A stale heartbeat pages (critical) via the operational channel
- *   3. A fresh heartbeat never pages
- *   4. 'missing' pages only AFTER the first-observation ack ages past the
- *      job's max age (fresh installs must not page on day one)
- *   5. Monitored commands stamp on completion — including clean no-ops
- *      (reconcile unconfigured = feature OFF, not job DEAD)
- */
 class JobHeartbeatTest extends TestCase
 {
     use RefreshDatabase;
@@ -94,7 +80,6 @@ class JobHeartbeatTest extends TestCase
     {
         $heartbeats = app(JobHeartbeatService::class);
 
-        // First observation of a never-run job: ack only, no alert.
         app(OperationalAlertService::class)->checkJobHeartbeats();
         Http::assertNothingSent();
 

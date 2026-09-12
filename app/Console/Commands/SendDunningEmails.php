@@ -9,39 +9,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-/**
- * M-9: Send dunning emails for subscriptions with failed payments.
- *
- * Dunning = the process of recovering failed recurring payments via
- * email reminders. This command runs daily and sends the appropriate
- * dunning email to users whose subscription_status is 'past_due'.
- *
- * 3-email sequence:
- *   Step 1: Sent immediately when the first RECURRING_INSTALLMENT_FAILED
- *           webhook arrives (dispatched by WebhookController, not this
- *           command). This command handles steps 2 and 3.
- *   Step 2: Sent 3 days after step 1 (if still past_due).
- *   Step 3: Sent 7 days after step 1 (if still past_due). This is the
- *           final email before 2Checkout cancels the subscription.
- *
- * Why step 1 is sent by the webhook handler (not this command):
- *   The user should be notified ASAP when a payment fails — waiting for
- *   the daily cron could delay the notification by up to 24 hours. The
- *   webhook handler dispatches the email immediately via the queue.
- *
- * This command handles steps 2 and 3 because they require time-based
- * spacing (3 days, 7 days) that a webhook-driven approach can't easily
- * achieve (the webhook only fires once per failed attempt, and 2Checkout's
- * retry schedule varies).
- *
- * CAN-SPAM/GDPR: Dunning emails are TRANSACTIONAL (not marketing) — they
- * are sent regardless of marketing_consent because they're required to
- * fulfill the user's subscription contract. The user can't "unsubscribe"
- * from dunning emails — they can only fix their payment or cancel.
- *
- * Scheduled daily at 11am via routes/console.php (after the abandoned-cart
- * command at 10am, so the two email sends don't overlap).
- */
 class SendDunningEmails extends Command
 {
     protected $signature = 'exospace:send-dunning';
@@ -71,10 +38,6 @@ class SendDunningEmails extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Send step 2 emails: users who received step 1 >= 3 days ago and
-     * are still past_due.
-     */
     private function sendStep2Emails(): void
     {
         $cutoff = now()->subDays(self::STEP_2_DELAY_DAYS);
@@ -118,10 +81,6 @@ class SendDunningEmails extends Command
         $this->info("Sent {$sent} step-2 dunning emails.");
     }
 
-    /**
-     * Send step 3 emails: users who received step 1 >= 7 days ago and
-     * are still past_due. This is the final email before cancellation.
-     */
     private function sendStep3Emails(): void
     {
         $cutoff = now()->subDays(self::STEP_3_DELAY_DAYS);

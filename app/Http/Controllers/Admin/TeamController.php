@@ -15,7 +15,6 @@ use Illuminate\View\View;
 
 class TeamController extends Controller
 {
-    // ── List all teams the user belongs to ────────────────────────────────
 
     public function index(): View
     {
@@ -30,8 +29,6 @@ class TeamController extends Controller
 
         return view('admin.teams.index', compact('ownedTeams', 'memberTeams'));
     }
-
-    // ── Create a new team ─────────────────────────────────────────────────
 
     public function create(): View
     {
@@ -61,8 +58,6 @@ class TeamController extends Controller
             ->with('status', 'Team created! Invite your collaborators below.');
     }
 
-    // ── Show team detail / member management ──────────────────────────────
-
     public function show(Team $team): View
     {
         $this->authorize('view', $team);
@@ -78,8 +73,6 @@ class TeamController extends Controller
 
     public function update(Request $request, Team $team): RedirectResponse
     {
-        // P1-6 FIX: Use the policy instead of the bypassed authorizeOwner() helper.
-        // TeamPolicy::update() returns $team->canEdit($user) — owner OR editor.
         $this->authorize('update', $team);
 
         $validated = $request->validate([
@@ -91,8 +84,6 @@ class TeamController extends Controller
 
         return back()->with('status', 'Team settings updated.');
     }
-
-    // ── Delete team (owner only) ──────────────────────────────────────────
 
     public function destroy(Team $team): RedirectResponse
     {
@@ -108,8 +99,6 @@ class TeamController extends Controller
         return redirect()->route('admin.teams.index')
             ->with('status', 'Team deleted.');
     }
-
-    // ── Invite a member (owner OR editor) ────────────────────────────────
 
     public function invite(Request $request, Team $team): RedirectResponse
     {
@@ -132,12 +121,6 @@ class TeamController extends Controller
             return back()->withErrors(['email' => 'This person is already a team member.']);
         }
 
-        // Upsert invitation (reset token + expiry if re-inviting)
-        // D-6 FIX (Iter-004): Generate a PLAINTEXT token for the email link,
-        // but store the HASHED token in the DB. The plaintext token is passed
-        // to the mailable via a runtime attribute (not persisted) so the
-        // email link contains the plaintext. The DB stores only the sha256
-        // hash — a DB dump doesn't reveal usable tokens.
         $plaintextToken = TeamInvitation::generateToken();
         $hashedToken = TeamInvitation::hashToken($plaintextToken);
 
@@ -158,9 +141,6 @@ class TeamController extends Controller
             'expires_at' => $invitation->expires_at->toIso8601String(),
         ]);
 
-        // D-6 FIX: Attach the plaintext token as a runtime attribute so the
-        // mailable can use it in the email link. This attribute is NOT
-        // persisted to the DB — it exists only for this request.
         $invitation->plaintext_token = $plaintextToken;
 
         Mail::to($validated['email'])->send(new TeamInvitationMail($invitation));
@@ -188,8 +168,6 @@ class TeamController extends Controller
         return back()->with('status', 'Invitation revoked.');
     }
 
-    // ── Remove a member (owner only) ─────────────────────────────────────
-
     public function removeMember(Request $request, Team $team): RedirectResponse
     {
         // P1-6: TeamPolicy::manageMembers() returns $team->isOwner($user) — owner only.
@@ -202,13 +180,6 @@ class TeamController extends Controller
             return back()->withErrors(['user_id' => 'Cannot remove the team owner.']);
         }
 
-        // ITER-13 (T-1): The target must actually BE a member of THIS team.
-        // Previously a valid user_id belonging to a non-member (or an
-        // already-removed member) silently no-oped at detach() but still
-        // returned "Member removed." and wrote a team.member_removed audit
-        // entry — fabricating a security event that never happened. The
-        // audit trail must only ever record membership mutations that
-        // actually occurred, so validate membership before mutating.
         $isMember = $team->members()->where('team_user.user_id', $validated['user_id'])->exists();
         if (! $isMember) {
             return back()->withErrors(['user_id' => 'That user is not a member of this team.']);
@@ -229,8 +200,6 @@ class TeamController extends Controller
         return back()->with('status', 'Member removed.');
     }
 
-    // ── Update a member's role (owner only) ──────────────────────────────
-
     public function updateMemberRole(Request $request, Team $team): RedirectResponse
     {
         // P1-6: TeamPolicy::manageMembers() returns $team->isOwner($user) — owner only.
@@ -245,16 +214,6 @@ class TeamController extends Controller
             return back()->withErrors(['role' => 'Cannot change the owner\'s role.']);
         }
 
-        // ITER-13 (T-2): Resolve the target's actual membership in THIS team
-        // before mutating. Previously a valid user_id belonging to a
-        // non-member no-oped at updateExistingPivot() but still returned
-        // "Member role updated." and wrote a team.member_role_changed audit
-        // entry (with old_role null) — a fabricated security event for a
-        // change that never happened.
-        //
-        // AUDIT-P1-4.12: Capture old role before mutation for role-change
-        // forensics. (Same lookup also serves the membership check above,
-        // so this stays one query instead of two.)
         $targetMember = $team->members()->where('team_user.user_id', $validated['user_id'])->first();
         if (! $targetMember) {
             return back()->withErrors(['user_id' => 'That user is not a member of this team.']);
@@ -264,8 +223,6 @@ class TeamController extends Controller
 
         $team->members()->updateExistingPivot($validated['user_id'], ['role' => $validated['role']]);
 
-        // AUDIT-P1-4.12: Log team member role change. Security-relevant:
-        // escalating a viewer to editor grants invite/billing access.
         AdminAuditLog::record('team.member_role_changed', $team, [
             'user_id' => $validated['user_id'],
             'old_role' => $oldRole,
@@ -274,8 +231,6 @@ class TeamController extends Controller
 
         return back()->with('status', 'Member role updated.');
     }
-
-    // ── Leave a team ──────────────────────────────────────────────────────
 
     public function leave(Team $team): RedirectResponse
     {
@@ -299,8 +254,6 @@ class TeamController extends Controller
         return redirect()->route('admin.teams.index')
             ->with('status', "You've left {$team->name}.");
     }
-
-    // ── Switch active team context ────────────────────────────────────────
 
     public function switchTeam(Team $team): RedirectResponse
     {

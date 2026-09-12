@@ -1,61 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// visual-harness.mjs — the screenshot regression harness (roadmap P3.5)
-//
-// WHY THIS EXISTS
-// ---------------
-// "Seeded determinism makes automated visual diffs feasible; this becomes
-// the safety net for venue edits" (§14 P3.5). Every venue's composition is
-// fully determined by its config (Iteration 0 PRNG contract), so a venue
-// that renders differently than yesterday is either an INTENDED edit or a
-// regression — and this harness is how you tell them apart.
-//
-// WHAT IT DOES
-// ------------
-// For each venue it opens the walkable preview (/venues/{slug}/preview —
-// the SAME runtime a paying customer gets), requests REDUCED MOTION so the
-// Iteration 4 arrival plays its instant composed cut (deterministic framing
-// with zero tween-timing flakiness), waits for the sample exhibition's
-// textures to finish, then screenshots the canvas and pixel-diffs it
-// against the baseline in baselines/.
-//
-// The 12-venue sweep IS the §13 lineup still / tier-matrix evidence trail:
-// run it before and after any venue edit, any runtime upgrade, any new
-// venue — the diff set is exactly the set of venues you touched.
-//
-// SETUP (one-time, in the Laravel repo root — NOT shipped pre-installed:
-// the sandbox has no PHP/browser; this runs where the app runs):
-//
-//   npm i -D playwright pixelmatch pngjs
-//   npx playwright install chromium
-//   php artisan serve &          # or your local/valet URL
-//   vite build                   # the preview loads the built bundle
-//
-// USAGE
-// -----
-//   node scripts/visual-harness.mjs --base-url=http://127.0.0.1:8000 --update
-//     → capture (or re-capture) baselines for every active venue
-//
-//   node scripts/visual-harness.mjs --base-url=http://127.0.0.1:8000
-//     → capture + diff against baselines; non-zero exit on any drift
-//
-//   node scripts/visual-harness.mjs --venue=the-salon --venue=zen-gallery ...
-//     → restrict the sweep (default: all active, published venues)
-//
-// READING A FAILURE
-// -----------------
-//   - ONE venue drifted, you just edited it  → intended: re-run --update
-//     for that venue and commit the new baseline WITH the edit (the
-//     baseline is the venue edit's review artifact).
-//   - ONE venue drifted, nobody touched it   → regression; diff the PNGs.
-//   - MANY venues drifted after a JS change  → runtime regression; fix or
-//     consciously re-baseline all (and say why in the PR).
-//
-// TOLERANCE: headless WebGL rasterizers differ slightly across machines,
-// so diffs use a small per-pixel threshold and a 1% mismatch budget —
-// tight enough to catch layout/identity drift, loose enough to survive
-// rasterizer noise. Same-machine runs are effectively exact.
-// ─────────────────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
 function arg(name, fallback) {
@@ -90,9 +33,6 @@ if (!chromium) {
     process.exit(2);
 }
 
-// The venue list can come from --venue flags; otherwise the harness reads
-// every ACTIVE, PUBLISHED venue slug from the venues index (the same
-// scoping the public pages use — drafts never enter the baseline set).
 async function venueSlugs(page) {
     if (ONLY.length) return ONLY;
     await page.goto(`${BASE_URL}/venues`, { waitUntil: 'domcontentloaded' });
@@ -104,17 +44,12 @@ async function venueSlugs(page) {
 }
 
 async function capture(page, slug) {
-    // reducedMotion → Iteration 4's instant composed cut: deterministic
-    // first frame, no dolly tween to race against.
     const url = `${BASE_URL}/venues/${slug}/preview`;
     await page.goto(url, { waitUntil: 'domcontentloaded' });
 
     const canvas = page.locator('#canvas-container canvas').first();
     await canvas.waitFor({ state: 'visible', timeout: 30_000 });
 
-    // The entrance curtain owns the scene until loading completes; the
-    // enter button enables via inline pointer-events:auto (main.js MX6).
-    // Click through, then let the composed frame settle.
     const enter = page.locator('#enter-btn').first();
     if (await enter.isVisible().catch(() => false)) {
         await expectEnabled(page);
@@ -127,8 +62,6 @@ async function capture(page, slug) {
 }
 
 async function expectEnabled(page) {
-    // main.js enables #enter-btn with inline opacity/pointer-events when
-    // loading hits 100% — wait for that exact signal (not .disabled).
     try {
         await page.waitForFunction(
             () => {
@@ -138,8 +71,6 @@ async function expectEnabled(page) {
             { timeout: 60_000 },
         );
     } catch {
-        // Fallback: the skip-intro link force-enables + fires the same
-        // enter handler (main.js Task H48). Same composed first frame.
         const skip = page.locator('#skip-intro-link').first();
         if (await skip.isVisible().catch(() => false)) {
             await skip.click();

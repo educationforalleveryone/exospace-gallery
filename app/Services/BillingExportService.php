@@ -9,36 +9,9 @@ use App\Models\Transaction;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 
-/**
- * ITERATION 6 — billing CSV generation, single source of truth.
- *
- * Iteration 5 gave Billing Review an on-demand streamed export. This
- * service extracts the query construction, column sets and row mappers
- * so the NEW weekly billing digest command (exospace:send-billing-export)
- * produces byte-identical CSVs from the same code path — two copies of
- * the finance-reconciliation column list would inevitably drift, and a
- * finance match silently breaking because someone edited one of them is
- * exactly the kind of trust damage this iteration exists to prevent.
- *
- * The controller still streams via cursor() + fputcsv (flat memory for
- * full-history exports); the command builds the whole string because an
- * email attachment needs the bytes — bounded by a 7-day window there.
- *
- * PII note: the transactions CSV contains customer email/name. On-demand
- * exports are audit-logged (billing.exported) with the admin actor; the
- * scheduled digest is audit-logged with actor=null (system) and is gated
- * behind explicit BILLING_EXPORT_EMAIL configuration — an operator
- * opting in is the consent boundary. Documented in the operations manual.
- */
 class BillingExportService
 {
-    /**
-     * Money-event statuses surfaced by default (same set the Billing
-     * Review page defaults to). 'completed' reachable via explicit filter.
-     */
     public const MONEY_STATUSES = ['refunded', 'partial_refund', 'chargeback'];
-
-    // ── Query builders (shared) ───────────────────────────────────────
 
     public function transactionsQuery(?string $status, ?CarbonInterface $since = null): Builder
     {
@@ -63,11 +36,6 @@ class BillingExportService
             ->orderByDesc('id');
     }
 
-    // ── Column sets + row mappers (shared) ────────────────────────────
-
-    /**
-     * @return array{headers: list<string>, row: callable(Transaction): list<mixed>}
-     */
     public function transactionsColumns(): array
     {
         return [
@@ -91,11 +59,6 @@ class BillingExportService
         ];
     }
 
-    /**
-     * Ledger CSV reports payload presence, never raw payloads.
-     *
-     * @return array{headers: list<string>, row: callable(ProcessedWebhook): list<mixed>}
-     */
     public function webhooksColumns(): array
     {
         return [
@@ -118,13 +81,6 @@ class BillingExportService
 
     // ── Whole-file builders (command / attachment path) ───────────────
 
-    /**
-     * Full CSV content for the transactions export (BOM + rows). Uses a
-     * php://temp stream so arbitrarily large windows never balloon memory
-     * before the string is assembled.
-     *
-     * @return array{filename: string, content: string, count: int}
-     */
     public function transactionsCsv(?string $status, ?CarbonInterface $since = null): array
     {
         return $this->buildCsv(
@@ -134,9 +90,6 @@ class BillingExportService
         );
     }
 
-    /**
-     * @return array{filename: string, content: string, count: int}
-     */
     public function webhooksCsv(?string $webhookStatus, ?CarbonInterface $since = null): array
     {
         return $this->buildCsv(
@@ -146,13 +99,6 @@ class BillingExportService
         );
     }
 
-    /**
-     * Digest summary for a window: per-status transaction counts + the
-     * completed revenue total + failed-webhook count. Powers the email
-     * body and the Slack fallback summary.
-     *
-     * @return array{completed: int, refunded: int, partial_refund: int, chargeback: int, manual: int, revenue: float, failed_webhooks: int}
-     */
     public function summary(CarbonInterface $since): array
     {
         return [
@@ -166,21 +112,12 @@ class BillingExportService
         ];
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * @param  Builder  $query
-     * @param  array{headers: list<string>, row: callable(object): list<mixed>}  $columns
-     * @return array{filename: string, content: string, count: int}
-     */
     private function buildCsv(Builder $query, array $columns, string $type): array
     {
         $count = (clone $query)->count();
 
         $out = fopen('php://temp/maxmemory:' . (16 * 1024 * 1024), 'r+');
 
-        // BOM for Excel UTF-8 compatibility (same convention as the
-        // user-facing GDPR export and the Iteration-5 streamed export).
         fwrite($out, "\xEF\xBB\xBF");
 
         fputcsv($out, $columns['headers']);

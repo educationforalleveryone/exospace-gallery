@@ -5,56 +5,15 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * S-10 FIX: Partition the transactions table by month (RANGE on created_at).
- *
- * Problem: The transactions table grows unbounded — every 2Checkout payment
- * inserts a row, and we keep them forever for audit/tax purposes. After a
- * few years of operation, queries like "show me this user's transactions"
- * or "count completed transactions this month" scan the full table because
- * the existing indexes on user_id/status don't help with date-range queries.
- *
- * Solution: MySQL RANGE partitioning on YEAR(created_at)*100+MONTH(created_at).
- * Each month gets its own partition. Date-range queries prune to only the
- * relevant partitions. Old partitions can be dropped in O(1) (vs. DELETE
- * which is O(N) + fragmentation).
- *
- * MySQL partitioning constraint: every unique key must include the partition
- * column. The existing unique(invoice_id) must become unique(invoice_id, created_at).
- * This doesn't break the existing lookup-by-invoice_id queries — they'll just
- * also need a date range to be efficient (which they already have via the
- * webhook's created_at context).
- *
- * This migration is IDEMPOTENT: it checks if the table is already partitioned
- * before applying. Re-running it (e.g. after a rollback + re-apply) is safe.
- *
- * NOTE: This migration only runs on MySQL/MariaDB. SQLite (used in tests)
- * doesn't support partitioning — the up() method detects the driver and
- * skips the partition DDL. The schema change (unique key modification) is
- * applied on both drivers so tests still pass.
- *
- * Partition maintenance: see PruneTransactionsByPartition command (added in
- * the same iteration) which drops partitions older than the retention window.
- */
 return new class extends Migration
 {
     public function up(): void
     {
-        // Step 1: Drop the existing unique(invoice_id) index and replace it
-        // with unique(invoice_id, created_at). This is required for MySQL
-        // partitioning (the partition key must be part of every unique key).
-        // On SQLite this is a no-op schema-wise but keeps the migration
-        // portable — the unique constraint just becomes compound.
         try {
             Schema::table('transactions', function (Blueprint $table) {
-                // Laravel's dropUnique uses the index name. The original
-                // migration created it as $table->string('invoice_id')->unique()
-                // which generates an index named 'transactions_invoice_id_unique'.
                 $table->dropUnique('transactions_invoice_id_unique');
             });
         } catch (\Throwable $e) {
-            // Index may have a different name if the migration was applied
-            // before the unique() shorthand was used. Try the alternate name.
             try {
                 DB::statement('ALTER TABLE transactions DROP INDEX transactions_invoice_id_unique');
             } catch (\Throwable $e2) {
@@ -76,19 +35,12 @@ return new class extends Migration
             });
         }
 
-        // Step 2: Apply RANGE partitioning on MySQL/MariaDB only.
-        // SQLite (used in tests/CI) doesn't support partitioning.
         $driver = DB::getDriverName();
 
         if (! in_array($driver, ['mysql', 'mariadb'], true)) {
             return;
         }
 
-        // MySQL/MariaDB do not allow partitioning a table that has foreign
-        // key constraints (error 1506). Drop the FK here — the user_id
-        // column and its index remain in place, so lookups and joins are
-        // unaffected. Referential integrity for user_id is enforced at the
-        // application level from this point on instead of by the database.
         $userForeignKeyExists = DB::table('information_schema.KEY_COLUMN_USAGE')
             ->where('TABLE_SCHEMA', DB::connection()->getDatabaseName())
             ->where('TABLE_NAME', 'transactions')
@@ -101,11 +53,6 @@ return new class extends Migration
             });
         }
 
-        // MySQL requires every unique key — including the PRIMARY KEY — to
-        // contain the partitioning column (error 1503 otherwise). The
-        // default primary key is just `id`; extend it to (id, created_at).
-        // `id` stays AUTO_INCREMENT and remains the leading column, so this
-        // does not allow duplicate ids — it's still effectively unique on id.
         $primaryKeyIncludesCreatedAt = DB::table('information_schema.KEY_COLUMN_USAGE')
             ->where('TABLE_SCHEMA', DB::connection()->getDatabaseName())
             ->where('TABLE_NAME', 'transactions')
@@ -114,17 +61,6 @@ return new class extends Migration
             ->exists();
 
         if (! $primaryKeyIncludesCreatedAt) {
-            // MySQL/InnoDB has a hard, unconditional rule (error 1506):
-            // a partitioned InnoDB table can never be the target of a
-            // foreign key, from any other table, under any circumstances.
-            // This isn't a syntax problem to work around — invoices.transaction_id
-            // and pending_upgrades.transaction_id can never point at a
-            // partitioned transactions table again. Drop those inbound FKs
-            // for good here (same trade-off already made for the user_id FK
-            // above): keep the column and its index for lookups/joins, and
-            // enforce referential integrity in application code instead.
-            // (See the matching change in 2026_07_04_000003 and
-            // 2026_07_04_000012, which stop adding these FKs on fresh installs.)
             $inboundForeignKeys = DB::table('information_schema.KEY_COLUMN_USAGE as kcu')
                 ->join('information_schema.REFERENTIAL_CONSTRAINTS as rc', function ($join) {
                     $join->on('rc.CONSTRAINT_SCHEMA', '=', 'kcu.CONSTRAINT_SCHEMA')
@@ -160,11 +96,6 @@ return new class extends Migration
             return;
         }
 
-        // Create monthly partitions for the current month + the previous 11
-        // months + the next 3 months (so we have headroom for future inserts
-        // without needing to run a partition-maintenance command immediately).
-        // The PruneTransactionsByPartition command (added in this iteration)
-        // will create future partitions and drop old ones going forward.
         $partitions = [];
         $now = now();
         $start = $now->copy()->subMonths(11)->startOfMonth();
@@ -176,9 +107,6 @@ return new class extends Migration
             $partitions[] = "PARTITION {$partitionName} VALUES LESS THAN (UNIX_TIMESTAMP('{$lessThan}'))";
         }
 
-        // Add a catch-all partition for any rows that fall outside the
-        // explicit range (defensive — shouldn't happen if the maintenance
-        // command runs monthly, but prevents INSERT failures if it doesn't).
         $partitions[] = "PARTITION pmax VALUES LESS THAN MAXVALUE";
 
         $partitionDdl = implode(",\n            ", $partitions);
@@ -199,9 +127,6 @@ return new class extends Migration
             // Remove partitioning — keeps the data but flattens to a single table.
             DB::statement('ALTER TABLE transactions REMOVE PARTITIONING');
 
-            // Restore the original single-column primary key. No inbound-FK
-            // juggling needed here — 2026_07_04_000003 and 2026_07_04_000012
-            // now own the decision not to add those FKs, permanently.
             DB::statement('ALTER TABLE transactions DROP PRIMARY KEY, ADD PRIMARY KEY (id)');
 
             // Restore the foreign key that was dropped in up() to allow partitioning.

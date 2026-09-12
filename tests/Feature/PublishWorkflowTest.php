@@ -2,24 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * ITERATION-2 regression tests — the publish moment & TTFE.
- *
- * Covers:
- *   - Draft-by-default: POST /admin/galleries creates is_active=false and
- *     redirects straight to the edit page (upload step), not the index.
- *   - Publish/unpublish endpoints: empty-gallery guard, state transitions,
- *     editor authorization (team viewer gets 403), JSON responses.
- *   - Duplicate inherits the source's publish state (previously forced live).
- *   - Edit page renders the publish status bar (Draft/Live).
- *   - Dashboard resurrects the onboarding checklist mid-journey.
- *   - Edit page includes the artwork metadata editor (orphaned endpoint UI).
- *   - Trial wiring: pricing + billing CTAs for eligible free users only.
- *   - Plan-copy alignment: no "unlimited galleries" claims for Pro.
- *
- * Run: php artisan test --filter=PublishWorkflowTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Gallery;
@@ -34,7 +16,6 @@ class PublishWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** Valid GalleryController::store() payload (personal gallery). */
     private function storePayload(array $overrides = []): array
     {
         return array_merge([
@@ -47,8 +28,6 @@ class PublishWorkflowTest extends TestCase
             'room_layout'     => 'square',
         ], $overrides);
     }
-
-    // ── Draft-by-default ────────────────────────────────────────────────
 
     public function test_store_creates_gallery_as_draft_and_redirects_to_edit_page(): void
     {
@@ -66,8 +45,6 @@ class PublishWorkflowTest extends TestCase
 
     public function test_store_redirect_happens_even_when_coolify_domain_warning_fires(): void
     {
-        // The custom-domain soft-warning path must also land on the edit
-        // page (it previously went to the index).
         $user = User::factory()->create(['plan' => 'studio', 'max_galleries' => 999, 'max_images' => 500]);
 
         $response = $this->actingAs($user)->post('/admin/galleries', $this->storePayload([
@@ -78,8 +55,6 @@ class PublishWorkflowTest extends TestCase
         $response->assertRedirect(route('admin.galleries.edit', $gallery));
         $this->assertFalse((bool) $gallery->is_active);
     }
-
-    // ── Publish endpoint ────────────────────────────────────────────────
 
     public function test_publish_blocked_for_empty_gallery(): void
     {
@@ -156,8 +131,6 @@ class PublishWorkflowTest extends TestCase
         $this->assertFalse((bool) $gallery->fresh()->is_active);
     }
 
-    // ── Unpublish endpoint ──────────────────────────────────────────────
-
     public function test_unpublish_returns_live_gallery_to_draft(): void
     {
         $user = User::factory()->create();
@@ -190,15 +163,11 @@ class PublishWorkflowTest extends TestCase
         $this->assertTrue((bool) $gallery->fresh()->is_active);
     }
 
-    // ── Duplicate inherits publish state ────────────────────────────────
-
     public function test_duplicate_of_draft_stays_draft(): void
     {
         $user = User::factory()->pro()->create();
         $gallery = Gallery::factory()->create(['user_id' => $user->id, 'is_active' => false]);
 
-        // duplicate() copies image FILES on disk — the factory points at
-        // nonexistent paths, so put two real bytes on the public disk.
         Storage::fake('public');
         foreach (['artwork-one.jpg', 'artwork-two.jpg'] as $i => $filename) {
             $path = "gallery-images/{$filename}";
@@ -217,8 +186,6 @@ class PublishWorkflowTest extends TestCase
             ->where('id', '!=', $gallery->id)
             ->firstOrFail();
 
-        // Pre-ITERATION-2 the clone was forced live even when the source
-        // was a draft — instantly exposing an unreviewed copy.
         $this->assertFalse((bool) $clone->is_active, 'Clones must inherit the source publish state.');
         $this->assertSame(2, $clone->images()->count());
     }
@@ -238,8 +205,6 @@ class PublishWorkflowTest extends TestCase
 
         $this->assertTrue((bool) $clone->is_active);
     }
-
-    // ── Edit page publish status bar ────────────────────────────────────
 
     public function test_edit_page_shows_draft_status_bar_for_draft(): void
     {
@@ -269,8 +234,6 @@ class PublishWorkflowTest extends TestCase
             ->assertSee('Copy link')
             ->assertSee(route('gallery.view', $gallery->slug));
     }
-
-    // ── Artwork metadata editor UI ──────────────────────────────────────
 
     public function test_edit_page_includes_metadata_editor_for_images(): void
     {
@@ -315,8 +278,6 @@ class PublishWorkflowTest extends TestCase
 
         $response->assertOk()->assertDontSee('Get started with Exospace');
     }
-
-    // ── Trial wiring ────────────────────────────────────────────────────
 
     public function test_pricing_offers_trial_to_eligible_free_user(): void
     {
@@ -363,8 +324,6 @@ class PublishWorkflowTest extends TestCase
         $response->assertOk()->assertDontSee('Start 14-day Pro trial');
     }
 
-    // ── Plan-copy alignment ─────────────────────────────────────────────
-
     public function test_pricing_copy_states_real_pro_entitlements(): void
     {
         $response = $this->get('/pricing');
@@ -408,8 +367,6 @@ class PublishWorkflowTest extends TestCase
         $firstStamp = $gallery->fresh()->published_at;
         $this->assertNotNull($firstStamp, 'Publish stamps the first-publish timestamp.');
 
-        // Unpublish retains it — a historical fact, and the TTFE metric
-        // (published_at − created_at) must stay stable across cycles.
         $this->actingAs($user)->post("/admin/galleries/{$gallery->id}/unpublish");
         $this->assertEquals(
             $firstStamp->timestamp,
@@ -417,8 +374,6 @@ class PublishWorkflowTest extends TestCase
             'Unpublish must retain published_at.',
         );
 
-        // Re-publish does NOT refresh it — re-publishing an old exhibition
-        // is not a new "first exhibition" moment.
         $this->travel(2)->hours();
         $this->actingAs($user)->post("/admin/galleries/{$gallery->id}/publish");
         $this->assertEquals(
@@ -434,8 +389,6 @@ class PublishWorkflowTest extends TestCase
         Storage::fake('public');
         Storage::disk('public')->put('gallery-images/src.jpg', 'fake-jpeg-bytes');
 
-        // Live source published a week ago → the clone is a NEW publication
-        // going live NOW, not an inheritor of last week's stamp.
         $source = Gallery::factory()->create([
             'user_id' => $user->id,
             'is_active' => true,
@@ -472,8 +425,6 @@ class PublishWorkflowTest extends TestCase
         $old = Gallery::factory()->create([
             'is_active' => true, 'published_at' => now()->subDays(30), 'view_count' => 500,
         ]);
-        // Created LONG ago but published TODAY — must rank above the older
-        // publication under ?sort=published (created_at sorting buries it).
         $fresh = Gallery::factory()->create([
             'is_active' => true, 'published_at' => now()->subMinutes(5),
             'created_at' => now()->subDays(90), 'view_count' => 1,

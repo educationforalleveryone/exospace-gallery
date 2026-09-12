@@ -3,58 +3,8 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * CYBER GALLERY v2.0.0 — "Signal Room" (movement-reactive artwork identity).
- *
- * WHAT THE FORENSIC AUDIT FOUND (screenshot-class defects, not taste):
- *   • material_config declared wall_color 0x0a0a14 but NEVER texture_tint
- *     while the venue builds with the concrete PBR set — on every textured
- *     (desktop/mobile) build the declared dark anodized tint was silently
- *     replaced by 0xffffff (Materials.getWallMaterial authority rule). The
- *     "dark electric space" only ever rendered dark on textureless/low-end
- *     builds: the tiers disagreed about the venue's own walls.
- *   • floor_color null → the bright concrete preset (0x6b6b6b) was the
- *     brightest plane in a dark venue — the visual hierarchy inverted away
- *     from the artwork (the exact defect class the Dark Museum audit fixed).
- *   • No environment declaration → the resolved preset's night.hdr (≈10 MB)
- *     downloaded on every visit and its sky reflected into a controlled
- *     signal room that never asked for a sky.
- *   • The rig (exposure 0.5, ambient 0.18, spot 0.55 under r155+ physical
- *     units) left large parts of the hang under the legibility floor.
- *   • The venue had NO signature interaction — "dark room + neon strips" is
- *     not an identity (the Dark-Museum-plus-neon anti-pattern).
- *
- * THE SIGNATURE (ships in the JS bundle — ArtworkReactive.js; this migration
- * carries only the DB half, the same split every deepening iteration uses):
- *   the artworks become LIVING DIGITAL MEDIA. Stillness = clarity, movement =
- *   a controlled digital instability, stopping = smooth recovery. The
- *   declaration lives in visual_config.artwork_reactive and is interpreted
- *   generically (zero slug knowledge in JS).
- *
- * THIS MIGRATION (DB side only):
- *   visual_config : rig lift, fog reach, declared environment absence, post_fx
- *                   (bloom identity + black-blend vignette), artwork standing
- *                   glow + pool cap, hemisphere softening, frame_override
- *                   'black' (device bezel), artwork_reactive declaration.
- *   material_config: texture_tint (THE parity fix), declared dark floor,
- *                   polished signal-floor PBR, tile scale.
- *   description   : verifiable copy (keeps the pinned neon/floor words).
- *   version       : 1.0.0 → 2.0.0 under guard.
- *
- * GUARDING (same contract as the IT3/IT6/dark-museum/zen migrations): every
- * rewrite fires ONLY while the stored value still equals the previously
- * seeded value (strings strictly, numbers numerically). A super-admin's
- * custom value is never touched. Absent keys are added only when missing.
- * Idempotent; down() reverses each rewrite under the same exact-match guard.
- * Paired with the seeder (fresh-install baseline).
- */
 return new class extends Migration
 {
-    /**
-     * Exact-match guard: strings strictly, numbers numerically (null never
-     * matches). Keeps an admin's custom value from ever matching the seeded
-     * "from" value the rewrite is guarded on.
-     */
     private function guardedEquals($current, $from): bool
     {
         if ($current === null) {
@@ -75,7 +25,6 @@ return new class extends Migration
             return; // venue removed by the operator — respect that
         }
 
-        // ── visual_config ────────────────────────────────────────────────
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
@@ -92,8 +41,6 @@ return new class extends Migration
             }
         }
 
-        // frame_override: the historic null → black device bezel. The
-        // luminous boundary around each artwork now supplies the colour.
         if (!array_key_exists('frame_override', $vc) || $vc['frame_override'] === null) {
             $vc['frame_override'] = 'black';
         }
@@ -126,8 +73,6 @@ return new class extends Migration
                 'vignette_offset'   => 1.1,
             ];
         }
-        // THE SIGNATURE — added only when absent; an admin's existing
-        // declaration (any shape) is never overwritten.
         if (!array_key_exists('artwork_reactive', $vc)) {
             $vc['artwork_reactive'] = [
                 'enabled'       => true,
@@ -144,15 +89,12 @@ return new class extends Migration
             ->where('id', $row->id)
             ->update(['visual_config' => json_encode($vc)]);
 
-        // ── material_config ──────────────────────────────────────────────
         $mc = json_decode((string) $row->material_config, true) ?: [];
 
         if (!array_key_exists('texture_tint', $mc)) {
             $mc['texture_tint'] = true;   // THE fix — declared colours become
                                           // authoritative over the PBR sets
         }
-        // floor_color was an explicit null (→ bright preset concrete). Rewrite
-        // only while it is still null/absent.
         if (!array_key_exists('floor_color', $mc) || $mc['floor_color'] === null) {
             $mc['floor_color'] = '0x0b0d14';
         }
@@ -178,7 +120,6 @@ return new class extends Migration
                 ->update(['description' => $v2Description]);
         }
 
-        // ── version ──────────────────────────────────────────────────────
         if ($this->guardedEquals($row->version, '1.0.0')) {
             DB::table('venue_templates')->where('id', $row->id)->update(['version' => '2.0.0']);
         }

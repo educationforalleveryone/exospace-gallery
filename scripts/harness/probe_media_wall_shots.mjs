@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-// probe_media_wall_shots.mjs — before/after evidence for the v3.1.0 Media Wall
-// iteration. Boots the harness ONCE per venue (fixed 640x360 viewport — the
-// SwiftShader resize stall), shoots matched poses, and sanity-probes the new
-// scene objects (media bezel + screen child, picture bar, lamp, knot).
 import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -54,9 +50,6 @@ const VENUES = [
 for (const [tag, venueKey] of VENUES) {
     const errors = [];
 
-    // Sanity + shots run in ONE fresh context per pose (SwiftShader is
-    // memory-fragile on long-lived pages — the original forensic_shots
-    // convention). The sanity probe rides on the first pose's boot.
     for (let pi = 0; pi < POSES.length; pi++) {
         const [id, px, py, pz, tx, ty, tz] = POSES[pi];
         const ctx = await browser.newContext({ viewport: { width: 640, height: 360 }, deviceScaleFactor: 1 });

@@ -1,5 +1,3 @@
-// probe-salon-perf.mjs — draw calls / triangles / lights / console errors
-// for the salon at representative counts. Render loop owns the camera (spawn).
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';

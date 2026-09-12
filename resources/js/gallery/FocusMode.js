@@ -1,34 +1,12 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// FocusMode — click an artwork to tween the camera up close + show info panel
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { CONFIG } from './config.js';
 import { Analytics } from './Analytics.js';
 import { upgradeFocusedArtworkTexture } from './AssetLoader.js';
 
-// Module-level reusable temporaries (one gallery per page — safe as module
-// state; avoids per-call Vector3 allocations).
 const _fwd = new THREE.Vector3();
 const _to  = new THREE.Vector3();
 
-// PERF-B11 (3D audit F11): two-stage focus detection.
-//
-// Stage 1 — an allocation-free direction/distance prefilter keeps only the
-// artwork best aligned with the camera forward vector inside a 40° cone and
-// 14 m range. The old implementation raycast recursively against EVERY
-// artwork group (5 meshes each) on every call — every 3rd frame — which is
-// O(5N) ray-mesh tests plus per-call result arrays.
-//
-// Stage 2 — a single raycast against ONLY the winning candidate preserves
-// the precise crosshair-on-canvas + occlusion behaviour of the old system
-// on capable devices. Low-end devices accept the cone winner directly.
-//
-// ALSO FIXED: this used to early-return unless controls.isLocked — which is
-// never true on mobile (PointerLockControls is disabled there), so
-// double-tap-to-focus silently never worked. Focus detection now also runs
-// in mobile mode.
 export function checkArtworkFocus() {
     if (!this.controls.isLocked && !this.isMobile) return;
     if (this.arrivalActive) return; // Arrival dolly owns the camera — no crosshair noise during the reveal
@@ -79,14 +57,6 @@ export function checkArtworkFocus() {
     }
 }
 
-// ── Frame highlight (PERF-D23 / 3D audit F23) ─────────────────────────────
-// Premium interaction feedback: the artwork under the crosshair takes on a
-// soft emissive glow in its own frame colour (gold frames glow gold, modern
-// black frames glow faintly). The frame materials already carry an emissive
-// channel locked at intensity 0 (Materials.createFrame), so this costs one
-// uniform write per transition — zero per-frame cost while idle, and none of
-// the shader-recompile risk that a material-swap approach would carry.
-// Reduced-motion users get an instant set instead of a tween.
 function _setFrameHighlight(fromArt, toArt) {
     if (this.isLowEnd) return; // Lambert path stays cheap
 
@@ -111,7 +81,6 @@ export function toggleArtworkInfo() {
     const crosshair       = document.getElementById('crosshair');
     const focusIndicator  = document.getElementById('focus-indicator');
 
-    // ── EXIT FOCUS MODE ─────────────────────────────────────────────────────
     if (this.isInspecting) {
         if (this.focusTween) { this.focusTween.kill(); this.focusTween = null; }
         panel?.classList.remove('show');
@@ -145,7 +114,6 @@ export function toggleArtworkInfo() {
         return;
     }
 
-    // ── ENTER FOCUS MODE ────────────────────────────────────────────────────
     if (!this.focusedArtwork) return;
 
     this.originalCameraPos.copy(this.camera.position);
@@ -169,11 +137,6 @@ export function toggleArtworkInfo() {
 
     const artwork = this.focusedArtwork;
 
-    // PERF-E27 (3D audit): on the mobile tier the focused artwork gets its
-    // 2048px variant fetched + swapped in during the 1.5 s camera tween —
-    // close inspection is pixel-sharp without making every wall texture pay
-    // the large-variant cost. No-op on desktop (already large) and low-end
-    // (stays small by design).
     upgradeFocusedArtworkTexture.call(this, artwork);
 
     const artworkWorldPos = new THREE.Vector3();
@@ -213,10 +176,6 @@ export function toggleArtworkInfo() {
 }
 
 
-// (Task H38 / audit C4) — focus the nearest artwork to the camera.
-// Called when the user presses Enter (keyboard navigation alternative
-// to click-to-focus). Finds the closest artwork by distance to camera
-// and calls toggleArtworkInfo on it.
 export function focusNearestArtwork() {
     if (this.isInspecting) {
         // Already inspecting — Exit focus mode (same as pressing E)

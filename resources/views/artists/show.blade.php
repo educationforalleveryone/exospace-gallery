@@ -1,14 +1,3 @@
-{{--
-    Public artist profile (SEO OS Iteration 2 — fixes audit C1).
-
-    Previously rendered inside <x-guest-layout>, which emitted
-    noindex,nofollow — artist profiles were invisible to search engines
-    and had no unique title/description/canonical.
-
-    Now: public layout + controller-built SeoData (unique title with
-    fallback description, canonical, Person JSON-LD, og:image via the
-    artist OG image endpoint, breadcrumbs Home → Artists → name).
---}}
 @extends('layouts.public')
 
 @section('content')

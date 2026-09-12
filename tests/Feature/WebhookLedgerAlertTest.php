@@ -8,18 +8,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 5 — failed-webhook pile-up alerting.
- *
- * A failed processed_webhooks row (a billing event 2Checkout sent and we
- * could not apply) previously surfaced only as a log line and a passive
- * Billing Review tile — webhook processing is synchronous HTTP, so it
- * never reached failed_jobs, and nothing paged anyone. These tests pin:
- *   1. checkWebhookLedger thresholds: >5 warning, >20 critical
- *   2. Stuck 'processing' rows: >30 min warning, >2h critical
- *   3. Healthy ledger → silence
- *   4. /health exposes billing_webhooks: ok / warning (200) / degraded (503)
- */
 class WebhookLedgerAlertTest extends TestCase
 {
     use RefreshDatabase;
@@ -57,8 +45,6 @@ class WebhookLedgerAlertTest extends TestCase
 
         return $bodies;
     }
-
-    // ── Failed-row thresholds ───────────────────────────────────────────
 
     public function test_healthy_ledger_stays_silent(): void
     {
@@ -101,8 +87,6 @@ class WebhookLedgerAlertTest extends TestCase
         $this->assertStringContainsString('Failed webhooks piling up', $bodies[0]);
         $this->assertStringContainsString('CRITICAL', $bodies[0]);
     }
-
-    // ── Stuck-processing thresholds ─────────────────────────────────────
 
     public function test_stuck_processing_rows_alert_at_warning_after_thirty_minutes(): void
     {
@@ -147,8 +131,6 @@ class WebhookLedgerAlertTest extends TestCase
         $this->assertCount(1, $this->sentBodies(), 'the 5-minute cadence must not spam a persistent condition');
     }
 
-    // ── /health integration ─────────────────────────────────────────────
-
     public function test_health_reports_billing_webhooks_ok_when_healthy(): void
     {
         for ($i = 0; $i < 2; $i++) {
@@ -170,8 +152,6 @@ class WebhookLedgerAlertTest extends TestCase
 
         $response = $this->getJson('/health');
 
-        // /health must not flap uptime monitors on a handful of retriable
-        // failures — the Slack channel is the paging surface for warnings.
         $response->assertOk();
         $this->assertSame('warning', $response->json('checks.billing_webhooks.status'));
     }

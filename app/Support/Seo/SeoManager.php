@@ -10,22 +10,8 @@ use App\Models\GalleryImage;
 use App\Models\Artist;
 use Illuminate\Support\Str;
 
-/**
- * SEO metadata engine.
- *
- * Builds SeoData for every public entity type from REAL application data,
- * then layers seo_profile overrides on top (admin-controlled title /
- * description / canonical / robots / OG image). Templates receive a
- * finished SeoData and render it via <x-seo> — they never compose meta
- * tags, so future keyword work happens purely in data.
- *
- * All titles/descriptions are length-managed centrally (config limits).
- */
 class SeoManager
 {
-    // ─────────────────────────────────────────────────────────────────────
-    // Static / marketing pages
-    // ─────────────────────────────────────────────────────────────────────
 
     public function forStaticPage(
         string $title,
@@ -58,10 +44,6 @@ class SeoManager
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Galleries / exhibitions
-    // ─────────────────────────────────────────────────────────────────────
-
     public function forGallery(Gallery $gallery): SeoData
     {
         $description = $this->galleryDescription($gallery);
@@ -82,11 +64,6 @@ class SeoManager
         return $this->applyProfile($seo, $gallery);
     }
 
-    /**
-     * Gallery description with a REAL-DATA fallback: when the curator left
-     * the description empty we generate a factual one from venue + artwork
-     * count — never invented marketing copy.
-     */
     private function galleryDescription(Gallery $gallery): string
     {
         if ($description = trim((string) $gallery->description)) {
@@ -110,14 +87,6 @@ class SeoManager
         return $this->description(implode(' ', $parts) . '. Walk through it in your browser.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Artists
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * @param  int  $publicWorkCount  Number of works in publicly-viewable galleries
-     * @param  int  $exhibitionCount  Number of distinct public exhibitions
-     */
     public function forArtist(Artist $artist, int $publicWorkCount = 0, int $exhibitionCount = 0): SeoData
     {
         $description = $this->artistDescription($artist, $publicWorkCount, $exhibitionCount);
@@ -165,10 +134,6 @@ class SeoManager
         return $this->description(implode(' ', $parts) . '. Explore their works in immersive 3D galleries.');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Artworks
-    // ─────────────────────────────────────────────────────────────────────
-
     public function forArtwork(GalleryImage $artwork, Gallery $gallery): SeoData
     {
         $title = $artwork->title ?: $artwork->original_name ?: 'Untitled';
@@ -193,8 +158,6 @@ class SeoManager
             ogType: 'article',
         );
 
-        // Gallery carries the profile overrides for its content; artwork
-        // pages inherit nothing to avoid overriding curator intent per-work.
         return $seo;
     }
 
@@ -227,10 +190,6 @@ class SeoManager
         return $this->description(implode(' ', $segments));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-// Hubs (discover, artists, venues) — built in Iteration 2, signature ready
-    // ─────────────────────────────────────────────────────────────────────
-
     public function forHub(
         string $templateKey,
         string $description,
@@ -254,16 +213,6 @@ class SeoManager
         );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Overrides / profiles
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * Layer seo_profile overrides (when the model uses HasSeoProfile and
-     * has a profile) on top of the generated SeoData.
-     *
-     * @param  HasSeoProfile&\Illuminate\Database\Eloquent\Model  $model
-     */
     private function applyProfile(SeoData $seo, $model): SeoData
     {
         if (!method_exists($model, 'seoProfile')) {
@@ -285,10 +234,6 @@ class SeoManager
         ]);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────
-
     private function siteName(): string
     {
         return (string) config('seo.site_name', 'Exospace');
@@ -299,11 +244,6 @@ class SeoManager
         return asset((string) config('seo.og.default_image', 'img/og-default.png'));
     }
 
-    /**
-     * Apply a title template from config with placeholder interpolation.
-     *
-     * @param  array<string, string> $vars
-     */
     private function applyTemplate(string $key, array $vars): string
     {
         $template = (string) config("seo.templates.{$key}", '{title}');
@@ -314,9 +254,6 @@ class SeoManager
         return $this->limitTitle($title);
     }
 
-    /**
-     * @param  array<string, string> $vars
-     */
     private function interpolate(string $template, array $vars): string
     {
         return preg_replace_callback(
@@ -326,7 +263,6 @@ class SeoManager
         ) ?? $template;
     }
 
-    /** Length-managed description. Null input → platform default. */
     private function description(?string $text = null): string
     {
         $text = trim((string) $text);

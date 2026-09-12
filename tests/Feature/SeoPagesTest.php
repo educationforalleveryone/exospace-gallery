@@ -2,23 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * SEO OPERATING SYSTEM — Iteration 5 (SEO pages) tests.
- *
- * Covers:
- *   - Fallback routing: published landing pages at /{slug}, editorial at
- *     /resources/{slug}; real routes always win
- *   - Draft pages 404 publicly; preview token renders with noindex
- *   - Scheduled pages 404 until due
- *   - Block allow-list: unknown block types dropped
- *   - Live-content blocks render real exhibitions
- *   - FAQ blocks emit FAQPage schema; editorial pages emit Article schema
- *   - Page SEO: unique title/canonical, noindex flag honored
- *   - Sitemap content group lists published pages only
- *
- * Run: php artisan test --filter=SeoPagesTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Gallery;

@@ -11,29 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 11 — super-admin webhook subscription management UI
- * surfaces backed by the new webhook_deliveries ledger table.
- *
- * Coverage: the per-event subscription count tiles + the per-
- * subscription "Last delivery" column on the /master-control/
- * webhooks index page. These surfaces let the operator triage
- * "did the security team receive the recipient_added webhook
- * last Tuesday?" without greping rotated laravel.log files.
- *
- * The tiles + column are read-only aggregations — the controller
- * computes them in TWO queries (not N+1) for the page. The test
- * verifies the rendering across:
- *  - empty state (no subscriptions → no tiles, "—" in last
- *    delivery column)
- *  - active subscription with no deliveries (last delivery "—")
- *  - active subscription with one successful delivery (✓ HTTP 200)
- *  - active subscription with one failed delivery (✗ HTTP 500)
- *  - paused subscription (counted in tiles as paused, not active)
- *  - per-event aggregate counts across multiple subscriptions
- *
- * Run: php artisan test --filter=WebhookDeliveryManagementUiTest
- */
 class WebhookDeliveryManagementUiTest extends TestCase
 {
     use RefreshDatabase;
@@ -76,15 +53,11 @@ class WebhookDeliveryManagementUiTest extends TestCase
         $response = $this->actingAsMfaSuperAdmin()->get(route('super.webhooks.index'));
 
         $response->assertOk();
-        // The per-event count tiles section is gated by @if(!empty($byEvent))
-        // so it should not render at all when there are no subscriptions.
         $response->assertDontSee('Per-event subscription counts');
     }
 
     public function test_index_shows_per_event_count_tiles_with_active_and_paused_counts(): void
     {
-        // Two active subs for billing.recipient_added + one paused
-        // sub for gallery.published + one active for gallery.published.
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
@@ -132,8 +105,6 @@ class WebhookDeliveryManagementUiTest extends TestCase
         $response->assertOk();
         // The "Last delivery" column header should be present.
         $response->assertSee('Last delivery', false);
-        // The "—" placeholder for no deliveries (rendered as the
-        // em-dash HTML entity &mdash; OR the literal — character).
         $response->assertSee('>', false); // sanity check the cell rendered
         $this->assertSame(0, WebhookDelivery::where('subscription_id', $sub->id)->count());
     }
@@ -146,9 +117,6 @@ class WebhookDeliveryManagementUiTest extends TestCase
             'secret'     => null, 'is_active' => true, 'added_by' => null,
         ]);
 
-        // Insert a delivery row directly (bypassing the dispatch path)
-        // — the controller's latestForSubscriptions() query doesn't
-        // care how the row got there, only that it exists.
         WebhookDelivery::create([
             'subscription_id' => $sub->id,
             'event_type'      => 'billing.recipient_added',

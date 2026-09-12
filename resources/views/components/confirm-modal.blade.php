@@ -1,30 +1,3 @@
-{{--
-    Type-to-confirm modal component (Task H31 / audit H14, H52).
-
-    Replaces browser `confirm()` dialogs for destructive actions. The
-    user must type a confirmation phrase (e.g. the user's email) before
-    the action is submitted. This prevents accidental destructive
-    actions and is the standard pattern for "permanently delete" flows.
-
-    Usage:
-        <x-confirm-modal
-            id="delete-user-modal"
-            title="Permanently Delete User"
-            confirm-text="DELETE"
-            action-url="/master-control/users/123"
-            action-method="POST"
-            action-label="Delete User"
-            danger="true">
-            <p>This will permanently delete the user and all their data.</p>
-        </x-confirm-modal>
-
-    The modal:
-      - Uses the shared dialog language (.modal-panel / .btn-* / .input-base)
-      - Has role="dialog", aria-modal="true", aria-labelledby
-      - Closes on Escape and backdrop click
-      - Requires the user to type the confirm-text exactly
-      - Submit button is disabled until the typed text matches
---}}
 @props([
     'id' => 'confirm-modal',
     'title' => 'Confirm Action',
@@ -102,8 +75,6 @@
 </div>
 
 <script nonce="@nonce">
-// Helper to open the modal from a button's data-click attribute.
-// CSP-safe: call it via data-click="openConfirmModal" data-arg="the-modal-id".
 window.openConfirmModal = function(id) {
     const modal = document.getElementById(id);
     if (modal && modal._x_dataStack) {

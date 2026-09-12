@@ -4,30 +4,8 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Session;
 
-/**
- * M-15: A/B testing service.
- *
- * Assigns users to experiment variants deterministically based on a hash
- * of their session ID. The same user always sees the same variant within
- * a session (and across sessions if the session ID is stable).
- *
- * Usage:
- *   $variant = ABTest::variant('pricing_cta');  // 'A' or 'B'
- *   @abtest('pricing_cta') ... @endabtest
- *
- * Experiments are defined in config/abtests.php. To disable an experiment,
- * remove it from the config (or empty its variants array) — all users
- * will then get variant 'A' (the control).
- */
 class ABTest
 {
-    /**
-     * Get the variant for the current user for a given experiment.
-     *
-     * @param  string $experiment  The experiment name (must exist in config/abtests.php)
-     * @return string              The variant name ('A', 'B', 'C', ...). Returns 'A' if
-     *                             the experiment doesn't exist or is disabled.
-     */
     public static function variant(string $experiment): string
     {
         $experiments = config('abtests.experiments', []);
@@ -65,23 +43,11 @@ class ABTest
         return 'A';
     }
 
-    /**
-     * Check if the current user is in a specific variant of an experiment.
-     *
-     * @param  string $experiment
-     * @param  string $variant
-     * @return bool
-     */
     public static function isVariant(string $experiment, string $variant): bool
     {
         return self::variant($experiment) === $variant;
     }
 
-    /**
-     * Get all experiments + their variants (for admin/debug display).
-     *
-     * @return array
-     */
     public static function all(): array
     {
         return config('abtests.experiments', []);

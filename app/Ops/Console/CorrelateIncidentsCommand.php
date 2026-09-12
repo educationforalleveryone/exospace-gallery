@@ -7,18 +7,6 @@ namespace App\Ops\Console;
 use App\Ops\Services\IncidentCorrelationService;
 use Illuminate\Console\Command;
 
-/**
- * OpsCenter — ops:correlate-incidents (Iteration 2).
- *
- * The correlation sweep: groups unlinked error/critical events into
- * incidents (adopting into open incidents, detecting causal chains,
- * clustering, or creating solo incidents). Scheduled every 5 minutes —
- * immediately after ops:sync-platform so freshly synced deployment
- * failures correlate with the errors that followed them.
- *
- * Idempotent (correlation_key is unique; already-linked events are
- * skipped) and non-fatal on failure (retried next run).
- */
 class CorrelateIncidentsCommand extends Command
 {
     protected $signature = 'ops:correlate-incidents';

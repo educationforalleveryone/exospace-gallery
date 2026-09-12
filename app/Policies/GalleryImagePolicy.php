@@ -6,18 +6,6 @@ use App\Models\GalleryImage;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-/**
- * GalleryImage authorization policy.
- *
- * (Task H05 / audit H9)
- *
- * Authorization model:
- *   - All mutations (delete, update metadata, reorder) are gated by the
- *     parent gallery's update policy. If you can edit the gallery, you
- *     can manage its images.
- *
- * Super-admins bypass all checks (see before() hook).
- */
 class GalleryImagePolicy
 {
     use HandlesAuthorization;
@@ -38,9 +26,6 @@ class GalleryImagePolicy
             return false;
         }
 
-        // ITERATION-12: mirrors GalleryPolicy::update — team images decide
-        // through team roles only; the row-level gallery user_id is the
-        // ownership anchor for personal galleries only.
         if ($gallery->team_id) {
             return $gallery->team && $gallery->team->canEdit($user);
         }

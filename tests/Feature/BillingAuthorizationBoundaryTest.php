@@ -17,45 +17,6 @@ use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Tests\TestCase;
 
-/**
- * ITERATION 16 — BILLING & SUBSCRIPTION AUTHORIZATION (focused suite).
- *
- * Mission boundary under test:
- *
- *   "A billing/subscription identifier is not authorization."
- *
- * Exospace's REAL billing architecture (traced, iteration 16):
- *
- *   Authenticated actor → $request->user() → OWN billing state
- *     - users.plan / subscription_id / subscription_status / plan_expires_at
- *     - transactions.user_id, invoices.user_id, pending_upgrades.user_id
- *
- *   Billing is INDIVIDUAL (user-owned). There is NO team-based billing in the
- *   codebase — Section D pins that team membership confers NO billing
- *   authority, so a future team feature cannot silently assume otherwise.
- *
- *   Every billing mutation is keyed to the SERVER-DERIVED owner:
- *     - self-service endpoints act on $request->user() only
- *     - plan/subscription columns are GUARDED on User (forceFill-only writes)
- *     - the 2Checkout webhook mutates state only after MD5+HMAC signature
- *       verification, and resolves the customer through the SERVER-MINTED
- *       pending_upgrade token (hashed at rest), not through client email/ids
- *     - privileged plan changes live behind super_admin + mfa (+ password
- *       .confirm on webhook replay)
- *
- * These tests adversarially verify the boundary from the browser's seat:
- *   Section A — authorized owner access works (self-service preserved)
- *   Section B — foreign invoice/transaction identifiers are dead ends
- *   Section C — injected user/subscription/plan identifiers are ignored
- *   Section D — team membership confers no billing authority
- *   Section E — webhook ownership mapping integrity (no webhook redesign)
- *   Section F — privileged plan-change surface is gated away from users
- *
- * Provider safety (brief Section 16): every 2Checkout API interaction in
- * this suite runs behind Http::fake() — NO real provider call, purchase,
- * cancellation or credential use ever happens. Webhook tests post synthetic
- * payloads to the application's own HTTP kernel only.
- */
 class BillingAuthorizationBoundaryTest extends TestCase
 {
     use RefreshDatabase;
@@ -84,12 +45,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         Config::set('services.2checkout.affiliate_allowlist', '');
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
-
-    /**
-     * A user holding a LIVE recurring subscription (2Checkout reference
-     * stored server-side, exactly as the webhook would have written it).
-     */
     private function subscriber(string $subscriptionId, string $plan = 'pro'): User
     {
         return User::factory()->create([
@@ -100,10 +55,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         ]);
     }
 
-    /**
-     * An invoice (plus its parent transaction) belonging to $user, with a
-     * recognizable provider reference usable as a portal-visibility marker.
-     */
     private function invoiceFor(User $user, string $marker, ?string $pdfPath = null): Invoice
     {
         $transaction = Transaction::factory()->create([
@@ -122,9 +73,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         ]);
     }
 
-    /**
-     * Valid legacy MD5 hash for an IPN payload (Layer 1).
-     */
     private function md5For(string $saleId, string $invoiceId): string
     {
         $stringToHash = strlen($saleId).$saleId
@@ -135,10 +83,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         return strtoupper(md5($stringToHash));
     }
 
-    /**
-     * Valid HMAC SHA-256 signature over the security-critical IPN fields
-     * (Layer 2) — field list mirrors WebhookController::build2CheckoutHmacPayload.
-     */
     private function signPayloadHmac(array $payload): string
     {
         $fields = [
@@ -156,10 +100,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
 
         return hash_hmac('sha256', $hmacPayload, self::BUY_LINK_SECRET);
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Section A — the legitimate owner keeps full self-service
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_billing_portal_renders_only_the_session_users_transactions(): void
     {
@@ -187,8 +127,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
             'status' => 'pending',
         ]);
 
-        // Bob has no pending upgrades — the section must not render at all,
-        // and must never render Alice's.
         $response = $this->actingAs($bob)->get('/billing');
         $response->assertOk();
         $response->assertDontSee('Pending Upgrades');
@@ -216,10 +154,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $this->assertStringContainsString('attachment;', (string) $response->headers->get('Content-Disposition'));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Section B — foreign billing identifiers are dead ends
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_another_user_cannot_download_invoice_by_id(): void
     {
         Storage::fake('local');
@@ -242,9 +176,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $alice = User::factory()->create();
         $bob = User::factory()->create();
 
-        // Sequential invoice IDs (INV-2026-00001…) are guessable by design —
-        // guessing must not equal authorization (iteration-15 lesson, pinned
-        // here for the billing boundary).
         $ids = [];
         foreach (['2CO-PROBE-1', '2CO-PROBE-2', '2CO-PROBE-3'] as $i => $marker) {
             $ids[] = $this->invoiceFor($alice, $marker)->id;
@@ -278,19 +209,11 @@ class BillingAuthorizationBoundaryTest extends TestCase
     {
         $bob = User::factory()->create();
 
-        // Transactions are only ever surfaced through the owner-scoped portal
-        // and the owner-checked invoice endpoint — there is no per-row route.
-        // Unmatched URIs fall through to the app fallback (404 on GET/HEAD,
-        // 405 on any other method) — either way, no billing surface exists.
         $this->actingAs($bob)->get('/billing/transactions/1')->assertNotFound();
         $this->actingAs($bob)->post('/billing/transactions/1')->assertStatus(405);
         $this->actingAs($bob)->get('/billing/invoices/1')->assertNotFound();
         $this->actingAs($bob)->get('/billing/subscription/SUB-ALICE')->assertNotFound();
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Section C — injected identifiers cannot cross the mutation boundary
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_cancel_subscription_targets_server_state_not_client_payload(): void
     {
@@ -300,9 +223,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         Http::fake();
 
         $response = $this->actingAs($bob)->post('/billing/cancel-subscription', [
-            // The attack: make the server cancel ALICE's subscription by
-            // naming it in the request body. The server must derive the
-            // target from its own state — Bob has none.
             'subscription_id' => 'SUB-ALICE-VICTIM',
             'user_id' => $alice->id,
         ]);
@@ -322,9 +242,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
     {
         $alice = $this->subscriber('SUB-ALICE-VICTIM');
 
-        // Bob legitimately owns a CANCELLED subscription — reactivate is a
-        // permitted self-service operation, but the provider call must carry
-        // BOB's own subscription reference, never the injected one.
         $bob = User::factory()->create([
             'plan' => 'pro',
             'subscription_id' => 'SUB-BOB-OWN',
@@ -388,9 +305,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
     {
         $bob = User::factory()->pro()->create();
 
-        // The client-controlled plan value is whitelisted to free|pro —
-        // 'studio' can never pass validation, so the downgrade endpoint
-        // cannot be used to grant an entitlement.
         $response = $this->actingAs($bob)->post('/billing/downgrade', [
             'plan' => 'studio',
         ]);
@@ -408,8 +322,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $bob = User::factory()->create(); // free
 
         $response = $this->actingAs($bob)->get('/billing/upgrade/pro', [
-            // Query-string injection attempts: point the upgrade at Alice,
-            // or swap the plan through the query string.
             'user_id' => (string) $alice->id,
             'plan' => 'studio',
             'recurring' => '0',
@@ -418,8 +330,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $response->assertRedirect();
         $this->assertStringContainsString('2checkout.com', (string) $response->headers->get('Location'));
 
-        // The pending upgrade (the 2Checkout ownership binding) is minted
-        // for the SESSION user with the ROUTE plan — query values ignored.
         $this->assertDatabaseHas('pending_upgrades', [
             'user_id' => $bob->id,
             'plan' => 'pro',
@@ -452,18 +362,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $this->assertNull($alice->trial_ends_at);
         $this->assertNull($alice->plan_expires_at);
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Section D — team membership confers NO billing authority
-    // (billing is individual; the team authorization model from
-    //  iteration 13 must not leak into the billing boundary)
-    //
-    // RunInSeparateProcess (iteration-12/13 convention): this test reaches
-    // Team::memberRole(), which memoizes (team_id, user_id) → role in a PHP
-    // static (PERF-19). In-process that static survives RefreshDatabase and
-    // poisons later team tests via synthetic-ID reuse — the separate process
-    // faithfully simulates a fresh FPM request cycle.
-    // ─────────────────────────────────────────────────────────────────────
 
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
@@ -499,21 +397,10 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $this->assertSame('pro', $alice->plan);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Section E — webhook ownership mapping integrity
-    // (Section 7 of the brief: provider payload values are not browser
-    //  authorization; the mapping resolves through the SERVER-MINTED token.
-    //  No webhook code is modified here — the boundary is pinned as-is.)
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_forged_webhook_without_signature_cannot_bind_victim_billing(): void
     {
         $alice = User::factory()->create(['email' => 'alice@example.test']);
 
-        // A browser-level attacker POSTs an IPN that names ALICE as the
-        // customer through every mapping field at once. Without a valid
-        // signature the request must die at the gate — before ANY mapping
-        // or mutation runs.
         $response = $this->postJson('/webhooks/2checkout', [
             'message_type' => 'ORDER_CREATED',
             'sale_id' => 'SALE-FORGED',
@@ -543,9 +430,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
 
         $alice = User::factory()->create(['email' => 'alice@example.test']);
 
-        // MD5 does not cover the ownership fields (customer_email, item_id_1,
-        // external-reference) — so a captured IPN can be re-posted pointing
-        // at Alice. The HMAC layer (mandatory in production) must reject it.
         $response = $this->postJson('/webhooks/2checkout', [
             'message_type' => 'ORDER_CREATED',
             'sale_id' => 'SALE-TAMPER',
@@ -575,8 +459,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $alice = User::factory()->create(['email' => 'alice@example.test']);
         $bob = User::factory()->create(['email' => 'bob@example.test']);
 
-        // Alice clicks "Upgrade" — the server mints the pending upgrade and
-        // its token. The token IS the ownership binding.
         $pending = PendingUpgrade::createForUser($alice, 'pro', self::PRODUCT_ID_PRO);
 
         $payload = [
@@ -609,8 +491,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
 
         $response->assertOk();
 
-        // The upgrade landed on the TOKEN's owner — Alice — not on the
-        // client-supplied email/id.
         $alice->refresh();
         $this->assertSame('pro', $alice->plan);
         $this->assertNull($alice->plan_expires_at);
@@ -668,10 +548,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $this->assertSame('free', $bob->plan);
         $this->assertDatabaseCount('transactions', 0);
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Section F — the privileged plan-change surface stays privileged
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_regular_user_cannot_reach_the_super_admin_plan_change(): void
     {

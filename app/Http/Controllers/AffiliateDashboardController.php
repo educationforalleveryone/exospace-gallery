@@ -7,33 +7,10 @@ use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/**
- * M-5: Affiliate program dashboard.
- *
- * Shows affiliate performance metrics for the super-admin:
- *   - Total referrals (pending upgrades with affiliate_id)
- *   - Conversion rate (pending → completed transactions)
- *   - Revenue attributed to each affiliate
- *   - Per-affiliate breakdown
- *
- * Affiliate IDs are stored on pending_upgrades.affiliate_id (set by
- * BillingController when ?ref=AFFILIATE_ID is passed on the upgrade URL).
- * The SEC-8 allowlist controls which affiliate IDs are accepted.
- */
 class AffiliateDashboardController extends Controller
 {
-    /**
-     * Super-admin: affiliate dashboard.
-     * GET /master-control/affiliates
-     */
     public function index(Request $request): View
     {
-        // AUDIT-P1-4.16 FIX: Previously iterated all affiliate IDs and ran
-        // `PendingUpgrade::where('affiliate_id', $affiliateId)->get()` per
-        // affiliate — a classic N+1 query (1 + 2N queries for N affiliates).
-        // Now uses 2 aggregate queries: one GROUP BY for counts, one JOIN
-        // for revenue. Drops from 1+2N to a fixed 2 queries regardless of
-        // affiliate count.
 
         // Query 1: per-affiliate counts grouped by status.
         $counts = PendingUpgrade::query()
@@ -43,8 +20,6 @@ class AffiliateDashboardController extends Controller
             ->groupBy('affiliate_id', 'status')
             ->get();
 
-        // Query 2: per-affiliate revenue (sum of converted pending_upgrades'
-        // linked transaction amounts). Single JOIN, grouped by affiliate_id.
         $revenues = PendingUpgrade::query()
             ->join('transactions', 'pending_upgrades.transaction_id', '=', 'transactions.id')
             ->where('pending_upgrades.status', 'converted')

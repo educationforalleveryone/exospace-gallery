@@ -7,28 +7,8 @@ namespace App\Ops\Services;
 use App\Ops\Support\LogRedactor;
 use Throwable;
 
-/**
- * OpsCenter — OpsExceptionReporter.
- *
- * Registered as a reportable callback in bootstrap/app.php: every uncaught
- * exception the framework reports ALSO becomes a classified ops_event with
- * the operational context an operator needs (where — url/app; which
- * request — request_id; what — class/file/line + stack excerpt).
- *
- * Rules:
- *   - Enriches with request context ONLY when running in HTTP context.
- *   - Store IP addresses (the audit log already does; it's operational
- *     signal for abuse diagnosis) but never store headers/cookies/input.
- *   - Expected 4xx traffic (NotFound, Validation, Auth, Throttle) is
- *     recorded at info severity so it's visible but never alarming —
- *     bots hitting random URLs must not paint the platform red.
- *   - Never let observability break error handling: all failures swallowed.
- */
 class OpsExceptionReporter
 {
-    /**
-     * Exceptions that are normal web traffic, not operational failures.
-     */
     private const EXPECTED_EXCEPTIONS = [
         \Illuminate\Auth\AuthenticationException::class,
         \Illuminate\Auth\Access\AuthorizationException::class,
@@ -52,8 +32,6 @@ class OpsExceptionReporter
 
             $context = $this->redactor->redactThrowable($e);
 
-            // HTTP request context (only when a request is bound — CLI
-            // exceptions e.g. failed scheduled jobs have no request).
             if (app()->bound('request')) {
                 $request = request();
 

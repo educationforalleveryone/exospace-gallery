@@ -12,72 +12,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * M-10: Invoice generation service.
- *
- * ITERATION-002 FIX (audit 2CO-6): Now generates REAL PDFs via dompdf.
- *
- * Previously: the generatePdf() method rendered the Blade view to HTML and
- * stored it with a .html extension, but the column was named pdf_path and
- * the public-facing filename was INV-{YEAR}-{SEQ}.html served as
- * application/pdf. Customers could not download a real PDF invoice. This
- * is a legal compliance issue in many EU jurisdictions — VAT-compliant
- * invoices must be tamper-proof PDFs (or electronic-invoice-format XML).
- * Tax authorities reject HTML "invoices." 2Checkout's merchant approval
- * process also reviews invoice delivery — they flag a SaaS that serves
- * HTML as PDFs.
- *
- * FIX:
- *   - composer require dompdf/dompdf (pure-PHP, works in containerized envs
- *     without wkhtmltopdf).
- *   - generatePdf() now calls Dompdf to render the Blade view to a real PDF.
- *   - The file extension is .pdf (was .html).
- *   - Content-Type is application/pdf (handled in BillingController::downloadInvoice).
- *   - A backfill command (exospace:regenerate-invoices) regenerates PDFs for
- *     existing invoices that still have .html paths.
- *
- * Invoice numbering:
- *   Sequential per year: INV-{YEAR}-{5-digit-sequence}. The sequence
- *   resets to 00001 at the start of each year. Generated atomically via
- *   a DB-level SELECT FOR UPDATE on the invoices table's MAX(invoice_number).
- *
- * Tax handling:
- *   Iteration-008 (audit 2CO-7): Tax is now calculated via TaxService
- *   based on the customer's country (from billing_address or GeoIP) and
- *   optional VAT number (for B2B reverse charge). Supports EU VAT (MOSS),
- *   UK VAT, Norway VAT, Switzerland VAT, Australia GST, Singapore GST,
- *   India GST. VIES validation for EU B2B reverse charge.
- *
- *   The InvoiceGenerator accepts optional $overrides for tax_rate and
- *   tax_amount (back-compat with callers that pre-computed tax) but if
- *   neither is provided, TaxService is called with the customer's IP,
- *   billing country, and VAT number to compute tax live. This closes
- *   the "every invoice has tax_amount=0" gap (audit 2CO-7).
- *
- *   The invoice stores tax_amount + tax_rate + customer_vat_number +
- *   supplier_vat_number + tax_country_code + reverse_charge so the PDF
- *   can render a fully VAT-compliant invoice (audit O-10).
- */
 class InvoiceGenerator
 {
     public function __construct(
         private readonly TaxService $taxService,
     ) {}
 
-    /**
-     * Generate an invoice for a transaction.
-     *
-     * @param  Transaction  $transaction
-     * @param  User         $user
-     * @param  array        $overrides  Optional field overrides:
-     *     - billing_address: string — customer's billing address
-     *     - customer_vat_number: string — customer's VAT/GST ID (B2B)
-     *     - customer_country: string — 2-letter ISO country code
-     *     - customer_ip: string — IP for GeoIP fallback
-     *     - tax_rate: float — pre-computed tax rate (skips TaxService)
-     *     - tax_amount: float — pre-computed tax amount (skips TaxService)
-     * @return Invoice|null  The created Invoice, or null on failure.
-     */
     public function generateForTransaction(Transaction $transaction, User $user, array $overrides = []): ?Invoice
     {
         try {
@@ -85,9 +25,6 @@ class InvoiceGenerator
 
             $amount = (float) $transaction->amount;
 
-            // Iter-008: compute tax via TaxService (audit 2CO-7 fix).
-            // Callers can still pre-compute tax via $overrides for backward
-            // compat, but the default path now produces real tax amounts.
             $taxRate = (float) ($overrides['tax_rate'] ?? 0);
             $taxAmount = $taxRate > 0 ? round($amount * $taxRate / 100, 2) : 0;
             $reverseCharge = false;
@@ -95,8 +32,6 @@ class InvoiceGenerator
             $customerVatNumber = $overrides['customer_vat_number'] ?? null;
             $supplierVatNumber = TaxService::supplierVatNumber();
 
-            // If no tax_rate override was passed, ask TaxService.
-            // This is the path that closes the "tax_amount=0" gap.
             if ($taxRate === 0.0 && empty($overrides['tax_rate'])) {
                 $customerIp = $overrides['customer_ip'] ?? request()?->ip() ?? '0.0.0.0';
                 $taxBreakdown = $this->taxService->calculateTax(
@@ -111,10 +46,6 @@ class InvoiceGenerator
                 $taxCountryCode = $taxBreakdown['country'];
             }
 
-            // ITERATION-1 FIX (billing correctness): explicit billing_type
-            // from webhook context wins; otherwise infer from the user's
-            // live subscription state (accurate at invoice-creation time,
-            // which is when invoices are normally generated).
             $billingType = $overrides['billing_type']
                 ?? ($user->subscription_id && $user->plan === $transaction->plan
                     ? 'subscription'
@@ -170,21 +101,12 @@ class InvoiceGenerator
         }
     }
 
-    /**
-     * Generate a sequential invoice number: INV-{YEAR}-{5-digit-sequence}.
-     *
-     * The sequence resets to 00001 at the start of each year. Uses a DB
-     * transaction with SELECT ... FOR UPDATE on the MAX(invoice_number)
-     * to ensure atomicity (no duplicate numbers under concurrent inserts).
-     */
     private function generateInvoiceNumber(): string
     {
         $year = now()->year;
         $prefix = "INV-{$year}-";
 
         return DB::transaction(function () use ($year, $prefix) {
-            // Lock the invoices table for the duration of this transaction
-            // to prevent concurrent invoice-number generation.
             $lastInvoice = DB::table('invoices')
                 ->where('invoice_number', 'like', $prefix . '%')
                 ->lockForUpdate()
@@ -202,25 +124,6 @@ class InvoiceGenerator
         });
     }
 
-    /**
-     * Generate the PDF for an invoice.
-     *
-     * 2CO-6 FIX (Iter-002): Now uses dompdf to generate a REAL PDF.
-     * Previously: rendered the Blade view to HTML and stored it as a .html
-     * file. Now: renders to PDF via dompdf and stores as .pdf.
-     *
-     * Returns the relative path on the private disk (e.g. "invoices/2026/INV-2026-00001.pdf").
-     *
-     * ITERATION-15 (media authorization M-1): invoices are PRIVATE financial
-     * documents (name, address, VAT number, amounts) and invoice numbers are
-     * sequential (INV-2026-00001, INV-2026-00002, …). They used to be written
-     * to the PUBLIC disk, which nginx serves unauthenticated at
-     * /storage/invoices/{year}/{invoice_number}.pdf — anyone could scrape
-     * every customer's invoices without an account. Invoice files now go to
-     * the PRIVATE 'local' disk (storage/app/private — NOT under the
-     * public/storage symlink) and are served exclusively through the
-     * owner-authorized BillingController::downloadInvoice endpoint.
-     */
     private function generatePdf(Invoice $invoice): string
     {
         $year = $invoice->issued_at->year;
@@ -234,18 +137,6 @@ class InvoiceGenerator
         // Render the Blade view to HTML
         $html = view('invoices.pdf', ['invoice' => $invoice])->render();
 
-        // 2CO-6 FIX: Convert HTML to PDF via dompdf.
-        //
-        // dompdf is a pure-PHP PDF renderer — no external binary required.
-        // It works in containerized environments (Coolify/Nixpacks) without
-        // any system dependencies. The quality is sufficient for invoices
-        // (simple table layout, no complex CSS). For higher-quality PDFs
-        // (complex layouts, SVG), snappy/wkhtmltopdf would be better but
-        // requires a system binary.
-        //
-        // If dompdf is not installed (composer require dompdf/dompdf),
-        // fall back to HTML storage with a warning log. This preserves
-        // backward compatibility during the transition.
         if (class_exists(\Dompdf\Dompdf::class)) {
             $dompdf = new \Dompdf\Dompdf([
                 'isRemoteEnabled' => false, // security: don't fetch remote resources
@@ -278,16 +169,6 @@ class InvoiceGenerator
         return $relativePath;
     }
 
-    /**
-     * 2CO-6 FIX: Regenerate the PDF for an existing invoice.
-     *
-     * Used by the `exospace:regenerate-invoices` artisan command to backfill
-     * PDFs for invoices that were created before the dompdf fix (i.e.
-     * invoices with .html pdf_path).
-     *
-     * @param  Invoice  $invoice
-     * @return string|null  The new pdf_path, or null on failure.
-     */
     public function regeneratePdf(Invoice $invoice): ?string
     {
         try {

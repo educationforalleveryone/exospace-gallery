@@ -15,7 +15,6 @@
     <a href="{{ route('ops.diagnostics.index') }}" class="text-xs text-slate-500 hover:text-slate-300 shrink-0">Run queue diagnostics →</a>
 </div>
 
-{{-- ── Summary strip ─────────────────────────────────────────────────── --}}
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
     <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
         <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Failed jobs</div>
@@ -39,7 +38,6 @@
     </div>
 </div>
 
-{{-- ── Queue filter chips ───────────────────────────────────────────── --}}
 @if(count($queues) > 0)
 <div class="flex flex-wrap items-center gap-2 mb-5">
     <a href="{{ route('ops.queue.index') }}"
@@ -113,7 +111,6 @@
                 </div>
             </details>
 
-            {{-- Actions: super-admin only, through the confirm pages — never a direct POST --}}
             @if(auth()->user()?->is_super_admin)
                 @if($actionsEnabled)
                     <div class="px-4 py-2.5 border-t border-slate-800/70 flex flex-wrap items-center gap-2 bg-slate-900/30">

@@ -9,24 +9,9 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
-/**
- * P0-3 regression tests: CAN-SPAM / GDPR compliance for marketing emails.
- *
- * Covers:
- *   - marketing_consent flag is captured at registration
- *   - Abandoned-cart email only sends to consented + verified users
- *   - Inactive-nudge email only sends to consented + verified users
- *   - Plan-expiry reminder sends to verified users (transactional, no consent needed)
- *   - Per-user frequency cap on abandoned-cart (max 1 per 7 days)
- *   - Unsubscribe flow (signed URL → confirm → marketing_consent=false)
- *   - Forged unsubscribe URL is rejected (403)
- *   - Email templates include unsubscribe link + physical address
- */
 class MarketingConsentTest extends TestCase
 {
     use RefreshDatabase;
-
-    // ── Registration ─────────────────────────────────────────────────────
 
     public function test_registration_captures_marketing_consent_true_when_checked(): void
     {
@@ -59,8 +44,6 @@ class MarketingConsentTest extends TestCase
         $this->assertNotNull($user);
         $this->assertFalse($user->marketing_consent);
     }
-
-    // ── Abandoned cart ───────────────────────────────────────────────────
 
     public function test_abandoned_cart_does_not_send_to_user_without_consent(): void
     {
@@ -121,19 +104,15 @@ class MarketingConsentTest extends TestCase
             'marketing_consent'  => true,
         ]);
 
-        // First pending upgrade — 25 hours old, not yet notified
         $pending1 = PendingUpgrade::createForUser($user, 'pro', 'PRO-001');
         $pending1->forceFill(['created_at' => now()->subHours(25)])->save();
 
-        // Second pending upgrade — 3 days old, already notified 3 days ago
         $pending2 = PendingUpgrade::createForUser($user, 'studio', 'STUDIO-001');
         $pending2->forceFill([
             'created_at'  => now()->subDays(3),
             'notified_at' => now()->subDays(3),
         ])->save();
 
-        // The second upgrade IS old enough (>24h) but the user was notified
-        // within the 7-day frequency cap window — so no email should be sent.
         $this->artisan('exospace:abandoned-cart')->assertSuccessful();
 
         Mail::assertNothingSent();
@@ -159,8 +138,6 @@ class MarketingConsentTest extends TestCase
         // Only ONE email should be sent (de-duplicated by user)
         Mail::assertQueued(\App\Mail\AbandonedCartEmail::class, 1);
     }
-
-    // ── Inactive nudge ───────────────────────────────────────────────────
 
     public function test_inactive_nudge_does_not_send_without_consent(): void
     {
@@ -236,10 +213,6 @@ class MarketingConsentTest extends TestCase
 
     public function test_inactive_nudge_does_not_suppress_plan_expiry_reminder(): void
     {
-        // P0-7 regression test: before the fix, both flows shared the
-        // same `lifecycle_nudged_at` column. An inactive-nudge would set
-        // the column, and the plan-expiry filter would then skip the user.
-        // Now each flow has its own column, so both emails can be sent.
         Mail::fake();
 
         $user = User::factory()->pro()->create([
@@ -253,15 +226,10 @@ class MarketingConsentTest extends TestCase
 
         $this->artisan('exospace:send-lifecycle-emails')->assertSuccessful();
 
-        // The plan-expiry reminder MUST be sent even though the user was
-        // inactive-nudged recently. Before P0-7, this would have been
-        // suppressed.
         Mail::assertQueued(\App\Mail\PlanExpiringSoon::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id;
         });
     }
-
-    // ── Unsubscribe flow ─────────────────────────────────────────────────
 
     public function test_unsubscribe_signed_url_shows_confirmation_page(): void
     {
@@ -278,8 +246,6 @@ class MarketingConsentTest extends TestCase
     {
         $user = User::factory()->create(['marketing_consent' => true]);
 
-        // P0-3 AUDIT FIX: POST route now requires a signed URL.
-        // An unsigned POST should be rejected (403).
         $signedUrl = URL::signedRoute('unsubscribe.confirm', ['user' => $user->id]);
 
         $response = $this->post($signedUrl);
@@ -301,9 +267,6 @@ class MarketingConsentTest extends TestCase
 
     public function test_forged_unsubscribe_post_is_rejected(): void
     {
-        // P0-3 AUDIT FIX: POST without a signature must be rejected.
-        // Before the fix, any visitor with a CSRF token could POST to
-        // /unsubscribe/{userId} and unsubscribe any user (IDOR).
         $user = User::factory()->create(['marketing_consent' => true]);
 
         // POST without signature — should be 403
@@ -322,12 +285,8 @@ class MarketingConsentTest extends TestCase
         $response = $this->get($url);
 
         $response->assertOk();
-        // assertSee() HTML-escapes the needle, so the apostrophe would become
-        // &#039; — which never matches the raw output. Search unescaped.
         $response->assertSee("You're already unsubscribed", escape: false);
     }
-
-    // ── Email template compliance ────────────────────────────────────────
 
     public function test_abandoned_cart_email_contains_unsubscribe_link(): void
     {

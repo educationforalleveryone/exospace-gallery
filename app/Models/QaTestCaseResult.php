@@ -7,21 +7,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * Per-test-case outcome belonging to a QaTestRun.
- *
- * @property int $id
- * @property int $qa_test_run_id
- * @property string $test_identifier
- * @property string $classname
- * @property string $method_name
- * @property string|null $data_set
- * @property string $status
- * @property int|null $time_ms
- * @property string|null $message
- * @property string|null $detail
- * @property string|null $exception_class
- */
 class QaTestCaseResult extends Model
 {
     public const STATUS_PASSED    = 'passed';
@@ -31,9 +16,6 @@ class QaTestCaseResult extends Model
     public const STATUS_WARNING   = 'warning';
     public const STATUS_TIMED_OUT = 'timed_out';
 
-    /** Exception class prefixes indicating TEST INFRASTRUCTURE failure —
-        not application logic. Conservative by design; unknown classes stay
-        classified as `application` until proven otherwise. */
     public const INFRA_EXCEPTION_SIGNATURES = [
         'PDOException',
         'Illuminate\\Database\\QueryException',
@@ -44,7 +26,6 @@ class QaTestCaseResult extends Model
         'Illuminate\\Contracts\\Filesystem\\FileNotFoundException',
     ];
 
-    /** Message substrings that betray infrastructure causes */
     public const INFRA_MESSAGE_SIGNATURES = [
         'connection refused',
         'connection reset',
@@ -76,10 +57,6 @@ class QaTestCaseResult extends Model
         return $this->belongsTo(QaTestRun::class, 'qa_test_run_id');
     }
 
-    /**
-     * Classify this case's outcome: 'application' | 'infrastructure' |
-     * 'skipped' | 'warning'; null when passed.
-     */
     public function failureClass(): ?string
     {
         if (! in_array($this->status, [self::STATUS_FAILED, self::STATUS_ERROR, self::STATUS_TIMED_OUT], true)) {

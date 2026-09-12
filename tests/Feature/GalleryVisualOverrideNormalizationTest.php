@@ -2,66 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * VISUAL-OVERRIDE NORMALIZATION — regression tests for the
- * deployed-screenshot incident (2026-09-05).
- *
- * A gallery served a broken-looking Infinite Void for days because its
- * visual_overrides column carried (a) a saturated purple background +
- * pre-polish dim rig saved from an old Live-Preview session and (b) stale
- * no-op post_fx values. Because the override layer ALWAYS wins over the
- * venue row (by design — curator intent), every later venue-side
- * remediation silently no-ops for such galleries, and nothing in the
- * payload showed the layer existed.
- *
- * These tests pin the two guards that make that class of incident
- * recoverable and non-accumulating:
- *
- *   1. SAVE-SIDE NORMALIZATION (GalleryController): persisted overrides are
- *      compared against the venue's CURRENT declaration — keys that only
- *      restate it (forgiving colour-format and numeric-string drift) are
- *      dropped; real deviations persist in canonical form ('0x…' colours);
- *      keys the venue does not declare are kept (deviation from nothing is
- *      intent). A venue SWITCH in the same save normalizes against the NEW
- *      venue, not the stale relation.
- *   2. EXPORT AUTHORITY (VenueConfigExporter): the gallery payload's only
- *      post-fx authority is visual_config.post_fx. The legacy-shaped
- *      sibling `post_fx` bucket (read by nothing on the page-load path —
- *      the panel patches over postMessage) must NOT ship again.
- *
- * VENUE-OWNED ATMOSPHERE (post-deploy hotfix, 2026-09-05): the Live-Preview
- * BACKGROUND control is retired entirely — venue bodies (floor_edge_fade,
- * fog ramp, void dome) derive from background_color, so overriding it
- * recomposes the venue (the purple-belt incident) instead of tuning it.
- * The controller strips the key UNCONDITIONALLY on save, and the exporter
- * ignores it both for new writes and for LEGACY rows already carrying it —
- * which heals already-broken galleries on deploy, no manual reset needed.
- *
- * VENUE-OWNED ATMOSPHERE/ARCHITECTURE/RIG (Dark Museum deployed-screenshot
- * incident, 2026-09-06 — schema s2): the single-key guard proved too
- * narrow. A legacy override layer carrying violet fog + the pre-polish dim
- * rig + undeclared void keys (open_air, floor_reflection) recomposed the
- * v2 Dark Museum into a purple void WITH museum furniture. The authority
- * set is now the full composed-venue list (VenueConfigExporter::
- * VENUE_OWNED_VISUAL_KEYS + void_* prefix rule + texture_tint in
- * materials), enforced at every layer, plus a wholesale override reset on
- * venue switch (overrides saved under one venue are meaningless under
- * another). These tests pin the expanded contract.
- *
- * VENUE-OWNED MATERIAL IDENTITY + PRESENTATION (post-hotfix residual
- * incident, 2026-09-06 — schema s3): the user's second deployed screenshot
- * proved the stale layer also rode through the two buckets s2 did not
- * guard. material_config carried only texture_tint as owned, so a
- * white-cube-era floor layer (light colour + low roughness + metal)
- * recomposed the museum's dark stone into a bright polished plane; and
- * visual_config.post_fx — a NESTED object key — merges WHOLESALE, so a
- * stale {bloom:true} re-armed bloom and fell the blend back to the stock
- * grey glow. s3 owns the full declared material set + post_fx + placement
- * (curation), and drops the legacy sibling post_fx bucket on save. These
- * tests pin the s3 contract.
- * Run: php artisan test --filter=GalleryVisualOverrideNormalizationTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Gallery;
@@ -75,7 +15,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** The remediated Infinite Void declaration (v2.0.0 end state subset). */
     private function voidVenue(array $overrides = []): VenueTemplate
     {
         return VenueTemplate::factory()->create(array_merge([
@@ -103,7 +42,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         ], $overrides));
     }
 
-    /** Valid GalleryController::update() payload (whitelisted values). */
     private function updatePayload(array $overrides = []): array
     {
         return array_merge([
@@ -116,8 +54,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         ], $overrides);
     }
 
-    // ── 1. No-op overrides never persist ─────────────────────────────────
-
     public function test_overrides_that_restate_the_venue_are_dropped(): void
     {
         $user    = User::factory()->create();
@@ -127,8 +63,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             'venue_template_id' => $venue->id,
         ]);
 
-        // Restating the venue in drifted formats: '#000000' == '0x000000',
-        // '0.9' == 0.9 — none of this is curator intent.
         $json = json_encode([
             'visual_config' => [
                 'background_color'      => '#000000',
@@ -169,11 +103,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             'venue_template_id' => $venue->id,
         ]);
 
-        // The incident's real layer: a purple experiment + a slider value
-        // the venue never declared. The purple is VENUE-OWNED (structural
-        // atmosphere), and so is every rig key (s2). The legacy sibling
-        // post_fx bucket is VENUE-OWNED PRESENTATION (s3) — dropped on save.
-        // A genuine non-owned deviation (frame choice) is kept, canonicalized.
         $json = json_encode([
             'visual_config' => [
                 'background_color'  => '#6D0DA0',
@@ -268,9 +197,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             'venue_template_id' => $oldVenue->id,
         ]);
 
-        // Overrides restate the NEW venue (submitted in the same save that
-        // switches to it) — against the stale relation they would look like
-        // deviations and persist; against the new venue they are no-ops.
         $json = json_encode([
             'visual_config' => [
                 'background_color'  => '0x050510',
@@ -292,8 +218,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             'Same-save venue switches must normalize against the NEW venue declaration (and background_color is venue-owned regardless).'
         );
     }
-
-    // ── 5. Reset-all still clears the column ─────────────────────────────
 
     public function test_reset_all_clears_stored_overrides(): void
     {
@@ -375,17 +299,12 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             $config['visual_config']['background_color'],
             'The venue-declared background must win over ANY saved override — this is what heals already-broken galleries on deploy.'
         );
-        // The rig is venue-owned too (s2): the legacy dim value is inert and
-        // the venue's declaration ships instead.
         $this->assertSame(
             0.3,
             $config['visual_config']['ambient_intensity'],
             'The venue-declared rig must win over ANY saved override — a stale pre-polish dim rig must not defeat venue remediation.'
         );
     }
-
-    // ── 7b. THE DARK MUSEUM DEPLOYED INCIDENT (s2): the whole stale layer
-    //        — violet fog, dim rig, undeclared void keys — is inert at once.
 
     public function test_exporter_ignores_the_dark_museum_incident_override_row(): void
     {
@@ -417,9 +336,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             'is_draft'  => false,
             'is_active' => true,
         ]);
-        // The exact incident layer reconstructed from the deployed screenshot
-        // + the documented incident class (void-era keys the old normalizer
-        // kept because the venue did not declare them).
         $gallery = Gallery::factory()->create([
             'user_id'           => $user->id,
             'venue_template_id' => $venue->id,
@@ -460,14 +376,8 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         $this->assertArrayNotHasKey('floor_reflection', $vc, 'An undeclared void key can never mirror the museum floor.');
         $this->assertArrayNotHasKey('void_starfield', $vc, 'A venue that never declared a void effect can never grow one from an override.');
         $this->assertTrue($config['material_config']['texture_tint'], 'texture_tint is venue plumbing — a saved false cannot re-break tinted walls.');
-        // The material identity is venue-owned in full (s3): the legacy
-        // floor polish tweak is inert and the venue's declared stone ships.
         $this->assertSame(0.3, (float) $config['material_config']['floor_roughness'], 'floor_roughness is venue-owned material identity (s3).');
     }
-
-    // ── 7d. THE POST-HOTFIX RESIDUAL INCIDENT (s3): the two buckets s2 did
-    //        not guard — a white-cube-era floor layer + a stale post_fx
-    //        object — are inert at once.
 
     public function test_exporter_ignores_the_residual_floor_and_post_fx_layers(): void
     {
@@ -494,9 +404,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             'is_draft'  => false,
             'is_active' => true,
         ]);
-        // The residual layer the second deployed screenshot proved out: the
-        // s2 heal worked (fog/walls/rig) but the stale white-cube-era floor
-        // numbers + the pre-restraint bloom object rode through.
         $gallery = Gallery::factory()->create([
             'user_id'           => $user->id,
             'venue_template_id' => $venue->id,
@@ -542,8 +449,6 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
             ],
         ]);
 
-        // The panel blob saved under the OLD venue rides along in the same
-        // save that switches venues — it must not recompose the new venue.
         $json = json_encode([
             'visual_config' => ['fog_color' => '0x6d0da0'],
         ]);

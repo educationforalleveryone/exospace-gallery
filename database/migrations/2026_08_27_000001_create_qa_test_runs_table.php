@@ -6,13 +6,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Testing Control Center — structured test-run history.
- *
- * One row per execution/import of a test profile. Case-level detail lives
- * in qa_test_case_results (second migration). These tables are written by
- * qa:run / qa:import locally and by the Control Center ingest API from CI.
- */
 return new class extends Migration
 {
     public function up(): void
@@ -35,8 +28,6 @@ return new class extends Migration
             $table->string('app_version', 64)->nullable();
             $table->string('ci_run_url', 500)->nullable();          // GitHub Actions run link
 
-            // Lifecycle + outcome.
-            // queued|running|passed|failed|cancelled|timed_out|blocked|not_executed
             $table->string('status', 20)->index();
             $table->text('blocked_reason')->nullable();             // human explanation when blocked/not_executed
             $table->timestamp('started_at')->nullable();

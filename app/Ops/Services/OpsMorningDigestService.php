@@ -14,54 +14,12 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
-/**
- * OpsCenter — OpsMorningDigestService (Iteration 7).
- *
- * The unified morning briefing: ONE Slack message a day that answers
- * "what happened, what is still broken, what did we do about it" across
- * every domain the control plane watches — health score, incidents,
- * untriaged errors, applications, the autonomous sweep, backups, the
- * billing-webhook ledger, the Sentry 24 h trend, credential rotation
- * and the last 24 h of operator activity.
- *
- * Design contract (the OpsCenter rules, applied to a report):
- *
- *   - FAIL-SOFT PER SECTION. Every section builder is individually
- *     guarded; a data source that throws degrades that section to
- *     status 'unavailable' with an honest line — the rest of the
- *     briefing still goes out. A broken digest must never be a
- *     missing digest.
- *   - READ-ONLY. Composing reports reads existing tables and caches;
- *     the only writes are the Slack alert itself and the last-sent
- *     stamp. No events are recorded for the digest — the digest
- *     REPORTS on events, it must not become one (365 rows/year of
- *     "digest sent" would be pure noise in the inventory).
- *   - SILENCE IS THE ANOMALY. Alerts fire on problems; the digest
- *     fires on TIME. While enabled it sends every day — including the
- *     boring "all quiet" days — so a silent morning becomes a signal
- *     in itself (the dead-man's-switch rule, §16.4 of the manual).
- *     The kill switch OPS_MORNING_DIGEST_ENABLED=false turns it off
- *     entirely; it gates the SCHEDULED send only — a manual "send
- *     now" from /ops/digest is an explicit, audited human action.
- *   - THE PREVIEW IS THE MESSAGE. /ops/digest renders the exact text
- *     Slack receives, from the same compose()+render() pair — the
- *     preview can never drift from the real thing. Sections whose
- *     data source is not configured (e.g. Sentry without a token)
- *     are OMITTED from the message and listed under "omitted" on the
- *     preview — tight messages beat apologetic ones.
- */
 class OpsMorningDigestService
 {
-    /** Cache stamp: when the digest last went out, and from where. */
     private const STAMP_KEY = 'ops:morning-digest:last';
 
-    /** The scheduled send's Slack dedup key (info TTL: 6 h). */
     private const DEDUP_KEY = 'ops.morning.digest';
 
-    /**
-     * The human-facing section names (Slack + preview share them, so
-     * the message and the page can never disagree about terminology).
-     */
     public const SECTION_LABELS = [
         'health' => 'Platform',
         'incidents' => 'Incidents',
@@ -82,17 +40,6 @@ class OpsMorningDigestService
         private readonly OpsCredentialInventoryService $credentials,
     ) {}
 
-    /**
-     * Assemble the briefing. Never throws — every section is guarded;
-     * a total failure (the outer catch) still yields a deliverable
-     * digest with a single honest 'unavailable' line.
-     *
-     * @return array{
-     *     generated_at: CarbonInterface,
-     *     sections: array<int, array{key: string, title: string, status: string, lines: string[]}],
-     *     omitted: array<int, array{key: string, reason: string}>,
-     * }
-     */
     public function compose(): array
     {
         $sections = [];
@@ -106,8 +53,6 @@ class OpsMorningDigestService
             'sweep' => fn () => $this->sweepSection(),
             'backups' => fn () => $this->backupsSection(),
             'webhooks' => fn () => $this->webhooksSection(),
-            // NOT an arrow fn: $omitted must be captured BY REFERENCE so
-            // the omission note survives the call (arrow functions copy).
             'sentry' => function () use (&$omitted): ?array {
                 return $this->sentrySection($omitted);
             },
@@ -141,13 +86,6 @@ class OpsMorningDigestService
         ];
     }
 
-    /**
-     * Render the exact Slack message for a compose() result. Pure and
-     * deterministic — the /ops/digest preview and the real send both
-     * call this, so they can never disagree.
-     *
-     * @param  array<string, mixed>  $digest
-     */
     public function render(array $digest): string
     {
         $blocks = [];
@@ -165,15 +103,6 @@ class OpsMorningDigestService
         return implode("\n\n", $blocks)."\n\n".$footer;
     }
 
-    /**
-     * Compose, render and deliver. $trigger 'scheduled' (the daily
-     * command — dedup-suppressed within the service's 6 h info TTL) or
-     * 'manual' (the /ops/digest button — never dedup-suppressed: a test
-     * send that silently disappears would look exactly like a broken
-     * webhook). Both record the last-sent stamp.
-     *
-     * @return array{sent: bool, text: string, sections: int, digest: array<string, mixed>}
-     */
     public function send(string $trigger = 'scheduled'): array
     {
         $digest = $this->compose();
@@ -189,10 +118,6 @@ class OpsMorningDigestService
             );
             $sent = true;
         } catch (Throwable) {
-            // The alert service already swallows webhook transport
-            // failures; this only fires on catastrophic setup. Never
-            // fatal — the stamp is still written, the failure is
-            // visible on /ops/digest (last sent ≠ scheduled clean).
         }
 
         try {
@@ -209,11 +134,6 @@ class OpsMorningDigestService
         ];
     }
 
-    /**
-     * When did the digest last go out? (shown on /ops/digest).
-     *
-     * @return array{at: CarbonInterface, trigger: string}|null
-     */
     public function lastSent(): ?array
     {
         try {
@@ -231,9 +151,6 @@ class OpsMorningDigestService
 
     // ── Section builders (each returns the section or null to omit) ──
 
-    /**
-     * @return array{title: string, status: string, lines: string[]}
-     */
     private function healthSection(): array
     {
         $health = $this->score->computeLive();
@@ -268,9 +185,6 @@ class OpsMorningDigestService
         ];
     }
 
-    /**
-     * @return array{title: string, status: string, lines: string[]}
-     */
     private function incidentsSection(): array
     {
         $counts = OpsIncident::query()
@@ -322,14 +236,6 @@ class OpsMorningDigestService
         ];
     }
 
-    /**
-     * Untriaged errors: open/acknowledged events NOT inside an active
-     * incident — the same double-count rule the health score applies
-     * (an error that belongs to an incident is counted as part of that
-     * incident, never twice).
-     *
-     * @return array{title: string, status: string, lines: string[]}
-     */
     private function errorsSection(): array
     {
         $activeIncidentIds = OpsIncident::query()
@@ -385,9 +291,6 @@ class OpsMorningDigestService
         ];
     }
 
-    /**
-     * @return array{title: string, status: string, lines: string[]}
-     */
     private function applicationsSection(): array
     {
         $applications = OpsApplication::query()
@@ -418,8 +321,6 @@ class OpsMorningDigestService
             $byHealth['stopped'],
         );
 
-        // Worst offenders by the SAME sub-score the Applications page
-        // shows (§16.2) — the digest can never disagree with the UI.
         $lines = [];
         try {
             $scores = $this->score->computeForApplications($applications);
@@ -447,12 +348,6 @@ class OpsMorningDigestService
         return ['title' => $title, 'status' => $status, 'lines' => $lines];
     }
 
-    /**
-     * The autonomous sweep's state, via the same reader the Diagnostics
-     * cadence panel uses.
-     *
-     * @return array{title: string, status: string, lines: string[]}
-     */
     private function sweepSection(): array
     {
         $status = $this->sweepStatus->status();
@@ -485,9 +380,6 @@ class OpsMorningDigestService
         ];
     }
 
-    /**
-     * @return array{title: string, status: string, lines: string[]}
-     */
     private function backupsSection(): array
     {
         $backup = $this->tiles->backupStatus();
@@ -514,9 +406,6 @@ class OpsMorningDigestService
         return ['title' => 'backup freshness', 'status' => $status, 'lines' => $lines];
     }
 
-    /**
-     * @return array{title: string, status: string, lines: string[]}
-     */
     private function webhooksSection(): array
     {
         $webhooks = $this->tiles->webhookStatus();
@@ -542,15 +431,6 @@ class OpsMorningDigestService
         ];
     }
 
-    /**
-     * Omitted (not degraded) when the Sentry API is unconfigured — the
-     * operator never asked for this section. Configured but failing
-     * DOES surface: silence about a configured data source would look
-     * exactly like "no errors".
-     *
-     * @param  array<int, array{key: string, reason: string}>  $omitted
-     * @return array{title: string, status: string, lines: string[]}|null
-     */
     private function sentrySection(array &$omitted): ?array
     {
         $trend = app(SentryApiClient::class)->trend();
@@ -581,9 +461,6 @@ class OpsMorningDigestService
         ];
     }
 
-    /**
-     * @return array{title: string, status: string, lines: string[]}
-     */
     private function credentialsSection(): array
     {
         $inventory = $this->credentials->inventory();
@@ -614,14 +491,6 @@ class OpsMorningDigestService
         return ['title' => 'all surfaces in cadence', 'status' => 'ok', 'lines' => ['Every tracked credential is within its rotation cadence.']];
     }
 
-    /**
-     * The operator-tier audit digest (the Iteration-6 handoff item):
-     * what the humans DID in the last 24 h — diagnostic runs by actor
-     * plus every audited ops.* action. Informational, never a problem
-     * signal: a quiet day is a valid state, not a warning.
-     *
-     * @return array{title: string, status: string, lines: string[]}
-     */
     private function activitySection(): array
     {
         $runs = OpsDiagnosticRun::query()

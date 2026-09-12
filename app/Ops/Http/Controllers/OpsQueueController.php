@@ -13,34 +13,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Throwable;
 
-/**
- * OpsCenter — OpsQueueController (Iteration 10).
- *
- * The failed-jobs BROWSER: what the queue.failed-jobs diagnostic
- * summarizes (counts + top-5 groups), this page shows in full — every
- * failed job, its human name, its age, its leading exception line, and
- * (super-admins only) the Retry…/Forget… doors into the action
- * framework.
- *
- * This closes the last terminal workflow the platform itself used to
- * recommend: the diagnostic's guidance previously ended with "retry
- * deliberately (php artisan queue:retry from a terminal)". After this
- * iteration the terminal sentence is gone and the sentence's subject —
- * the failed-jobs table — is first-class in the control plane.
- *
- * Contract:
- *   - READ-ONLY page: viewer-visible (the same bar as every other read
- *     surface — viewing failures is diagnosis, not intervention).
- *   - Fail-soft on a missing failed_jobs table (fresh install before
- *     migrations): the page renders with a notice, never a 500.
- *   - Payloads and exception traces are shown EXCERPTED and behind
- *     disclosure toggles — they may contain user data; the list view
- *     carries only the job name, queue, connection, age and the FIRST
- *     exception line (the same 220-char discipline the diagnostic uses).
- *   - The buttons are links to confirm pages, never direct POSTs — the
- *     four-layer security model (route group → allow-list → password →
- *     typed phrase) lives in OpsActionController and OpsActionService.
- */
 class OpsQueueController extends Controller
 {
     private const PAGE_SIZE = 25;
@@ -49,10 +21,6 @@ class OpsQueueController extends Controller
         private readonly OpsActionService $actions,
     ) {}
 
-    /**
-     * GET /ops/queue — the failed-jobs list, newest first, optionally
-     * filtered to one queue (?queue=…).
-     */
     public function index(Request $request): View
     {
         $queueFilter = trim((string) $request->query('queue', ''));
@@ -75,10 +43,6 @@ class OpsQueueController extends Controller
         ]);
     }
 
-    /**
-     * Does the failed_jobs table exist and open? (Fresh installs before
-     * the base migrations have no table; the page still renders.)
-     */
     private function tableAvailable(): bool
     {
         try {
@@ -90,13 +54,6 @@ class OpsQueueController extends Controller
         }
     }
 
-    /**
-     * The paginated job list, newest first. Each row is shaped for the
-     * view: the human job name parsed from the payload, the first
-     * exception line, and the age.
-     *
-     * @return LengthAwarePaginator<int, array<string, mixed>>
-     */
     private function jobs(?string $queueFilter): LengthAwarePaginator
     {
         try {
@@ -144,9 +101,6 @@ class OpsQueueController extends Controller
         );
     }
 
-    /**
-     * @return array{total: int, last_24h: int, oldest: ?string, unfiltered_total: int}
-     */
     private function summary(): array
     {
         try {
@@ -172,11 +126,6 @@ class OpsQueueController extends Controller
         }
     }
 
-    /**
-     * Per-queue counts, descending — the filter chips above the list.
-     *
-     * @return array<int, array{queue: string, count: int}>
-     */
     private function queueCounts(): array
     {
         try {

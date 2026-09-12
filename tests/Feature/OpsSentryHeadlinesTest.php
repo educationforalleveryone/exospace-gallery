@@ -11,29 +11,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 9, Feature B — per-app Sentry issue headlines.
- *
- * The Iteration-8 trend column answers "HOW MUCH is this app throwing?";
- * the headlines card answers "WHAT is it throwing?" — top unresolved
- * issues by frequency with permalinks, one card per MAPPED app on
- * /ops/applications.
- *
- * Pinned here:
- *   1. summaryFor() — the issues endpoint scoped to ONE project with its
- *      OWN per-project cache key (a failing project must degrade exactly
- *      its own card, never the org summary or a sibling); failures
- *      cached like successes; unconfigured/empty-slug short-circuits
- *      with zero network calls; the token never appears in any payload.
- *   2. fetch(?string $project) refactor — the org-wide summary still
- *      applies the config project filter; the per-app call ignores it.
- *   3. The card's four honest states — not-configured must NOT claim a
- *      zero-error day (the it8 cell-state lesson), API error says why,
- *      the honest zero says the API answered quiet, the list slices to
- *      three and offers the Sentry link for the rest.
- *   4. The section is read-only data → viewer-visible, and hidden
- *      entirely while nothing is mapped.
- */
 class OpsSentryHeadlinesTest extends TestCase
 {
     use RefreshDatabase;
@@ -55,8 +32,6 @@ class OpsSentryHeadlinesTest extends TestCase
         // Per-project cache isolation across tests.
         Cache::flush();
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
 
     private function app(array $overrides = []): OpsApplication
     {
@@ -113,10 +88,6 @@ class OpsSentryHeadlinesTest extends TestCase
         ]);
     }
 
-    /**
-     * A Sentry issues payload in the documented shape: title, culprit,
-     * count (int shape), userCount (object shape — both are normalized).
-     */
     private function issuesPayload(int $count = 2): array
     {
         $issues = [];
@@ -137,8 +108,6 @@ class OpsSentryHeadlinesTest extends TestCase
 
         return $issues;
     }
-
-    // ── 1. summaryFor(): scoping + caching ──────────────────────────────
 
     public function test_summary_for_is_unconfigured_without_a_token(): void
     {
@@ -188,7 +157,6 @@ class OpsSentryHeadlinesTest extends TestCase
             return in_array('exospace-production', (array) ($request->data()['project'] ?? []), true);
         });
 
-        // Second call: served from the per-project cache — no new request.
         $client->summaryFor('exospace-production');
         Http::assertSentCount(1);
     }
@@ -317,8 +285,6 @@ class OpsSentryHeadlinesTest extends TestCase
 
         $response = $this->asTier('viewer')->get(route('ops.applications'));
 
-        // Frequency-sorted: counts 10..50 → the TOP THREE are field-5,
-        // field-4, field-3; field-1/field-2 fall below the fold.
         $response->assertOk()
             ->assertSee('field-5', false)
             ->assertSee('field-4', false)
@@ -368,8 +334,6 @@ class OpsSentryHeadlinesTest extends TestCase
 
     public function test_an_unconfigured_token_renders_not_fetched_not_a_zero_day(): void
     {
-        // Mapped app, but SENTRY_API_TOKEN unset: no fetch was attempted,
-        // so the card must NOT claim a zero-error day.
         $this->app(['name' => 'Mapped But Tokenless', 'sentry_project_slug' => 'tokenless-project']);
 
         $response = $this->asTier('viewer')->get(route('ops.applications'));

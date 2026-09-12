@@ -8,20 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/**
- * App\Ops\Models\OpsIncident
- *
- * A correlated group of events forming one operational story. Created by
- * IncidentCorrelationService; never hand-built.
- *
- * Lifecycle: open → acknowledged → resolved → (reopen on new recurrence).
- * Acknowledge/resolve are operator actions (audited via AdminAuditLog);
- * a resolved incident whose story recurs (a new event correlates to it
- * within its window) reopens.
- *
- * Root cause is always a CANDIDATE with an explicit confidence level —
- * the product must never claim certainty it doesn't have.
- */
 class OpsIncident extends Model
 {
     protected $table = 'ops_incidents';
@@ -56,19 +42,11 @@ class OpsIncident extends Model
         return $this->hasMany(OpsEvent::class, 'ops_incident_id');
     }
 
-    /**
-     * Member events ordered chronologically — the timeline.
-     */
     public function timeline(): HasMany
     {
         return $this->events()->orderBy('first_seen_at')->orderBy('id');
     }
 
-    /**
-     * Confidence-phrased root-cause statement for the UI. The language is
-     * deliberate (brief requirement): "Likely cause" / "Possible cause" /
-     * "Unclear" — never "The cause".
-     */
     public function rootCauseStatement(): string
     {
         $category = $this->root_cause_category ?? 'UNKNOWN';
@@ -86,21 +64,12 @@ class OpsIncident extends Model
         return $phrase.': '.strtolower($category).' problem (no single root event identified)';
     }
 
-    /**
-     * The "why it matters" line (borrows the root event's statement).
-     */
     public function impactStatement(): string
     {
         return $this->rootCause?->impactStatement()
             ?? 'Multiple correlated problems are affecting this application.';
     }
 
-    /**
-     * Notable context entries (deployment uuid, commit, ...) for the
-     * "Related" section of the incident page.
-     *
-     * @return array<string, mixed>
-     */
     public function relatedContext(): array
     {
         return is_array($this->context) ? $this->context : [];

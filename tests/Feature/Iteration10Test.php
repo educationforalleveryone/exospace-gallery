@@ -2,21 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * ITERATION-10 regression tests.
- *
- * Verifies:
- *   - AUDIT-P1-10.1: Per-severity alert routing — critical alerts route to
- *     OPERATIONAL_ALERT_CRITICAL_WEBHOOK when set, warnings to
- *     OPERATIONAL_ALERT_WARNING_WEBHOOK, etc.
- *   - AUDIT-P1-10.1: Falls back to OPERATIONAL_ALERT_WEBHOOK when the
- *     per-severity env var is absent (backward-compatible).
- *   - AUDIT-P1-10.1: When neither per-severity nor default webhook is set,
- *     the alert is logged only (no webhook call).
- *
- * Run: php artisan test --filter=Iteration10Test
- */
-
 namespace Tests\Feature;
 
 use App\Services\OperationalAlertService;
@@ -29,10 +14,6 @@ class Iteration10Test extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * AUDIT-P1-10.1: When only the default webhook is set, ALL severities
-     * route to it (backward-compatible with pre-iteration-10 behavior).
-     */
     public function test_audit_p110_1_all_severities_route_to_default_when_no_per_severity_set(): void
     {
         Http::fake();
@@ -57,10 +38,6 @@ class Iteration10Test extends TestCase
         });
     }
 
-    /**
-     * AUDIT-P1-10.1: Critical alerts route to OPERATIONAL_ALERT_CRITICAL_WEBHOOK
-     * when it's set, while warnings still go to the default.
-     */
     public function test_audit_p110_1_critical_routes_to_dedicated_webhook(): void
     {
         Http::fake();
@@ -91,11 +68,6 @@ class Iteration10Test extends TestCase
         });
     }
 
-    /**
-     * AUDIT-P1-10.1: Warning alerts route to OPERATIONAL_ALERT_WARNING_WEBHOOK
-     * when it's set, while critical still goes to the default (if no critical
-     * webhook is set).
-     */
     public function test_audit_p110_1_warning_routes_to_dedicated_webhook(): void
     {
         Http::fake();
@@ -126,11 +98,6 @@ class Iteration10Test extends TestCase
         });
     }
 
-    /**
-     * AUDIT-P1-10.1: When NO webhooks are configured (neither default nor
-     * per-severity), the alert is logged only — no HTTP call is made.
-     * Sentry picks up via Log::critical.
-     */
     public function test_audit_p110_1_no_webhook_means_log_only_no_http_call(): void
     {
         Http::fake();
@@ -154,10 +121,6 @@ class Iteration10Test extends TestCase
             ->once();
     }
 
-    /**
-     * AUDIT-P1-10.1: Info alerts route to OPERATIONAL_ALERT_INFO_WEBHOOK
-     * when set.
-     */
     public function test_audit_p110_1_info_routes_to_dedicated_webhook(): void
     {
         Http::fake();
@@ -179,9 +142,6 @@ class Iteration10Test extends TestCase
         });
     }
 
-    /**
-     * AUDIT-P1-10.1: The config block has all 4 per-severity webhook keys.
-     */
     public function test_audit_p110_1_config_has_all_per_severity_keys(): void
     {
         $config = config('services.operational_alerts');
@@ -194,11 +154,6 @@ class Iteration10Test extends TestCase
         $this->assertArrayHasKey('info_webhook_url', $config);
     }
 
-    /**
-     * AUDIT-P1-10.1: The resolveWebhookUrl method exists (private, but
-     * we verify via reflection so a future refactor doesn't silently
-     * remove the routing logic).
-     */
     public function test_audit_p110_1_resolve_webhook_url_method_exists(): void
     {
         $reflection = new \ReflectionClass(OperationalAlertService::class);

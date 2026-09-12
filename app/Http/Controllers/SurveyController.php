@@ -8,17 +8,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * M-18: NPS/CSAT survey controller.
- *
- * Handles survey submission (AJAX) + admin NPS dashboard.
- */
 class SurveyController extends Controller
 {
-    /**
-     * Submit an NPS survey response.
-     * POST /survey/nps
-     */
     public function submitNps(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
@@ -57,16 +48,6 @@ class SurveyController extends Controller
         return back()->with('status', 'Thank you for your feedback!');
     }
 
-    /**
-     * Admin: NPS dashboard.
-     * GET /master-control/nps
-     *
-     * E-5 FIX (Iter-011): Replaced the `SurveyResponse::...->get()` call (which
-     * loaded EVERY NPS response into a PHP Collection — 5-10MB at 10k responses)
-     * with a single SQL aggregate query. The math (count promoters/passives/
-     * detractors, avg score) now happens in the DB, not PHP. One row returned
-     * instead of N rows.
-     */
     public function npsDashboard(Request $request)
     {
         $responses = SurveyResponse::where('survey_type', 'nps')
@@ -75,9 +56,6 @@ class SurveyController extends Controller
             ->latest('responded_at')
             ->paginate(25);
 
-        // E-5 FIX: Single aggregate query — one row, ~7 columns.
-        // SUM(CASE WHEN ...) is portable across MySQL, PostgreSQL, SQLite.
-        // AVG(score) returns a string from MySQL (decimal type) — cast to float.
         $agg = DB::table('survey_responses')
             ->where('survey_type', 'nps')
             ->whereNotNull('responded_at')

@@ -1,10 +1,3 @@
-// probe-salon-doorzone.mjs — check artwork AABBs against the doorcase
-// assembly volumes (casing + leaves + panels). The keep_clear drops the
-// centre SLOT and guarantees the nearest remaining canvas CENTRE is at
-// ±spacing/2 — but a max-cap canvas's EDGE can still reach back into the
-// doorzone (the v2.1 door close-up shows a wide eye-row landscape covering
-// the jamb). Numbers, not eyeballs.
-//   node scripts/harness/probe-salon-doorzone.mjs [count]
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';

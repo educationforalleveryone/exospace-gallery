@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-// probe_v31_shots.mjs — AFTER shots for the v3.1.0 Media Wall iteration.
-// One FRESH BROWSER per pose (SwiftShader in this sandbox OOM-kills long-lived
-// pages); v31 only — the v3.0.0 "before" is evidenced by the production
-// screenshots + shots-forensic/v3-*.png.
 import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -31,8 +27,6 @@ await new Promise(r => server.listen(PORT, r));
 const { chromium } = await import('playwright');
 await mkdir(path.resolve(rootDir, OUT), { recursive: true });
 
-// Auto-aim poses: computed IN-PAGE from the actual furniture positions —
-// the room scales with artwork count, so absolute poses lie.
 const ALL = {
     'lounge-arrival': 'auto',
     'media-close': 'auto',
@@ -113,8 +107,6 @@ for (const [id, px, py, pz, tx, ty, tz] of POSES) {
             const plinth = P(get('structure:plinth'));
             let cam = null, tgt = null;
             if (pid === 'lounge-arrival' && console_) {
-                // arrival sightline: west-south-west of the console, the walk
-                // from wing A — the screen's NW face + the sofa in frame.
                 tgt = { x: console_.x + 0.4, y: 0.85, z: console_.z + 0.5 };
                 cam = { x: console_.x - 6.4, y: 1.8, z: console_.z + 1.2 };
             } else if (pid === 'media-close' && bezel) {

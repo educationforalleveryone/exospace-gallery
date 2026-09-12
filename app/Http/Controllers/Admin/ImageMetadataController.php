@@ -10,30 +10,12 @@ use App\Models\GalleryImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * Per-artwork metadata editor.
- *
- * Each image in a gallery has a metadata panel (title, description, artist,
- * price, medium, year, dimensions, edition, for_sale flag, external_url).
- * This controller handles AJAX updates from the edit-gallery page.
- *
- * The image upload itself is handled by ImageController. This controller
- * handles editing EXISTING images.
- */
 class ImageMetadataController extends Controller
 {
     use AuthorizesGalleryAccess;
 
-    /**
-     * Update metadata for a single image.
-     * AJAX endpoint called from the edit-gallery page.
-     */
     public function update(Request $request, Gallery $gallery, GalleryImage $image)
     {
-        // ITERATION-1 P0 SECURITY FIX: was view-level — a team "viewer"
-        // could edit artwork titles, prices, for_sale flags and artist
-        // attribution on team galleries. Metadata is a curation mutation
-        // → owner/editor only (GalleryPolicy::update).
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         if ($image->gallery_id !== $gallery->id) {

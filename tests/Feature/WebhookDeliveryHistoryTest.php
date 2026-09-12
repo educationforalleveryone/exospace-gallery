@@ -11,20 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * ITERATION 11 — per-subscription delivery history page.
- *
- * Coverage: the /master-control/webhooks/{subscription}/deliveries
- * page — paginated list of every webhook_deliveries row for this
- * subscription. The surface an operator uses when triaging "did the
- * security team receive the recipient_added webhook last Tuesday?"
- * instead of greping rotated laravel.log files.
- *
- * Read-only — no audit log row (mirrors the BillingController::index
- * precedent: "view list" ≠ "export PII"). Requires super-admin + MFA.
- *
- * Run: php artisan test --filter=WebhookDeliveryHistoryTest
- */
 class WebhookDeliveryHistoryTest extends TestCase
 {
     use RefreshDatabase;
@@ -111,8 +97,6 @@ class WebhookDeliveryHistoryTest extends TestCase
             'secret'     => null, 'is_active' => true, 'added_by' => null,
         ]);
 
-        // Three deliveries across 3 hours — the page should render them
-        // newest first (id=3, then id=2, then id=1).
         $oldest = WebhookDelivery::create([
             'subscription_id' => $sub->id,
             'event_type'      => 'billing.recipient_added',
@@ -152,9 +136,6 @@ class WebhookDeliveryHistoryTest extends TestCase
         $response->assertSee($sub->event_type, false);
         $response->assertSee($sub->target_url, false);
 
-        // Use diffForHumans output as the unique lookup string — each
-        // delivery row has a distinct "X hours ago" that's not used
-        // elsewhere in the page (delivery ids aren't rendered).
         $content = $response->content();
         $newestPos = strpos($content, '1 hour ago');
         $middlePos = strpos($content, '2 hours ago');
@@ -244,10 +225,6 @@ class WebhookDeliveryHistoryTest extends TestCase
 
     public function test_deliveries_page_does_not_write_audit_row(): void
     {
-        // Mirrors the BillingController::index precedent: "view list"
-        // ≠ "export PII" — the operator viewing the page doesn't move
-        // data out of the system, so no audit row is written. Verified
-        // by counting admin_audit_logs rows before/after the GET.
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,

@@ -1,43 +1,9 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// PerformanceControls — FPS counter + quality toggle for the gallery viewer
-//
-// Shows a small floating panel in the top-left corner with:
-//   - Real-time FPS (updated every 500ms)
-//   - Quality selector: Auto / High / Medium / Low
-//   - Active lights count (informational)
-//
-// The panel is always visible on the gallery viewer. In preview mode
-// (?preview=1), it also shows a "Save Settings" button that POSTs the
-// current quality preference to the server.
-//
-// Quality levels:
-//   High:   pixelRatio=1.5, bloom on,  max 8 active lights, HDRI on
-//   Medium: pixelRatio=1.25, bloom on,  max 6 active lights, HDRI on
-//   Low:    pixelRatio=1.0,  bloom off, max 4 active lights, HDRI off
-//   Auto:   uses detectLowEnd() result (high-end → High, low-end → Low)
-//
-// PERF-F31 (3D audit — iteration 6): REAL-USER PERF TELEMETRY.
-// Five iterations of performance work were verified by logic + automated
-// tests, but every frame-rate claim lacked field data (Sentry traces are
-// disabled). startPerfSampling() — invoked by main.js at the Enter click —
-// collects 500 ms FPS samples for 15 s alongside draw calls, triangles,
-// pixel ratio (including any adaptive downscale), device tier, JS heap and
-// network class, then sends ONE 'perf' beacon through the existing
-// /gallery/{id}/track pipeline. Visitors who leave early flush a partial
-// sample on pagehide (sendBeacon). One request per engaged visit — the
-// 30/min throttle is untouched.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { Analytics } from './Analytics.js';
 
 const QUALITY_LEVELS = {
     high:   { pixelRatio: 1.5,  bloom: true,  maxLights: 8, hdri: true,  label: 'High' },
     medium: { pixelRatio: 1.25, bloom: true,  maxLights: 6, hdri: true,  label: 'Medium' },
     low:    { pixelRatio: 1.0,  bloom: false, maxLights: 4, hdri: false, label: 'Low' },
-    // PERF-B7 (3D audit F7): 'auto' resolves to this on touch-primary devices.
-    // Bloom is the expensive part of the composer chain (5 fullscreen
-    // passes); at phone canvas sizes its absence is genuinely hard to notice,
-    // while its presence costs ~20-30% frame time on mid-range GPUs.
     mobile: { pixelRatio: 1.25, bloom: false, maxLights: 4, hdri: false, label: 'Mobile' },
 };
 
@@ -49,21 +15,10 @@ export class PerformanceControls {
         this._currentFps = 0;
         this._quality = this._loadSavedQuality() || 'auto';
 
-        // PERF-D25 (3D audit — adaptive resolution): sustained frame-time
-        // based DPR scaling. Only active in 'auto' quality mode and never on
-        // low-end (which already frame-skips). Scale lives in [0.6, 1.0] of
-        // the tier's base pixel ratio; adjustments are small (0.1-0.15),
-        // spaced by a 3s cooldown, and require THREE consecutive 500 ms
-        // samples on the same side of the band — no oscillation, no visual
-        // thrash. The first 6 s after load are exempt (texture uploads +
-        // shader warmup would skew the samples).
         this._prScale = 1;
         this._adaptSamples = [];
         this._adaptHoldUntil = performance.now() + 6000;
 
-        // (Task H37 / audit C4) — only show the performance panel when
-        // ?debug=1 is in the URL. Previously it was visible to every
-        // visitor, overlapping the in-gallery title.
         this._debugMode = window.EXOSPACE_DEBUG === true;
 
         // Always apply the quality setting (even if the panel is hidden)
@@ -142,10 +97,6 @@ export class PerformanceControls {
         }
     }
 
-    // ── PERF-F31: real-user perf sampling ─────────────────────────────────
-    // Started at the Enter click (engaged session). Collects 30 × 500 ms FPS
-    // samples (~15 s), then fires one beacon. pagehide flushes a partial
-    // sample once ≥ 5 samples exist (sendBeacon — survives unload).
     startPerfSampling(enterMs) {
         if (this._perfState) return; // once per page load
         this._perfState = {
@@ -198,15 +149,6 @@ export class PerformanceControls {
         });
     }
 
-    /**
-     * PERF-D25 — adaptive resolution.
-     * Sustained frame-rate feedback loop: 3 consecutive 500 ms samples all
-     * below 26 fps → shrink the render scale by 0.15 (floor 0.6); 3 samples
-     * all above 55 fps → grow by 0.1 (ceiling 1.0). 3 s cooldown after each
-     * change. Never fights an explicit user quality choice, never runs on
-     * low-end (frame-skip owns that tier), skipped for the first 6 s after
-     * load while textures upload and shaders warm up.
-     */
     _maybeAdapt(fps, now) {
         if (this._quality !== 'auto') return;
         if (this.scene.isLowEnd) return;
@@ -237,8 +179,6 @@ export class PerformanceControls {
     _applyPixelRatio() {
         if (!this._basePR) return;
         this.scene.renderer.setPixelRatio(this._basePR * this._prScale);
-        // Keep the post-processing chain's render targets at the same
-        // resolution (PERF-D25 — see PostProcessing.syncPixelRatio).
         this.scene._postFx?.syncPixelRatio?.();
     }
 
@@ -251,9 +191,6 @@ export class PerformanceControls {
             else if (fps >= 30) this._fpsEl.style.color = '#fbbf24';
             else                this._fpsEl.style.color = '#f87171';
         }
-        // PERF-B2: artwork lights are now a fixed pool assigned to the nearest
-        // pieces — report assigned/total instead of scanning every artwork's
-        // (now non-existent) per-artwork light.
         if (this._lightsEl) {
             const pool = this.scene._lightPool;
             if (pool) {
@@ -264,8 +201,6 @@ export class PerformanceControls {
                 this._lightsEl.textContent = 'Lights: 0';
             }
         }
-        // PERF-D24: true per-frame draw calls + triangles (counters accumulate
-        // across composer passes; GalleryScene resets them once per frame).
         if (this._drawsEl) {
             const info = this.scene.renderer?.info;
             if (info) {
@@ -281,9 +216,6 @@ export class PerformanceControls {
     _applyQuality(quality) {
         let cfg;
         if (quality === 'auto') {
-            // Use the existing detection result
-            // PERF-B7: three-way resolution — low-end → Low, mobile tier →
-            // Mobile, everything else → High.
             if (this.scene.isLowEnd)          cfg = QUALITY_LEVELS.low;
             else if (this.scene._isMobileTier) cfg = QUALITY_LEVELS.mobile;
             else                               cfg = QUALITY_LEVELS.high;
@@ -292,13 +224,6 @@ export class PerformanceControls {
         }
         if (!cfg) return;
 
-        // Pixel ratio — PERF-D25: capture the tier base, then apply through
-        // the adaptive path (scale 1.0 initially).
-        // PERF-A8 (3D audit F8): clamp to the device's actual devicePixelRatio.
-        // Previously this called setPixelRatio(cfg.pixelRatio) directly, so the
-        // default 'auto' (→ high = 1.5) FORCED 1.5x rendering on standard
-        // DPR-1 desktop monitors — 2.25x the fragment cost for invisible
-        // supersampling. On high-DPI screens the cap still applies as intended.
         this._basePR = Math.min(window.devicePixelRatio || 1, cfg.pixelRatio);
         this._prScale = 1;
         this._applyPixelRatio();
@@ -314,10 +239,6 @@ export class PerformanceControls {
         // HDRI
         if (!cfg.hdri) {
             this.scene._skipHdri = true;
-            // NOTE: `this.scene` is the GalleryScene instance — the THREE.Scene
-            // is `this.scene.scene`. The old code assigned this.scene.environment
-            // (a property that never existed), so disabling HDRI never actually
-            // detached a loaded environment map.
             if (this.scene.scene?.environment) {
                 this.scene.scene.environment = null;
             }

@@ -2,37 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * Iteration 7 "FRONTIER" regression tests (3D venue roadmap, P2.4 + P3.1).
- *
- * Pins the storefront + data-driven-catalog contract:
- *
- *   P2.4 — venue pages become the SEO/conversion asset:
- *     - /venues/{slug} renders the hero still + the EMBEDDED walkthrough
- *       (click-to-load poster → preview iframe), still no-signup (DO NOT DO #10).
- *     - flag venue_previews off → no poster, no preview URL anywhere.
- *     - the sitemap gains a venues group whose inclusion rule mirrors the
- *       page's indexability EXACTLY (active + published + >= 1 public
- *       exhibition): draft / inactive / archived / exhibition-less venues
- *       are never listed; SeoProfile exclusions are honored.
- *
- *   P2.4 — the catalog decision has data:
- *     - venues:catalog-report --json rolls up adoption/demand/resonance
- *       with exact numbers (accuracy contract), conversion null-safe at
- *       zero views, and the §3.3 register coverage (the gap is always
- *       listed — since Iteration 8, that gap is grandeur alone: The
- *       Salon covered intimacy).
- *
- *   P3.1 — try-on spike behind a default-OFF flag:
- *     - flag default false; preview payload carries tryOnEnabled ONLY on
- *       the sample-only preview (never in any customer-gallery source).
- *     - TryOn.js network-surface scan: zero I/O tokens (client-side only,
- *       §14 P3.1 "nothing persisted" — structural, not procedural).
- *     - TryOn.js slug scan: zero venue identity (DoD #7).
- *
- * Run: php artisan test --filter=VenueFrontierIterationTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Gallery;
@@ -55,10 +24,6 @@ class VenueFrontierIterationTest extends TestCase
         'cyber-gallery', 'sculpture-garden', 'mirror-lake',
         'the-salon', // Iteration 8 (P3.2) — the twelfth venue
     ];
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────
 
     private function venue(string $slug): VenueTemplate
     {
@@ -101,8 +66,6 @@ class VenueFrontierIterationTest extends TestCase
 
     private function bustSitemapCaches(): void
     {
-        // Same mechanism SeoSitemapSystemTest uses: move the version key so
-        // every versioned group cache regenerates from live queries.
         Cache::put('seo:sitemap:version', random_int(1000, 999999));
     }
 
@@ -116,10 +79,6 @@ class VenueFrontierIterationTest extends TestCase
         return $decoded;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // P2.4 — the venue page storefront
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_venue_page_renders_hero_still_and_embedded_walkthrough(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -132,9 +91,6 @@ class VenueFrontierIterationTest extends TestCase
         $response->assertOk();
         $html = $response->getContent();
 
-        // Hero still: the SAME pipeline the picker uses (P0.2 unification),
-        // now on the page. Four legitimate surfaces since the SEO layer:
-        // poster img + figure img + og:image + twitter:image.
         $this->assertSame(
             4,
             substr_count($html, 'venues/white-cube-hero.jpg'),
@@ -146,12 +102,8 @@ class VenueFrontierIterationTest extends TestCase
         $this->assertStringContainsString('data-preview-url="' . route('venues.preview', 'white-cube') . '"', $html);
         $this->assertStringContainsString('Walk through this venue', $html);
 
-        // No-JS visitors keep the direct link — the funnel is never gated
-        // behind JavaScript either (DO NOT DO #10, extended).
         $this->assertStringContainsString('<noscript>', $html);
 
-        // The 3D runtime must NOT boot on page load — the iframe only ever
-        // exists after an explicit user action.
         $this->assertStringNotContainsString('<iframe', $html);
     }
 
@@ -185,10 +137,6 @@ class VenueFrontierIterationTest extends TestCase
         $this->assertStringContainsString('venues/white-cube-hero.jpg', $html);
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // P2.4 — the sitemap venues group
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_sitemap_index_advertises_venues_group(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
@@ -207,9 +155,6 @@ class VenueFrontierIterationTest extends TestCase
         // Indexable: active + published + >= 1 public exhibition.
         $this->attachPublicGallery($this->venue('white-cube'));
 
-        // Exhibition-less venue pages render noindex,follow → never listed.
-        // (zen-gallery, dark-museum etc. stay exhibition-less in this test.)
-
         $this->bustSitemapCaches();
         $xml = $this->get('/sitemap-venues-1.xml')->assertOk()->getContent();
 
@@ -225,8 +170,6 @@ class VenueFrontierIterationTest extends TestCase
         // Baseline: an eligible venue that must remain listed.
         $this->attachPublicGallery($this->venue('zen-gallery'));
 
-        // Each of these holds a live public exhibition — only its STATE
-        // disqualifies it; the gate must catch every one.
         VenueTemplate::where('slug', 'dark-museum')->update(['is_draft' => true]);
         $this->attachPublicGallery($this->venue('dark-museum'));
 
@@ -276,17 +219,11 @@ class VenueFrontierIterationTest extends TestCase
         $this->assertSame(2, substr_count($xml, '<loc>'), 'exactly the two indexable venues, no others');
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // P2.4 — the catalog rollup (accuracy contract)
-    // ─────────────────────────────────────────────────────────────────────
-
     public function test_catalog_report_rolls_up_accurately(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $whiteCube = $this->venue('white-cube');
-        // 2 galleries total, 1 public-with-artwork; 500 venue-attributed
-        // views → conversion = 2 / 500 * 1000 = 4.0 per 1k.
         $this->attachPublicGallery($whiteCube, ['title' => 'Public show']);
         $privateOwner = User::factory()->create();
         Gallery::create([
@@ -298,8 +235,6 @@ class VenueFrontierIterationTest extends TestCase
         ]);
         VenueTemplate::where('slug', 'white-cube')->update(['view_count' => 500]);
 
-        // Zero views → conversion must be null, not zero (a ratio against
-        // zero is a lie, per the model's own contract).
         $this->attachPublicGallery($this->venue('zen-gallery'));
 
         $json = $this->reportJson();
@@ -336,8 +271,6 @@ class VenueFrontierIterationTest extends TestCase
         $this->assertSame('covered', $intimacy['status'], 'The Salon (P3.2) covers the intimacy register.');
         $this->assertSame('the-salon', $intimacy['venue']);
 
-        // …and the §3.3 gap is always visible, never silently filled —
-        // grandeur is the last open register.
         $uncovered = $coverage->where('status', 'uncovered')->pluck('register')->all();
         $this->assertContains('grandeur', $uncovered);
         $this->assertNotContains('intimacy', $uncovered, 'Intimacy was covered by The Salon — it must not reappear as a gap.');
@@ -356,10 +289,6 @@ class VenueFrontierIterationTest extends TestCase
         $this->assertStringContainsString('intimacy', $rule);
         $this->assertStringContainsString('NO existing venue retires', $rule, 'DO NOT DO #2 restated in the instrument itself');
     }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // P3.1 — the try-on spike
-    // ─────────────────────────────────────────────────────────────────────
 
     public function test_try_on_flag_defaults_off(): void
     {
@@ -402,9 +331,6 @@ class VenueFrontierIterationTest extends TestCase
 
     public function test_try_on_is_wired_only_into_the_preview_payload(): void
     {
-        // Policy pinned structurally: among ALL top-level controllers, only
-        // the sample-only preview controller may expose tryOnEnabled —
-        // customer galleries can never receive the key.
         $hits = [];
         foreach (glob(app_path('Http/Controllers/*.php')) as $file) {
             $contents = file_get_contents($file);

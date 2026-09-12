@@ -1,7 +1,3 @@
-// shoot-fast.mjs — rapid single-page capture for DESIGN ITERATION (not the
-// formal evidence matrix): minimal waits, 960x540, N scenarios from argv.
-//   node scripts/harness/shoot-fast.mjs lake-cam-walk "venue=mirror-lake&..." ...
-// Scenarios are given as: id:query[:px,py,pz:tx,ty,tz]  (cam optional)
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -33,9 +29,6 @@ const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '-
     '--disable-renderer-backgrounding', '--disable-background-timer-throttling',
     '--disable-backgrounding-occluded-windows'] });
 
-// Tier override: high (same as shoot.mjs tierInit.high — navigator + the
-// performance.now stretch that keeps the deferred FPS benchmark from firing
-// mid-capture; heavy SwiftShader frames otherwise retro-downgrade the tier).
 const TIER_INIT = `Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>8});
 Object.defineProperty(navigator,'deviceMemory',{get:()=>8});
 const _d = Date.now.bind(Date); Date.now = () => _d() * 250;
@@ -55,8 +48,6 @@ for (const spec of specs) {
     page.on('pageerror', e => errs.push(String(e).slice(0, 160)));
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForSelector('#enter-btn', { timeout: 60000 }).catch(() => {});
-    // DOM click — the curtain overlay can intercept pointer events during
-    // its fade; a JS click is what the scene's own flow listens for.
     await page.$eval('#enter-btn', el => el.click()).catch(() => {});
     await page.waitForFunction(() => {
         const s = window.__exospace?.scene;

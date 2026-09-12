@@ -31,12 +31,6 @@
         <p>You started upgrading to <strong>{{ ucfirst($pendingUpgrade->plan) }}</strong> but didn't finish checkout. No worries — your upgrade is still waiting.</p>
 
         @php
-            // ITERATION-5 (billing truth): a pending upgrade can be a
-            // RECURRING (subscription) checkout — BillingController selects
-            // the recurring 2Checkout product when ?recurring=1 and stores
-            // its product_id on the pending row. The old copy hardcoded
-            // "$99/$29 one-time — Lifetime access — no subscription",
-            // which was wrong for abandoned subscription checkouts.
             $recurringProductId = config('services.2checkout.recurring_product_id_' . $pendingUpgrade->plan);
             $isRecurringCheckout = $recurringProductId && (string) $pendingUpgrade->product_id === (string) $recurringProductId;
         @endphp

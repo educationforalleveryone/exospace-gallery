@@ -1,7 +1,3 @@
-{{-- ITERATION-8: Security notice sent after a user's password was changed
-    from inside their account. Informational only — no action links
-    (see PasswordChangedNoticeMail docblock for the phishing-resistance
-    rationale). --}}
 @extends('emails.partials.layout')
 
 @section('title', 'Your Exospace password was changed')

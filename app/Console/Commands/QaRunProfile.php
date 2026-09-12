@@ -14,18 +14,6 @@ use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
-/**
- * qa:run — execute a Testing Control Center profile.
- *
- * The human-facing translation of "which php artisan test filter do I run?".
- * Everything dangerous (production targeting, incompatible concurrency)
- * is refused HERE so the operator cannot bypass safety by accident.
- *
- * Strategies:
- *   phpunit           → generated suite XML → vendor/bin/phpunit → JUnit artifact
- *   http-smoke        → delegates to qa:smoke (iteration 3 command; config ships now)
- *   in-process-checks → delegates to QaInProcessChecks service
- */
 class QaRunProfile extends Command
 {
     protected $signature = 'qa:run
@@ -68,7 +56,6 @@ class QaRunProfile extends Command
 
         $targetEnv = (string) $this->option('target') ?: 'local';
 
-        // ── SAFETY GATE ────────────────────────────────────────────────────
         $verdict = $safety->evaluate($key, $profile, $targetEnv);
         if (! $verdict['allowed']) {
             $run = $this->recordBlocked($recorder, $key, $profile, $targetEnv, $verdict['reason']);
@@ -85,7 +72,6 @@ class QaRunProfile extends Command
         }
         unset($run);
 
-        // ── STRATEGY DISPATCH ──────────────────────────────────────────────
         $strategy = $profile['strategy'] ?? 'phpunit';
 
         if ($strategy === 'http-smoke') {
@@ -130,7 +116,6 @@ class QaRunProfile extends Command
 
         $this->ensureRunnerRecordStore();
 
-        // ── CONCURRENCY GUARD ──────────────────────────────────────────────
         $conflicts   = (array) ($profile['conflicts_with'] ?? []);
         $lockKey     = "qa:run:{$targetEnv}";
         $lockSeconds = (int) config('test-center.lock_seconds', 3600);
@@ -148,8 +133,6 @@ class QaRunProfile extends Command
             $blockingKeys[] = "qa:lastrun:{$conflictKey}:{$targetEnv}";
         }
 
-        // Note on conflict semantics: the lock prevents truly concurrent runs;
-        // conflicts_with additionally warns when a conflicting profile ran very recently.
         if ($blockingKeys !== []) {
             foreach ($blockingKeys as $bk) {
                 $recent = Cache::get($bk);
@@ -167,12 +150,6 @@ class QaRunProfile extends Command
         }
     }
 
-    /**
-     * The RUNNER process records history into the application's default
-     * connection. In CI / fresh checkouts that is a file-based SQLite store
-     * which may not exist yet — provision it here so recording can never be
-     * the reason a validated result gets lost.
-     */
     private function ensureRunnerRecordStore(): void
     {
         $connection = \DB::connection();
@@ -195,15 +172,6 @@ class QaRunProfile extends Command
         }
     }
 
-    /* ---------------------------------------------------------------------
-    |  Probe strategies (smoke / health) — ship Iteration 3
-    |-------------------------------------------------------------------- */
-
-    /**
-     * Shared executor for the two safe-read probe commands. They emit a
-     * junit-json contract on stdout which we convert into the same recorded
-     * pipeline as PHPUnit runs so history/readiness treat them identically.
-     */
     private function executeProbeStrategy(
         RunRecorder $recorder,
         JunitParser $parser,

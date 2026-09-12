@@ -12,34 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
-/**
- * OpsCenter — OpsHealthService.
- *
- * Computes the platform + per-application health rollups shown on the
- * dashboard. This is an AGGREGATOR, not a new monitoring system (ADR-6):
- * every signal either already exists (JobHeartbeatService, failed_jobs,
- * backup freshness, /health checks) or comes from ops_events produced by
- * the ingestors.
- *
- * Output shape (both methods):
- *   status  : 'healthy' | 'degraded' | 'critical' | 'unknown'
- *   reasons : string[] — human sentences explaining WHY, in priority order.
- *             The UI renders these verbatim under the status; a status
- *             without reasons is a bug (the whole point is "healthy BECAUSE
- *             ..." / "degraded BECAUSE ...").
- *
- * We deliberately do NOT compute a numeric health score in Iteration 1 —
- * an unexplained number is worse than a labeled status. If a score is ever
- * added, its formula will live in this class and be documented in the
- * master manual (brief requirement: no meaningless numbers).
- */
 class OpsHealthService
 {
-    /**
-     * The platform-wide rollup (worst of all applications + self checks).
-     *
-     * @return array{status: string, reasons: string[]}
-     */
     public function platformHealth(): array
     {
         $reasons = [];
@@ -89,7 +63,6 @@ class OpsHealthService
             $status = $this->worst($status, 'degraded');
         }
 
-        // ── Active incidents (Iteration 2) ─────────────────────────────
         try {
             $openIncidents = \App\Ops\Models\OpsIncident::query()
                 ->whereIn('status', ['open', 'acknowledged'])
@@ -110,14 +83,6 @@ class OpsHealthService
         return ['status' => $status, 'reasons' => $reasons];
     }
 
-    /**
-     * Host-application (Exospace) subsystem checks. Mirrors
-     * HealthController's checks (DB, cache, queue, storage) plus the
-     * operational monitors that already exist (heartbeats, backups,
-     * scheduler freshness) — all read-only.
-     *
-     * @return array{status: string, reasons: string[]}
-     */
     public function selfChecks(): array
     {
         $reasons = [];
@@ -130,8 +95,6 @@ class OpsHealthService
             $reasons[] = 'Database unreachable';
             $status = 'critical';
 
-            // Everything else below depends on the DB or is less important —
-            // return early with what we know.
             return ['status' => $status, 'reasons' => $reasons];
         }
 
@@ -266,11 +229,6 @@ class OpsHealthService
         return ['status' => $status, 'reasons' => $reasons];
     }
 
-    /**
-     * Per-application status with reasons, for the overview grid.
-     *
-     * @return \Illuminate\Support\Collection<int, array{application: OpsApplication, status: string, reasons: string[]}>
-     */
     public function applicationStatuses(): \Illuminate\Support\Collection
     {
         $result = collect();

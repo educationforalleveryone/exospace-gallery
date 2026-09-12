@@ -8,14 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * SEO override profile for any entity (gallery, artist, seo_page, ...).
- *
- * See the migration docblock for the design rationale. Reading rules:
- *  - every override column is NULL-able and NULL means "auto-generate";
- *  - use the resolved*() helpers instead of raw columns — they apply the
- *    NULL-fallback so callers never need to know whether a profile exists.
- */
 class SeoProfile extends Model
 {
     protected $fillable = [
@@ -46,20 +38,11 @@ class SeoProfile extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    // ── Resolution helpers ─────────────────────────────────────────────
-
-    /**
-     * Effective robots directive, given the entity's automatic directive.
-     * Profile override wins when set; otherwise the automatic value is used.
-     */
     public function resolveRobots(?string $automatic): ?string
     {
         return $this->robots_directive ?: $automatic;
     }
 
-    /**
-     * Effective sitemap inclusion given the automatic decision.
-     */
     public function resolveSitemapInclusion(bool $automatic): bool
     {
         if ($this->sitemap_include === null) {
@@ -69,9 +52,6 @@ class SeoProfile extends Model
         return (bool) $this->sitemap_include;
     }
 
-    /**
-     * Effective structured-data eligibility given the automatic decision.
-     */
     public function resolveStructuredData(bool $automatic): bool
     {
         if ($this->structured_data_enabled === null) {

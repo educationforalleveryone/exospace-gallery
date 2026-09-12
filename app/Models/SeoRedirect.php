@@ -8,13 +8,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * Managed SEO redirect (Iteration 4).
- *
- * Source paths are stored WITHOUT a leading slash, lowercased. The
- * middleware matches request path (lowercased, leading slash stripped,
- * query string ignored) against the cached active redirect map.
- */
 class SeoRedirect extends Model
 {
     protected $fillable = [
@@ -38,10 +31,6 @@ class SeoRedirect extends Model
         return $q->where('is_active', true);
     }
 
-    /**
-     * Normalize a path for storage/lookup: lowercase, no leading slash,
-     * trailing slash collapsed, query string removed.
-     */
     public static function normalizePath(string $path): string
     {
         $path = parse_url(trim($path), PHP_URL_PATH) ?? trim($path);
@@ -52,11 +41,6 @@ class SeoRedirect extends Model
         return $path;
     }
 
-    /**
-     * The cached redirect map: [source_path => [destination, status_code]].
-     *
-     * @return array<string, array{0: string, 1: int}>
-     */
     public static function cachedMap(): array
     {
         try {
@@ -69,12 +53,6 @@ class SeoRedirect extends Model
                     ])->all(),
             );
         } catch (\Throwable $e) {
-            // ITERATION-1 FIX (availability): this runs in the GLOBAL
-            // middleware stack on EVERY request — a missing/unready table
-            // (mid-deploy migration gap, DB blip) previously 500'd the
-            // entire site. A redirect map is an enhancement: failing OPEN
-            // (no redirects, content still served) is strictly better
-            // than taking the app down. The error surfaces in logs/Sentry.
             \Illuminate\Support\Facades\Log::warning('SeoRedirects: redirect map unavailable — serving without redirects', [
                 'error' => $e->getMessage(),
             ]);
@@ -87,9 +65,6 @@ class SeoRedirect extends Model
         \Illuminate\Support\Facades\Cache::forget('seo:redirects:map');
     }
 
-    /**
-     * Record a hit (fire-and-forget; failure must never break the redirect).
-     */
     public function recordHit(): void
     {
         try {

@@ -8,10 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // ITERATION-1 FIX (idempotent media table): the media table may
-        // already exist on installs where spatie/laravel-medialibrary's
-        // migration ran via --preset or an earlier vendor:publish. Skip
-        // creation when present.
         if (Schema::hasTable('media')) {
             return;
         }

@@ -1,34 +1,4 @@
 #!/usr/bin/env node
-// ─────────────────────────────────────────────────────────────────────────────
-// industrial-loft-qa.mjs — the venue QA gate for Industrial Loft.
-//
-//   node scripts/venue-qa/industrial-loft-qa.mjs
-//
-// Same layering as white-cube-qa.mjs / infinite-void-qa.mjs: this file pins
-// CONTRACTS (config authority, geometry invariants, parity, determinism),
-// tests/Feature/VenueIndustrialLoftIterationTest.php pins the DB side, and
-// scripts/harness/shoot.mjs captures the visual evidence.
-//
-// Checks:
-//   A. Seeder contract — the industrial-loft row declares the deepened
-//      identity (physical-unit rig, dark-venue artwork legibility, post_fx
-//      restraint, corridor width, black frames, open-floor default).
-//   B. DB↔harness sync — the PHP-less harness renders the same JSON a fresh
-//      install seeds (drift here means screenshots stop meaning anything).
-//   C. Geometry invariants — driven through the REAL modules:
-//        • corridor joists span the SHORT axis (the v1.0.0 X/Z swap)
-//        • artwork hang stands OFF the wall face for the venue's 0.5 m
-//          walls (the burial defect) AND stays bit-compatible for 0.3 m
-//        • trim offsets measure from the inner face (coves/columns can
-//          never re-enter the wall box)
-//        • structure lanes = placer lanes (placement parity)
-//        • spawn apron: no prop obstacle overlaps the corridor spawn
-//   D. JS hygiene — reduced-motion no longer forces the low-end tier
-//      (preview/public parity), venue fog survives tier changes, and the
-//      runtime still contains zero venue slugs.
-//   E. Parity pipeline — exporter plan-tier parity + cache keys + the admin
-//      preview blade publishing EXOSPACE_REDUCED_MOTION.
-// ─────────────────────────────────────────────────────────────────────────────
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -43,7 +13,6 @@ const ok = (name, cond, detail = '') => {
 };
 const section = (name) => console.log(`\n── ${name} ${'─'.repeat(Math.max(1, 62 - name.length))}`);
 
-// ── A. Seeder contract ──────────────────────────────────────────────────────
 section('A. Seeder contract (industrial-loft row)');
 const seederSrc = readFileSync(rel('database/seeders/VenueTemplateSeeder.php'), 'utf8');
 
@@ -99,7 +68,6 @@ ok('version bumped (2.x)', /'version'\s*=>\s*'2\.\d+\.\d+'/.test(chunk));
 ok('description promises only what renders (beams/girders)',
     /girders|joists/.test(chunk));
 
-// ── B. DB↔harness sync ──────────────────────────────────────────────────────
 section('B. DB↔harness sync (industrial-loft body)');
 const harnessSrc = readFileSync(rel('scripts/harness/harness.html'), 'utf8');
 const hStart = harnessSrc.indexOf("'industrial-loft': {");
@@ -140,15 +108,10 @@ ok('wallInset(0.5) puts the hang 0.30 off the wall centre (face + 5 cm)',
     Math.abs(wallInset(0.5) - 0.30) < 1e-9, String(wallInset(0.5)));
 ok('wallInset(0.3) keeps the historic 0.20 (White Cube unchanged)',
     Math.abs(wallInset(0.3) - 0.20) < 1e-9, String(wallInset(0.3)));
-// A 0.5-deep wall centred at 3.0 has its inner face at 2.75 — the hang plane
-// must sit in the ROOM (|z| < 2.75), never inside the box.
 const hangZ = 3.0 - wallInset(0.5);
 ok('hang plane sits inside a 0.5 m wall line (|z| < inner face)',
     hangZ < 2.75, `hang z=${hangZ}`);
 
-// C2. Corridor joist axis — read the shipped structure source: the corridor
-// branch must build joists with the Z-spanning geometry (0.12, 0.26, span)
-// and must NOT use the swapped BoxGeometry(width+…) form.
 const decoratorSrc = readFileSync(rel('resources/js/gallery/VenueDecorator.js'));
 const loftSrc = decoratorSrc.slice(
     decoratorSrc.indexOf('function addIndustrialLoftStructure'),
@@ -186,13 +149,7 @@ ok('no prop sits at the corridor spawn x on the centre lane',
 ok('loft structure is rng-free (deterministic by construction)',
     !/_venueRng|\.next\(\)|\.range\(|\.pick\(/.test(loftSrc));
 
-// C7. END-TO-END structure-vs-hang invariant — the REAL placer hangs the
-// show, the REAL interpreter builds the loft, merged meshes are decomposed,
-// and no structural box may intersect an artwork volume (the class of
-// defect the audit found twice: buried hang, column through a landscape).
 {
-    // The venue declares its shell via applyVenueConfig in production; the
-    // stub mutates the SAME CONFIG singleton the modules read.
     CONFIG.room.wallHeight = 7;
     CONFIG.room.wallDepth = 0.5;
     CONFIG.room.artworkSpacing = 3.5;
@@ -219,8 +176,6 @@ ok('loft structure is rng-free (deterministic by construction)',
         };
     };
 
-    // Decompose a merged indexed BufferGeometry into connected-triangle
-    // cluster AABBs (the structural boxes the merge hid).
     const componentBoxes = (geometry) => {
         const pos = geometry.attributes.position;
         const index = geometry.index;
@@ -291,7 +246,6 @@ ok('loft structure is rng-free (deterministic by construction)',
         totalOverlaps === 0, `overlaps=${totalOverlaps}${worst ? ` (first: ${worst})` : ''}`);
 }
 
-// ── D. JS hygiene ───────────────────────────────────────────────────────────
 section('D. JS hygiene (parity + degradation contracts)');
 const rendererSrc = readFileSync(rel('resources/js/gallery/Renderer.js'));
 ok('reduced-motion no longer forces the low-end tier (preview/public parity)',
@@ -310,7 +264,6 @@ ok('runtime contains zero venue slugs in CODE (DoD rule #7; comments documenting
         return !/white-cube|infinite-void|industrial-loft/.test(codeWithoutComments);
     })());
 
-// ── E. Parity pipeline (exporter + blades) ──────────────────────────────────
 section('E. Parity pipeline (exporter / blades / middleware)');
 const exporterSrc = readFileSync(rel('app/Services/VenueConfigExporter.php'));
 ok('venue_config cache key carries the owner plan',

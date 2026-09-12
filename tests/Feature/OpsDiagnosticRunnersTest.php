@@ -14,19 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/**
- * OpsCenter — Iteration 3 — the diagnostic runners.
- *
- * Each runner is exercised on its HEALTHY state and on at least one broken
- * state (where cheap to simulate), asserting the three things that make a
- * diagnostic operationally useful: a correct status, an actionable
- * interpretation, and findings that say what was actually checked.
- *
- * The test environment runs SQLite + array cache, so driver-specific paths
- * (raw MySQL socket probe, SHOW STATUS) assert their TOLERANT degradation
- * instead — which is itself a contract: a diagnostic must never lie about
- * what it could not measure.
- */
 class OpsDiagnosticRunnersTest extends TestCase
 {
     use RefreshDatabase;
@@ -75,8 +62,6 @@ class OpsDiagnosticRunnersTest extends TestCase
             'health' => 'unknown',
         ]);
     }
-
-    // ── Database ────────────────────────────────────────────────────────
 
     public function test_database_connectivity_healthy_on_test_driver(): void
     {
@@ -131,8 +116,6 @@ class OpsDiagnosticRunnersTest extends TestCase
 
     public function test_migration_status_flags_pending_migrations(): void
     {
-        // Simulate pending: an on-disk migration the database has not
-        // recorded (delete the newest batch row).
         $newest = DB::table('migrations')->orderByDesc('batch')->orderByDesc('id')->first();
         $this->assertNotNull($newest);
         DB::table('migrations')->where('id', $newest->id)->delete();
@@ -147,8 +130,6 @@ class OpsDiagnosticRunnersTest extends TestCase
 
     public function test_migration_status_fails_when_migration_errors_exist(): void
     {
-        // A missing-table error — the classifier's first MIGRATION rule
-        // (the strict all-needles migration rule needs more context).
         app(OpsEventIngestor::class)->record([
             'source' => 'app_log',
             'severity' => 'critical',
@@ -161,8 +142,6 @@ class OpsDiagnosticRunnersTest extends TestCase
         $this->assertStringContainsString('Migration failure suspected', $run->summary);
         $this->assertStringContainsString('never blind-fix', $run->interpretation);
     }
-
-    // ── Redis ───────────────────────────────────────────────────────────
 
     public function test_redis_connectivity_healthy_with_working_connection(): void
     {
@@ -184,8 +163,6 @@ class OpsDiagnosticRunnersTest extends TestCase
         $this->assertStringContainsString('unreachable', $run->summary);
         $this->assertStringContainsString('platform-level outage', $run->interpretation, 'The interpretation must convey the blast radius (cache+sessions+queue).');
     }
-
-    // ── Queue ───────────────────────────────────────────────────────────
 
     public function test_queue_health_healthy_when_empty(): void
     {
@@ -251,8 +228,6 @@ class OpsDiagnosticRunnersTest extends TestCase
         $this->assertStringContainsString('ExportGalleryJob', $details, 'The leading exception line must surface in the findings.');
     }
 
-    // ── Server ──────────────────────────────────────────────────────────
-
     public function test_server_disk_reports_usage(): void
     {
         $run = $this->runDiagnostic('server.disk');
@@ -270,8 +245,6 @@ class OpsDiagnosticRunnersTest extends TestCase
         $details = implode(' ', array_column($run->findings, 'detail'));
         $this->assertStringContainsString('PHP', $details);
     }
-
-    // ── Application ─────────────────────────────────────────────────────
 
     public function test_cache_diagnostic_healthy_on_array_store(): void
     {
@@ -350,8 +323,6 @@ class OpsDiagnosticRunnersTest extends TestCase
         $this->assertNotSame('healthy', $run->status);
         $this->assertStringContainsString('Project B', $run->summary);
     }
-
-    // ── Containers & deployments ────────────────────────────────────────
 
     public function test_container_health_uses_live_coolify_status(): void
     {
@@ -485,12 +456,6 @@ class OpsDiagnosticRunnersTest extends TestCase
         $this->assertSame('healthy', $run->status);
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────
-
-    /**
-     * Swap the Redis manager for a stub whose default connection either
-     * works or refuses connections — deterministic without a live Redis.
-     */
     private function fakeRedisManager(bool $healthy): void
     {
         $connection = new class($healthy)
@@ -500,8 +465,6 @@ class OpsDiagnosticRunnersTest extends TestCase
             public function ping()
             {
                 if (! $this->healthy) {
-                    // Same message shape Predis surfaces on a refused TCP
-                    // connection; the runner classifies by message content.
                     throw new \RuntimeException('Connection refused [tcp://127.0.0.1:6379]');
                 }
 

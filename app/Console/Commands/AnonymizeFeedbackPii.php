@@ -9,37 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * ITERATION-5 (AUDIT-P1-5.1): PII retention for the user_feedback table.
- *
- * The user_feedback table (M-19) stores feedback submitted via the in-app
- * feedback widget. Each entry has:
- *   - user_id: the user who submitted (nullable — but widget is admin-only)
- *   - message: the feedback text (may contain PII the user typed)
- *   - page_url: the URL the user was on (may contain query params with PII)
- *   - user_agent: browser fingerprint string
- *
- * Without this command, PII is retained indefinitely — a GDPR violation
- * (Article 5(1)(e): "kept in a form which permits identification of data
- * subjects for no longer than is necessary").
- *
- * This command anonymizes PII on user_feedback rows older than the retention
- * window (default: 18 months, matching AnonymizeTransactionPii):
- *   - message → 'anonymized:' + hash (preserves "this row had feedback" signal)
- *   - page_url → null (URLs can contain query-string PII)
- *   - user_agent → null (browser fingerprint)
- *   - user_id → null (detaches from the user — they may still exist)
- *
- * The category + status + timestamps are preserved for aggregate analytics
- * ("how much feedback did we get last quarter? what was the status breakdown?").
- *
- * Schedule: monthly (1st of each month) via routes/console.php, running
- * after exospace:anonymize-audit-pii so all PII retention happens in one
- * monthly batch.
- *
- * Idempotent: re-running on already-anonymized rows is a no-op (the
- * 'anonymized:' prefix check skips already-processed rows).
- */
 class AnonymizeFeedbackPii extends Command
 {
     protected $signature = 'exospace:anonymize-feedback-pii
@@ -67,8 +36,6 @@ class AnonymizeFeedbackPii extends Command
             return self::SUCCESS;
         }
 
-        // Count rows that need anonymization. A row needs anonymization if ANY
-        // of its PII fields still contain raw data (not already anonymized).
         $needsAnonymization = DB::table('user_feedback')
             ->where('created_at', '<', $cutoff)
             ->where(function ($q) {

@@ -6,9 +6,6 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Artist>
- */
 class ArtistFactory extends Factory
 {
     public function definition(): array

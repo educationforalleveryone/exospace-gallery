@@ -12,8 +12,6 @@ RECEIPT
 Plan: {{ ucfirst($plan) }}
 Invoice ID: {{ $invoiceId }}
 Status: Completed
-{{-- ITERATION-5 (billing truth): sent for both one-time and subscription
-     purchases — do not hardcode a billing type here. --}}
 Type: {{ ucfirst($plan) }} plan purchase
 
 Keep this invoice ID for your records. You can also view it anytime in your billing portal: {{ config('app.url') }}/billing

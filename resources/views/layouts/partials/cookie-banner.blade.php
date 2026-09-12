@@ -79,15 +79,11 @@ function cookieBanner() {
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
             const expires = "expires=" + date.toUTCString();
             
-            // CRITICAL: Set cookie at root path with SameSite for security and wide compatibility
-            // Secure flag should be added in production (HTTPS only)
             const secure = window.location.protocol === 'https:' ? '; Secure' : '';
             document.cookie = name + "=" + value + "; " + expires + "; path=/; SameSite=Lax" + secure;
         },
         
         initializeTracking() {
-            // Add your tracking initialization code here
-            // Example: Google Analytics, Meta Pixel, etc.
             console.log('Tracking accepted - initialize analytics');
         },
         

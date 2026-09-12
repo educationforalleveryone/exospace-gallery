@@ -17,12 +17,6 @@ use App\Http\Controllers\PublicEventController;
 use App\Http\Controllers\NewsletterSignupController;
 use Illuminate\Support\Facades\Route;
 
-// ── Bare DB check (locked down to super-admins) ────────────────────────
-// AUDIT-P0-1.4 FIX: Previously only gated by `app()->environment('production')`
-// returning 404 — which still leaked the full schema + migration list in
-// staging. Now requires super_admin middleware (auth + verified + super_admin
-// + mfa) in ALL environments, including local. Use `/health` for Coolify's
-// readiness probe instead.
 Route::get('/db-check', function () {
     try {
         $tables = \Illuminate\Support\Facades\DB::select("SHOW TABLES");
@@ -38,65 +32,12 @@ Route::get('/db-check', function () {
     }
 })->middleware(['auth', 'verified', 'super_admin', 'mfa'])->name('db-check');
 
-// ── Healthcheck endpoint for Coolify readiness probe ────────────────────
-// P3-3/P3-4/P3-5: Full subsystem health check (DB, Redis, queue, storage).
-// Returns 200 if all healthy, 503 if any subsystem is down.
 Route::get('/health', [\App\Http\Controllers\HealthController::class, 'check'])->name('health');
 
-// ── Installer (REMOVED in task C08, NEUTRALIZED in P0-5) ───────────────────
-// The public /install/ directory and InstallerController have been removed.
-// They were a standing risk: gated only by storage/.installed, the route
-// called Artisan::call('migrate:fresh', ['--force' => true]) which drops
-// every table. A missing lockfile (container rebuild without persistent
-// volume) made the route reproducible — an attacker could wipe the DB.
-//
-// P0-5: The InstallerController.php file has been overwritten with a
-// harmless stub (all methods return 404, no migrate:fresh, no .env
-// writing). The installer views (resources/views/installer/*) and the
-// public/install/ directory have been physically deleted. The founder
-// should also `git rm app/Http/Controllers/InstallerController.php` to
-// remove the stub file entirely.
-//
-// First-run setup is now done via artisan commands:
-//   php artisan migrate --force
-//   php artisan db:seed --class=VenueTemplateSeeder --force
-//   php artisan storage:link
-//   php artisan tinker  # create the first super-admin manually:
-//     >>> $u = App\Models\User::create(['name'=>'Admin','email'=>'…','password'=>bcrypt('…')]);
-//     >>> $u->forceFill(['is_super_admin'=>true,'email_verified_at'=>now()])->save();
-//
-// Any request to /install/ or /finalize-installation now returns 404.
-
-// ── Webhooks ─────────────────────────────────────────────────────────────
-// (Hotfix) 2Checkout sends a GET request to validate the IPN URL before
-// saving it. Without a GET handler, the validation returns 405 and 2Checkout
-// refuses to save the URL. This GET route returns a simple 200 OK.
 Route::get ('webhooks/2checkout',         fn() => response('OK', 200));
-// SEC-15 FIX: Throttle the webhook endpoint to 60 req/min/IP. 2Checkout
-// normally sends one IPN per sale event — well under 1 req/min. A burst
-// from a single IP indicates either a misconfigured 2Checkout retry loop
-// (which 2Checkout's own retry policy shouldn't trigger beyond ~12 retries)
-// or an attack probing the webhook. 60/min is generous enough to absorb
-// 2Checkout's worst-case retry burst (12-15 IPNs in 60 seconds) while
-// stopping a flood. The throttle uses a per-IP key — 2Checkout's INS
-// servers all share a few IP ranges, so the throttle key is effectively
-// "all 2Checkout traffic" in practice.
-//
-// HMAC signature verification (in WebhookController) is still the primary
-// defense — this throttle just protects against floods of unsigned junk
-// that would otherwise waste CPU on hash verification.
 Route::post('/webhooks/2checkout',        [WebhookController::class, 'handle2Checkout'])->name('webhooks.2checkout')->middleware('throttle:60,1');
 Route::post('/webhooks/2checkout/refund', [WebhookController::class, 'handleRefund'])->name('webhooks.2checkout.refund')->middleware('throttle:60,1');
 
-// ── SEO & discovery endpoints ────────────────────────────────────────────
-// SEO OS (Iteration 4): grouped sitemap architecture.
-//   /sitemap.xml                  → index of groups (static, galleries,
-//                                   artists, artworks, content)
-//   /sitemap-{group}-{page}.xml   → group sub-sitemaps (2,000 URLs each)
-//   /sitemap-{page}.xml           → LEGACY gallery sitemaps → 301 to the
-//                                   galleries group (preserves old refs)
-//   /robots.txt                   → dynamic, host-aware directives
-//   /feed.xml                     → RSS of recently updated exhibitions
 Route::get('/robots.txt', \App\Http\Controllers\RobotsController::class)->name('robots');
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 Route::get('/sitemap-{group}-{page}.xml', [SitemapController::class, 'group'])
@@ -110,27 +51,12 @@ Route::get('/discover',    [DiscoverController::class, 'index'])->name('discover
 Route::get('/artists',     [ArtistDirectoryController::class, 'index'])->name('artists.index');
 Route::get('/venues',      [\App\Http\Controllers\PublicVenueController::class, 'index'])->name('venues.index');
 
-// Iteration 1 "The Rehearsal" (roadmap P1.1) — walkable venue preview.
-// Registered BEFORE the single-segment /venues/{slug} for clarity; both
-// can coexist because the paths differ in segment count.
-//
-// Safety envelope (each property pinned by VenuePreviewIterationTest):
-//   - PUBLIC, no auth  — previews ARE the funnel; never gate behind signup
-//     (roadmap DO NOT DO #10). Rate-limiting is the abuse control instead.
-//   - throttle:20,1    — per-IP; generous for humans walking venues, hard
-//     enough to stop scripted hammering of the 3D asset surface.
-//   - feature_flag:venue_previews — aborts 404 when the flag is off, so
-//     the whole surface can be disabled with one env var (rollback path:
-//     "route stays harmless").
-//   - Sample-data-only + noindex are enforced inside
-//     VenuePreviewController + venues/preview.blade.php.
 Route::get('/venues/{slug}/preview', [\App\Http\Controllers\VenuePreviewController::class, 'show'])
     ->name('venues.preview')
     ->middleware('throttle:20,1', 'feature_flag:venue_previews');
 
 Route::get('/venues/{slug}', [\App\Http\Controllers\PublicVenueController::class, 'show'])->name('venues.show');
 
-// ── Public pages ─────────────────────────────────────────────────────────
 Route::get('/', fn() => view('welcome'))->name('welcome');
 Route::view('/privacy',          'pages.privacy')->name('privacy');
 Route::view('/terms',            'pages.terms')->name('terms');
@@ -142,49 +68,18 @@ Route::view('/contact',          'pages.contact')->name('contact');
 Route::get ('/changelog',        [\App\Http\Controllers\ChangelogController::class, 'show'])->name('changelog');
 Route::post('/contact', [\App\Http\Controllers\ContactController::class, 'submit'])->name('contact.submit')->middleware('throttle:5,10');
 
-// ── Unsubscribe (P0-3: CAN-SPAM/GDPR one-click unsubscribe) ──────────────
-// BOTH routes are protected by Laravel's `signed` middleware — the
-// signature is HMAC-signed with APP_KEY, so only the app can generate
-// valid unsubscribe links. An attacker cannot forge a link to unsubscribe
-// another user.
-//
-// P0-3 AUDIT FIX: The POST route previously lacked the `signed` middleware,
-// creating an IDOR vulnerability — any visitor with a CSRF token could POST
-// to /unsubscribe/{userId} and unsubscribe any user. The POST route now
-// also requires a valid signature, and the form on the GET page includes
-// the signature as a hidden field so it's submitted with the POST.
 Route::get('/unsubscribe/{user}',      [\App\Http\Controllers\UnsubscribeController::class, 'show'])->name('unsubscribe.show')->middleware('signed');
 Route::post('/unsubscribe/{user}',     [\App\Http\Controllers\UnsubscribeController::class, 'confirm'])->name('unsubscribe.confirm')->middleware('signed');
 Route::get('/unsubscribe-done',        [\App\Http\Controllers\UnsubscribeController::class, 'done'])->name('unsubscribe.done');
 
-// ── RFC 8058 One-Click Unsubscribe (Iter-007 / audit issue 9) ────────────
-// Gmail/Yahoo enforce RFC 8058 for bulk senders since Feb 2024. The
-// List-Unsubscribe + List-Unsubscribe-Post headers (set by the
-// HasMarketingUnsubscribe trait on every marketing mailable) point at
-// these routes. The POST route is hit by Gmail's automated unsubscribe
-// machinery — it MUST NOT require CSRF (the request comes from Gmail's
-// servers, not the user's browser, and has no CSRF token). The signed
-// URL is the only auth.
-//
-// The POST route is added to the $except array of VerifyCsrfToken in
-// bootstrap/app.php. The `signed` middleware verifies the URL signature.
-//
-// The same URL also serves a GET — a user who copies the header URL
-// into a browser sees a simple "unsubscribed" page (no confirmation
-// step, per RFC 8058 §3 which expects a single round-trip).
 Route::get('/unsubscribe/one-click/{user}',  [\App\Http\Controllers\UnsubscribeController::class, 'oneClickShow'])->name('unsubscribe.one-click')->middleware('signed');
 Route::post('/unsubscribe/one-click/{user}', [\App\Http\Controllers\UnsubscribeController::class, 'oneClickPost'])->name('unsubscribe.one-click.post')->middleware('signed');
 
-// ── Demo redirect ────────────────────────────────────────────────────────
-// SEO OS (Iter-002, audit M9): use publiclyViewable() instead of bare
-// is_active — the demo must never leak a PIN-protected or scheduled
-// gallery URL.
 Route::get('/gallery/demo', function () {
     $gallery = \App\Models\Gallery::publiclyViewable()->has('images', '>=', 1)->first();
     return $gallery ? redirect()->route('gallery.view', $gallery->slug) : redirect('/')->with('error', 'No demo gallery available yet.');
 });
 
-// ── Public artist profile (Round 4) ──────────────────────────────────────
 Route::get('/artist/{slug}', [ArtistProfileController::class, 'show'])->name('artist.profile');
 
 // SEO OS (Iteration 2): artist OG image + artwork landing pages.
@@ -193,12 +88,6 @@ Route::get('/gallery/{slug}/artwork/{image}', [\App\Http\Controllers\ArtworkCont
     ->name('artwork.show')
     ->middleware('throttle:60,1');
 
-// ── Per-gallery: PIN entry, OG image, QR code, events, newsletter ────────
-// PIN verify is throttled at two layers (task C07):
-//   1. Route-level `throttle:5,1` — 5 req/min/IP across all PIN endpoints
-//   2. Per-gallery lockout in GalleryPinController — after 5 failed attempts
-//      for a (gallery, IP) pair, that IP is locked out of that gallery's PIN
-//      for 15 minutes. Stops distributed brute-force against a single gallery.
 Route::get('/gallery/{slug}/pin',       [\App\Http\Controllers\GalleryPinController::class, 'show'])->name('gallery.pin');
 Route::post('/gallery/{slug}/pin',      [\App\Http\Controllers\GalleryPinController::class, 'verify'])->name('gallery.pin.verify')
       ->middleware('throttle:5,1');
@@ -214,102 +103,39 @@ Route::post('/gallery/{slug}/events/{event}/rsvp',         [PublicEventControlle
 Route::post('/gallery/{slug}/newsletter', [NewsletterSignupController::class, 'store'])->name('gallery.newsletter')
       ->middleware('throttle:10,1');
 
-// ── Public gallery view ──────────────────────────────────────────────────
-// Throttled at 60 req/min/IP to absorb viral spikes without DOSing the
-// 3D scene bootstrap. A genuine visitor loads the page once; a scraper
-// hitting 60+ times in a minute is abusive.
 Route::get('/gallery/{slug}', [\App\Http\Controllers\GalleryViewController::class, 'show'])
     ->name('gallery.view')
     ->middleware('throttle:60,1');
 
-// ── Analytics tracking (public, no auth) ─────────────────────────────────
-// (Task H06 / audit H12) — lowered throttle from 120/min to 30/min.
-// 120/min was too generous and allowed view-count inflation. A genuine
-// visitor loads the page once and fires ~5-10 events (view, focus, dwell,
-// tour_start) — 30/min is ample for that, and stops a script from
-// generating 120 fake views per minute per IP.
 Route::post('/gallery/{gallery}/track', [\App\Http\Controllers\Admin\AnalyticsController::class, 'track'])
     ->name('gallery.track')
     ->middleware('throttle:30,1');
 
-// ── Team Invitations ─────────────────────────────────────────────────────
-// SEC-6 FIX: The show route now requires a signed URL (HMAC with APP_KEY).
-// Previously the URL contained only the plain token — if it leaked via a
-// referrer header, browser history, or email forwarding, anyone could view
-// the invitation page (though they still couldn't accept without being
-// logged in as the matching email). The signed URL adds a second factor:
-// even with the token, an attacker can't forge a valid URL without APP_KEY.
-// Accept/decline routes don't need signed URLs — they require auth + the
-// logged-in user's email must match the invited email (see controller).
 Route::get('/team-invitations/{token}',          [TeamInvitationController::class, 'show'])->name('team-invitations.show')->middleware('signed');
 Route::post('/team-invitations/{token}/accept',  [TeamInvitationController::class, 'accept'])->name('team-invitations.accept');
 Route::post('/team-invitations/{token}/decline', [TeamInvitationController::class, 'decline'])->name('team-invitations.decline');
 
-// ── Auth ─────────────────────────────────────────────────────────────────
 Route::get('/dashboard', fn() => redirect()->route('admin.dashboard'))->middleware(['auth', 'verified'])->name('dashboard');
-// P1-7 FIX: Added 'verified' middleware — previously only 'auth' was applied,
-// allowing unverified-email users to access /profile/export (GDPR PII export)
-// and /billing/upgrade/{plan} (mint pending_upgrade + redirect to 2Checkout).
-// The /dashboard route above already had 'verified'; this was an inconsistency.
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile',    [ProfileController::class, 'edit'])->name('profile.edit');
-    // ITERATION-7: the email-change identity gate (current password) is
-    // checked on this endpoint — throttle it like every other password-
-    // confirming route (mfa.disable uses the same bar) so the check cannot
-    // be brute-forced through the session. Named prefix keeps the bucket
-    // isolated from every other numerically throttled route.
     Route::patch('/profile',  [ProfileController::class, 'update'])
         ->middleware('throttle:6,1,profile-update')
         ->name('profile.update');
-    // ITERATION-9: the deletion endpoint confirms the CURRENT PASSWORD —
-    // the same sudo bar as profile.update / mfa.disable — so it gets the
-    // same named throttle bucket treatment. Unthrottled, a hijacked session
-    // could brute-force the password check at line speed. Third-arg prefix
-    // keeps the bucket isolated from every other numerically throttled
-    // route (iterations 6-8 pattern).
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->middleware('throttle:6,1,profile-destroy')
         ->name('profile.destroy');
-    // GDPR Art. 20 — right to data portability. Returns JSON download of
-    // the user's profile, galleries, images metadata, transactions, teams,
-    // and artist profiles. (Task C10.)
     Route::get('/profile/export', [ProfileController::class, 'export'])->name('profile.export');
 
-    // (Task H56) — MFA setup + verification routes for super-admins.
-    // SEC-4: Now also available to regular users (opt-in).
-    // Setup: shows QR code for Google Authenticator / Authy / 1Password.
-    // Verify: enters the 6-digit TOTP code to complete MFA for the session.
-    // P1-5 FIX: Added throttle:6,1 to POST routes — a 6-digit TOTP has
-    // only 1M values; without throttle, an attacker with a stolen session
-    // cookie can brute-force it in ~8 hours at 1000 attempts/min. 6
-    // attempts per minute is ample for a human typing codes.
     Route::get('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'setup'])->name('mfa.setup');
     Route::post('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'enable'])->middleware('throttle:6,1,mfa-setup');
     Route::get('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'showVerify'])->name('mfa.verify');
     Route::post('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'verify'])->middleware('throttle:6,1,mfa-verify');
     // P3-7: One-time backup codes display after MFA enable
     Route::get('/mfa/backup-codes', [\App\Http\Controllers\MfaController::class, 'showBackupCodes'])->name('mfa.backup-codes');
-    // ITERATION-6: Self-serve MFA disablement — the /profile UI always
-    // promised "You can disable it anytime" but no implementation existed.
-    // Requires the current password (same sudo bar as profile deletion);
-    // throttled so the password check cannot be brute-forced; deliberately
-    // NOT behind the 'mfa' middleware — a user with a lost device must
-    // still be able to recover their account.
     Route::post('/mfa/disable', [\App\Http\Controllers\MfaController::class, 'disable'])
         ->middleware('throttle:6,1,mfa-disable')
         ->name('mfa.disable');
 
-    // ── Billing portal + upgrade flow (tasks H01 + H02) ────────────────
-    // /billing shows current plan, transaction history, pending upgrades.
-    // /billing/upgrade/{plan} generates a pending_upgrade token and
-    // redirects to 2Checkout with external-reference=<token> + pre-filled
-    // customer_email — closes the silent-revenue-leak bug where email
-    // mismatches orphaned payments.
-    //
-    // SEC-4/5: Billing routes are gated behind the 'mfa' middleware so
-    // regular users who have opted into MFA must re-verify before changing
-    // their plan. Users who haven't enabled MFA pass through unaffected
-    // (the RequireMfa middleware short-circuits for them).
     Route::middleware(['mfa'])->group(function () {
         Route::get('/billing',                [\App\Http\Controllers\BillingController::class, 'index'])->name('billing.index');
         Route::get('/billing/upgrade/{plan}', [\App\Http\Controllers\BillingController::class, 'upgrade'])->name('billing.upgrade')
@@ -331,21 +157,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-// ── Admin ────────────────────────────────────────────────────────────────
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // ── Galleries ──────────────────────────────────────────────────────────
     Route::get('galleries',                [\App\Http\Controllers\Admin\GalleryController::class, 'index'])->name('galleries.index');
     Route::get('galleries/create',         [\App\Http\Controllers\Admin\GalleryController::class, 'create'])->name('galleries.create');
     Route::post('galleries',               [\App\Http\Controllers\Admin\GalleryController::class, 'store'])->name('galleries.store');
     Route::get('galleries/{gallery}',      [\App\Http\Controllers\Admin\GalleryController::class, 'show'])->name('galleries.show');
     Route::get('galleries/{gallery}/edit', [\App\Http\Controllers\Admin\GalleryController::class, 'edit'])->name('galleries.edit');
 
-    // NEW (Live Preview) — admin-only preview iframe target.
-    // Skips PIN + time-gate + view-count bump; the curator owns the gallery.
-    // Accepts an optional ?override=<base64-json> so the iframe can be
-    // reloaded with un-saved slider tweaks baked into the URL.
     Route::get('galleries/{gallery}/preview', [\App\Http\Controllers\Admin\GalleryController::class, 'preview'])->name('galleries.preview');
 
     Route::put('galleries/{gallery}',      [\App\Http\Controllers\Admin\GalleryController::class, 'update'])->name('galleries.update');
@@ -354,9 +174,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // NEW (Round 2): gallery duplication
     Route::post('galleries/{gallery}/duplicate', [\App\Http\Controllers\Admin\GalleryController::class, 'duplicate'])->name('galleries.duplicate');
 
-    // ITERATION-2 (publish moment): explicit publish / unpublish actions.
-    // Draft-by-default galleries go live through POST …/publish (requires
-    // at least one artwork) and return to draft through POST …/unpublish.
     Route::post('galleries/{gallery}/publish',   [\App\Http\Controllers\Admin\GalleryController::class, 'publish'])->name('galleries.publish');
     Route::post('galleries/{gallery}/unpublish', [\App\Http\Controllers\Admin\GalleryController::class, 'unpublish'])->name('galleries.unpublish');
 
@@ -365,9 +182,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('galleries/{gallery}/reorder-images', [\App\Http\Controllers\Admin\GalleryController::class, 'reorderImages'])->name('galleries.reorder-images');
     Route::get('galleries/{gallery}/analytics',       [\App\Http\Controllers\Admin\AnalyticsController::class, 'show'])->name('galleries.analytics');
 
-    // Custom-domain DNS verification (Task C06). User adds the TXT record
-    // to their DNS, then clicks "Verify domain" which hits this endpoint.
-    // Also retried hourly by the exospace:verify-pending-domains command.
     Route::post('galleries/{gallery}/verify-domain',  [\App\Http\Controllers\Admin\GalleryController::class, 'verifyCustomDomain'])->name('galleries.verify-domain');
 
     // NEW (Round 4): per-artwork metadata editor
@@ -382,12 +196,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::delete('galleries/{gallery}/events/{event}',           [\App\Http\Controllers\Admin\GalleryEventController::class, 'destroy'])->name('galleries.events.destroy');
     Route::get('galleries/{gallery}/events/{event}/rsvps',        [\App\Http\Controllers\Admin\GalleryEventController::class, 'rsvps'])->name('galleries.events.rsvps');
 
-    // ── Images ─────────────────────────────────────────────────────────────
     Route::post('galleries/{gallery}/images', [\App\Http\Controllers\Admin\ImageController::class, 'store'])->name('images.store')->middleware('throttle:30,1');
     Route::post('images/bulk-delete',         [\App\Http\Controllers\Admin\ImageController::class, 'bulkDestroy'])->name('images.bulk_destroy');
     Route::delete('images/{image}',           [\App\Http\Controllers\Admin\ImageController::class, 'destroy'])->name('images.destroy');
 
-    // ── Artists (Round 4) ──────────────────────────────────────────────────
     Route::get('artists',                   [\App\Http\Controllers\Admin\ArtistController::class, 'index'])->name('artists.index');
     Route::get('artists/create',            [\App\Http\Controllers\Admin\ArtistController::class, 'create'])->name('artists.create');
     Route::post('artists',                  [\App\Http\Controllers\Admin\ArtistController::class, 'store'])->name('artists.store');
@@ -397,13 +209,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::delete('artists/{artist}',       [\App\Http\Controllers\Admin\ArtistController::class, 'destroy'])->name('artists.destroy');
     Route::get('artists-search',            [\App\Http\Controllers\Admin\ArtistController::class, 'search'])->name('artists.search');
 
-    // ── Teams ──────────────────────────────────────────────────────────────
     Route::get   ('teams',                             [\App\Http\Controllers\Admin\TeamController::class, 'index'])->name('teams.index');
     Route::get   ('teams/create',                      [\App\Http\Controllers\Admin\TeamController::class, 'create'])->name('teams.create');
     Route::post  ('teams',                             [\App\Http\Controllers\Admin\TeamController::class, 'store'])->name('teams.store');
-    // NOTE: kept as a Closure for now — the Auth facade root alias makes
-    // this work without an explicit `use` import. If you refactor, move
-    // it into TeamController::switchToPersonal() and import Auth there.
     Route::post  ('teams/switch-personal',             function () {
         \Illuminate\Support\Facades\Auth::user()->forceFill(['current_team_id' => null])->save();
         return redirect()->route('admin.galleries.index')
@@ -450,13 +258,6 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     Route::patch ('venues/{venue}/toggle',             [VenueTemplateController::class, 'toggle'])->name('venues.toggle');
     Route::patch ('venues/{venue}/toggle-featured',    [VenueTemplateController::class, 'toggleFeatured'])->name('venues.toggle-featured');
 
-    // ── Iteration 5 "Authoring" (roadmap P2.1) ─────────────────────────────
-    // The in-product authoring loop: clone → tweak → preview → publish →
-    // rollback → retire. Every route is additive and gated behind the
-    // venue_authoring flag; rollback = FEATURE_FLAG_VENUE_AUTHORING=false
-    // (routes 404, UI affordances hide, snapshot capture pauses) — the
-    // core CRUD above keeps working untouched. NOTE: `clone` is a PHP
-    // reserved word, hence cloneVenue().
     Route::post  ('venues/{venue}/clone',              [VenueTemplateController::class, 'cloneVenue'])->name('venues.clone')
           ->middleware('feature_flag:venue_authoring');
     Route::patch ('venues/{venue}/publish',            [VenueTemplateController::class, 'publish'])->name('venues.publish')
@@ -468,20 +269,11 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     Route::post  ('venues/{venue}/snapshots/{snapshot}/restore', [VenueTemplateController::class, 'restoreSnapshot'])->name('venues.snapshots.restore')
           ->middleware('feature_flag:venue_authoring');
 
-    // DELETE is now ARCHIVE (§9.2 #4 — hard delete is gone; galleries using
-    // the venue are guarded by the confirm_usage flag and keep rendering).
-    // Deliberately NOT flag-gated: archive is strictly safer than the hard
-    // delete it replaces, so there is no rollback-to-hard-delete path.
     Route::delete('venues/{venue}',                    [VenueTemplateController::class, 'destroy'])->name('venues.destroy');
 
-    // ── Featured Exhibitions (Round 4) ──────────────────────────────────────
     Route::get   ('featured',                          [FeaturedExhibitionsController::class, 'index'])->name('featured.index');
     Route::patch ('featured/{gallery}',                [FeaturedExhibitionsController::class, 'toggle'])->name('featured.toggle');
 
-    // ── SEO Operations (SEO OS Iteration 6) ─────────────────────────────────
-    // Health dashboard, seo_profiles overrides, redirect manager, SEO page
-    // publishing. Mirrors the audit log conventions of the other super-admin
-    // controllers (every mutation recorded via AdminAuditLog::record).
     Route::get   ('seo',                               [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'index'])->name('seo.index');
     Route::post  ('seo/profile/{type}/{id}',           [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'updateProfile'])->name('seo.profile.update');
     Route::post  ('seo/redirects',                     [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'storeRedirect'])->name('seo.redirects.store');
@@ -489,31 +281,17 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     Route::post  ('seo/pages/{page}/toggle',           [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'togglePage'])->name('seo.pages.toggle');
     Route::post  ('seo/rebuild',                       [\App\Http\Controllers\SuperAdmin\SeoAdminController::class, 'rebuild'])->name('seo.rebuild');
 
-    // ── Pending Upgrades (Task H67) ────────────────────────────────────────
     Route::get   ('pending-upgrades',                  [SystemController::class, 'pendingUpgrades'])->name('pending-upgrades.index');
     Route::post  ('pending-upgrades/{pending}/manual-upgrade', [SystemController::class, 'manualUpgrade'])->name('pending-upgrades.manual-upgrade')
           ->middleware('password.confirm');
 
-    // ── Billing Review (ITERATION 4) ──────────────────────────────────────
-    // Refunds / chargebacks / webhook ledger with payload viewer + replay.
-    // Replay mutates billing state through the webhook pipeline — the same
-    // password.confirm bar as manual upgrades.
     Route::get   ('billing',                           [\App\Http\Controllers\SuperAdmin\BillingController::class, 'index'])->name('billing.index');
-    // ITERATION 5: streamed CSV export of the same data + filters (read-only,
-    // but audit-logged — the CSV carries customer PII out of the system).
     Route::get   ('billing/export',                    [\App\Http\Controllers\SuperAdmin\BillingController::class, 'export'])->name('billing.export');
     Route::post  ('billing/webhooks/{webhook}/replay', [\App\Http\Controllers\SuperAdmin\BillingController::class, 'replayWebhook'])
           ->whereNumber('webhook')
           ->name('billing.replay')
           ->middleware('password.confirm');
 
-    // ITERATION 7: digest recipient management. Add/remove emails for the
-    // weekly billing digest — the UI-managed list takes over from the
-    // BILLING_EXPORT_EMAIL env var once any recipient is added. Same
-    // audit-logging bar as the export (financial-data redirects); no
-    // password.confirm — team invitations (a comparable sensitivity:
-    // grants access) don't use it either, and the master-control surface
-    // already requires super-admin + MFA.
     Route::post  ('billing/recipients',                [\App\Http\Controllers\SuperAdmin\BillingController::class, 'storeRecipient'])->name('billing.recipients.store')
           ->middleware('throttle:30,1'); // ITERATION 8: throttle (audit-fix E-1)
     Route::delete('billing/recipients/{recipient}',    [\App\Http\Controllers\SuperAdmin\BillingController::class, 'destroyRecipient'])
@@ -521,12 +299,6 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
           ->name('billing.recipients.destroy')
           ->middleware('throttle:30,1'); // ITERATION 8: throttle (audit-fix E-1)
 
-    // ── Outbound webhook subscriptions (ITERATION 10) ───────────────────
-    // DB-backed per-event subscription management. Same trust bar as
-    // billing recipient management: super-admin + MFA + audit-logged +
-    // throttle 30,1. No password.confirm — the add/toggle/remove
-    // actions are reversible (re-adding a removed subscription is one
-    // click; pausing without deleting preserves the config).
     Route::get   ('webhooks',                           [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'index'])->name('webhooks.index');
     Route::post  ('webhooks',                           [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'store'])->name('webhooks.store')
           ->middleware('throttle:30,1');
@@ -537,15 +309,6 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
           ->whereNumber('subscription')
           ->middleware('throttle:30,1');
 
-    // ITERATION 11 — per-subscription delivery history page.
-    // Read-only surface backed by the webhook_deliveries ledger
-    // table. The operator's triage view for "did the security team
-    // receive the recipient_added webhook last Tuesday?" — paginated
-    // list of every delivery row for this subscription. No audit
-    // log row (view list ≠ export PII — same precedent as the
-    // billing review index page). No throttle — read-only views
-    // don't need spam protection (and the super-admin + MFA gate
-    // is already in front).
     Route::get   ('webhooks/{subscription}/deliveries',  [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'deliveries'])->name('webhooks.deliveries')
           ->whereNumber('subscription');
 
@@ -563,33 +326,17 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     // M-5: Affiliate dashboard
     Route::get('/affiliates',                            [\App\Http\Controllers\AffiliateDashboardController::class, 'index'])->name('affiliates.index');
 
-    // ── Retention drill-down (ITERATION 7) ────────────────────────────────
-    // PII-gated: clicking a cohort matrix cell opens the underlying user
-    // list. Read-only PII reveal behind the group middleware (super-admin +
-    // MFA), audit-logged per request — same trust bar as billing review.
-    // No password.confirm: this is a read of the same PII that already
-    // appears on the dashboard users table; the audit row preserves
-    // attribution (who viewed which cohort, when).
     Route::get('/retention/{cohort}',                    [\App\Http\Controllers\SuperAdmin\RetentionController::class, 'cohort'])
           ->where('cohort', '[0-9]{4}-[0-9]{2}-[0-9]{2}')
           ->name('retention.cohort')
           ->middleware('throttle:60,1'); // ITERATION 8: throttle (audit-fix E-1)
 
-    // ITERATION 8: streamed CSV export of a cohort's members — same audit-
-    // logged PII surface as the page itself (no password.confirm; the CSV
-    // carries the same PII the page already reveals). Throttled to bound
-    // load on the cursor() query against large cohorts.
     Route::get('/retention/{cohort}/export',             [\App\Http\Controllers\SuperAdmin\RetentionController::class, 'exportCsv'])
           ->where('cohort', '[0-9]{4}-[0-9]{2}-[0-9]{2}')
           ->name('retention.cohort.export')
           ->middleware('throttle:30,1');
 });
 
-// M-13: Admin impersonation — stop (outside super-admin group because the
-// impersonated user is NOT a super-admin. The ImpersonationService checks
-// the session key to verify impersonation is active, so this route is safe
-// to be accessible by any authenticated user — if they're not impersonating,
-// it's a no-op.)
 Route::middleware(['auth'])->group(function () {
     Route::post('/master-control/stop-impersonating',  [\App\Http\Controllers\SuperAdmin\SystemController::class, 'stopImpersonating'])->name('super.stop-impersonating');
 
@@ -601,28 +348,6 @@ Route::middleware(['auth'])->group(function () {
 // M-20: Public status page (no auth required)
 Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->name('status');
 
-// ── OpsCenter — Operations Control Plane (Iteration 1) ───────────────────
-//
-// The unified operations dashboard. Aggregates EXISTING systems (Sentry,
-// OperationalAlertService, JobHeartbeatService, spatie backups, webhook
-// ledgers, the Coolify API, Laravel logs) — see docs/OPS_DISCOVERY_AUDIT.md.
-//
-// ACCESS (Iteration 5 + 6): the outer gate is 'ops_access' — super-admins
-// pass exactly as before (MFA still enforced by the 'mfa' middleware),
-// and users with an ACTIVE GRANT (ops_access_grants, managed on
-// /ops/access) may enter the READ surfaces below. Two tiers:
-//   viewer   — read-only (Iteration 5 behavior)
-//   operator — read + run the read-only diagnostics (Iteration 6)
-// The write surfaces stay super-admin-only in the nested 'super_admin'
-// group; the diagnostics-run POST sits in its own nested 'ops_operator'
-// group — the split is at the ROUTE level, so a viewer POSTing directly
-// gets 403 regardless of what any template renders. Kill switches:
-// OPS_VIEWER_ACCESS_ENABLED=false / OPS_OPERATOR_ACCESS_ENABLED=false
-// revoke each tier instantly.
-//
-// IMPORTANT: this group must stay ABOVE the SEO fallback route — fallback
-// only matches when nothing else does, but keeping ops routes contiguous
-// with the other super-admin surfaces keeps the file readable.
 Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
     ->prefix('ops')
     ->name('ops.')
@@ -635,42 +360,20 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
             ->whereNumber('event')
             ->name('events.show');
 
-        // Incidents (Iteration 2): list + timeline detail are read-only and
-        // viewer-visible; the lifecycle POSTs live in the super-admin group.
         Route::get('/incidents',                     [\App\Ops\Http\Controllers\OpsIncidentController::class, 'index'])->name('incidents.index');
         Route::get('/incidents/{incident}',          [\App\Ops\Http\Controllers\OpsIncidentController::class, 'show'])
             ->whereNumber('incident')
             ->name('incidents.show');
 
-        // Morning digest (Iteration 7): the PREVIEW is read-only and
-        // viewer-visible — it renders the exact message Slack receives.
-        // The "send now" POST is super-admin-only (outbound message on
-        // the operational channel), audited as ops.digest.sent.
         Route::get('/digest',                       [\App\Ops\Http\Controllers\OpsDigestController::class, 'index'])->name('digest.index');
 
-        // Diagnostics (Iteration 3): the catalog and PAST run results are
-        // read-only and viewer-visible; RUNNING a check is operator-only.
         Route::get('/diagnostics',                  [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'index'])->name('diagnostics.index');
         Route::get('/diagnostics/runs/{run}',       [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'show'])
             ->whereNumber('run')
             ->name('diagnostics.show');
 
-        // Failed-jobs browser (Iteration 10): the full failed_jobs list —
-        // what the queue.failed-jobs diagnostic summarizes, this page shows
-        // job by job. Viewer-visible (reading failures is diagnosis, not
-        // intervention); the Retry…/Forget… buttons are links into the
-        // super-admin action framework with password + typed phrase.
         Route::get('/queue',                        [\App\Ops\Http\Controllers\OpsQueueController::class, 'index'])->name('queue.index');
 
-        // ── Operator tier (super-admins + active operator grants) ────────
-        //
-        // Diagnostic runs (Iteration 3, opened to operators in Iteration 6)
-        // — READ-ONLY checks, but they hit live subsystems and persist
-        // audited rows: the exact right to delegate without blast radius.
-        // The 'ops_operator' middleware (EnsureOpsOperator) passes
-        // super-admins and active operator grants only — viewers 403 at
-        // the route level. Throttled because some checks make live API
-        // calls. Kill switch: OPS_OPERATOR_ACCESS_ENABLED=false.
         Route::middleware('ops_operator')->group(function () {
             Route::post('/diagnostics/run',             [\App\Ops\Http\Controllers\OpsDiagnosticController::class, 'run'])
                 ->middleware('throttle:30,1')
@@ -679,11 +382,6 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
 
         // ── Operator surfaces (super-admin only) ─────────────────────────
         Route::middleware('super_admin')->group(function () {
-            // Incident lifecycle (Iteration 2) — the module's first write
-            // paths: super-admin + MFA + throttled + audited via
-            // AdminAuditLog (ops.* actions). They alter only OpsCenter's
-            // own records, never infrastructure — that bar
-            // (password.confirm) is reserved for infrastructure actions.
             Route::post('/incidents/{incident}/acknowledge', [\App\Ops\Http\Controllers\OpsIncidentController::class, 'acknowledge'])
                 ->whereNumber('incident')
                 ->middleware('throttle:30,1')
@@ -697,35 +395,17 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
                 ->middleware('throttle:30,1')
                 ->name('incidents.reopen');
 
-            // Diagnostic runs moved UP into the 'ops_operator' group
-            // (Iteration 6 — operators may run them; viewers may not).
-
-            // Actions (Iteration 3) — the ONLY write paths against
-            // infrastructure. Allow-listed (OpsActionRegistry), throttled
-            // harder, and for elevated actions: inline password
-            // verification + typed confirmation phrase enforced in
-            // OpsActionController (the framework password.confirm
-            // middleware is deliberately NOT used — its intended()
-            // redirect replays POST routes as GET and 405s). Execution,
-            // audit (ops.action.executed) and Slack announcement live in
-            // OpsActionService. Fail-closed via OPS_ACTIONS_ENABLED=false.
             Route::get('/actions',                     [\App\Ops\Http\Controllers\OpsActionController::class, 'index'])->name('actions.index');
             Route::get('/actions/{action}/confirm',    [\App\Ops\Http\Controllers\OpsActionController::class, 'confirm'])->name('actions.confirm');
             Route::post('/actions/{action}',           [\App\Ops\Http\Controllers\OpsActionController::class, 'execute'])
                 ->middleware('throttle:10,1')
                 ->name('actions.execute');
 
-            // Credentials (Iteration 5) — the §15 rotation checklist made
-            // live: configured-presence booleans (never values) + the
-            // rotation ledger. Governance surface → operator-only.
             Route::get('/credentials',                       [\App\Ops\Http\Controllers\OpsCredentialController::class, 'index'])->name('credentials.index');
             Route::post('/credentials/{key}/rotate',         [\App\Ops\Http\Controllers\OpsCredentialController::class, 'rotate'])
                 ->middleware('throttle:10,1')
                 ->name('credentials.rotate');
 
-            // Access management (Iteration 5) — who may VIEW the control
-            // plane. Super-admin only, trivially: a viewer who could grant
-            // grants would not be a viewer.
             Route::get('/access',                            [\App\Ops\Http\Controllers\OpsAccessController::class, 'index'])->name('access.index');
             Route::post('/access/grant',                     [\App\Ops\Http\Controllers\OpsAccessController::class, 'grant'])
                 ->middleware('throttle:10,1')
@@ -735,27 +415,14 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
                 ->middleware('throttle:10,1')
                 ->name('access.revoke');
 
-            // Morning digest — "send now" (Iteration 7): fires the exact
-            // message the preview shows, immediately, WITHOUT the daily
-            // dedup (a test send that silently disappeared would look
-            // exactly like a broken webhook). Throttled; audited.
             Route::post('/digest/send',                     [\App\Ops\Http\Controllers\OpsDigestController::class, 'sendNow'])
                 ->middleware('throttle:5,1')
                 ->name('digest.send');
 
-            // Weekly review — "send now" (Iteration 8): same contract as
-            // the daily digest's button — super-admin, throttled,
-            // audited as ops.weekly_review.sent, never dedup-suppressed
-            // (a vanished test send would look like a broken webhook).
             Route::post('/digest/weekly/send',              [\App\Ops\Http\Controllers\OpsDigestController::class, 'sendWeeklyNow'])
                 ->middleware('throttle:5,1')
                 ->name('digest.weekly.send');
 
-            // Sentry project mapping (Iteration 8) — the operator-owned
-            // Coolify-app ↔ Sentry-project mapping behind the per-app
-            // trend column. A LABEL write (not a secret), but it drives
-            // an outbound API surface → super-admin-only, throttled,
-            // audited as ops.sentry.mapping.
             Route::post('/applications/{app}/sentry',       [\App\Ops\Http\Controllers\OpsDashboardController::class, 'updateSentryMapping'])
                 ->whereNumber('app')
                 ->middleware('throttle:10,1')
@@ -763,11 +430,6 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
         });
     });
 
-// ── SEO OS (Iteration 5): SEO landing + editorial pages ──────────────────
-// The FALLBACK route renders published seo_pages. Real product routes
-// always win — this only runs when nothing else matches, and the controller
-// checks a cached slug allow-list before rendering (else 404). Landing
-// pages live at /{slug}; editorial content at /resources/{slug}.
 Route::fallback(\App\Http\Controllers\SeoPageController::class);
 
 // A-8 FIX (Iter-006): Observability endpoint, rate-limited to prevent abuse.
@@ -790,10 +452,6 @@ Route::post('/auth/{provider}/unlink',   [\App\Http\Controllers\OAuthController:
       ->middleware(['auth']);
 
 require __DIR__.'/auth.php';
-// ── Testing Control Center (QA Iteration 2) ───────────────────────────────
-// Status wall + run history + failure drill-down for the Exospace test suite.
-// Gated by e-mail allowlist (CONTROL_CENTER_ADMINS); fail-closed 404 when the
-// list is empty so the whole section vanishes for everyone else.
 Route::middleware(['auth', 'cc_access'])->prefix('control-center')->name('control-center.')->group(function () {
     Route::get('/', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'overview'])->name('overview');
     Route::get('/runs', [\App\Http\Controllers\ControlCenter\DashboardController::class, 'runs'])->name('runs');

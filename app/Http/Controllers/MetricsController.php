@@ -9,50 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
-/**
- * A-8 FIX (Iter-006): /metrics endpoint for observability.
- *
- * Exposes application-level metrics in JSON format for monitoring tools
- * (Coolify, Datadog, Prometheus via a scraper). Coolify can scrape this
- * endpoint to track application health over time.
- *
- * AUDIT-P0-1.5 FIX: Previously public (rate-limited only). The endpoint
- * exposes PHP version, environment name, top 5 DB tables by row count, and
- * disk usage — sufficient information for an attacker to fingerprint the
- * deployment and target known vulnerabilities. Now requires a token
- * passed via the `?token=` query param. The expected token is read from
- * the `METRICS_TOKEN` env var. When that env var is empty (the default),
- * the endpoint FAILS CLOSED (returns 404) — premium SaaS default.
- *
- * ITERATION-11 (AUDIT-P2-11.1): Prometheus exposition format. The endpoint
- * now supports `?format=prometheus` which returns metrics in Prometheus
- * text exposition format (text/plain; version=0.0.4). This enables direct
- * scraping by Prometheus/Grafana without a custom adapter. The default
- * format remains JSON (backward-compatible).
- *
- * To enable scraping:
- *   1. Set `METRICS_TOKEN=<random-32-char-hex>` in .env (generate with
- *      `openssl rand -hex 16`).
- *   2. Configure your scraper:
- *      - JSON:        /metrics?token=<your-token>
- *      - Prometheus:  /metrics?token=<your-token>&format=prometheus
- *
- * Metrics exposed:
- *   - queue: pending jobs, failed jobs
- *   - cache: hit/miss ratio (if available)
- *   - db: connection status, table sizes (approximate)
- *   - storage: disk usage (approximate)
- *   - app: PHP version, Laravel version, memory usage
- *
- * Route: GET /metrics?token=<token>[&format=prometheus] (rate-limited: 10/min/IP)
- */
 class MetricsController extends Controller
 {
     public function index(Request $request): JsonResponse|Response
     {
-        // AUDIT-P0-1.5 FIX: Token-gate the metrics endpoint. Fail-closed
-        // (404) when METRICS_TOKEN env var is not set OR when the supplied
-        // token does not match. hash_equals() for timing safety.
         $expectedToken = config('app.metrics_token');
         if (! is_string($expectedToken) || $expectedToken === '') {
             abort(404);
@@ -62,8 +22,6 @@ class MetricsController extends Controller
             abort(404);
         }
 
-        // ITERATION-11 (AUDIT-P2-11.1): Support Prometheus exposition format.
-        // Default remains JSON for backward compatibility.
         $format = $request->query('format', 'json');
 
         if ($format === 'prometheus') {
@@ -84,20 +42,6 @@ class MetricsController extends Controller
         ]);
     }
 
-    /**
-     * ITERATION-11 (AUDIT-P2-11.1): Return metrics in Prometheus text
-     * exposition format.
-     *
-     * Format spec: https://prometheus.io/docs/instrumenting/exposition_formats/
-     * Content-Type: text/plain; version=0.0.4; charset=utf-8
-     *
-     * Each metric has:
-     *   # HELP <metric_name> <description>
-     *   # TYPE <metric_name> <type>
-     *   <metric_name> <value>
-     *
-     * Prometheus scrapers can consume this directly — no adapter needed.
-     */
     private function prometheusResponse(): Response
     {
         $queue = $this->queueMetrics();
@@ -107,7 +51,6 @@ class MetricsController extends Controller
 
         $lines = [];
 
-        // ── Queue metrics ───────────────────────────────────────────────
         $lines[] = '# HELP exospace_queue_failed_jobs Number of failed jobs in the queue';
         $lines[] = '# TYPE exospace_queue_failed_jobs gauge';
         $lines[] = 'exospace_queue_failed_jobs ' . ($queue['failed_jobs'] ?? '0');
@@ -116,12 +59,10 @@ class MetricsController extends Controller
         $lines[] = '# TYPE exospace_queue_pending_jobs gauge';
         $lines[] = 'exospace_queue_pending_jobs ' . ($queue['pending_jobs'] ?? '0');
 
-        // ── Database metrics ───────────────────────────────────────────
         $lines[] = '# HELP exospace_db_status Database connection status (1=up, 0=down)';
         $lines[] = '# TYPE exospace_db_status gauge';
         $lines[] = 'exospace_db_status ' . ($database['status'] === 'ok' ? '1' : '0');
 
-        // ── Storage metrics ─────────────────────────────────────────────
         if ($storage['status'] === 'ok') {
             $freeBytes = $storage['free_mb'] !== null ? $storage['free_mb'] * 1024 * 1024 : null;
             $totalBytes = $storage['total_mb'] !== null ? $storage['total_mb'] * 1024 * 1024 : null;
@@ -146,7 +87,6 @@ class MetricsController extends Controller
             }
         }
 
-        // ── App metrics ────────────────────────────────────────────────
         $lines[] = '# HELP exospace_php_memory_usage_bytes Current PHP memory usage in bytes';
         $lines[] = '# TYPE exospace_php_memory_usage_bytes gauge';
         $lines[] = 'exospace_php_memory_usage_bytes ' . (int) ($app['memory_usage_mb'] * 1024 * 1024);

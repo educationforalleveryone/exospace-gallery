@@ -6,14 +6,7 @@
 
 <!-- H-1 FIX (Iter-012): Contact page now extends layouts.public for shared nav, footer, SEO meta, cookie banner, and skip-link. Custom styles are scoped to this page only. -->
 <style>
-        /* ── Page-scoped styles only (ITERATION-4).
-           The previous `* { margin:0; padding:0 }` reset and `body {}` rules
-           applied to the WHOLE DOCUMENT — overriding the public layout's
-           ink canvas, text color and list rhythm on this page. They are gone;
-           the shared layout owns the canvas, this block owns only the
-           page's own classes. ── */
 
-        /* ── Page layout ── */
         .page {
             max-width: 900px;
             margin: 0 auto;
@@ -27,7 +20,6 @@
             .page { grid-template-columns: 1fr; gap: 2.5rem; padding-top: 2.5rem; }
         }
 
-        /* ── Left: Info ── */
         .info-col h1 {
             font-size: clamp(1.75rem, 4vw, 2.25rem);
             font-weight: 800;
@@ -86,7 +78,6 @@
         }
         .info-card .value a:hover { text-decoration: underline; }
 
-        /* ── Right: Form ── */
         .form-col {
             background: #0f1117; /* ink-900 */
             border: 1px solid #1f2937; /* gray-800 */
@@ -109,13 +100,6 @@
             letter-spacing: 0.06em;
             margin-bottom: 0.4rem;
         }
-        /* ITERATION-4: field skin deleted — inputs use the shared .input-base
-           recipe (inset well, brand focus ring) from app.css. The old skin
-           set outline:none and replaced the global focus ring with a border
-           color change only — weaker than the system's ring. */
-
-        /* ITERATION-4: .btn-submit deleted — the kit .btn-primary is the
-           canonical submit CTA (blue gradient retired). */
 
         /* ── Success message ── */
         .success-msg {
@@ -214,11 +198,6 @@
                     <textarea id="message" name="message" placeholder="How can we help you?" required class="input-base min-h-[110px]"></textarea>
                     <div class="error-text">Please write your message.</div>
                 </div>
-                {{-- P3-19: Cloudflare Turnstile captcha. Renders nothing when
-                     TURNSTILE_SITE_KEY is not configured (TurnstileService is
-                     disabled in dev mode). In production, renders an invisible
-                     widget that challenges the user only when Cloudflare
-                     detects suspicious traffic. --}}
                 @if(app('App\Services\TurnstileService')->isEnabled())
                     <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.site_key') }}"></div>
                     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -276,10 +255,6 @@ document.getElementById('contact-form').addEventListener('submit', function(e) {
         body: formData,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     }).then(async function(response) {
-        // C-8 FIX (Iter-009): Previously this handler showed the success UI
-        // regardless of the backend response — a 422 validation error or 500
-        // server error would silently drop the lead and show 'Message sent!'.
-        // Now we parse the response and branch on success/failure.
         let data = null;
         try { data = await response.json(); } catch (e) { /* not JSON */ }
         if (response.ok && data && (data.success === true || data.success === undefined)) {
@@ -310,24 +285,11 @@ document.getElementById('contact-form').addEventListener('submit', function(e) {
         btn.textContent = 'Send Message';
         btn.disabled = false;
     }).catch(function(networkErr) {
-        // Network error (DNS, offline, CORS) — distinctly different from
-        // a server-returned failure. Show a network-specific message.
         window.toast('Network error — please try again, or email support@exospace.gallery directly.', 'error');
         btn.textContent = 'Send Message';
         btn.disabled = false;
     });
 });
-/**
- * C-8 FIX: Inline error toast (no external dep). Auto-dismisses after 6s.
- * Replaces the silent 'show success on failure' behaviour that silently
- * dropped customer leads.
- */
-// ITERATION-3: the page-local showErrorToast (light-theme, top-right,
-// z-index 9999) was removed — window.toast() from the x-toast component is
-// the single toast system on this layout.
-// (FIX 2026-08-31: do not write the literal component tag here — Blade
-// compiles x-tags inside JS comments too, and a non-self-closing tag with
-// no closing tag broke compilation of this whole page.)
 </script>
 
 @endsection

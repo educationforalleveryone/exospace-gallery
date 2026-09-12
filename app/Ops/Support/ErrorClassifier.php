@@ -4,35 +4,8 @@ declare(strict_types=1);
 
 namespace App\Ops\Support;
 
-/**
- * OpsCenter — ErrorClassifier.
- *
- * Transforms a raw error (exception class + message) into OPERATIONAL
- * information: category, severity, a human headline, likely causes and
- * recommended diagnostics.
- *
- * Design rules (from the project brief):
- *   - Never claim certainty. Causes are phrased "Likely cause" by the UI;
- *     the classifier only ranks evidence.
- *   - Fall through to UNKNOWN gracefully — an unrecognized error is still
- *     stored, categorized and searchable.
- *   - Severity from the pattern and the observed log level are BOTH
- *     considered; the more serious one wins (a "connection refused" logged
- *     at error is still a critical DATABASE incident).
- *
- * Pure class (no I/O) → exhaustively unit-testable.
- */
 class ErrorClassifier
 {
-    /**
-     * Each rule: needles (case-insensitive substrings matched against
-     * class + message), category, severity floor, headline, causes,
-     * recommended diagnostic ids (rendered in Iteration 3's engine).
-     *
-     * ORDER MATTERS: first match wins. Rules are ordered from the most
-     * specific to the most generic (e.g. "migration + SQLSTATE table not
-     * found" before generic "SQLSTATE").
-     */
     private const RULES = [
         // ── MIGRATION (schema problems — highest operational specificity) ──
         [
@@ -68,7 +41,6 @@ class ErrorClassifier
             'diagnostics' => ['database.migration-status', 'deployment.recent'],
         ],
 
-        // ── DATABASE ────────────────────────────────────────────────────
         [
             'needles' => ['SQLSTATE[HY000] [2002]', 'Connection refused', 'SQLSTATE[HY000] [2002 ]'],
             'category' => 'DATABASE', 'severity' => 'critical',
@@ -143,7 +115,6 @@ class ErrorClassifier
             'diagnostics' => ['database.health'],
         ],
 
-        // ── REDIS ───────────────────────────────────────────────────────
         [
             'needles' => ['REDIS_CONNECTION', 'Connection to Redis', 'redis://', 'tcp://', 'predis'],
             'category' => 'REDIS', 'severity' => 'critical',
@@ -166,7 +137,6 @@ class ErrorClassifier
             'diagnostics' => ['redis.connectivity'],
         ],
 
-        // ── QUEUE / WORKERS ─────────────────────────────────────────────
         [
             'needles' => ['MaxAttemptsExceededException', 'failed_jobs', 'has been attempted too many times'],
             'category' => 'QUEUE', 'severity' => 'error',
@@ -188,7 +158,6 @@ class ErrorClassifier
             'diagnostics' => ['queue.health'],
         ],
 
-        // ── BUILD / DEPLOYMENT / DOCKER ─────────────────────────────────
         [
             'needles' => ['could not be resolved to an installable set', 'composer install', 'composer'],
             'category' => 'BUILD', 'severity' => 'critical',
@@ -241,7 +210,6 @@ class ErrorClassifier
             'diagnostics' => ['container.health', 'container.recent-logs'],
         ],
 
-        // ── EXTERNAL SERVICES / NETWORK ─────────────────────────────────
         [
             'needles' => ['cURL error 6', 'Could not resolve host'],
             'category' => 'NETWORK', 'severity' => 'error',
@@ -303,7 +271,6 @@ class ErrorClassifier
             'diagnostics' => ['app.recent-errors'],
         ],
 
-        // ── STORAGE ─────────────────────────────────────────────────────
         [
             'needles' => ['No space left on device', 'disk full'],
             'category' => 'STORAGE', 'severity' => 'critical',
@@ -325,7 +292,6 @@ class ErrorClassifier
             'diagnostics' => ['app.filesystem'],
         ],
 
-        // ── AUTH ────────────────────────────────────────────────────────
         [
             'needles' => ['AuthenticationException', 'Unauthenticated'],
             'category' => 'AUTHENTICATION', 'severity' => 'info',
@@ -416,23 +382,11 @@ class ErrorClassifier
         ],
     ];
 
-    /**
-     * Classify an error.
-     *
-     * @param  string|null  $exceptionClass  Fully-qualified class name, if known.
-     * @param  string  $message  The raw message (already redacted by caller).
-     * @param  string  $levelSeverity  Severity derived from the observed log
-     *                                 level ('critical'|'error'|'warning'|'info').
-     * @return array{category: string, severity: string, title: string, likely_causes: string[], recommended_diagnostics: string[], confidence: string, matched: string|null}
-     */
     public function classify(?string $exceptionClass, string $message, string $levelSeverity = 'error'): array
     {
         $haystack = strtolower(trim(($exceptionClass ?? '').' '.$message));
 
         foreach (self::RULES as $rule) {
-            // Optional secondary constraint: ALL 'with' needles must ALSO
-            // appear (used e.g. to require SQLSTATE context for the generic
-            // "Migration" rule).
             if (isset($rule['with'])) {
                 foreach ((array) $rule['with'] as $withNeedle) {
                     if (! str_contains($haystack, strtolower($withNeedle))) {
@@ -470,14 +424,6 @@ class ErrorClassifier
         ];
     }
 
-    /**
-     * Iteration 3 (Diagnostic Engine): every diagnostic id any rule may
-     * recommend. Exposed so the DiagnosticRegistry and its consistency test
-     * can guarantee a recommended chip is ALWAYS a runnable diagnostic —
-     * the classifier and the engine can never silently drift apart.
-     *
-     * @return array<int, string>
-     */
     public static function recommendedDiagnosticIds(): array
     {
         $ids = [];
@@ -490,13 +436,8 @@ class ErrorClassifier
         return array_values(array_unique($ids));
     }
 
-    /**
-     * Map a Monolog/Laravel level name to an ops severity.
-     */
     public static function levelToSeverity(int $monologLevel): string
     {
-        // Monolog: 100 DEBUG, 200 INFO, 250 NOTICE, 300 WARNING,
-        //          400 ERROR, 500 CRITICAL, 550 ALERT, 600 EMERGENCY.
         return match (true) {
             $monologLevel >= 500 => 'critical',
             $monologLevel >= 400 => 'error',

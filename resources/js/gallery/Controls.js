@@ -1,10 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Controls — keyboard + pointer-lock + speed multiplier
-//
-// Mobile touch controls are wired in Mobile.js (conditionally, when a touch
-// device is detected). This module handles desktop only.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { CONFIG } from './config.js';
@@ -13,25 +6,14 @@ import { setupMobileControls } from './Mobile.js';
 export function setupControls() {
     this.controls = new PointerLockControls(this.camera, document.body);
 
-    // Movement state — set by keyboard handlers, read by Movement.updateMovement
-    // (PERF-B10: preserved across context-restore rebuilds)
     this.moveState = this.moveState || { forward: false, backward: false, left: false, right: false, sprint: false };
 
     // Initial speed multiplier
     this.currentSpeedMultiplier = this.currentSpeedMultiplier || CONFIG.movement.speedMultipliers[CONFIG.movement.currentSpeedIndex];
 
-    // PERF-B10 (3D audit F10): document/window/container-level listeners
-    // survive a context-restore rebuild — register them exactly once. The
-    // handlers are late-bound to `this`, so they keep working with whatever
-    // camera/renderer objects the rebuild creates.
     if (!this._controlsBound) {
         this._controlsBound = true;
 
-        // ── Keydown ────────────────────────────────────────────────────────
-        // (Task H38 / audit C4) — filter keydown when the user is typing in
-        // an input/textarea (e.g. the newsletter signup on the curtain).
-        // Previously, pressing WASD inside the email field would both type
-        // the letter AND start moving the invisible camera.
         document.addEventListener('keydown', (e) => {
             const tag = e.target?.tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
@@ -43,15 +25,9 @@ export function setupControls() {
                 case 'KeyD': case 'ArrowRight': this.moveState.right    = true; break;
                 case 'ShiftLeft': this.moveState.sprint = true; break;
                 case 'KeyE': this.toggleArtworkInfo(); break;
-                // PERF-E28: Escape exits focus mode. While inspecting, the
-                // pointer is already unlocked so the browser's own
-                // Escape-unlocks-pointer behaviour doesn't apply — without
-                // this, Escape did nothing and keyboard users had to find E.
                 case 'Escape':
                     if (this.isInspecting) { this.toggleArtworkInfo(); }
                     break;
-                // (Task H38) Enter focuses the nearest artwork (accessible
-                // alternative to click-to-focus for keyboard-only users)
                 case 'Enter': this.focusNearestArtwork(); break;
                 // Speed multipliers
                 case 'Digit1': this.setSpeedMultiplier(0); break; // 1x
@@ -61,7 +37,6 @@ export function setupControls() {
             }
         });
 
-        // ── Keyup ──────────────────────────────────────────────────────────
         document.addEventListener('keyup', (e) => {
             switch (e.code) {
                 case 'KeyW': case 'ArrowUp':    this.moveState.forward  = false; break;
@@ -72,12 +47,10 @@ export function setupControls() {
             }
         });
 
-        // ── Click canvas to lock pointer ──────────────────────────────────
         this.container.addEventListener('click', () => {
             if (!this.isMobile) this.controls.lock();
         });
 
-        // ── Window resize ──────────────────────────────────────────────────
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();

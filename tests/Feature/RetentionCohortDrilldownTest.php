@@ -11,16 +11,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
-/**
- * ITERATION 7 — retention cohort drill-down.
- *
- * Clicking a cohort matrix cell opens the underlying user list,
- * PII-gated by the master-control group middleware + audit-logged
- * per view. The active-count math MUST reconcile with the matrix
- * cell (same bounded countActive() definition, derived live so the
- * drill-down reflects the moment of the click, not a 30/60-min
- * dashboard cache entry).
- */
 class RetentionCohortDrilldownTest extends TestCase
 {
     use RefreshDatabase;
@@ -29,10 +19,6 @@ class RetentionCohortDrilldownTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        // No withoutExceptionHandling — Laravel's handlers convert
-        // AuthenticationException → login redirect, AuthorizationException
-        // → 403, NotFoundHttpException → 404. That's the actual
-        // production behavior we want to assert against.
         Cache::flush();
     }
 
@@ -128,8 +114,6 @@ class RetentionCohortDrilldownTest extends TestCase
         $periodStart = $weekStart->copy()->addWeek();  // week index 1
         $periodEnd = $periodStart->copy()->addWeek();
 
-        // Three users in the cohort; one active in week 1 via login,
-        // one active via a gallery update, one inactive.
         $active1 = User::factory()->create([
             'email'        => 'active1@example.com',
             'created_at'   => $weekStart->copy()->addDays(1),
@@ -142,8 +126,6 @@ class RetentionCohortDrilldownTest extends TestCase
             'last_login_at'=> null,  // no login
             'plan'         => 'pro',
         ]);
-        // Give active2 a gallery updated in the period (use the
-        // factory so all NOT-NULL fields populate — title, slug, etc).
         \App\Models\Gallery::factory()->create([
             'user_id'    => $active2->id,
             'is_active'  => true,

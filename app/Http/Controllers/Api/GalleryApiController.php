@@ -7,18 +7,8 @@ use App\Models\Gallery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * M-28: Public REST API for galleries.
- *
- * Read-only endpoints for browsing publicly viewable galleries + their images.
- * No auth required — rate-limited at 60 req/min/IP.
- */
 class GalleryApiController extends Controller
 {
-    /**
-     * List publicly viewable galleries (paginated).
-     * GET /api/v1/galleries?per_page=20&sort=newest|views|featured
-     */
     public function index(Request $request): JsonResponse
     {
         $perPage = min((int) $request->query('per_page', 20), 100);
@@ -48,10 +38,6 @@ class GalleryApiController extends Controller
         ]);
     }
 
-    /**
-     * Show a single gallery.
-     * GET /api/v1/galleries/{slug}
-     */
     public function show(string $slug): JsonResponse
     {
         $gallery = Gallery::publiclyViewable()
@@ -69,10 +55,6 @@ class GalleryApiController extends Controller
         ]);
     }
 
-    /**
-     * List images for a gallery.
-     * GET /api/v1/galleries/{slug}/images
-     */
     public function images(Request $request, string $slug): JsonResponse
     {
         $perPage = min((int) $request->query('per_page', 50), 200);
@@ -98,10 +80,6 @@ class GalleryApiController extends Controller
         ]);
     }
 
-    /**
-     * List the authenticated user's own galleries (all, including inactive).
-     * GET /api/v1/me/galleries
-     */
     public function myGalleries(Request $request): JsonResponse
     {
         $galleries = $request->user()->galleries()
@@ -156,13 +134,6 @@ class GalleryApiController extends Controller
 
     private function formatImage($img): array
     {
-        // AUDIT-P0-1.7 FIX: Previously referenced $img->thumbnail which is
-        // neither a column on gallery_images nor an accessor on GalleryImage
-        // — so thumbnail_url was always null in API responses. Now uses
-        // GalleryImage::conversionUrl('thumb') which is the Spatie Media Library
-        // conversion registered in GalleryImage::registerMediaConversions().
-        // Falls back to the original asset URL if Spatie throws (corrupted
-        // media record, missing file, etc.) or if no media is registered.
         $thumbUrl = null;
         try {
             $thumbUrl = $img->conversionUrl('thumb');

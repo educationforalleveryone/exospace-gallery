@@ -1,21 +1,4 @@
 @php
-/**
- * I-2 FIX (Iter-013): JSON-LD structured data component for Google rich results.
- *
- * Usage:
- *   <x-json-ld schema="{{ ['@type' => 'Organization', 'name' => 'Exospace', ...] }}" />
- *
- * Or use the named schemas:
- *   <x-json-ld type="organization" />            — homepage Organization schema
- *   <x-json-ld type="product" :product="$plan" /> — pricing page Product schema
- *   <x-json-ld type="faq-page" :faqs="$faqs" />   — FAQPage schema
- *   <x-json-ld type="item-list" :items="$galleries" /> — Discover ItemList schema
- *
- * Renders a <script type="application/ld+json"> block with the encoded schema.
- * Multiple instances on one page are valid per schema.org — Google merges them.
- *
- * Reference: https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data
- */
 @endphp
 
 @php
@@ -34,8 +17,6 @@ if (! $schema && isset($type)) {
             'logo' => $appUrl . '/android-chrome-192x192.png',
             'description' => 'Create museum-quality 3D art exhibitions in minutes. Upload your images, pick a venue, share a link.',
             'sameAs' => [
-                // Add social media URLs when available — Twitter, Instagram, LinkedIn.
-                // Empty array is valid; populates as accounts are added.
             ],
         ],
         'product' => (function () use ($appUrl, $appName, $product) {

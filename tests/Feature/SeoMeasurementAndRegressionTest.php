@@ -2,20 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * SEO OPERATING SYSTEM — Iteration 7 (measurement + final hardening) tests.
- *
- * Covers:
- *   - Acquisition capture: channel classification, first-touch-only
- *     semantics, signup persistence, report aggregation
- *   - LCP preload hooks (artwork + artist pages)
- *   - FINAL REGRESSION: every public route emits a complete meta layer
- *     (title, meta description, canonical, og:title, og:image, og:url,
- *     twitter card) — the SEO operating system's acceptance test.
- *
- * Run: php artisan test --filter=SeoMeasurementAndRegressionTest
- */
-
 namespace Tests\Feature;
 
 use App\Models\Artist;
@@ -35,13 +21,9 @@ class SeoMeasurementAndRegressionTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
-        // ITERATION-1 FIX: canonical assertions require https URLs — force
-        // the generator root (config alone doesn't change url() output).
         \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
         \Illuminate\Support\Facades\URL::forceScheme('https');
     }
-
-    // ── Acquisition capture ─────────────────────────────────────────────
 
     public function test_first_touch_acquisition_is_captured_in_session(): void
     {
@@ -93,7 +75,6 @@ class SeoMeasurementAndRegressionTest extends TestCase
         $this->get('/discover', ['HTTP_REFERER' => 'https://www.google.com/search?q=x']);
         $this->get('/pricing', ['HTTP_REFERER' => 'https://some-blog.com/link']);
 
-        // Second view must NOT overwrite the first-touch referrer.
         $this->assertSame('organic', session('acquisition')['channel']);
         $this->assertSame('/discover', session('acquisition')['landing_page']);
     }
@@ -156,8 +137,6 @@ class SeoMeasurementAndRegressionTest extends TestCase
         $this->assertStringContainsString('Organic acquisition', $response->getContent());
         $this->assertStringContainsString('Signups by channel', $response->getContent());
     }
-
-    // ── LCP preloads ────────────────────────────────────────────────────
 
     public function test_artwork_page_preloads_lcp_image(): void
     {
@@ -287,8 +266,6 @@ class SeoMeasurementAndRegressionTest extends TestCase
             );
         }
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
 
     private function makePublicGallery(array $attrs = []): Gallery
     {

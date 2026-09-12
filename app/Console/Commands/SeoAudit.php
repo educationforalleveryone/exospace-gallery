@@ -7,19 +7,6 @@ namespace App\Console\Commands;
 use App\Services\Seo\SeoAuditService;
 use Illuminate\Console\Command;
 
-/**
- * SEO OS (Iteration 6): scheduled SEO health report.
- *
- *   php artisan exospace:seo-audit
- *
- * Scheduled daily (routes/console.php). Output goes to the log; when the
- * standard OPERATIONAL_ALERT_WEBHOOK is configured and warnings exist, a
- * compact summary is posted to Slack — using the same operational-alert
- * conventions as the existing infra alerts (no new integration needed).
- *
- * This command reports PLATFORM data only. It never fabricates or fetches
- * search-engine data (see docs/MASTER_MANUAL_OPERATIONS.md §3.2).
- */
 class SeoAudit extends Command
 {
     protected $signature = 'exospace:seo-audit
@@ -68,10 +55,6 @@ class SeoAudit extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * @param  array<string, mixed>  $summary
-     * @param  array<int, array<string, mixed>>  $issues
-     */
     private function maybePostToSlack(array $summary, array $issues): void
     {
         $webhook = (string) config('services.operational_alert_webhook')

@@ -12,17 +12,6 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
-/**
- * Email dispatch tests.
- *
- * (Task H28) — verifies that lifecycle emails are actually sent:
- *   - WelcomeEmail on new user registration
- *   - PlanUpgradedEmail on webhook upgrade
- *   - PlanUpgradedEmail on admin plan change
- *
- * Uses Mail::fake() so no actual emails are sent — just verifies the
- * mailable was dispatched to the correct recipient.
- */
 class EmailDispatchTest extends TestCase
 {
     use RefreshDatabase;
@@ -84,9 +73,6 @@ class EmailDispatchTest extends TestCase
     {
         Mail::fake();
 
-        // ITERATION-1 FIX: master-control routes demand verified + MFA
-        // for super-admins — the old test was redirected to /mfa/setup
-        // before reaching the controller.
         $superAdmin = User::factory()->withMfa()->create([
             'is_super_admin'   => true,
             'email_verified_at' => now(),
