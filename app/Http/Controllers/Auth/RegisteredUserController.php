@@ -12,6 +12,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
@@ -73,12 +74,25 @@ class RegisteredUserController extends Controller
         ]);
 
         try {
-            $user = User::create([
-                'name'              => $request->name,
-                'email'             => $request->email,
-                'password'          => Hash::make($request->password),
-                'marketing_consent' => $request->boolean('marketing_consent'),
-            ]);
+            $user = DB::transaction(function () use ($request, $invitation) {
+                $user = User::create([
+                    'name'              => $request->name,
+                    'email'             => $request->email,
+                    'password'          => Hash::make($request->password),
+                    'marketing_consent' => $request->boolean('marketing_consent'),
+                ]);
+
+                if ($invitation) {
+                    // Mark email as verified — the invitation proved ownership.
+                    $user->forceFill(['email_verified_at' => now()])->save();
+
+                    $invitation->team->members()->attach($user->id, ['role' => $invitation->role]);
+                    $user->switchTeam($invitation->team);
+                    $invitation->delete();
+                }
+
+                return $user;
+            });
         } catch (UniqueConstraintViolationException) {
             return back()
                 ->withInput($request->only(['name', 'email']))
@@ -88,16 +102,7 @@ class RegisteredUserController extends Controller
         }
 
         if ($invitation) {
-            // Mark email as verified — the invitation proved ownership.
-            $user->forceFill(['email_verified_at' => now()])->save();
-
-            // Add user to the team
             $team = $invitation->team;
-            $team->members()->attach($user->id, ['role' => $invitation->role]);
-            $user->switchTeam($team);
-
-            // Clean up the invitation
-            $invitation->delete();
 
             $request->session()->regenerate();
             Auth::login($user);

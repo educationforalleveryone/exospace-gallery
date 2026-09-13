@@ -163,7 +163,10 @@ class RegistrationTest extends TestCase
 
         $response->assertRedirect('/register');
         $response->assertSessionHasErrors('email');
-        $this->assertSame(1, User::where('email', 'race@example.com')->count());
+        $this->assertGuest();
+        // The injected competitor row rides the same connection, so the atomic
+        // registration transaction rolls it back along with our own writes.
+        $this->assertSame(0, User::where('email', 'race@example.com')->count());
     }
 
     // ── REGISTRATION-ITERATION: intended-URL sanitization (CONV-6) ───────
@@ -329,5 +332,159 @@ class RegistrationTest extends TestCase
 
         $this->post('/register', ['name' => '', 'email' => 'thr11@example.com'])
             ->assertTooManyRequests();
+    }
+
+    // ── Registration: validation boundaries ─────────────────────────────
+
+    public function test_registration_requires_the_name_email_and_password_fields(): void
+    {
+        $response = $this->from('/register')->post('/register', []);
+
+        $response->assertRedirect('/register');
+        $response->assertSessionHasErrors(['name', 'email', 'password']);
+        $this->assertGuest();
+        $this->assertSame(0, User::count());
+    }
+
+    public function test_registration_rejects_invalid_email_addresses(): void
+    {
+        $response = $this->from('/register')->post('/register', [
+            'name'                 => 'Bad Email',
+            'email'                => 'not-an-email',
+            'password'             => 'GoodPass123',
+            'password_confirmation' => 'GoodPass123',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertGuest();
+        $this->assertSame(0, User::count());
+    }
+
+    public function test_registration_rejects_passwords_below_the_minimum_length(): void
+    {
+        $response = $this->from('/register')->post('/register', [
+            'name'                 => 'Short Pass',
+            'email'                => 'shortpass@example.com',
+            'password'             => 'Short1!',
+            'password_confirmation' => 'Short1!',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+        $this->assertGuest();
+        $this->assertSame(0, User::where('email', 'shortpass@example.com')->count());
+    }
+
+    public function test_registration_with_a_mismatched_confirmation_creates_no_account(): void
+    {
+        $response = $this->from('/register')->post('/register', [
+            'name'                 => 'Mismatch',
+            'email'                => 'mismatch@example.com',
+            'password'             => 'GoodPass123',
+            'password_confirmation' => 'Different999',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+        $this->assertGuest();
+        $this->assertSame(0, User::where('email', 'mismatch@example.com')->count());
+    }
+
+    public function test_an_authenticated_user_is_redirected_away_from_registration(): void
+    {
+        $user = User::factory()->create(['email_verified_at' => now()]);
+
+        $this->actingAs($user)
+            ->get('/register')
+            ->assertRedirect(route('dashboard', absolute: false));
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    // ── Registration: invitation edge cases ─────────────────────────────
+
+    public function test_registration_via_invitation_for_an_existing_account_is_rejected_without_consuming_the_invitation(): void
+    {
+        User::factory()->create(['email' => 'already@example.com']);
+
+        $owner = User::factory()->create();
+        $team = Team::create([
+            'name'     => 'Dup Team',
+            'slug'     => 'dup-team',
+            'owner_id' => $owner->id,
+        ]);
+
+        $plaintext = TeamInvitation::generateToken();
+        $invitation = TeamInvitation::create([
+            'team_id'    => $team->id,
+            'email'      => 'already@example.com',
+            'role'       => 'viewer',
+            'token'      => TeamInvitation::hashToken($plaintext),
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $response = $this->from('/register')->post('/register', [
+            'name'                 => 'Late Joiner',
+            'email'                => 'posted@example.com',
+            'password'             => 'GoodPass123',
+            'password_confirmation' => 'GoodPass123',
+            'invitation_token'     => $plaintext,
+        ]);
+
+        $response->assertRedirect('/register');
+        $response->assertSessionHasErrors('email');
+        $this->assertGuest();
+        $this->assertNotNull(TeamInvitation::find($invitation->id), 'invitation must survive a failed signup');
+        $this->assertSame(0, $team->members()->count());
+    }
+
+    public function test_invitation_registration_rolls_back_completely_when_the_team_join_fails(): void
+    {
+        $owner = User::factory()->create();
+        $team = Team::create([
+            'name'     => 'Atomic Team',
+            'slug'     => 'atomic-team',
+            'owner_id' => $owner->id,
+        ]);
+
+        $plaintext = TeamInvitation::generateToken();
+        $invitation = TeamInvitation::create([
+            'team_id'    => $team->id,
+            'email'      => 'atomic@example.com',
+            'role'       => 'editor',
+            'token'      => TeamInvitation::hashToken($plaintext),
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $failTeamJoin = true;
+        DB::beforeExecuting(function (string $sql) use (&$failTeamJoin) {
+            if ($failTeamJoin && str_contains(strtolower($sql), 'insert into "team_user"')) {
+                throw new \RuntimeException('simulated team-join failure');
+            }
+        });
+
+        $threw = false;
+        $response = null;
+
+        try {
+            $response = $this->post('/register', [
+                'name'                 => 'Atomic User',
+                'email'                => 'posted@example.com',
+                'password'             => 'GoodPass123',
+                'password_confirmation' => 'GoodPass123',
+                'invitation_token'     => $plaintext,
+            ]);
+        } catch (\Throwable) {
+            $threw = true;
+        } finally {
+            $failTeamJoin = false;
+        }
+
+        if (! $threw) {
+            $response->assertServerError();
+        }
+
+        $this->assertSame(0, User::where('email', 'atomic@example.com')->count(), 'the user row must roll back');
+        $this->assertNotNull(TeamInvitation::find($invitation->id), 'the invitation must survive the failure');
+        $this->assertSame(0, $team->members()->count(), 'no team membership may remain');
+        $this->assertGuest();
     }
 }
