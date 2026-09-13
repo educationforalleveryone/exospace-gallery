@@ -122,8 +122,8 @@
                         </div>
                     </div>
 
-                    {{-- Invite Form (owner only) --}}
-                    @if($userRole === 'owner')
+                    {{-- Invite Form (owner or editor — matches TeamPolicy::invite) --}}
+                    @if(in_array($userRole, ['owner', 'editor']))
                     <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
                         <h3 class="text-white font-semibold mb-1">Invite a Collaborator</h3>
                         <p class="text-gray-500 text-xs mb-5">They'll receive an email with an invitation link valid for 7 days.</p>

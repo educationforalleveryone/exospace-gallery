@@ -16,8 +16,7 @@ class DashboardController extends Controller
     public function index(): View
     {
         $user = Auth::user();
-        $user->loadMissing('currentTeamRelationship');
-        $team = $user->current_team_id ? $user->currentTeamRelationship : null;
+        $team = $user->currentTeam();
 
         $galleriesScope = $team
             ? Gallery::where('team_id', $team->id)

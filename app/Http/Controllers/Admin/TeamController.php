@@ -42,16 +42,18 @@ class TeamController extends Controller
             'description' => 'nullable|string|max:500',
         ]);
 
-        $team = Team::create([
-            'owner_id' => Auth::id(),
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-        ]);
+        $team = \Illuminate\Support\Facades\DB::transaction(function () use ($validated) {
+            $team = Team::create([
+                'owner_id' => Auth::id(),
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+            ]);
 
-        // Add owner as member with owner role
-        $team->members()->attach(Auth::id(), ['role' => 'owner']);
+            $team->members()->attach(Auth::id(), ['role' => 'owner']);
 
-        // Switch to new team
+            return $team;
+        });
+
         Auth::user()->switchTeam($team);
 
         return redirect()->route('admin.teams.show', $team)
@@ -111,7 +113,7 @@ class TeamController extends Controller
         ]);
 
         // Can't invite yourself
-        if ($validated['email'] === Auth::user()->email) {
+        if (strtolower($validated['email']) === strtolower(Auth::user()->email)) {
             return back()->withErrors(['email' => 'You cannot invite yourself.']);
         }
 
@@ -143,7 +145,7 @@ class TeamController extends Controller
 
         $invitation->plaintext_token = $plaintextToken;
 
-        Mail::to($validated['email'])->send(new TeamInvitationMail($invitation));
+        Mail::to($validated['email'])->send(new TeamInvitationMail($invitation, $plaintextToken));
 
         return back()->with('status', "Invitation sent to {$validated['email']}.");
     }

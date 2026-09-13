@@ -47,11 +47,6 @@ class TeamInvitationController extends Controller
             abort(404);
         }
 
-        if ($invitation->isExpired()) {
-            return redirect()->route('admin.teams.index')
-                             ->withErrors(['invitation' => 'This invitation has expired.']);
-        }
-
         if (! Auth::check()) {
             return redirect()
                 ->to(route('login') . '?redirect=' . urlencode(route('team-invitations.show', $token)))
@@ -67,24 +62,51 @@ class TeamInvitationController extends Controller
 
         $team = $invitation->team;
 
-        if ($team->hasMember($user)) {
-            $invitation->delete();
+        $outcome = \Illuminate\Support\Facades\DB::transaction(function () use ($invitation, $user, $team) {
+            $fresh = TeamInvitation::whereKey($invitation->getKey())->lockForUpdate()->first();
+
+            if (! $fresh) {
+                return $team->hasMember($user) ? 'member' : 'consumed';
+            }
+
+            if ($fresh->isExpired()) {
+                return 'expired';
+            }
+
+            if ($team->hasMember($user)) {
+                $fresh->delete();
+                return 'member';
+            }
+
+            $team->members()->syncWithoutDetaching([$user->id => ['role' => $fresh->role]]);
+            $user->switchTeam($team);
+
+            // If their email isn't verified yet, verify it now — invitation proves ownership
+            if (! $user->hasVerifiedEmail()) {
+                $user->markEmailAsVerified();
+            }
+
+            $fresh->delete();
+
+            return 'joined';
+        });
+
+        if ($outcome === 'joined') {
+            return redirect()->route('admin.teams.show', $team)
+                             ->with('status', "Welcome to {$team->name}! You've joined as {$invitation->role}.");
+        }
+
+        if ($outcome === 'member') {
             return redirect()->route('admin.teams.show', $team)
                              ->with('status', "You're already a member of {$team->name}.");
         }
 
-        $team->members()->attach($user->id, ['role' => $invitation->role]);
-        $user->switchTeam($team);
+        $message = $outcome === 'expired'
+            ? 'This invitation has expired.'
+            : 'This invitation is no longer valid.';
 
-        // If their email isn't verified yet, verify it now — invitation proves ownership
-        if (! $user->hasVerifiedEmail()) {
-            $user->markEmailAsVerified();
-        }
-
-        $invitation->delete();
-
-        return redirect()->route('admin.teams.show', $team)
-                         ->with('status', "Welcome to {$team->name}! You've joined as {$invitation->role}.");
+        return redirect()->route('admin.teams.index')
+                         ->withErrors(['invitation' => $message]);
     }
 
     public function decline(Request $request, string $token): RedirectResponse

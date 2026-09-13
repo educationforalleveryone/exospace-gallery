@@ -53,15 +53,9 @@ class Team extends Model
 
     public function memberRole(User $user): ?string
     {
-        static $cache = [];
-        $key = "{$this->id}:{$user->id}";
-
-        if (array_key_exists($key, $cache)) {
-            return $cache[$key];
-        }
-
         $pivot = $this->members()->where('user_id', $user->id)->first();
-        return $cache[$key] = $pivot?->pivot->role;
+
+        return $pivot?->pivot->role;
     }
 
     public function isOwner(User $user): bool

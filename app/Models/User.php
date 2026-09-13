@@ -192,7 +192,13 @@ class User extends Authenticatable implements MustVerifyEmail
             return $this->getRelation('currentTeam');
         }
 
-        return Team::find($this->current_team_id);
+        $team = Team::find($this->current_team_id);
+
+        if (! $team || ! $this->belongsToTeam($team)) {
+            return null;
+        }
+
+        return $team;
     }
 
     public function currentTeamRelationship(): BelongsTo

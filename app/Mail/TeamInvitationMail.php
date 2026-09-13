@@ -15,8 +15,18 @@ class TeamInvitationMail extends Mailable implements ShouldQueue
     use Queueable, SerializesModels;
 
     public function __construct(
-        public readonly TeamInvitation $invitation
+        public readonly TeamInvitation $invitation,
+        public readonly ?string $plaintextToken = null,
     ) {}
+
+    public function invitationLink(): string
+    {
+        // Queue restoration re-fetches the invitation from the database, so the
+        // runtime plaintext_token attribute is gone by render time.
+        $token = $this->plaintextToken ?? $this->invitation->plaintext_token ?? $this->invitation->token;
+
+        return \Illuminate\Support\Facades\URL::signedRoute('team-invitations.show', ['token' => $token]);
+    }
 
     public function envelope(): Envelope
     {
@@ -29,6 +39,7 @@ class TeamInvitationMail extends Mailable implements ShouldQueue
     {
         return new Content(
             view: 'emails.team-invitation',
+            with: ['invitationLink' => $this->invitationLink()],
         );
     }
 }
