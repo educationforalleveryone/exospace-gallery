@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header title="{{ __('Profile') }}" description="Manage your account details, security, and appearance."/>
+        <x-page-header title="{{ __('Profile') }}" description="Manage your account details and security."/>
     </x-slot>
 
     <div class="page-shell-mid space-y-6">

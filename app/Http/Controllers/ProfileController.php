@@ -31,7 +31,7 @@ class ProfileController extends Controller
         $user = $request->user();
         $oldEmail = $user->email;
 
-        $user->fill($request->validated());
+        $user->fill($request->safe()->only(['name', 'email']));
 
         // EXISTING PRODUCT DESIGN: a changed address starts unverified.
         if ($user->isDirty('email')) {

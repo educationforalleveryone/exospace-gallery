@@ -188,7 +188,7 @@
                             @csrf
                             <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.05] transition text-sm text-left {{ ! $currentTeam ? 'text-white' : 'text-gray-400' }}">
                                 <span class="w-6 h-6 rounded-lg bg-gray-700 border border-gray-600 flex items-center justify-center text-xs font-bold">
-                                    {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                                    {{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
                                 </span>
                                 <span>Personal</span>
                                 @if(! $currentTeam) <svg class="w-3.5 h-3.5 text-emerald-400 ml-auto" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> @endif
@@ -230,7 +230,7 @@
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center gap-2 px-2.5 h-9 border border-gray-700/80 hover:border-gray-600 text-sm font-medium rounded-lg text-gray-300 bg-white/[0.03] hover:bg-white/[0.07] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/80 transition-all duration-150">
-                            <span class="w-6 h-6 rounded-md bg-brand-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">{{ strtoupper(substr(Auth::user()->name, 0, 1)) }}</span>
+                            <span class="w-6 h-6 rounded-md bg-brand-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">{{ mb_strtoupper(mb_substr(Auth::user()->name, 0, 1)) }}</span>
                             <span class="max-w-[120px] truncate">{{ Auth::user()->name }}</span>
                             <svg class="fill-current h-3.5 w-3.5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
