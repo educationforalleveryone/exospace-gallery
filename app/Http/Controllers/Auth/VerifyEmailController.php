@@ -19,10 +19,9 @@ class VerifyEmailController extends Controller
             event(new Verified($request->user()));
         }
 
-        $intended = $request->session()->get('url.intended');
+        $intended = $request->session()->pull('url.intended');
         $path = $intended ? (string) parse_url($intended, PHP_URL_PATH) : '';
         if (rtrim($path, '/') === '/dashboard') {
-            $request->session()->forget('url.intended');
             $intended = null;
         }
 

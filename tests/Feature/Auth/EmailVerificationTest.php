@@ -8,7 +8,6 @@ use App\Notifications\Auth\VerifyEmail as BrandedVerifyEmail;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -406,6 +405,116 @@ class EmailVerificationTest extends TestCase
 
         $this->post('/email/verification-notification')
             ->assertRedirect(route('login', absolute: false));
+        $this->assertFalse($user->fresh()->hasVerifiedEmail());
+    }
+
+    // ── Registration → branded verification email chain ─────────────────
+
+    public function test_registration_dispatches_the_branded_verification_email(): void
+    {
+        Notification::fake();
+
+        $response = $this->post('/register', [
+            'name' => 'New User',
+            'email' => 'chain@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+
+        $response->assertRedirect(route('verification.notice', absolute: false));
+
+        $user = User::whereEmail('chain@example.com')->firstOrFail();
+        $this->assertFalse($user->hasVerifiedEmail());
+        Notification::assertSentTo($user, BrandedVerifyEmail::class);
+    }
+
+    // ── Canonical URL generation for the emailed link ────────────────────
+
+    public function test_verification_url_is_built_against_the_canonical_app_url(): void
+    {
+        config(['app.url' => 'https://exospace.gallery']);
+        $this->withServerVariables(['HTTP_HOST' => 'attacker.example']);
+
+        $user = User::factory()->unverified()->create();
+
+        Notification::fake();
+        $user->sendEmailVerificationNotification();
+
+        Notification::assertSentTo($user, BrandedVerifyEmail::class, function ($notification) use ($user) {
+            $mail = $notification->toMail($user);
+
+            return str_starts_with($mail->verificationUrl, 'https://exospace.gallery/verify-email/')
+                && str_contains($mail->verificationUrl, '/'.$user->id.'/'.sha1($user->email))
+                && str_contains($mail->verificationUrl, 'signature=')
+                && str_starts_with($mail->to[0]['address'] ?? '', $user->email);
+        });
+    }
+
+    public function test_verification_url_uses_the_request_host_when_it_is_canonical(): void
+    {
+        config(['app.url' => 'http://localhost']);
+
+        $user = User::factory()->unverified()->create();
+
+        $notification = new BrandedVerifyEmail;
+        $reflection = new \ReflectionMethod($notification, 'verificationUrl');
+        $reflection->setAccessible(true);
+        $url = $reflection->invoke($notification, $user);
+
+        $this->assertStringStartsWith('http://localhost/verify-email/', $url);
+        $this->assertStringContainsString('signature=', $url);
+    }
+
+    // ── Expiry: one config value drives link TTL and the displayed window ─
+
+    public function test_link_ttl_and_displayed_expiry_share_one_config_value(): void
+    {
+        config(['auth.verification.expire' => 90]);
+        $user = User::factory()->unverified()->create();
+
+        $mail = (new BrandedVerifyEmail)->toMail($user);
+
+        $this->assertInstanceOf(VerifyEmailMail::class, $mail);
+        $this->assertSame(90, $mail->content()->with['expireMinutes']);
+
+        parse_str((string) parse_url($mail->verificationUrl, PHP_URL_QUERY), $query);
+        $this->assertEqualsWithDelta(
+            now()->addMinutes(90)->getTimestamp(),
+            (int) $query['expires'],
+            5
+        );
+    }
+
+    // ── Intended destination is consumed, not retained ───────────────────
+
+    public function test_intended_destination_is_cleared_after_verification(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        $verificationUrl = URL::temporarySignedRoute(
+            'verification.verify',
+            now()->addMinutes(60),
+            ['id' => $user->id, 'hash' => sha1($user->email)]
+        );
+
+        $this->actingAs($user)->get('/profile');
+        $this->assertTrue(session()->has('url.intended'));
+
+        $this->get($verificationUrl)->assertRedirect(route('profile.edit', absolute: false));
+
+        $this->assertFalse(session()->has('url.intended'));
+    }
+
+    public function test_resending_does_not_verify_the_account(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        Notification::fake();
+
+        foreach (range(1, 3) as $i) {
+            $this->actingAs($user)->post('/email/verification-notification')->assertRedirect();
+        }
+
         $this->assertFalse($user->fresh()->hasVerifiedEmail());
     }
 }
