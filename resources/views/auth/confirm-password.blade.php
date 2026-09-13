@@ -4,7 +4,7 @@
         {{ __('This is a secure area of the application. Please confirm your password before continuing.') }}
     </div>
 
-    <form method="POST" action="{{ route('password.confirm') }}">
+    <form method="POST" action="{{ route('password.confirm') }}" data-busy data-busy-label="Confirming…">
         @csrf
 
         <!-- Password -->
@@ -24,5 +24,16 @@
                 {{ __('Confirm') }}
             </x-primary-button>
         </div>
+    </form>
+
+    <div class="mt-4 text-sm text-gray-400">
+        {{ __('Forgotten your password? Sign out, then use the “Forgot password” link on the sign-in page to reset it.') }}
+    </div>
+
+    <form method="POST" action="{{ route('logout') }}" class="mt-2">
+        @csrf
+        <button type="submit" class="underline text-sm text-gray-400 hover:text-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-ink-900">
+            {{ __('Sign out') }}
+        </button>
     </form>
 </x-guest-layout>
