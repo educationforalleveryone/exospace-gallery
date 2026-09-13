@@ -22,12 +22,21 @@ class CheckPlanExpiry
                     $user->plan_expires_at->isPast()
                 ) {
                     $limits = User::planLimits('free');
-                    $user->forceFill([
+
+                    $attributes = [
                         'plan'            => 'free',
                         'max_galleries'   => $limits['max_galleries'],
                         'max_images'      => $limits['max_images'],
                         'plan_expires_at' => now(),
-                    ])->save();
+                    ];
+
+                    // A subscription that was never cancelled upstream must not
+                    // keep reporting itself as active once the plan has expired.
+                    if ($user->hasSubscription() && in_array($user->subscription_status, ['active', 'past_due'], true)) {
+                        $attributes['subscription_status'] = 'expired';
+                    }
+
+                    $user->forceFill($attributes)->save();
 
                     // Dispatch the slow cleanup work to the queue.
                     ProcessPlanDowngrade::dispatch($user->id, 'Plan expired');

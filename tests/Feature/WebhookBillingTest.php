@@ -26,8 +26,7 @@ class WebhookBillingTest extends TestCase
         Config::set('services.2checkout.account_number', 'ACC-001');
         Config::set('services.2checkout.product_id_pro', self::PRODUCT_ID_PRO);
         Config::set('services.2checkout.product_id_studio', self::PRODUCT_ID_STUDIO);
-        Config::set('services.2checkout.buy_link_secret_word', null); // disable HMAC layer
-        Config::set('services.2checkout.allow_md5_only', true); // P0-2: explicit escape hatch for MD5-only tests
+        Config::set('services.2checkout.buy_link_secret_word', null);
     }
 
     private function validIpnPayload(array $overrides = []): array
@@ -36,10 +35,10 @@ class WebhookBillingTest extends TestCase
         $invoiceId = $overrides['invoice_id'] ?? 'INV-' . uniqid();
         $vendorId = $overrides['vendor_id'] ?? self::VENDOR_ID;
 
-        $stringToHash = strlen($saleId) . $saleId
-                      . strlen($vendorId) . $vendorId
-                      . strlen($invoiceId) . $invoiceId
-                      . strlen(self::SECRET_WORD) . self::SECRET_WORD;
+        $stringToHash = strtoupper(md5($saleId))
+                      . $vendorId
+                      . $invoiceId
+                      . self::SECRET_WORD;
         $hash = strtoupper(md5($stringToHash));
 
         return array_merge([
@@ -384,7 +383,6 @@ class WebhookBillingTest extends TestCase
     public function test_hmac_signature_verifies_when_configured(): void
     {
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
-        Config::set('services.2checkout.allow_md5_only', false);
 
         $user = User::factory()->create(['email' => 'buyer@example.com']);
 
@@ -403,7 +401,6 @@ class WebhookBillingTest extends TestCase
     public function test_hmac_signature_failure_returns_403(): void
     {
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
-        Config::set('services.2checkout.allow_md5_only', false);
 
         $user = User::factory()->create(['email' => 'buyer@example.com']);
 
@@ -420,54 +417,29 @@ class WebhookBillingTest extends TestCase
         $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
     }
 
-    public function test_hmac_signature_missing_returns_403_when_hmac_configured(): void
+    public function test_valid_md5_webhook_is_accepted_without_signature_even_when_hmac_secret_configured(): void
     {
+        // 2Checkout INS does not send a `signature` field — a valid md5_hash
+        // must be accepted even when the buy-link secret happens to be set.
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
-        Config::set('services.2checkout.allow_md5_only', false);
 
         $user = User::factory()->create(['email' => 'buyer@example.com']);
 
         $payload = $this->validIpnPayload([
             'item_id_1' => self::PRODUCT_ID_PRO,
         ]);
-        // No 'signature' field
+        // No 'signature' field, exactly like a real INS message
 
         $response = $this->postWebhook($payload);
 
-        $response->assertForbidden();
+        $response->assertOk();
         $user->refresh();
-        $this->assertEquals('free', $user->plan); // NOT upgraded
+        $this->assertEquals('pro', $user->plan); // upgraded via the provider mechanism
     }
 
-    public function test_production_fails_closed_when_hmac_not_configured(): void
+    public function test_production_accepts_valid_md5_webhook(): void
     {
-        // Simulate production environment
         app()['env'] = 'production';
-
-        Config::set('services.2checkout.buy_link_secret_word', null);
-        Config::set('services.2checkout.allow_md5_only', false);
-
-        $user = User::factory()->create(['email' => 'buyer@example.com']);
-
-        $payload = $this->validIpnPayload([
-            'item_id_1' => self::PRODUCT_ID_PRO,
-        ]);
-
-        $response = $this->postWebhook($payload);
-
-        $response->assertForbidden();
-        $user->refresh();
-        $this->assertEquals('free', $user->plan); // NOT upgraded — fail-closed
-        $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
-    }
-
-    public function test_production_accepts_md5_only_when_escape_hatch_enabled(): void
-    {
-        // Simulate production environment
-        app()['env'] = 'production';
-
-        Config::set('services.2checkout.buy_link_secret_word', null);
-        Config::set('services.2checkout.allow_md5_only', true); // explicit escape hatch
 
         $user = User::factory()->create(['email' => 'buyer@example.com']);
 
@@ -479,13 +451,49 @@ class WebhookBillingTest extends TestCase
 
         $response->assertOk();
         $user->refresh();
-        $this->assertEquals('pro', $user->plan); // upgraded via MD5-only
+        $this->assertEquals('pro', $user->plan); // upgraded via the documented INS mechanism
+    }
+
+    public function test_forged_webhook_without_valid_md5_is_rejected_in_production(): void
+    {
+        app()['env'] = 'production';
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]);
+        $payload['md5_hash'] = str_repeat('0', 32); // forged hash
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertForbidden();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan); // NOT upgraded — fail-closed
+        $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
+    }
+
+    public function test_missing_md5_hash_is_rejected_in_production(): void
+    {
+        app()['env'] = 'production';
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]);
+        unset($payload['md5_hash']);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertForbidden();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan);
     }
 
     public function test_tampered_customer_email_is_rejected_by_hmac(): void
     {
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
-        Config::set('services.2checkout.allow_md5_only', false);
 
         $attacker = User::factory()->create(['email' => 'attacker@example.com']);
         $victim   = User::factory()->create(['email' => 'victim@example.com']);
@@ -512,7 +520,6 @@ class WebhookBillingTest extends TestCase
     public function test_tampered_item_id_is_rejected_by_hmac(): void
     {
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
-        Config::set('services.2checkout.allow_md5_only', false);
 
         $user = User::factory()->create(['email' => 'buyer@example.com']);
 
@@ -534,7 +541,6 @@ class WebhookBillingTest extends TestCase
     public function test_tampered_message_type_is_rejected_by_hmac(): void
     {
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
-        Config::set('services.2checkout.allow_md5_only', false);
 
         $user = User::factory()->pro()->create(['email' => 'buyer@example.com']);
         Transaction::factory()->create([
@@ -711,5 +717,162 @@ class WebhookBillingTest extends TestCase
         \Illuminate\Support\Facades\Mail::assertQueued(\App\Mail\PlanUpgradedEmail::class, function ($mail) use ($user) {
             return $mail->user->id === $user->id && $mail->plan === 'pro';
         });
+    }
+
+    // ── Demo-mode notifications never mutate state ───────────────────────
+
+    public function test_demo_order_created_does_not_upgrade(): void
+    {
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+            'demo'      => 'Y',
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('free', $user->plan);
+        $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
+    }
+
+    public function test_non_demo_order_created_upgrades(): void
+    {
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+            'demo'      => 'N',
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('pro', $user->plan);
+    }
+
+    // ── Client-tamperable reference fields cannot assign subscriptions ──
+
+    public function test_numeric_external_reference_cannot_bind_arbitrary_user(): void
+    {
+        $victim = User::factory()->create(['email' => 'victim@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1'          => self::PRODUCT_ID_PRO,
+            'external-reference' => (string) $victim->id,
+            'customer_email'     => 'attacker-unrelated@example.com',
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $victim->refresh();
+        $this->assertEquals('free', $victim->plan);
+        $this->assertDatabaseMissing('transactions', ['user_id' => $victim->id]);
+    }
+
+    public function test_merchant_item_id_cannot_bind_arbitrary_user(): void
+    {
+        $victim = User::factory()->create(['email' => 'victim@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1'          => self::PRODUCT_ID_PRO,
+            'merchant_item_id_1' => (string) $victim->id,
+            'customer_email'     => 'attacker-unrelated@example.com',
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $victim->refresh();
+        $this->assertEquals('free', $victim->plan);
+        $this->assertDatabaseMissing('transactions', ['user_id' => $victim->id]);
+    }
+
+    // ── A confirmed purchase supersedes a previous live subscription ─────
+
+    public function test_one_time_purchase_cancels_replaced_subscription_at_2co(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'api.2checkout.com/*' => \Illuminate\Support\Facades\Http::response(['success' => true], 200),
+        ]);
+
+        $user = User::factory()->pro()->create([
+            'email'               => 'buyer@example.com',
+            'subscription_id'     => 'OLD-SUB-1',
+            'subscription_status' => 'active',
+            'subscription_ends_at'=> now()->addDays(20),
+        ]);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_STUDIO, // one-time studio purchase
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('studio', $user->plan);
+        $this->assertEquals('cancelled', $user->subscription_status);
+
+        \Illuminate\Support\Facades\Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/rest/6.0/subscriptions/OLD-SUB-1/cancel');
+        });
+    }
+
+    public function test_recurring_purchase_replaces_and_cancels_previous_subscription(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'api.2checkout.com/*' => \Illuminate\Support\Facades\Http::response(['success' => true], 200),
+        ]);
+
+        $user = User::factory()->pro()->create([
+            'email'               => 'buyer@example.com',
+            'subscription_id'     => 'OLD-SUB-2',
+            'subscription_status' => 'active',
+            'subscription_ends_at'=> now()->addDays(20),
+        ]);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1'           => self::PRODUCT_ID_STUDIO,
+            'recurring_order_id'  => 'NEW-SUB-2',
+            'item_billing_cycle_next_date' => now()->addMonth()->toDateString(),
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('studio', $user->plan);
+        $this->assertEquals('NEW-SUB-2', $user->subscription_id);
+        $this->assertEquals('active', $user->subscription_status);
+
+        \Illuminate\Support\Facades\Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/rest/6.0/subscriptions/OLD-SUB-2/cancel');
+        });
+    }
+
+    public function test_order_created_without_prior_subscription_does_not_call_cancel_api(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'api.2checkout.com/*' => \Illuminate\Support\Facades\Http::response(['success' => true], 200),
+        ]);
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $payload = $this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]);
+
+        $response = $this->postWebhook($payload);
+
+        $response->assertOk();
+        $user->refresh();
+        $this->assertEquals('pro', $user->plan);
+
+        \Illuminate\Support\Facades\Http::assertNothingSent();
     }
 }

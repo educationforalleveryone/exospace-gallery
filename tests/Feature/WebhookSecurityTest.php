@@ -14,61 +14,43 @@ class WebhookSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_2co3_md5_only_webhook_rejected_in_staging_env(): void
+    public function test_valid_md5_webhook_accepted_in_staging_env(): void
     {
         $this->app['env'] = 'staging';
         config()->set('services.2checkout.secret_word', 'TESTSECRET');
-        config()->set('services.2checkout.buy_link_secret_word', null); // HMAC not configured
-        config()->set('services.2checkout.allow_md5_only', false);
-
-        // Build a valid MD5 hash for the request
-        $saleId = 'SALE123';
-        $vendorId = 'VENDOR123';
-        $invoiceId = 'INV123';
-        $secretWord = 'TESTSECRET';
-        $stringToHash = strlen($saleId) . $saleId . strlen($vendorId) . $vendorId . strlen($invoiceId) . $invoiceId . strlen($secretWord) . $secretWord;
-        $md5Hash = strtoupper(md5($stringToHash));
+        config()->set('services.2checkout.buy_link_secret_word', null);
 
         $response = $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])
-            ->postJson('/webhooks/2checkout', [
-                'message_type' => 'ORDER_CREATED',
-                'message_id'   => 'msg-' . uniqid(),
-                'sale_id'      => $saleId,
-                'vendor_id'    => $vendorId,
-                'invoice_id'   => $invoiceId,
-                'md5_hash'     => $md5Hash,
-                // No 'signature' field → MD5-only mode
-            ]);
+            ->postJson('/webhooks/2checkout', $this->signedPayload('staging-'));
 
-        // 2CO-3 FIX: staging env should reject (403), not accept (200)
+        // md5_hash is the documented 2Checkout INS mechanism — valid hashes
+        // are accepted in every environment.
+        $response->assertStatus(200);
+    }
+
+    public function test_invalid_md5_webhook_rejected_in_staging_env(): void
+    {
+        $this->app['env'] = 'staging';
+        config()->set('services.2checkout.secret_word', 'TESTSECRET');
+        config()->set('services.2checkout.buy_link_secret_word', null);
+
+        $payload = $this->signedPayload('staging-invalid-');
+        $payload['md5_hash'] = str_repeat('A', 32);
+
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])
+            ->postJson('/webhooks/2checkout', $payload);
+
         $response->assertStatus(403);
     }
 
-    public function test_2co3_md5_only_webhook_accepted_in_local_env(): void
+    public function test_valid_md5_webhook_accepted_in_local_env(): void
     {
-        // 2CO-3 FIX: 'local' and 'testing' are in the allowlist — MD5-only is accepted
         $this->app['env'] = 'local';
         config()->set('services.2checkout.secret_word', 'TESTSECRET');
         config()->set('services.2checkout.buy_link_secret_word', null);
-        config()->set('services.2checkout.allow_md5_only', false);
 
-        $saleId = 'SALE456';
-        $vendorId = 'VENDOR456';
-        $invoiceId = 'INV456';
-        $secretWord = 'TESTSECRET';
-        $stringToHash = strlen($saleId) . $saleId . strlen($vendorId) . $vendorId . strlen($invoiceId) . $invoiceId . strlen($secretWord) . $secretWord;
-        $md5Hash = strtoupper(md5($stringToHash));
+        $response = $this->postJson('/webhooks/2checkout', $this->signedPayload('local-'));
 
-        $response = $this->postJson('/webhooks/2checkout', [
-            'message_type' => 'ORDER_CREATED',
-            'message_id'   => 'msg-local-' . uniqid(),
-            'sale_id'      => $saleId,
-            'vendor_id'    => $vendorId,
-            'invoice_id'   => $invoiceId,
-            'md5_hash'     => $md5Hash,
-        ]);
-
-        // local env: MD5-only accepted (returns 200, not 403)
         $response->assertStatus(200);
     }
 
@@ -78,23 +60,8 @@ class WebhookSecurityTest extends TestCase
         config()->set('services.2checkout.buy_link_secret_word', null);
         $this->app['env'] = 'testing';
 
-        $saleId = 'SALE-2CO4';
-        $vendorId = 'VENDOR-2CO4';
-        $invoiceId = 'INV-2CO4';
-        $secretWord = 'TESTSECRET';
-        $stringToHash = strlen($saleId) . $saleId . strlen($vendorId) . $vendorId . strlen($invoiceId) . $invoiceId . strlen($secretWord) . $secretWord;
-        $md5Hash = strtoupper(md5($stringToHash));
-
         $messageId = 'msg-duplicate-' . uniqid();
-
-        $payload = [
-            'message_type' => 'ORDER_CREATED',
-            'message_id'   => $messageId,
-            'sale_id'      => $saleId,
-            'vendor_id'    => $vendorId,
-            'invoice_id'   => $invoiceId,
-            'md5_hash'     => $md5Hash,
-        ];
+        $payload = $this->signedPayload('dup-', $messageId);
 
         $response1 = $this->postJson('/webhooks/2checkout', $payload);
         $response1->assertStatus(200);
@@ -118,7 +85,7 @@ class WebhookSecurityTest extends TestCase
         $this->app['env'] = 'testing';
 
         $refundUser = User::factory()->create();
-        $transaction = DB::table('transactions')->insertGetId([
+        DB::table('transactions')->insertGetId([
             'user_id'        => $refundUser->id,
             'invoice_id'     => 'INV-2CO5-TEST',
             'sale_id'        => 'SALE-2CO5',
@@ -133,20 +100,13 @@ class WebhookSecurityTest extends TestCase
             'updated_at'     => now(),
         ]);
 
-        $saleId = 'SALE-2CO5';
-        $vendorId = 'VENDOR-2CO5';
-        $invoiceId = 'INV-2CO5-TEST';
-        $secretWord = 'TESTSECRET';
-        $stringToHash = strlen($saleId) . $saleId . strlen($vendorId) . $vendorId . strlen($invoiceId) . $invoiceId . strlen($secretWord) . $secretWord;
-        $md5Hash = strtoupper(md5($stringToHash));
-
         $response = $this->postJson('/webhooks/2checkout', [
             'message_type'      => 'REFUND_ISSUED',
             'message_id'        => 'msg-refund-' . uniqid(),
-            'sale_id'           => $saleId,
-            'vendor_id'         => $vendorId,
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $md5Hash,
+            'sale_id'           => 'SALE-2CO5',
+            'vendor_id'         => 'VENDOR-2CO5',
+            'invoice_id'        => 'INV-2CO5-TEST',
+            'md5_hash'          => $this->md5HashFor('SALE-2CO5', 'VENDOR-2CO5', 'INV-2CO5-TEST'),
             'item_list_amount_1' => 29.00, // full refund
         ]);
 
@@ -162,6 +122,29 @@ class WebhookSecurityTest extends TestCase
             })
             ->atLeast()
             ->once();
+    }
+
+    private function md5HashFor(string $saleId, string $vendorId, string $invoiceId, string $secretWord = 'TESTSECRET'): string
+    {
+        return strtoupper(md5(
+            strtoupper(md5($saleId)) . $vendorId . $invoiceId . $secretWord
+        ));
+    }
+
+    private function signedPayload(string $prefix, ?string $messageId = null): array
+    {
+        $saleId = 'SALE-' . uniqid($prefix);
+        $vendorId = 'VENDOR-' . $prefix;
+        $invoiceId = 'INV-' . uniqid($prefix);
+
+        return [
+            'message_type' => 'ORDER_CREATED',
+            'message_id'   => $messageId ?? ('msg-' . uniqid($prefix)),
+            'sale_id'      => $saleId,
+            'vendor_id'    => $vendorId,
+            'invoice_id'   => $invoiceId,
+            'md5_hash'     => $this->md5HashFor($saleId, $vendorId, $invoiceId),
+        ];
     }
 
     protected function setUp(): void

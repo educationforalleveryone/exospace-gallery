@@ -29,7 +29,6 @@ class WebhookLedgerAndReplayTest extends TestCase
         Config::set('services.2checkout.product_id_pro', self::PRODUCT_ID_PRO);
         Config::set('services.2checkout.product_id_studio', 'STUDIO-2001');
         Config::set('services.2checkout.buy_link_secret_word', null);
-        Config::set('services.2checkout.allow_md5_only', true);
     }
 
     private function validIpnPayload(array $overrides = []): array
@@ -38,10 +37,10 @@ class WebhookLedgerAndReplayTest extends TestCase
         $invoiceId = $overrides['invoice_id'] ?? 'INV-' . uniqid();
         $vendorId = $overrides['vendor_id'] ?? self::VENDOR_ID;
 
-        $stringToHash = strlen($saleId) . $saleId
-                      . strlen($vendorId) . $vendorId
-                      . strlen($invoiceId) . $invoiceId
-                      . strlen(self::SECRET_WORD) . self::SECRET_WORD;
+        $stringToHash = strtoupper(md5($saleId))
+                      . $vendorId
+                      . $invoiceId
+                      . self::SECRET_WORD;
 
         return array_merge([
             'message_type'      => 'ORDER_CREATED',
@@ -336,8 +335,8 @@ class WebhookLedgerAndReplayTest extends TestCase
 
         $saleId = 'SALE-REPLAY-1';
         $invoiceId = 'INV-REPLAY-1';
-        $stringToHash = strlen($saleId) . $saleId . strlen(self::VENDOR_ID) . self::VENDOR_ID
-                      . strlen($invoiceId) . $invoiceId . strlen(self::SECRET_WORD) . self::SECRET_WORD;
+        $stringToHash = strtoupper(md5($saleId)) . self::VENDOR_ID
+                      . $invoiceId . self::SECRET_WORD;
 
         $row = ProcessedWebhook::create([
             'message_id'   => 'MSG-REPLAY-1',

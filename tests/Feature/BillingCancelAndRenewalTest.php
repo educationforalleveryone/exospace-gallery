@@ -138,7 +138,7 @@ class BillingCancelAndRenewalTest extends TestCase
         $this->assertStringStartsWith('https://www.2checkout.com/checkout/purchase', $response->headers->get('Location'));
     }
 
-    public function test_2co7_same_plan_subscription_to_onetime_conversion_cancels_subscription_first(): void
+    public function test_2co7_same_plan_subscription_to_onetime_conversion_does_not_cancel_before_payment(): void
     {
         config()->set('services.2checkout.account_number', 'TESTMERCHANT');
         config()->set('services.2checkout.secret_word', 'TESTSECRET');
@@ -154,7 +154,7 @@ class BillingCancelAndRenewalTest extends TestCase
         ]);
 
         Http::fake([
-            'api.2checkout.com/rest/6.0/subscriptions/sub-convert-123/cancel' => Http::response(['success' => true], 200),
+            'api.2checkout.com/*' => Http::response(['success' => true], 200),
         ]);
 
         $response = $this->actingAs($user)
@@ -163,14 +163,14 @@ class BillingCancelAndRenewalTest extends TestCase
         $response->assertRedirect();
         $this->assertStringStartsWith('https://www.2checkout.com/checkout/purchase', $response->headers->get('Location'));
 
-        // Verify the subscription was cancelled via the API
+        // The checkout initiation must stay side-effect free: the replaced
+        // subscription is only cancelled at 2Checkout once the new payment
+        // actually confirms (webhook-side supersession).
         $user->refresh();
-        $this->assertEquals('cancelled', $user->subscription_status);
-        $this->assertNotNull($user->subscription_cancelled_at);
+        $this->assertEquals('active', $user->subscription_status);
+        $this->assertNull($user->subscription_cancelled_at);
 
-        Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
-            return str_contains($request->url(), '/subscriptions/sub-convert-123/cancel');
-        });
+        Http::assertNothingSent();
     }
 
     public function test_2co1_cancel_fails_when_user_has_no_active_subscription(): void

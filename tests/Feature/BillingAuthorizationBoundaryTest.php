@@ -40,7 +40,6 @@ class BillingAuthorizationBoundaryTest extends TestCase
         Config::set('services.2checkout.product_id_pro', self::PRODUCT_ID_PRO);
         Config::set('services.2checkout.product_id_studio', self::PRODUCT_ID_STUDIO);
         Config::set('services.2checkout.buy_link_secret_word', null);
-        Config::set('services.2checkout.allow_md5_only', false);
         Config::set('services.2checkout.coupon_allowlist', '');
         Config::set('services.2checkout.affiliate_allowlist', '');
     }
@@ -75,10 +74,12 @@ class BillingAuthorizationBoundaryTest extends TestCase
 
     private function md5For(string $saleId, string $invoiceId): string
     {
-        $stringToHash = strlen($saleId).$saleId
-            .strlen(self::VENDOR_ID).self::VENDOR_ID
-            .strlen($invoiceId).$invoiceId
-            .strlen(self::SECRET_WORD).self::SECRET_WORD;
+        // Official 2Checkout INS md5_hash formula:
+        // UPPER(MD5(UPPER(MD5(SALE_ID)) . VENDOR_ID . INVOICE_ID . SECRET_WORD))
+        $stringToHash = strtoupper(md5($saleId))
+            . self::VENDOR_ID
+            . $invoiceId
+            . self::SECRET_WORD;
 
         return strtoupper(md5($stringToHash));
     }
@@ -397,7 +398,7 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $this->assertSame('pro', $alice->plan);
     }
 
-    public function test_forged_webhook_without_signature_cannot_bind_victim_billing(): void
+    public function test_forged_webhook_without_md5_hash_cannot_bind_victim_billing(): void
     {
         $alice = User::factory()->create(['email' => 'alice@example.test']);
 
@@ -424,7 +425,33 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $this->assertDatabaseCount('pending_upgrades', 0);
     }
 
-    public function test_md5_valid_webhook_fails_closed_when_hmac_is_configured(): void
+    public function test_webhook_with_invalid_md5_hash_cannot_bind_victim_billing(): void
+    {
+        $alice = User::factory()->create(['email' => 'alice@example.test']);
+
+        $response = $this->postJson('/webhooks/2checkout', [
+            'message_type' => 'ORDER_CREATED',
+            'sale_id' => 'SALE-FORGED-2',
+            'vendor_id' => self::VENDOR_ID,
+            'invoice_id' => 'INV-FORGED-002',
+            'md5_hash' => str_repeat('F', 32), // forged
+            'customer_email' => 'alice@example.test',
+            'customer_name' => 'Alice Victim',
+            'item_id_1' => self::PRODUCT_ID_PRO,
+            'item_list_amount_1' => '29.00',
+            'list_currency' => 'USD',
+            'merchant_item_id_1' => (string) $alice->id,
+            'external_reference' => (string) $alice->id,
+        ]);
+
+        $response->assertStatus(403);
+
+        $alice->refresh();
+        $this->assertSame('free', $alice->plan);
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_md5_valid_webhook_is_accepted_even_when_hmac_secret_is_configured(): void
     {
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
 
@@ -442,14 +469,14 @@ class BillingAuthorizationBoundaryTest extends TestCase
             'item_list_amount_1' => '29.00',
             'list_currency' => 'USD',
             'merchant_item_id_1' => (string) $alice->id,
-            // no HMAC signature
+            // no signature field — 2Checkout INS never sends one
         ]);
 
-        $response->assertStatus(403);
+        $response->assertStatus(200);
 
         $alice->refresh();
-        $this->assertSame('free', $alice->plan);
-        $this->assertDatabaseCount('transactions', 0);
+        $this->assertSame('pro', $alice->plan);
+        $this->assertDatabaseCount('transactions', 1);
     }
 
     public function test_valid_webhook_resolves_owner_via_the_server_minted_token(): void

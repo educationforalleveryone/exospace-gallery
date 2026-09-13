@@ -44,10 +44,10 @@ class EmailDispatchTest extends TestCase
 
         $saleId = 'SALE-' . uniqid();
         $invoiceId = 'INV-' . uniqid();
-        $stringToHash = strlen($saleId) . $saleId
-                      . strlen('V123') . 'V123'
-                      . strlen($invoiceId) . $invoiceId
-                      . strlen('test-secret') . 'test-secret';
+        $stringToHash = strtoupper(md5($saleId))
+                      . 'V123'
+                      . $invoiceId
+                      . 'test-secret';
         $hash = strtoupper(md5($stringToHash));
 
         $response = $this->postJson('/webhooks/2checkout', [

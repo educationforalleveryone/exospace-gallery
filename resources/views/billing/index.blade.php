@@ -70,6 +70,8 @@
                                 @else
                                     <span class="text-red-400 text-xs ml-2">Expired</span>
                                 @endif
+                            @elseif($user->subscription_status === 'expired')
+                                <span class="badge badge-danger">Expired</span>
                             @else
                                 <span class="text-gray-300">{{ ucfirst($user->subscription_status ?? 'unknown') }}</span>
                             @endif

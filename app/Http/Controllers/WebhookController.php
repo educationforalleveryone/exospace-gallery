@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\TwoCheckoutApiClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -58,6 +59,9 @@ class WebhookController extends Controller
 
     private function processVerifiedWebhook(Request $request, ?string $messageId, ?string $messageType)
     {
+        if ($this->isDemoNotification($request)) {
+            return response('OK', 200);
+        }
 
         try {
             if ($messageType === 'REFUND_ISSUED') {
@@ -104,8 +108,7 @@ class WebhookController extends Controller
         $amount        = $request->input('item_list_amount_1', 0);
 
         $externalReference = $request->input('external-reference')
-            ?? $request->input('external_reference')
-            ?? $request->input('merchant_item_id_1');
+            ?? $request->input('external_reference');
 
         $user = null;
         $pendingUpgrade = null;
@@ -120,8 +123,6 @@ class WebhookController extends Controller
             if ($pendingUpgrade) {
                 $user = $pendingUpgrade->user;
                 $customerEmail = $user->email;
-            } else {
-                $user = User::find((int) $externalReference);
             }
         }
 
@@ -133,6 +134,7 @@ class WebhookController extends Controller
             Log::warning('2Checkout: User not found by external-reference or customer_email', [
                 'invoice_id'           => $invoiceId,
                 'has_external_ref'     => ! empty($externalReference),
+                'ref_was_valid_token'  => $pendingUpgrade !== null,
                 'has_customer_email'   => ! empty($customerEmail),
             ]);
             return response('OK', 200);
@@ -141,6 +143,9 @@ class WebhookController extends Controller
         if (empty($customerEmail)) {
             $customerEmail = $user->email;
         }
+
+        $previousSubscriptionId = $user->subscription_id;
+        $previousSubscriptionActive = $user->hasActiveSubscription() || $user->subscription_status === 'past_due';
 
         $productMap = [
             config('services.2checkout.product_id_pro')    => ['plan' => 'pro'],
@@ -163,11 +168,13 @@ class WebhookController extends Controller
         try {
             $processed = $lock->block(5, function () use (
                 $user, $planConfig, $invoiceId, $productId, $amount,
-                $request, $customerEmail, $customerName, $pendingUpgrade
+                $request, $customerEmail, $customerName, $pendingUpgrade,
+                $previousSubscriptionId, $previousSubscriptionActive
             ) {
                 return \DB::transaction(function () use (
                     $user, $planConfig, $invoiceId, $productId, $amount,
-                    $request, $customerEmail, $customerName, $pendingUpgrade
+                    $request, $customerEmail, $customerName, $pendingUpgrade,
+                    $previousSubscriptionId, $previousSubscriptionActive
                 ) {
                     $existing = \DB::table('transactions')
                         ->where('invoice_id', $invoiceId)
@@ -206,6 +213,13 @@ class WebhookController extends Controller
                             'plan_started_at' => now(),
                             'plan_expires_at' => null,
                         ])->save();
+
+                        if ($previousSubscriptionActive && $previousSubscriptionId) {
+                            $user->forceFill([
+                                'subscription_status'       => 'cancelled',
+                                'subscription_cancelled_at' => now(),
+                            ])->save();
+                        }
                     }
 
                     $transactionId = \DB::table('transactions')->insertGetId([
@@ -243,7 +257,7 @@ class WebhookController extends Controller
                         'matched_by'   => $pendingUpgrade ? 'external-reference' : 'customer_email',
                     ]);
 
-                    \DB::afterCommit(function () use ($user, $planConfig, $invoiceId, $transactionId, $recurringOrderId) {
+                    \DB::afterCommit(function () use ($user, $planConfig, $invoiceId, $transactionId, $recurringOrderId, $previousSubscriptionId, $previousSubscriptionActive) {
                         try {
                             \Illuminate\Support\Facades\Mail::to($user->email)
                                 ->send(new \App\Mail\PlanUpgradedEmail($user, $planConfig['plan'], $invoiceId));
@@ -252,6 +266,14 @@ class WebhookController extends Controller
                                 'user_id' => $user->id,
                                 'error'   => $e->getMessage(),
                             ]);
+                        }
+
+                        // A confirmed new purchase supersedes any prior live subscription,
+                        // otherwise 2Checkout would keep billing the replaced one.
+                        if ($previousSubscriptionActive
+                            && $previousSubscriptionId
+                            && $previousSubscriptionId !== $recurringOrderId) {
+                            $this->cancelSupersededSubscription($user, $previousSubscriptionId);
                         }
 
                         try {
@@ -316,6 +338,10 @@ class WebhookController extends Controller
 
         if (! $this->verify2CheckoutSignature($request)) {
             return response('Hash verification failed', 403);
+        }
+
+        if ($this->isDemoNotification($request)) {
+            return response('OK', 200);
         }
 
         $messageType = $request->input('message_type');
@@ -452,6 +478,7 @@ class WebhookController extends Controller
                             return;
                         }
                         $this->downgradeUserAndCleanupStudioResources($user, 'Refund issued');
+                        $this->expireStaleSubscription($user);
                         Log::info('2Checkout: User downgraded after refund (afterCommit)', [
                             'user_id'    => $user->id,
                             'invoice_id' => $invoiceId,
@@ -548,6 +575,7 @@ class WebhookController extends Controller
                             return;
                         }
                         $this->downgradeUserAndCleanupStudioResources($user, 'Chargeback reported');
+                        $this->expireStaleSubscription($user);
                         Log::info('2Checkout: User downgraded after chargeback (afterCommit)', [
                             'user_id'    => $user->id,
                             'invoice_id' => $invoiceId,
@@ -678,6 +706,18 @@ class WebhookController extends Controller
         app(\App\Services\PlanDowngradeService::class)->downgradeToFree($user, $reason);
     }
 
+    private function expireStaleSubscription(User $user): void
+    {
+        if (! $user->hasSubscription() || ! in_array($user->subscription_status, ['active', 'past_due'], true)) {
+            return;
+        }
+
+        $user->forceFill([
+            'subscription_status'    => 'expired',
+            'subscription_ends_at'   => now(),
+        ])->save();
+    }
+
     private function verify2CheckoutSignature(Request $request): bool
     {
         $secretWord = config('services.2checkout.secret_word');
@@ -696,10 +736,12 @@ class WebhookController extends Controller
             return false;
         }
 
-        $stringToHash = strlen((string) $request->input('sale_id', ''))   . $request->input('sale_id', '')
-                      . strlen((string) $request->input('vendor_id', '')) . $request->input('vendor_id', '')
-                      . strlen((string) $request->input('invoice_id', '')) . $request->input('invoice_id', '')
-                      . strlen($secretWord)                                . $secretWord;
+        // Official 2Checkout INS md5_hash formula:
+        // UPPER(MD5(UPPER(MD5(SALE_ID)) . VENDOR_ID . INVOICE_ID . SECRET_WORD))
+        $stringToHash = strtoupper(md5((string) $request->input('sale_id', '')))
+                      . (string) $request->input('vendor_id', '')
+                      . (string) $request->input('invoice_id', '')
+                      . $secretWord;
 
         $calculatedHash = strtoupper(md5($stringToHash));
 
@@ -711,22 +753,21 @@ class WebhookController extends Controller
             return false;
         }
 
-        // ── Layer 2: HMAC SHA-256 (MANDATORY in production) ─────────────
-        $buyLinkSecret   = config('services.2checkout.buy_link_secret_word');
-        $allowMd5Only    = config('services.2checkout.allow_md5_only', false);
-        $receivedSig     = $request->input('signature');
-        $isProduction    = app()->environment('production');
+        // 2Checkout INS does not send a `signature` field, so a valid md5_hash
+        // is the authoritative provider mechanism. If a signature IS present
+        // (e.g. an edge/proxy injecting one), it must still verify.
+        $buyLinkSecret = config('services.2checkout.buy_link_secret_word');
+        $receivedSig   = $request->input('signature');
 
-        if ($buyLinkSecret) {
-            if (! $receivedSig) {
-                Log::warning('2Checkout: signature field missing but HMAC verification is configured', [
+        if ($receivedSig) {
+            if (! $buyLinkSecret) {
+                Log::error('2Checkout: signature field present but TWOCHECKOUT_BUY_LINK_SECRET_WORD not configured', [
                     'invoice_id' => $request->input('invoice_id'),
                 ]);
                 return false;
             }
 
-            $hmacPayload       = $this->build2CheckoutHmacPayload($request);
-            $calculatedSig     = hash_hmac('sha256', $hmacPayload, $buyLinkSecret);
+            $calculatedSig = hash_hmac('sha256', $this->build2CheckoutHmacPayload($request), $buyLinkSecret);
 
             if (! hash_equals($calculatedSig, (string) $receivedSig)) {
                 Log::warning('2Checkout: HMAC SHA-256 signature verification failed', [
@@ -734,32 +775,9 @@ class WebhookController extends Controller
                 ]);
                 return false;
             }
-        } elseif ($receivedSig) {
-            Log::error('2Checkout: signature field present but TWOCHECKOUT_BUY_LINK_SECRET_WORD not configured', [
-                'invoice_id' => $request->input('invoice_id'),
-            ]);
-            return false;
-        } else {
-            $md5OnlyAllowedEnvs = ['local', 'testing'];
-            $md5OnlyAllowed = in_array(app()->environment(), $md5OnlyAllowedEnvs, true)
-                || $allowMd5Only;
-
-            if (! $md5OnlyAllowed) {
-                Log::critical('2Checkout: HMAC secret not configured in a non-local environment — FAILING CLOSED. Set TWOCHECKOUT_BUY_LINK_SECRET_WORD in .env, or set TWOCHECKOUT_ALLOW_MD5_ONLY=true as an emergency escape hatch.', [
-                    'invoice_id'   => $request->input('invoice_id'),
-                    'environment'  => app()->environment(),
-                ]);
-                return false;
-            }
-
-            Log::warning('2Checkout: Accepting MD5-only webhook (HMAC not configured). This is insecure — configure TWOCHECKOUT_BUY_LINK_SECRET_WORD immediately.', [
-                'invoice_id'     => $request->input('invoice_id'),
-                'allow_md5_only' => $allowMd5Only ? 'true' : 'false',
-                'environment'    => app()->environment(),
-            ]);
         }
 
-        // ── Layer 3: IP allowlist (optional, env-gated) ─────────────────
+        // ── IP allowlist (optional, env-gated) ──────────────────────
         $allowlist = config('services.2checkout.webhook_ip_allowlist');
         if ($allowlist) {
             $clientIp   = $request->ip();
@@ -771,13 +789,76 @@ class WebhookController extends Controller
                 ]);
                 return false;
             }
-        } elseif ($isProduction) {
-            Log::critical('2Checkout: TWOCHECKOUT_WEBHOOK_IP_ALLOWLIST not configured in production. HMAC is the primary defense, but the IP allowlist should be set for defense-in-depth. See 2Checkout merchant docs for INS server IP ranges.', [
+        } elseif (app()->environment('production')) {
+            Log::warning('2Checkout: TWOCHECKOUT_WEBHOOK_IP_ALLOWLIST not configured in production. md5_hash is the primary defense; the IP allowlist is recommended defense-in-depth. See 2Checkout merchant docs for INS server IP ranges.', [
                 'invoice_id' => $request->input('invoice_id'),
             ]);
         }
 
         return true;
+    }
+
+    private function isDemoNotification(Request $request): bool
+    {
+        if (strtoupper((string) $request->input('demo', 'N')) !== 'Y') {
+            return false;
+        }
+
+        Log::info('2Checkout: demo-mode notification ignored', [
+            'message_type' => $request->input('message_type'),
+            'invoice_id'   => $request->input('invoice_id'),
+        ]);
+
+        return true;
+    }
+
+    private function cancelSupersededSubscription(User $user, string $previousSubscriptionId): void
+    {
+        try {
+            $response = app(TwoCheckoutApiClient::class)
+                ->cancelSubscription($previousSubscriptionId, 'Superseded by a new purchase on the account');
+
+            if (! $response->successful()) {
+                Log::error('2Checkout: failed to cancel superseded subscription', [
+                    'user_id'         => $user->id,
+                    'subscription_id' => $previousSubscriptionId,
+                    'status'          => $response->status(),
+                ]);
+                $this->alertSupersededCancelFailed($user, $previousSubscriptionId);
+                return;
+            }
+
+            Log::info('2Checkout: superseded subscription cancelled at 2Checkout', [
+                'user_id'         => $user->id,
+                'subscription_id' => $previousSubscriptionId,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('2Checkout: exception while cancelling superseded subscription', [
+                'user_id'         => $user->id,
+                'subscription_id' => $previousSubscriptionId,
+                'error'           => $e->getMessage(),
+            ]);
+            $this->alertSupersededCancelFailed($user, $previousSubscriptionId);
+        }
+    }
+
+    private function alertSupersededCancelFailed(User $user, string $subscriptionId): void
+    {
+        try {
+            app(\App\Services\OperationalAlertService::class)->alert(
+                '2Checkout: superseded subscription still billing',
+                "User {$user->id} ({$user->email}) completed a new purchase, but the previous 2Checkout "
+                . "subscription {$subscriptionId} could not be cancelled via the API. It may still be billing "
+                . 'the customer — cancel it from the 2Checkout merchant dashboard.',
+                'warning',
+                "superseded-subscription:{$subscriptionId}",
+            );
+        } catch (\Throwable $e) {
+            Log::warning('2Checkout: failed to raise superseded-subscription alert', [
+                'subscription_id' => $subscriptionId,
+                'error'           => $e->getMessage(),
+            ]);
+        }
     }
 
     private function build2CheckoutHmacPayload(Request $request): string
@@ -844,13 +925,17 @@ class WebhookController extends Controller
             'next_billing'    => $nextBillingDate,
         ]);
 
-        $user = $this->findUserForRecurringEvent($request, $subscriptionId);
+        [$user, $matchedBy] = $this->findUserForRecurringEvent($request, $subscriptionId);
 
         if (! $user) {
             Log::warning('2Checkout: RECURRING_INSTALLMENT_SUCCESS — user not found', [
                 'invoice_id'      => $invoiceId,
                 'subscription_id' => $subscriptionId,
             ]);
+            return response('OK', 200);
+        }
+
+        if ($this->recurringEventSubscriptionMismatch($user, $subscriptionId, $matchedBy, $invoiceId)) {
             return response('OK', 200);
         }
 
@@ -961,7 +1046,7 @@ class WebhookController extends Controller
             'subscription_id' => $subscriptionId,
         ]);
 
-        $user = $this->findUserForRecurringEvent($request, $subscriptionId);
+        [$user, $matchedBy] = $this->findUserForRecurringEvent($request, $subscriptionId);
 
         if (! $user) {
             Log::warning('2Checkout: RECURRING_INSTALLMENT_FAILED — user not found', [
@@ -970,50 +1055,65 @@ class WebhookController extends Controller
             return response('OK', 200);
         }
 
-        $user->forceFill([
-            'subscription_status' => 'past_due',
-        ])->save();
+        if ($this->recurringEventSubscriptionMismatch($user, $subscriptionId, $matchedBy, $invoiceId)) {
+            return response('OK', 200);
+        }
 
-        Log::info('2Checkout: Subscription marked past_due', [
-            'user_id'         => $user->id,
-            'subscription_id' => $subscriptionId,
-        ]);
+        $lock = \Illuminate\Support\Facades\Cache::lock("2co:dunning:{$user->id}", 60);
 
-        // ITERATION 4 (billing audit trail).
-        $this->auditWebhook('webhook.recurring_failed', $user, [
-            'invoice_id'      => $invoiceId,
-            'subscription_id' => $subscriptionId,
-        ]);
+        try {
+            $lock->block(5, function () use ($user, $invoiceId, $subscriptionId) {
+                $user->refresh();
 
-        if (! $user->dunning_step || $user->dunning_step < 1) {
-            $user->forceFill([
-                'dunning_step'         => 1,
-                'dunning_last_sent_at' => now(),
-            ])->save();
+                $user->forceFill([
+                    'subscription_status' => 'past_due',
+                ])->save();
 
-            try {
-                \Illuminate\Support\Facades\Mail::to($user->email)
-                    ->send(new \App\Mail\DunningEmail($user, 1));
-
-                Log::info('Dunning: sent step 1 email (immediate)', [
-                    'user_id' => $user->id,
+                Log::info('2Checkout: Subscription marked past_due', [
+                    'user_id'         => $user->id,
+                    'subscription_id' => $subscriptionId,
                 ]);
-            } catch (\Throwable $e) {
-                Log::warning('Dunning: step 1 email send failed', [
-                    'user_id' => $user->id,
-                    'error'   => $e->getMessage(),
-                ]);
-            }
 
-            // M-12: Create in-app notification for the payment failure
-            \App\Services\NotificationService::create(
-                $user,
-                'dunning',
-                'Subscription payment failed',
-                'Your recent payment for the ' . ucfirst($user->plan) . ' plan failed. Please update your payment method to avoid losing access.',
-                '/billing',
-                'Update payment method'
-            );
+                $this->auditWebhook('webhook.recurring_failed', $user, [
+                    'invoice_id'      => $invoiceId,
+                    'subscription_id' => $subscriptionId,
+                ]);
+
+                if (! $user->dunning_step || $user->dunning_step < 1) {
+                    $user->forceFill([
+                        'dunning_step'         => 1,
+                        'dunning_last_sent_at' => now(),
+                    ])->save();
+
+                    try {
+                        \Illuminate\Support\Facades\Mail::to($user->email)
+                            ->send(new \App\Mail\DunningEmail($user, 1));
+
+                        Log::info('Dunning: sent step 1 email (immediate)', [
+                            'user_id' => $user->id,
+                        ]);
+                    } catch (\Throwable $e) {
+                        Log::warning('Dunning: step 1 email send failed', [
+                            'user_id' => $user->id,
+                            'error'   => $e->getMessage(),
+                        ]);
+                    }
+
+                    \App\Services\NotificationService::create(
+                        $user,
+                        'dunning',
+                        'Subscription payment failed',
+                        'Your recent payment for the ' . ucfirst($user->plan) . ' plan failed. Please update your payment method to avoid losing access.',
+                        '/billing',
+                        'Update payment method'
+                    );
+                }
+            });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            Log::info('2Checkout: dunning lock busy, another worker is handling this failure', [
+                'user_id'    => $user->id,
+                'invoice_id' => $invoiceId,
+            ]);
         }
 
         return response('OK', 200);
@@ -1021,18 +1121,23 @@ class WebhookController extends Controller
 
     private function handleRecurringCancelled(Request $request)
     {
+        $invoiceId      = $request->input('invoice_id');
         $subscriptionId = $request->input('recurring_order_id') ?? $request->input('sale_id');
 
         Log::info('2Checkout: RECURRING_ORDER_CANCELLED received', [
             'subscription_id' => $subscriptionId,
         ]);
 
-        $user = $this->findUserForRecurringEvent($request, $subscriptionId);
+        [$user, $matchedBy] = $this->findUserForRecurringEvent($request, $subscriptionId);
 
         if (! $user) {
             Log::warning('2Checkout: RECURRING_ORDER_CANCELLED — user not found', [
                 'subscription_id' => $subscriptionId,
             ]);
+            return response('OK', 200);
+        }
+
+        if ($this->recurringEventSubscriptionMismatch($user, $subscriptionId, $matchedBy, $invoiceId)) {
             return response('OK', 200);
         }
 
@@ -1066,19 +1171,44 @@ class WebhookController extends Controller
         return response('OK', 200);
     }
 
-    private function findUserForRecurringEvent(Request $request, ?string $subscriptionId): ?User
+    private function findUserForRecurringEvent(Request $request, ?string $subscriptionId): array
     {
         if ($subscriptionId) {
             $user = User::where('subscription_id', $subscriptionId)->first();
-            if ($user) return $user;
+            if ($user) {
+                return [$user, 'subscription_id'];
+            }
         }
 
         $customerEmail = $request->input('customer_email');
         if ($customerEmail && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
-            return User::where('email', $customerEmail)->first();
+            $user = User::where('email', $customerEmail)->first();
+            if ($user) {
+                return [$user, 'customer_email'];
+            }
         }
 
-        return null;
+        return [null, 'none'];
+    }
+
+    private function recurringEventSubscriptionMismatch(User $user, ?string $subscriptionId, string $matchedBy, ?string $invoiceId): bool
+    {
+        if ($matchedBy !== 'customer_email' || empty($subscriptionId)) {
+            return false;
+        }
+
+        if (empty($user->subscription_id) || $user->subscription_id === $subscriptionId) {
+            return false;
+        }
+
+        Log::warning('2Checkout: recurring event belongs to a replaced subscription — skipping', [
+            'invoice_id'            => $invoiceId,
+            'event_subscription_id' => $subscriptionId,
+            'local_subscription_id' => $user->subscription_id,
+            'user_id'               => $user->id,
+        ]);
+
+        return true;
     }
 
     private function storablePayload(Request $request): ?string

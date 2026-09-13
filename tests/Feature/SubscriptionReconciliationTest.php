@@ -178,10 +178,10 @@ class SubscriptionReconciliationTest extends TestCase
         $vendorId = $payload['vendor_id'] ?? 'V12345';
         $secretWord = 'test-secret-word';
 
-        $stringToHash = strlen($saleId) . $saleId
-                      . strlen($vendorId) . $vendorId
-                      . strlen($invoiceId) . $invoiceId
-                      . strlen($secretWord) . $secretWord;
+        $stringToHash = strtoupper(md5($saleId))
+                      . $vendorId
+                      . $invoiceId
+                      . $secretWord;
 
         $payload = array_merge([
             'md5_hash'       => strtoupper(md5($stringToHash)),
@@ -189,8 +189,6 @@ class SubscriptionReconciliationTest extends TestCase
             'sale_id'        => $saleId,
             'customer_email' => 'buyer@example.com',
         ], $payload);
-
-        Config::set('services.2checkout.allow_md5_only', true);
 
         return $this->postJson('/webhooks/2checkout', $payload);
     }

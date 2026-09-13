@@ -79,55 +79,11 @@ class BillingController extends Controller
         }
 
         if ($user->plan === $plan) {
-            // If converting from subscription to one-time, cancel the subscription first.
-            if ($user->hasActiveSubscription() && ! $isRecurring) {
-                Log::info('BillingController: same-plan subscription→one-time conversion', [
-                    'user_id'         => $user->id,
-                    'plan'            => $plan,
-                    'subscription_id' => $user->subscription_id,
-                ]);
-
-                $cancelResult = $this->planLock->withUserLock($user->id, function () use ($user) {
-                    $user->refresh();
-                    if (! $user->hasActiveSubscription()) {
-                        return true; // already cancelled by a concurrent request
-                    }
-                    try {
-                        $response = $this->twoCheckout->cancelSubscription(
-                            $user->subscription_id,
-                            'Converting to one-time purchase via self-serve billing portal',
-                        );
-                        if (! $response->successful()) {
-                            Log::error('BillingController: 2Checkout cancel API failed during conversion', [
-                                'user_id'         => $user->id,
-                                'subscription_id' => $user->subscription_id,
-                                'status'          => $response->status(),
-                                'body'            => $response->body(),
-                            ]);
-                            return false;
-                        }
-                        $user->forceFill([
-                            'subscription_status'       => 'cancelled',
-                            'subscription_cancelled_at' => now(),
-                        ])->save();
-                        return true;
-                    } catch (\Throwable $e) {
-                        Log::error('BillingController: 2Checkout cancel API exception during conversion', [
-                            'user_id'         => $user->id,
-                            'subscription_id' => $user->subscription_id,
-                            'error'           => $e->getMessage(),
-                        ]);
-                        return false;
-                    }
-                });
-
-                if ($cancelResult === false) {
-                    return redirect()->route('billing.index')
-                        ->with('error', 'Could not cancel your existing subscription to convert to lifetime. Please try again or contact support.');
-                }
-            }
-
-            Log::info('BillingController: same-plan renewal allowed', [
+            // Same-plan purchase is allowed (renewal). If the user is converting
+            // an active subscription to a one-time purchase, the webhook cancels
+            // the replaced 2Checkout subscription once the new payment confirms,
+            // so nothing is cancelled before money actually changes hands.
+            Log::info('BillingController: same-plan purchase initiated', [
                 'user_id'         => $user->id,
                 'plan'            => $plan,
                 'is_recurring'    => $isRecurring,
@@ -429,7 +385,6 @@ class BillingController extends Controller
                     'subscription_cancelled_at' => now(),
                 ])->save();
 
-                // AUDIT-P1-4.6: Log subscription-cancel downgrade path.
                 AdminAuditLog::record('subscription.cancelled', $user, [
                     'subscription_id'      => $user->subscription_id,
                     'downgrade_target_plan' => $targetPlan,
@@ -437,7 +392,9 @@ class BillingController extends Controller
                 ]);
 
                 return redirect()->route('billing.index')
-                    ->with('success', "Your subscription has been cancelled. You'll keep access until {$user->subscription_ends_at?->format('M j, Y')}, then be downgraded to " . ucfirst($targetPlan) . '.');
+                    ->with('success', "Your subscription has been cancelled. You'll keep " . ucfirst($user->plan)
+                        . " access until {$user->subscription_ends_at?->format('M j, Y')}, after which your account moves to Free."
+                        . ' To move to ' . ucfirst($targetPlan) . ' right away, use the upgrade options on this page.');
             }
 
             // One-time purchase: downgrade immediately

@@ -50,8 +50,6 @@ return [
 
         'buy_link_secret_word'   => env('TWOCHECKOUT_BUY_LINK_SECRET_WORD'),
 
-        'allow_md5_only'         => filter_var(env('TWOCHECKOUT_ALLOW_MD5_ONLY', false), FILTER_VALIDATE_BOOLEAN),
-
         'webhook_ip_allowlist'   => env('TWOCHECKOUT_WEBHOOK_IP_ALLOWLIST'),
 
         'product_id_pro'         => env('TWOCHECKOUT_PRODUCT_ID_PRO'),
