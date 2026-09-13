@@ -25,10 +25,18 @@ export function initRenderer() {
     const coarse = isCoarsePointer();
     const dpr = window.devicePixelRatio || 1;
 
-    this.renderer = new THREE.WebGLRenderer({
-        antialias: !earlyLowEnd && !(coarse && dpr >= 1.5),
-        powerPreference: earlyLowEnd ? 'low-power' : 'high-performance',
-    });
+    try {
+        this.renderer = new THREE.WebGLRenderer({
+            antialias: !earlyLowEnd && !(coarse && dpr >= 1.5),
+            powerPreference: earlyLowEnd ? 'low-power' : 'high-performance',
+        });
+    } catch (error) {
+        // Distinguishes "this device cannot render 3D at all" from network /
+        // data failures so showLoadError can skip its Retry button.
+        error.webglUnavailable = true;
+        throw error;
+    }
+
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(coarse ? Math.min(dpr, 1.25) : Math.min(dpr, 1.5));
     this.renderer.shadowMap.enabled = CONFIG.performance.shadowsEnabled;
@@ -47,9 +55,7 @@ export function initRenderer() {
         this._contextLost = true;
         console.error('WebGL context lost — attempting recovery...');
 
-        // Show a recovery overlay if one exists
-        const overlay = document.getElementById('webgl-recovery');
-        if (overlay) overlay.style.display = 'flex';
+        showContextLostOverlay();
     }, false);
 
     this.renderer.domElement.addEventListener('webglcontextrestored', () => {
@@ -60,8 +66,7 @@ export function initRenderer() {
         }
         this._contextLost = false;
 
-        const overlay = document.getElementById('webgl-recovery');
-        if (overlay) overlay.style.display = 'none';
+        hideContextLostOverlay();
 
         if (this.init) {
             try {
@@ -71,6 +76,45 @@ export function initRenderer() {
             }
         }
     }, false);
+}
+
+/**
+ * Context loss freezes the render loop; visitors need to know what happened
+ * and that a reload restores it. The overlay is created on demand so every
+ * page hosting the viewer (exhibition, venue preview) gets the same recovery
+ * UI without each layout having to ship the markup.
+ */
+function showContextLostOverlay() {
+    let overlay = document.getElementById('webgl-recovery');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'webgl-recovery';
+        overlay.innerHTML = `
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,10,15,0.92);z-index:2000;text-align:center;padding:2rem;font-family:system-ui,-apple-system,sans-serif;">
+                <h2 style="color:#f1f5f9;font-size:1.3rem;font-weight:700;margin:0 0 0.5rem;">The exhibition paused</h2>
+                <p style="color:#94a3b8;font-size:0.9rem;max-width:360px;line-height:1.6;margin:0 0 1.5rem;">
+                    Your device temporarily interrupted the 3D rendering. Reload to re-enter the exhibition.
+                </p>
+                <button type="button" data-webgl-recovery-reload style="padding:0.75rem 2rem;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:0.5rem;font-weight:600;font-size:0.9rem;cursor:pointer;">
+                    Reload exhibition
+                </button>
+            </div>
+        `;
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.display = 'none';
+        overlay.style.zIndex = '2000';
+        overlay.addEventListener('click', (e) => {
+            if (e.target.closest('[data-webgl-recovery-reload]')) window.location.reload();
+        });
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'block';
+}
+
+function hideContextLostOverlay() {
+    const overlay = document.getElementById('webgl-recovery');
+    if (overlay) overlay.style.display = 'none';
 }
 
 export function detectLowEnd() {

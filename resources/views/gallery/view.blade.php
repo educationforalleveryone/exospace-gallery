@@ -698,9 +698,15 @@
             };
         }
         @else
-        if (!window.GALLERY_DATA || window.GALLERY_DATA.images.length === 0) {
-            console.warn("Gallery has no artworks — showing empty state.");
+        if (!window.GALLERY_DATA) {
+            console.warn("Gallery viewer data unavailable — showing empty state.");
+            window.GALLERY_DATA = {};
+        }
+        if (!Array.isArray(window.GALLERY_DATA.images)) {
             window.GALLERY_DATA.images = [];
+        }
+        if (window.GALLERY_DATA.images.length === 0) {
+            console.warn("Gallery has no artworks — showing empty state.");
             window.GALLERY_DATA._isEmpty = true;
         }
         @endif

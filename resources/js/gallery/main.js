@@ -3,6 +3,7 @@ import { GuidedTour }   from './Tour.js';
 import { Analytics }    from './Analytics.js';
 import { playArrival }  from './Arrival.js';
 import { initTryOn }    from './TryOn.js';
+import { showLoadError } from './AssetLoader.js';
 
 let galleryScene = null;
 let guidedTour   = null;
@@ -65,7 +66,15 @@ window.submitNewsletterSignup = async function submitNewsletterSignup(form) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    galleryScene = new GalleryScene();
+    // Renderer or audio hardware can refuse to start (blocked GPU, context
+    // limits, missing AudioContext) — surface the error curtain instead of
+    // leaving the visitor on a never-loading entrance.
+    try {
+        galleryScene = new GalleryScene();
+    } catch (error) {
+        console.error('Exhibition viewer failed to initialize:', error);
+        showLoadError(error);
+    }
 });
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -27,9 +27,13 @@ class PublicVenueController extends Controller
     {
         $venues = VenueTemplate::active()
             ->published()
-            ->whereHas('galleries', fn ($q) => $q->publiclyViewable()->has('images', '>=', 1))
+            ->whereHas('galleries', fn ($q) => $q->publiclyViewable()
+                ->has('images', '>=', 1)
+                ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at')))
             ->withCount([
-                'galleries as public_galleries_count' => fn ($q) => $q->publiclyViewable()->has('images', '>=', 1),
+                'galleries as public_galleries_count' => fn ($q) => $q->publiclyViewable()
+                    ->has('images', '>=', 1)
+                    ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at')),
             ])
             ->orderByDesc('public_galleries_count')
             ->orderBy('sort_order')
@@ -69,6 +73,7 @@ class PublicVenueController extends Controller
             ->with(['coverImage', 'user', 'venueTemplate'])
             ->where('venue_template_id', $venue->id)
             ->has('images', '>=', 1)
+            ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
             ->orderByDesc('view_count')
             ->paginate(self::PER_PAGE);
 

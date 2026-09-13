@@ -552,7 +552,7 @@
 <x-json-ld type="product" :product="['name' => 'Studio', 'price' => 99.00, 'currency' => 'USD', 'description' => 'Exospace Studio plan — everything in Pro plus priority support and white-label branding.']" />
 {{-- Escaped quotes inside an inline :faqs attribute silently break --}}
 {{-- the component's expression evaluation — the FAQPage data is --}}
-{{-- therefore defined in the @php block below instead. --}}
+{{-- therefore defined in a PHP block below instead. --}}
 @php
     $pricingFaqs = [
         ['question' => 'Is there a free trial for Pro?', 'answer' => 'The Free plan lets you build a real gallery with the full 3D viewer, and registered Free users can start a 14-day Pro trial with no card required.'],

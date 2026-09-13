@@ -79,9 +79,17 @@ export function pickTextureUrl(img, scene) {
 }
 
 export async function loadAssets() {
+    const data = window.GALLERY_DATA;
+
+    // Viewer payload never arrived (blocked/failed injection) — the loader
+    // would otherwise reject silently and strand the visitor on the curtain.
+    if (!data) {
+        this.showLoadError(new Error('Exhibition data unavailable'));
+        return;
+    }
+
     const textureLoader = new THREE.TextureLoader();
     const artworkLoader = createArtworkLoader();
-    const data = window.GALLERY_DATA;
 
     // Lighting preset (needed early to pick the right HDRI)
     const preset = data.lighting_preset || 'bright';
@@ -290,8 +298,25 @@ export function upgradeFocusedArtworkTexture(artworkGroup) {
 }
 
 export function showLoadError(error) {
+    // Device-level 3D failure: reloading cannot help, so prefer the page's
+    // own WebGL fallback panel when the layout ships one.
+    if (error?.webglUnavailable) {
+        const webglFallback = document.getElementById('webgl-fallback');
+        if (webglFallback) {
+            const curtain = document.getElementById('entrance-curtain');
+            if (curtain) curtain.style.display = 'none';
+            webglFallback.style.display = 'block';
+            return;
+        }
+    }
+
     const curtain = document.getElementById('entrance-curtain');
     if (!curtain) return;
+
+    const retryButton = error?.webglUnavailable ? '' : `
+            <button id="gallery-load-error-retry" style="padding:0.75rem 2rem;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:0.5rem;font-weight:600;font-size:0.9rem;cursor:pointer;transition:all 0.2s;">
+                Retry
+            </button>`;
 
     const errorHtml = `
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,10,15,0.95);z-index:1000;text-align:center;padding:2rem;">
@@ -302,11 +327,11 @@ export function showLoadError(error) {
             </div>
             <h2 style="color:#f1f5f9;font-size:1.4rem;font-weight:700;margin-bottom:0.5rem;">Gallery failed to load</h2>
             <p style="color:#94a3b8;font-size:0.9rem;max-width:360px;line-height:1.6;margin-bottom:1.5rem;">
-                We couldn't load this 3D exhibition. This might be a temporary issue — please try again.
+                ${error?.webglUnavailable
+                    ? 'Your browser could not start 3D rendering. Try a current browser with hardware acceleration enabled.'
+                    : "We couldn't load this 3D exhibition. This might be a temporary issue — please try again."}
             </p>
-            <button id="gallery-load-error-retry" style="padding:0.75rem 2rem;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:0.5rem;font-weight:600;font-size:0.9rem;cursor:pointer;transition:all 0.2s;">
-                Retry
-            </button>
+            ${retryButton}
             <a href="/discover" style="margin-top:1rem;color:#64748b;font-size:0.8rem;text-decoration:underline;">Browse other galleries</a>
         </div>
     `;
