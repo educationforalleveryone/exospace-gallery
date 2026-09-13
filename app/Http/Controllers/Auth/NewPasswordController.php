@@ -45,7 +45,6 @@ class NewPasswordController extends Controller
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
-                    // C-2 FIX (Iter-001): maintain has_password column
                     'has_password' => true,
                     'password_set_at' => now(),
                 ])->save();

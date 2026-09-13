@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Mail\PasswordChangedNoticeMail;
 use App\Mail\PasswordResetMail;
 use App\Models\User;
 use App\Notifications\Auth\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -477,5 +479,155 @@ class PasswordResetTest extends TestCase
 
         // …and the current password is not (yet) part of the history.
         $this->assertFalse($user->isPasswordInHistory('CurrentPass01!'));
+    }
+
+    // ── Post-reset session behavior ───────────────────────────────────────
+
+    public function test_successful_reset_does_not_authenticate_the_user(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create(['password' => Hash::make('OldSecret123!')]);
+
+        $this->post('/forgot-password', ['email' => $user->email]);
+
+        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+            $this->post('/reset-password', [
+                'token' => $notification->token,
+                'email' => $user->email,
+                'password' => 'NewSecret456!',
+                'password_confirmation' => 'NewSecret456!',
+            ])->assertSessionHasNoErrors()
+                ->assertRedirect(route('login'));
+
+            $this->assertGuest();
+
+            return true;
+        });
+    }
+
+    // ── Post-reset account-owner notice ───────────────────────────────────
+
+    public function test_successful_reset_sends_password_changed_notice_to_the_owner(): void
+    {
+        Notification::fake();
+        Mail::fake();
+
+        $user = User::factory()->create(['password' => Hash::make('OldSecret123!')]);
+
+        $this->post('/forgot-password', ['email' => $user->email]);
+
+        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+            $this->post('/reset-password', [
+                'token' => $notification->token,
+                'email' => $user->email,
+                'password' => 'NewSecret456!',
+                'password_confirmation' => 'NewSecret456!',
+            ])->assertSessionHasNoErrors();
+
+            Mail::assertQueued(PasswordChangedNoticeMail::class, 1);
+            Mail::assertQueued(PasswordChangedNoticeMail::class, function (PasswordChangedNoticeMail $mail) use ($user) {
+                return $mail->user->is($user);
+            });
+
+            return true;
+        });
+    }
+
+    public function test_failed_reset_sends_no_password_changed_notice(): void
+    {
+        Notification::fake();
+        Mail::fake();
+
+        $user = User::factory()->create(['password' => Hash::make('OldSecret123!')]);
+
+        $this->post('/forgot-password', ['email' => $user->email]);
+
+        $this->post('/reset-password', [
+            'token' => 'not-a-real-token',
+            'email' => $user->email,
+            'password' => 'NewSecret456!',
+            'password_confirmation' => 'NewSecret456!',
+        ])->assertSessionHasErrors(['email' => __('passwords.token')]);
+
+        Mail::assertNothingQueued();
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('OldSecret123!', $user->password));
+    }
+
+    // ── Failed reset recovery ─────────────────────────────────────────────
+
+    public function test_failed_attempt_recovers_with_fresh_request(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create(['password' => Hash::make('OldSecret123!')]);
+
+        $this->post('/forgot-password', ['email' => $user->email]);
+
+        // Stale/garbage token fails safely without touching the password.
+        $this->post('/reset-password', [
+            'token' => 'not-a-real-token',
+            'email' => $user->email,
+            'password' => 'NewSecret456!',
+            'password_confirmation' => 'NewSecret456!',
+        ])->assertSessionHasErrors(['email' => __('passwords.token')]);
+
+        // The user can request a fresh link and complete the reset.
+        $this->post('/forgot-password', ['email' => $user->email]);
+
+        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+            $this->post('/reset-password', [
+                'token' => $notification->token,
+                'email' => $user->email,
+                'password' => 'Recovered123!',
+                'password_confirmation' => 'Recovered123!',
+            ])->assertSessionHasNoErrors();
+
+            $user->refresh();
+            $this->assertTrue(Hash::check('Recovered123!', $user->password));
+
+            return true;
+        });
+    }
+
+    // ── Reset submission throttling ───────────────────────────────────────
+
+    public function test_reset_password_submission_is_throttled_per_ip(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('OldSecret123!')]);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->post('/reset-password', [
+                'token' => 'not-a-real-token',
+                'email' => $user->email,
+                'password' => 'Attempt123!',
+                'password_confirmation' => 'Attempt123!',
+            ])->assertStatus(302);
+        }
+
+        $this->post('/reset-password', [
+            'token' => 'not-a-real-token',
+            'email' => $user->email,
+            'password' => 'Attempt123!',
+            'password_confirmation' => 'Attempt123!',
+        ])->assertStatus(429);
+    }
+
+    public function test_immediate_repeat_request_is_throttled_by_the_broker(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create();
+
+        $this->post('/forgot-password', ['email' => $user->email]);
+        $this->post('/forgot-password', ['email' => $user->email])
+            ->assertSessionHasNoErrors();
+
+        // The broker's 60-second throttle suppresses the second mint —
+        // only one token was ever created for the account.
+        $sent = Notification::sent($user, ResetPassword::class);
+        $this->assertCount(1, $sent);
     }
 }
