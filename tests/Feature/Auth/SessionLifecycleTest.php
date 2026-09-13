@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
@@ -56,7 +55,10 @@ class SessionLifecycleTest extends TestCase
         $user = User::factory()->create();
         $guardKey = Auth::guard('web')->getName();
 
-        $authPayload = base64_encode(app('encrypter')->encrypt(serialize([$guardKey => $user->id])));
+        $payload = serialize([$guardKey => $user->id]);
+        $authPayload = config('session.encrypt')
+            ? base64_encode(app('encrypter')->encrypt($payload))
+            : base64_encode($payload);
 
         $sessionA = Str::random(40);
         $sessionB = Str::random(40);

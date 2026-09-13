@@ -3,8 +3,12 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use ReflectionProperty;
 use Tests\TestCase;
 
@@ -54,7 +58,7 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect('/');
     }
 
-    // ── LOGIN-ITERATION: intended-URL (?redirect=) sanitization ─────────
+    // ── Intended URL (?redirect=) sanitization ─────────────────────────
 
     public function test_relative_redirect_query_param_is_honored_after_login(): void
     {
@@ -172,7 +176,7 @@ class AuthenticationTest extends TestCase
         );
     }
 
-    // ── LOGIN-ITERATION: authentication state behavior ──────────────────
+    // ── Authentication state behavior ──────────────────────────────────
 
     public function test_already_authenticated_users_are_redirected_away_from_login(): void
     {
@@ -217,7 +221,7 @@ class AuthenticationTest extends TestCase
         );
     }
 
-    // ── LOGIN-ITERATION: validation + error handling ────────────────────
+    // ── Validation + error handling ─────────────────────────────────────
 
     public function test_empty_credentials_are_rejected_with_validation_errors(): void
     {
@@ -277,7 +281,7 @@ class AuthenticationTest extends TestCase
             'Login errors must not reveal whether an account exists.');
     }
 
-    // ── LOGIN-ITERATION: banned users at login time ─────────────────────
+    // ── Banned users at login time ──────────────────────────────────────
 
     public function test_banned_users_cannot_log_in(): void
     {
@@ -369,6 +373,161 @@ class AuthenticationTest extends TestCase
 
         $this->get('/profile')->assertRedirect(route('login', absolute: false));
         $this->assertGuest();
+    }
+
+    // ── Lockout / rate limiting ─────────────────────────────────────────
+
+    public function test_repeated_failures_lock_the_login_form_until_the_window_decays(): void
+    {
+        $user = User::factory()->create();
+
+        for ($i = 0; $i < 4; $i++) {
+            $this->post('/login', [
+                'email' => $user->email,
+                'password' => 'wrong-password',
+            ]);
+        }
+
+        RateLimiter::hit(Str::transliterate(Str::lower($user->email)).'|127.0.0.1');
+
+        $locked = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $locked->assertSessionHasErrors('email');
+        $this->assertGuest();
+        $this->assertStringContainsString(
+            'Too many login attempts',
+            (string) session('errors')->first('email')
+        );
+
+        // Even valid credentials stay locked until the limiter window decays.
+        $this->travel(61)->seconds();
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+
+        $this->assertAuthenticated();
+    }
+
+    public function test_a_successful_login_clears_the_failed_attempt_counter(): void
+    {
+        $user = User::factory()->create();
+        $key = Str::transliterate(Str::lower($user->email)).'|127.0.0.1';
+
+        $this->post('/login', ['email' => $user->email, 'password' => 'wrong-password']);
+        $this->post('/login', ['email' => $user->email, 'password' => 'wrong-password']);
+
+        $this->assertSame(2, RateLimiter::attempts($key));
+
+        $this->post('/login', ['email' => $user->email, 'password' => 'password']);
+        $this->assertAuthenticated();
+
+        $this->assertSame(
+            0,
+            RateLimiter::attempts($key),
+            'A successful login must reset failed attempts for the credential.'
+        );
+    }
+
+    public function test_a_locked_credential_does_not_prevent_a_different_credential_from_logging_in(): void
+    {
+        $lockedUser = User::factory()->create();
+        $freshUser = User::factory()->create();
+        $lockedKey = Str::transliterate(Str::lower($lockedUser->email)).'|127.0.0.1';
+        $freshKey = Str::transliterate(Str::lower($freshUser->email)).'|127.0.0.1';
+
+        for ($i = 0; $i < 4; $i++) {
+            $this->post('/login', [
+                'email' => $lockedUser->email,
+                'password' => 'wrong-password',
+            ]);
+        }
+
+        RateLimiter::hit($lockedKey);
+
+        $this->post('/login', [
+            'email' => $lockedUser->email,
+            'password' => 'password',
+        ]);
+        $this->assertGuest();
+
+        // The fresh credential's limiter bucket is untouched by the lockout.
+        $this->assertSame(0, RateLimiter::attempts($freshKey));
+        $this->assertFalse(RateLimiter::tooManyAttempts($freshKey, 5));
+
+        $this->travel(61)->seconds();
+
+        $this->post('/login', [
+            'email' => $freshUser->email,
+            'password' => 'password',
+        ]);
+        $this->assertAuthenticatedAs($freshUser);
+    }
+
+    // ── CSRF + credential handling ──────────────────────────────────────
+
+    public function test_login_submission_is_not_exempt_from_csrf_validation(): void
+    {
+        // Feature tests bypass the token check, so assert the config instead:
+        // no CSRF exclusion pattern may match the login POST route.
+        $neverVerify = (new ReflectionProperty(VerifyCsrfToken::class, 'neverVerify'))
+            ->getValue();
+
+        foreach ((array) $neverVerify as $pattern) {
+            $this->assertStringNotContainsString(
+                'login',
+                (string) $pattern,
+                "CSRF exclusion '{$pattern}' must not cover the login route."
+            );
+        }
+    }
+
+    public function test_failed_login_attempts_never_write_the_password_to_logs(): void
+    {
+        $captured = [];
+        Log::listen(function ($event) use (&$captured) {
+            $captured[] = [$event->level, $event->message, $event->context];
+        });
+
+        $user = User::factory()->create();
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'super-secret-password',
+        ]);
+
+        $this->assertGuest();
+
+        foreach ($captured as [$level, $message, $context]) {
+            $this->assertStringNotContainsString('super-secret-password', (string) $message);
+            $this->assertStringNotContainsString('super-secret-password', json_encode($context) ?: '');
+        }
+    }
+
+    // ── Intended URL precedence ─────────────────────────────────────────
+
+    public function test_malicious_redirect_param_cannot_evict_a_bounce_originated_intended_url(): void
+    {
+        $user = User::factory()->create();
+
+        $this->get('/billing'); // guest bounce seeds url.intended with /billing
+
+        $this->get('/login?redirect=//evil.example'); // rejected, must not overwrite
+
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticated();
+
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringContainsString('/billing', $location);
+        $this->assertStringNotContainsString('evil.example', $location);
     }
 
     private function flushServerSideSession(): void
