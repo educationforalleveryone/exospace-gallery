@@ -10,7 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-class Iteration8Test extends TestCase
+class ApiTokenHashingSecurityTest extends TestCase
 {
     use RefreshDatabase;
 

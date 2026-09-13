@@ -9,7 +9,7 @@ use App\Services\ProrationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class Iteration2Test extends TestCase
+class ProrationConfigAndUiComponentsTest extends TestCase
 {
     use RefreshDatabase;
 

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-class Iteration9Test extends TestCase
+class MultiDiskBackupConfigTest extends TestCase
 {
     use RefreshDatabase;
 

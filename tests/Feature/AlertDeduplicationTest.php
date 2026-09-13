@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
-class Iteration7Test extends TestCase
+class AlertDeduplicationTest extends TestCase
 {
     use RefreshDatabase;
 

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class Iteration5Test extends TestCase
+class PiiAnonymizationCommandsTest extends TestCase
 {
     use RefreshDatabase;
 

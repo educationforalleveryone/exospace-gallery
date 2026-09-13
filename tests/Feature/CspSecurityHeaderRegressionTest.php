@@ -7,7 +7,7 @@ namespace Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class Iteration12Test extends TestCase
+class CspSecurityHeaderRegressionTest extends TestCase
 {
     use RefreshDatabase;
 

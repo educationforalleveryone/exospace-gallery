@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
-class Iteration10Test extends TestCase
+class AlertWebhookRoutingTest extends TestCase
 {
     use RefreshDatabase;
 

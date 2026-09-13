@@ -118,7 +118,7 @@ Showing screen) and two anchored fixtures. Symptoms and their first moves:
   the exact v3.0.0 bodies; if a row was admin-edited between up() and
   down(), the guards leave those descriptors at the admin state (logged).
 - Full context: `docs/ITERATION_PENTHOUSE_MEDIA_WALL.md`; offline replay:
-  `python3 scripts/validate_migration9.py` (no PHP needed).
+  `python3 scripts/validate_luxury_penthouse_media_wall_migration.py` (no PHP needed).
 
 
 ## 4. What is backed up where

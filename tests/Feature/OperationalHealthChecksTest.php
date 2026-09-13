@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-class Iteration6Test extends TestCase
+class OperationalHealthChecksTest extends TestCase
 {
     use RefreshDatabase;
 

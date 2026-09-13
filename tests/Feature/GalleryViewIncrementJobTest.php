@@ -12,7 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
-class CriticalBugFixesTest extends TestCase
+class GalleryViewIncrementJobTest extends TestCase
 {
     use RefreshDatabase;
 

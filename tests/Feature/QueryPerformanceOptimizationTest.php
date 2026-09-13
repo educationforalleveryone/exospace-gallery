@@ -12,7 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class PerformanceHotfixesTest extends TestCase
+class QueryPerformanceOptimizationTest extends TestCase
 {
     use RefreshDatabase;
 

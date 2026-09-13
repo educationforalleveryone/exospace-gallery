@@ -14,7 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class Iteration4Test extends TestCase
+class AuditLoggingAndAffiliateDashboardTest extends TestCase
 {
     use RefreshDatabase;
 

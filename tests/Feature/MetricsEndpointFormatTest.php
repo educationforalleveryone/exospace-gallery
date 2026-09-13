@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class Iteration11Test extends TestCase
+class MetricsEndpointFormatTest extends TestCase
 {
     use RefreshDatabase;
 

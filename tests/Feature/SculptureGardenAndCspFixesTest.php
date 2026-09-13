@@ -6,7 +6,7 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 
-class GardenIteration5FixesTest extends TestCase
+class SculptureGardenAndCspFixesTest extends TestCase
 {
 
     public function test_csp_connect_src_allows_blob_for_glb_embedded_textures(): void
