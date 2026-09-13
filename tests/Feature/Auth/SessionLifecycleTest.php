@@ -396,6 +396,34 @@ class SessionLifecycleTest extends TestCase
         );
     }
 
+    public function test_logging_out_while_impersonating_terminates_both_identities(): void
+    {
+        $this->enableImpersonation();
+
+        $admin = $this->enrolledSuperAdmin();
+        $target = User::factory()->create();
+
+        $this->actingAs($admin)
+            ->withSession(array_merge($this->mfaVerifiedSession($admin), [
+                'auth.password_confirmed_at' => now()->timestamp,
+            ]))
+            ->post(route('super.impersonate', $target))
+            ->assertRedirect();
+
+        $this->assertAuthenticatedAs($target, 'web');
+        $this->assertSame($admin->id, session('impersonating_admin_id'));
+
+        $this->post('/logout')->assertRedirect('/');
+
+        $this->assertGuest();
+        $this->assertNull(session('impersonating_admin_id'));
+        $this->assertNull(session('auth.password_confirmed_at'));
+
+        $this->post(route('super.stop-impersonating'))
+            ->assertRedirect(route('login'));
+        $this->assertGuest();
+    }
+
     private function simulateRedisSessionStore(): void
     {
         config([

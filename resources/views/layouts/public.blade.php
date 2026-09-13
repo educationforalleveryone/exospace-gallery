@@ -99,7 +99,6 @@
                 @auth
                     <a href="{{ route('admin.dashboard') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Dashboard</a>
                     <a href="{{ route('billing.index') }}" class="block py-2 text-sm text-gray-300 hover:text-white">Billing</a>
-                    {{-- LOGOUT-ITERATION: see desktop nav — full page load + busy guard. --}}
                     <form method="POST" action="{{ route('logout') }}" class="inline"
                           data-turbo="false" data-busy data-busy-label="Signing out…">
                         @csrf

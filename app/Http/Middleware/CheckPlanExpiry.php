@@ -43,8 +43,11 @@ class CheckPlanExpiry
                         return response()->json(['error' => 'Your plan has expired. Please renew.'], 402);
                     }
 
-                    return redirect()->route('admin.galleries.index')
-                        ->with('warning', 'Your plan has expired and has been downgraded to Free.');
+                    // Never intercept the logout POST — the session must terminate.
+                    if (! $request->routeIs('logout')) {
+                        return redirect()->route('admin.galleries.index')
+                            ->with('warning', 'Your plan has expired and has been downgraded to Free.');
+                    }
                 }
             }
         } catch (\Throwable $e) {

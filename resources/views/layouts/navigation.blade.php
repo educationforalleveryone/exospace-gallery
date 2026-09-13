@@ -328,7 +328,6 @@
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">{{ __('Profile') }}</x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('admin.teams.index')">{{ __('My Teams') }}</x-responsive-nav-link>
-                {{-- LOGOUT-ITERATION: see desktop dropdown — full page load + busy guard. --}}
                 <form method="POST" action="{{ route('logout') }}"
                       data-turbo="false" data-busy data-busy-label="Signing out…">
                     @csrf
