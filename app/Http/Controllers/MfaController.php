@@ -13,6 +13,8 @@ class MfaController extends Controller
 {
     private const MFA_SESSION_TTL_MINUTES = 30;
 
+    public function __construct(private \PragmaRX\Google2FAQRCode\Google2FA $google2fa) {}
+
     public function setup(Request $request): View|RedirectResponse
     {
         $user = $request->user();
@@ -27,9 +29,8 @@ class MfaController extends Controller
         }
 
         try {
-            $google2fa = new \PragmaRX\Google2FAQRCode\Google2FA;
-            $secret = $google2fa->generateSecretKey();
-            $qrCodeInline = $google2fa->getQRCodeInline(
+            $secret = $this->google2fa->generateSecretKey();
+            $qrCodeInline = $this->google2fa->getQRCodeInline(
                 config('app.name', 'Exospace'),
                 $user->email,
                 $secret
@@ -47,18 +48,24 @@ class MfaController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return redirect()->route('admin.dashboard')
+            return redirect()->route('profile.edit')
                 ->with('error', 'MFA couldn\'t be set up right now — this is a server configuration issue, not anything you did. Support has the details; please try again shortly.');
         }
     }
 
     public function enable(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if ($user->google2fa_secret) {
+            return redirect()->route('profile.edit')
+                ->with('status', 'MFA is already enabled on your account.');
+        }
+
         $request->validate([
             'code' => 'required|digits:6',
         ]);
 
-        $user = $request->user();
         $secret = session('mfa_pending_secret');
 
         if (! $secret) {
@@ -67,8 +74,7 @@ class MfaController extends Controller
         }
 
         try {
-            $google2fa = new \PragmaRX\Google2FAQRCode\Google2FA;
-            $otpCounter = $google2fa->verifyKeyNewer($secret, $request->input('code'), 0);
+            $otpCounter = $this->google2fa->verifyKeyNewer($secret, $request->input('code'), 0);
 
             if ($otpCounter === false) {
                 return back()->withErrors(['code' => 'Invalid code. Please try again.']);
@@ -131,20 +137,25 @@ class MfaController extends Controller
 
     public function verify(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if (! $user->google2fa_secret) {
+            return redirect()->route('profile.edit')
+                ->with('status', 'MFA is not enabled on your account.');
+        }
+
         $request->validate([
             'code' => 'required|string|max:20',
         ]);
 
-        $user = $request->user();
         $code = trim($request->input('code'));
 
         $code = strtoupper(str_replace([' ', '-'], '', $code));
 
         try {
-            $google2fa = new \PragmaRX\Google2FAQRCode\Google2FA;
             $secret = decrypt($user->google2fa_secret);
             $lastUsed = $user->google2fa_ts !== null ? (int) $user->google2fa_ts : 0;
-            $otpCounter = $google2fa->verifyKeyNewer($secret, $code, $lastUsed);
+            $otpCounter = $this->google2fa->verifyKeyNewer($secret, $code, $lastUsed);
 
             if ($otpCounter === false && strlen($code) === 10) {
                 $valid = $this->tryBackupCode($user, $code);
