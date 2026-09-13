@@ -46,7 +46,8 @@ class DetectCustomDomain
                 return Gallery::with(['images', 'user', 'venueTemplate'])->find($galleryId);
             });
 
-            if ($gallery && $gallery->is_active && $gallery->isCustomDomainVerified()) {
+            if ($gallery && $gallery->is_active && $gallery->isCustomDomainVerified()
+                && is_null($gallery->user?->banned_at)) {
                 $request->attributes->set('resolved_gallery', $gallery);
             }
         }

@@ -27,6 +27,7 @@ class ArtworkController extends Controller
     {
         $gallery = Gallery::query()
             ->where('slug', $slug)
+            ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
             ->with(['images' => fn ($q) => $q->orderBy('position_order'), 'images.artist', 'images.media', 'user', 'venueTemplate'])
             ->firstOrFail();
 

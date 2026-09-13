@@ -30,6 +30,7 @@ class OgImageController extends Controller
     {
         $gallery = Cache::flexible("og:gallery:{$slug}", [now()->addHour(), now()->addHours(2)], function () use ($slug) {
             return Gallery::where('slug', $slug)
+                ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
                 ->with(['coverImage', 'venueTemplate', 'user'])
                 ->firstOrFail();
         });

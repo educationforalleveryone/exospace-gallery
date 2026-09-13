@@ -76,7 +76,10 @@ Route::get('/unsubscribe/one-click/{user}',  [\App\Http\Controllers\UnsubscribeC
 Route::post('/unsubscribe/one-click/{user}', [\App\Http\Controllers\UnsubscribeController::class, 'oneClickPost'])->name('unsubscribe.one-click.post')->middleware('signed');
 
 Route::get('/gallery/demo', function () {
-    $gallery = \App\Models\Gallery::publiclyViewable()->has('images', '>=', 1)->first();
+    $gallery = \App\Models\Gallery::publiclyViewable()
+        ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
+        ->has('images', '>=', 1)
+        ->first();
     return $gallery ? redirect()->route('gallery.view', $gallery->slug) : redirect('/')->with('error', 'No demo gallery available yet.');
 });
 

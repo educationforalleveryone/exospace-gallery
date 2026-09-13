@@ -41,6 +41,7 @@ class GalleryApiController extends Controller
     public function show(string $slug): JsonResponse
     {
         $gallery = Gallery::publiclyViewable()
+            ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
             ->with(['images' => fn($q) => $q->orderBy('position_order'), 'venueTemplate', 'user'])
             ->where('slug', $slug)
             ->first();
@@ -59,7 +60,10 @@ class GalleryApiController extends Controller
     {
         $perPage = min((int) $request->query('per_page', 50), 200);
 
-        $gallery = Gallery::publiclyViewable()->where('slug', $slug)->first();
+        $gallery = Gallery::publiclyViewable()
+            ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
+            ->where('slug', $slug)
+            ->first();
 
         if (! $gallery) {
             return response()->json(['error' => 'Gallery not found'], 404);

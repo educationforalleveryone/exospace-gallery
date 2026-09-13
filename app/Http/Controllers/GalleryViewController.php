@@ -22,8 +22,8 @@ class GalleryViewController extends Controller
     public function show(Request $request, string $slug): View|\Illuminate\Http\RedirectResponse
     {
         $gallery = $request->attributes->get('resolved_gallery')
-            ?? Gallery::where('slug', $slug)
-                ->where('is_active', true)
+            ?? Gallery::publiclyAccessible()
+                ->where('slug', $slug)
                 ->with(['images.artist', 'images.media', 'user', 'venueTemplate'])
                 ->firstOrFail();
 

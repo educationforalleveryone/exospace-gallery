@@ -15,7 +15,9 @@ class QrCodeController extends Controller
 {
     public function show(string $slug): Response
     {
-        $gallery = Gallery::where('slug', $slug)->firstOrFail();
+        $gallery = Gallery::where('slug', $slug)
+            ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
+            ->firstOrFail();
 
         if (! $gallery->is_active) {
             abort(404);

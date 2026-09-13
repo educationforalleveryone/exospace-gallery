@@ -124,6 +124,12 @@ class Gallery extends Model
                  });
     }
 
+    public function scopePubliclyAccessible(Builder $q): Builder
+    {
+        return $q->where('is_active', true)
+                 ->whereDoesntHave('user', fn (Builder $q) => $q->whereNotNull('banned_at'));
+    }
+
     public function scopeWithCustomDomain(Builder $q, string $host): Builder
     {
         return $q->where('custom_domain', $host);

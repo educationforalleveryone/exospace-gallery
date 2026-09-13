@@ -34,8 +34,8 @@ class GalleryController extends Controller
         $team   = $this->resolveTeamContext($user, $request->query('team'));
 
         $galleries = $team
-            ? Gallery::with(['images' => fn($q) => $q->orderBy('position_order')->limit(1), 'venueTemplate'])->where('team_id', $team->id)->latest()->paginate(10)
-            : Gallery::with(['images' => fn($q) => $q->orderBy('position_order')->limit(1), 'venueTemplate'])->where('user_id', $user->id)->whereNull('team_id')->latest()->paginate(10);
+            ? Gallery::with(['coverImage', 'venueTemplate'])->withCount('images')->where('team_id', $team->id)->latest()->paginate(10)
+            : Gallery::with(['coverImage', 'venueTemplate'])->withCount('images')->where('user_id', $user->id)->whereNull('team_id')->latest()->paginate(10);
 
         $userTeams = $user->ownedTeams->merge($user->teams);
 
@@ -75,6 +75,10 @@ class GalleryController extends Controller
         $validated = $request->validate($this->galleryValidationRules());
 
         $planHolder = $team ? $team->owner : $user;
+
+        if (! $planHolder->isPro()) {
+            unset($validated['opens_at'], $validated['closes_at']);
+        }
 
         if (!empty($validated['venue_template_id'])
             && ($redirect = $this->assertVenueAccessibleForPlan($validated['venue_template_id'], $planHolder))) {
@@ -128,6 +132,10 @@ class GalleryController extends Controller
                 ),
             ]);
         } catch (\Throwable $e) {
+            foreach (array_filter([$audioPath, $logoPath]) as $orphan) {
+                \Storage::disk('public')->delete($orphan);
+            }
+
             \Log::error('Gallery::create failed', [
                 'message'  => $e->getMessage(),
                 'title'    => $validated['title'] ?? null,
@@ -236,7 +244,7 @@ class GalleryController extends Controller
 
         // Create the clone
         $clone = $gallery->replicate([
-            'id', 'slug', 'view_count', 'pin_hash', 'opens_at', 'closes_at',
+            'id', 'slug', 'view_count', 'opens_at', 'closes_at',
             'custom_domain', // custom domains are unique — never copy
             'created_at', 'updated_at',
             'published_at',
@@ -247,6 +255,9 @@ class GalleryController extends Controller
         $clone->view_count  = 0;
         $clone->is_active   = $gallery->is_active;
         $clone->published_at = $gallery->is_active ? now() : null;
+        $clone->is_featured = false;
+        $clone->custom_domain_verification_token = null;
+        $clone->custom_domain_verified_at        = null;
 
         // Copy audio + logo files on disk so the clone is independent
         if ($gallery->audio_path) {
@@ -263,16 +274,17 @@ class GalleryController extends Controller
             if ($newPath) $clone->curtain_logo_path = $newPath;
         }
 
-        $clone->save();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($gallery, $clone) {
+            $clone->save();
 
-        // Copy all images — duplicate files on disk + create new GalleryImage rows
-        foreach ($gallery->images()->orderBy('position_order')->get() as $image) {
-            $newImagePath = $this->copyFile($image->path, 'gallery-images');
-            if (!$newImagePath) {
-                \Log::warning("Duplicate: failed to copy image {$image->path}");
-                continue;
-            }
-            \App\Models\GalleryImage::create([
+            // Copy all images — duplicate files on disk + create new GalleryImage rows
+            foreach ($gallery->images()->orderBy('position_order')->get() as $image) {
+                $newImagePath = $this->copyFile($image->path, 'gallery-images');
+                if (!$newImagePath) {
+                    \Log::warning("Duplicate: failed to copy image {$image->path}");
+                    continue;
+                }
+                \App\Models\GalleryImage::create([
                 'gallery_id'     => $clone->id,
                 'filename'       => $image->filename,
                 'original_name'  => $image->original_name,
@@ -296,8 +308,9 @@ class GalleryController extends Controller
                 'edition_size'   => $image->edition_size,
                 'edition_number' => $image->edition_number,
                 'external_url'   => $image->external_url,
-            ]);
-        }
+                ]);
+            }
+        });
 
         $redirectParams = $team ? ['team' => $team->id] : [];
         return redirect()
@@ -375,8 +388,8 @@ class GalleryController extends Controller
         }
 
         // Delegate to extracted helpers
-        $this->handleFileUploads($request, $gallery, $planHolder, $validated);
-        $this->handlePinAndSchedule($request, $validated);
+        $staleFiles = $this->handleFileUploads($request, $gallery, $planHolder, $validated);
+        $this->handlePinAndSchedule($request, $validated, $planHolder);
         $this->handleVenueTemplate($validated);
 
         $submittedVenueId = $validated['venue_template_id'] ?? null;
@@ -428,6 +441,8 @@ class GalleryController extends Controller
         // Post-update: set guarded custom-domain verification fields
         $this->applyPostUpdateGuardedFields($request, $gallery);
 
+        $this->deleteStaleFiles($staleFiles);
+
         $this->invalidateGalleryCaches($gallery);
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -436,27 +451,29 @@ class GalleryController extends Controller
         return back()->with('status', 'Gallery settings updated!');
     }
 
-    private function handleFileUploads(Request $request, Gallery $gallery, $planHolder, array &$validated): void
+    private function handleFileUploads(Request $request, Gallery $gallery, $planHolder, array &$validated): array
     {
+        $staleFiles = [];
+
         // Audio (Pro+)
         if ($request->hasFile('audio') && $planHolder->isPro()) {
-            if ($gallery->audio_path) \Storage::disk('public')->delete($gallery->audio_path);
+            if ($gallery->audio_path) $staleFiles[] = $gallery->audio_path;
             $validated['audio_path'] = $request->file('audio')->store('audio', 'public');
         }
 
         // Custom logo (Studio only)
         if ($request->hasFile('custom_logo') && $planHolder->plan === 'studio') {
-            if ($gallery->custom_logo_path) \Storage::disk('public')->delete($gallery->custom_logo_path);
+            if ($gallery->custom_logo_path) $staleFiles[] = $gallery->custom_logo_path;
             $validated['custom_logo_path'] = $request->file('custom_logo')->store('branding', 'public');
         }
 
         // Curtain logo (Studio only) — upload or clear
         if ($planHolder->plan === 'studio') {
             if ($request->hasFile('curtain_logo')) {
-                if ($gallery->curtain_logo_path) \Storage::disk('public')->delete($gallery->curtain_logo_path);
+                if ($gallery->curtain_logo_path) $staleFiles[] = $gallery->curtain_logo_path;
                 $validated['curtain_logo_path'] = $request->file('curtain_logo')->store('branding', 'public');
             } elseif ($request->boolean('clear_curtain_logo') && $gallery->curtain_logo_path) {
-                \Storage::disk('public')->delete($gallery->curtain_logo_path);
+                $staleFiles[] = $gallery->curtain_logo_path;
                 $validated['curtain_logo_path'] = null;
             }
 
@@ -469,9 +486,18 @@ class GalleryController extends Controller
                 }
             }
         }
+
+        return $staleFiles;
     }
 
-    private function handlePinAndSchedule(Request $request, array &$validated): void
+    private function deleteStaleFiles(array $paths): void
+    {
+        foreach (array_filter($paths) as $path) {
+            \Storage::disk('public')->delete($path);
+        }
+    }
+
+    private function handlePinAndSchedule(Request $request, array &$validated, $planHolder): void
     {
         if ($request->boolean('clear_pin')) {
             $validated['pin_hash'] = null;
@@ -479,8 +505,12 @@ class GalleryController extends Controller
             $validated['pin_hash'] = Hash::make($validated['gallery_pin']);
         }
 
-        $validated['opens_at']  = $validated['opens_at']  ?? null;
-        $validated['closes_at'] = $validated['closes_at'] ?? null;
+        if ($planHolder->isPro()) {
+            $validated['opens_at']  = $validated['opens_at']  ?? null;
+            $validated['closes_at'] = $validated['closes_at'] ?? null;
+        } else {
+            unset($validated['opens_at'], $validated['closes_at']);
+        }
     }
 
     private function handleVenueTemplate(array &$validated): void
@@ -696,9 +726,10 @@ class GalleryController extends Controller
 
         $request->validate(['audio' => 'required|file|mimes:mp3,wav,m4a|max:10240']);
         try {
-            if ($gallery->audio_path) \Storage::disk('public')->delete($gallery->audio_path);
             $audioPath = $request->file('audio')->store('audio', 'public');
+            $oldPath = $gallery->audio_path;
             $gallery->update(['audio_path' => $audioPath]);
+            if ($oldPath) \Storage::disk('public')->delete($oldPath);
             return response()->json(['success' => true, 'message' => 'Background music uploaded successfully!', 'audio_url' => asset('storage/' . $audioPath), 'filename' => basename($audioPath)]);
         } catch (\Exception $e) {
             \Log::error('Audio upload failed: ' . $e->getMessage());
@@ -716,9 +747,10 @@ class GalleryController extends Controller
 
         $request->validate(['custom_logo' => 'required|file|mimes:png,jpg,jpeg|max:2048']);
         try {
-            if ($gallery->custom_logo_path) \Storage::disk('public')->delete($gallery->custom_logo_path);
             $logoPath = $request->file('custom_logo')->store('branding', 'public');
+            $oldPath = $gallery->custom_logo_path;
             $gallery->update(['custom_logo_path' => $logoPath]);
+            if ($oldPath) \Storage::disk('public')->delete($oldPath);
             return response()->json(['success' => true, 'message' => 'Custom logo uploaded successfully!', 'logo_url' => asset('storage/' . $logoPath), 'filename' => basename($logoPath)]);
         } catch (\Exception $e) {
             \Log::error('Logo upload failed: ' . $e->getMessage());

@@ -566,7 +566,7 @@
 
                                 <!-- Upload Input -->
                                 <div class="relative">
-                                    <input type="file" id="logo-upload-input" accept=".png,.svg,.jpg,.jpeg"
+                                    <input type="file" id="logo-upload-input" accept=".png,.jpg,.jpeg"
                                         data-change="uploadLogoFile"
                                         class="file-base cursor-pointer">
 
@@ -599,7 +599,7 @@
                                     </div>
                                 </div>
 
-                                <p class="text-xs text-gray-500 mt-2">PNG, SVG, JPG • Max 2MB • Transparent background recommended • Upload happens instantly</p>
+                                <p class="text-xs text-gray-500 mt-2">PNG, JPG • Max 2MB • Transparent background recommended • Upload happens instantly</p>
                             </div>
                         @else
                             <!-- Locked State for Free/Pro Users -->
@@ -716,7 +716,7 @@
                                     class="input-base pl-16 mt-1 text-sm font-mono {{ $errors->has('custom_domain') ? 'input-error' : '' }}" @error('custom_domain') aria-invalid="true" aria-describedby="custom_domain-error" @enderror
                                     pattern="^([a-z0-9-]+\.)+[a-z]{2,}$">
                             </div>
-                            @error('custom_domain')<p id=\"custom_domain-error\" class=\"text-sm text-red-400 mt-1\">{{ $message }}</p>@enderror
+                            @error('custom_domain')<p id="custom_domain-error" class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
                             @if($gallery->custom_domain)
                             <p class="text-xs text-emerald-400 mt-2">Active — visitors at <a href="https://{{ $gallery->custom_domain }}" target="_blank" class="underline break-all">{{ $gallery->custom_domain }}</a> see this gallery.</p>
                             @endif
@@ -736,9 +736,9 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-medium text-gray-400 mb-1">Custom curtain logo</label>
-                                    <input type="file" name="curtain_logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                    <input type="file" name="curtain_logo" accept="image/png,image/jpeg,image/webp"
                                            class="file-base">
-                                    <p class="text-xs text-gray-500 mt-1">PNG / JPG / SVG / WEBP, max 2 MB. Recommended: wide aspect, transparent background.</p>
+                                    <p class="text-xs text-gray-500 mt-1">PNG / JPG / WEBP, max 2 MB. Recommended: wide aspect, transparent background.</p>
                                     @if($gallery->curtain_logo_path)
                                         <div class="mt-2 flex items-center gap-3">
                                             <img src="{{ asset('storage/' . $gallery->curtain_logo_path) }}" alt="Curtain logo" class="h-10 max-w-[160px] object-contain bg-gray-900 rounded border border-gray-700 px-2">
@@ -783,6 +783,35 @@
                             </div>
                         </div>
                     @endif
+
+                    {{-- PIN Protection --}}
+                    <div class="mt-6 pt-4 border-t border-gray-700">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            <label for="edit-gallery-pin" class="block text-sm font-medium text-gray-300">PIN Protection</label>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-3">Require a 4-digit PIN before visitors enter this exhibition. Visitors are asked for the PIN once per session.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                            <div>
+                                <label for="edit-gallery-pin" class="block text-xs font-medium text-gray-400 mb-1">{{ $gallery->hasPinProtection() ? 'Replace PIN' : 'Set PIN' }}</label>
+                                <input type="text" inputmode="numeric" id="edit-gallery-pin" name="gallery_pin"
+                                       value="{{ old('gallery_pin') }}"
+                                       placeholder="4-digit code"
+                                       maxlength="4" pattern="\d{4}" autocomplete="off"
+                                       class="input-base mt-1 text-sm font-mono w-32 {{ $errors->has('gallery_pin') ? 'input-error' : '' }}">
+                                @error('gallery_pin')<p class="text-sm text-red-400 mt-1">{{ $message }}</p>@enderror
+                            </div>
+                            @if($gallery->hasPinProtection())
+                                <div class="flex items-center gap-2 bg-brand-950/40 border border-brand-700/30 rounded-lg px-3 py-2.5">
+                                    <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <label class="text-xs text-gray-400 flex items-center gap-1.5">
+                                        <input type="checkbox" name="clear_pin" value="1" class="checkbox-base">
+                                        Remove PIN protection
+                                    </label>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
 
                     <div class="flex justify-end items-center gap-3 mt-6 pt-4 border-t border-gray-700">
                         <!-- Inline save feedback — shown right next to the button -->

@@ -13,7 +13,7 @@ class GalleryPinController extends Controller
 
     public function show(string $slug)
     {
-        $gallery = Gallery::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        $gallery = Gallery::publiclyAccessible()->where('slug', $slug)->firstOrFail();
 
         if (!$gallery->hasPinProtection()) {
             return redirect()->route('gallery.view', $slug);
@@ -29,7 +29,7 @@ class GalleryPinController extends Controller
 
     public function verify(Request $request, string $slug)
     {
-        $gallery = Gallery::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        $gallery = Gallery::publiclyAccessible()->where('slug', $slug)->firstOrFail();
 
         $request->validate(['pin' => 'required|digits:4']);
 
