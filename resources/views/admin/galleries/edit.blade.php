@@ -1032,7 +1032,7 @@
 
                             <div>
                                 <label for="metadata-year" class="block text-sm font-medium text-gray-300 mb-1">Year</label>
-                                <input type="number" id="metadata-year" name="year" min="1000" max="{{ date('Y') + 1 }}" placeholder="{{ date('Y') }}"
+                                <input type="number" id="metadata-year" name="year" min="1901" max="{{ date('Y') + 1 }}" placeholder="{{ date('Y') }}"
                                        class="input-base">
                             </div>
 
@@ -1170,10 +1170,32 @@
                     console.log(`Queue complete! Uploaded: ${uploadedCount}/${totalFiles}`);
 
                     if (failedFiles.length > 0) {
-                        const errHtml = failedFiles.map(f => `<li class="text-red-300 text-xs">• <strong>${f.name}</strong>: ${f.error}</li>`).join('');
                         const banner = document.createElement('div');
                         banner.className = 'mt-3 p-3 bg-red-950/60 border border-red-700/60 rounded-lg text-sm';
-                        banner.innerHTML = `<p class="text-red-300 font-semibold mb-1.5">[!] ${failedFiles.length} file${failedFiles.length > 1 ? 's' : ''} failed to upload:</p><ul class="space-y-0.5">${errHtml}</ul><p class="text-red-400/70 text-xs mt-2">Common fixes: reduce file size below 10MB, use JPG/PNG/WEBP format.</p>`;
+
+                        const title = document.createElement('p');
+                        title.className = 'text-red-300 font-semibold mb-1.5';
+                        title.textContent = `${failedFiles.length} file${failedFiles.length > 1 ? 's' : ''} failed to upload:`;
+                        banner.appendChild(title);
+
+                        const list = document.createElement('ul');
+                        list.className = 'space-y-0.5';
+                        for (const failed of failedFiles) {
+                            const item = document.createElement('li');
+                            item.className = 'text-red-300 text-xs';
+                            const name = document.createElement('strong');
+                            name.textContent = failed.name;
+                            item.appendChild(name);
+                            item.appendChild(document.createTextNode(`: ${failed.error}`));
+                            list.appendChild(item);
+                        }
+                        banner.appendChild(list);
+
+                        const hint = document.createElement('p');
+                        hint.className = 'text-red-400/70 text-xs mt-2';
+                        hint.textContent = 'Common fixes: reduce file size below 10MB, use JPG/PNG/WEBP format.';
+                        banner.appendChild(hint);
+
                         document.getElementById('image-upload-dropzone').after(banner);
                         setTimeout(() => banner.remove(), 12000);
                     }

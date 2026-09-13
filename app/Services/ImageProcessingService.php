@@ -55,14 +55,20 @@ class ImageProcessingService
         // Save Main Image as JPEG (strips EXIF — P0-4)
         $mainPath = "{$path}/{$filename}";
         $mainData = (string) $image->toJpeg(85);
-        Storage::disk('public')->put($mainPath, $mainData);
 
         $thumbnail = clone $image;
         $thumbnail->cover(400, 400);
-
-        $thumbPath = "{$path}/thumbnails/{$filename}";
         $thumbData = (string) $thumbnail->toJpeg(80);
-        Storage::disk('public')->put($thumbPath, $thumbData);
+
+        try {
+            Storage::disk('public')->put($mainPath, $mainData);
+            $thumbPath = "{$path}/thumbnails/{$filename}";
+            Storage::disk('public')->put($thumbPath, $thumbData);
+        } catch (\Throwable $e) {
+            Storage::disk('public')->delete($mainPath);
+            Storage::disk('public')->delete("{$path}/thumbnails/{$filename}");
+            throw $e;
+        }
 
         return [
             'filename'      => $filename,
@@ -81,17 +87,15 @@ class ImageProcessingService
             $mainRelativePath = "galleries/{$image->gallery_id}/{$image->filename}";
             $mainAbsolutePath = Storage::disk('public')->path($mainRelativePath);
 
-            if (file_exists($mainAbsolutePath)) {
-                $sourceFile = $mainAbsolutePath;
-            } else {
-                Log::warning('ImageProcessingService: EXIF-stripped main image not found, falling back to raw upload', [
+            if (! file_exists($mainAbsolutePath)) {
+                Log::warning('ImageProcessingService: EXIF-stripped main image missing, media registration skipped', [
                     'image_id' => $image->id,
                     'expected' => $mainRelativePath,
                 ]);
-                $sourceFile = $file->getRealPath();
+                return;
             }
 
-            $image->addMedia($sourceFile)
+            $image->addMedia($mainAbsolutePath)
                   ->preservingOriginal()
                   ->usingFileName($image->filename)
                   ->toMediaCollection('original');
@@ -107,17 +111,36 @@ class ImageProcessingService
         }
     }
 
+    public function deleteMedia(GalleryImage $image): void
+    {
+        try {
+            $image->clearMediaCollection('original');
+        } catch (\Throwable $e) {
+            Log::warning('ImageProcessingService: media cleanup failed', [
+                'image_id' => $image->id,
+                'error'    => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function delete(string $path): void
     {
         $relativePath = \Illuminate\Support\Str::after($path, 'storage/');
 
-        if (Storage::disk('public')->exists($relativePath)) {
-            Storage::disk('public')->delete($relativePath);
+        try {
+            if (Storage::disk('public')->exists($relativePath)) {
+                Storage::disk('public')->delete($relativePath);
 
-            $thumbPath = dirname($relativePath) . '/thumbnails/' . basename($relativePath);
-            if (Storage::disk('public')->exists($thumbPath)) {
-                Storage::disk('public')->delete($thumbPath);
+                $thumbPath = dirname($relativePath) . '/thumbnails/' . basename($relativePath);
+                if (Storage::disk('public')->exists($thumbPath)) {
+                    Storage::disk('public')->delete($thumbPath);
+                }
             }
+        } catch (\Throwable $e) {
+            Log::warning('ImageProcessingService: file cleanup failed', [
+                'path'  => $relativePath,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

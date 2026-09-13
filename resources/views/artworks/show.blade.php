@@ -25,7 +25,7 @@
                 </div>
             @endif
 
-            @if($artwork->external_url)
+            @if($artwork->external_url && preg_match('#^https?://#i', $artwork->external_url))
                 <a href="{{ $artwork->external_url }}" target="_blank" rel="noopener" class="inline-block mt-6 text-brand-400 hover:text-brand-300 transition text-sm">
                     View on the artist's site →
                 </a>

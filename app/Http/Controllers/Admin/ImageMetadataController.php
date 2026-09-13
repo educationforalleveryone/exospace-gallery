@@ -30,11 +30,11 @@ class ImageMetadataController extends Controller
             'currency'        => ['nullable', 'string', 'size:3'],
             'for_sale'        => ['boolean'],
             'medium'          => ['nullable', 'string', 'max:255'],
-            'year'            => ['nullable', 'integer', 'min:1000', 'max:' . (date('Y') + 1)],
+            'year'            => ['nullable', 'integer', 'min:1901', 'max:' . (date('Y') + 1)],
             'dimensions'      => ['nullable', 'string', 'max:100'],
             'edition_size'    => ['nullable', 'integer', 'min:1'],
             'edition_number'  => ['nullable', 'string', 'max:50'],
-            'external_url'    => ['nullable', 'string', 'max:500', 'url'],
+            'external_url'    => ['nullable', 'string', 'max:500', 'url', 'regex:/^https?:\/\//i'],
         ]);
 
         // Boolean normalization

@@ -287,11 +287,18 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function currentImageCount(): int
     {
+        $ownedTeamIds = $this->ownedTeams()->select('teams.id');
+
         return \DB::table('gallery_images')
             ->join('galleries', 'galleries.id', '=', 'gallery_images.gallery_id')
-            ->where('galleries.user_id', $this->id)
             ->whereNull('galleries.deleted_at')
             ->whereNull('gallery_images.deleted_at')
+            ->where(function ($query) use ($ownedTeamIds) {
+                $query->where(function ($query) {
+                    $query->where('galleries.user_id', $this->id)
+                          ->whereNull('galleries.team_id');
+                })->orWhereIn('galleries.team_id', $ownedTeamIds);
+            })
             ->count();
     }
 

@@ -738,7 +738,7 @@
             const hasArtist   = data.artist && data.artist.name;
             const hasDetails  = data.medium || data.year || data.dimensions || data.edition;
             const hasPrice    = data.formattedPrice || data.price;
-            const hasExternal = data.externalUrl;
+            const hasExternal = typeof data.externalUrl === 'string' && /^https?:\/\//i.test(data.externalUrl);
             if (!hasArtist && !hasDetails && !hasPrice && !hasExternal) return;
 
             metaPanel.style.display = 'block';

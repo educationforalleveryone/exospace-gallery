@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Intervention\Image\Exceptions\DecoderException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class ImageController extends Controller
@@ -84,17 +86,22 @@ class ImageController extends Controller
                 default      => 'square',
             };
 
-            $image = $gallery->images()->create([
-                'filename'       => $data['filename'],
-                'original_name'  => $file->getClientOriginalName(),
-                'path'           => $data['path'],
-                'mime_type'      => $data['mime_type'],
-                'size'           => $data['size'],
-                'width'          => $data['width'],
-                'height'         => $data['height'],
-                'orientation'    => $orientation,
-                'position_order' => ($gallery->images()->max('position_order') ?? 0) + 1,
-            ]);
+            try {
+                $image = $gallery->images()->create([
+                    'filename'       => $data['filename'],
+                    'original_name'  => $this->safeOriginalName($file),
+                    'path'           => $data['path'],
+                    'mime_type'      => $data['mime_type'],
+                    'size'           => $data['size'],
+                    'width'          => $data['width'],
+                    'height'         => $data['height'],
+                    'orientation'    => $orientation,
+                    'position_order' => ($gallery->images()->max('position_order') ?? 0) + 1,
+                ]);
+            } catch (\Throwable $e) {
+                $this->imageService->delete($data['path']);
+                throw $e;
+            }
 
             $this->imageService->registerMedia($image, $file);
 
@@ -103,6 +110,12 @@ class ImageController extends Controller
         } catch (\App\Exceptions\ImageTooLargeException $e) {
             return response()->json([
                 'error' => $e->getMessage(),
+            ], 422);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (DecoderException $e) {
+            return response()->json([
+                'error' => 'This image could not be processed — the file may be corrupted. Please try a different file.',
             ], 422);
         } catch (\Exception $e) {
             Log::error('Image Upload Error: ' . $e->getMessage(), [
@@ -115,11 +128,20 @@ class ImageController extends Controller
 
     public function destroy(GalleryImage $image)
     {
-        $this->authorizeGalleryAccess($image->gallery, requireEdit: true);
+        $gallery = $image->gallery;
+
+        if (! $gallery) {
+            abort(404);
+        }
+
+        $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         try {
+            if (! $image->delete()) {
+                throw new \RuntimeException("Artwork {$image->id} could not be deleted.");
+            }
             $this->imageService->delete($image->path);
-            $image->delete();
+            $this->imageService->deleteMedia($image);
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
             Log::error('Image Delete Error: ' . $e->getMessage());
@@ -131,7 +153,7 @@ class ImageController extends Controller
     {
         $request->validate([
             'ids'   => 'required|array|min:1',
-            'ids.*' => 'required|integer|exists:gallery_images,id',
+            'ids.*' => 'required|integer',
         ]);
 
         $count  = 0;
@@ -145,6 +167,13 @@ class ImageController extends Controller
         foreach ($byGallery as $galleryId => $galleryImages) {
             $gallery = $galleryImages->first()->gallery;
 
+            if (! $gallery) {
+                foreach ($galleryImages as $image) {
+                    $errors[] = "Image {$image->id}: Unauthorized";
+                }
+                continue;
+            }
+
             try {
                 $this->authorizeGalleryAccess($gallery, requireEdit: true);
             } catch (HttpException $e) {
@@ -154,20 +183,31 @@ class ImageController extends Controller
                 continue;
             }
 
-            // Delete all images in this gallery atomically.
-            DB::transaction(function () use ($galleryImages, &$count, &$errors) {
-                foreach ($galleryImages as $image) {
-                    try {
-                        $this->imageService->delete($image->path);
-                        $image->delete();
-                        $count++;
-                    } catch (\Exception $e) {
-                        $errors[] = "Image {$image->id}: " . $e->getMessage();
-                        Log::error("Bulk delete error for image {$image->id}: " . $e->getMessage());
-                        throw $e;
+            // Database rows are the source of truth; physical cleanup runs
+            // only after the row deletions commit, so a mid-loop failure can
+            // never leave a live record pointing at deleted bytes.
+            try {
+                DB::transaction(function () use ($galleryImages) {
+                    foreach ($galleryImages as $image) {
+                        if (! $image->delete()) {
+                            throw new \RuntimeException("Artwork {$image->id} could not be deleted.");
+                        }
                     }
+                });
+            } catch (\Throwable $e) {
+                Log::error("Bulk delete error for gallery {$gallery->id}: " . $e->getMessage());
+                foreach ($galleryImages as $image) {
+                    $errors[] = "Image {$image->id}: Delete failed";
                 }
-            });
+                continue;
+            }
+
+            $count += $galleryImages->count();
+
+            foreach ($galleryImages as $image) {
+                $this->imageService->delete($image->path);
+                $this->imageService->deleteMedia($image);
+            }
         }
 
         AdminAuditLog::record('gallery.images.bulk_deleted', auth()->user(), [
@@ -179,5 +219,23 @@ class ImageController extends Controller
         ]);
 
         return response()->json(['success' => $count > 0, 'deleted' => $count, 'errors' => $errors]);
+    }
+
+    private function safeOriginalName(\Illuminate\Http\UploadedFile $file): string
+    {
+        $name = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', (string) $file->getClientOriginalName()));
+
+        if ($name === '' || $name === false) {
+            return 'artwork';
+        }
+
+        if (mb_strlen($name) <= 255) {
+            return $name;
+        }
+
+        $extension = strtolower((string) $file->getClientOriginalExtension());
+        $suffix    = $extension !== '' ? '.' . $extension : '';
+
+        return mb_substr($name, 0, 255 - mb_strlen($suffix)) . $suffix;
     }
 }
