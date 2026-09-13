@@ -20,13 +20,13 @@ class DatabaseIntegrityTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_c3_analytics_event_fillable_does_not_include_country(): void
+    public function test_analytics_event_fillable_does_not_include_country(): void
     {
         $this->assertNotContains('country', (new AnalyticsEvent())->getFillable(),
-            'C-3: AnalyticsEvent::$fillable must not include "country" (the column was dropped).');
+            'AnalyticsEvent::$fillable must not include "country" (the column was dropped).');
     }
 
-    public function test_c3_analytics_event_can_be_created_without_country(): void
+    public function test_analytics_event_can_be_created_without_country(): void
     {
         $gallery = \App\Models\Gallery::factory()->create();
         $event = AnalyticsEvent::create([
@@ -38,10 +38,10 @@ class DatabaseIntegrityTest extends TestCase
 
         $this->assertNotNull($event->id);
         $this->assertFalse(Schema::hasColumn('analytics_events', 'country'),
-            'C-3: analytics_events table should not have a country column.');
+            'analytics_events table should not have a country column.');
     }
 
-    public function test_g2_user_deletion_anonymizes_transactions(): void
+    public function test_user_deletion_anonymizes_transactions(): void
     {
         $user = User::factory()->create([
             'email' => 'gdpr-test@example.com',
@@ -59,7 +59,7 @@ class DatabaseIntegrityTest extends TestCase
         ]);
 
         // Delete the user via the service
-        app(UserDeletionService::class)->deleteUser($user, 'G-2 test');
+        app(UserDeletionService::class)->deleteUser($user, 'self-serve deletion test');
 
         // The transaction should still exist (not deleted)
         $this->assertDatabaseHas('transactions', [
@@ -69,19 +69,19 @@ class DatabaseIntegrityTest extends TestCase
         // The PII should be anonymized
         $transaction->refresh();
         $this->assertStringStartsWith('anonymized:', $transaction->customer_email,
-            'G-2: customer_email should be anonymized (start with "anonymized:") after user deletion.');
+            'customer_email should be anonymized (start with "anonymized:") after user deletion.');
         $this->assertNotEquals('gdpr-test@example.com', $transaction->customer_email,
-            'G-2: customer_email should NOT be the original email after anonymization.');
+            'customer_email should NOT be the original email after anonymization.');
         $this->assertNull($transaction->customer_name,
-            'G-2: customer_name should be null after anonymization.');
+            'customer_name should be null after anonymization.');
 
         // The financial record should be preserved
-        $this->assertEquals('29.00', $transaction->amount, 'G-2: financial amount should be preserved.');
-        $this->assertEquals('pro', $transaction->plan, 'G-2: plan should be preserved.');
-        $this->assertEquals('completed', $transaction->status, 'G-2: status should be preserved.');
+        $this->assertEquals('29.00', $transaction->amount, 'financial amount should be preserved.');
+        $this->assertEquals('pro', $transaction->plan, 'plan should be preserved.');
+        $this->assertEquals('completed', $transaction->status, 'status should be preserved.');
     }
 
-    public function test_g5_user_deletion_anonymizes_invoices(): void
+    public function test_user_deletion_anonymizes_invoices(): void
     {
         $user = User::factory()->create([
             'email' => 'invoice-gdpr@example.com',
@@ -102,9 +102,9 @@ class DatabaseIntegrityTest extends TestCase
             'issued_at' => now(),
         ]);
 
-        app(UserDeletionService::class)->deleteUser($user, 'G-5 test');
+        app(UserDeletionService::class)->deleteUser($user, 'self-serve deletion test');
 
-        // The invoice should still exist (G-1 fix: nullOnDelete, not cascade)
+        // The invoice should still exist (nullOnDelete FK, not cascade)
         $this->assertDatabaseHas('invoices', [
             'id' => $invoice->id,
         ]);
@@ -112,19 +112,19 @@ class DatabaseIntegrityTest extends TestCase
         // The PII should be anonymized
         $invoice->refresh();
         $this->assertStringStartsWith('anonymized:', $invoice->customer_email,
-            'G-5: customer_email should be anonymized after user deletion.');
+            'customer_email should be anonymized after user deletion.');
         $this->assertNull($invoice->customer_name,
-            'G-5: customer_name should be null after anonymization.');
+            'customer_name should be null after anonymization.');
         $this->assertNull($invoice->billing_address,
-            'G-5: billing_address should be null after anonymization.');
+            'billing_address should be null after anonymization.');
 
         // The financial record should be preserved
-        $this->assertEquals('99.00', $invoice->amount, 'G-5: amount should be preserved.');
-        $this->assertEquals('studio', $invoice->plan, 'G-5: plan should be preserved.');
-        $this->assertEquals('INV-2026-00001', $invoice->invoice_number, 'G-5: invoice_number should be preserved.');
+        $this->assertEquals('99.00', $invoice->amount, 'amount should be preserved.');
+        $this->assertEquals('studio', $invoice->plan, 'plan should be preserved.');
+        $this->assertEquals('INV-2026-00001', $invoice->invoice_number, 'invoice_number should be preserved.');
     }
 
-    public function test_g5_anonymize_pii_command_covers_invoices(): void
+    public function test_anonymize_pii_command_covers_invoices(): void
     {
         $oldDate = now()->subMonths(20); // older than 18-month retention
 
@@ -141,14 +141,14 @@ class DatabaseIntegrityTest extends TestCase
 
         $invoice->refresh();
         $this->assertStringStartsWith('anonymized:', $invoice->customer_email,
-            'G-5: old invoice customer_email should be anonymized by the command.');
+            'old invoice customer_email should be anonymized by the command.');
         $this->assertNull($invoice->customer_name,
-            'G-5: old invoice customer_name should be null after anonymization.');
+            'old invoice customer_name should be null after anonymization.');
         $this->assertNull($invoice->billing_address,
-            'G-5: old invoice billing_address should be null after anonymization.');
+            'old invoice billing_address should be null after anonymization.');
     }
 
-    public function test_g5_anonymize_pii_command_preserves_recent_invoices(): void
+    public function test_anonymize_pii_command_preserves_recent_invoices(): void
     {
         $recentDate = now()->subMonths(6); // within 18-month retention
 
@@ -164,12 +164,12 @@ class DatabaseIntegrityTest extends TestCase
 
         $invoice->refresh();
         $this->assertEquals('recent-invoice@example.com', $invoice->customer_email,
-            'G-5: recent invoice customer_email should NOT be anonymized.');
+            'recent invoice customer_email should NOT be anonymized.');
         $this->assertEquals('Recent Invoice User', $invoice->customer_name,
-            'G-5: recent invoice customer_name should NOT be anonymized.');
+            'recent invoice customer_name should NOT be anonymized.');
     }
 
-    public function test_g5_anonymize_pii_command_is_idempotent(): void
+    public function test_anonymize_pii_command_is_idempotent(): void
     {
         $oldDate = now()->subMonths(20);
 
@@ -187,12 +187,12 @@ class DatabaseIntegrityTest extends TestCase
         $secondRunEmail = Invoice::find($invoice->id)->customer_email;
 
         $this->assertEquals($firstRunEmail, $secondRunEmail,
-            'G-5: Anonymization should be idempotent (running twice produces the same hash).');
+            'Anonymization should be idempotent (running twice produces the same hash).');
     }
 
-    public function test_g5_anonymize_pii_command_dry_run_does_not_modify(): void
+    public function test_anonymize_pii_command_dry_run_does_not_modify(): void
     {
-        // G-5 FIX: --dry-run should not modify any rows.
+        // --dry-run should not modify any rows.
         $oldDate = now()->subMonths(20);
 
         $invoice = Invoice::factory()->create([
@@ -206,24 +206,24 @@ class DatabaseIntegrityTest extends TestCase
 
         $invoice->refresh();
         $this->assertEquals('dryrun@example.com', $invoice->customer_email,
-            'G-5: --dry-run should not modify the invoice.');
+            '--dry-run should not modify the invoice.');
     }
 
-    public function test_g1_invoices_user_id_fk_is_set_null_not_cascade(): void
+    public function test_invoices_user_id_fk_is_set_null_not_cascade(): void
     {
         $user = User::factory()->create();
         $invoice = Invoice::factory()->create(['user_id' => $user->id]);
 
-        app(UserDeletionService::class)->deleteUser($user, 'G-1 FK test');
+        app(UserDeletionService::class)->deleteUser($user, 'self-serve deletion test');
 
         $invoice->refresh();
         $this->assertNull($invoice->user_id,
-            'G-1: invoice.user_id should be null after user deletion (nullOnDelete FK, not cascade).');
+            'invoice.user_id should be null after user deletion (nullOnDelete FK, not cascade).');
         $this->assertNotNull($invoice->id,
-            'G-1: invoice row should still exist (not cascade-deleted).');
+            'invoice row should still exist (not cascade-deleted).');
     }
 
-    public function test_c1_prune_command_uses_unix_timestamp_not_from_days(): void
+    public function test_prune_command_uses_unix_timestamp_not_from_days(): void
     {
         $commandFile = file_get_contents(
             app_path('Console/Commands/PruneTransactionsByPartition.php')
@@ -235,13 +235,13 @@ class DatabaseIntegrityTest extends TestCase
         ], '', $commandFile));
 
         $this->assertStringContainsString('Carbon::createFromTimestamp', $commandCode,
-            'C-1: PruneTransactionsByPartition should use Carbon::createFromTimestamp (Unix timestamp), not FROM_DAYS.');
+            'PruneTransactionsByPartition should use Carbon::createFromTimestamp (Unix timestamp), not FROM_DAYS.');
 
         $this->assertStringNotContainsString('FROM_DAYS', $commandCode,
-            'C-1: PruneTransactionsByPartition should NOT use FROM_DAYS in executable code (it expects a day number, not a Unix timestamp).');
+            'PruneTransactionsByPartition should NOT use FROM_DAYS in executable code (it expects a day number, not a Unix timestamp).');
     }
 
-    public function test_g3_consolidated_users_migration_has_all_columns(): void
+    public function test_consolidated_users_migration_has_all_columns(): void
     {
         $migrationFile = file_get_contents(
             database_path('migrations/2026_07_02_160000_create_users_table_consolidated.php')
@@ -271,17 +271,17 @@ class DatabaseIntegrityTest extends TestCase
 
         foreach ($requiredColumns as $column) {
             $this->assertStringContainsString($column, $migrationFile,
-                "G-3: Consolidated users migration must include column '{$column}'.");
+                "Consolidated users migration must include column '{$column}'.");
         }
     }
 
-    public function test_g4_consolidated_galleries_migration_has_soft_deletes(): void
+    public function test_consolidated_galleries_migration_has_soft_deletes(): void
     {
         $migrationFile = file_get_contents(
             database_path('migrations/2026_07_02_150000_create_galleries_table_consolidated.php')
         );
 
         $this->assertStringContainsString('softDeletes', $migrationFile,
-            'G-4: Consolidated galleries migration must include $table->softDeletes().');
+            'Consolidated galleries migration must include $table->softDeletes().');
     }
 }

@@ -119,7 +119,7 @@ class MetricsEndpointFormatTest extends TestCase
         $this->assertStringContainsString(
             'memory_get_peak_usage(true)',
             $source,
-            'AUDIT-P2-11.2: appMetrics() should use memory_get_peak_usage for memory_peak_mb'
+            'appMetrics() should use memory_get_peak_usage for memory_peak_mb'
         );
 
         // Verify the peak value is actually exposed in Prometheus output

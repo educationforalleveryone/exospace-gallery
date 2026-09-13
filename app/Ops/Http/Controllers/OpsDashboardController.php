@@ -65,7 +65,7 @@ class OpsDashboardController extends Controller
             ->groupBy('severity')
             ->pluck('n', 'severity');
 
-        // Iteration 4: the quantified rollups.
+        // The quantified rollups.
         $healthScore = $this->score->computeLive();
         $backupTile = $this->tiles->backupStatus();
         $webhookTile = $this->tiles->webhookStatus();

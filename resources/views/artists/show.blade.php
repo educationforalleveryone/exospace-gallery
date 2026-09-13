@@ -117,7 +117,7 @@
             </div>
         @endif
 
-        {{-- Related artists (Iteration 3: internal linking via shared exhibitions) --}}
+        {{-- Related artists (internal linking via shared exhibitions) --}}
         @if($relatedArtists->isNotEmpty())
             <section class="mt-14" aria-label="Related artists">
                 <h2 class="text-xl font-bold text-white mb-5">Artists exhibiting alongside {{ $artist->name }}</h2>

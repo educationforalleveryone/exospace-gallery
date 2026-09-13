@@ -223,7 +223,7 @@ class SystemController extends Controller
                     'max_galleries'   => $limits['max_galleries'],
                     'max_images'      => $limits['max_images'],
                     'plan_started_at' => now(),
-                    'plan_expires_at' => null, // Lifetime — matches webhook semantics (task H03)
+                    'plan_expires_at' => null, // Lifetime — matches webhook semantics
                 ])->save();
             }
 
@@ -339,7 +339,7 @@ class SystemController extends Controller
 
         $user->forceFill(['email_verified_at' => null])->save();
 
-        // (Task H07 / audit H17) — audit this action.
+        // Audit this action.
         AdminAuditLog::record('email_unverified', $user);
 
         return back()->with('success', "{$user->name}'s email verification revoked.");
@@ -475,7 +475,7 @@ class SystemController extends Controller
     {
         $admin = $request->user();
 
-        // M-14: Check feature flag
+        // Check feature flag
         if (! \App\Services\FeatureFlag::isEnabled('admin_impersonation')) {
             abort(404);
         }

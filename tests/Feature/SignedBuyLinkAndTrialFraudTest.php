@@ -28,13 +28,13 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
         $response->assertRedirect();
         $location = $response->headers->get('Location');
 
-        // 2CO-2 FIX: the URL must include &sign=...
-        $this->assertStringContainsString('&sign=', $location, '2CO-2: Buy URL must include signed &sign= parameter when price is configured.');
+        // the URL must include &sign=...
+        $this->assertStringContainsString('&sign=', $location, 'Buy URL must include signed &sign= parameter when price is configured.');
 
         // Verify the signature is an uppercase MD5 hash (32 hex chars)
         preg_match('/&sign=([A-F0-9]{32})/i', $location, $matches);
-        $this->assertNotEmpty($matches, '2CO-2: &sign= must be a 32-char uppercase hex string.');
-        $this->assertEquals(strtoupper($matches[1]), $matches[1], '2CO-2: &sign= must be uppercase.');
+        $this->assertNotEmpty($matches, '&sign= must be a 32-char uppercase hex string.');
+        $this->assertEquals(strtoupper($matches[1]), $matches[1], '&sign= must be uppercase.');
     }
 
     public function test_2co2_upgrade_url_skips_sign_when_price_not_configured(): void
@@ -52,8 +52,8 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
         $response->assertRedirect();
         $location = $response->headers->get('Location');
 
-        // 2CO-2: when price is not configured, the signed link is SKIPPED (with a warning log)
-        $this->assertStringNotContainsString('&sign=', $location, '2CO-2: &sign= must be absent when price is not configured.');
+        // when price is not configured, the signed link is SKIPPED (with a warning log)
+        $this->assertStringNotContainsString('&sign=', $location, '&sign= must be absent when price is not configured.');
     }
 
     public function test_2co2_signed_buy_link_uses_correct_signature_format(): void
@@ -79,7 +79,7 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
         $expectedSign = strtoupper(md5($sid . $productId . '1' . $price . $secretWord));
 
         $this->assertStringContainsString('&sign=' . $expectedSign, $location,
-            '2CO-2: &sign= must equal strtoupper(md5(sid + product_id + quantity + price + secret_word)).');
+            '&sign= must equal strtoupper(md5(sid + product_id + quantity + price + secret_word)).');
     }
 
     public function test_2co8_trial_start_succeeds_on_first_attempt(): void

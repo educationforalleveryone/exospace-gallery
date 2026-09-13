@@ -27,8 +27,7 @@ import re
 import sys
 from pathlib import Path
 
-# AUDIT-P0-1.2 FIX: Previously hardcoded to "/home/z/my-project/work/resources/views"
-# which does not exist in the project tree. Now resolved relative to this script.
+# Resolved relative to this script so it works from any checkout location.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 VIEWS_DIR = PROJECT_ROOT / "resources" / "views"
 

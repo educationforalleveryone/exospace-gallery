@@ -4,7 +4,7 @@
 @section('description', 'Create museum-quality 3D art exhibitions. Free to start. Pro $29 one-time or $4.99/mo. Studio $99 one-time or $14.99/mo — custom domains and white-label branding.')
 
 @php
-    // CONV-3: Determine the current user's plan for "already on this plan" state
+    // Determine the current user's plan for "already on this plan" state
     $currentPlan = auth()->check() ? auth()->user()->plan : null;
 
     $recurringProPrice    = config('services.2checkout.recurring_price_pro_monthly', '4.99');
@@ -147,7 +147,7 @@
     </div>
     <h1>Two venues free.<br><span class="grad">Unlock them all.</span></h1>
     <p>Each plan unlocks more virtual venues — 12 distinct 3D spaces with their own architecture, scale, and atmosphere.</p>
-    {{-- CONV-1: Social proof badge --}}
+    {{-- Social proof badge --}}
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:1.5rem;">
         <div style="display:flex;">
             @php
@@ -496,7 +496,7 @@
             Pay Securely with 2Checkout →
         </a>
         @if($hasRecurringPro)
-        {{-- ITERATION-5: same monthly alternative the billing portal offers (M-1). --}}
+        {{-- Same monthly alternative the billing portal offers. --}}
         <a href="{{ route('billing.upgrade', 'pro') }}?recurring=1" class="btn btn-secondary w-full mb-3">
             or ${{ $recurringProPrice }}/month — cancel anytime
         </a>
@@ -531,13 +531,13 @@
             Pay Securely with 2Checkout →
         </a>
         @if($hasRecurringStudio)
-        {{-- ITERATION-5: same monthly alternative the billing portal offers (M-1). --}}
+        {{-- Same monthly alternative the billing portal offers. --}}
         <a href="{{ route('billing.upgrade', 'studio') }}?recurring=1" class="btn btn-secondary w-full mb-3">
             or ${{ $recurringStudioPrice }}/month — cancel anytime
         </a>
         @endif
         @else
-        {{-- CONV-6: Same deep-link pattern as Pro modal above. --}}
+        {{-- Same deep-link pattern as Pro modal above. --}}
         <a href="{{ route('register') }}?redirect={{ urlencode('billing/upgrade/studio') }}" class="btn btn-primary w-full mb-3">
             Sign up to Upgrade →
         </a>
@@ -550,8 +550,9 @@
 
 <x-json-ld type="product" :product="['name' => 'Pro', 'price' => 29.00, 'currency' => 'USD', 'description' => 'Exospace Pro plan — 5 galleries with 100 images total, 8 venues, background music, exhibition scheduling, watermark-free galleries.']" />
 <x-json-ld type="product" :product="['name' => 'Studio', 'price' => 99.00, 'currency' => 'USD', 'description' => 'Exospace Studio plan — everything in Pro plus priority support and white-label branding.']" />
-{{-- ITERATION-1 FIX: the escaped quotes inside the inline :faqs attribute --}}
-{{-- silently broke the component's expression evaluation — the FAQPage --}}
+{{-- Escaped quotes inside an inline :faqs attribute silently break --}}
+{{-- the component's expression evaluation — the FAQPage data is --}}
+{{-- therefore defined in the @php block below instead. --}}
 @php
     $pricingFaqs = [
         ['question' => 'Is there a free trial for Pro?', 'answer' => 'The Free plan lets you build a real gallery with the full 3D viewer, and registered Free users can start a 14-day Pro trial with no card required.'],

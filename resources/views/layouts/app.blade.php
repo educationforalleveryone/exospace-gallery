@@ -70,7 +70,7 @@
         <!-- Cookie Banner -->
         @include('layouts.partials.cookie-banner')
 
-        {{-- ITERATION-2 (AUDIT-P1-2.5): Unified toast component. --}}
+        {{-- Unified toast component. --}}
         <x-toast />
 
         <script nonce="@nonce">
@@ -168,10 +168,10 @@
             }, true);
         }
         </script>
-        {{-- M-19: In-app feedback widget (floating button on all admin pages) --}}
+        {{-- In-app feedback widget (floating button on all admin pages) --}}
         @include('components.feedback-widget')
 
-        {{-- ITERATION-3 (AUDIT-P1-3.2): ⌘K command palette. --}}
+        {{-- ⌘K command palette. --}}
         @if(\App\Services\FeatureFlag::isEnabled('command_palette'))
             <x-command-palette />
         @endif

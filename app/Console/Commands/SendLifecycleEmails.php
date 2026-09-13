@@ -20,7 +20,7 @@ class SendLifecycleEmails extends Command
 
     public function handle(): int
     {
-        // P0-3: prevent concurrent runs from double-sending.
+        // Prevent concurrent runs from double-sending.
         $lock = Cache::lock(self::LOCK_KEY, self::LOCK_TTL);
 
         try {
@@ -44,9 +44,9 @@ class SendLifecycleEmails extends Command
         $users = User::where('created_at', '<', $cutoff)
             ->whereNull('inactive_nudged_at')
             ->whereNull('banned_at')
-            // P0-3: marketing consent required for this nudge
+            // Marketing consent required for this nudge
             ->where('marketing_consent', true)
-            // P0-3: only send to verified emails
+            // Only send to verified emails
             ->whereNotNull('email_verified_at')
             ->whereDoesntHave('galleries', function ($q) {
                 $q->where('is_active', true);
@@ -61,7 +61,7 @@ class SendLifecycleEmails extends Command
 
         $sent = 0;
         foreach ($users as $user) {
-            // P0-3: defense-in-depth re-check
+            // Defense-in-depth re-check
             if (! $user->marketing_consent || ! $user->email_verified_at) {
                 continue;
             }
@@ -69,7 +69,7 @@ class SendLifecycleEmails extends Command
             try {
                 Mail::to($user->email)->send(new InactiveUserNudge($user));
 
-                // P0-7: use inactive_nudged_at (not lifecycle_nudged_at)
+                // Use inactive_nudged_at (not lifecycle_nudged_at)
                 $user->forceFill(['inactive_nudged_at' => now()])->save();
                 $sent++;
 
@@ -115,7 +115,7 @@ class SendLifecycleEmails extends Command
 
         $sent = 0;
         foreach ($users as $user) {
-            // P0-3: defense-in-depth re-check
+            // Defense-in-depth re-check
             if (! $user->email_verified_at) {
                 continue;
             }
@@ -123,7 +123,7 @@ class SendLifecycleEmails extends Command
             try {
                 Mail::to($user->email)->send(new PlanExpiringSoon($user));
 
-                // P0-7: use plan_expiry_reminded_at (not lifecycle_nudged_at)
+                // Use plan_expiry_reminded_at (not lifecycle_nudged_at)
                 $user->forceFill(['plan_expiry_reminded_at' => now()])->save();
                 $sent++;
 

@@ -96,7 +96,7 @@ class PublicVenueController extends Controller
             nextUrl: $pagination['next'],
         ));
 
-        // Iteration 3: CollectionPage graph with the venue's live exhibitions.
+        // CollectionPage graph with the venue's live exhibitions.
         if ($galleries->isNotEmpty()) {
             $seo = $seo->with(['jsonLd' => [
                 $this->schema->hubCollectionPage(

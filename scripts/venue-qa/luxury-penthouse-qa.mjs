@@ -701,11 +701,11 @@ if (existsSync(migrationPath8)) {
     ok('migration 000008 is LOUD (every decision logs — guarded passes must never be silent again)',
         (mig8.match(/\$this->log\(/g) || []).length >= 8);
 }
-ok('PHP iteration test exists', existsSync(rel('tests/Feature/VenuePenthouseIterationTest.php')));
+ok('PHP venue test exists', existsSync(rel('tests/Feature/VenuePenthouseTest.php')));
 ok('PHP drift-replay test exists (the production history is pinned, not just the clean chain)',
-    existsSync(rel('tests/Feature/VenuePenthouseIterationTest.php')) &&
+    existsSync(rel('tests/Feature/VenuePenthouseTest.php')) &&
     /test_the_drifted_production_row_converges_to_the_double_volume/.test(
-        readFileSync(rel('tests/Feature/VenuePenthouseIterationTest.php'), 'utf8')));
+        readFileSync(rel('tests/Feature/VenuePenthouseTest.php'), 'utf8')));
 ok('shoot.mjs carries the v3 scenarios (arrival, terminus, corner, city, low tier, rollback bodies)',
     /pent-cam-arrival/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')) &&
     /pent-cam-corner/.test(readFileSync(rel('scripts/harness/shoot.mjs'), 'utf8')) &&
@@ -759,7 +759,7 @@ ok('the media_wall declaration is venue-owned (a curator override cannot move/re
     /'media_wall'/.test(readFileSync(rel('app/Services/VenueConfigExporter.php'), 'utf8')));
 }
 {
-    const testSrc = readFileSync(rel('tests/Feature/VenuePenthouseIterationTest.php'), 'utf8');
+    const testSrc = readFileSync(rel('tests/Feature/VenuePenthouseTest.php'), 'utf8');
     for (const t of ['test_the_media_wall_pass_upgrades_the_seeded_floor',
         'test_the_media_wall_pass_is_idempotent',
         'test_the_media_wall_pass_respects_admin_edits',

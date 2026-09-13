@@ -6,11 +6,11 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     @php
-        // SEO OS (Iteration 1): controllers may pass a SeoData value object.
+        // SEO OS: controllers may pass a SeoData value object.
         $seoData = $seoData ?? null;
     @endphp
 
-    {{-- SEO meta tags (Task H13 → SEO OS v2) --}}
+    {{-- SEO meta tags --}}
     @include('partials.seo-head', ['seoData' => $seoData ?? null])
 
     @if(!empty($preloadImage))
@@ -21,10 +21,10 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
 
-    {{-- Vite-built CSS + JS — replaces cdn.tailwindcss.com (Task H09) --}}
+    {{-- Vite-built CSS + JS --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    {{-- Favicon + theme color + PWA manifest (Task H23) --}}
+    {{-- Favicon + theme color + PWA manifest --}}
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-16x16.png') }}">
@@ -123,7 +123,7 @@
     {{-- Cookie banner --}}
     @include('layouts.partials.cookie-banner')
 
-    {{-- ITERATION-2 (AUDIT-P1-2.5): Unified toast component. --}}
+    {{-- Unified toast component. --}}
     <x-toast />
 
     <script nonce="@nonce">

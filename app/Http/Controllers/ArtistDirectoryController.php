@@ -59,7 +59,7 @@ class ArtistDirectoryController extends Controller
             'nextUrl' => $pagination['next'],
         ]);
 
-        // Iteration 3: CollectionPage graph on the first page only.
+        // CollectionPage graph on the first page only.
         if ($page === 1) {
             $seo = $seo->with(['jsonLd' => [
                 $this->schema->hubCollectionPage(

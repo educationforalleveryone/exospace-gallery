@@ -57,21 +57,21 @@ return new class extends Migration
 
     public function down(): void
     {
-        // P2-8: Drop team_user user_id index
+        // Drop team_user user_id index
         Schema::table('team_user', function (Blueprint $table) {
             if (Schema::hasIndex('team_user', 'team_user_user_id_index')) {
                 $table->dropIndex('team_user_user_id_index');
             }
         });
 
-        // P2-7: Drop analytics_events composite index
+        // Drop analytics_events composite index
         Schema::table('analytics_events', function (Blueprint $table) {
             if (Schema::hasIndex('analytics_events', 'analytics_dwell_index')) {
                 $table->dropIndex('analytics_dwell_index');
             }
         });
 
-        // P2-3: Drop soft deletes
+        // Drop soft deletes
         Schema::table('gallery_images', function (Blueprint $table) {
             if (Schema::hasColumn('gallery_images', 'deleted_at')) {
                 $table->dropSoftDeletes();
@@ -84,7 +84,7 @@ return new class extends Migration
             }
         });
 
-        // P2-2: Drop users.current_team_id FK + index
+        // Drop users.current_team_id FK + index
         Schema::table('users', function (Blueprint $table) {
             $hasFk = collect(Schema::getForeignKeys('users'))
                 ->contains(fn($fk) => in_array('current_team_id', $fk['columns']));
@@ -96,7 +96,7 @@ return new class extends Migration
             }
         });
 
-        // P2-1: Drop pending_upgrades.transaction_id index
+        // Drop pending_upgrades.transaction_id index
         Schema::table('pending_upgrades', function (Blueprint $table) {
             if (Schema::hasIndex('pending_upgrades', 'pending_upgrades_transaction_id_index')) {
                 $table->dropIndex('pending_upgrades_transaction_id_index');

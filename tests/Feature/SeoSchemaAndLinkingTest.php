@@ -20,7 +20,7 @@ class SeoSchemaAndLinkingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // ITERATION-1 FIX: force URL root for absolute-URL assertions.
+        // Force the URL root for absolute-URL assertions.
         config(['app.url' => 'https://exospace.gallery']);
         \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
         \Illuminate\Support\Facades\URL::forceScheme('https');
@@ -149,7 +149,7 @@ class SeoSchemaAndLinkingTest extends TestCase
 
         $this->assertSame('VisualArtwork', $schema['@type']);
         $this->assertSame('120 × 80 cm', $schema['size']);
-        $this->assertArrayNotHasKey('artworkSurface', $schema, 'audit M6: dimensions map to size, not artworkSurface.');
+        $this->assertArrayNotHasKey('artworkSurface', $schema, 'dimensions map to size, not artworkSurface.');
         $this->assertSame('Oil on canvas', $schema['artMedium']);
         $this->assertSame('2024', $schema['dateCreated']);
         $this->assertSame('2500.00', $schema['offers']['price']);
@@ -397,7 +397,7 @@ class SeoSchemaAndLinkingTest extends TestCase
         $response = $this->get('/');
 
         $html = $response->getContent();
-        $this->assertStringContainsString('Real Featured Show', $html, 'Real featured gallery replaces placeholder (audit M10).');
+        $this->assertStringContainsString('Real Featured Show', $html, 'Real featured gallery replaces placeholder.');
         $this->assertStringContainsString("gallery/{$gallery->slug}", $html, 'Links point at the real gallery URL.');
         $this->assertStringContainsString('"@type": "WebSite"', $html);
         $this->assertStringContainsString('"@type": "Organization"', $html);

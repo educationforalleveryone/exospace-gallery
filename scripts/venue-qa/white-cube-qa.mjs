@@ -61,7 +61,7 @@ ok('default frame defines the edge (modern/classic/black)',
     /'frame_style'\s*=>\s*'(modern|classic|black)'/.test(ds));
 ok('all four advertised layouts supported',
     /'supported_layouts'\s*=>\s*\[[^\]]*'square'[^\]]*'corridor'[^\]]*'l-shape'[^\]]*'rotunda'/.test(chunk));
-ok('version bumped to 1.1.0 (polish iteration)',
+ok('version is 1.1.0',
     /'version'\s*=>\s*'1\.1\.0'/.test(chunk));
 
 section('B. Harness payload ↔ seeder sync');

@@ -1,10 +1,10 @@
 # Exospace Design System
 
-**Status:** Canonical — Iteration 2 of the premium-SaaS UI rework (layout, navigation, responsive UX).
+**Status:** Canonical.
 **Location of the kit:** `resources/css/app.css` (component classes) + `tailwind.config.js` (tokens).
 **Applies to:** admin app, auth, billing, profile, Master Control (super-admin), OpsCenter, Control Center, public marketing pages, auth pages.
 
-This document is the single source of truth for anyone (human or AI) building UI in Exospace. If a pattern you are about to write is not here, extend the system — do not invent a parallel one.
+This document is the single source of truth for anyone building UI in Exospace. If a pattern you are about to write is not here, extend the system — do not invent a parallel one.
 
 ---
 
@@ -13,7 +13,7 @@ This document is the single source of truth for anyone (human or AI) building UI
 1. **One accent.** Brand purple is the only accent. Status hues (below) are the only second voices. If a screen feels like it needs another accent color, the problem is hierarchy, not palette.
 2. **Premium = restraint.** No decorative gradients, no glow-everything, no glass panels in the product UI. Depth comes from the elevation ladder (§4) and typography, not effects.
 3. **Fix root causes.** A repeated pattern becomes a class in `app.css`. Thirty pages with inconsistent buttons means the *button system* is wrong, not the pages.
-4. **Dark-native.** The product ships one theme. Do not introduce light-surface UI (the white MFA backup-codes page is a known legacy defect, scheduled for Iteration 2).
+4. **Dark-native.** The product ships one theme. Do not introduce light-surface UI (the white MFA backup-codes page is a known legacy defect awaiting rework).
 5. **Accessible by default.** Every interactive element has a visible focus state; every icon-only control has `aria-label`; text never goes below 12px.
 
 ---
@@ -43,7 +43,7 @@ This document is the single source of truth for anyone (human or AI) building UI
 | info / neutral notice | **blue** | `.badge-info`, `.alert-info` |
 | brand / plan tier | **brand** | `.badge-brand` (`.badge-pro` alias kept) |
 
-Legacy `green-*`/`yellow-*` classes mean success/warning and are retired (public surface in iteration 4, app surface in iteration 6): use `emerald-*` / `amber-*`. `purple-*` and `indigo-*` are retired from product UI (they fought brand purple); remapping completed iteration 6, with the documented exceptions in §10.
+Legacy `green-*`/`yellow-*` classes mean success/warning and are retired: use `emerald-*` / `amber-*`. `purple-*` and `indigo-*` are retired from product UI (they fought brand purple); the documented exceptions live in §10.
 
 ### 2.2 Radii ladder
 
@@ -70,7 +70,7 @@ Never stack `shadow-lg shadow-purple-900/40`-style colored shadows on arbitrary 
 
 ### 2.4 Spacing, controls, motion
 
-- **Page containers (Iteration 2 — three sanctioned wrappers, nothing ad hoc):**
+- **Page containers — three sanctioned wrappers, nothing ad hoc:**
 
   | Class | Width | Use |
   |---|---|---|
@@ -103,7 +103,7 @@ Rules: minimum UI size `text-xs` (12px) — no `text-[10px]`/`text-[11px]` in ne
 
 ## 3. Buttons
 
-One base, six product variants + eleven ops variants, three sizes. One **primary** button per view. **Variants are color-only** — geometry comes from `.btn` + the size class; never omit `.btn` (the iteration-8 cascade fix: variants used to re-declare the full base, which silently killed `.btn-sm`/`.btn-lg`/`.btn-icon` on ~104 controls).
+One base, six product variants + eleven ops variants, three sizes. One **primary** button per view. **Variants are color-only** — geometry comes from `.btn` + the size class; never omit `.btn`. A variant that re-declares the full base silently kills `.btn-sm`/`.btn-lg`/`.btn-icon` geometry in the compiled cascade (§7.1).
 
 ```blade
 <button class="btn btn-primary">Save changes</button>      {{-- primary action --}}
@@ -111,13 +111,13 @@ One base, six product variants + eleven ops variants, three sizes. One **primary
 <button class="btn btn-ghost">Advanced</button>            {{-- quietest --}}
 <button class="btn btn-danger">Delete gallery</button>     {{-- destructive --}}
 <button class="btn btn-danger-ghost btn-sm">Remove</button>{{{{-- quiet destructive (rows) --}}
-<button class="btn btn-brand-tint">Pro — $29</button>      {{-- brand-flavored quiet (iteration 7):
+<button class="btn btn-brand-tint">Pro — $29</button>      {{-- brand-flavored quiet:
      plan upsells, workspace switch, "open live" — brand accent without
      the weight of a second primary. Replaces the 9 hand-rolled idioms. --}}
 <button class="btn btn-primary btn-lg">Create gallery</button>
 <button class="btn btn-icon btn-ghost" aria-label="Copy link"><svg…></button>
 
-{{-- ops sub-brand (iteration 8): same geometry ladder, slate voice.
+{{-- ops sub-brand: same geometry ladder, slate voice.
      primary/secondary/danger/amber = solids; ghost = slate bordered;
      {hue}-ghost = the section-hue row action (emerald/amber/sky/cyan/red);
      muted = non-interactive viewer-state marker (span, never a button). --}}
@@ -131,9 +131,9 @@ One base, six product variants + eleven ops variants, three sizes. One **primary
 </button>
 ```
 
-Disabled = `disabled:opacity-50 disabled:pointer-events-none` (built into `.btn`). Never fake-disable with inline opacity styles; for links that must look disabled, add `aria-disabled="true"` — or better, use a real `disabled` button when the control is state-shaped (iteration 7 migrated the pricing "Your Current Plan ✓" markers from `aria-disabled` spans to real disabled buttons).
+Disabled = `disabled:opacity-50 disabled:pointer-events-none` (built into `.btn`). Never fake-disable with inline opacity styles; for links that must look disabled, add `aria-disabled="true"` — or better, use a real `disabled` button when the control is state-shaped.
 
-**Quiet inline controls (iteration 7).** Two sanctioned non-`.btn` idioms remain:
+**Quiet inline controls.** Two sanctioned non-`.btn` idioms remain:
 - Text-style links that are form submits or row toggles inside dense meta lines / table rows get a hit-area wrapper: `class="p-1.5 -m-1 rounded … hover:bg-white/[0.06]"` — keeps the quiet look, brings the effective target to ≈32px.
 - Everything else graduates to the kit. No new bare `bg-brand-600 … rounded-lg px-4 py-2` buttons anywhere.
 
@@ -168,7 +168,7 @@ Disabled = `disabled:opacity-50 disabled:pointer-events-none` (built into `.btn`
 - Blade components: `<x-text-input>`, `<x-input-label>`, `<x-input-error>` wrap the same classes.
 - Autocomplete on dark is handled globally (no white flash).
 
-**Checkboxes, radios, file inputs (iteration 4):**
+**Checkboxes, radios, file inputs:**
 
 ```blade
 {{-- checkbox: pair with items-center; items-start + mt-1 for multi-line text --}}
@@ -183,8 +183,8 @@ Disabled = `disabled:opacity-50 disabled:pointer-events-none` (built into `.btn`
 
 - `.checkbox-base` / `.radio-base` — 16px, form-plugin accent via `text-brand-600`, brand focus ring, `disabled:` variants. Never hand-roll `rounded bg-gray-700 border-gray-600 text-purple-600 …` again.
 - `.file-base` — one file-input recipe (neutral `file:` button); the purple `file:bg-purple-600` variant is retired.
-- **Error wiring is mandatory wherever `@error` feedback exists**: `class="input-base {{ $errors->has('x') ? 'input-error' : '' }}"` — a red message under a field that itself shows no error state is a broken pattern (iteration-4 sweep fixed 35 such fields).
-- OpsCenter/Control Center fields use **`.input-ops` / `.input-ops-sm`** (iteration 8) — the same h-10/h-8 geometry ladder as `.input-base` in the slate voice (`bg-slate-900 border-slate-700`). Focus hue bakes the ops default (emerald); section voices override with a plain `focus:border-*` utility (sky=credentials, amber=action-confirm, cyan=Sentry mapping, brand=Control Center) — utilities outrank the component layer. Per-instance overrides (`bg-slate-950`, `font-mono`, `w-52`) ride on top the same way. Hand-rolled slate field recipes are retired.
+- **Error wiring is mandatory wherever `@error` feedback exists**: `class="input-base {{ $errors->has('x') ? 'input-error' : '' }}"` — a red message under a field that itself shows no error state is a broken pattern.
+- OpsCenter/Control Center fields use **`.input-ops` / `.input-ops-sm`** — the same h-10/h-8 geometry ladder as `.input-base` in the slate voice (`bg-slate-900 border-slate-700`). Focus hue bakes the ops default (emerald); section voices override with a plain `focus:border-*` utility (sky=credentials, amber=action-confirm, cyan=Sentry mapping, brand=Control Center) — utilities outrank the component layer. Per-instance overrides (`bg-slate-950`, `font-mono`, `w-52`) ride on top the same way. Hand-rolled slate field recipes are retired.
 
 ---
 
@@ -213,9 +213,9 @@ Every table sits in `.table-wrap` (scroll on mobile — content is never clipped
 
 **Menus** — panels `.menu-panel`, rows `.menu-item` (or `<x-dropdown-link>`), group labels `.menu-header`, dividers `.menu-separator`. Trigger buttons carry `aria-haspopup`, `:aria-expanded`, `aria-controls`.
 
-**Modals** — scrim `.modal-backdrop`, panel `.modal-panel` with `.modal-header` / `.modal-body` / `.modal-footer`. Widths: `max-w-md` confirm · `max-w-lg` form · `max-w-2xl` large. Destructive confirmations use `<x-confirm-modal>` (type-to-confirm). Ad-hoc `style="display:none"` overlays are legacy and migrate to `<x-modal>`. The chrome X is `.modal-close` (iteration 7 — one definition; was re-declared inline on 9 dialogs with drifting text colors). Inline `style="z-index:…"` on overlays is forbidden — use the safelisted ladder classes (`z-[45]`, `z-[60]`…).
+**Modals** — scrim `.modal-backdrop`, panel `.modal-panel` with `.modal-header` / `.modal-body` / `.modal-footer`. Widths: `max-w-md` confirm · `max-w-lg` form · `max-w-2xl` large. Destructive confirmations use `<x-confirm-modal>` (type-to-confirm). Ad-hoc `style="display:none"` overlays are legacy and migrate to `<x-modal>`. The chrome X is `.modal-close` (one definition — never re-declare it inline; drifting text colors are the failure mode). Inline `style="z-index:…"` on overlays is forbidden — use the safelisted ladder classes (`z-[45]`, `z-[60]`…).
 
-**Operational status language (Iteration 2)** — the four-state vocabulary for OpsCenter, Control Center and Master Control. Always dot + word — never color alone. Rendered via `<x-status-badge>` (alias map included: ok/passed→healthy, degraded/flaky→warning, failed/overdue/down→critical, queued/pending→unknown, running→info):
+**Operational status language** — the four-state vocabulary for OpsCenter, Control Center and Master Control. Always dot + word — never color alone. Rendered via `<x-status-badge>` (alias map included: ok/passed→healthy, degraded/flaky→warning, failed/overdue/down→critical, queued/pending→unknown, running→info):
 
 ```blade
 <x-status-badge state="healthy" />                 {{-- ● Healthy (emerald) --}}
@@ -234,7 +234,7 @@ Classes (`.status`, `.status-dot`, `.status-healthy|warning|critical|info|unknow
 
 - Admin shell: `layouts/app.blade.php` + `layouts/navigation.blade.php` — canvas `bg-ink-900`, top nav `bg-ink-900/95 backdrop-blur`, hairline `border-gray-800`.
 - Page header band: `bg-ink-800/60 border-b border-gray-800`, container `max-w-page … py-5`.
-- **Page composition (Iteration 2):** every authenticated page renders its title block through `<x-page-header>` inside the `$header` slot:
+- **Page composition:** every authenticated page renders its title block through `<x-page-header>` inside the `$header` slot:
 
   ```blade
   <x-slot name="header">
@@ -251,7 +251,7 @@ Classes (`.status`, `.status-dot`, `.status-healthy|warning|critical|info|unknow
 - **Section tool rows** (Master Control): `flex flex-wrap gap-2` of `.btn.btn-sm.btn-ghost` links inside the header band — never a fixed-width row.
 - **Back navigation:** detail/edit pages pass `:back` to `<x-page-header>` — one consistent ← pattern instead of ad-hoc links.
 - Brand wordmark: `.logo-text` (single definition — never define per-page gradients).
-- OpsCenter / Control Center keep their slate identities but share the font (Inter), the global focus ring, `noindex`, the container ramp, and (Iteration 2) the `.status-*` language. Clickable table rows use `data-href` + a delegated nonced script (CSP-safe, keyboard operable) — inline `onclick` handlers are forbidden.
+- OpsCenter / Control Center keep their slate identities but share the font (Inter), the global focus ring, `noindex`, the container ramp, and the `.status-*` language. Clickable table rows use `data-href` + a delegated nonced script (CSP-safe, keyboard operable) — inline `onclick` handlers are forbidden.
 
 ---
 
@@ -260,7 +260,7 @@ Classes (`.status`, `.status-dot`, `.status-healthy|warning|critical|info|unknow
 1. **Focus:** global `:focus-visible` ring (brand, 2px, offset 2) in `app.css` covers *everything*, including hand-rolled controls. Do not remove visible focus for aesthetics; inputs opt out (border+ring instead).
 2. **Touch targets:** minimum 32px (`btn-sm`), preferably 40px (`h-9`/`h-10`).
 3. **Icon-only buttons** always carry `aria-label`.
-4. **Semantics:** `<button>` for actions, `<a>` for navigation — never clickable `<div>`s, never `<span class="btn">` (the pricing-page legacy was migrated to real `disabled` buttons in iteration 7).
+4. **Semantics:** `<button>` for actions, `<a>` for navigation — never clickable `<div>`s, never `<span class="btn">` (use real `disabled` buttons for state-shaped controls).
 5. **Dialogs:** `role="dialog"`, `aria-modal`, labelled; Escape and backdrop click close; focus is trapped (`<x-modal>`, `<x-confirm-modal>`).
 6. **Menus:** `role="menu"` + arrow-key navigation (`<x-dropdown>`).
 7. **Active nav:** `aria-current="page"` (`<x-nav-link>`).
@@ -270,7 +270,7 @@ Classes (`.status`, `.status-dot`, `.status-healthy|warning|critical|info|unknow
 
 ---
 
-## 9. Z-index ladder (iteration 3 — ONE layering system)
+## 9. Z-index ladder (ONE layering system)
 
 Every floating layer uses one of these tiers. No ad-hoc `z-[9999]` — if a layer doesn't fit, extend the ladder, not the element.
 
@@ -281,7 +281,7 @@ Every floating layer uses one of these tiers. No ad-hoc `z-[9999]` — if a laye
 | Site chrome | `z-40` | top navs (app/public/ops), impersonation banner |
 | Persistent overlay | `z-[45]` | cookie banner, feedback FAB |
 | Dropdown | `z-50` | `<x-dropdown>`, notification + team panels, popovers |
-| Tooltip | `z-[55]` | `[data-tooltip]::after` (CSS-only; the unused `<x-tooltip>` component was deleted in iteration 8) |
+| Tooltip | `z-[55]` | `[data-tooltip]::after` (CSS-only) |
 | **Modal** | `z-[60]` | `<x-modal>`, confirm dialogs, `exospaceConfirm`, every hand-rolled page modal |
 | Command palette | `z-[70]`/`z-[71]` | palette backdrop + panel (may open above a modal) |
 | Toast | `z-[100]` | `<x-toast>` — always on top, never covers blocking controls |
@@ -293,7 +293,7 @@ Every floating layer uses one of these tiers. No ad-hoc `z-[9999]` — if a laye
 3. Avoid creating stacking contexts between a floating layer and `<body>`: no `transform` / `filter` / `backdrop-blur` on ancestors of dropdowns/modals. (`.card-lift` hover transforms, `.pageIn` animation — keep them opacity-only or dropdown-free.)
 4. `overflow: hidden/auto` on an ancestor clips `absolute` popovers regardless of z — render such popovers in-flow (see live-preview hints) or fix the container.
 
-## 9.1 Focus containment for dialogs (iteration 4)
+## 9.1 Focus containment for dialogs
 
 There are two dialog systems and both must trap Tab:
 
@@ -307,7 +307,7 @@ Marked so far: feedback widget, command palette, Master Control delete/admin typ
 - **Alpine dialogs:** `<x-modal>` (event-driven, focus trap, scroll lock) and `<x-confirm-modal>` (type-to-confirm). The kit `.btn-spinner` + `disabled` is the loading story.
 - **Imperative dialogs:** any element with `role="dialog"` + `id` + `aria-modal` + the `hidden`/`flex` pattern works with the shared `openModal(id)` / `closeModal(id)` helpers in `resources/js/app.js` — they add body scroll lock, focus movement (prefer a `[data-autofocus]` child), Tab trap, backdrop click, Escape (top-most first), and focus restore. Page-local modal JS is a bug, not a pattern.
 
-### Interaction reliability rules (iteration 3)
+### Interaction reliability rules
 
 1. **Confirms:** one mechanism — `window.exospaceConfirm()` (styled, focus-restoring, double-submit-guarded). Wire via `form[data-confirm]` / `[data-confirm-click]` / `form[data-submit="exospaceConfirmWrapper"] data-confirm-message="…"`. Never `onsubmit="return confirm(…)"`, never `window.confirm` in page scripts.
 2. **Double-submit:** opt-in guard — `form[data-busy] [data-busy-label="Publishing…"]`. Every POST that spends money, mutates state irreversibly, or runs longer than ~1s carries it. Confirmed forms are guarded by `exospaceConfirm` automatically.
@@ -317,29 +317,29 @@ Marked so far: feedback widget, command palette, Master Control delete/admin typ
 
 ---
 
-## 10. Token discipline for future work
+## 10. Token discipline
 
 - **No hex literals in Blade.** Use tokens; if a token is missing, add it to the scale in `tailwind.config.js` — deliberately, not ad hoc.
 - **New pattern → new class.** If you write the same recipe twice, promote it to `app.css` and document it here.
 - **Safelist is intentional.** All kit classes are safelisted in `tailwind.config.js` so a future adoption can never deploy with the class missing from the compiled CSS.
 - **Deprecation path:** old names (`.badge-warn`, `.badge-pro`, `.section-header`) remain as aliases; use the semantic names in new code.
 
-### Public-surface vocabulary (iteration 4)
+### Public-surface vocabulary
 
-- **One accent: `brand-*`.** `purple-*` and `indigo-*` are retired everywhere (193 public-surface tokens remapped in iteration 4). Status hues stay semantic: `emerald-*` (never `green-*`), `amber-*` (never `yellow-*`), `red-*` danger, `blue-*` info.
+- **One accent: `brand-*`.** `purple-*` and `indigo-*` are retired everywhere. Status hues stay semantic: `emerald-*` (never `green-*`), `amber-*` (never `yellow-*`), `red-*` danger, `blue-*` info.
 - **`.gradient-text` / `.logo-text` have exactly one definition** (app.css). Page-local overrides are deleted; a page that redefines a kit class is a bug, not a theme.
 - **Page `<style>` blocks own page classes only.** `*`, `body`, `nav`, or element-selector rules leak past the page onto the shared layout (this shipped on contact — `*` reset + body override killed the layout's canvas on that page). Fixed and documented; keep it that way.
 - **Marketing pages use `.badge`, `.card`, `.status-*`, `.btn` like the product** — changelog and status are the reference conversions.
 - **Standalone no-`app.css` pages** (gallery/view, closed, coming-soon, pin) keep their own coordinate systems; gallery/view's z-scale (10→200) is a documented exception (isolated WebGL document).
 
-### App-surface vocabulary (iteration 6)
+### App-surface vocabulary
 
-- **The one-accent rule now holds app-wide.** The remaining `purple-*`/`indigo-*`/`green-*`/`yellow-*` tokens on the app surface (admin, Master Control, dashboard, billing, profile, auth, shared components) were remapped same-shade to `brand-*` / `emerald-*` / `amber-*` in iteration 6 (~450 tokens, 52 files). Same-hue-family shifts only — no layout, geometry, or component recipes changed.
+- **The one-accent rule holds app-wide.** `purple-*`/`indigo-*`/`green-*`/`yellow-*` tokens on the app surface (admin, Master Control, dashboard, billing, profile, auth, shared components) are remapped same-shade to `brand-*` / `emerald-*` / `amber-*`. Same-hue-family shifts only — no layout, geometry, or component recipes change.
 - **Categorical data colors are exempt from the one-accent rule.** Where a hue distinguishes data categories (Master Control's `$statTones` tone keys, the galleries-analytics stat-icon map, QA flaky/perma-red kind colors, Chart.js canvas series), hues stay distinct — a second voice that labels a *data category* is doing real work. Never remap a categorical map mechanically; check for key collisions first (the `$statTones` `indigo` key was kept precisely because its `purple` sibling already resolves to brand).
 - **Documented sub-brands unchanged:** OpsCenter/Control Center slate skins with their per-section hue coding (Actions=amber, Credentials=sky, Access=indigo in ops/layout); the 3D runtime (`gallery/view`).
-- **Dead-brand watch:** if a component carries a retired gradient (the pre-iteration-1 `purple-400→indigo-400` wordmark survived on `teams/invitation-expired` and the unused `application-logo` until iteration 6), sweep for it when touching the component family — the logo treatment is `.logo-text`, never a page-local gradient. The same failure mode hides in page `<style>` blocks and JS template literals: iteration 7 retired the reorder-bar `linear-gradient(#9333ea, #6366f1)` save button, the `#a855f7` dropzone/venue-selection hexes, and the dead `.custom-checkbox` rule in the gallery editor.
+- **Dead-brand watch:** if a component carries a retired gradient (e.g. a `purple-400→indigo-400` wordmark), sweep for it when touching the component family — the logo treatment is `.logo-text`, never a page-local gradient. The same failure mode hides in page `<style>` blocks and JS template literals: banned gradients include the reorder-bar `linear-gradient(#9333ea, #6366f1)` save button, the `#a855f7` dropzone/venue-selection hexes, and the dead `.custom-checkbox` rule in the gallery editor.
 
-### Button-kit completion & quiet-control contract (iteration 7)
+### Button-kit completion & quiet-control contract
 
 - **`.btn-brand-tint`** is the sixth variant: brand-flavored quiet action (`bg-brand-600/15 border-brand-600/40 text-brand-300`). Use it where `.btn-secondary` is too neutral and a second primary would over-weight the view — plan upsells, "Switch here", "Open public view".
 - **`.modal-close`** is the one dialog X. Never re-declare the 32px rounded ghost square inline again.
@@ -348,9 +348,9 @@ Marked so far: feedback widget, command palette, Master Control delete/admin typ
 - **Native dialogs are banned everywhere, including the 3D runtime**: `window.prompt`/`alert()`/`confirm()` → toast / clipboard fallback / `exospaceConfirm` (gallery share fallback now uses select-and-copy; the tour uses a toast).
 - **One heading per view:** auth pages carry `sr-only` h1s (or a real one, register); MFA setup/verify merged their duplicate h2+h1 into `<x-page-header>`; `mfa-backup-codes`' `<h1>…</h2>` tag mismatch fixed.
 
-### Ops-native pass & cascade contract (iteration 8)
+### Ops-native pass & cascade contract
 
-- **Variants are color-only — the cascade contract.** Every `.btn-*` variant (product and ops) carries colors only; geometry (height, padding, radius, focus ring, active scale, disabled) comes from `.btn` + the optional size class. Before iteration 8 each variant `@apply`ed the full `.btn` base, so its `h-10 px-4 text-sm` landed after `.btn-sm`/`.btn-lg`/`.btn-icon` in the compiled cascade and silently killed those size classes on **104 controls** (every `btn btn-sm btn-*` rendered 40px since the kit shipped). If you add a variant, never `@apply btn` into it.
+- **Variants are color-only — the cascade contract.** Every `.btn-*` variant (product and ops) carries colors only; geometry (height, padding, radius, focus ring, active scale, disabled) comes from `.btn` + the optional size class. A variant that `@apply`s the full `.btn` base puts its `h-10 px-4 text-sm` after `.btn-sm`/`.btn-lg`/`.btn-icon` in the compiled cascade and silently kills those size classes (every `btn btn-sm btn-*` renders 40px). If you add a variant, never `@apply btn` into it.
 - **`.btn-ops-*` is the ops/Control Center voice of the kit** — same geometry ladder, slate color language, documented hue map (Actions=amber · Credentials=sky · Access=cyan/amber categorical · emerald=global positive/Incidents · red=destructive). The four section-hue `*-ghost` classes replaced 7 near-identical hand-rolled strings that had drifted in radius, border shade, hover shade, and padding; `.btn-ops-muted` is the non-interactive viewer-state marker (a span, never focusable). Ops controls pair with `.input-ops`/`.input-ops-sm` (§5) — buttons and their neighboring filter fields share heights (40/40 form rows, 32/32 filter rows).
 - **Control Center is now shell-compatible with OpsCenter**: sticky `z-40` header with backdrop blur, `text-slate-100` body, `← App` and bordered nav actions on `.btn-ops-ghost`, brand Run buttons on the kit `.btn-primary` (its brand accent predates the pass and stays — CC is Master Control's QA sub-brand, not an ops hue).
 - **Width ladder sanction (§6.6 closed):** `max-w-page` is the app-shell width; standalone public pages (welcome sections, artworks/show, artists/show, gallery/events, seo pages) compose their own editorial ladder of `max-w-6xl` full-bleed sections and `max-w-5xl` columns inside full-screen layouts. This is deliberate composition, not drift — do not "normalize" it.
@@ -358,9 +358,9 @@ Marked so far: feedback widget, command palette, Master Control delete/admin typ
 - **Ops chip language stays in Blade, deliberately.** The status/chip maps (11 maps across ops/CC) share one formula — `bg-{hue}-950/60 text-{hue}-300 border-{hue}-700/50` + `bg-{hue}-400` dot — which is the documented ops counterpart of `.badge-*`/`.status-*` (darker tint for the slate canvas). The maps themselves are the semantic layer (status → hue); don't relocate them into CSS. `class="status …chip-string"` composition is sanctioned (kit shape + ops colors).
 - **Nav/filter chips and queue chips** (`rounded-md px-3 py-1.5` with hue-tinted active state; queue's `rounded-full font-mono` pills) are the sanctioned ops chip idiom — not buttons, do not migrate.
 
-### Final polish pass (iteration 9)
+### Kit adoption contract
 
-The pre-launch pass. Nothing new was invented — the theme of iteration 9 is that every remaining inconsistency was a *kit adoption gap*, and each fix below is now the documented contract.
+Nothing new was invented here — every remaining inconsistency was a *kit adoption gap*, and each rule below is the documented contract.
 
 - **`.modal-title`** (`text-lg font-semibold text-gray-50`) ends the four competing dialog-heading recipes (text-lg/xl × bold/semibold). Every dialog heading — component and hand-rolled — uses it; hue overrides ride as utilities (`modal-title text-red-400`, `modal-title text-white`).
 - **`.well`** (`rounded-lg bg-gray-900/60 border border-gray-700/40 p-4`) is the content-well recipe for secondary groups INSIDE a card. It replaces both failure modes: the invisible nested card (bg-gray-800-in-gray-800) and ad-hoc `bg-gray-900/50 rounded-lg p-4` strings. A card inside a card is never the answer — use `.well`.

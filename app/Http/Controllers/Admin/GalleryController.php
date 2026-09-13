@@ -183,7 +183,7 @@ class GalleryController extends Controller
                          ->with('status', 'Gallery created as a draft — upload your artworks, then publish.');
     }
 
-    // ── Publish / Unpublish (ITERATION-2: the publish moment) ────────────
+    // ── Publish / Unpublish ─────────────────────────────────────────────
 
     public function publish(Request $request, Gallery $gallery): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
     {
@@ -268,7 +268,7 @@ class GalleryController extends Controller
             $newPath = $this->copyFile($gallery->custom_logo_path, 'branding');
             if ($newPath) $clone->custom_logo_path = $newPath;
         }
-        // (Task H59 / audit S10) — also copy curtain logo
+        // Also copy the curtain logo
         if ($gallery->curtain_logo_path) {
             $newPath = $this->copyFile($gallery->curtain_logo_path, 'branding');
             if ($newPath) $clone->curtain_logo_path = $newPath;
@@ -373,7 +373,7 @@ class GalleryController extends Controller
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
-        // Strip emoji from title (Task H22)
+        // Strip emoji from title
         $request->merge([
             'title' => preg_replace('/[\x{1F000}-\x{1FFFF}]|[\x{2600}-\x{27FF}]|[\x{2B00}-\x{2BFF}]|[\x{FE00}-\x{FE0F}]|[\x{1F300}-\x{1F9FF}]|[\x{1FA00}-\x{1FA9F}]|\x{200D}/u', '', $request->input('title', '')),
         ]);
@@ -691,7 +691,7 @@ class GalleryController extends Controller
 
         $gallery->delete();
 
-        // AUDIT-P1-4.14: Log gallery deletion. 'name' is PII — auto-scrubbed.
+        // Log gallery deletion. 'name' is PII — auto-scrubbed.
         AdminAuditLog::record('gallery.deleted', $gallery, [
             'title'                 => $gallery->title,
             'slug'                  => $gallery->slug,

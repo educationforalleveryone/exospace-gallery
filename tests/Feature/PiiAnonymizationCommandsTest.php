@@ -27,7 +27,7 @@ class PiiAnonymizationCommandsTest extends TestCase
         );
     }
 
-    // ── AUDIT-P1-5.1: exospace:anonymize-feedback-pii ──────────────────
+    // ── exospace:anonymize-feedback-pii ──────────────────
 
     public function test_audit_p15_1_feedback_pii_anonymized_for_old_rows_only(): void
     {
@@ -131,7 +131,7 @@ class PiiAnonymizationCommandsTest extends TestCase
         $this->assertSame($firstAnonymizedMessage, $secondRunRow->message, 'Second run should not change the already-anonymized message.');
     }
 
-    // ── AUDIT-P1-5.2: exospace:anonymize-rsvp-pii ────────────────────────
+    // ── exospace:anonymize-rsvp-pii ────────────────────────
 
     public function test_audit_p15_2_rsvp_pii_anonymized_for_old_rows_only(): void
     {
@@ -218,7 +218,7 @@ class PiiAnonymizationCommandsTest extends TestCase
         $this->assertSame('192.0.2.1', $row->ip_address, 'Dry-run should not modify ip_address.');
     }
 
-    // ── AUDIT-P1-5.3: exospace:anonymize-newsletter-pii ────────────────
+    // ── exospace:anonymize-newsletter-pii ────────────────
 
     public function test_audit_p15_3_newsletter_pii_anonymized_for_old_rows_only(): void
     {

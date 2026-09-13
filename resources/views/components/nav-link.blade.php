@@ -8,7 +8,7 @@ $classes = ($active ?? false)
 $ariaCurrent = ($active ?? false) ? 'page' : null;
 @endphp
 
-{{-- ITERATION-1 FIX: tolerate direct view() renders where --}}
+{{-- Tolerate direct view() renders where --}}
 {{-- $attributes/$slot are not injected (see responsive-nav-link). --}}
 @php
 $attrHtml = 'class="' . $classes . '"' . ($ariaCurrent ? ' aria-current="' . $ariaCurrent . '"' : '');

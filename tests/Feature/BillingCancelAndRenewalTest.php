@@ -133,7 +133,7 @@ class BillingCancelAndRenewalTest extends TestCase
         $response = $this->actingAs($user)
             ->get(route('billing.upgrade', ['plan' => 'pro']));
 
-        // 2CO-7 FIX: should redirect to 2Checkout (not block with "already on this plan")
+        // should redirect to 2Checkout (not block with "already on this plan")
         $response->assertRedirect();
         $this->assertStringStartsWith('https://www.2checkout.com/checkout/purchase', $response->headers->get('Location'));
     }

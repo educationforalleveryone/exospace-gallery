@@ -43,7 +43,7 @@ return new class extends Migration
             $table->unsignedInteger('timed_out')->default(0);
             $table->unsignedBigInteger('assertions')->default(0);
 
-            // Intelligence hints (enriched in later iterations).
+            // Intelligence hints (enriched by the intelligence pass).
             $table->decimal('coverage_pct', 5, 2)->nullable();
             $table->string('failure_class', 32)->nullable();        // application | infrastructure | mixed | null
             $table->boolean('flaky_suspected')->default(false)->index();

@@ -17,9 +17,9 @@ class FrontendQueueAndApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_d5_api_read_endpoints_have_ability_read_middleware(): void
+    public function test_api_read_endpoints_have_ability_read_middleware(): void
     {
-        // D-5 FIX: read endpoints should have 'ability:read' middleware
+        // read endpoints should have 'ability:read' middleware
         $readRoutes = ['api.v1.tokens.index', 'api.v1.me', 'api.v1.me.galleries'];
         $routes = Route::getRoutes();
 
@@ -37,18 +37,18 @@ class FrontendQueueAndApiTest extends TestCase
                 if ($r->uri() === $uri
                     && in_array(strtoupper($method), array_map('strtoupper', $r->methods()), true)) {
                     $this->assertContains('ability:read', $r->gatherMiddleware(),
-                        "D-5: {$endpoint} must have 'ability:read' middleware.");
+                        "{$endpoint} must have 'ability:read' middleware.");
                     $matched = true;
                     break;
                 }
             }
-            $this->assertTrue($matched, "D-5: Route not found for {$endpoint}");
+            $this->assertTrue($matched, "Route not found for {$endpoint}");
         }
     }
 
-    public function test_d5_api_write_endpoints_have_ability_write_middleware(): void
+    public function test_api_write_endpoints_have_ability_write_middleware(): void
     {
-        // D-5 FIX: write endpoints should have 'ability:write' middleware
+        // write endpoints should have 'ability:write' middleware
         $writeEndpoints = [
             'POST /api/v1/tokens',
             'DELETE /api/v1/tokens/{tokenId}',
@@ -67,18 +67,18 @@ class FrontendQueueAndApiTest extends TestCase
                 if (in_array(strtoupper($method), array_map('strtoupper', $r->methods()), true)
                     && fnmatch($uriPattern, $r->uri())) {
                     $this->assertContains('ability:write', $r->gatherMiddleware(),
-                        "D-5: {$endpoint} must have 'ability:write' middleware.");
+                        "{$endpoint} must have 'ability:write' middleware.");
                     $matched = true;
                     break;
                 }
             }
-            $this->assertTrue($matched, "D-5: Route not found for {$endpoint}");
+            $this->assertTrue($matched, "Route not found for {$endpoint}");
         }
     }
 
-    public function test_d5_read_token_cannot_access_write_endpoints(): void
+    public function test_read_token_cannot_access_write_endpoints(): void
     {
-        // D-5 FIX: a read-only token should get 403 on POST /api/v1/tokens
+        // a read-only token should get 403 on POST /api/v1/tokens
         $user = User::factory()->create();
         $token = $user->createToken('test-read', ['read']);
 
@@ -91,9 +91,9 @@ class FrontendQueueAndApiTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_d5_write_token_can_access_write_endpoints(): void
+    public function test_write_token_can_access_write_endpoints(): void
     {
-        // D-5 FIX: a write token should be able to POST /api/v1/tokens
+        // a write token should be able to POST /api/v1/tokens
         $user = User::factory()->create();
         $token = $user->createToken('test-write', ['read', 'write']);
 
@@ -106,7 +106,7 @@ class FrontendQueueAndApiTest extends TestCase
         $response->assertStatus(201);
     }
 
-    public function test_c4_send_welcome_email_does_not_use_session(): void
+    public function test_send_welcome_email_does_not_use_session(): void
     {
         $listenerFile = file_get_contents(app_path('Listeners/SendWelcomeEmail.php'));
 
@@ -116,14 +116,14 @@ class FrontendQueueAndApiTest extends TestCase
         ], '', $listenerFile));
 
         $this->assertStringNotContainsString('session(', $codeWithoutComments,
-            'C-4: SendWelcomeEmail must NOT use session() — it runs on the queue worker where session is unavailable.');
+            'SendWelcomeEmail must NOT use session() — it runs on the queue worker where session is unavailable.');
         $this->assertStringContainsString('hasVerifiedEmail', $listenerFile,
-            'C-4: SendWelcomeEmail should use hasVerifiedEmail() instead of session().');
+            'SendWelcomeEmail should use hasVerifiedEmail() instead of session().');
     }
 
-    public function test_c5_process_plan_downgrade_backoff_is_array(): void
+    public function test_process_plan_downgrade_backoff_is_array(): void
     {
-        // C-5 FIX: the backoff should be an array [60, 180, 540], not int 60
+        // the backoff should be an array [60, 180, 540], not int 60
         $reflection = new \ReflectionClass(ProcessPlanDowngrade::class);
         $backoffProp = $reflection->getProperty('backoff');
         $backoffProp->setAccessible(true);
@@ -132,56 +132,56 @@ class FrontendQueueAndApiTest extends TestCase
         $defaultProperties = $job->getDefaultProperties();
 
         $this->assertIsArray($defaultProperties['backoff'],
-            'C-5: ProcessPlanDowngrade::$backoff should be an array.');
+            'ProcessPlanDowngrade::$backoff should be an array.');
         $this->assertEquals([60, 180, 540], $defaultProperties['backoff'],
-            'C-5: ProcessPlanDowngrade::$backoff should be [60, 180, 540] (exponential).');
+            'ProcessPlanDowngrade::$backoff should be [60, 180, 540] (exponential).');
     }
 
-    public function test_k1_image_processing_service_does_not_use_imagick(): void
+    public function test_image_processing_service_does_not_use_imagick(): void
     {
-        // K-1 FIX: ImageProcessingService should NOT reference Imagick
+        // ImageProcessingService should NOT reference Imagick
         $serviceFile = file_get_contents(app_path('Services/ImageProcessingService.php'));
         $this->assertStringNotContainsString('ImagickDriver', $serviceFile,
-            'K-1: ImageProcessingService should NOT reference ImagickDriver (production doesn\'t have imagick).');
+            'ImageProcessingService should NOT reference ImagickDriver (production doesn\'t have imagick).');
         $this->assertStringNotContainsString('extension_loaded(\'imagick\')', $serviceFile,
-            'K-1: ImageProcessingService should NOT check for imagick extension (commit to GD-only).');
+            'ImageProcessingService should NOT check for imagick extension (commit to GD-only).');
         $this->assertStringContainsString('GdDriver', $serviceFile,
-            'K-1: ImageProcessingService should use GdDriver.');
+            'ImageProcessingService should use GdDriver.');
     }
 
-    public function test_k1_ci_does_not_install_imagick(): void
+    public function test_ci_does_not_install_imagick(): void
     {
-        // K-1 FIX: CI workflow should NOT install imagick
+        // CI workflow should NOT install imagick
         $ciFile = file_get_contents(base_path('.github/workflows/ci.yml'));
         $this->assertStringNotContainsString('imagick', $ciFile,
-            'K-1: CI workflow should NOT install imagick (production doesn\'t have it).');
+            'CI workflow should NOT install imagick (production doesn\'t have it).');
     }
 
-    public function test_c9_service_worker_does_not_cache_literal_css_path(): void
+    public function test_service_worker_does_not_cache_literal_css_path(): void
     {
-        // C-9 FIX: the service worker should NOT pre-cache /build/assets/app.css
+        // the service worker should NOT pre-cache /build/assets/app.css
         $swFile = file_get_contents(public_path('sw.js'));
 
         $codeWithoutComments = trim(preg_replace('~^\s*//.*$~m', '', $swFile));
 
         $this->assertStringNotContainsString("'/build/assets/app.css'", $codeWithoutComments,
-            'C-9: Service worker should NOT pre-cache /build/assets/app.css (it 404s — the real CSS is content-hashed).');
+            'Service worker should NOT pre-cache /build/assets/app.css (it 404s — the real CSS is content-hashed).');
     }
 
-    public function test_c10_tailwind_config_includes_js_files(): void
+    public function test_tailwind_config_includes_js_files(): void
     {
-        // C-10 FIX: tailwind.config.js content array should include JS files
+        // tailwind.config.js content array should include JS files
         $configFile = file_get_contents(base_path('tailwind.config.js'));
         $this->assertStringContainsString('resources/js', $configFile,
-            'C-10: tailwind.config.js content array should include resources/js for CSS purging.');
+            'tailwind.config.js content array should include resources/js for CSS purging.');
     }
 
-    public function test_c10_package_json_does_not_have_tailwind_vite_plugin(): void
+    public function test_package_json_does_not_have_tailwind_vite_plugin(): void
     {
-        // C-10 FIX: @tailwindcss/vite should be removed (dead dependency, Tailwind 4)
+        // @tailwindcss/vite should be removed (dead dependency, Tailwind 4)
         $packageJson = file_get_contents(base_path('package.json'));
         $this->assertStringNotContainsString('@tailwindcss/vite', $packageJson,
-            'C-10: package.json should NOT have @tailwindcss/vite (dead dep — Tailwind 4, not wired into Vite).');
+            'package.json should NOT have @tailwindcss/vite (dead dep — Tailwind 4, not wired into Vite).');
     }
 
     private function scheduledCommands(): array
@@ -191,9 +191,9 @@ class FrontendQueueAndApiTest extends TestCase
             ->all();
     }
 
-    public function test_k5_queue_prune_failed_is_scheduled(): void
+    public function test_queue_prune_failed_is_scheduled(): void
     {
-        // K-5 FIX: queue:prune-failed should be in the schedule
+        // queue:prune-failed should be in the schedule
         $this->assertTrue(
             collect($this->scheduledCommands())->contains(
                 fn ($cmd) => str_contains($cmd, 'queue:prune-failed') && str_contains($cmd, '--hours=168'),
@@ -202,9 +202,9 @@ class FrontendQueueAndApiTest extends TestCase
         );
     }
 
-    public function test_k9_cohort_retention_is_scheduled(): void
+    public function test_cohort_retention_is_scheduled(): void
     {
-        // K-9 FIX: exospace:cohort-retention should be in the schedule
+        // exospace:cohort-retention should be in the schedule
         $this->assertTrue(
             collect($this->scheduledCommands())->contains(
                 fn ($cmd) => str_contains($cmd, 'exospace:cohort-retention'),
@@ -213,9 +213,9 @@ class FrontendQueueAndApiTest extends TestCase
         );
     }
 
-    public function test_k9_onboarding_analytics_is_scheduled(): void
+    public function test_onboarding_analytics_is_scheduled(): void
     {
-        // K-9 FIX: exospace:onboarding-analytics should be in the schedule
+        // exospace:onboarding-analytics should be in the schedule
         $this->assertTrue(
             collect($this->scheduledCommands())->contains(
                 fn ($cmd) => str_contains($cmd, 'exospace:onboarding-analytics'),
@@ -253,13 +253,13 @@ class FrontendQueueAndApiTest extends TestCase
         $firstImage = $response->json('images.0');
         $this->assertNotNull(
             $firstImage['thumbnail_url'],
-            'AUDIT-P0-1.7: thumbnail_url should be non-null after the fix. '
+            'thumbnail_url should be non-null after the fix. '
             . 'Either Spatie media conversion resolved, or the original asset URL fallback was used.'
         );
         $this->assertStringStartsWith(
             'http',
             $firstImage['thumbnail_url'],
-            'AUDIT-P0-1.7: thumbnail_url should be an absolute URL.'
+            'thumbnail_url should be an absolute URL.'
         );
     }
 }

@@ -49,7 +49,7 @@ class QaTestCaseResult extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
-        // reserved for iteration 3 enrichment
+        // enriched by the intelligence pass
     ];
 
     public function run(): BelongsTo

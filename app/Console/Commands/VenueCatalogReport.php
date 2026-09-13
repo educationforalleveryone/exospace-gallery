@@ -31,7 +31,7 @@ class VenueCatalogReport extends Command
                             {--json : Emit machine-readable JSON instead of console tables}
                             {--venue=* : Restrict the per-venue table to these slugs}';
 
-    protected $description = 'Roll up per-venue adoption, demand, resonance and register coverage — the data input for the venue #12 decision (P2.4)';
+    protected $description = 'Roll up per-venue adoption, demand, resonance and register coverage';
 
     public function handle(): int
     {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\User;
-use App\Notifications\Auth\VerifyEmail; // VERIFICATION-ITERATION: branded subclass of the framework notification
+use App\Notifications\Auth\VerifyEmail; // branded subclass of the framework notification
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -43,7 +43,7 @@ class OAuthSecurityTest extends TestCase
         config()->set('services.github.redirect', 'http://localhost/auth/github/callback');
     }
 
-    public function test_cr3_oauth_login_does_not_merge_by_email_when_provider_id_does_not_match(): void
+    public function test_oauth_login_does_not_merge_by_email_when_provider_id_does_not_match(): void
     {
         // Victim has an existing account with email + password
         $victim = User::factory()->create([
@@ -70,13 +70,13 @@ class OAuthSecurityTest extends TestCase
 
         $victim->refresh();
         $this->assertNull($victim->github_id,
-            'CR-3 REGRESSION: Victim\'s github_id must remain null — attacker must not be able to link their GitHub to victim\'s account.');
+            'Victim\'s github_id must remain null — attacker must not be able to link their GitHub to victim\'s account.');
 
         // No new user should be created with the attacker's github_id pointing at the victim
         $attackerLinkedUser = User::where('github_id', 'attacker-github-id-123')->first();
         if ($attackerLinkedUser) {
             $this->assertNotEquals($victim->id, $attackerLinkedUser->id,
-                'CR-3 REGRESSION: If a new user was created, it must not be the victim\'s account.');
+                'If a new user was created, it must not be the victim\'s account.');
         }
 
         // The response should redirect to login with an error message
@@ -84,7 +84,7 @@ class OAuthSecurityTest extends TestCase
         $response->assertSessionHas('error');
     }
 
-    public function test_cr3_new_oauth_user_email_not_verified_if_github_did_not_verify(): void
+    public function test_new_oauth_user_email_not_verified_if_github_did_not_verify(): void
     {
         Notification::fake();
 
@@ -104,15 +104,15 @@ class OAuthSecurityTest extends TestCase
         $user = User::where('email', 'newuser@example.com')->first();
         $this->assertNotNull($user, 'New user should have been created.');
 
-        // CR-3 FIX: email_verified_at must be null because GitHub did not verify the email
+        // email_verified_at must be null because GitHub did not verify the email
         $this->assertNull($user->email_verified_at,
-            'CR-3 REGRESSION: email_verified_at must be null when GitHub did not verify the email. '.
+            'email_verified_at must be null when GitHub did not verify the email. '.
             'The user must go through the standard email verification flow.');
 
         Notification::assertSentTo($user, VerifyEmail::class);
     }
 
-    public function test_cr3_new_oauth_user_email_verified_if_google_verified(): void
+    public function test_new_oauth_user_email_verified_if_google_verified(): void
     {
         Notification::fake();
 
@@ -132,15 +132,15 @@ class OAuthSecurityTest extends TestCase
         $user = User::where('email', 'verifieduser@gmail.com')->first();
         $this->assertNotNull($user);
         $this->assertNotNull($user->email_verified_at,
-            'CR-3 REGRESSION: email_verified_at must be set when Google verified the email.');
+            'email_verified_at must be set when Google verified the email.');
 
         // No verification email should be dispatched (email already verified)
         Notification::assertNotSentTo($user, VerifyEmail::class);
     }
 
-    public function test_cr4_session_id_is_regenerated_on_oauth_login(): void
+    public function test_session_id_is_regenerated_on_oauth_login(): void
     {
-        // CR-4 FIX: session fixation — session ID must change on login
+        // session fixation — session ID must change on login
         $socialiteUser = $this->mockSocialiteUser([
             'id' => 'session-test-id',
             'email' => 'session-test@example.com',
@@ -160,10 +160,10 @@ class OAuthSecurityTest extends TestCase
         $sessionAfter = Session::getId();
 
         $this->assertNotEquals($sessionBefore, $sessionAfter,
-            'CR-4 REGRESSION: Session ID must be regenerated on OAuth login to prevent session fixation.');
+            'Session ID must be regenerated on OAuth login to prevent session fixation.');
     }
 
-    public function test_cr4_session_id_is_regenerated_on_returning_oauth_login(): void
+    public function test_session_id_is_regenerated_on_returning_oauth_login(): void
     {
         // Existing user with linked google_id
         $user = User::factory()->create([
@@ -192,12 +192,12 @@ class OAuthSecurityTest extends TestCase
         $sessionAfter = Session::getId();
 
         $this->assertNotEquals($sessionBefore, $sessionAfter,
-            'CR-4 REGRESSION: Session ID must be regenerated even for returning OAuth users.');
+            'Session ID must be regenerated even for returning OAuth users.');
 
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_c2_oauth_only_user_cannot_unlink_last_login_method(): void
+    public function test_oauth_only_user_cannot_unlink_last_login_method(): void
     {
         $user = User::factory()->create([
             'email' => 'oauth-only@example.com',
@@ -215,7 +215,7 @@ class OAuthSecurityTest extends TestCase
 
         $user->refresh();
         $this->assertNotNull($user->github_id,
-            'C-2 REGRESSION: OAuth-only user must NOT be able to unlink their only login method.');
+            'OAuth-only user must NOT be able to unlink their only login method.');
 
         $this->assertDatabaseHas('users', [
             'id' => $user->id,
@@ -223,9 +223,9 @@ class OAuthSecurityTest extends TestCase
         ]);
     }
 
-    public function test_c2_user_with_password_can_unlink_oauth_provider(): void
+    public function test_user_with_password_can_unlink_oauth_provider(): void
     {
-        // C-2 FIX: a user who has a real password CAN unlink their OAuth provider
+        // a user who has a real password CAN unlink their OAuth provider
         $user = User::factory()->create([
             'email' => 'has-password@example.com',
             'password' => bcrypt('real-password'),
@@ -242,12 +242,12 @@ class OAuthSecurityTest extends TestCase
 
         $user->refresh();
         $this->assertNull($user->github_id,
-            'C-2: User with a real password should be able to unlink their OAuth provider.');
+            'User with a real password should be able to unlink their OAuth provider.');
     }
 
-    public function test_c2_oauth_user_with_multiple_providers_can_unlink_one(): void
+    public function test_oauth_user_with_multiple_providers_can_unlink_one(): void
     {
-        // C-2 FIX: a user with multiple OAuth providers can unlink one (the other remains)
+        // a user with multiple OAuth providers can unlink one (the other remains)
         $user = User::factory()->create([
             'email' => 'multi-oauth@example.com',
             'password' => Hash::make(\Illuminate\Support\Str::random(32)), // placeholder
@@ -267,7 +267,7 @@ class OAuthSecurityTest extends TestCase
         $this->assertNotNull($user->google_id, 'Google should remain linked.');
     }
 
-    public function test_cr3_link_refused_when_provider_email_does_not_match_account_email(): void
+    public function test_link_refused_when_provider_email_does_not_match_account_email(): void
     {
         $user = User::factory()->create([
             'email' => 'account@example.com',
@@ -294,7 +294,7 @@ class OAuthSecurityTest extends TestCase
 
         $user->refresh();
         $this->assertNull($user->github_id,
-            'CR-3: Provider should NOT be linked when emails do not match.');
+            'Provider should NOT be linked when emails do not match.');
     }
 
     private function mockSocialiteUser(array $attrs): SocialiteUserContract

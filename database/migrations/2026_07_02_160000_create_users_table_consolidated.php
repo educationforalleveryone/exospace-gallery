@@ -29,17 +29,17 @@ return new class extends Migration
             $table->timestamp('plan_started_at')->nullable();
             $table->timestamp('plan_expires_at')->nullable();
 
-            // M-1: Subscription tracking columns (from 2026_07_04_000010)
+            // Subscription tracking columns
             $table->string('subscription_id')->nullable();
             $table->string('subscription_status')->nullable();
             $table->timestamp('subscription_cancelled_at')->nullable();
             $table->timestamp('subscription_ends_at')->nullable();
 
-            // M-9: Dunning tracking columns (from 2026_07_04_000011)
+            // Dunning tracking columns
             $table->tinyInteger('dunning_step')->nullable();
             $table->timestamp('dunning_last_sent_at')->nullable();
 
-            // M-7: Trial period (from 2026_07_04_000016)
+            // Trial period
             $table->timestamp('trial_ends_at')->nullable();
 
             // Super admin (from 2026_02_07_042958)
@@ -66,14 +66,14 @@ return new class extends Migration
             // CAN-SPAM / GDPR marketing consent (from 2026_07_04_000001)
             $table->boolean('marketing_consent')->default(false);
 
-            // M-24: OAuth (from 2026_07_04_000015)
+            // OAuth
             $table->string('google_id')->nullable();
             $table->string('github_id')->nullable();
             $table->string('avatar_url')->nullable();
             $table->index('google_id');
             $table->index('github_id');
 
-            // C-2 FIX (Iter-001): has_password column for OAuth unlink guard
+            // has_password column for OAuth unlink guard
             $table->boolean('has_password')->default(true);
             $table->timestamp('password_set_at')->nullable();
 

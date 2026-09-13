@@ -109,9 +109,9 @@
 @if(!empty($jsonLd))
 @foreach($jsonLd as $graph)
 <script type="application/ld+json">
-{{-- ITERATION-1 FIX: keep graphs compact (the standalone x-json-ld --}}
-{{-- component is pretty-printed; the seo component's graph blocks are --}}
-{{-- compact to minimize inline payload on every public page). --}}
+{{-- Graph blocks stay compact (the standalone x-json-ld --}}
+{{-- component is pretty-printed) to minimize inline payload on --}}
+{{-- every public page. --}}
 {!! json_encode($graph, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
 @endforeach

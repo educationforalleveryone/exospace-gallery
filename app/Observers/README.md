@@ -1,6 +1,6 @@
 # Observers Directory
 
-## TD-18: Decision — Use inline `static::boot()` hooks, not Observers
+## Decision — Use inline `static::boot()` hooks, not Observers
 
 This directory exists to document the codebase's decision on the
 Observers vs. boot-hooks pattern. It's intentionally empty (no observer
@@ -37,9 +37,9 @@ Switch to the Observer pattern if ANY of these become true:
 | Model | Hook | Purpose |
 |-------|------|---------|
 | `User` | `creating` | Default plan + limits + plan_started_at |
-| `User` | `updating` | Refresh limits on plan change (TD-13: preserves plan_started_at) |
+| `User` | `updating` | Refresh limits on plan change (preserves plan_started_at) |
 | `Team` | `creating` | Auto-generate slug from name |
-| `Gallery` | `creating` | Auto-generate slug (P2-5: relies on DB unique constraint) |
+| `Gallery` | `creating` | Auto-generate slug (relies on DB unique constraint) |
 | `Gallery` | `saving` | Normalize custom_domain (strip scheme/path/port) |
 | `VenueTemplate` | `creating` | Auto-generate slug |
 | `VenueTemplate` | `updating` | Touch `updated_at` on related galleries (cache invalidation) |

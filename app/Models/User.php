@@ -21,7 +21,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'marketing_consent',
-        // SEO OS (Iteration 7): acquisition attribution captured at signup.
+        // SEO OS: acquisition attribution captured at signup.
         'acquisition_channel', 'acquisition_referrer',
         'acquisition_landing_page', 'acquisition_utm', 'acquisition_captured_at',
         'has_password',
@@ -30,7 +30,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
-        'google2fa_secret', // (Task H56) — never expose in JSON
+        'google2fa_secret', // never expose in JSON
         'mfa_backup_codes',
     ];
 
@@ -42,21 +42,21 @@ class User extends Authenticatable implements MustVerifyEmail
             'is_super_admin'    => 'boolean',
             'plan_expires_at'   => 'datetime',
             'plan_started_at'   => 'datetime',
-            'mfa_enabled_at'    => 'datetime',     // (Task H56)
+            'mfa_enabled_at'    => 'datetime',
             'google2fa_ts'      => 'integer',
-            'inactive_nudged_at'       => 'datetime', // (P0-7) — last inactive-nudge
-            'plan_expiry_reminded_at'  => 'datetime', // (P0-7) — last plan-expiry reminder
-            'marketing_consent' => 'boolean',      // (P0-3) — CAN-SPAM/GDPR consent
-            // SEO OS (Iteration 7): acquisition attribution
+            'inactive_nudged_at'       => 'datetime', // last inactive-nudge
+            'plan_expiry_reminded_at'  => 'datetime', // last plan-expiry reminder
+            'marketing_consent' => 'boolean',      // CAN-SPAM/GDPR consent
+            // SEO OS: acquisition attribution
             'acquisition_utm'   => 'array',
             'acquisition_captured_at' => 'datetime',
-            'mfa_backup_codes'  => 'array',         // (P3-7) — hashed one-time codes
-            // M-1: Subscription tracking columns (recurring billing)
+            'mfa_backup_codes'  => 'array',         // hashed one-time codes
+            // Subscription tracking columns (recurring billing)
             'subscription_cancelled_at' => 'datetime',
             'subscription_ends_at'      => 'datetime',
-            // M-9: Dunning tracking columns (failed payment recovery)
+            // Dunning tracking columns (failed payment recovery)
             'dunning_last_sent_at'      => 'datetime',
-            // M-7: Trial period
+            // Trial period
             'trial_ends_at'             => 'datetime',
             'has_password'      => 'boolean',
             'password_set_at'   => 'datetime',
@@ -77,7 +77,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return $linked;
     }
 
-    // ── D-4 FIX (Iter-004): Password history helper ──────────────────────
+    // ── Password history helper ──────────────────────────────────────────
 
     public function isPasswordInHistory(string $password): bool
     {

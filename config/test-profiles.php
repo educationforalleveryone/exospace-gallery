@@ -41,7 +41,7 @@ return [
                 'tests/Feature/OAuthAndPasswordSecurityTest.php',
                 'tests/Feature/MfaReplayProtectionTest.php',
                 'tests/Feature/SecurityHardeningTest.php',
-                'tests/Feature/SecurityP1Test.php',
+                'tests/Feature/SecurityAccessControlTest.php',
                 'tests/Feature/SignedBuyLinkAndTrialFraudTest.php',
                 'tests/Feature/GdprPiiAnonymizationTest.php',
                 'tests/Feature/UserDeletionGdprTest.php',
@@ -164,7 +164,7 @@ return [
 
         'regression_locks' => [
             'label'       => 'Regression Locks',
-            'description' => 'IterationN audit-fix batches and cross-cutting regression pins (CSP doc locks, scheduler registrations, API token abilities…).',
+            'description' => 'Cross-cutting regression pins (CSP doc locks, scheduler registrations, API token abilities…).',
             'paths'       => [
 'tests/Feature/ProrationConfigAndUiComponentsTest.php',
                 'tests/Feature/AuditLoggingAndAffiliateDashboardTest.php',

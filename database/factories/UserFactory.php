@@ -24,18 +24,18 @@ class UserFactory extends Factory
             'plan_started_at'   => now(),
             'plan_expires_at'   => null,
             'marketing_consent' => false,
-            // P0-7: lifecycle email tracking columns (split from lifecycle_nudged_at)
+            // Lifecycle email tracking columns
             'inactive_nudged_at'       => null,
             'plan_expiry_reminded_at'  => null,
             'google2fa_secret'  => null,
             'mfa_enabled_at'    => null,
             'mfa_backup_codes'  => null,
-            // M-1: Subscription fields — null = no subscription (one-time purchase or free).
+            // Subscription fields — null = no subscription (one-time purchase or free).
             'subscription_id'            => null,
             'subscription_status'        => null,
             'subscription_cancelled_at'  => null,
             'subscription_ends_at'       => null,
-            // M-9: Dunning tracking — null = not in dunning window.
+            // Dunning tracking — null = not in dunning window.
             'dunning_step'               => null,
             'dunning_last_sent_at'       => null,
         ];

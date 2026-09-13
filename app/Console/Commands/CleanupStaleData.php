@@ -56,7 +56,7 @@ class CleanupStaleData extends Command
     private function cleanupWebhookLedger(): void
     {
         if (! \Illuminate\Support\Facades\Schema::hasColumn('processed_webhooks', 'payload')) {
-            $this->info('Webhook ledger: payload column absent (pre-Iteration-4 schema) — nothing to prune.');
+            $this->info('Webhook ledger: payload column absent (legacy schema) — nothing to prune.');
             return;
         }
 
@@ -75,7 +75,7 @@ class CleanupStaleData extends Command
     private function cleanupOnboardingSnapshots(): void
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('onboarding_snapshots')) {
-            $this->info('Onboarding snapshots: table absent (pre-Iteration-5 schema) — nothing to prune.');
+            $this->info('Onboarding snapshots: table absent (legacy schema) — nothing to prune.');
             return;
         }
 
@@ -94,7 +94,7 @@ class CleanupStaleData extends Command
     private function cleanupRetentionSnapshots(): void
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('retention_snapshots')) {
-            $this->info('Retention snapshots: table absent (pre-Iteration-6 schema) — nothing to prune.');
+            $this->info('Retention snapshots: table absent (legacy schema) — nothing to prune.');
             return;
         }
 

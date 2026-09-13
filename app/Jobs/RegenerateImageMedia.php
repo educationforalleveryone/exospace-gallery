@@ -32,7 +32,8 @@ class RegenerateImageMedia implements ShouldQueue
             return;
         }
 
-        // P1-10: Use Str::after instead of str_replace (same fix as P0-1/P0-4)
+        // Use Str::after instead of str_replace so the path is split on the
+        // FIRST 'storage/' occurrence only.
         $relativePath = \Illuminate\Support\Str::after($this->image->path, 'storage/');
         $fullPath = Storage::disk('public')->path($relativePath);
 

@@ -23,7 +23,7 @@ class RegisteredUserController extends Controller
     {
         $invitation = $this->resolveInvitation($request->query('invitation'));
 
-        // CONV-6: Capture redirect target for post-verification redirect.
+        // Capture the redirect target for the post-verification redirect.
         $redirect = $request->query('redirect');
 
         if (is_string($redirect) && $redirect !== '' && mb_strlen($redirect) <= 2048) {

@@ -110,7 +110,7 @@ class MetricsController extends Controller
             'laravel_version' => app()->version(),
             'environment' => app()->environment(),
             'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-            'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2), // AUDIT-P2-11.2: fixed — was memory_get_usage(true), not memory_get_peak_usage(true)
+            'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2), // peak, not current
         ];
     }
 

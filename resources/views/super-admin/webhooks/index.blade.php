@@ -111,7 +111,7 @@
         </form>
     </div>
 
-    {{-- ── Per-event subscription count tiles (ITERATION 11) ─────────── --}}
+    {{-- ── Per-event subscription count tiles ────────────────────────── --}}
     @php
         $byEvent = [];
         foreach ($eventCounts as $row) {

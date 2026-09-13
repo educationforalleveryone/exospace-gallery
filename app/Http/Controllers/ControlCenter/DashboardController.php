@@ -37,7 +37,7 @@ class DashboardController extends Controller
             ];
         }
 
-        // Release readiness (Iteration 3) — evaluate + notify once per verdict hash.
+        // Release readiness — evaluate + notify once per verdict hash.
         $readiness = $this->readiness->evaluate('production');
         $hash      = md5(json_encode([$readiness['verdict'], $readiness['summary']['reasons']]));
 

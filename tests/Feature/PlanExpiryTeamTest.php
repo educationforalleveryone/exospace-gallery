@@ -213,7 +213,7 @@ class PlanExpiryTeamTest extends TestCase
         $response = $this->actingAs($invitee)
             ->post($this->signedInvitationUrl('decline-token-789', accept: false));
 
-        // ITERATION-1 FIX: /dashboard 301s to /admin/dashboard.
+        // /dashboard 301s to /admin/dashboard.
         $response->assertRedirect('/admin/dashboard');
         $this->assertDatabaseMissing('team_invitations', ['id' => $invitation->id]);
     }

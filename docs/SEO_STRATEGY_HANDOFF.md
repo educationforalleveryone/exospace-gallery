@@ -1,6 +1,6 @@
 # Exospace — SEO System Handoff for Keyword Strategy Implementation
 
-**Audience:** the developer or AI who arrives with a finished keyword strategy (research, targets, priorities) and needs to implement it on Exospace.
+**Audience:** the developer who arrives with a finished keyword strategy (research, targets, priorities) and needs to implement it on Exospace.
 
 **Good news: the machine is built.** Implementing a keyword strategy on this platform is a DATA exercise, not an engineering exercise. This document maps every strategy element to the exact place it plugs in.
 

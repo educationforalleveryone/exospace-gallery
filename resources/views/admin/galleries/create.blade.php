@@ -172,7 +172,7 @@
 }
 .venue-plan-badge {
     display: inline-block;
-    font-size: 0.75rem; /* 12px text floor (ITERATION-7; was 10px here, 9px in edit) */
+    font-size: 0.75rem; /* 12px text floor */
     font-weight: 700;
     letter-spacing: 0.06em;
     padding: 2px 7px;
@@ -187,7 +187,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 0.75rem; /* 12px text floor (ITERATION-7) */
+    font-size: 0.75rem; /* 12px text floor */
     font-weight: 600;
     color: #a78bfa;
     text-decoration: none;
@@ -397,7 +397,7 @@ $venueAtmospheres = [
 
                     <div class="mt-6 flex justify-end gap-3">
                         <p class="mr-auto text-xs text-gray-500 self-center hidden sm:block">
-                            {{-- ITERATION-2: set the expectation of the draft→publish flow. --}}
+                            {{-- Sets the expectation of the draft→publish flow. --}}
                             Created as a private draft — you'll upload artworks and hit “Publish” on the next screen.
                         </p>
                         <a href="{{ route('admin.galleries.index') }}" class="btn btn-secondary">

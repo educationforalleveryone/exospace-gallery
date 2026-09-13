@@ -16,7 +16,7 @@ class AnonymizeAuditLogPii extends Command
                             {--dry-run : Show what would be scrubbed without executing}
                             {--batch-size=500 : Rows per batch}';
 
-    protected $description = 'Scrub PII from old admin_audit_logs.payload (GDPR G-6 retention).';
+    protected $description = 'Scrub PII from old admin_audit_logs.payload (GDPR retention).';
 
     public function handle(): int
     {

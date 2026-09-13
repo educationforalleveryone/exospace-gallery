@@ -23,11 +23,11 @@ class PublicEventController extends Controller
         $gallery = Gallery::where('slug', $slug)
             ->where('is_active', true)
             ->with(['scheduleEvents' => function ($q) {
-                $q->active()->orderBy('starts_at')->withCount('rsvps'); // PERF-15: eager-load rsvps_count
+                $q->active()->orderBy('starts_at')->withCount('rsvps'); // eager-load rsvps_count
             }, 'venueTemplate'])
             ->firstOrFail();
 
-        // ITERATION-3: closed exhibitions defer to their own closed page.
+        // Closed exhibitions defer to their own closed page.
         if ($gallery->hasClosed()) {
             return redirect()->route('gallery.view', $gallery->slug);
         }
@@ -91,7 +91,7 @@ class PublicEventController extends Controller
             'email' => ['required', 'string', 'max:255', 'email'],
         ]);
 
-        // P3-19: Verify Turnstile captcha if enabled.
+        // Verify Turnstile captcha if enabled.
         if (! $this->turnstile->verify($request->input('cf-turnstile-response'), $request->ip())) {
             return back()->withErrors(['captcha' => 'Captcha verification failed. Please refresh and try again.'])->withInput();
         }

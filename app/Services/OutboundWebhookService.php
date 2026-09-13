@@ -20,7 +20,7 @@ class OutboundWebhookService
             return;
         }
 
-        // AUDIT-P0-1.3 FIX: Read from config (config:cache-safe).
+        // Read from config (config:cache-safe).
         $envUrl = config('services.outbound_webhook.url');
         $globalSecret = config('services.outbound_webhook.secret');
 

@@ -1,6 +1,6 @@
 # EXOSPACE DISASTER RECOVERY RUNBOOK (DR)
 
-*Pinned by `InfrastructureTest` A-6: this file must exist and be reachable.
+*Pinned by `InfrastructureTest`: this file must exist and be reachable.
 It describes the real stack — DigitalOcean + Coolify, Nixpacks (Node 22),
 MySQL, Redis (predis), R2 off-site backups — and what to do when it breaks.*
 
@@ -86,7 +86,7 @@ false and the swap silently skips — for every later migration in the chain.
    `[luxury-penthouse-convergence]` lines for every decision.
 2. No manual cache clear: the exporter cache key includes the row contents
    hash + `updated_at`, so the converged row serves on the next request.
-3. Verify: `php artisan test --filter=VenuePenthouseIterationTest` (includes
+3. Verify: `php artisan test --filter=VenuePenthouseTest` (includes
    the drifted-row replay), plus one live render of the venue preview.
 4. If NO convergence migration exists for the drifted venue: write one
    following the 000008 pattern (semantic comparator + byte-verbatim chain
@@ -117,7 +117,7 @@ Showing screen) and two anchored fixtures. Symptoms and their first moves:
 - **Lamp/sofa/art-wall regression after rollback:** 000009.down() restores
   the exact v3.0.0 bodies; if a row was admin-edited between up() and
   down(), the guards leave those descriptors at the admin state (logged).
-- Full context: `docs/ITERATION_PENTHOUSE_MEDIA_WALL.md`; offline replay:
+- Offline replay:
   `python3 scripts/validate_luxury_penthouse_media_wall_migration.py` (no PHP needed).
 
 

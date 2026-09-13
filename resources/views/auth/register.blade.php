@@ -62,7 +62,7 @@
             <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
         </div>
 
-        <!-- Marketing Consent (P0-3: CAN-SPAM/GDPR opt-in) -->
+        <!-- Marketing Consent (CAN-SPAM/GDPR opt-in) -->
         <div class="mt-4">
             <label class="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox"
@@ -99,7 +99,7 @@
         </div>
     </form>
 
-    {{-- M-24: OAuth/SSO buttons --}}
+    {{-- OAuth/SSO buttons --}}
     @php
         $hasGoogle = !empty(config('services.google.client_id'));
         $hasGithub = !empty(config('services.github.client_id'));

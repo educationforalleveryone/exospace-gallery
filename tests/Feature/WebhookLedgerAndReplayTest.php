@@ -130,7 +130,7 @@ class WebhookLedgerAndReplayTest extends TestCase
         $this->postWebhook($payload)->assertStatus(500);
 
         $row = $this->ledgerRow($payload['message_id']);
-        $this->assertNotNull($row, 'row must NOT be deleted on failure (Iteration-4 evidence retention)');
+        $this->assertNotNull($row, 'row must NOT be deleted on failure');
         $this->assertSame('failed', $row->status);
         $this->assertNotNull($row->payload, 'payload must survive the failure for replay');
 

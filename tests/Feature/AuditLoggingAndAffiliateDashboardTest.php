@@ -178,7 +178,7 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
         $this->assertLessThan(
             10,
             $queryCount,
-            "AUDIT-P1-4.16: Affiliate dashboard should use a fixed number of queries "
+            "Affiliate dashboard should use a fixed number of queries "
             . "(2 aggregate + overhead), not 1+2N. Got {$queryCount} queries for 3 affiliates."
         );
 

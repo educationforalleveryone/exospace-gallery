@@ -128,7 +128,7 @@ class MailableCoverageTest extends TestCase
         );
     }
 
-    // P2-18: TeamInvitationMail now implements ShouldQueue
+    // TeamInvitationMail implements ShouldQueue
     public function test_team_invitation_email_implements_should_queue(): void
     {
         $this->assertContains(
@@ -137,7 +137,7 @@ class MailableCoverageTest extends TestCase
         );
     }
 
-    // P2-18: EventRsvpNotification now implements ShouldQueue
+    // EventRsvpNotification implements ShouldQueue
     public function test_event_rsvp_email_implements_should_queue(): void
     {
         $this->assertContains(

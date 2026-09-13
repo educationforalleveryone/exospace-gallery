@@ -8,31 +8,31 @@ use Tests\TestCase;
 
 class TrustedProxiesTest extends TestCase
 {
-    public function test_cr5_throws_in_production_when_trusted_proxies_is_star(): void
+    public function test_throws_in_production_when_trusted_proxies_is_star(): void
     {
         $this->expectTrustedProxiesRuntimeException('*', 'production');
     }
 
-    public function test_cr5_throws_in_production_when_trusted_proxies_is_empty(): void
+    public function test_throws_in_production_when_trusted_proxies_is_empty(): void
     {
         $this->expectTrustedProxiesRuntimeException('', 'production');
     }
 
-    public function test_cr5_throws_in_production_when_trusted_proxies_is_null(): void
+    public function test_throws_in_production_when_trusted_proxies_is_null(): void
     {
         $this->expectTrustedProxiesRuntimeException(null, 'production');
     }
 
-    public function test_cr5_does_not_throw_in_production_when_trusted_proxies_is_set(): void
+    public function test_does_not_throw_in_production_when_trusted_proxies_is_set(): void
     {
         // A concrete subnet passes the guard without throwing.
         \App\Providers\AppServiceProvider::assertTrustedProxiesConfigured('172.16.0.0/12');
 
         // If we got here without an exception, the test passes
-        $this->assertTrue(true, 'CR-5: No exception thrown when TRUSTED_PROXIES is set to a valid subnet.');
+        $this->assertTrue(true, 'No exception thrown when TRUSTED_PROXIES is set to a valid subnet.');
     }
 
-    public function test_cr5_does_not_throw_in_local_when_trusted_proxies_is_star(): void
+    public function test_does_not_throw_in_local_when_trusted_proxies_is_star(): void
     {
         $this->app['env'] = 'local';
         putenv('TRUSTED_PROXIES=*');
@@ -41,15 +41,15 @@ class TrustedProxiesTest extends TestCase
         $this->refreshApplication();
 
         // In local env, '*' is allowed (with a warning log)
-        $this->assertTrue(true, 'CR-5: No exception thrown in local env with TRUSTED_PROXIES=*.');
+        $this->assertTrue(true, 'No exception thrown in local env with TRUSTED_PROXIES=*.');
 
         putenv('TRUSTED_PROXIES');
     }
 
-    public function test_cr5_does_not_throw_in_testing_env(): void
+    public function test_does_not_throw_in_testing_env(): void
     {
         // Default testing env — should not throw
-        $this->assertTrue(true, 'CR-5: No exception thrown in testing env.');
+        $this->assertTrue(true, 'No exception thrown in testing env.');
     }
 
     private function expectTrustedProxiesRuntimeException(?string $trustedProxies, string $env): void

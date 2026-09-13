@@ -82,7 +82,7 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        // CONV-6: the pricing page deep-links /login?redirect=billing/upgrade/pro
+        // the pricing page deep-links /login?redirect=billing/upgrade/pro
         $this->get('/login?redirect=billing/upgrade/pro');
 
         $response = $this->post('/login', [

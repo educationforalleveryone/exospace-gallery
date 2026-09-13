@@ -35,20 +35,20 @@ class PruneOpsEventsCommand extends Command
             ->where('resolved_at', '<', now()->subDays($retentionDays))
             ->delete();
 
-        // 3. Iteration 3: prune diagnostic runs past retention.
+        // 3. Prune diagnostic runs past retention.
         $runsDeleted = 0;
         try {
             $runsDeleted = OpsDiagnosticRun::where('created_at', '<', now()->subDays($diagnosticDays))->delete();
         } catch (\Throwable) {
-            // diagnostics table absent (pre-Iteration-3) — nothing to prune.
+            // diagnostics table absent — nothing to prune.
         }
 
-        // 4. Iteration 9: prune review snapshots past retention.
+        // 4. Prune review snapshots past retention.
         $snapshotsDeleted = 0;
         try {
             $snapshotsDeleted = OpsReviewSnapshot::where('created_at', '<', now()->subDays($snapshotDays))->delete();
         } catch (\Throwable) {
-            // snapshots table absent (pre-Iteration-9) — nothing to prune.
+            // snapshots table absent — nothing to prune.
         }
 
         $this->info("ops:prune-events — auto-resolved: {$resolved}, deleted: {$deleted}, diagnostic runs pruned: {$runsDeleted}, review snapshots pruned: {$snapshotsDeleted}.");

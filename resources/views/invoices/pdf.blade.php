@@ -89,11 +89,9 @@
                 <td>
                     <strong>Exospace {{ ucfirst($invoice->plan) }} Plan</strong><br>
                     <span style="font-size: 12px; color: #9ca3af;">
-                        {{-- ITERATION-1 FIX: the old check read --}}
-                        {{-- $invoice->transaction->subscription_id — a column --}}
-                        {{-- that does not exist on transactions, so EVERY --}}
-                        {{-- invoice (incl. monthly renewals) was labelled --}}
-                        {{-- "One-time purchase — Lifetime access". --}}
+                        {{-- $invoice->billing_type decides the label: --}}
+                        {{-- 'subscription' rows must NOT fall through to the --}}
+                        {{-- "One-time purchase — Lifetime access" branch. --}}
                         @if($invoice->billing_type === 'subscription')
                             Monthly subscription
                         @elseif($invoice->billing_type === 'one_time')

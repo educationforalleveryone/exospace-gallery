@@ -24,7 +24,7 @@ class PerfReport extends Command
 
         if ($events->isEmpty()) {
             $this->info("No perf beacons in the last {$days} day(s).");
-            $this->line('Beacons appear after visitors press Enter and stay ~15 s (iteration 6+ viewer).');
+            $this->line('Beacons appear after visitors press Enter and stay ~15 s.');
             return self::SUCCESS;
         }
 

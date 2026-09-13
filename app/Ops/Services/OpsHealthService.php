@@ -73,7 +73,7 @@ class OpsHealthService
                 $status = $this->worst($status, 'degraded');
             }
         } catch (Throwable) {
-            // incidents table absent (pre-Iteration-2) — skip.
+            // incidents table absent — skip.
         }
 
         if ($status === 'healthy' && count($reasons) === 0) {

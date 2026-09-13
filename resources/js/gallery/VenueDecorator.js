@@ -23,7 +23,7 @@ import {
 import { resolveReflectionMode } from './TierResolve.js';
 import { buildStructure, resolveAnchor } from './StructureBuilder.js';
 
-// Iteration 6 "Consolidation" (P2.2 + P2.3): the opt-in curator layer.
+// The opt-in curator layer.
 import { resolveSpacing } from './PlacementCuration.js';
 import { wallRunOffset, squareRunPlan, lshapeRowPlan } from './ArtworkPlacer.js';
 

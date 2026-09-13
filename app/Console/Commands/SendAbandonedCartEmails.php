@@ -45,7 +45,7 @@ class SendAbandonedCartEmails extends Command
             ->where('pending_upgrades.created_at', '<', $cutoff)
             ->whereNull('pending_upgrades.notified_at')
             ->where('pending_upgrades.expires_at', '>', now())
-            // P0-3: only send to users who consented to marketing
+            // Only send to users who consented to marketing
             ->whereHas('user', function ($q) {
                 $q->where('marketing_consent', true)
                   ->whereNotNull('email_verified_at')

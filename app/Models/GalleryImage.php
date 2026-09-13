@@ -48,7 +48,7 @@ class GalleryImage extends Model implements HasMedia
         'edition_size' => 'integer',
     ];
 
-    // ── Spatie Media Library conversions (Task H21) ────────────────────
+    // ── Spatie Media Library conversions ───────────────────────────────
 
     public function registerMediaConversions(?Media $media = null): void
     {

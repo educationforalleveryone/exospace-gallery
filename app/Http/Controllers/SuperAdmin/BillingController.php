@@ -135,7 +135,7 @@ class BillingController extends Controller
         }
 
         if (! $row->payload) {
-            return back()->with('error', 'Webhook #' . $row->id . ' has no stored payload (pre-Iteration-4 row, or the payload was oversized) — replay is not possible. Use the 2Checkout merchant dashboard instead.');
+            return back()->with('error', 'Webhook #' . $row->id . ' has no stored payload (row created before payloads were stored, or the payload was oversized) — replay is not possible. Use the 2Checkout merchant dashboard instead.');
         }
 
         $payload = is_string($row->payload) ? json_decode($row->payload, true) : $row->payload;

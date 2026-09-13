@@ -296,7 +296,7 @@ class WebhookController extends Controller
                             ]);
                         }
 
-                        // M-12: Create in-app notification for the upgrade
+                        // Create in-app notification for the upgrade
                         \App\Services\NotificationService::create(
                             $user,
                             'billing',
@@ -408,7 +408,7 @@ class WebhookController extends Controller
                         'original_amount'      => $originalAmount,
                         'ratio'                => $originalAmount > 0 ? round($refundAmount / $originalAmount, 4) : null,
                         'is_full_refund'       => $isFullRefund,
-                        'note'                 => 'Verify item_list_amount_1 is the refund amount (not original). See audit 2CO-5.',
+                        'note'                 => 'Verify item_list_amount_1 is the refund amount (not original).',
                     ]);
 
                     if ($originalAmount <= 0 || $refundAmount <= 0) {
@@ -445,7 +445,7 @@ class WebhookController extends Controller
                         ]
                     );
 
-                    // ── P1-4: Partial refunds do NOT downgrade ──────────
+                    // ── Partial refunds do NOT downgrade ────────────────
                     if (! $isFullRefund) {
                         Log::info('2Checkout: Partial refund — not downgrading', [
                             'invoice_id'      => $invoiceId,
@@ -546,7 +546,7 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    // ITERATION 4 (billing audit trail).
+                    // Billing audit trail.
                     $this->auditWebhook('webhook.chargeback_applied', $user, [
                         'invoice_id'       => $invoiceId,
                         'charged_back_plan'=> $transaction->plan,
@@ -567,7 +567,7 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    // ── P1-1 FIX: External side effects AFTER commit ────
+                    // ── External side effects AFTER commit ──────────────
                     $userId = $user->id;
                     \DB::afterCommit(function () use ($userId, $invoiceId) {
                         $user = User::find($userId);
@@ -1000,7 +1000,7 @@ class WebhookController extends Controller
                         'next_billing'    => $nextBillingDate,
                     ]);
 
-                    // ITERATION 4 (billing audit trail).
+                    // Billing audit trail.
                     $this->auditWebhook('webhook.recurring_renewed', $user, [
                         'invoice_id'      => $invoiceId,
                         'subscription_id' => $subscriptionId,
@@ -1008,7 +1008,7 @@ class WebhookController extends Controller
                         'access_until'    => $endsAt?->toIso8601String(),
                     ]);
 
-                    // M-10: Generate an invoice for this renewal transaction.
+                    // Generate an invoice for this renewal transaction.
                     \DB::afterCommit(function () use ($transactionId, $user) {
                         try {
                             $transaction = \App\Models\Transaction::find($transactionId);
@@ -1152,13 +1152,13 @@ class WebhookController extends Controller
             'ends_at'         => $user->subscription_ends_at?->toIso8601String(),
         ]);
 
-        // ITERATION 4 (billing audit trail).
+        // Billing audit trail.
         $this->auditWebhook('webhook.recurring_cancelled', $user, [
             'subscription_id' => $subscriptionId,
             'access_until'    => $user->subscription_ends_at?->toIso8601String(),
         ]);
 
-        // M-12: Create in-app notification for the cancellation
+        // Create in-app notification for the cancellation
         \App\Services\NotificationService::create(
             $user,
             'subscription',

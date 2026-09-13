@@ -47,7 +47,7 @@ Route::get('/sitemap-{page}.xml', [SitemapController::class, 'legacy'])->where('
 Route::get('/feed.xml',    [SitemapController::class, 'feed'])->name('feed');
 Route::get('/discover',    [DiscoverController::class, 'index'])->name('discover');
 
-// ── SEO OS (Iteration 2): public entity hubs + artwork pages ─────────────
+// ── SEO OS: public entity hubs + artwork pages ─────────────
 Route::get('/artists',     [ArtistDirectoryController::class, 'index'])->name('artists.index');
 Route::get('/venues',      [\App\Http\Controllers\PublicVenueController::class, 'index'])->name('venues.index');
 
@@ -85,7 +85,7 @@ Route::get('/gallery/demo', function () {
 
 Route::get('/artist/{slug}', [ArtistProfileController::class, 'show'])->name('artist.profile');
 
-// SEO OS (Iteration 2): artist OG image + artwork landing pages.
+// SEO OS: artist OG image + artwork landing pages.
 Route::get('/artist/{slug}/og-image', [OgImageController::class, 'artist'])->name('artist.og-image');
 Route::get('/gallery/{slug}/artwork/{image}', [\App\Http\Controllers\ArtworkController::class, 'show'])
     ->name('artwork.show')
@@ -133,7 +133,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/mfa/setup', [\App\Http\Controllers\MfaController::class, 'enable'])->middleware('throttle:6,1,mfa-setup');
     Route::get('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'showVerify'])->name('mfa.verify');
     Route::post('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'verify'])->middleware('throttle:6,1,mfa-verify');
-    // P3-7: One-time backup codes display after MFA enable
+    // One-time backup codes display after MFA enable
     Route::get('/mfa/backup-codes', [\App\Http\Controllers\MfaController::class, 'showBackupCodes'])->name('mfa.backup-codes');
     Route::post('/mfa/disable', [\App\Http\Controllers\MfaController::class, 'disable'])
         ->middleware('throttle:6,1,mfa-disable')
@@ -145,18 +145,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
               ->where('plan', 'pro|studio')
               ->middleware('throttle:10,1');
 
-        // M-1: Subscription management routes
+        // Subscription management routes
         Route::post('/billing/cancel-subscription',     [\App\Http\Controllers\BillingController::class, 'cancelSubscription'])->name('billing.cancel-subscription');
         Route::post('/billing/reactivate-subscription', [\App\Http\Controllers\BillingController::class, 'reactivateSubscription'])->name('billing.reactivate-subscription');
 
-        // M-2: Self-serve downgrade
+        // Self-serve downgrade
         Route::post('/billing/downgrade',               [\App\Http\Controllers\BillingController::class, 'downgrade'])->name('billing.downgrade');
 
-        // M-7: Trial period
+        // Trial period
         Route::post('/billing/start-trial/{plan}',      [\App\Http\Controllers\BillingController::class, 'startTrial'])->name('billing.start-trial')
               ->where('plan', 'pro|studio');
 
-        // M-10: Invoice download
+        // Invoice download
         Route::get('/billing/invoice/{invoice}',        [\App\Http\Controllers\BillingController::class, 'downloadInvoice'])->name('billing.invoice');
     });
 });
@@ -233,7 +233,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post  ('teams/{team}/switch',               [\App\Http\Controllers\Admin\TeamController::class, 'switchTeam'])->name('teams.switch');
 });
 
-// ── Super Admin (Task H56 — MFA required for all super-admin routes) ──────
+// ── Super Admin (MFA required for all super-admin routes) ──────
 Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-control')->name('super.')->group(function () {
     Route::get('/',                                    [SystemController::class, 'index'])->name('index');
     Route::post('/users/{user}/plan',                  [SystemController::class, 'updatePlan'])->name('updatePlan')
@@ -243,7 +243,7 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     Route::get('/users/{user}/galleries',              [SystemController::class, 'userGalleries'])->name('user-galleries');
     Route::post('/galleries/{gallery}/toggle',         [SystemController::class, 'toggleGallery'])->name('toggleGallery');
 
-    // Account controls — destructive actions get password.confirm (audit H18)
+    // Account controls — destructive actions get password.confirm
     Route::post('/users/{user}/ban',                   [SystemController::class, 'banUser'])->name('banUser')
           ->middleware('password.confirm');
     Route::post('/users/{user}/unban',                 [SystemController::class, 'unbanUser'])->name('unbanUser');
@@ -297,11 +297,11 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
           ->middleware('password.confirm');
 
     Route::post  ('billing/recipients',                [\App\Http\Controllers\SuperAdmin\BillingController::class, 'storeRecipient'])->name('billing.recipients.store')
-          ->middleware('throttle:30,1'); // ITERATION 8: throttle (audit-fix E-1)
+          ->middleware('throttle:30,1');
     Route::delete('billing/recipients/{recipient}',    [\App\Http\Controllers\SuperAdmin\BillingController::class, 'destroyRecipient'])
           ->whereNumber('recipient')
           ->name('billing.recipients.destroy')
-          ->middleware('throttle:30,1'); // ITERATION 8: throttle (audit-fix E-1)
+          ->middleware('throttle:30,1');
 
     Route::get   ('webhooks',                           [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'index'])->name('webhooks.index');
     Route::post  ('webhooks',                           [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'store'])->name('webhooks.store')
@@ -316,24 +316,24 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
     Route::get   ('webhooks/{subscription}/deliveries',  [\App\Http\Controllers\SuperAdmin\WebhookSubscriptionController::class, 'deliveries'])->name('webhooks.deliveries')
           ->whereNumber('subscription');
 
-    // M-13: Admin impersonation — start (requires super-admin + password.confirm + feature flag)
+    // Admin impersonation — start (requires super-admin + password.confirm + feature flag)
     Route::post('/users/{user}/impersonate',           [SystemController::class, 'impersonate'])->name('impersonate')
           ->middleware('password.confirm', 'feature_flag:admin_impersonation');
 
-    // M-19: Feedback management (super-admin triage)
+    // Feedback management (super-admin triage)
     Route::get('/feedback',                              [\App\Http\Controllers\FeedbackController::class, 'index'])->name('feedback.index');
     Route::patch('/feedback/{feedback}/status',          [\App\Http\Controllers\FeedbackController::class, 'updateStatus'])->name('feedback.update-status');
 
-    // M-18: NPS dashboard
+    // NPS dashboard
     Route::get('/nps',                                   [\App\Http\Controllers\SurveyController::class, 'npsDashboard'])->name('nps.index');
 
-    // M-5: Affiliate dashboard
+    // Affiliate dashboard
     Route::get('/affiliates',                            [\App\Http\Controllers\AffiliateDashboardController::class, 'index'])->name('affiliates.index');
 
     Route::get('/retention/{cohort}',                    [\App\Http\Controllers\SuperAdmin\RetentionController::class, 'cohort'])
           ->where('cohort', '[0-9]{4}-[0-9]{2}-[0-9]{2}')
           ->name('retention.cohort')
-          ->middleware('throttle:60,1'); // ITERATION 8: throttle (audit-fix E-1)
+          ->middleware('throttle:60,1');
 
     Route::get('/retention/{cohort}/export',             [\App\Http\Controllers\SuperAdmin\RetentionController::class, 'exportCsv'])
           ->where('cohort', '[0-9]{4}-[0-9]{2}-[0-9]{2}')
@@ -344,12 +344,12 @@ Route::middleware(['auth', 'verified', 'super_admin', 'mfa'])->prefix('master-co
 Route::middleware(['auth'])->group(function () {
     Route::post('/master-control/stop-impersonating',  [\App\Http\Controllers\SuperAdmin\SystemController::class, 'stopImpersonating'])->name('super.stop-impersonating');
 
-    // M-12: In-app notifications
+    // In-app notifications
     Route::post('/notifications/{notification}/read',     [\App\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/mark-all-read',            [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
 });
 
-// M-20: Public status page (no auth required)
+// Public status page (no auth required)
 Route::get('/status', [\App\Http\Controllers\StatusController::class, 'show'])->name('status');
 
 Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
@@ -436,20 +436,20 @@ Route::middleware(['auth', 'verified', 'ops_access', 'mfa'])
 
 Route::fallback(\App\Http\Controllers\SeoPageController::class);
 
-// A-8 FIX (Iter-006): Observability endpoint, rate-limited to prevent abuse.
+// Observability endpoint, rate-limited to prevent abuse.
 Route::get('/metrics', [\App\Http\Controllers\MetricsController::class, 'index'])
     ->name('metrics')
     ->middleware('throttle:10,1');
 
-// M-19: Feedback widget submission (authenticated users only)
+// Feedback widget submission (authenticated users only)
 Route::post('/feedback', [\App\Http\Controllers\FeedbackController::class, 'store'])->name('feedback.store')
       ->middleware(['auth', 'throttle:10,1']);
 
-// M-18: NPS survey submission (authenticated users)
+// NPS survey submission (authenticated users)
 Route::post('/survey/nps', [\App\Http\Controllers\SurveyController::class, 'submitNps'])->name('survey.nps')
       ->middleware(['auth', 'throttle:5,1']);
 
-// M-24: OAuth/SSO routes (Google + GitHub)
+// OAuth/SSO routes (Google + GitHub)
 Route::get('/auth/{provider}/redirect',  [\App\Http\Controllers\OAuthController::class, 'redirect'])->name('oauth.redirect');
 Route::get('/auth/{provider}/callback',  [\App\Http\Controllers\OAuthController::class, 'callback'])->name('oauth.callback');
 Route::post('/auth/{provider}/unlink',   [\App\Http\Controllers\OAuthController::class, 'unlink'])->name('oauth.unlink')

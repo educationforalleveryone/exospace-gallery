@@ -69,7 +69,7 @@
             <!-- Right side: Active Team Switcher + Notifications + User Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6 gap-3">
 
-                {{-- M-12: Notification bell --}}
+                {{-- Notification bell --}}
                 @auth
                 @php
                     $navNotifications = \App\Services\NotificationService::recent(auth()->user(), 5);
@@ -103,7 +103,7 @@
                             @if($navUnreadCount > 0)
                                 <form method="POST" action="{{ route('notifications.mark-all-read') }}">
                                     @csrf
-                                    {{-- ITERATION-3: padded to a 32px touch target (was a bare text-xs link) --}}
+                                    {{-- Padded to a 32px touch target --}}
                                     <button type="submit" class="inline-flex items-center h-8 px-2 -me-1 rounded-md text-xs font-medium text-brand-400 hover:text-brand-300 hover:bg-brand-500/10 transition">Mark all read</button>
                                 </form>
                             @endif

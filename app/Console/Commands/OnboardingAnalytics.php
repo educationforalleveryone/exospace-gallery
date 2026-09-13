@@ -65,7 +65,7 @@ class OnboardingAnalytics extends Command
             'onboarding_weekly_report',
         );
 
-        // ITERATION 6: cadence proof for the per-job heartbeat monitor.
+        // Cadence proof for the per-job heartbeat monitor.
         app(JobHeartbeatService::class)->stamp('exospace:onboarding-analytics');
 
         return self::SUCCESS;

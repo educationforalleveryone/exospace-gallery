@@ -113,7 +113,7 @@ class OpsOperatorAccessTest extends TestCase
 
     public function test_viewer_still_cannot_run_diagnostics(): void
     {
-        // The Iteration-5 guarantee, unchanged by the new tier.
+        // The viewer-access guarantee, unchanged by the new tier.
         $this->asGrantee(OpsAccessGrant::LEVEL_VIEWER)
             ->post('/ops/diagnostics/run', ['diagnostic' => 'database.connectivity'])
             ->assertStatus(403);
@@ -278,7 +278,7 @@ class OpsOperatorAccessTest extends TestCase
 
     public function test_grant_defaults_to_viewer_when_level_is_omitted(): void
     {
-        // The Iteration-5 call shape keeps working.
+        // The existing call shape keeps working.
         $target = User::factory()->withMfa()->create(['is_super_admin' => false, 'email_verified_at' => now()]);
 
         $this->asMfaSuperAdmin()

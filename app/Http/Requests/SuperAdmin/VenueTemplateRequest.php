@@ -158,7 +158,7 @@ class VenueTemplateRequest extends FormRequest
             'visual_config_advanced.array'         => 'The advanced visual_config must be a valid JSON object (e.g. {"structure": []}).',
             'decorations.max'                      => 'A venue can hold at most 100 decoration props (draw-call budget, §11.4).',
             'lighting_fixtures.max'                => 'A venue can declare at most 60 custom light fixtures.',
-            // Iteration 6 consolidation + curation keys
+            // Consolidation + curation keys
             'visual_config.ceiling_color.regex'    => 'Ceiling color must be a hex string like 0x080808.',
             'visual_config.layout_shape.in'        => 'Layout shape may be "circular" (or left empty for the room_layout default).',
             'visual_config.structure_pass.in'      => 'Structure pass must be one of: rooms, cube, loft, museum, bays, garden, phenomena.',

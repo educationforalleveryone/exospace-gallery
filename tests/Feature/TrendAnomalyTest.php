@@ -188,7 +188,7 @@ class TrendAnomalyTest extends TestCase
         $response->assertSee('Trend appears after the second weekly snapshot', false);
     }
 
-    // ── ITERATION 8: null-immediately-before-spike (audit-fix D-3) ──────
+    // ── Null immediately before a spike still flags ─────────────────────
 
     public function test_detect_null_immediately_before_spike_still_flags(): void
     {
@@ -199,7 +199,7 @@ class TrendAnomalyTest extends TestCase
         $this->assertSame('high', $result[0]['direction']);
     }
 
-    // ── ITERATION 8: retention W1/W2 anomaly annotations (workstream B) ──
+    // ── Retention W1/W2 anomaly annotations ─────────────────────────────
 
     private function seedRetentionSnapshot(string $captured, float $pct, int $weekIndex = 1): void
     {
@@ -279,7 +279,7 @@ class TrendAnomalyTest extends TestCase
         $response->assertSee('"sigma_eff":', false);
     }
 
-    // ── ITERATION 9 (workstream C) — per-shape tooltip override plugin ──
+    // ── Per-shape tooltip override plugin ───────────────────────────────
 
     public function test_master_control_embeds_anomaly_tooltip_override_script_when_anomalies_exist(): void
     {

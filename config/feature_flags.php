@@ -3,25 +3,25 @@
 return [
 
     'flags' => [
-        // M-1: Subscription / recurring billing
+        // Subscription / recurring billing
         'subscriptions' => filter_var(env('FEATURE_FLAG_SUBSCRIPTIONS', true), \FILTER_VALIDATE_BOOLEAN),
 
-        // M-9: Dunning management (failed payment recovery emails)
+        // Dunning management (failed payment recovery emails)
         'dunning' => filter_var(env('FEATURE_FLAG_DUNNING', true), \FILTER_VALIDATE_BOOLEAN),
 
-        // M-10: Customer invoicing (PDF generation + download)
+        // Customer invoicing (PDF generation + download)
         'invoicing' => filter_var(env('FEATURE_FLAG_INVOICING', true), \FILTER_VALIDATE_BOOLEAN),
 
-        // CONV-2: Feature comparison table on pricing page
+        // Feature comparison table on pricing page
         'feature_comparison_table' => filter_var(env('FEATURE_FLAG_COMPARISON_TABLE', true), \FILTER_VALIDATE_BOOLEAN),
 
-        // P3-19: Cloudflare Turnstile captcha on public forms
+        // Cloudflare Turnstile captcha on public forms
         'turnstile_captcha' => filter_var(env('FEATURE_FLAG_TURNSTILE', true), \FILTER_VALIDATE_BOOLEAN),
 
-        // PERF-26: Hotwire Turbo Drive on admin pages
+        // Hotwire Turbo Drive on admin pages
         'turbo_drive' => filter_var(env('FEATURE_FLAG_TURBO_DRIVE', true), \FILTER_VALIDATE_BOOLEAN),
 
-        // M-13: Admin impersonation ("Login As User")
+        // Admin impersonation ("Login As User")
         'admin_impersonation' => filter_var(env('FEATURE_FLAG_ADMIN_IMPERSONATION', true), \FILTER_VALIDATE_BOOLEAN),
 
         'command_palette' => filter_var(env('FEATURE_FLAG_COMMAND_PALETTE', true), \FILTER_VALIDATE_BOOLEAN),

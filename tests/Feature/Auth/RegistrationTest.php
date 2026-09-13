@@ -6,7 +6,7 @@ use App\Mail\WelcomeEmail;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
-use App\Notifications\Auth\VerifyEmail; // VERIFICATION-ITERATION: branded subclass of the framework notification
+use App\Notifications\Auth\VerifyEmail; // branded subclass of the framework notification
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -41,7 +41,7 @@ class RegistrationTest extends TestCase
         $response->assertRedirect(route('verification.notice', absolute: false));
     }
 
-    // ── REGISTRATION-ITERATION: user record integrity ────────────────────
+    // ── User record integrity ───────────────────────────────────────────
 
     public function test_registration_hashes_the_password_and_applies_safe_defaults(): void
     {
@@ -118,7 +118,7 @@ class RegistrationTest extends TestCase
         $this->assertGuest();
     }
 
-    // ── REGISTRATION-ITERATION: duplicate email + race handling ─────────
+    // ── Duplicate email + race handling ─────────────────────────────────
 
     public function test_registration_rejects_duplicate_email_cleanly(): void
     {
@@ -169,7 +169,7 @@ class RegistrationTest extends TestCase
         $this->assertSame(0, User::where('email', 'race@example.com')->count());
     }
 
-    // ── REGISTRATION-ITERATION: intended-URL sanitization (CONV-6) ───────
+    // ── Intended-URL sanitization ───────────────────────────────────────
 
     public function test_registration_stores_safe_relative_redirect_as_intended(): void
     {
@@ -198,7 +198,7 @@ class RegistrationTest extends TestCase
         }
     }
 
-    // ── REGISTRATION-ITERATION: session / verification state ─────────────
+    // ── Session / verification state ────────────────────────────────────
 
     public function test_registration_regenerates_the_session_id(): void
     {
@@ -234,7 +234,7 @@ class RegistrationTest extends TestCase
         });
     }
 
-    // ── REGISTRATION-ITERATION: invitation-based registration ────────────
+    // ── Invitation-based registration ─────────────────────────────────────
 
     public function test_registration_via_invitation_joins_the_team_and_is_auto_verified(): void
     {
@@ -253,7 +253,7 @@ class RegistrationTest extends TestCase
             'team_id' => $team->id,
             'email' => 'invited@example.com',
             'role' => 'editor',
-            // D-6 contract: the DB stores the HASH; the link carries plaintext.
+            // The DB stores the HASH; the invitation link carries plaintext.
             'token' => TeamInvitation::hashToken($plaintext),
             'expires_at' => now()->addDays(7),
         ]);

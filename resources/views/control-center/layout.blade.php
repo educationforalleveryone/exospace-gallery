@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Testing Control Center') · Exospace</title>
-    {{-- ITERATION-1: same Inter webfont as the rest of the product. --}}
+    {{-- Same Inter webfont as the rest of the product. --}}
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css'])
 </head>
 <body class="font-sans min-h-screen bg-slate-950 text-slate-100 antialiased">
-<!-- ITERATION-9: skip link — parity with the app/public layouts -->
+<!-- Skip link — parity with the app/public layouts -->
 <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand-600 focus:text-white focus:rounded-lg focus:font-semibold">
     Skip to content
 </a>

@@ -55,7 +55,7 @@
         </div>
     </form>
 
-    {{-- M-24: OAuth/SSO buttons --}}
+    {{-- OAuth/SSO buttons --}}
     @php
         $hasGoogle = !empty(config('services.google.client_id'));
         $hasGithub = !empty(config('services.github.client_id'));

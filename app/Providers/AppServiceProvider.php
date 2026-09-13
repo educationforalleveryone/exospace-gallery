@@ -77,7 +77,7 @@ class AppServiceProvider extends ServiceProvider
             return '<?php echo csp_nonce(); ?>';
         });
 
-        // D-8: csp_nonce() now lives in app/helpers.php (Composer
+        // csp_nonce() lives in app/helpers.php (Composer
         // "autoload.files"), NOT here. route:cache/event:cache boot the
         // application a second time in-process, which was redeclaring this
         // function when it lived inside boot(). See app/helpers.php for
@@ -85,7 +85,7 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * CR-5: fail the boot when TRUSTED_PROXIES is empty or '*' in production.
+     * Fail the boot when TRUSTED_PROXIES is empty or '*' in production.
      *
      * Static + public so the guard itself is unit-testable without
      * booting a full application with a mutated environment (phpdotenv's
@@ -109,7 +109,7 @@ class AppServiceProvider extends ServiceProvider
             Log::critical($message);
 
             // Throw to prevent the container from serving traffic.
-            // The CR-1 preflight fix in docker-start.sh will catch this
+            // The preflight check in docker-start.sh will catch this
             // and exit 1, marking the deploy as failed.
             throw new \RuntimeException($message);
         }

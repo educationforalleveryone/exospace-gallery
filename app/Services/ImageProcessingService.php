@@ -44,7 +44,7 @@ class ImageProcessingService
             }
         }
 
-        // PERF-9: Read the image ONCE — clone for thumbnail instead of re-reading
+        // Read the image ONCE — clone for thumbnail instead of re-reading
         $image = $this->manager->read($file);
 
         // 2. Resize Main Image (Max 2048x2048 for Three.js texture limits)
@@ -52,7 +52,7 @@ class ImageProcessingService
             $image->scaleDown(width: 2048, height: 2048);
         }
 
-        // Save Main Image as JPEG (strips EXIF — P0-4)
+        // Save Main Image as JPEG (strips EXIF)
         $mainPath = "{$path}/{$filename}";
         $mainData = (string) $image->toJpeg(85);
 

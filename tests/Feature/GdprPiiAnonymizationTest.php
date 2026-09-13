@@ -19,7 +19,7 @@ class GdprPiiAnonymizationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function g2_transactions_are_anonymized_on_user_deletion(): void
+    public function transactions_are_anonymized_on_user_deletion(): void
     {
         $user = User::factory()->create([
             'email' => 'victim@example.com',
@@ -50,7 +50,7 @@ class GdprPiiAnonymizationTest extends TestCase
         }
     }
 
-    public function g5_invoices_are_anonymized_on_user_deletion(): void
+    public function invoices_are_anonymized_on_user_deletion(): void
     {
         $user = User::factory()->create([
             'email' => 'victim@example.com',
@@ -90,7 +90,7 @@ class GdprPiiAnonymizationTest extends TestCase
         $this->assertSame(99.00, (float) $invoice->amount, 'Financial amount preserved');
     }
 
-    public function g7_artist_email_and_name_are_anonymized_when_email_matches_deleted_user(): void
+    public function artist_email_and_name_are_anonymized_when_email_matches_deleted_user(): void
     {
         $user = User::factory()->create([
             'email' => 'curator@example.com',
@@ -118,7 +118,7 @@ class GdprPiiAnonymizationTest extends TestCase
         $matching = $matchingArtist->fresh();
         $other    = $otherArtist->fresh();
 
-        // G-7 (Iter-010 complete): email + name both anonymized.
+        // Email + name are both anonymized.
         $this->assertNull($matching->email, 'Matching artist email must be null');
         $this->assertSame('Anonymous Artist', $matching->name, 'Matching artist name must be "Anonymous Artist"');
 
@@ -127,7 +127,7 @@ class GdprPiiAnonymizationTest extends TestCase
         $this->assertSame('Other Artist', $other->name);
     }
 
-    public function g7_artist_anonymization_also_catches_artists_with_null_portrait_path(): void
+    public function artist_anonymization_also_catches_artists_with_null_portrait_path(): void
     {
         $user = User::factory()->create([
             'email' => 'curator@example.com',
@@ -137,18 +137,18 @@ class GdprPiiAnonymizationTest extends TestCase
             'name'          => 'Curator Artist',
             'slug'          => 'curator-artist-' . uniqid(),
             'email'         => 'curator@example.com',
-            'portrait_path' => null, // already null — Iter-003 fix would have skipped this
+            'portrait_path' => null, // already null — the anonymizer must not skip null portraits
             'created_by'    => $user->id,
         ]);
 
         app(UserDeletionService::class)->deleteUser($user, 'Self-serve deletion');
 
         $fresh = $artist->fresh();
-        $this->assertNull($fresh->email, 'Iter-010 must catch null-portrait artists too');
+        $this->assertNull($fresh->email, 'anonymization must catch null-portrait artists too');
         $this->assertSame('Anonymous Artist', $fresh->name);
     }
 
-    public function g6_admin_audit_log_scrubs_pii_at_write_time(): void
+    public function admin_audit_log_scrubs_pii_at_write_time(): void
     {
         $superAdmin = User::factory()->create([
             'email'          => 'admin@example.com',
@@ -190,7 +190,7 @@ class GdprPiiAnonymizationTest extends TestCase
         $this->assertSame('banned', $payload['to']);
     }
 
-    public function g6_admin_audit_log_scrubs_dirty_attributes_pii(): void
+    public function admin_audit_log_scrubs_dirty_attributes_pii(): void
     {
         $superAdmin = User::factory()->create(['is_super_admin' => true]);
         $target     = User::factory()->create(['email' => 'original@example.com']);
@@ -212,7 +212,7 @@ class GdprPiiAnonymizationTest extends TestCase
         $this->assertSame('pro', $payload['_changed']['plan']);
     }
 
-    public function g6_audit_log_scrub_is_idempotent_on_already_scrubbed_values(): void
+    public function audit_log_scrub_is_idempotent_on_already_scrubbed_values(): void
     {
         $data = ['email' => 'pii:abc123'];
         $scrubbed = AdminAuditLog::scrubPii($data);
@@ -221,7 +221,7 @@ class GdprPiiAnonymizationTest extends TestCase
         $this->assertSame('pii:abc123', $scrubbed['email']);
     }
 
-    public function g6_audit_log_scrub_preserves_null_values(): void
+    public function audit_log_scrub_preserves_null_values(): void
     {
         $data = ['email' => null, 'plan' => 'pro'];
         $scrubbed = AdminAuditLog::scrubPii($data);
@@ -231,9 +231,9 @@ class GdprPiiAnonymizationTest extends TestCase
         $this->assertSame('pro', $scrubbed['plan']);
     }
 
-    public function g6_anonymize_audit_pii_command_scrubs_old_logs(): void
+    public function anonymize_audit_pii_command_scrubs_old_logs(): void
     {
-        // Insert an old audit log row with raw PII (simulating pre-Iter-010 data).
+        // Insert an old audit log row with raw PII (legacy row before scrubbing existed).
         DB::table('admin_audit_logs')->insert([
             'actor_id'    => null,
             'action'      => 'user_banned',
@@ -270,7 +270,7 @@ class GdprPiiAnonymizationTest extends TestCase
         $this->assertSame('banned', $payload['_changed']['plan']);
     }
 
-    public function g6_anonymize_audit_pii_command_respects_retention_window(): void
+    public function anonymize_audit_pii_command_respects_retention_window(): void
     {
         // Insert a RECENT audit log row with raw PII.
         DB::table('admin_audit_logs')->insert([
@@ -293,7 +293,7 @@ class GdprPiiAnonymizationTest extends TestCase
         $this->assertSame('recent@example.com', $payload['email']);
     }
 
-    public function g6_anonymize_audit_pii_command_is_idempotent(): void
+    public function anonymize_audit_pii_command_is_idempotent(): void
     {
         // Insert an old row that's ALREADY been scrubbed.
         DB::table('admin_audit_logs')->insert([

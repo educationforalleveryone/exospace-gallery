@@ -16,7 +16,7 @@ class RegenerateInvoices extends Command
                             {--force : Regenerate ALL invoices, even those with .pdf paths}
                             {--batch=100 : Number of invoices per batch}';
 
-    protected $description = 'Regenerate invoice PDFs via dompdf (2CO-6 fix backfill). Converts .html invoices to .pdf.';
+    protected $description = 'Regenerate invoice PDFs via dompdf. Converts .html invoices to .pdf.';
 
     public function handle(InvoiceGenerator $generator): int
     {

@@ -1,6 +1,6 @@
 <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <!--
-    Default Open Graph image for Exospace (Task H23 / audit H39, MX9).
+    Default Open Graph image for Exospace.
 
     Used by the <x-seo> component when no per-page OG image is specified.
     Social platforms (Facebook, Twitter, LinkedIn, Slack) use this image

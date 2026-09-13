@@ -209,7 +209,7 @@ class MarketingConsentTest extends TestCase
         Mail::assertNothingSent();
     }
 
-    // ── P0-7: inactive nudge no longer suppresses plan-expiry reminder ──
+    // ── Inactive nudge no longer suppresses plan-expiry reminder ────────
 
     public function test_inactive_nudge_does_not_suppress_plan_expiry_reminder(): void
     {

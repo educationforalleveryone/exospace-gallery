@@ -50,7 +50,7 @@
                     </div>
                     @endif
 
-                    {{-- M-1: Subscription status (only shown for recurring subscriptions) --}}
+                    {{-- Subscription status (only shown for recurring subscriptions) --}}
                     @if($user->hasSubscription())
                     <div>
                         <dt class="text-gray-500">Subscription</dt>
@@ -80,7 +80,7 @@
                     @endif
                 </dl>
 
-                {{-- M-1: Subscription management buttons --}}
+                {{-- Subscription management buttons --}}
                 @if($user->hasActiveSubscription())
                 <div class="mt-4">
                     <form action="{{ route('billing.cancel-subscription') }}" method="POST"
@@ -130,7 +130,7 @@
                         </form>
                     </div>
                     @endif
-                    {{-- M-1: Offer both one-time + recurring (subscription) options --}}
+                    {{-- Offer both one-time + recurring (subscription) options --}}
                     <a href="{{ route('billing.upgrade', 'pro') }}"
                        class="btn btn-primary w-full">
                         Pro — $29 one-time

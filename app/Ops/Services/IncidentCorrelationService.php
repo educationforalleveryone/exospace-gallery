@@ -112,7 +112,7 @@ class IncidentCorrelationService
 
     private function correlateEvent(OpsEvent $event): array
     {
-        // Already linked by a previous iteration (e.g. via reopen)?
+        // Already linked by a previous pass (e.g. via reopen)?
         if ($event->ops_incident_id !== null) {
             return ['incident' => $event->incident, 'created' => false, 'adopted' => false];
         }

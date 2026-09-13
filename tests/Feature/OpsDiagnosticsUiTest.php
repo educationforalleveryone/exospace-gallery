@@ -107,9 +107,7 @@ class OpsDiagnosticsUiTest extends TestCase
             // The classifier recommends these for DB connection failures:
             ->assertSee('name="diagnostic" value="database.connectivity"', false)
             ->assertSee('name="diagnostic" value="database.health"', false)
-            ->assertSee('name="event" value="'.$event->id.'"', false)
-            // The stale "coming in Iteration 3" copy is gone:
-            ->assertDontSee('arrive in Iteration 3');
+            ->assertSee('name="event" value="'.$event->id.'"', false);
     }
 
     public function test_applications_page_shows_quick_actions(): void

@@ -224,7 +224,7 @@ function commandPalette() {
                 return;
             }
             if (this.isOpen) return;
-            // Remember focus so it can be restored on close (ITERATION-3).
+            // Remember focus so it can be restored on close.
             this._previouslyFocused = document.activeElement;
             this.isOpen = true;
             this.query = '';
@@ -239,7 +239,7 @@ function commandPalette() {
             this.isOpen = false;
             this.query = '';
             this.selectedIndex = 0;
-            // Restore focus to the trigger context (ITERATION-3).
+            // Restore focus to the trigger context.
             const back = this._previouslyFocused;
             if (back && document.contains(back) && typeof back.focus === 'function') {
                 try { back.focus(); } catch (e) { /* detached — ignore */ }

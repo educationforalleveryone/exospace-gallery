@@ -192,7 +192,7 @@ class ProfileController extends Controller
 
         $filename = 'exospace-export-user-' . $user->id . '-' . now()->format('Y-m-d-His');
 
-        // M-26: Generate a ZIP archive with JSON + CSV + README
+        // Generate a ZIP archive with JSON + CSV + README
         $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         // Build CSV for galleries

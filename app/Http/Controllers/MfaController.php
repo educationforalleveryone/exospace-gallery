@@ -80,14 +80,14 @@ class MfaController extends Controller
                 return back()->withErrors(['code' => 'Invalid code. Please try again.']);
             }
 
-            // P3-7: Generate 10 one-time backup codes
+            // Generate 10 one-time backup codes
             $backupCodes = $this->generateBackupCodes();
 
             $user->forceFill([
                 'google2fa_secret' => encrypt($secret),
                 'mfa_enabled_at' => now(),
                 'mfa_backup_codes' => $backupCodes['hashed'],
-                // ITERATION-3: replay baseline for the freshly enabled secret.
+                // Replay baseline for the freshly enabled secret.
                 'google2fa_ts' => (int) $otpCounter,
             ])->save();
 
@@ -99,7 +99,7 @@ class MfaController extends Controller
             session()->forget('mfa_pending_secret');
             $this->markMfaVerified($request);
 
-            // P3-7: Show backup codes once — redirect to a page that displays them
+            // Show backup codes once — redirect to a page that displays them
             return redirect()->route('mfa.backup-codes')
                 ->with('backup_codes', $backupCodes['plaintext'])
                 ->with('success', 'MFA enabled successfully. Save your backup codes below — you won\'t see them again.');

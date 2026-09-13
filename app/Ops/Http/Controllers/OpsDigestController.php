@@ -30,7 +30,7 @@ class OpsDigestController extends Controller
             $text = '';
         }
 
-        // Iteration 8: compose the weekly review preview the same way.
+        // Compose the weekly review preview the same way.
         try {
             $weeklyComposed = $this->weekly->compose();
             $weeklyText = $this->weekly->render($weeklyComposed);

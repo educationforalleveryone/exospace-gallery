@@ -105,7 +105,7 @@
             </div>
         @endforeach
 
-        {{-- Iteration 10 — queue cards: the failed-jobs lifecycle. The per-job --}}
+        {{-- Queue cards: the failed-jobs lifecycle. The per-job --}}
         {{-- buttons live on the queue page; the hub shows the pointer.       --}}
         @foreach(['queue.retry', 'queue.forget'] as $queueId)
             @php($queueDefinition = $actions[$queueId] ?? null)

@@ -114,7 +114,7 @@ class VenueTemplateSeeder extends Seeder
                     'fill_intensity'         => 0.2,
                     'tone_mapping_exposure'  => 1.15,
                     'frame_override'         => null,
-                    // ── Iteration 2 "Phenomena" declared identity ──────
+                    // ── "Phenomena" declared identity ─────────────────
                     'placement_mode'  => 'float',  // §10.5 — the original promise, now real
                     'floor_edge_fade'  => true,  // §4.2 — the "endless" must read
                     'env_intensity'  => 0,  // a pure void — no preset HDRI horizon glow
@@ -491,14 +491,14 @@ class VenueTemplateSeeder extends Seeder
                     'fill_intensity'         => 0.15,
                     'tone_mapping_exposure'  => 0.85,  // was 0.6 murk
                     'frame_override'         => null,
-                    // ── Iteration 2 "Phenomena" declared identity ──────
+                    // ── "Phenomena" declared identity ─────────────────
                     'placement_mode'  => 'float',  // §4.7 — "drift", not "stand"
                     'env_intensity'  => 0,  // environment 'none' skips the HDRI download entirely
                     'environment'    => 'none',  // the sky is procedural — no HDRI, ever
                     'structure_pass'  => 'phenomena',  // per-venue rollback switch
                     'open_air'        => true,
                     'layout_shape'    => 'circular',
-                    // ── Deep Field identity (2026-09-08 audit pass) ────
+                    // ── Deep Field identity ───────────────────────────
                     'void_deepfield'   => true,  // layered band sky + current + ring (replaces void_starfield)
                     'void_depth_gradient' => true,  // shared zenith depth cue
                     'floor_edge_fade'  => true,  // the ground dissolves into the void

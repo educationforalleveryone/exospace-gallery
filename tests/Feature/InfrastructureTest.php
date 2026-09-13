@@ -27,13 +27,13 @@ class InfrastructureTest extends TestCase
         );
     }
 
-    public function test_a8_metrics_endpoint_exists(): void
+    public function test_metrics_endpoint_exists(): void
     {
-        // A-8 FIX: /metrics route should be registered
+        // /metrics route should be registered
         $this->assertNotNull(Route::get('GET /metrics'));
     }
 
-    public function test_a8_metrics_returns_json(): void
+    public function test_metrics_returns_json(): void
     {
         config(['app.metrics_token' => 'correct-test-token']);
         $response = $this->get('/metrics?token=correct-test-token');
@@ -48,7 +48,7 @@ class InfrastructureTest extends TestCase
         ]);
     }
 
-    public function test_a8_metrics_includes_app_info(): void
+    public function test_metrics_includes_app_info(): void
     {
         config(['app.metrics_token' => 'correct-test-token']);
         $response = $this->get('/metrics?token=correct-test-token');
@@ -85,15 +85,15 @@ class InfrastructureTest extends TestCase
         $this->get('/metrics?token=correct-test-token')->assertStatus(200);
     }
 
-    public function test_a9_request_id_middleware_sets_header(): void
+    public function test_request_id_middleware_sets_header(): void
     {
-        // A-9 FIX: the response should include X-Request-Id header
+        // The response should include the X-Request-Id header
         $response = $this->get('/');
         $this->assertTrue($response->headers->has('X-Request-Id'),
-            'A-9: Response should include X-Request-Id header.');
+            'Response should include X-Request-Id header.');
     }
 
-    public function test_a9_request_id_is_unique_per_request(): void
+    public function test_request_id_is_unique_per_request(): void
     {
         $response1 = $this->get('/');
         $response2 = $this->get('/');
@@ -102,15 +102,15 @@ class InfrastructureTest extends TestCase
         $id2 = $response2->headers->get('X-Request-Id');
 
         $this->assertNotEquals($id1, $id2,
-            'A-9: Request IDs should be unique per request.');
+            'Request IDs should be unique per request.');
     }
 
-    public function test_a10_operational_alert_service_exists(): void
+    public function test_operational_alert_service_exists(): void
     {
         $this->assertInstanceOf(OperationalAlertService::class, app(OperationalAlertService::class));
     }
 
-    public function test_a10_alert_sends_to_log_when_no_webhook(): void
+    public function test_alert_sends_to_log_when_no_webhook(): void
     {
         \Illuminate\Support\Facades\Log::spy();
         config()->set('services.operational_alerts.webhook_url', null);
@@ -123,13 +123,13 @@ class InfrastructureTest extends TestCase
             ->once();
     }
 
-    public function test_a5_gdpr_deletion_request_model_exists(): void
+    public function test_gdpr_deletion_request_model_exists(): void
     {
         $this->assertTrue(class_exists(GdprDeletionRequest::class),
-            'A-5: GdprDeletionRequest model must exist.');
+            'GdprDeletionRequest model must exist.');
     }
 
-    public function test_a5_gdpr_deletion_request_can_be_created_for_user(): void
+    public function test_gdpr_deletion_request_can_be_created_for_user(): void
     {
         $user = User::factory()->create();
 
@@ -142,38 +142,38 @@ class InfrastructureTest extends TestCase
         $this->assertTrue($request->scheduled_deletion_at->isFuture());
     }
 
-    public function test_a5_gdpr_deletion_request_table_exists(): void
+    public function test_gdpr_deletion_request_table_exists(): void
     {
         $this->assertTrue(\Illuminate\Support\Facades\Schema::hasTable('gdpr_deletion_requests'));
     }
 
-    public function test_a1_backup_config_exists(): void
+    public function test_backup_config_exists(): void
     {
         $this->assertFileExists(config_path('backup.php'),
-            'A-1: config/backup.php must exist.');
+            'config/backup.php must exist.');
     }
 
-    public function test_a1_backup_schedule_exists(): void
+    public function test_backup_schedule_exists(): void
     {
         $this->assertCommandScheduled('exospace:backup db');
         $this->assertCommandScheduled('exospace:backup files');
         $this->assertCommandScheduled('exospace:backup clean');
     }
 
-    public function test_a1_dr_runbook_exists(): void
+    public function test_dr_runbook_exists(): void
     {
         $this->assertFileExists(base_path('docs/DR.md'),
-            'A-6: docs/DR.md must exist.');
+            'docs/DR.md must exist.');
     }
 
-    public function test_a2_supervisord_config_exists(): void
+    public function test_supervisord_config_exists(): void
     {
-        // A-2 FIX: supervisord config should exist (for queue worker supervision)
+        // Supervisord config should exist (for queue worker supervision)
         $this->assertFileExists(base_path('docker/supervisord.conf'),
-            'A-2: docker/supervisord.conf must exist.');
+            'docker/supervisord.conf must exist.');
     }
 
-    public function test_a10_operational_alerts_scheduled(): void
+    public function test_operational_alerts_scheduled(): void
     {
         $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events());
         $this->assertTrue(

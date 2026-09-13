@@ -73,7 +73,7 @@ class WebhookSecurityTest extends TestCase
         $count = DB::table('processed_webhooks')
             ->where('message_id', $messageId)
             ->count();
-        $this->assertEquals(1, $count, '2CO-4: Duplicate message_id should result in exactly 1 row in processed_webhooks.');
+        $this->assertEquals(1, $count, 'Duplicate message_id should result in exactly 1 row in processed_webhooks.');
     }
 
     public function test_2co5_refund_amount_logging_emits_info_log(): void
@@ -112,7 +112,7 @@ class WebhookSecurityTest extends TestCase
 
         $response->assertStatus(200);
 
-        // 2CO-5 FIX: verify the INFO log was emitted with the refund analysis
+        // verify the INFO log was emitted with the refund analysis
         Log::shouldHaveReceived('info')
             ->withArgs(function ($message, $context) {
                 return $message === '2Checkout: REFUND_ISSUED amount analysis'

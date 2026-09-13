@@ -112,7 +112,7 @@
                 @if ($hist['previous_pass'])
                     <span>last green: <span class="font-semibold text-emerald-400">{{ \Carbon\Carbon::parse($hist['previous_pass'])->diffForHumans() }}</span></span>
                     @if ($hist['pass_rate'] !== null && $hist['pass_rate'] < 90)
-                        <span class="text-purple-400">❄ flaky candidate — reliability tracked in Iteration 3</span>
+                        <span class="text-purple-400">❄ flaky candidate — reliability tracked by pass rate</span>
                     @endif
                 @else
                     <span class="text-red-400">🆕 first known appearance of this failure</span>

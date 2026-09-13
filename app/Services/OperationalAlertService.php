@@ -218,7 +218,7 @@ class OperationalAlertService
     {
         try {
             if (! \Illuminate\Support\Facades\Schema::hasTable('processed_webhooks')) {
-                return; // pre-Iteration-4 schema — nothing to inspect
+                return; // table absent on legacy schemas — nothing to inspect
             }
 
             $failed = \Illuminate\Support\Facades\DB::table('processed_webhooks')
@@ -275,14 +275,14 @@ class OperationalAlertService
                     'Queue backup detected',
                     "Failed jobs: {$failedCount} (threshold: 50). Check the queue worker and failed_jobs table.",
                     'critical',
-                    'failed_jobs_critical' // AUDIT-P1-7.1: dedup key
+                    'failed_jobs_critical' // dedup key
                 );
             } elseif ($failedCount > 10) {
                 $this->alert(
                     'Queue warning: failed jobs accumulating',
                     "Failed jobs: {$failedCount} (threshold: 10). Monitor the queue.",
                     'warning',
-                    'failed_jobs_warning' // AUDIT-P1-7.1: dedup key
+                    'failed_jobs_warning' // dedup key
                 );
             }
         } catch (\Throwable $e) {
@@ -305,14 +305,14 @@ class OperationalAlertService
                         'Disk space critical',
                         sprintf('Disk usage: %.1f%% — less than 10%% free. Clean up storage immediately.', $usedPct),
                         'critical',
-                        'disk_usage_critical' // AUDIT-P1-7.1: dedup key
+                        'disk_usage_critical' // dedup key
                     );
                 } elseif ($usedPct > 80) {
                     $this->alert(
                         'Disk space warning',
                         sprintf('Disk usage: %.1f%% — less than 20%% free. Plan cleanup.', $usedPct),
                         'warning',
-                        'disk_usage_warning' // AUDIT-P1-7.1: dedup key
+                        'disk_usage_warning' // dedup key
                     );
                 }
             }
@@ -342,7 +342,7 @@ class OperationalAlertService
                 'Scheduler appears to be down',
                 sprintf('scheduler.log last updated %.0f minutes ago — the scheduler loop may have died. Check docker-start.sh and container logs.', $ageMinutes),
                 'critical',
-                'scheduler_stale' // AUDIT-P1-7.1: dedup key
+                'scheduler_stale' // dedup key
             );
         }
     }
@@ -370,7 +370,7 @@ class OperationalAlertService
                         $ageSeconds / 60
                     ),
                     'critical',
-                    'queue_worker_stale' // AUDIT-P1-7.1: dedup key
+                    'queue_worker_stale' // dedup key
                 );
             }
         } catch (\Throwable $e) {
@@ -379,7 +379,7 @@ class OperationalAlertService
 
     public function checkBackupHealth(): void
     {
-        // ITERATION-9: Get ALL configured backup disks (env-driven via BACKUP_DISKS).
+        // Get ALL configured backup disks (env-driven via BACKUP_DISKS).
         $diskNames = config('backup.backup.destination.disks', ['local']);
 
         // Handle both array and single-string configs (defensive).
@@ -414,7 +414,7 @@ class OperationalAlertService
                     'No backups found',
                     "No backup zip files found on disk '{$diskName}' under '{$backupPath}'. Backups may have never run, or the backup destination is misconfigured. Check the spatie/laravel-backup schedule + the BACKUP_PASSWORD env var.",
                     'critical',
-                    "backup_none_found:{$diskName}" // AUDIT-P1-9.1: per-disk dedup key
+                    "backup_none_found:{$diskName}" // per-disk dedup key
                 );
                 return;
             }
@@ -442,7 +442,7 @@ class OperationalAlertService
                         basename($newestFile)
                     ),
                     'critical',
-                    "backup_stale:{$diskName}" // AUDIT-P1-9.1: per-disk dedup key
+                    "backup_stale:{$diskName}" // per-disk dedup key
                 );
             }
         } catch (\Throwable $e) {

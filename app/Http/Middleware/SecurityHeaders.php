@@ -35,6 +35,10 @@ class SecurityHeaders
             return $response;
         }
 
+        // KEPT 'unsafe-eval' in script-src: Alpine 3.x compiles x-data
+        // expressions with new Function(), which a strict CSP would block.
+        // The cdn.min.js build is not a CSP-safe alternative (no ES module
+        // export — the Vite build fails).
         $csp = implode('; ', [
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}' 'strict-dynamic' 'unsafe-eval'",

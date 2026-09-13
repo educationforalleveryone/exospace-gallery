@@ -53,8 +53,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'super_admin'   => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
-            'mfa'           => \App\Http\Middleware\RequireMfa::class, // (Task H56)
-            'feature_flag'  => \App\Http\Middleware\EnsureFeatureFlagEnabled::class, // M-14
+            'mfa'           => \App\Http\Middleware\RequireMfa::class,
+            'feature_flag'  => \App\Http\Middleware\EnsureFeatureFlagEnabled::class,
             'ability'       => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
             'abilities'     => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
             'ops_access'    => \App\Ops\Http\Middleware\EnsureOpsAccess::class,

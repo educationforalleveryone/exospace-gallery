@@ -14,7 +14,7 @@ class TeamInvitationController extends Controller
 {
     public function show(string $token)
     {
-        // D-6 FIX: hash the plaintext token before querying
+        // Hash the plaintext token before querying
         $invitation = TeamInvitation::findByToken($token);
 
         if (! $invitation) {
@@ -40,7 +40,7 @@ class TeamInvitationController extends Controller
 
     public function accept(Request $request, string $token): RedirectResponse
     {
-        // D-6 FIX: hash the plaintext token before querying
+        // Hash the plaintext token before querying
         $invitation = TeamInvitation::findByToken($token);
 
         if (! $invitation) {
@@ -111,7 +111,7 @@ class TeamInvitationController extends Controller
 
     public function decline(Request $request, string $token): RedirectResponse
     {
-        // D-6 FIX: hash the plaintext token before querying
+        // Hash the plaintext token before querying
         $invitation = TeamInvitation::findByToken($token);
 
         if (! $invitation) {

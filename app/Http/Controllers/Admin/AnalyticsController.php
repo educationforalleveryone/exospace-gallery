@@ -89,7 +89,7 @@ class AnalyticsController extends Controller
             }
         );
 
-        // ── Traffic sources (Task H66 — cached 10 min) ───────────────────
+        // ── Traffic sources (cached 10 min) ──────────────────────────────
         $referrers = $cacheTags->flexibleTagged(
             ['analytics', "analytics:gallery:{$gallery->id}"],
             "analytics:referrers:{$gallery->id}",
@@ -193,7 +193,7 @@ class AnalyticsController extends Controller
                 'event'         => $validated['event'],
                 'session_token' => $sessionTokenHash,
                 'referrer'      => $referrer,
-                // PERF-F31: perf beacon payload (null for every other event)
+                // Perf beacon payload (null for every other event)
                 'perf_data'     => $validated['perf'] ?? null,
                 'created_at'    => now(),
             ]);

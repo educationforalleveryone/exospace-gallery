@@ -144,7 +144,7 @@ class OpsHealthScoreService
                 ->pluck('id')
                 ->all();
         } catch (Throwable) {
-            // Incidents table absent (pre-Iteration-2) — every event counts.
+            // Incidents table absent — every event counts.
         }
 
         $untriaged = ['critical' => 0, 'error' => 0, 'warning' => 0];
@@ -210,7 +210,7 @@ class OpsHealthScoreService
         return $this->compute($input);
     }
 
-    // ── Per-application sub-score (Iteration 5, §16.2) ───────────────────
+    // ── Per-application sub-score ────────────────────────────────────────
 
     public function computeApplication(array $input): array
     {

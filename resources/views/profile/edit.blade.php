@@ -111,7 +111,7 @@
                 </div>
             </div>
 
-            {{-- M-24: Linked OAuth accounts --}}
+            {{-- Linked OAuth accounts --}}
             @php
                 $hasGoogle = !empty(config('services.google.client_id'));
                 $hasGithub = !empty(config('services.github.client_id'));

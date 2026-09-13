@@ -234,12 +234,12 @@ return new class extends Migration
     private function addedVisualKeys(): array
     {
         return [
-            'environment'            => 'none',  // N9: the sky is procedural
-            'floor_edge_fade'        => true,    // N7: the disc dissolves into the void
+            'environment'            => 'none',  // the sky is procedural
+            'floor_edge_fade'        => true,    // the disc dissolves into the void
             'void_depth_gradient'    => true,    // the shared zenith depth cue, reused
-            'void_deepfield'         => true,    // N3/N4/N5: the audit body
-            'artwork_light_base'     => 0.5,     // N6: the void-family standing glow
-            'artwork_light_pool_cap' => 12,      // N6: a 12-piece hang lit at once
+            'void_deepfield'         => true,    // layered band sky + current + ring
+            'artwork_light_base'     => 0.5,     // the void-family standing glow
+            'artwork_light_pool_cap' => 12,      // a 12-piece hang lit at once
             'hemisphere_intensity'   => 0.35,    // vertical fill for unlit far canvases
         ];
     }

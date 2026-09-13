@@ -4,21 +4,19 @@ set -e
 # ──────────────────────────────────────────────────────────────────────────
 # Container start script for Exospace on Coolify / Nixpacks.
 #
-# ITERATION-001 CHANGES (audit CR-1 + CR-2 + K-10):
-#   - Preflight check now FAILS the container on critical errors.
-#     Previously: `php artisan exospace:preflight || echo "WARNING..."`
-#     The `||` short-circuit meant the container ALWAYS exited 0, so the
-#     590-line PreflightCheck command was theater. Bad deploys shipped
-#     undetected. Now we hard-fail with exit 1.
-#   - Scheduler loop now runs in the background (cron replacement).
-#     Previously: NO scheduler process was started — zero scheduled
-#     commands ever fired (dunning, abandoned-cart, lifecycle, rollups,
-#     cleanup, partitioning, anonymization all dead).
-#   - Queue worker --memory bumped from 256 to 512 to match PHP-FPM
-#     and accommodate ImageProcessingService peak (50MP decode + scaleDown
+# Startup contract:
+#   - The preflight check HARD-FAILS the container (exit 1) on critical
+#     errors. The container must never serve traffic with broken config —
+#     swallowing preflight failures with `|| echo` would let bad deploys
+#     ship undetected.
+#   - The scheduler loop runs in the background (cron replacement).
+#     Dunning, abandoned-cart, lifecycle nudges, rollups, cleanup,
+#     partitioning and anonymization all depend on it.
+#   - Queue worker --memory=512 to match PHP-FPM and accommodate
+#     ImageProcessingService peak (50MP decode + scaleDown
 #     + thumbnail = ~350-450MB).
 #
-# PRESERVED FROM PRIOR VERSION:
+# BEHAVIOR SUMMARY:
 #   - PHP upload limits (50M)
 #   - Nginx client_max_body_size patch
 #   - storage:link on every container start
@@ -42,17 +40,16 @@ else
     sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
 fi
 
-# 2b. PERF-A4b (3D audit F4, iteration-4): static-asset caching + gzip.
+# 2b. Static-asset caching + gzip.
 #
-#     WHY THIS RUNS HERE (and not in nginx.template.conf): production
-#     verification (2026-08-24) proved that nixpacks generates
-#     /assets/nginx.template.conf from ITS OWN internal template — the
-#     repo's nginx.template.conf is never used (evidence: static files
+#     WHY THIS RUNS HERE (and not in nginx.template.conf): nixpacks
+#     generates /assets/nginx.template.conf from ITS OWN internal template —
+#     the repo's nginx.template.conf is never used (symptom: static files
 #     carry X-Frame-Options, which the repo template intentionally does
 #     not set and Laravel middleware cannot set for static files; and no
-#     Cache-Control header was emitted after the repo file was edited).
+#     Cache-Control header is emitted after the repo file is edited).
 #     The reliable injection point is the same runtime-sed mechanism the
-#     client_max_body_size patch above uses, which is proven live.
+#     client_max_body_size patch above uses.
 #
 #     What this adds, inside the server block:
 #       - gzip for text assets (JS/CSS/JSON/SVG)
@@ -73,17 +70,16 @@ NGINX_TPL="/assets/nginx.template.conf"
 if [ -f "$NGINX_TPL" ] && ! grep -q "exospace-static-cache" "$NGINX_TPL"; then
     # Anchor on "server {" — the same anchor the client_max_body_size patch
     # uses, verified to exist in the nixpacks-generated template.
-    sed -i 's@server {@server {\n\n        # exospace-static-cache: gzip + immutable static caching (PERF-A4b)\n        gzip on;\n        gzip_comp_level 5;\n        gzip_min_length 256;\n        gzip_proxied any;\n        gzip_vary on;\n        gzip_types text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml;\n\n        location ~* ^/(build|assets|decoders|img)/ {\n            expires 30d;\n            add_header Cache-Control "public, immutable";\n            add_header X-Content-Type-Options nosniff;\n            add_header X-Frame-Options SAMEORIGIN;\n            access_log off;\n            log_not_found off;\n            try_files $uri =404;\n        }\n\n        location ~* ^/storage/ {\n            expires 7d;\n            add_header Cache-Control "public";\n            add_header X-Content-Type-Options nosniff;\n            add_header X-Frame-Options SAMEORIGIN;\n            access_log off;\n            log_not_found off;\n            try_files $uri =404;\n        }@' "$NGINX_TPL"
-    echo "Injected static-asset caching + gzip into nginx template (PERF-A4b)."
+    sed -i 's@server {@server {\n\n        # exospace-static-cache: gzip + immutable static caching\n        gzip on;\n        gzip_comp_level 5;\n        gzip_min_length 256;\n        gzip_proxied any;\n        gzip_vary on;\n        gzip_types text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml;\n\n        location ~* ^/(build|assets|decoders|img)/ {\n            expires 30d;\n            add_header Cache-Control "public, immutable";\n            add_header X-Content-Type-Options nosniff;\n            add_header X-Frame-Options SAMEORIGIN;\n            access_log off;\n            log_not_found off;\n            try_files $uri =404;\n        }\n\n        location ~* ^/storage/ {\n            expires 7d;\n            add_header Cache-Control "public";\n            add_header X-Content-Type-Options nosniff;\n            add_header X-Frame-Options SAMEORIGIN;\n            access_log off;\n            log_not_found off;\n            try_files $uri =404;\n        }@' "$NGINX_TPL"
+    echo "Injected static-asset caching + gzip into nginx template."
 fi
 
-# 3. TD-2/TD-4: Caches are now built in nixpacks.toml build phase (deploy time).
+# 3. Caches are built in the nixpacks.toml build phase (deploy time).
 #    Here we only run storage:link (needs to run at container start because
-#    the symlink is per-container) and migrate (TD-3: was missing — migrations
-#    had to be run manually after each deploy).
+#    the symlink is per-container) and migrate.
 php /app/artisan storage:link --force
 
-# 3b. ANTI-STALE VIEW GUARD (2026-08-31): recompile every Blade view from the
+# 3b. ANTI-STALE VIEW GUARD: recompile every Blade view from the
 #     source files actually present in THIS image, on every container start.
 #     `view:cache` clears the compiled-view directory first, then recompiles
 #     from source — so any compiled view left over from a PREVIOUS deploy
@@ -92,12 +88,9 @@ php /app/artisan storage:link --force
 #     WHY: Laravel only recompiles a view when the SOURCE file's mtime is
 #     newer than the COMPILED file's mtime. Re-deployed source files can
 #     carry OLDER mtimes than persisted compiled views, in which case Laravel
-#     happily serves the stale compiled view forever. That is exactly the
-#     production incident of 2026-08-31: admin/galleries/edit.blade.php
-#     500'd with "syntax error, unexpected end of file, expecting elseif or
-#     else or endif" from a compiled view that no longer matched its (fixed)
-#     source. Non-fatal: if this fails we warn and continue — Laravel then
-#     recompiles lazily at render time.
+#     happily serves the stale compiled view forever. Non-fatal: if this
+#     fails we warn and continue — Laravel then recompiles lazily at render
+#     time.
 if ! php /app/artisan view:cache; then
     echo "WARNING: php artisan view:cache failed at container start — compiled views may be stale. Investigate before serving traffic." >&2
 fi
@@ -111,19 +104,16 @@ fi
 # cache is cleared. Route/view caching (in nixpacks.toml) is unaffected
 # and stays in place; only config:cache is unsafe here.
 
-# TD-3: Run migrations on deploy — previously the founder had to SSH in
-# and run `php artisan migrate --force` manually after each deploy.
+# Run migrations on deploy.
 # --force skips the confirmation prompt in production.
 #
-# K-4 (deferred to Iteration-003 database batch): deploy lock to prevent
-# concurrent migrations when Coolify scales to multiple containers.
-# For now, single-container deploy is safe.
+# NOTE: there is no deploy lock here — concurrent `migrate` runs would race
+# if Coolify scaled to multiple containers. Single-container deploy is the
+# supported setup.
 php /app/artisan migrate --force
 
-# 5. CR-1 FIX: Run PreflightCheck — exit(1) if critical config is wrong.
-#    Previously this line was `php /app/artisan exospace:preflight || echo "WARNING..."`
-#    The `||` short-circuit meant the container ALWAYS exited 0, so the preflight
-#    safety net was theater. Bad deploys shipped undetected. Now we hard-fail.
+# 5. Run PreflightCheck — exit(1) if critical config is wrong. Never swallow
+#    its exit code: a container must not start serving traffic on a bad config.
 #    This catches issues like missing 2Checkout secrets, wrong APP_ENV, missing
 #    business address (CAN-SPAM), TRUSTED_PROXIES=* in prod, etc. before the
 #    container starts serving traffic.
@@ -159,32 +149,29 @@ else
     echo "WARNING: BYPASS_PREFLIGHT=true — preflight check skipped. NOT RECOMMENDED in production." >&2
 fi
 
-# 6. CR-2 FIX: Start the Laravel scheduler in the background (cron replacement).
-#    Previously NO scheduler process was started — zero scheduled commands ever fired.
-#    This silently broke: dunning emails, abandoned-cart recovery, lifecycle nudges,
-#    analytics rollups, banned-session purges, transaction partitioning, PII anonymization,
-#    and pending custom-domain re-verification.
+# 6. Start the Laravel scheduler in the background (cron replacement).
+#    Scheduled commands (dunning emails, abandoned-cart recovery, lifecycle
+#    nudges, analytics rollups, banned-session purges, transaction partitioning,
+#    PII anonymization, pending custom-domain re-verification) depend on this.
 #
 #    The scheduler loop runs `schedule:run` every 60 seconds; Laravel itself
 #    decides what to fire based on the schedule defined in routes/console.php.
 #    Log output goes to /app/storage/logs/scheduler.log (persistent volume).
 #
-#    ITERATION-6 (AUDIT-P1-6.1) FIX: scheduler.log rotation. Previously the
-#    log grew unboundedly — the bare `>>` append had no rotation, so a
-#    long-running container could fill the disk. Now we rotate the log before
+#    scheduler.log rotation: the bare `>>` append never rotates, so a
+#    long-running container could fill the disk. We rotate the log before
 #    each schedule:run tick: keep the last 5 rotations (scheduler.log.1
 #    through scheduler.log.5), each capped at 10MB. This mirrors the
-#    supervisord.conf pattern (10MB max, 5 backups) that was documented but
-#    never applied to the bare `&` loop.
+#    supervisord.conf pattern (10MB max, 5 backups).
 #
-#    ALTERNATIVE DEPLOYMENT: If you prefer a separate Coolify cron service
-#    running `php artisan schedule:work` (long-running scheduler), delete
-#    this block and document the Coolify service in DEPLOYMENT.md. Either
-#    approach works; this in-container loop is simpler to deploy.
+#    ALTERNATIVE DEPLOYMENT: a separate Coolify cron service running
+#    `php artisan schedule:work` (long-running scheduler) works too —
+#    delete this block if you adopt it. Either approach is valid; this
+#    in-container loop is simpler to deploy.
 if [ "${BYPASS_SCHEDULER:-false}" != "true" ]; then
     (
         while true; do
-            # AUDIT-P1-6.1: Rotate scheduler.log if it exceeds 10MB.
+            # Rotate scheduler.log if it exceeds 10MB.
             # Keeps last 5 rotations. Prevents unbounded growth.
             SCHED_LOG="/app/storage/logs/scheduler.log"
             if [ -f "$SCHED_LOG" ]; then
@@ -210,22 +197,22 @@ else
 fi
 
 # 7. Start the queue worker in the background.
-#    P1-11: --tries=3 --timeout=120 --max-jobs=1000 --max-time=3600
-#    K-10 FIX: --memory bumped from 256 to 512 to match PHP-FPM and accommodate
-#    ImageProcessingService peak (50MP decode + scaleDown + thumbnail = ~350-450MB).
+#    Flags: --tries=3 --timeout=120 --max-jobs=1000 --max-time=3600
+#    --memory=512 to match PHP-FPM and accommodate ImageProcessingService
+#    peak (50MP decode + scaleDown + thumbnail = ~350-450MB).
 #    The 50MP cap is enforced in ImageProcessingService::process(); under GD
 #    the actual peak can be 2-3x the decode buffer due to Intervention keeping
 #    source + destination alive during scaleDown.
 #
-#    ITERATION-6 (AUDIT-P1-6.2): queue-worker.log. The queue worker's stdout/stderr
-#    is captured by Coolify's log driver (not written to a file), so no rotation
-#    needed here. The OperationalAlertService::checkQueueWorkerHealth() method
-#    (added in this iteration) monitors the worker indirectly via the failed_jobs
-#    table + the queue-worker.log staleness check (if the file exists).
+#    Queue-worker stdout/stderr is captured by Coolify's log driver (not
+#    written to a file), so no rotation is needed here.
+#    OperationalAlertService::checkQueueWorkerHealth() monitors the worker
+#    indirectly via the failed_jobs table + the queue-worker.log staleness
+#    check (if the file exists).
 #
-#    N-6 (deferred to future iteration): queue prioritization. Currently a
-#    single queue. Future iteration will add --queue=high,default,low and
-#    a dedicated high-priority worker.
+#    Queue prioritization is not configured: a single queue serves all jobs.
+#    `--queue=high,default,low` with a dedicated high-priority worker is the
+#    supported scaling path.
 php /app/artisan queue:work redis --tries=3 --timeout=120 --sleep=3 --memory=512 --max-jobs=1000 --max-time=3600 &
 QUEUE_PID=$!
 echo "Queue worker started (PID $QUEUE_PID, memory=512MB)."

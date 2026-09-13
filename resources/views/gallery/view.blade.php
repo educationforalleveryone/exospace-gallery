@@ -270,7 +270,7 @@
 </head>
 <body @if($isEmbed) class="embed-mode" @endif>
 
-    {{-- (Task H35 / audit C4) — noscript fallback for users without JS --}}
+    {{-- Noscript fallback for users without JS --}}
     <noscript>
         <div style="max-width: 600px; margin: 4rem auto; padding: 2rem; text-align: center; color: #e2e8f0; font-family: system-ui, sans-serif;">
             <h1 style="font-size: 2rem; margin-bottom: 1rem;">{{ $gallery->title }}</h1>
@@ -532,7 +532,7 @@
 
         {{-- Tour button + audio toggle + speed indicator --}}
         <div class="absolute top-6 right-6 flex items-center gap-3">
-            {{-- P2-16: Audio mute/unmute toggle button --}}
+            {{-- Audio mute/unmute toggle button --}}
             <button id="audio-toggle"
                 aria-label="Mute audio"
                 aria-pressed="false"
@@ -781,7 +781,7 @@
             }
         };
 
-        // (Task H45 / audit MX8) — share the current artwork via deep-link.
+        // Share the current artwork via deep-link.
         window.shareArtwork = function() {
             const btn = document.getElementById('share-artwork-btn');
             if (!btn) return;

@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 class Artist extends Model
 {
     use HasFactory;
-    use HasSeoProfile; // SEO OS (Iteration 1) — admin overrides via seo_profiles
+    use HasSeoProfile; // SEO OS — admin overrides via seo_profiles
     protected $fillable = [
         'name', 'slug', 'bio', 'portrait_path',
         'website', 'instagram', 'twitter', 'email', 'location',

@@ -35,12 +35,12 @@ class AnonymizeTransactionPii extends Command
 
         $totalAnonymized = 0;
 
-        // G-5 FIX: Anonymize transactions (original behavior).
+        // Anonymize transactions.
         if ($only === '' || $only === 'transactions') {
             $totalAnonymized += $this->anonymizeTransactions($cutoff, $dryRun, $batchSize);
         }
 
-        // G-5 FIX: Anonymize invoices (new — closes the GDPR gap).
+        // Anonymize invoices.
         if ($only === '' || $only === 'invoices') {
             $totalAnonymized += $this->anonymizeInvoices($cutoff, $dryRun, $batchSize);
         }
@@ -115,7 +115,7 @@ class AnonymizeTransactionPii extends Command
     private function anonymizeInvoices($cutoff, bool $dryRun, int $batchSize): int
     {
         $this->newLine();
-        $this->info("── Invoices (G-5 fix) ──");
+        $this->info("── Invoices ──");
 
         if (! \Illuminate\Support\Facades\Schema::hasTable('invoices')) {
             $this->warn("  Invoices table does not exist — skipping invoice anonymization.");

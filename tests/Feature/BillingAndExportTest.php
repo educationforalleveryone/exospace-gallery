@@ -85,7 +85,7 @@ class BillingAndExportTest extends TestCase
         $this->assertLessThan(
             15,
             $queryCount,
-            'AUDIT-P0-1.6: Billing portal should eager-load invoice relationship. '
+            'Billing portal should eager-load invoice relationship. '
             . "Expected <15 queries, got {$queryCount}."
         );
     }
@@ -186,7 +186,7 @@ class BillingAndExportTest extends TestCase
     {
         $user = User::factory()->create();
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
-        // SEC-8: affiliate refs are validated against an allowlist too.
+        // affiliate refs are validated against an allowlist too.
         config(['services.2checkout.affiliate_allowlist' => 'AFF123,PARTNER7']);
 
         $response = $this->actingAs($user)->get('/billing/upgrade/pro?ref=AFF123');
@@ -265,7 +265,7 @@ class BillingAndExportTest extends TestCase
         $this->assertEquals('pro', $json['transactions'][0]['plan']);
     }
 
-    // ── Gallery duplication preserves metadata (H59) ─────────────────────
+    // ── Gallery duplication preserves metadata ─────────────────────
 
     public function test_gallery_duplication_preserves_artist_attribution(): void
     {
@@ -300,7 +300,7 @@ class BillingAndExportTest extends TestCase
         $this->assertEquals(2024, $cloneImage->year);
     }
 
-    // ── Custom-domain verification (H06 from Iteration 02) ───────────────
+    // ── Custom-domain verification ───────────────
 
     public function test_unverified_custom_domain_does_not_route(): void
     {

@@ -72,7 +72,7 @@ export function getGltfLoader() {
 
 export function pickTextureUrl(img, scene) {
     const t = img.textures;
-    if (!t) return img.url; // legacy payload (pre-iteration-1 galleries)
+    if (!t) return img.url; // legacy payload (galleries created before texture variants existed)
     if (scene.isLowEnd)  return t.small  || t.medium || t.large || img.url;
     if (scene.isMobile)   return t.medium || t.large  || t.small || img.url;
     return t.large || t.medium || t.small || img.url;
@@ -129,7 +129,7 @@ export async function loadAssets() {
             }
         }
 
-        const MAX_CONCURRENT = 6;  // PERF-5: browser HTTP/2 connection cap
+        const MAX_CONCURRENT = 6;  // browser HTTP/2 connection cap
         const FIRST_BATCH    = Math.min(6, totalImages);
 
         const finalizeTexture = (tex) => {
@@ -163,7 +163,7 @@ export async function loadAssets() {
             const url = pickTextureUrl(img, this);
             loadArtworkTexture(artworkLoader, url, (tex) => {
                     img.texture = finalizeTexture(tex);
-                    img._loadedUrl = url; // PERF-E27: focus-upgrade bookkeeping
+                    img._loadedUrl = url; // focus-upgrade bookkeeping
                     resolve(true);
                 },
                 () => resolve(false) // network/decode failure — placeholder stays

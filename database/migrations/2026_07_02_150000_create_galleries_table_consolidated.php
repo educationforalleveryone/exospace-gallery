@@ -31,7 +31,7 @@ return new class extends Migration
             $table->string('floor_material', 20)->default('wood');
             $table->string('room_layout', 20)->default('square');
 
-            // Media paths (disk-relative — see audit M6 for convention notes)
+            // Media paths (disk-relative paths)
             $table->string('audio_path', 500)->nullable();
             $table->string('custom_logo_path', 500)->nullable();
             $table->string('curtain_logo_path', 500)->nullable();

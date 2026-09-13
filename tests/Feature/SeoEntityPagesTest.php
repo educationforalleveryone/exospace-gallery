@@ -70,7 +70,7 @@ class SeoEntityPagesTest extends TestCase
         $response->assertOk();
         $html = $response->getContent();
 
-        $this->assertStringNotContainsString('noindex', $html, 'Artist profiles must NOT be noindexed (audit C1).');
+        $this->assertStringNotContainsString('noindex', $html, 'Artist profiles must NOT be noindexed.');
         $this->assertStringContainsString('<title>Maya Chen — Artist Profile &amp; 3D Exhibitions</title>', $html);
         $this->assertStringContainsString('<link rel="canonical" href="https://exospace.gallery/artist/maya-chen">', $html);
         $this->assertStringContainsString('"@type":"Person"', $html, 'Person JSON-LD must be present.');
@@ -255,7 +255,7 @@ class SeoEntityPagesTest extends TestCase
         $response = $this->get("/gallery/{$gallery->slug}");
 
         $html = $response->getContent();
-        $this->assertMatchesRegularExpression('/<meta name="description" content="[^"]+"/', $html, 'Fallback description must be generated (audit M1).');
+        $this->assertMatchesRegularExpression('/<meta name="description" content="[^"]+"/', $html, 'Fallback description must be generated.');
         $this->assertStringNotContainsString('<meta name="description" content="">', $html);
     }
 
@@ -268,7 +268,7 @@ class SeoEntityPagesTest extends TestCase
             'category' => 'gallery',
             'is_active' => true,
             'is_draft' => false,
-            // ITERATION-1 FIX: default_settings is NOT NULL in the schema.
+            // default_settings is NOT NULL in the schema.
             'default_settings' => ['wall_texture' => 'white', 'room_layout' => 'square'],
         ]);
         $gallery = $this->makePublicGallery(['venue_template_id' => $venue->id]);
@@ -294,7 +294,7 @@ class SeoEntityPagesTest extends TestCase
             'name' => 'Lonely Hall', 'slug' => 'lonely-hall',
             'description' => 'Empty venue.', 'category' => 'museum',
             'is_active' => true, 'is_draft' => false,
-            // ITERATION-1 FIX: default_settings is NOT NULL in the schema.
+            // default_settings is NOT NULL in the schema.
             'default_settings' => ['wall_texture' => 'white', 'room_layout' => 'square'],
         ]);
 

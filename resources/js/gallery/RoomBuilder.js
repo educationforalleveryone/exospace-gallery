@@ -284,7 +284,7 @@ export function createRoomLShape(data) {
         floorMat.map.needsUpdate = true;
     }
 
-    // Ceiling colour (venue-aware — config-declared since Iteration 6)
+    // Ceiling colour (venue-aware — config-declared)
     const _ceilColor = ceilColorFromConfig(this._venueVisualConfig);
     const ceilMatA = this.isLowEnd
         ? new THREE.MeshLambertMaterial({ color: _ceilColor })

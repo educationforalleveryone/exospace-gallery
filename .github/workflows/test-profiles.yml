@@ -1,4 +1,4 @@
-# Exospace — Testing Control Center · Profile Runner (QA Iteration 1)
+# Exospace — Testing Control Center · Profile Runner
 #
 # One parametrized workflow that executes ANY registered test profile
 # (config/test-profiles.php) in an isolated ephemeral runner and pushes the

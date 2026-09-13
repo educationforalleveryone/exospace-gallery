@@ -60,7 +60,7 @@
             </div>
         </form>
 
-        {{-- ── Iteration 5 "Authoring": live preview + snapshot rollback ── --}}
+        {{-- ── Authoring: live preview + snapshot rollback ──────────────── --}}
         <div class="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-5">
             <div class="xl:col-span-2 bg-gray-800/60 border border-gray-700/60 rounded-xl p-5">
                 <div class="flex items-center justify-between gap-3 mb-3">
@@ -79,7 +79,7 @@
                         class="w-full h-[440px] rounded-lg border border-gray-700/80 bg-gray-950"
                         loading="lazy"
                         sandbox="allow-scripts allow-same-origin allow-pointer-lock"></iframe>
-                    <p class="text-xs text-gray-500 mt-2">The same walkable preview customers get (Iteration 1 runtime, sample exhibition). Saving this form reloads the page — and the preview with it.</p>
+                    <p class="text-xs text-gray-500 mt-2">The same walkable preview customers get (sample exhibition). Saving this form reloads the page — and the preview with it.</p>
                 @else
                     <p class="text-sm text-gray-500">Previews are disabled (venue_previews flag off).</p>
                 @endif

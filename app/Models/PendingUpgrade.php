@@ -51,7 +51,7 @@ class PendingUpgrade extends Model
 
         $pending = self::create([
             'user_id'    => $user->id,
-            'token'      => $hashedToken, // AUDIT-P1-8.1: store the HASH, not the plaintext
+            'token'      => $hashedToken, // store the HASH, not the plaintext
             'plan'       => $plan,
             'product_id' => $productId,
             'status'     => 'pending',

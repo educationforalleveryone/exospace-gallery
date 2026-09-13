@@ -24,13 +24,10 @@
                 </div>
 
                 <h1 class="page-title text-white text-center mb-2">You're invited!</h1>
-                {{-- ITERATION-1 P0 FIX (500 on every invitation email link): --}}
-                {{-- the controller passes $team = null for visitors who --}}
-                {{-- are not the invited recipient (privacy — team name is --}}
-                {{-- hidden until the email matches). The view dereferenced --}}
-                {{-- $team unconditionally, so the DEFAULT flow — an --}}
-                {{-- unauthenticated person clicking the link in the --}}
-                {{-- invitation email — crashed with HTTP 500. --}}
+                {{-- $team is null for visitors who are not the invited --}}
+                {{-- recipient (privacy — team name is hidden until the --}}
+                {{-- email matches), so it is dereferenced only inside the --}}
+                {{-- guard below. --}}
                 @if($team)
                     <p class="text-gray-400 text-center text-sm mb-6">
                         <strong class="text-gray-200">{{ $team->owner->name }}</strong> has invited you to join

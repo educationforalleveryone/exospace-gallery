@@ -15,7 +15,7 @@ class OperationalHealthChecksTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ── AUDIT-P1-6.2: checkQueueWorkerHealth ───────────────────────────
+    // ── checkQueueWorkerHealth ───────────────────────────
 
     public function test_audit_p16_2_queue_health_no_alert_when_queue_empty(): void
     {

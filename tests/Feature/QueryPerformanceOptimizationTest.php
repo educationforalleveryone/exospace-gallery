@@ -16,20 +16,20 @@ class QueryPerformanceOptimizationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function e1_gallery_view_eager_loads_image_media(): void
+    public function gallery_view_eager_loads_image_media(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/GalleryViewController.php'));
-        $this->assertStringContainsString("'images.media'", $source, 'E-1: GalleryViewController must eager-load images.media');
+        $this->assertStringContainsString("'images.media'", $source, 'GalleryViewController must eager-load images.media');
     }
 
-    public function e1_gallery_image_model_memoizes_media_resolution(): void
+    public function gallery_image_model_memoizes_media_resolution(): void
     {
         $source = file_get_contents(base_path('app/Models/GalleryImage.php'));
-        $this->assertStringContainsString('memoizedMedia', $source, 'E-1: GalleryImage must have memoizedMedia property');
-        $this->assertStringContainsString('getMemoizedMedia', $source, 'E-1: GalleryImage must have getMemoizedMedia method');
+        $this->assertStringContainsString('memoizedMedia', $source, 'GalleryImage must have memoizedMedia property');
+        $this->assertStringContainsString('getMemoizedMedia', $source, 'GalleryImage must have getMemoizedMedia method');
     }
 
-    public function e1_get_srcset_does_not_requery_media_when_called_twice(): void
+    public function get_srcset_does_not_requery_media_when_called_twice(): void
     {
         $gallery = Gallery::factory()->create(['is_active' => true]);
         $user    = User::factory()->create();
@@ -52,18 +52,18 @@ class QueryPerformanceOptimizationTest extends TestCase
         DB::disableQueryLog();
 
         $this->assertSame($srcset1, $srcset2, 'Same srcset returned both times');
-        $this->assertSame($queriesAfterFirst, $queriesAfterSecond, 'E-1: Second getSrcsetAttribute call must not issue DB queries (memoized)');
+        $this->assertSame($queriesAfterFirst, $queriesAfterSecond, 'Second getSrcsetAttribute call must not issue DB queries (memoized)');
     }
 
-    public function e2_dashboard_uses_analytics_daily_not_raw_events_for_historical(): void
+    public function dashboard_uses_analytics_daily_not_raw_events_for_historical(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/Admin/DashboardController.php'));
 
-        $this->assertStringContainsString("DB::table('analytics_daily')", $source, 'E-2: DashboardController must query analytics_daily table');
-        $this->assertStringContainsString("Cache::flexible", $source, 'E-2: DashboardController must cache the analytics result');
+        $this->assertStringContainsString("DB::table('analytics_daily')", $source, 'DashboardController must query analytics_daily table');
+        $this->assertStringContainsString("Cache::flexible", $source, 'DashboardController must cache the analytics result');
     }
 
-    public function e2_dashboard_shows_correct_view_counts_with_rollup_data(): void
+    public function dashboard_shows_correct_view_counts_with_rollup_data(): void
     {
         $user    = User::factory()->create();
         $gallery = Gallery::factory()->create([
@@ -108,18 +108,18 @@ class QueryPerformanceOptimizationTest extends TestCase
         $response->assertViewHas('views7', 52);        // 50 (rollup) + 2 (today)
     }
 
-    public function e5_nps_dashboard_uses_single_aggregate_query(): void
+    public function nps_dashboard_uses_single_aggregate_query(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/SurveyController.php'));
 
-        $this->assertStringContainsString("DB::table('survey_responses')", $source, 'E-5: must use DB::table for aggregate');
-        $this->assertStringContainsString("SUM(CASE WHEN score >= 9", $source, 'E-5: must use SUM(CASE WHEN) for promoters');
-        $this->assertStringContainsString("SUM(CASE WHEN score BETWEEN 7 AND 8", $source, 'E-5: must use SUM(CASE WHEN) for passives');
-        $this->assertStringContainsString("SUM(CASE WHEN score <= 6", $source, 'E-5: must use SUM(CASE WHEN) for detractors');
-        $this->assertStringContainsString("AVG(score)", $source, 'E-5: must use AVG(score) for average');
+        $this->assertStringContainsString("DB::table('survey_responses')", $source, 'must use DB::table for aggregate');
+        $this->assertStringContainsString("SUM(CASE WHEN score >= 9", $source, 'must use SUM(CASE WHEN) for promoters');
+        $this->assertStringContainsString("SUM(CASE WHEN score BETWEEN 7 AND 8", $source, 'must use SUM(CASE WHEN) for passives');
+        $this->assertStringContainsString("SUM(CASE WHEN score <= 6", $source, 'must use SUM(CASE WHEN) for detractors');
+        $this->assertStringContainsString("AVG(score)", $source, 'must use AVG(score) for average');
     }
 
-    public function e5_nps_dashboard_calculates_correct_scores(): void
+    public function nps_dashboard_calculates_correct_scores(): void
     {
         $controller = app(\App\Http\Controllers\SurveyController::class);
         $request    = \Illuminate\Http\Request::create('/master-control/nps', 'GET');
@@ -150,7 +150,7 @@ class QueryPerformanceOptimizationTest extends TestCase
         $this->assertSame(7.4, $stats['avg_score']);
     }
 
-    public function e5_nps_dashboard_handles_empty_responses(): void
+    public function nps_dashboard_handles_empty_responses(): void
     {
         $controller = app(\App\Http\Controllers\SurveyController::class);
         $request    = \Illuminate\Http\Request::create('/master-control/nps', 'GET');
@@ -166,7 +166,7 @@ class QueryPerformanceOptimizationTest extends TestCase
         $this->assertSame(0.0, $stats['avg_score']);
     }
 
-    public function e5_nps_dashboard_does_not_load_all_responses_into_collection(): void
+    public function nps_dashboard_does_not_load_all_responses_into_collection(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/SurveyController.php'));
 
@@ -174,7 +174,7 @@ class QueryPerformanceOptimizationTest extends TestCase
         $this->assertNotFalse($start, 'npsDashboard method must exist');
 
         $methodBody = substr($source, $start);
-        $this->assertStringNotContainsString("\$allResponses =", $methodBody, 'E-5: must not assign $allResponses (Collection of all rows)');
-        $this->assertStringNotContainsString("\$allResponses->where('score'", $methodBody, 'E-5: must not filter Collection by score (use SQL aggregate instead)');
+        $this->assertStringNotContainsString("\$allResponses =", $methodBody, 'must not assign $allResponses (Collection of all rows)');
+        $this->assertStringNotContainsString("\$allResponses->where('score'", $methodBody, 'must not filter Collection by score (use SQL aggregate instead)');
     }
 }

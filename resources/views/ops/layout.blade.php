@@ -12,7 +12,7 @@
 </head>
 <body class="font-sans bg-slate-950 text-slate-100 min-h-screen antialiased">
 
-<!-- ITERATION-9: skip link — parity with the app/public layouts -->
+<!-- Skip link — parity with the app/public layouts -->
 <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-emerald-600 focus:text-slate-950 focus:rounded-md focus:font-semibold">
     Skip to content
 </a>

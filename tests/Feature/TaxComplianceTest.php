@@ -31,7 +31,7 @@ class TaxComplianceTest extends TestCase
 
     public function tax_service_accepts_ip_string_instead_of_request(): void
     {
-        // L-4 / F-4 fix: TaxService must not depend on Illuminate\Http\Request.
+        // TaxService must not depend on Illuminate\Http\Request.
         $reflection = new \ReflectionMethod(TaxService::class, 'calculateTax');
         $params = $reflection->getParameters();
 
@@ -185,7 +185,7 @@ class TaxComplianceTest extends TestCase
 
     public function invoice_generator_now_uses_tax_service_for_eu_customers(): void
     {
-        // Audit 2CO-7 critical fix: previously every invoice had tax_amount=0.
+        // Invoices must carry tax computed through the tax service.
         Storage::fake('public');
 
         $user = User::factory()->create();

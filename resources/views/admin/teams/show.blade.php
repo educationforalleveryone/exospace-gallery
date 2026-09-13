@@ -88,7 +88,7 @@
                                                 <option value="viewer" {{ $role === 'viewer' ? 'selected' : '' }}>Viewer</option>
                                             </select>
                                         </form>
-                                        {{-- Remove member — ITERATION-3: 32px hit target (was a ~26px p-1.5 icon) --}}
+                                        {{-- Remove member — 32px hit target --}}
                                         <div x-data="{ confirming: false }" class="flex items-center">
                                             <template x-if="!confirming">
                                                 <button @click="confirming = true" type="button"

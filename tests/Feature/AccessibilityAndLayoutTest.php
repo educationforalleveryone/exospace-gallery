@@ -11,7 +11,7 @@ class AccessibilityAndLayoutTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function j1_dropdown_component_uses_button_trigger_with_aria(): void
+    public function dropdown_component_uses_button_trigger_with_aria(): void
     {
         $source = file_get_contents(resource_path('views/components/dropdown.blade.php'));
 
@@ -29,7 +29,7 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringNotContainsString('<div @click="open = ! open">', $source, 'J-1: old clickable-div trigger must be removed');
     }
 
-    public function j1_dropdown_link_has_menuitem_role(): void
+    public function dropdown_link_has_menuitem_role(): void
     {
         $source = file_get_contents(resource_path('views/components/dropdown-link.blade.php'));
 
@@ -37,7 +37,7 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringContainsString("'tabindex' => '-1'", $source, 'J-1: dropdown-link must have tabindex="-1" (focusable via arrow keys)');
     }
 
-    public function j2_notification_bell_has_aria_state(): void
+    public function notification_bell_has_aria_state(): void
     {
         $source = file_get_contents(resource_path('views/layouts/navigation.blade.php'));
 
@@ -47,7 +47,7 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringContainsString('aria-labelledby="notif-dropdown-trigger"', $source, 'J-2: notif panel must have aria-labelledby');
     }
 
-    public function j2_team_switcher_has_aria_state(): void
+    public function team_switcher_has_aria_state(): void
     {
         $source = file_get_contents(resource_path('views/layouts/navigation.blade.php'));
 
@@ -57,7 +57,7 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringContainsString('aria-label="Switch team context"', $source, 'J-2: team switcher must have aria-label');
     }
 
-    public function j2_mobile_hamburger_has_aria_state(): void
+    public function mobile_hamburger_has_aria_state(): void
     {
         $source = file_get_contents(resource_path('views/layouts/navigation.blade.php'));
 
@@ -68,7 +68,7 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringContainsString('aria-labelledby="mobile-nav-toggle"', $source, 'J-2: mobile nav panel must have aria-labelledby');
     }
 
-    public function j4_analytics_page_artwork_thumbnail_has_alt(): void
+    public function analytics_page_artwork_thumbnail_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/admin/galleries/analytics.blade.php'));
 
@@ -77,31 +77,31 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringNotContainsString('<img src="{{ asset($img->path) }}" class="w-10 h-10', $source, 'J-4: img tag must not be missing alt');
     }
 
-    public function j4_dashboard_gallery_row_has_alt(): void
+    public function dashboard_gallery_row_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/components/dashboard/gallery-row.blade.php'));
         $this->assertStringContainsString('alt="{{ $gallery->title ?: \'Gallery cover\' }}"', $source, 'J-4: gallery-row cover must have alt');
     }
 
-    public function j4_artist_form_portrait_has_alt(): void
+    public function artist_form_portrait_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/admin/artists/_form-fields.blade.php'));
         $this->assertStringContainsString('alt="{{ $artist->name ?: \'Artist portrait\' }}"', $source, 'J-4: artist portrait must have alt');
     }
 
-    public function j4_venue_form_thumbnail_has_alt(): void
+    public function venue_form_thumbnail_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/super-admin/venues/_form-fields.blade.php'));
         $this->assertStringContainsString('alt="{{ $venue->name ?: \'Venue thumbnail\' }}"', $source, 'J-4: venue thumbnail must have alt');
     }
 
-    public function j4_featured_index_cover_has_alt(): void
+    public function featured_index_cover_has_alt(): void
     {
         $source = file_get_contents(resource_path('views/super-admin/featured/index.blade.php'));
         $this->assertStringContainsString('alt="{{ $gallery->title ?: \'Featured gallery cover\' }}"', $source, 'J-4: featured cover must have alt');
     }
 
-    public function h1_contact_page_uses_public_layout(): void
+    public function contact_page_uses_public_layout(): void
     {
         $source = file_get_contents(resource_path('views/pages/contact.blade.php'));
 
@@ -123,7 +123,7 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringNotContainsString('[Country]', $source, 'H-1: [Country] placeholder removed');
     }
 
-    public function h2_discover_page_uses_public_layout(): void
+    public function discover_page_uses_public_layout(): void
     {
         $source = file_get_contents(resource_path('views/discover/index.blade.php'));
 
@@ -137,7 +137,7 @@ class AccessibilityAndLayoutTest extends TestCase
         $this->assertStringNotContainsString('<x-slot name="header">', $source, 'H-2: <x-slot name="header"> removed');
     }
 
-    public function h2_discover_page_still_renders_via_http(): void
+    public function discover_page_still_renders_via_http(): void
     {
         $gallery = \App\Models\Gallery::factory()->create([
             'is_active' => true,

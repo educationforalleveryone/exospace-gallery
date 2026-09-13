@@ -89,7 +89,7 @@ class AlertDeduplicationTest extends TestCase
 
         $service = app(OperationalAlertService::class);
 
-        // ITERATION-1 FIX: same single-spy approach.
+        // Single spy, exact counts.
         $service->alert('No Dedup Alert', 'First', 'warning');
 
         $service->alert('No Dedup Alert', 'Second', 'warning');
@@ -144,7 +144,7 @@ class AlertDeduplicationTest extends TestCase
 
         $service = app(OperationalAlertService::class);
 
-        // ITERATION-1 FIX: single spy + exact count.
+        // Single spy, exact counts.
         $service->checkAndAlert();
         $service->checkAndAlert();
 

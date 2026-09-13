@@ -123,7 +123,7 @@ class SeoMeasurementAndRegressionTest extends TestCase
 
     public function test_seo_console_acquisition_tab_renders(): void
     {
-        // ITERATION-1 FIX: master-control requires MFA for super-admins.
+        // Master-control requires MFA for super-admins.
         $superAdmin = User::factory()->withMfa()->create([
             'is_super_admin' => true,
             'email_verified_at' => now(),

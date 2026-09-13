@@ -172,7 +172,7 @@ class SitemapEventsGroupTest extends TestCase
         $this->addUpcomingEvent($gallery, ['title' => 'Announced Opening']);
 
         $after = (int) \Illuminate\Support\Facades\Cache::get('seo:sitemap:version');
-        $this->assertGreaterThan($before, $after, 'announcing an event invalidates the sitemap cache (ITERATION 5 observer registration)');
+        $this->assertGreaterThan($before, $after, 'announcing an event invalidates the sitemap cache');
 
         \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 100);
         $event = GalleryScheduleEvent::first();

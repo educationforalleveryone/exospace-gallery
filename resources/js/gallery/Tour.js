@@ -25,7 +25,7 @@ export class GuidedTour {
     start(atIndex = 0) {
         this.artworks = this.scene.artworks.slice();
         if (this.artworks.length === 0) {
-            // ITERATION-7: native alert() replaced by the page toast
+            // Page toast instead of native alert()
             if (window.toast) window.toast('No artworks to tour in this gallery.', 'info');
             return;
         }
@@ -140,7 +140,7 @@ export class GuidedTour {
 
         this.scene.focusTween = gsap.to(this.scene.camera.position, {
             x: targetPos.x, y: targetPos.y, z: targetPos.z,
-            duration: this._tweenDuration,  // (Task H37) reduced-motion aware
+            duration: this._tweenDuration,  // reduced-motion aware
             ease: 'power2.inOut',
             onUpdate: () => { this.scene.camera.lookAt(artworkPos); },
             onComplete: () => {

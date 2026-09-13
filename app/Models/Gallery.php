@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 class Gallery extends Model
 {
     use HasFactory, SoftDeletes;
-    use HasSeoProfile; // SEO OS (Iteration 1) — admin overrides via seo_profiles
+    use HasSeoProfile; // SEO OS — admin overrides via seo_profiles
     protected $fillable = [
         'user_id', 'team_id', 'title', 'slug', 'description',
         'wall_texture', 'frame_style', 'lighting_preset',
@@ -39,7 +39,7 @@ class Gallery extends Model
         'closes_at'  => 'datetime',
         'published_at' => 'datetime',
         'visual_overrides' => 'array',
-        'custom_domain_verified_at' => 'datetime',  // Task C06
+        'custom_domain_verified_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -197,7 +197,7 @@ class Gallery extends Model
         return \Hash::check($pin, $this->pin_hash);
     }
 
-    // ─── Custom-domain verification (Task C06) ──────────────────────────
+    // ─── Custom-domain verification ─────────────────────────────────────
 
     public function isCustomDomainVerified(): bool
     {

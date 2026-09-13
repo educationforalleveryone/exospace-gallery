@@ -64,7 +64,7 @@ class OAuthController extends Controller
         $user = User::where($providerColumn, $socialUser->getId())->first();
 
         if ($user) {
-            // CR-4 FIX: regenerate session ID to prevent session fixation.
+            // Regenerate the session ID to prevent session fixation.
             $request->session()->regenerate();
             Auth::login($user, true);
 
@@ -80,7 +80,7 @@ class OAuthController extends Controller
         $existingByEmail = User::where('email', strtolower($socialUser->getEmail()))->first();
 
         if ($existingByEmail) {
-            Log::warning('OAuth: login attempted with provider whose email matches existing account — refusing to merge (CR-3 fix)', [
+            Log::warning('OAuth: login attempted with provider whose email matches existing account — refusing to merge', [
                 'provider'          => $provider,
                 'existing_user_id'  => $existingByEmail->id,
                 'provider_user_id'  => $socialUser->getId(),
@@ -100,7 +100,7 @@ class OAuthController extends Controller
             'name'         => $socialUser->getName() ?? $socialUser->getNickname() ?? 'User',
             'email'        => strtolower($socialUser->getEmail()),
             'password'     => Hash::make(Str::random(32)), // random — OAuth-only user
-            // C-2 FIX: track that this user does NOT have a real password.
+            // Track that this user does NOT have a real password.
             'has_password' => false,
         ]);
         $user->forceFill([
@@ -124,7 +124,7 @@ class OAuthController extends Controller
 
         event(new \Illuminate\Auth\Events\Registered($user));
 
-        // CR-4 FIX: regenerate session ID to prevent session fixation.
+        // Regenerate the session ID to prevent session fixation.
         $request->session()->regenerate();
         Auth::login($user, true);
 

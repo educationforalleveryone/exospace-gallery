@@ -63,7 +63,7 @@
     </ul>
 </section>
 
-{{-- ── Health score breakdown (Iteration 4) ─────────────────────────── --}}
+{{-- ── Health score breakdown ───────────────────────────────────────── --}}
 @include('ops.partials.score-breakdown', ['healthScore' => $healthScore])
 
 @if($activeIncidents->isNotEmpty())
@@ -218,7 +218,7 @@
             @endif
         </div>
 
-        {{-- ── Backup / Webhook / Sentry tiles (Iteration 4) ───────────── --}}
+        {{-- ── Backup / Webhook / Sentry tiles ─────────────────────────── --}}
         @include('ops.partials.overview-tiles', [
             'backupTile' => $backupTile,
             'webhookTile' => $webhookTile,

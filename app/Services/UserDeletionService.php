@@ -136,7 +136,7 @@ class UserDeletionService
                 'updated_at' => now(),
             ]);
 
-        Log::info('UserDeletionService: anonymized user transactions (G-2 fix)', [
+        Log::info('UserDeletionService: anonymized user transactions', [
             'user_id' => $user->id,
             'transactions_count' => $count,
         ]);
@@ -157,7 +157,7 @@ class UserDeletionService
                 'updated_at' => now(),
             ]);
 
-        Log::info('UserDeletionService: anonymized user invoices (G-5 fix)', [
+        Log::info('UserDeletionService: anonymized user invoices', [
             'user_id' => $user->id,
             'invoices_count' => $count,
         ]);

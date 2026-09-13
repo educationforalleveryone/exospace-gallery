@@ -39,7 +39,7 @@ class PlanDowngradeIsolationTest extends TestCase
 
         $this->mockCoolifyDomainManager();
 
-        app(PlanDowngradeService::class)->downgradeToFree($userA, 'Test: P0-1 regression');
+        app(PlanDowngradeService::class)->downgradeToFree($userA, 'Test: plan downgrade isolation');
 
         $userA->refresh();
         $this->assertEquals('free', $userA->plan);

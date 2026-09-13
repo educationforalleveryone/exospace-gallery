@@ -1,4 +1,4 @@
-# Archived Migrations (Task H47)
+# Archived Migrations
 
 This directory documents the additive migrations that have been
 consolidated into single CREATE migrations for fresh installs.
@@ -38,12 +38,11 @@ backward compatibility with existing production databases):
 1. `2026_06_09_000001_create_venue_templates_table.php` — base table
 2. `2026_06_29_184241_extend_venue_templates_table.php` — 17 columns added
 
-⚠️ **P0-6 WARNING (audit fix):** The venue_templates consolidated migration
-was previously BROKEN — its schema did not match the additive migrations
-(9 missing columns, 1 phantom `post_fx` column, wrong defaults). This was
-fixed in P0-6. The consolidated migration now EXACTLY matches the result
-of running both additive migrations. It is now SAFE to archive the two
-additive venue_templates migrations listed above.
+⚠️ **WARNING:** The venue_templates consolidated migration was once
+BROKEN — its schema did not match the additive migrations (9 missing
+columns, 1 phantom `post_fx` column, wrong defaults). It now EXACTLY
+matches the result of running both additive migrations, so it is SAFE
+to archive the two additive venue_templates migrations listed above.
 
 ## How it works
 

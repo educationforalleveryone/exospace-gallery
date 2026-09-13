@@ -119,7 +119,7 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-size: 0.75rem; /* 12px text floor (ITERATION-7) */
+            font-size: 0.75rem; /* 12px text floor */
             font-weight: 600;
             color: #a78bfa;
             text-decoration: none;
@@ -954,7 +954,7 @@
                                     <span class="text-lg font-bold leading-none">&times;</span>
                                 </button>
 
-                                <!-- Edit Details Button (ITERATION-2: artwork metadata editor) -->
+                                <!-- Edit Details Button (artwork metadata editor) -->
                                 <button data-click="editMetadata" data-arg="{{ $image->id }}"
                                         type="button"
                                         class="btn btn-icon absolute top-3 left-14 bg-gray-800/80 hover:bg-brand-600 text-gray-200 hover:text-white shadow-lg z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
@@ -962,7 +962,7 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </button>
 
-                                <!-- Caption (ITERATION-2: shows curated title + price, not the filename) -->
+                                <!-- Caption (shows curated title + price, not the filename) -->
                                 <div class="p-3 bg-gray-900 border-t border-gray-800">
                                     <p class="text-xs {{ $image->title ? 'text-gray-300' : 'text-gray-500' }} truncate text-center font-medium" data-role="caption-title">
                                         {{ $image->title ?: $image->original_name }}

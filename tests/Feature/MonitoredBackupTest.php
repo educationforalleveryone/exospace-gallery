@@ -192,7 +192,7 @@ class MonitoredBackupTest extends TestCase
         );
     }
 
-    // ── ITERATION 8: audit-target fix + spatie stdout capture ───────
+    // ── Audit-target coverage + spatie stdout capture ──────────────
 
     public function test_backup_failure_writes_audit_row_targeting_newest_transaction(): void
     {

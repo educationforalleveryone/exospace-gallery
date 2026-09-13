@@ -57,13 +57,13 @@ export function playAudio() {
     try { this.sound.play(); } catch (e) { console.error('Audio play error:', e); }
 }
 
-// P2-16: Audio mute/unmute toggle. Exposed so view.blade.php can wire a button.
+// Audio mute/unmute toggle. Exposed so view.blade.php can wire a button.
 export function toggleMute() {
     if (!this._musicEl && !this.sound && !this.sfx.footstep && !this.sfx.click) return;
 
     this._muted = !this._muted;
 
-    // PERF-E26: streaming music mutes via element volume
+    // Streaming music mutes via element volume
     if (this._musicEl) {
         this._musicEl.volume = this._muted ? 0 : 0.5;
     }

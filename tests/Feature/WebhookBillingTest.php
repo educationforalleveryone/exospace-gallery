@@ -122,7 +122,7 @@ class WebhookBillingTest extends TestCase
 
         $payload = $this->validIpnPayload([
             'customer_email'    => 'different-paypal@example.com', // doesn't match account email
-            // AUDIT-P1-8.1: Use the plaintext_token runtime attribute (not the stored hash)
+            // Use the plaintext_token runtime attribute (not the stored hash)
             'external-reference'=> $pending->plaintext_token,
             'item_id_1'         => self::PRODUCT_ID_PRO,
         ]);
@@ -215,14 +215,14 @@ class WebhookBillingTest extends TestCase
             'user_id'   => $user->id,
             'invoice_id'=> 'INV-REFUND-001',
             'plan'      => 'pro',
-            'amount'    => 29.00, // P1-4: explicit amount for partial-refund logic
+            'amount'    => 29.00, // explicit amount for partial-refund logic
             'status'    => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
             'message_type'       => 'REFUND_ISSUED',
             'invoice_id'         => 'INV-REFUND-001',
-            'item_list_amount_1' => '29.00', // P1-4: full refund amount
+            'item_list_amount_1' => '29.00', // full refund amount
         ]);
 
         $response = $this->postWebhook($payload);
@@ -242,14 +242,14 @@ class WebhookBillingTest extends TestCase
             'user_id'   => $user->id,
             'invoice_id'=> 'INV-REFUND-002',
             'plan'      => 'pro', // the refunded transaction was for Pro
-            'amount'    => 29.00, // P1-4: explicit amount
+            'amount'    => 29.00, // explicit amount
             'status'    => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
             'message_type'       => 'REFUND_ISSUED',
             'invoice_id'         => 'INV-REFUND-002',
-            'item_list_amount_1' => '29.00', // P1-4: full refund amount
+            'item_list_amount_1' => '29.00', // full refund amount
         ]);
 
         $response = $this->postWebhook($payload);
@@ -269,14 +269,14 @@ class WebhookBillingTest extends TestCase
             'user_id'   => $user->id,
             'invoice_id'=> 'INV-REFUND-003',
             'plan'      => 'pro',
-            'amount'    => 29.00, // P1-4: explicit amount
+            'amount'    => 29.00, // explicit amount
             'status'    => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
             'message_type'       => 'REFUND_ISSUED',
             'invoice_id'         => 'INV-REFUND-003',
-            'item_list_amount_1' => '29.00', // P1-4: full refund amount
+            'item_list_amount_1' => '29.00', // full refund amount
         ]);
 
         $this->postWebhook($payload);
@@ -566,7 +566,7 @@ class WebhookBillingTest extends TestCase
         $this->assertEquals('pro', $user->plan); // NOT downgraded
     }
 
-    // ── P1-4: Partial refund does not downgrade ──────────────────────────
+    // ── Partial refund does not downgrade ───────────────────────────────
 
     public function test_partial_refund_does_not_downgrade_user(): void
     {
@@ -699,7 +699,7 @@ class WebhookBillingTest extends TestCase
         $this->assertEquals('chargeback', $transaction->status);
     }
 
-    // ── P1-1: afterCommit — side effects don't run on rollback ───────────
+    // ── afterCommit — side effects don't run on rollback ─────────────────
 
     public function test_upgrade_email_sent_only_after_commit(): void
     {

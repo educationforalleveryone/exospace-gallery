@@ -23,16 +23,16 @@ class SecurityHardeningTest extends TestCase
 
     use RefreshDatabase;
 
-    public function test_d1_scope_session_domain_rejects_unverified_host(): void
+    public function test_scope_session_domain_rejects_unverified_host(): void
     {
         $response = $this->get('http://evil-gallery.com/');
 
         $response->assertStatus(404);
     }
 
-    public function test_d1_scope_session_domain_accepts_verified_custom_domain(): void
+    public function test_scope_session_domain_accepts_verified_custom_domain(): void
     {
-        // D-1 FIX: verified custom domains should be served (not 404)
+        // verified custom domains should be served (not 404)
         $gallery = Gallery::factory()->create([
             'custom_domain' => 'gallery.test-example.com',
             'custom_domain_verified_at' => now(),
@@ -43,10 +43,10 @@ class SecurityHardeningTest extends TestCase
 
         // Should NOT be 404 — the verified custom domain should be served
         $this->assertNotEquals(404, $response->status(),
-            'D-1: Verified custom domain should not return 404.');
+            'Verified custom domain should not return 404.');
     }
 
-    public function test_d3_confirm_password_route_has_throttle(): void
+    public function test_confirm_password_route_has_throttle(): void
     {
         $route = \Illuminate\Support\Facades\Route::getRoutes()->getByName('password.confirm.submit');
         $this->assertNotNull($route, 'password.confirm.submit route must exist.');
@@ -61,12 +61,12 @@ class SecurityHardeningTest extends TestCase
         }
 
         $this->assertTrue($hasThrottle,
-            'D-3: POST /confirm-password must have throttle middleware. Found: ' . json_encode($middleware));
+            'POST /confirm-password must have throttle middleware. Found: ' . json_encode($middleware));
     }
 
-    public function test_d7_team_invitation_show_does_not_leak_account_exists_for_guests(): void
+    public function test_team_invitation_show_does_not_leak_account_exists_for_guests(): void
     {
-        // D-7 FIX: unauthenticated visitors should NOT see $accountExists
+        // unauthenticated visitors should NOT see $accountExists
         $team = \App\Models\Team::factory()->create();
         $invitation = \App\Models\TeamInvitation::factory()->create([
             'team_id' => $team->id,
@@ -82,7 +82,7 @@ class SecurityHardeningTest extends TestCase
         $plaintextToken = 'test-plaintext-token-1234567890';
         $invitation->update(['token' => \App\Models\TeamInvitation::hashToken($plaintextToken)]);
 
-        // ITERATION-1 FIX: the route is signed — build a proper URL.
+        // The route is signed — build a proper URL.
         $response = $this->get(
             \Illuminate\Support\Facades\URL::signedRoute('team-invitations.show', ['token' => $plaintextToken])
         );
@@ -92,30 +92,30 @@ class SecurityHardeningTest extends TestCase
         $response->assertViewHas('accountExists', null);
     }
 
-    public function test_d8_security_headers_generates_csp_nonce(): void
+    public function test_security_headers_generates_csp_nonce(): void
     {
-        // D-8 FIX: the SecurityHeaders middleware should generate a per-request nonce
+        // the SecurityHeaders middleware should generate a per-request nonce
         $response = $this->get('/');
 
         $nonce = request()->attributes->get('csp_nonce');
         $this->assertNotEmpty($nonce,
-            'D-8: SecurityHeaders middleware should set csp_nonce in request attributes.');
+            'SecurityHeaders middleware should set csp_nonce in request attributes.');
 
-        $this->assertNotEquals('', $nonce, 'D-8: nonce should not be empty.');
+        $this->assertNotEquals('', $nonce, 'nonce should not be empty.');
     }
 
-    public function test_d8_csp_nonce_helper_returns_value(): void
+    public function test_csp_nonce_helper_returns_value(): void
     {
-        // D-8 FIX: the csp_nonce() helper should return the nonce
+        // the csp_nonce() helper should return the nonce
         $this->get('/');
 
         $this->assertNotEmpty(csp_nonce(),
-            'D-8: csp_nonce() helper should return the nonce after a request.');
+            'csp_nonce() helper should return the nonce after a request.');
     }
 
-    public function test_d10_last_super_admin_cannot_be_revoked(): void
+    public function test_last_super_admin_cannot_be_revoked(): void
     {
-        // D-10 FIX: the only super-admin cannot be revoked
+        // the only super-admin cannot be revoked
         $superAdmin = User::factory()->withMfa()->create([
             'is_super_admin' => true,
             'email_verified_at' => now(),
@@ -151,14 +151,14 @@ class SecurityHardeningTest extends TestCase
         app()->instance('request', $request);
         $redirect = $controller->toggleSuperAdmin($secondAdmin->fresh());
         $this->assertTrue($redirect->getSession()->has('error'),
-            'D-10: revoking the ONLY super-admin must be refused by the last-admin guard.');
+            'revoking the ONLY super-admin must be refused by the last-admin guard.');
 
         $secondAdmin->refresh();
         $this->assertTrue($secondAdmin->is_super_admin,
-            'D-10: The only super-admin should not be revoked.');
+            'The only super-admin should not be revoked.');
     }
 
-    public function test_d10_super_admin_can_be_revoked_when_multiple_exist(): void
+    public function test_super_admin_can_be_revoked_when_multiple_exist(): void
     {
         $admin1 = User::factory()->withMfa()->create([
             'is_super_admin' => true,
@@ -188,6 +188,6 @@ class SecurityHardeningTest extends TestCase
         $response->assertSessionHas('success');
         $admin2->refresh();
         $this->assertFalse($admin2->is_super_admin,
-            'D-10: Super-admin should be revoked when multiple exist and cooldown has passed.');
+            'Super-admin should be revoked when multiple exist and cooldown has passed.');
     }
 }

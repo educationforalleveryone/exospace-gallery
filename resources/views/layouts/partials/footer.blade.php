@@ -29,7 +29,7 @@
                 </ul>
             </div>
 
-            <!-- Explore (SEO OS Iteration 2: public content hubs) -->
+            <!-- Explore (SEO OS: public content hubs) -->
             <div>
                 <h4 class="font-semibold mb-4 text-gray-200">Explore</h4>
                 <ul class="space-y-2 text-gray-400 text-sm">

@@ -175,7 +175,7 @@
     $mc = $venue->material_config ?? [];
     $vcv = fn (string $key) => old('visual_config.'.$key, $vc[$key] ?? '');
     $mcv = fn (string $key) => old('material_config.'.$key, $mc[$key] ?? '');
-    // Iteration 6 curation (P2.3): nested placement block accessor.
+    // Curation: nested placement block accessor.
     $pl = $vc['placement'] ?? [];
     $plv = fn (string $key) => old('visual_config.placement.'.$key, $pl[$key] ?? '');
 
@@ -296,7 +296,7 @@
         </div>
     </div>
 
-    {{-- ── Curation (Iteration 6, P2.3 §6.3–§6.5) — opt-in placement power ── --}}
+    {{-- ── Curation — opt-in placement power ────────────────────────────── --}}
     <p class="text-xs uppercase tracking-wider text-gray-500 mb-2 mt-5">Curation <span class="normal-case tracking-normal text-gray-600">— optional; blank = the calm uniform default</span></p>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>

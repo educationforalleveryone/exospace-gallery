@@ -40,7 +40,7 @@ class CohortRetentionAnalytics extends Command
         $this->newLine();
         $this->info('W0 = registration week, W1 = 1 week after, etc.');
         $this->info('Values = % of cohort active during that week (login or gallery update). * = week not closed yet.');
-        $this->info('Active = last_login_at in week OR gallery updated in week (both bounded, Iteration 6).');
+        $this->info('Active = last_login_at in week OR gallery updated in week (both bounded).');
 
         Log::info('CohortRetentionAnalytics: report generated', [
             'weeks'      => $weeks,
@@ -82,7 +82,7 @@ class CohortRetentionAnalytics extends Command
             $w1 !== null
                 ? sprintf("Week-1 retention: %s%% (cohort of %s) — login or gallery activity in their first follow-up week.", $w1['pct'], $w1['label'])
                 : 'Week-1 retention: no complete W1 cell yet (needs cohorts ≥2 weeks old).',
-            'Active = last_login_at in week OR gallery updated in week (Iteration-6 truthful measurement).',
+            'Active = last_login_at in week OR gallery updated in week.',
             'Trend history: Master Control → Retention.',
         ];
 

@@ -75,7 +75,7 @@ class SweepDiagnosticsCommand extends Command
             return self::SUCCESS;
         }
 
-        // Resolve + validate the per-check cadences (Iteration 6).
+        // Resolve + validate the per-check cadences.
         $cadences = $this->resolveCadences($ids);
 
         $counts = ['healthy' => 0, 'degraded' => 0, 'failed' => 0, 'inconclusive' => 0, 'recovered' => 0, 'skipped' => 0];
@@ -150,7 +150,7 @@ class SweepDiagnosticsCommand extends Command
     private function shouldProbe(string $id, array $cadences): bool
     {
         if (! isset($cadences[$id])) {
-            return true; // no cadence → every sweep (Iteration-4 behavior)
+            return true; // no cadence → probe on every sweep
         }
 
         if ($this->hasOpenEvent($id)) {
@@ -196,7 +196,7 @@ class SweepDiagnosticsCommand extends Command
             return 'inconclusive';
         }
 
-        // Cadence bookkeeping: this check was PROBED now (Iteration 6).
+        // Cadence bookkeeping: this check was PROBED now.
         try {
             \Illuminate\Support\Facades\Cache::put(
                 'ops:sweep:last:'.$id,

@@ -35,7 +35,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
-        ->middleware('throttle:5,60') // SEC-14: 5 per hour per IP
+        ->middleware('throttle:5,60') // 5 per hour per IP
         ->name('password.store');
 });
 

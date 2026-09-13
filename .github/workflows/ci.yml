@@ -1,4 +1,4 @@
-# Exospace CI pipeline (Task H22 / audit H60)
+# Exospace CI pipeline
 #
 # Runs on every push and pull request to main. Prevents regressions by:
 #   1. Running the full test suite (composer test)
@@ -104,7 +104,7 @@ jobs:
   preflight:
     name: Preflight Check (exospace:preflight)
     runs-on: ubuntu-latest
-    # P3-20 FIX: Run exospace:preflight in CI on every push/PR. This catches
+    # Run exospace:preflight in CI on every push/PR. This catches
     # configuration regressions BEFORE they hit production — missing env vars,
     # missing PHP extensions, broken cache/queue/storage/mail config, etc.
     #
@@ -173,7 +173,7 @@ jobs:
           APP_DEBUG: true
 
   php-tests-mysql:
-    # TD-32 FIX: Run the test suite against MySQL (not just SQLite) to catch
+    # Run the test suite against MySQL (not just SQLite) to catch
     # MySQL-specific issues that SQLite hides:
     #   - Case-sensitive string comparisons (SQLite is case-insensitive by
     #     default; MySQL depends on collation)
@@ -241,7 +241,7 @@ jobs:
           DB_PASSWORD: root
 
   dusk:
-    # TD-31 FIX: Browser tests via Laravel Dusk. Runs a headless Chrome
+    # Browser tests via Laravel Dusk. Runs a headless Chrome
     # instance to verify the public-facing pages render without JS errors
     # and contain expected content.
     name: Browser Tests (Dusk)

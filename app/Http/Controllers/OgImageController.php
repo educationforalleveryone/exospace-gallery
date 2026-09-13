@@ -39,7 +39,7 @@ class OgImageController extends Controller
             abort(404);
         }
 
-        // (Task H50) — per-artwork OG image for deep-linked URLs
+        // Per-artwork OG image for deep-linked URLs
         $artworkId = $request->integer('artwork');
         $artwork = null;
         if ($artworkId) {

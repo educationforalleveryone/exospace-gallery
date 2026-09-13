@@ -29,7 +29,7 @@ return new class extends Migration
         ]);
         DB::table('users')->where('plan', 'studio')->update([
             'max_galleries'  => 999,
-            'max_images'     => 500,  // ← was 100, fixed in task H04
+            'max_images'     => 500,
             'plan_started_at'=> DB::raw('COALESCE(plan_started_at, CURRENT_TIMESTAMP)'),
         ]);
     }

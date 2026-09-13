@@ -172,7 +172,7 @@ class ScheduledBillingExportTest extends TestCase
         $this->assertSame('missing', app(JobHeartbeatService::class)->status('exospace:send-billing-export'));
     }
 
-    // ── ITERATION 8: partial delivery alerting (workstream D) ──────────
+    // ── Partial delivery alerting ──────────────────────────────────────
 
     public function test_partial_delivery_failure_alerts_warning_and_stamps_heartbeat(): void
     {

@@ -15,7 +15,7 @@ class MigrateInvoicesToPrivate extends Command
                             {--force : Actually move files (without this flag the command is a read-only dry run)}
                             {--batch=100 : Number of invoices per batch}';
 
-    protected $description = 'Move invoice files from the public disk to the private disk (Iteration-15 M-1). Copy → verify → delete, idempotent, dry-run by default.';
+    protected $description = 'Move invoice files from the public disk to the private disk. Copy → verify → delete, idempotent, dry-run by default.';
 
     public function handle(): int
     {

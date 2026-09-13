@@ -379,13 +379,11 @@
                 </div>
                 <form method="GET">
                     <input type="hidden" name="tab" value="acquisition">
-                    {{-- ITERATION-3: inline onchange → canonical data-change helper --}}
+                    {{-- data-change helper instead of inline onchange --}}
                     <select aria-label="Filter by time window" name="days" data-change="submitForm" class="input-base">
-                        {{-- ITERATION-1 FIX (fatal parse error): the loop variable --}}
-                        {{-- was written as \$d (backslash-dollar). Blade passes --}}
-                        {{-- the raw token through to PHP, producing `echo \$d` --}}
-                        {{-- — a parse error that 500'd the entire super-admin --}}
-                        {{-- SEO console. --}}
+                        {{-- The loop variable must be written as $d inside --}}
+                        {{-- Blade directives — an escaped \$d token passes --}}
+                        {{-- through to PHP verbatim and becomes a parse error. --}}
                         @foreach([30, 90, 365] as $d)
                             <option value="{{ $d }}" {{ $acquisition['window_days'] === $d ? 'selected' : '' }}>{{ $d }} days</option>
                         @endforeach
@@ -421,7 +419,7 @@
                     </div>
                 @endforeach
                 <div class="p-4 flex items-center justify-between bg-gray-900/40">
-                    <span class="text-xs text-gray-500">Total tracked ({{ number_format($acquisition['total_tracked_signups']) }} signups carry attribution; pre-Iteration-7 signups and API signups show as untracked)</span>
+                    <span class="text-xs text-gray-500">Total tracked ({{ number_format($acquisition['total_tracked_signups']) }} signups carry attribution; signups from before attribution capture existed, and API signups, show as untracked)</span>
                 </div>
             </div>
 

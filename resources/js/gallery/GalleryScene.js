@@ -90,7 +90,7 @@ export class GalleryScene {
         this._venueVisualConfig  = null; // raw visual_config (structure_pass etc.)
         this._venuePlacementMode = null; // 'float' | null (null = legacy easel/wall)
         this._venueEnvIntensity  = null; // venue-level scene.environment strength
-        this._venueHemisphereIntensity = null; // venue-declared hemisphere fill (museum legibility audit)
+        this._venueHemisphereIntensity = null; // venue-declared hemisphere fill
         this._circularFloor      = null; // floor handle for tier-aware treatments
         this._reactive = null;
 
@@ -186,7 +186,7 @@ export class GalleryScene {
     clearObstacles()                                { return clearObstacles.call(this); }
     updateMovement()                                { return updateMovement.call(this); }
     updateMovementMobile()                          { return updateMovementMobile.call(this); }
-    // Cyber Gallery iteration: movement-reactive artwork media
+    // Cyber Gallery: movement-reactive artwork media
     initArtworkReactive()                           { return initArtworkReactive.call(this); }
     patchReactiveMaterial(mat, id)                  { return patchReactiveMaterial.call(this, mat, id); }
     makeReactiveBezelMaterial()                     { return makeReactiveBezelMaterial.call(this); }
@@ -196,7 +196,7 @@ export class GalleryScene {
     focusNearestArtwork()                           { return focusNearestArtwork.call(this); }
     checkArtworkFocus()                             { return checkArtworkFocus.call(this); }
     setupMobileControls()                           { return setupMobileControls.call(this); }
-    // PERF-F31: delegate to PerformanceControls (owns the FPS sampler).
+    // Delegate to PerformanceControls (owns the FPS sampler).
     startPerfSampling(enterMs)                      { return this._perfControls?.startPerfSampling?.(enterMs); }
     loadEnvironmentMap()                            { return loadEnvironmentMap.call(this); }
     playAudio()                                     { return playAudio.call(this); }
@@ -244,7 +244,7 @@ export class GalleryScene {
         try {
             if (this.focusTween) this.focusTween.kill();
             gsap.killTweensOf(this.camera?.position);
-            // PERF-D23: the focused-frame highlight tween
+            // The focused-frame highlight tween
             if (this._highlightMat) gsap.killTweensOf(this._highlightMat);
         } catch (e) { /* camera may already be gone */ }
 
@@ -302,7 +302,7 @@ export class GalleryScene {
         this.scene.clear();
         this.scene = null;
 
-        // Cyber Gallery iteration: drop the reactive registry + bezel material
+        // Cyber Gallery: drop the reactive registry + bezel material
         if (this._reactive) {
             this.disposeArtworkReactive();
         }

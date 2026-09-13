@@ -161,7 +161,7 @@ class GalleryViewController extends Controller
             $gallerySeo = $gallerySeo->with(['jsonLd' => $graphs]);
         }
 
-        // ── SEO OS (Iteration 3): related exhibitions (internal linking).
+        // ── SEO OS: related exhibitions (internal linking).
         $relatedGalleries = (!$isEmbed && $gallery->images->isNotEmpty())
             ? $this->linking->relatedGalleries($gallery)
             : collect();

@@ -250,7 +250,7 @@ try {
             added.some((o) => o.geometry?.type === 'CircleGeometry') &&
             added.some((o) => o.geometry?.type === 'RingGeometry') &&
             added.some((o) => o.material?.blending === THREE.AdditiveBlending));
-        ok('exactly one key SpotLight (PERF-B18 budget: rainbows removed)',
+        ok('exactly one key SpotLight (lighting budget)',
             added.filter((o) => o.isSpotLight).length === 1 &&
             added.filter((o) => o.isPointLight).length === 0);
 

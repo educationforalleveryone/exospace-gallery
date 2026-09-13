@@ -904,7 +904,7 @@ class TeamRoleAuthorizationTest extends TestCase
                 ->where('target_type', Team::class)
                 ->where('target_id', $team->id)
                 ->exists(),
-            'A removal that never happened must NOT be audit-logged (T-1)'
+            'A removal that never happened must NOT be audit-logged'
         );
     }
 
@@ -930,7 +930,7 @@ class TeamRoleAuthorizationTest extends TestCase
                 ->where('target_type', Team::class)
                 ->where('target_id', $team->id)
                 ->count(),
-            'Exactly one audit entry for one real removal (T-1)'
+            'Exactly one audit entry for one real removal'
         );
     }
 
@@ -953,7 +953,7 @@ class TeamRoleAuthorizationTest extends TestCase
                 ->where('target_type', Team::class)
                 ->where('target_id', $team->id)
                 ->exists(),
-            'A role change that never happened must NOT be audit-logged (T-2)'
+            'A role change that never happened must NOT be audit-logged'
         );
     }
 
@@ -982,7 +982,7 @@ class TeamRoleAuthorizationTest extends TestCase
                 ->where('target_type', Team::class)
                 ->where('target_id', $teamA->id)
                 ->exists(),
-            'Cross-team no-op must NOT be audit-logged (T-2)'
+            'Cross-team no-op must NOT be audit-logged'
         );
     }
 }

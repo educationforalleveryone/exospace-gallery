@@ -19,7 +19,7 @@ class PublishWorkflowTest extends TestCase
     private function storePayload(array $overrides = []): array
     {
         return array_merge([
-            'title'           => 'Iteration Two Test Gallery',
+            'title'           => 'Spring Showcase Test Gallery',
             'description'     => 'A draft-first gallery.',
             'wall_texture'    => 'white',
             'frame_style'     => 'modern',
@@ -37,7 +37,7 @@ class PublishWorkflowTest extends TestCase
 
         $gallery = Gallery::where('user_id', $user->id)->firstOrFail();
 
-        // ITERATION-2: draft-by-default + land on the upload/publish page.
+        // Draft-by-default + land on the upload/publish page.
         $this->assertFalse((bool) $gallery->is_active, 'New galleries must start as drafts.');
         $response->assertRedirect(route('admin.galleries.edit', $gallery));
         $response->assertSessionHas('status');
@@ -352,7 +352,7 @@ class PublishWorkflowTest extends TestCase
             ->assertDontSee('Upgrade to Pro for unlimited galleries');
     }
 
-    // ── ITERATION-3: published_at (first-publish semantics) ─────────────
+    // ── published_at (first-publish semantics) ──────────────────────────
 
     public function test_publish_stamps_published_at_once_and_never_overwrites(): void
     {

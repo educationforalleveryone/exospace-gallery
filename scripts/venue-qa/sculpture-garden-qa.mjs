@@ -322,8 +322,8 @@ section('D. JS/PHP hygiene');
     ok('spawn comes from the plan, never the centre', /camera\.position\.set\(spawn\.x, CONFIG\.camera\.height, spawn\.z\)/.test(roomSrc));
 }
 
-// ── E. Iteration-5 contracts (asset completeness + artwork rear presentation)
-section('E. Iteration-5: asset completeness + artwork rear presentation');
+// ── E. Asset completeness + artwork rear presentation
+section('E. Asset completeness + artwork rear presentation');
 {
     // E1. Every manifest role must resolve to a file that SHIPS. The v4
     // manifest declared `bench` without a file — correct graceful-skip

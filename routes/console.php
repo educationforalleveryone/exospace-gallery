@@ -68,7 +68,7 @@ Schedule::command('exospace:send-dunning')
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// K-5 FIX (Iter-005): Prune failed jobs older than 7 days.
+// Prune failed jobs older than 7 days.
 Schedule::command('queue:prune-failed --hours=168')
     ->dailyAt('02:30')
     ->onOneServer();
@@ -93,7 +93,7 @@ Schedule::command('exospace:cohort-retention --weeks=8')
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// K-9 FIX (Iter-005): Onboarding funnel analytics.
+// Onboarding funnel analytics.
 Schedule::command('exospace:onboarding-analytics --days=30')
     ->weeklyOn(1, '06:30')
     ->withoutOverlapping(60)
@@ -104,13 +104,13 @@ Schedule::command('exospace:send-billing-export')
     ->withoutOverlapping(60)
     ->onOneServer();
 
-// C-1 FIX (Iter-003): Partition maintenance for transactions table.
+// Partition maintenance for transactions table.
 Schedule::command('exospace:prune-transactions')
     ->monthlyOn(1, '05:00')
     ->withoutOverlapping(120)
     ->onOneServer();
 
-// G-5 FIX (Iter-003): Anonymize PII on old transactions + invoices.
+// Anonymize PII on old transactions + invoices.
 Schedule::command('exospace:anonymize-pii')
     ->monthlyOn(1, '05:30')
     ->withoutOverlapping(120)

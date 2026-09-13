@@ -30,17 +30,17 @@ class MigrateFreshTest extends TestCase
             'plan_expires_at',
             'max_galleries',
             'max_images',
-            // Subscription (M-1)
+            // Subscription
             'subscription_id',
             'subscription_status',
             'subscription_ends_at',
             'subscription_cancelled_at',
-            // Dunning (M-9)
+            // Dunning
             'dunning_step',
             'dunning_last_sent_at',
-            // Trial (M-7)
+            // Trial
             'trial_ends_at',
-            // MFA (P3-5)
+            // MFA
             'google2fa_secret',
             'mfa_enabled_at',
             'mfa_backup_codes',
@@ -57,7 +57,7 @@ class MigrateFreshTest extends TestCase
             'is_super_admin',
             'banned_at',
             'ban_reason',
-            // C-2 FIX (Iter-001): has_password
+            // has_password
             'has_password',
             'password_set_at',
             // Timestamps
@@ -70,7 +70,7 @@ class MigrateFreshTest extends TestCase
     {
         $this->assertTrue(Schema::hasColumn('galleries', 'deleted_at'),
             'galleries table must have deleted_at column for the SoftDeletes trait on the Gallery model. '.
-            'The consolidated galleries migration must include $table->softDeletes(). See audit G-4.');
+            'The consolidated galleries migration must include $table->softDeletes().');
     }
 
     public function test_gallery_images_table_has_soft_deletes(): void
@@ -145,7 +145,7 @@ class MigrateFreshTest extends TestCase
         foreach ($requiredTables as $table) {
             $this->assertTrue(Schema::hasTable($table),
                 "Required table '{$table}' is missing after migrate:fresh. ".
-                'This likely means a consolidated migration is incomplete (see audit G-3/G-4).');
+                'This likely means a consolidated migration is incomplete.');
         }
     }
 
@@ -175,7 +175,7 @@ class MigrateFreshTest extends TestCase
         if (! empty($missing)) {
             $this->fail(
                 "Table '{$table}' is missing columns: " . implode(', ', $missing) . "\n" .
-                'This likely means a consolidated migration is incomplete (see audit G-3).' . "\n" .
+                'This likely means a consolidated migration is incomplete.' . "\n" .
                 'Found columns: ' . implode(', ', Schema::getColumnListing($table))
             );
         }

@@ -34,19 +34,19 @@ class InvoicePdfAndSessionFixationTest extends TestCase
         $this->assertNotNull($invoice);
         $this->assertNotNull($invoice->pdf_path);
 
-        // 2CO-6 FIX: the path should end in .pdf (not .html) when dompdf is installed
+        // the path should end in .pdf (not .html) when dompdf is installed
         if (class_exists(\Dompdf\Dompdf::class)) {
             $this->assertStringEndsWith('.pdf', $invoice->pdf_path,
-                '2CO-6: Invoice pdf_path must end in .pdf when dompdf is installed.');
+                'Invoice pdf_path must end in .pdf when dompdf is installed.');
 
             // Verify the file exists and is a valid PDF (starts with %PDF)
             $content = Storage::disk('local')->get($invoice->pdf_path);
             $this->assertStringStartsWith('%PDF', $content,
-                '2CO-6: Invoice file must be a valid PDF (starts with %PDF).');
+                'Invoice file must be a valid PDF (starts with %PDF).');
         } else {
             // dompdf not installed — falls back to .html (with a warning log)
             $this->assertStringEndsWith('.html', $invoice->pdf_path,
-                '2CO-6: Invoice pdf_path should be .html when dompdf is not installed (fallback).');
+                'Invoice pdf_path should be .html when dompdf is not installed (fallback).');
         }
     }
 
@@ -104,12 +104,12 @@ class InvoicePdfAndSessionFixationTest extends TestCase
     public function test_2co6_regenerate_invoices_command_exists(): void
     {
         $this->assertArrayHasKey('exospace:regenerate-invoices', \Illuminate\Support\Facades\Artisan::all(),
-            '2CO-6: exospace:regenerate-invoices command must be registered.');
+            'exospace:regenerate-invoices command must be registered.');
     }
 
-    public function test_cr4_session_regenerated_on_normal_registration(): void
+    public function test_session_regenerated_on_normal_registration(): void
     {
-        // CR-4 FIX (deferred from Iter-001): session ID must change on registration
+        // Session ID must change on registration
         $this->startSession();
         $sessionBefore = Session::getId();
 
@@ -123,10 +123,10 @@ class InvoicePdfAndSessionFixationTest extends TestCase
         $sessionAfter = Session::getId();
 
         $this->assertNotEquals($sessionBefore, $sessionAfter,
-            'CR-4 (deferred): Session ID must be regenerated on normal registration to prevent session fixation.');
+            'Session ID must be regenerated on normal registration to prevent session fixation.');
     }
 
-    public function test_cr4_session_regenerated_on_invitation_acceptance(): void
+    public function test_session_regenerated_on_invitation_acceptance(): void
     {
         $team = \App\Models\Team::factory()->create();
         $invitation = \App\Models\TeamInvitation::factory()->create([
@@ -149,6 +149,6 @@ class InvoicePdfAndSessionFixationTest extends TestCase
         $sessionAfter = Session::getId();
 
         $this->assertNotEquals($sessionBefore, $sessionAfter,
-            'CR-4 (deferred): Session ID must be regenerated on invitation acceptance to prevent session fixation.');
+            'Session ID must be regenerated on invitation acceptance to prevent session fixation.');
     }
 }

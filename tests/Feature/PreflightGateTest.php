@@ -12,7 +12,7 @@ class PreflightGateTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_cr1_preflight_command_exists_and_returns_zero_in_testing(): void
+    public function test_preflight_command_exists_and_returns_zero_in_testing(): void
     {
         $this->artisan('migrate', ['--force' => true])->assertSuccessful();
         if (! is_link(public_path('storage'))) {
@@ -32,13 +32,13 @@ class PreflightGateTest extends TestCase
         $exitCode = Artisan::call('exospace:preflight');
 
         $this->assertEquals(0, $exitCode,
-            'CR-1: PreflightCheck must return exit 0 in testing env (baseline). '.
+            'PreflightCheck must return exit 0 in testing env (baseline). '.
             'If this fails, the bash hard-fail in docker-start.sh will block all deploys.');
     }
 
-    public function test_cr1_preflight_command_can_be_invoked(): void
+    public function test_preflight_command_can_be_invoked(): void
     {
         $this->assertArrayHasKey('exospace:preflight', Artisan::all(),
-            'CR-1: exospace:preflight command must be registered.');
+            'exospace:preflight command must be registered.');
     }
 }

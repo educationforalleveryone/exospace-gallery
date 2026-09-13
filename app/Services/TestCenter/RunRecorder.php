@@ -66,7 +66,7 @@ class RunRecorder
                 'failed'        => $totals['failures']   ?? 0,
                 'errored'       => $totals['errors']     ?? 0,
                 'skipped'       => $totals['skipped']    ?? 0,
-                'timed_out'     => 0,                     // enriched by intelligence pass in iteration 3
+                'timed_out'     => 0,                     // enriched by the intelligence pass
 
                 'assertions'    => $totals['assertions'] ?? 0,
                 'db_driver'     => $metadata['db_driver'] ?? config('database.default'),

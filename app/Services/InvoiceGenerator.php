@@ -72,7 +72,7 @@ class InvoiceGenerator
                 'issued_at'            => now(),
             ]);
 
-            // Generate the PDF (2CO-6 FIX: real PDF via dompdf)
+            // Generate the real PDF via dompdf
             $pdfPath = $this->generatePdf($invoice);
             $invoice->forceFill(['pdf_path' => $pdfPath])->save();
 
@@ -131,7 +131,7 @@ class InvoiceGenerator
         $filename = "{$invoice->invoice_number}.pdf";
         $relativePath = "{$directory}/{$filename}";
 
-        // Ensure the directory exists (private disk — see M-1 above)
+        // Ensure the directory exists on the private disk
         Storage::disk('local')->makeDirectory($directory);
 
         // Render the Blade view to HTML

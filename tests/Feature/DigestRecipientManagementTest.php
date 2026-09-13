@@ -230,14 +230,14 @@ class DigestRecipientManagementTest extends TestCase
             ->expectsOutputToContain('No billing-export recipient configured')
             ->assertExitCode(0);
 
-        // Heartbeat stamp survives the no-op (Iteration-6 convention).
+        // Heartbeat stamp survives the no-op.
         $this->assertSame(
             'fresh',
             app(\App\Services\JobHeartbeatService::class)->status('exospace:send-billing-export'),
         );
     }
 
-    // ── ITERATION 8: env case-normalization (audit-fix A-5) ───────────
+    // ── Env case-normalization ───────────────────────────────────────
 
     public function test_env_recipients_are_lowercased_for_consistent_display(): void
     {
@@ -265,7 +265,7 @@ class DigestRecipientManagementTest extends TestCase
         Mail::assertQueued(BillingExportEmail::class, 1);
     }
 
-    // ── ITERATION 8: TOCTOU race on dup check (audit-fix B-2) ─────────
+    // ── TOCTOU race on dup check ──────────────────────────────────────
 
     public function test_concurrent_dup_add_returns_friendly_error_not_500(): void
     {

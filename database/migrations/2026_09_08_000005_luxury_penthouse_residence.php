@@ -107,7 +107,7 @@ return new class extends Migration
             }
         }
 
-        // post_fx (P3) — union-add when absent, exactly like the s3/s6 rule.
+        // post_fx — union-add when absent, exactly like the s3/s6 rule.
         if (!is_array($visual['post_fx'] ?? null)) {
             $visual['post_fx'] = [];
         }
@@ -245,11 +245,11 @@ return new class extends Migration
     private function changedVisualKeys(): array
     {
         return [
-            // P2 grand volume + warm ceiling
+            // Grand volume + warm ceiling
             'wall_height'           => ['from' => 4.5, 'to' => 5.2],
             'ceiling_height'        => ['from' => 4.5, 'to' => 5.2],
             'ceiling_color'         => ['from' => '0x080808', 'to' => '0x14110d'],
-            // P4/P5 city-dusk atmosphere + fog depth layers
+            // City-dusk atmosphere + fog depth layers
             'background_color'      => ['from' => '0x08090d', 'to' => '0x0a0b11'],
             'fog_color'             => ['from' => '0x08090d', 'to' => '0x0a0b10'],
             'fog_near'              => ['from' => 8, 'to' => 16],

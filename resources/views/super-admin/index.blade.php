@@ -73,7 +73,7 @@
                         <span class="text-2xl">{{ $bc['icon'] }}</span>
                         <div>
                             <h3 class="text-sm font-semibold {{ $bc['text'] }} uppercase tracking-wider">Backup health — {{ $bc['label'] }}</h3>
-                            <p class="text-xs text-gray-500 mt-0.5">Heartbeats stamped by the <code>exospace:backup</code> wrapper (Iteration 7). Per-type status below; Slack alerts fire on failure (critical for db/files, warning for clean).</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Heartbeats stamped by the <code>exospace:backup</code> wrapper. Per-type status below; Slack alerts fire on failure (critical for db/files, warning for clean).</p>
                         </div>
                     </div>
                 </div>
@@ -479,7 +479,7 @@
                                     </button>
                                 @endif
 
-                                {{-- M-13: Impersonate (Login As User) --}}
+                                {{-- Impersonate (Login As User) --}}
                                 @featureFlag('admin_impersonation')
                                 @if(! $user->is_super_admin)
                                     <form method="POST" action="{{ route('super.impersonate', $user) }}">
@@ -624,7 +624,7 @@
     </script>
 
 
-    {{-- (Task H32) Type-to-confirm modals for destructive super-admin actions --}}
+    {{-- Type-to-confirm modals for destructive super-admin actions --}}
     <div id="deleteConfirmModal" x-data="{ open: false, typed: '', userId: 0, userName: '' }"
          x-cloak
          x-effect="document.body.classList.toggle('overflow-y-hidden', open)"

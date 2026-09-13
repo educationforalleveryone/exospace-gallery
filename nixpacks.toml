@@ -17,7 +17,7 @@ cmds = [
     # @vite('admin-vendor.js') — Blade compiles directives inside JS comments).
     "node scripts/verify-vite-manifest.js",
     "composer install --no-dev --optimize-autoloader",
-    # TD-4: Route/view caches are safe to build here — they don't depend on
+    # Route/view caches are safe to build here — they don't depend on
     # runtime secrets. Config cache must NOT be built here: DB_HOST/DB_PASSWORD/
     # etc. are runtime-only vars in Coolify and aren't present during the
     # Docker build, so caching config at build time bakes in empty values

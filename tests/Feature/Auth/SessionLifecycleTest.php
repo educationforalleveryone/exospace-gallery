@@ -119,7 +119,7 @@ class SessionLifecycleTest extends TestCase
 
         $cookie = $login->getCookie(config('session.cookie'), decrypt: false);
         $this->assertNotNull($cookie);
-        $this->assertTrue($cookie->isSecure(), 'SEC-12: the session cookie must be Secure by default.');
+        $this->assertTrue($cookie->isSecure(), 'the session cookie must be Secure by default.');
         $this->assertTrue($cookie->isHttpOnly(), 'The session cookie must be HttpOnly.');
         $this->assertSame('lax', $cookie->getSameSite(), 'The session cookie must be SameSite=Lax.');
 
@@ -364,7 +364,7 @@ class SessionLifecycleTest extends TestCase
         $this->assertNotSame(
             $idBefore,
             session()->getId(),
-            'An identity transition must rotate the session ID (parity with login/registration/OAuth CR-4).'
+            'An identity transition must rotate the session ID (parity with login/registration/OAuth).'
         );
     }
 

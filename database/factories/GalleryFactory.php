@@ -25,7 +25,7 @@ class GalleryFactory extends Factory
             'floor_material'   => fake()->randomElement(['wood', 'marble', 'concrete']),
             'room_layout'      => fake()->randomElement(['rectangular', 'square', 'l-shaped']),
             'is_active'        => true,
-            'is_featured'      => false, // TD-17: featured exhibitions (Round 4)
+            'is_featured'      => false,
             'view_count'       => fake()->numberBetween(0, 500),
             'opens_at'         => null,
             'closes_at'        => null,
@@ -41,7 +41,7 @@ class GalleryFactory extends Factory
 
     public function featured(): static
     {
-        // TD-17: featured state for the discover page's "featured" sort
+        // Featured state for the discover page's "featured" sort
         return $this->state(fn (array $attributes) => ['is_featured' => true]);
     }
 
@@ -55,7 +55,7 @@ class GalleryFactory extends Factory
 
     public function forVenue(\App\Models\VenueTemplate $venue): static
     {
-        // TD-17: venue state — sets the venue_template_id FK.
+        // Venue state — sets the venue_template_id FK.
         return $this->state(fn (array $attributes) => [
             'venue_template_id' => $venue->id,
         ]);

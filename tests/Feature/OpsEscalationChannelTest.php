@@ -83,7 +83,7 @@ class OpsEscalationChannelTest extends TestCase
         $this->assertSame($primary->data(), $escalated->data(), 'One alert, two channels, the same words — no variant payload to maintain.');
     }
 
-    public function test_an_unset_escalation_url_is_the_pre_iteration9_behavior(): void
+    public function test_an_unset_escalation_url_uses_digest_only_alerting(): void
     {
         $this->alerts()->alert('Meta alarm', 'No escape hatch configured', 'warning', 'meta.alarm', true);
 

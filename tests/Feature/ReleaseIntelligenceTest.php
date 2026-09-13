@@ -172,7 +172,7 @@ class ReleaseIntelligenceTest extends TestCase
         $this->assertGreaterThan(0, $json['totals']['failures']);
     }
 
-    /* ── Dashboard smoke execution (Iteration 3 close-out) ─────────────── */
+    /* ── Dashboard smoke execution ─────────────────────────────────────── */
 
     public function test_dashboard_start_of_smoke_executes_inline_and_records_run(): void
     {

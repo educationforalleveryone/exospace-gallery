@@ -20,7 +20,7 @@ class SeoPagesTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         config(['app.url' => 'https://exospace.gallery']);
-        // ITERATION-1 FIX: canonicals are built with url() — force the root.
+        // Canonicals are built with url() — force the root.
         \Illuminate\Support\Facades\URL::forceRootUrl('https://exospace.gallery');
         \Illuminate\Support\Facades\URL::forceScheme('https');
         \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 1);

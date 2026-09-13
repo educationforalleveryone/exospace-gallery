@@ -29,7 +29,7 @@ class FeedbackController extends Controller
                 'status'     => 'new',
             ]);
 
-            // M-12: Create in-app notification for super-admins
+            // Create in-app notification for super-admins
             if ($user) {
                 \App\Models\AdminAuditLog::record('feedback_received', $user, [
                     'category' => $validated['category'],

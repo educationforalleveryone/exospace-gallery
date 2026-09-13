@@ -94,7 +94,7 @@ class PreflightCheck extends Command
         $trustedProxies = env('TRUSTED_PROXIES', '*');
         if ($trustedProxies === '*' || !empty($trustedProxies)) {
             if ($trustedProxies === '*') {
-                $this->advisory("TRUSTED_PROXIES=* — works but is overly permissive. For production, restrict to Coolify's Traefik subnet (task C17). Find it via: docker network inspect coolify-network | grep Subnet");
+                $this->advisory("TRUSTED_PROXIES=* — works but is overly permissive. For production, restrict to Coolify's Traefik subnet. Find it via: docker network inspect coolify-network | grep Subnet");
             } else {
                 $this->ok("TRUSTED_PROXIES is set ({$trustedProxies}) — Coolify reverse proxy trusted.");
             }

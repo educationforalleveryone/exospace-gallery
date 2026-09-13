@@ -19,7 +19,7 @@ class AnalyticsEvent extends Model
 
     protected $casts = [
         'created_at' => 'datetime',
-        // PERF-F31: perf telemetry beacon payload (JSON column, nullable)
+        // Perf telemetry beacon payload (JSON column, nullable)
         'perf_data'  => 'array',
     ];
 

@@ -49,7 +49,7 @@ class SeoAudit extends Command
 
         $this->maybePostToSlack($summary, $issues);
 
-        // ITERATION 6: cadence proof for the per-job heartbeat monitor.
+        // Cadence proof for the per-job heartbeat monitor.
         app(\App\Services\JobHeartbeatService::class)->stamp('exospace:seo-audit');
 
         return self::SUCCESS;

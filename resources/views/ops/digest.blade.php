@@ -225,7 +225,7 @@
 
 <div class="mt-4 text-xs text-slate-600 space-y-1">
     <p>The silence contract: alerts fire on problems, the digest fires on TIME — an all-quiet morning still gets its message, so a silent morning is itself a signal.</p>
-    <p>The digest watchdog (daily 08:45, Iteration 8) enforces that contract mechanically: a missing or stale “last sent” stamp while the digest is enabled raises one warning alert + one INFRASTRUCTURE event that auto-resolves the next healthy morning (<span class="font-mono">OPS_DIGEST_WATCHDOG_ENABLED</span>).</p>
+    <p>The digest watchdog (daily 08:45) enforces that contract mechanically: a missing or stale “last sent” stamp while the digest is enabled raises one warning alert + one INFRASTRUCTURE event that auto-resolves the next healthy morning (<span class="font-mono">OPS_DIGEST_WATCHDOG_ENABLED</span>).</p>
     <p>Manual sends are super-admin only, throttled and audited (<span class="font-mono">ops.digest.sent</span> / <span class="font-mono">ops.weekly_review.sent</span>). They deliberately bypass the daily dedup: a test send that silently disappeared would look exactly like a broken webhook.</p>
     <p>The digest and the weekly review record no ops_events rows — they report on events, they must not become one.</p>
 </div>

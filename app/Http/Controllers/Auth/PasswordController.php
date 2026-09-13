@@ -27,7 +27,7 @@ class PasswordController extends Controller
 
         $user = $request->user();
 
-        // D-4 FIX: Use shared helper (mirrors NewPasswordController::store)
+        // Shared helper (mirrors NewPasswordController::store)
         if ($user->isPasswordInHistory($validated['password'])) {
             throw ValidationException::withMessages([
                 'password' => 'You cannot reuse one of your last 5 passwords. Please choose a different password.',
@@ -36,7 +36,7 @@ class PasswordController extends Controller
                 ->redirectTo(back()->getTargetUrl());
         }
 
-        // D-4 FIX: Use shared helper to store old password in history + prune
+        // Shared helper stores the old password in history + prunes
         $user->storePasswordInHistory();
 
         $user->forceFill([
@@ -48,7 +48,7 @@ class PasswordController extends Controller
 
         $request->session()->regenerate();
 
-        // ITERATION-8: compromise signal to the account's inbox (queued).
+        // Compromise signal to the account's inbox (queued).
         Mail::to($user->email)->send(new PasswordChangedNoticeMail($user));
 
         AdminAuditLog::record('password_changed', $user);

@@ -2,7 +2,7 @@
 
 @section('content')
 
-<!-- H-2 FIX (Iter-012): Discover page now extends layouts.public for proper SEO meta, public nav, footer, cookie banner, skip-link. Was previously using layouts.guest (auth sidebar nav). -->
+<!-- Extends layouts.public for proper SEO meta, public nav, footer, cookie banner, skip-link. -->
     <div class="bg-gradient-to-br from-gray-900 via-brand-950/30 to-gray-900 border-b border-gray-800">
             <div class="max-w-page mx-auto px-4 py-16">
                 <div class="text-center">

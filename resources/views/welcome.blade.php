@@ -127,7 +127,7 @@ $testimonials = [
     </div>
 </section>
 
-{{-- Stats Counter Section (ITERATION-3 NEW) --}}
+{{-- Stats Counter Section --}}
 <section class="py-12 px-4 bg-ink-900 border-y border-gray-800">
     <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
         @foreach($stats as $stat)
@@ -144,7 +144,7 @@ $testimonials = [
     </div>
 </section>
 
-{{-- Featured Galleries Section (ITERATION-3 NEW) --}}
+{{-- Featured Galleries Section --}}
 <section class="py-20 px-4 bg-ink-950">
     <div class="max-w-page mx-auto">
         <div class="text-center mb-12">
@@ -229,7 +229,7 @@ $testimonials = [
     </div>
 </section>
 
-{{-- Testimonials Section (ITERATION-3 NEW) --}}
+{{-- Testimonials Section --}}
 <section class="py-20 px-4 bg-ink-950">
     <div class="max-w-page mx-auto">
         <div class="text-center mb-12">
@@ -261,7 +261,7 @@ $testimonials = [
     </div>
 </section>
 
-{{-- Pricing Preview Section (ITERATION-3 NEW) --}}
+{{-- Pricing Preview Section --}}
 <section class="py-20 px-4 bg-ink-900">
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-12">
@@ -321,7 +321,7 @@ $testimonials = [
     </div>
 </section>
 
-{{-- Trust Badges Row (ITERATION-3 NEW) --}}
+{{-- Trust Badges Row --}}
 <section class="py-8 px-4 bg-ink-950 border-t border-gray-800">
     <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-gray-500">
         <span class="inline-flex items-center gap-1.5">

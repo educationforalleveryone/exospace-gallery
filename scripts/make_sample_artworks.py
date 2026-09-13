@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Exospace Iteration 1 "The Rehearsal" — sample artwork generator.
+Exospace "The Rehearsal" — sample artwork generator.
 
 Generates the 12 demonstration artworks referenced by
 config/sample_exhibitions.php into
 exospace_analysis/public/assets/sample/artworks/.
 
 Design brief: abstract, muted, gallery-appropriate compositions that read
-as "elegant miniature" (roadmap §5.5) — soft gradients, layered geometry,
+as "elegant miniature" — soft gradients, layered geometry,
 subtle grain, gentle vignette. No text, no faces, no photographic claims.
 
 Deterministic: every artwork uses a fixed seed, so re-running regenerates
-byte-identical compositions (same PRNG philosophy as the Iteration 0 viewer
-work).
+byte-identical compositions (same PRNG philosophy as the original
+viewer work).
 """
 
 import math

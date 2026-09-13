@@ -44,7 +44,7 @@ class ArtistController extends Controller
             'name'      => ['required', 'string', 'max:100'],
             'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/'],
             'bio'       => ['nullable', 'string', 'max:2000'],
-            // SEO OS (Iteration 6): curator-facing SEO overrides.
+            // SEO OS: curator-facing SEO overrides.
             'seo_title'       => ['nullable', 'string', 'max:200'],
             'seo_description' => ['nullable', 'string', 'max:300'],
             'website'   => ['nullable', 'string', 'max:500', 'url'],
@@ -121,7 +121,7 @@ class ArtistController extends Controller
             'name'      => ['required', 'string', 'max:100'],
             'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/'],
             'bio'       => ['nullable', 'string', 'max:2000'],
-            // SEO OS (Iteration 6): curator-facing SEO overrides.
+            // SEO OS: curator-facing SEO overrides.
             'seo_title'       => ['nullable', 'string', 'max:200'],
             'seo_description' => ['nullable', 'string', 'max:300'],
             'website'   => ['nullable', 'string', 'max:500', 'url'],

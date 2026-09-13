@@ -365,7 +365,7 @@ class PasswordUpdateTest extends TestCase
             ->assertSee('name="password_confirmation"', false)
             ->assertSee('autocomplete="new-password"', false)
             ->assertSee('autocomplete="current-password"', false)
-            // The app-wide double-submission guard (ITERATION-8).
+            // The app-wide double-submission guard.
             ->assertSee('data-busy', false)
             ->assertSee(route('password.update'), false);
     }

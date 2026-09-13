@@ -353,7 +353,7 @@ class SeoSitemapSystemTest extends TestCase
     public function test_view_count_change_does_not_bump_sitemap_version(): void
     {
         $gallery = $this->makePublicGallery();
-        // ITERATION-1 FIX: same reset-after-setup pattern as above.
+        // Same reset-after-setup pattern as above.
         \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 5);
 
         $gallery->update(['view_count' => 99999]);

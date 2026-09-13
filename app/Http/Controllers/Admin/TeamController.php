@@ -89,7 +89,7 @@ class TeamController extends Controller
 
     public function destroy(Team $team): RedirectResponse
     {
-        // P1-6: TeamPolicy::delete() returns $team->isOwner($user) — owner only.
+        // TeamPolicy::delete() returns $team->isOwner($user) — owner only.
         $this->authorize('delete', $team);
 
         // If this was the active team for anyone, reset their current_team_id
@@ -104,7 +104,7 @@ class TeamController extends Controller
 
     public function invite(Request $request, Team $team): RedirectResponse
     {
-        // P1-6: TeamPolicy::invite() returns $team->canEdit($user) — owner OR editor.
+        // TeamPolicy::invite() returns $team->canEdit($user) — owner OR editor.
         $this->authorize('invite', $team);
 
         $validated = $request->validate([
@@ -130,12 +130,12 @@ class TeamController extends Controller
             ['team_id' => $team->id, 'email' => $validated['email']],
             [
                 'role' => $validated['role'],
-                'token' => $hashedToken, // D-6 FIX: store the HASH, not the plaintext
+                'token' => $hashedToken, // store the HASH, not the plaintext
                 'expires_at' => now()->addDays(7),
             ]
         );
 
-        // AUDIT-P1-4.9: Log team invitation. 'email' is PII — auto-scrubbed.
+        // Log team invitation. 'email' is PII — auto-scrubbed.
         AdminAuditLog::record('team.invited', $team, [
             'email' => $validated['email'],
             'role' => $validated['role'],
@@ -154,13 +154,13 @@ class TeamController extends Controller
 
     public function revokeInvitation(Team $team, TeamInvitation $invitation): RedirectResponse
     {
-        // P1-6: Use 'invite' policy — editors who can invite can also revoke.
+        // Use the 'invite' policy — editors who can invite can also revoke.
         $this->authorize('invite', $team);
         abort_unless($invitation->team_id === $team->id, 404);
 
         $invitation->delete();
 
-        // AUDIT-P1-4.10: Log invitation revocation.
+        // Log invitation revocation.
         AdminAuditLog::record('team.invitation_revoked', $invitation, [
             'team_id' => $team->id,
             'email' => $invitation->email,
@@ -172,7 +172,7 @@ class TeamController extends Controller
 
     public function removeMember(Request $request, Team $team): RedirectResponse
     {
-        // P1-6: TeamPolicy::manageMembers() returns $team->isOwner($user) — owner only.
+        // TeamPolicy::manageMembers() returns $team->isOwner($user) — owner only.
         $this->authorize('manageMembers', $team);
 
         $validated = $request->validate(['user_id' => 'required|integer|exists:users,id']);
@@ -194,7 +194,7 @@ class TeamController extends Controller
             ->where('current_team_id', $team->id)
             ->update(['current_team_id' => null]);
 
-        // AUDIT-P1-4.11: Log team member removal.
+        // Log team member removal.
         AdminAuditLog::record('team.member_removed', $team, [
             'user_id' => $validated['user_id'],
         ]);
@@ -204,7 +204,7 @@ class TeamController extends Controller
 
     public function updateMemberRole(Request $request, Team $team): RedirectResponse
     {
-        // P1-6: TeamPolicy::manageMembers() returns $team->isOwner($user) — owner only.
+        // TeamPolicy::manageMembers() returns $team->isOwner($user) — owner only.
         $this->authorize('manageMembers', $team);
 
         $validated = $request->validate([
@@ -250,7 +250,7 @@ class TeamController extends Controller
             $user->forceFill(['current_team_id' => null])->save();
         }
 
-        // AUDIT-P1-4.13: Log user leaving a team.
+        // Log user leaving a team.
         AdminAuditLog::record('team.left', $team);
 
         return redirect()->route('admin.teams.index')

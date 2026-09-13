@@ -18,16 +18,16 @@ class OAuthAndPasswordSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_d2_oauth_redirect_uses_pkce(): void
+    public function test_oauth_redirect_uses_pkce(): void
     {
         $controllerFile = file_get_contents(app_path('Http/Controllers/OAuthController.php'));
         $this->assertStringContainsString('withPkce', $controllerFile,
-            'D-2: OAuthController::redirect must call ->withPkce() for PKCE protection.');
+            'OAuthController::redirect must call ->withPkce() for PKCE protection.');
     }
 
-    public function test_d4_password_reset_checks_history(): void
+    public function test_password_reset_checks_history(): void
     {
-        // D-4 FIX: the forgot-password reset flow should check password history
+        // the forgot-password reset flow should check password history
         $user = User::factory()->create([
             'email' => 'reset-test@example.com',
             'password' => Hash::make('OldPassword123!'),
@@ -51,18 +51,18 @@ class OAuthAndPasswordSecurityTest extends TestCase
             'password_confirmation' => 'OldPassword123!',
         ]);
 
-        // D-4 FIX: should be rejected (password reuse)
+        // should be rejected (password reuse)
         $response->assertSessionHasErrors('password');
 
         // Verify the password was NOT changed
         $user->refresh();
         $this->assertTrue(Hash::check('OldPassword123!', $user->password),
-            'D-4: Password should NOT be changed when it matches a historical password.');
+            'Password should NOT be changed when it matches a historical password.');
     }
 
-    public function test_d4_password_reset_allows_new_password(): void
+    public function test_password_reset_allows_new_password(): void
     {
-        // D-4 FIX: the forgot-password reset flow should allow a NEW password
+        // the forgot-password reset flow should allow a NEW password
         $user = User::factory()->create([
             'email' => 'reset-new@example.com',
             'password' => Hash::make('OldPassword123!'),
@@ -90,36 +90,36 @@ class OAuthAndPasswordSecurityTest extends TestCase
         // Verify the password WAS changed
         $user->refresh();
         $this->assertTrue(Hash::check('BrandNewPassword456!', $user->password),
-            'D-4: Password should be changed when it does NOT match a historical password.');
+            'Password should be changed when it does NOT match a historical password.');
     }
 
-    public function test_d4_password_controller_uses_shared_helper(): void
+    public function test_password_controller_uses_shared_helper(): void
     {
-        // D-4 FIX: PasswordController::update should use the shared helper
+        // PasswordController::update should use the shared helper
         $controllerFile = file_get_contents(app_path('Http/Controllers/Auth/PasswordController.php'));
         $this->assertStringContainsString('isPasswordInHistory', $controllerFile,
-            'D-4: PasswordController must use User::isPasswordInHistory() shared helper.');
+            'PasswordController must use User::isPasswordInHistory() shared helper.');
         $this->assertStringContainsString('storePasswordInHistory', $controllerFile,
-            'D-4: PasswordController must use User::storePasswordInHistory() shared helper.');
+            'PasswordController must use User::storePasswordInHistory() shared helper.');
     }
 
-    public function test_d6_team_invitation_token_is_hashed_in_db(): void
+    public function test_team_invitation_token_is_hashed_in_db(): void
     {
-        // D-6 FIX: the token stored in the DB should be a sha256 hash, not the plaintext
+        // the token stored in the DB should be a sha256 hash, not the plaintext
         $plaintext = 'my-plaintext-token-1234567890123456789012345678901234567890123456789012345678901234';
         $hash = TeamInvitation::hashToken($plaintext);
 
         $this->assertNotEquals($plaintext, $hash,
-            'D-6: hashToken should produce a different value than the plaintext.');
+            'hashToken should produce a different value than the plaintext.');
         $this->assertEquals(64, strlen($hash),
-            'D-6: sha256 hash should be 64 hex chars.');
+            'sha256 hash should be 64 hex chars.');
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $hash,
-            'D-6: hash should be 64 lowercase hex chars.');
+            'hash should be 64 lowercase hex chars.');
     }
 
-    public function test_d6_team_invitation_find_by_token_uses_hash(): void
+    public function test_team_invitation_find_by_token_uses_hash(): void
     {
-        // D-6 FIX: findByToken should hash the plaintext before querying
+        // findByToken should hash the plaintext before querying
         $team = Team::factory()->create();
         $plaintext = 'test-token-for-find-' . uniqid();
         $hash = TeamInvitation::hashToken($plaintext);
@@ -133,31 +133,31 @@ class OAuthAndPasswordSecurityTest extends TestCase
 
         // findByToken with the plaintext should find it
         $found = TeamInvitation::findByToken($plaintext);
-        $this->assertNotNull($found, 'D-6: findByToken should find the invitation by plaintext token.');
+        $this->assertNotNull($found, 'findByToken should find the invitation by plaintext token.');
         $this->assertEquals($invitation->id, $found->id);
 
         // findByToken with the hash directly should NOT find it (it would hash the hash)
         $notFound = TeamInvitation::findByToken($hash);
         $this->assertNull($notFound,
-            'D-6: findByToken should NOT find the invitation when passed the hash (it hashes the input).');
+            'findByToken should NOT find the invitation when passed the hash (it hashes the input).');
     }
 
-    public function test_d6_team_invitation_controller_show_uses_find_by_token(): void
+    public function test_team_invitation_controller_show_uses_find_by_token(): void
     {
-        // D-6 FIX: TeamInvitationController::show should use findByToken (which hashes)
+        // TeamInvitationController::show should use findByToken (which hashes)
         $controllerFile = file_get_contents(app_path('Http/Controllers/TeamInvitationController.php'));
         $this->assertStringContainsString('findByToken', $controllerFile,
-            'D-6: TeamInvitationController must use TeamInvitation::findByToken() (which hashes the token).');
+            'TeamInvitationController must use TeamInvitation::findByToken() (which hashes the token).');
     }
 
-    public function test_d4_user_model_has_password_history_helpers(): void
+    public function test_user_model_has_password_history_helpers(): void
     {
-        // D-4 FIX: User model should have isPasswordInHistory and storePasswordInHistory
+        // User model should have isPasswordInHistory and storePasswordInHistory
         $user = User::factory()->create();
         $this->assertTrue(method_exists($user, 'isPasswordInHistory'),
-            'D-4: User model must have isPasswordInHistory() method.');
+            'User model must have isPasswordInHistory() method.');
         $this->assertTrue(method_exists($user, 'storePasswordInHistory'),
-            'D-4: User model must have storePasswordInHistory() method.');
+            'User model must have storePasswordInHistory() method.');
     }
 
     protected function setUp(): void

@@ -90,7 +90,7 @@ ok('superseded v1.0.0 copy gone ("dark electric space" promised nothing that ide
     !/dark electric space/.test(row));
 ok('copy promises the signature mechanic verifiably (stand still / move / react)',
     /stand still/i.test(row) && /move/i.test(row) && /react/i.test(row));
-ok('copy keeps the pinned neon + floor words (VenueRoomsIterationTest contract)',
+ok('copy keeps the pinned neon + floor words (VenueRoomsTest contract)',
     /neon/i.test(row) && /floor/i.test(row));
 ok('version pinned 2.0.0 (Signal Room)',
     /'version'\s*=>\s*'2\.0\.0'/.test(row));

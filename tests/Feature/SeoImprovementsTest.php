@@ -12,19 +12,19 @@ class SeoImprovementsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function i1_guest_layout_has_noindex_meta(): void
+    public function guest_layout_has_noindex_meta(): void
     {
         $source = file_get_contents(resource_path('views/layouts/guest.blade.php'));
         $this->assertStringContainsString('<meta name="robots" content="noindex,nofollow">', $source, 'I-1: guest layout must have noindex,nofollow meta');
     }
 
-    public function i1_app_layout_has_noindex_meta(): void
+    public function app_layout_has_noindex_meta(): void
     {
         $source = file_get_contents(resource_path('views/layouts/app.blade.php'));
         $this->assertStringContainsString('<meta name="robots" content="noindex,nofollow">', $source, 'I-1: app layout must have noindex,nofollow meta');
     }
 
-    public function i2_json_ld_component_exists_with_supported_types(): void
+    public function json_ld_component_exists_with_supported_types(): void
     {
         $source = file_get_contents(resource_path('views/components/json-ld.blade.php'));
         $this->assertStringContainsString("'organization'", $source, 'I-2: component supports organization type');
@@ -34,7 +34,7 @@ class SeoImprovementsTest extends TestCase
         $this->assertStringContainsString('application/ld+json', $source, 'I-2: renders <script type="application/ld+json">');
     }
 
-    public function i2_homepage_renders_organization_json_ld(): void
+    public function homepage_renders_organization_json_ld(): void
     {
         $response = $this->get('/');
         $response->assertStatus(200);
@@ -42,7 +42,7 @@ class SeoImprovementsTest extends TestCase
         $response->assertSee('application/ld+json', false);
     }
 
-    public function i2_pricing_page_renders_product_and_faq_json_ld(): void
+    public function pricing_page_renders_product_and_faq_json_ld(): void
     {
         $response = $this->get('/pricing');
         $response->assertStatus(200);
@@ -57,7 +57,7 @@ class SeoImprovementsTest extends TestCase
         $response->assertSee('Is there a free trial for Pro?', false);
     }
 
-    public function i2_discover_page_renders_item_list_json_ld_when_galleries_exist(): void
+    public function discover_page_renders_item_list_json_ld_when_galleries_exist(): void
     {
         $gallery = Gallery::factory()->create([
             'is_active' => true,
@@ -72,21 +72,21 @@ class SeoImprovementsTest extends TestCase
         $response->assertSee('"@type":"ListItem"', false);
     }
 
-    public function i2_discover_page_omits_item_list_when_no_galleries(): void
+    public function discover_page_omits_item_list_when_no_galleries(): void
     {
         $response = $this->get('/discover');
         $response->assertStatus(200);
         $response->assertDontSee('"@type": "ItemList"', false);
     }
 
-    public function i3_sitemap_controller_includes_changelog_and_status(): void
+    public function sitemap_controller_includes_changelog_and_status(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/SitemapController.php'));
         $this->assertStringContainsString("route('changelog')", $source, 'I-3: sitemap includes changelog route');
         $this->assertStringContainsString("route('status')", $source, 'I-3: sitemap includes status route');
     }
 
-    public function i3_sitemap_xml_contains_changelog_and_status_urls(): void
+    public function sitemap_xml_contains_changelog_and_status_urls(): void
     {
         $response = $this->get('/sitemap-static-1.xml');
         $response->assertStatus(200);
@@ -94,7 +94,7 @@ class SeoImprovementsTest extends TestCase
         $response->assertSee('/status', false);
     }
 
-    public function i6_public_layout_has_rss_auto_discovery_link(): void
+    public function public_layout_has_rss_auto_discovery_link(): void
     {
         $source = file_get_contents(resource_path('views/layouts/public.blade.php'));
         $this->assertStringContainsString('rel="alternate"', $source, 'I-6: public layout has alternate link');
@@ -102,7 +102,7 @@ class SeoImprovementsTest extends TestCase
         $this->assertStringContainsString('/feed.xml', $source, 'I-6: href points at /feed.xml');
     }
 
-    public function i6_homepage_renders_rss_auto_discovery_link(): void
+    public function homepage_renders_rss_auto_discovery_link(): void
     {
         $response = $this->get('/');
         $response->assertStatus(200);

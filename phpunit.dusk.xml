@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    TD-31: PHPUnit config for Dusk browser tests.
+    PHPUnit config for Dusk browser tests.
     Run via: php artisan dusk
     (Dusk automatically uses this file instead of phpunit.xml)
 -->

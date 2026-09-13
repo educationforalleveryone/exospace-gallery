@@ -65,7 +65,7 @@
                                         <input type="email" name="email" placeholder="Your email" required aria-label="Your email"
                                                class="input-base">
                                     </div>
-                                    {{-- P3-19: Cloudflare Turnstile captcha (invisible when enabled) --}}
+                                    {{-- Cloudflare Turnstile captcha (invisible when enabled) --}}
                                     @if(app('App\Services\TurnstileService')->isEnabled())
                                         <div class="cf-turnstile mt-3" data-sitekey="{{ config('services.turnstile.site_key') }}"></div>
                                         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>

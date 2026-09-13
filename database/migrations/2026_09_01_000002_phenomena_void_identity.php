@@ -92,7 +92,7 @@ return new class extends Migration
                 ->where('id', $row->id)
                 ->update(['visual_config' => json_encode($existing)]);
 
-            // Restore the Iteration 0 description (guarded the same way).
+            // Restore the original description (guarded the same way).
             $old = self::OLD_DESCRIPTIONS[$slug];
             $new = self::NEW_DESCRIPTIONS[$slug];
             if ($row->description === $new) {

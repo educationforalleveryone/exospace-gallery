@@ -7,7 +7,7 @@ import {
     segmentBlockedByBoxes,
     composeArrivalPose,
 } from './ArrivalMath.js';
-// Iteration 6 (P2.3): focal-wall read for the hero bias — pure, no slugs.
+// Focal-wall read for the hero bias — pure, no slugs.
 import { focalWallOf } from './PlacementCuration.js';
 
 // Fast preconditions. Cheap enough to call before any computation.

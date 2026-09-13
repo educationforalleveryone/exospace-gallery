@@ -144,7 +144,7 @@
     //    + the guarded migrations). `?venue=` selects the venue under test;
     //    default white-cube preserves the historical harness behaviour. ──────
     const VENUES = {
-        // Crystal Cathedral — "The Luminous Arcade" (2026-09-07 audit body).
+        // Crystal Cathedral — "The Luminous Arcade".
         // Mirrors the seeder row + the guarded migration
         // 2026_09_07_000001_crystal_cathedral_architecture byte-for-byte:
         // drift here means screenshots stop meaning anything (QA gate B).
@@ -682,8 +682,8 @@
         },
         // Dark Museum v1.0.0 — FORENSIC BEFORE body (pre-deepening bytes).
         // Kept so scripts/harness/shoot.mjs can capture the "before" state
-        // for the audit evidence set. The live 'dark-museum' body tracks the
-        // seeded v2 row; this one must NOT be updated.
+        // for comparison. The live 'dark-museum' body tracks the seeded v2
+        // row; this one must NOT be updated.
         'dark-museum-v1': {
             id: 4, slug: 'dark-museum', name: 'Dark Museum', category: 'museum',
             visual_config: {
@@ -706,7 +706,7 @@
             },
             version: '1.0.0',
         },
-        // Nebula Drift — "The Deep Field" (2026-09-08 audit pass, v2.0.0).
+        // Nebula Drift — "The Deep Field" (v2.0.0).
         // Mirrors the seeder row byte-for-byte (the QA gate asserts the sync).
         // The v1.0.0 row is preserved below as 'nebula-drift-legacy' for
         // forensic bisect, exactly like the cathedral rollback chain.

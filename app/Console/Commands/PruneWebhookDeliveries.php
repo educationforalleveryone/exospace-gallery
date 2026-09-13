@@ -16,12 +16,12 @@ class PruneWebhookDeliveries extends Command
                             {--dry-run : Report what would be deleted without actually deleting}
                             {--days= : Override the retention window (defaults to OUTBOUND_WEBHOOK_LEDGER_RETENTION_DAYS)}';
 
-    protected $description = 'ITERATION 11 — prune webhook_deliveries rows older than the retention window (default 30 days).';
+    protected $description = 'Prune webhook_deliveries rows older than the retention window (default 30 days).';
 
     public function handle(): int
     {
         if (! Schema::hasTable('webhook_deliveries')) {
-            $this->info('webhook_deliveries table does not exist yet — nothing to prune (fresh install before the Iter-11 migration ran).');
+            $this->info('webhook_deliveries table does not exist yet — nothing to prune (fresh install).');
             Log::info('PruneWebhookDeliveries: table not yet migrated — no-op.');
             return self::SUCCESS;
         }

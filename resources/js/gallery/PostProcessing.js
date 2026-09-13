@@ -125,7 +125,7 @@ export class PostProcessing {
         this.composer.setSize(w, h);
     }
 
-    // PERF-D25: called by PerformanceControls after an adaptive DPR change.
+    // Called by PerformanceControls after an adaptive DPR change.
     syncPixelRatio() {
         if (!this.composer) return;
         this.composer.setPixelRatio(this.renderer.getPixelRatio());

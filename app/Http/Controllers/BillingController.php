@@ -110,7 +110,7 @@ class BillingController extends Controller
                 'https://www.2checkout.com/checkout/purchase?sid=%s&product_id=%s&quantity=1&external-reference=%s&merchant_item_id_1=%s',
                 urlencode((string) $sid),
                 urlencode((string) $productId),
-                urlencode($pending->plaintext_token), // AUDIT-P1-8.1: plaintext token (runtime attr, not the stored hash)
+                urlencode($pending->plaintext_token), // plaintext token (runtime attr, not the stored hash)
                 urlencode((string) $user->id),
             );
 
@@ -224,7 +224,7 @@ class BillingController extends Controller
                     ->with('info', 'Your subscription has already been cancelled.');
             }
 
-            // 2CO-1 FIX: Use the real TwoCheckoutApiClient.
+            // Use the real TwoCheckoutApiClient.
             $subscriptionId = $user->subscription_id;
 
             try {
@@ -319,7 +319,7 @@ class BillingController extends Controller
             'subscription_cancelled_at' => null,
         ])->save();
 
-        // AUDIT-P1-4.5: Log subscription reactivation.
+        // Log subscription reactivation.
         AdminAuditLog::record('subscription.reactivated', $user, [
             'subscription_id' => $subscriptionId,
         ]);
@@ -482,7 +482,7 @@ class BillingController extends Controller
             'trial_count_for_ip' => RateLimiter::attempts($ipKey),
         ]);
 
-        // M-12: Notification
+        // Notification
         \App\Services\NotificationService::create(
             $user,
             'subscription',

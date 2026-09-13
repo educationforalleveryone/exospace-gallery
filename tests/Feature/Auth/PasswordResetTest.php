@@ -288,7 +288,7 @@ class PasswordResetTest extends TestCase
             // The reset token is consumed (single-use).
             $this->assertFalse(DB::table('password_reset_tokens')->where('email', $user->email)->exists());
 
-            // C-2 bookkeeping stays consistent.
+            // has_password bookkeeping stays consistent.
             $this->assertTrue($user->has_password);
             $this->assertNotNull($user->password_set_at);
 
