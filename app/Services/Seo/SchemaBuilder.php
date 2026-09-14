@@ -76,7 +76,7 @@ class SchemaBuilder
         }
 
         $sameAs = array_values(array_filter([
-            $artist->website,
+            $artist->website_url,
             $artist->instagram_url,
             $artist->twitter_url,
         ]));

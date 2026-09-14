@@ -13,11 +13,22 @@ use Illuminate\Support\Facades\Cache;
 class InternalLinkingService
 {
     private const CACHE_TTL = 900; // 15 minutes
+    private const CACHE_VERSION_KEY = 'seo:related:version';
+
+    // Version-prefixed keys let seo:rebuild rotate every related-content
+    // entry at once; cache stores without tag support can flush nothing on
+    // these keys, and untagged entries are invisible to tag flushes.
+    private function cacheKey(string $kind, int|string $id): string
+    {
+        $version = (string) Cache::get(self::CACHE_VERSION_KEY, '1');
+
+        return "seo:related:v{$version}:{$kind}:{$id}";
+    }
 
     public function relatedGalleries(Gallery $gallery, ?int $limit = null): Collection
     {
         $limit ??= (int) config('seo.related.galleries_max', 6);
-        $key = "seo:related:galleries:{$gallery->id}";
+        $key = $this->cacheKey('galleries', $gallery->id);
 
         return Cache::remember($key, self::CACHE_TTL, function () use ($gallery, $limit) {
             $artistIds = $gallery->images->pluck('artist_id')->filter()->unique()->values();
@@ -60,7 +71,7 @@ class InternalLinkingService
     public function relatedArtists(Artist $artist, ?int $limit = null): Collection
     {
         $limit ??= (int) config('seo.related.artists_max', 6);
-        $key = "seo:related:artists:{$artist->id}";
+        $key = $this->cacheKey('artists', $artist->id);
 
         return Cache::remember($key, self::CACHE_TTL, function () use ($artist, $limit) {
             // Public galleries featuring this artist.
@@ -94,7 +105,7 @@ class InternalLinkingService
             return collect();
         }
 
-        $key = "seo:related:artworks:{$artwork->id}";
+        $key = $this->cacheKey('artworks', $artwork->id);
 
         return Cache::remember($key, self::CACHE_TTL, function () use ($artwork, $limit) {
             return GalleryImage::query()

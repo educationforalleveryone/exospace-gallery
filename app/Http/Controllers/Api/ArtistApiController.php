@@ -11,9 +11,13 @@ class ArtistApiController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $perPage = min((int) $request->query('per_page', 20), 100);
+        // Same public eligibility as the /artists directory: an artist is
+        // publicly listed once they have artwork in a publicly viewable
+        // exhibition.
+        $perPage = max(1, min((int) $request->query('per_page', 20), 100));
 
         $artists = Artist::whereNotNull('slug')
+            ->whereHas('images.gallery', fn ($q) => $q->publiclyViewable())
             ->orderByDesc('created_at')
             ->paginate($perPage);
 
@@ -51,7 +55,7 @@ class ArtistApiController extends Controller
             return response()->json(['error' => 'Artist not found'], 404);
         }
 
-        $perPage = min((int) $request->query('per_page', 20), 100);
+        $perPage = max(1, min((int) $request->query('per_page', 20), 100));
 
         $galleries = $artist->galleries()
             ->publiclyViewable()

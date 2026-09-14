@@ -7,6 +7,7 @@ use App\Models\Artist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
@@ -42,14 +43,14 @@ class ArtistController extends Controller
     {
         $validated = $request->validate([
             'name'      => ['required', 'string', 'max:100'],
-            'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/'],
+            'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/', Rule::unique('artists', 'slug')],
             'bio'       => ['nullable', 'string', 'max:2000'],
             // SEO OS: curator-facing SEO overrides.
             'seo_title'       => ['nullable', 'string', 'max:200'],
             'seo_description' => ['nullable', 'string', 'max:300'],
             'website'   => ['nullable', 'string', 'max:500', 'url'],
-            'instagram' => ['nullable', 'string', 'max:255'],
-            'twitter'   => ['nullable', 'string', 'max:255'],
+            'instagram' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
+            'twitter'   => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
             'email'     => ['nullable', 'string', 'max:255', 'email'],
             'location'  => ['nullable', 'string', 'max:255'],
             'portrait'  => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
@@ -119,14 +120,14 @@ class ArtistController extends Controller
 
         $validated = $request->validate([
             'name'      => ['required', 'string', 'max:100'],
-            'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/'],
+            'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/', Rule::unique('artists', 'slug')->ignore($artist)],
             'bio'       => ['nullable', 'string', 'max:2000'],
             // SEO OS: curator-facing SEO overrides.
             'seo_title'       => ['nullable', 'string', 'max:200'],
             'seo_description' => ['nullable', 'string', 'max:300'],
             'website'   => ['nullable', 'string', 'max:500', 'url'],
-            'instagram' => ['nullable', 'string', 'max:255'],
-            'twitter'   => ['nullable', 'string', 'max:255'],
+            'instagram' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
+            'twitter'   => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
             'email'     => ['nullable', 'string', 'max:255', 'email'],
             'location'  => ['nullable', 'string', 'max:255'],
             'portrait'  => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],

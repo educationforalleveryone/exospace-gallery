@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\SeoRedirect;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 
 class SeoRebuild extends Command
 {
@@ -33,11 +34,12 @@ class SeoRebuild extends Command
             $cleared++;
         }
 
-        try {
-            \Illuminate\Support\Facades\Cache::tags(['seo:related'])->flush();
-            $cleared++;
-        } catch (\Throwable) {
-        }
+        // Rotate the related-content caches (related galleries, artists,
+        // artworks) by bumping their key version; the previous generation
+        // simply expires through its normal TTL.
+        Cache::add('seo:related:version', 1);
+        Cache::increment('seo:related:version');
+        $cleared++;
 
         $this->info("SEO caches cleared ({$cleared} keys/tags). Sitemap version: {$version} → {$newVersion}.");
 

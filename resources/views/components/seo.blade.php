@@ -109,10 +109,10 @@
 @if(!empty($jsonLd))
 @foreach($jsonLd as $graph)
 <script type="application/ld+json">
-{{-- Graph blocks stay compact (the standalone x-json-ld --}}
-{{-- component is pretty-printed) to minimize inline payload on --}}
-{{-- every public page. --}}
-{!! json_encode($graph, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+{{-- JSON must be encoded script-safely: user-controlled fields (artist --}}
+{{-- names, gallery titles, bios) may contain </script> or HTML comment --}}
+{{-- openers that would otherwise break out of the tag. --}}
+{!! json_encode($graph, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!}
 </script>
 @endforeach
 @endif

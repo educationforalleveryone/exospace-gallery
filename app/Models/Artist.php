@@ -30,11 +30,36 @@ class Artist extends Model
     {
         parent::boot();
 
-        static::creating(function (self $artist) {
+        // The slug column carries a unique index; collisions and empty
+        // values (non-ASCII-only names slugify to nothing) must never reach
+        // the database, otherwise artist creation fails with a query error
+        // and the public profile route has no resolvable identifier.
+        static::saving(function (self $artist) {
             if (empty($artist->slug)) {
-                $artist->slug = Str::slug($artist->name);
+                $artist->slug = $artist->buildUniqueSlug(Str::slug($artist->name) ?: 'artist');
             }
         });
+    }
+
+    private function buildUniqueSlug(string $base): string
+    {
+        $base = Str::limit($base, 120, '');
+        $slug = $base;
+
+        $attempt = 2;
+        while ($this->slugTaken($slug)) {
+            $slug = $base . '-' . $attempt++;
+        }
+
+        return $slug;
+    }
+
+    private function slugTaken(string $slug): bool
+    {
+        return static::query()
+            ->where('slug', $slug)
+            ->when($this->exists, fn (Builder $q) => $q->whereKeyNot($this->getKey()))
+            ->exists();
     }
 
     public function creator(): BelongsTo
@@ -74,6 +99,20 @@ class Artist extends Model
             : null;
     }
 
+    // Only expose http(s) targets on public pages; the `url` validation rule
+    // also accepts exotic schemes (e.g. javascript:) that must never become
+    // clickable links on the artist profile.
+    public function getWebsiteUrlAttribute(): ?string
+    {
+        if (!$this->website) {
+            return null;
+        }
+
+        $scheme = strtolower((string) parse_url($this->website, PHP_URL_SCHEME));
+
+        return in_array($scheme, ['http', 'https'], true) ? $this->website : null;
+    }
+
     public function getInstagramUrlAttribute(): ?string
     {
         return $this->instagram
@@ -93,7 +132,7 @@ class Artist extends Model
         $parts = explode(' ', trim($this->name));
         $initials = '';
         foreach (array_slice($parts, 0, 2) as $p) {
-            $initials .= strtoupper(substr($p, 0, 1));
+            $initials .= mb_strtoupper(mb_substr($p, 0, 1));
         }
         return $initials ?: '?';
     }

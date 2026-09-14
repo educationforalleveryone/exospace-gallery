@@ -28,7 +28,7 @@
 
 @if($showJsonLd)
 <script type="application/ld+json">
-{!! json_encode(\App\Support\Seo\Breadcrumb::toJsonLd($crumbs), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+{!! json_encode(\App\Support\Seo\Breadcrumb::toJsonLd($crumbs), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!}
 </script>
 @endif
 @endif

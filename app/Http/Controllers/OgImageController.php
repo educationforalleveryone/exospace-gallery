@@ -65,15 +65,19 @@ class OgImageController extends Controller
 
     public function artist(string $slug): Response
     {
-        $artist = Cache::flexible("og:artist:{$slug}", [now()->addHour(), now()->addHours(2)], function () use ($slug) {
-            return Artist::where('slug', $slug)
-                ->with(['images' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyViewable())->orderByDesc('created_at')])
-                ->firstOrFail();
-        });
+        // Loaded fresh on every request (single indexed query) so profile
+        // and portrait updates are reflected immediately; only the rendered
+        // PNG is cached, keyed by the artist's last update to invalidate on
+        // profile changes instead of serving hours-old cards.
+        $artist = Artist::where('slug', $slug)
+            ->with(['images' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyViewable())->orderByDesc('created_at')])
+            ->firstOrFail();
 
-        $pngBytes = Cache::flexible("og:image:artist:{$slug}:v1", [now()->addHours(6), now()->addHours(12)], function () use ($artist) {
-            return $this->renderArtist($artist);
-        });
+        $pngBytes = Cache::flexible(
+            "og:image:artist:{$slug}:{$artist->updated_at?->format('YmdHis')}:v1",
+            [now()->addHours(6), now()->addHours(12)],
+            fn () => $this->renderArtist($artist),
+        );
 
         return response($pngBytes, 200, [
             'Content-Type'  => 'image/png',

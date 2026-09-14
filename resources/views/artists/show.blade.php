@@ -19,7 +19,7 @@
                 </div>
                 <div class="flex-1">
                     <p class="text-brand-400 text-xs font-semibold tracking-widest uppercase mb-1">Artist Profile</p>
-                    <h1 class="text-3xl md:text-4xl font-extrabold text-white">{{ $artist->name }}</h1>
+                    <h1 class="text-3xl md:text-4xl font-extrabold text-white break-words">{{ $artist->name }}</h1>
                     @if($artist->location)
                         <p class="text-gray-400 mt-1 flex items-center gap-1.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -27,23 +27,23 @@
                         </p>
                     @endif
                     @if($artist->bio)
-                        <p class="text-gray-300 mt-4 leading-relaxed whitespace-pre-line max-w-2xl">{{ $artist->bio }}</p>
+                        <p class="text-gray-300 mt-4 leading-relaxed whitespace-pre-line max-w-2xl break-words">{{ $artist->bio }}</p>
                     @endif
                     <div class="flex flex-wrap gap-2 mt-4">
-                        @if($artist->website)
-                            <a href="{{ $artist->website }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-brand-500 text-gray-200 text-sm transition">
+                        @if($artist->website_url)
+                            <a href="{{ $artist->website_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-brand-500 text-gray-200 text-sm transition">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
                                 Website
                             </a>
                         @endif
                         @if($artist->instagram)
                             <a href="{{ $artist->instagram_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-brand-500 text-gray-200 text-sm transition">
-                                @{{ $artist->instagram }}
+                                {{ '@' . $artist->instagram }}
                             </a>
                         @endif
                         @if($artist->twitter)
                             <a href="{{ $artist->twitter_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 hover:border-brand-500 text-gray-200 text-sm transition">
-                                @{{ $artist->twitter }}
+                                {{ '@' . $artist->twitter }}
                             </a>
                         @endif
                         @if($artist->email)
