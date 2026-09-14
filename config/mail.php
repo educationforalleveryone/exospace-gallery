@@ -69,4 +69,14 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    // Default Reply-To for outbound email, applied by the MailManager via
+    // alwaysReplyTo. The From address is a no-reply mailbox, but several
+    // messages tell users to reply; those replies must land on a monitored
+    // address. Override with MAIL_REPLY_TO_ADDRESS if the support mailbox
+    // ever moves.
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS', 'support@exospace.gallery'),
+        'name' => env('MAIL_REPLY_TO_NAME', 'Exospace Support'),
+    ],
+
 ];

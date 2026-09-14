@@ -31,7 +31,7 @@ class TeamInvitationMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "You've been invited to join {$this->invitation->team->name} on Exospace",
+            subject: email_subject_line("You've been invited to join {$this->invitation->team->name} on Exospace"),
         );
     }
 
@@ -39,6 +39,7 @@ class TeamInvitationMail extends Mailable implements ShouldQueue
     {
         return new Content(
             view: 'emails.team-invitation',
+            text: 'emails.team-invitation-text',
             with: ['invitationLink' => $this->invitationLink()],
         );
     }

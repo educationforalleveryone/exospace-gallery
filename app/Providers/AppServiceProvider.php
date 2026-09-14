@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Services\FeatureFlag;
+use App\Services\QueueWorkerHeartbeat;
 use App\Services\TwoCheckoutApiClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -43,6 +45,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('verification-resend', function (Request $request) {
             return Limit::perMinute(6)->by($request->user()?->id ?: $request->ip());
         });
+
+        // Queue worker liveness — OperationalAlertService alerts when this
+        // heartbeat goes stale. Only the worker daemon fires Looping events;
+        // web/console processes never do.
+        Queue::looping(fn () => QueueWorkerHeartbeat::stamp());
 
         $sitemapObserver = \App\Observers\SitemapCacheObserver::class;
         \App\Models\Gallery::observe($sitemapObserver);

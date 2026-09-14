@@ -22,8 +22,12 @@
         <h2>Your {{ ucfirst($user->plan) }} plan expires soon</h2>
         <p>Hi {{ $user->name }},</p>
         <div class="alert">
-            <strong>Your {{ ucfirst($user->plan) }} plan expires on {{ $user->plan_expires_at->format('M j, Y') }}.</strong><br>
-            That's in {{ now()->diffInDays($user->plan_expires_at) }} days.
+            @php($daysLeft = $daysLeft ?? null)
+            @php($expiresOn = $expiresOn ?? $user->plan_expires_at?->format('M j, Y'))
+            <strong>Your {{ ucfirst($user->plan) }} plan expires on {{ $expiresOn }}.</strong>
+            @if($daysLeft !== null)
+                <br>That's in {{ $daysLeft }} day{{ $daysLeft === 1 ? '' : 's' }}.
+            @endif
         </div>
         <p>After your plan expires, your account will be downgraded to the Free plan (1 gallery, 10 images). Your existing galleries will remain in your account, but only your first gallery will be publicly accessible. Custom domains, logos, and audio will be removed from your galleries.</p>
         <p>To keep all your {{ ucfirst($user->plan) }} features ({{ $user->plan === 'studio' ? 'unlimited galleries, custom domains, white-label' : '5 galleries, background music, no watermark' }}), renew your plan:</p>

@@ -19,16 +19,16 @@ class EventRsvpNotification extends Mailable implements ShouldQueue
         public array $rsvp, // ['name' => string, 'email' => string]
     ) {}
 
-    public function envelope(): \Illuminate\Mail\Envelope
+    public function envelope(): \Illuminate\Mail\Mailables\Envelope
     {
-        return new \Illuminate\Mail\Envelope(
-            subject: "New RSVP for \"{$this->event->title}\" — {$this->rsvp['name']}",
+        return new \Illuminate\Mail\Mailables\Envelope(
+            subject: email_subject_line("New RSVP for \"{$this->event->title}\" — {$this->rsvp['name']}"),
         );
     }
 
-    public function content(): \Illuminate\Mail\Content
+    public function content(): \Illuminate\Mail\Mailables\Content
     {
-        return new \Illuminate\Mail\Content(
+        return new \Illuminate\Mail\Mailables\Content(
             markdown: 'emails.event-rsvp',
             with: [
                 'galleryName' => $this->gallery->title,

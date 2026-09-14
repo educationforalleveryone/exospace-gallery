@@ -34,7 +34,7 @@ class ContactController extends Controller
                 "Name: {$validated['name']}\nEmail: {$validated['email']}\nSubject: " . ($validated['subject'] ?? 'No subject') . "\n\n{$validated['message']}",
                 function ($msg) use ($validated) {
                     $msg->to(config('services.contact_form.email', config('mail.from.address')))
-                        ->subject('[Exospace Contact] ' . ($validated['subject'] ?? 'New message from ' . $validated['name']))
+                        ->subject('[Exospace Contact] ' . email_subject_line($validated['subject'] ?? 'New message from ' . $validated['name']))
                         ->replyTo($validated['email'], $validated['name']);
                 }
             );

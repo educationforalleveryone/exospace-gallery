@@ -37,7 +37,10 @@ class VerifyEmail extends FrameworkVerifyEmail implements ShouldQueue
             return parent::verificationUrl($notifiable);
         } finally {
             URL::forceRootUrl(null);
-            URL::forceScheme(null);
+            // AppServiceProvider forces https app-wide in production — restore
+            // that instead of leaving the generator unforced for the rest of
+            // this process's lifetime.
+            URL::forceScheme(app()->isProduction() ? 'https' : null);
         }
     }
 }

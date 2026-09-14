@@ -196,26 +196,34 @@ else
     SCHEDULER_PID=""
 fi
 
-# 7. Start the queue worker in the background.
-#    Flags: --tries=3 --timeout=120 --max-jobs=1000 --max-time=3600
+# 7. Run the queue worker under a lightweight supervisor loop.
+#    Flags: --tries=3 --timeout=120 --sleep=3 --memory=512 --max-jobs=1000 --max-time=3600
 #    --memory=512 to match PHP-FPM and accommodate ImageProcessingService
 #    peak (50MP decode + scaleDown + thumbnail = ~350-450MB).
 #    The 50MP cap is enforced in ImageProcessingService::process(); under GD
 #    the actual peak can be 2-3x the decode buffer due to Intervention keeping
 #    source + destination alive during scaleDown.
 #
-#    Queue-worker stdout/stderr is captured by Coolify's log driver (not
-#    written to a file), so no rotation is needed here.
-#    OperationalAlertService::checkQueueWorkerHealth() monitors the worker
-#    indirectly via the failed_jobs table + the queue-worker.log staleness
-#    check (if the file exists).
+#    queue:work is designed to exit on its own guard rails (--max-time,
+#    --max-jobs, --memory) and after fatal errors. Without supervision the
+#    worker would stay dead until the next deploy while php-fpm keeps the
+#    container alive — silently stalling every queued job (verification and
+#    password-reset email, lifecycle email, media processing). The loop
+#    restarts it; OperationalAlertService raises a critical alert if the
+#    worker heartbeat (Queue::looping) goes stale.
 #
 #    Queue prioritization is not configured: a single queue serves all jobs.
 #    `--queue=high,default,low` with a dedicated high-priority worker is the
 #    supported scaling path.
-php /app/artisan queue:work redis --tries=3 --timeout=120 --sleep=3 --memory=512 --max-jobs=1000 --max-time=3600 &
+(
+    while true; do
+        php /app/artisan queue:work redis --tries=3 --timeout=120 --sleep=3 --memory=512 --max-jobs=1000 --max-time=3600
+        echo "queue:work exited (code $?) — restarting in 5s."
+        sleep 5
+    done
+) &
 QUEUE_PID=$!
-echo "Queue worker started (PID $QUEUE_PID, memory=512MB)."
+echo "Queue worker supervisor started (PID $QUEUE_PID)."
 
 # 8. Trap signals to clean up child processes on container shutdown.
 #    This ensures the scheduler and queue worker don't become zombies

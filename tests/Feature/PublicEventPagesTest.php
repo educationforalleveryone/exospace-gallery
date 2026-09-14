@@ -349,6 +349,9 @@ class PublicEventPagesTest extends TestCase
         $this->post("/gallery/{$gallery->slug}/events/{$event->id}/rsvp", $payload)->assertRedirect();
 
         $this->assertDatabaseCount('event_rsvps', 1);
+        // The curator notification means "new RSVP" — a repeat submission
+        // must not re-send it.
+        Mail::assertQueued(EventRsvpNotification::class, 1);
     }
 
     public function test_rsvp_honors_capacity(): void

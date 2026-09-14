@@ -23,9 +23,12 @@ class PlanExpiringSoon extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         $planName = ucfirst($this->user->plan);
-        $daysLeft = now()->diffInDays($this->user->plan_expires_at) ?? 0;
+        $daysLeft = $this->daysLeft();
+
         return new Envelope(
-            subject: "Your Exospace {$planName} plan expires in {$daysLeft} days",
+            subject: $daysLeft === null
+                ? "Your Exospace {$planName} plan expires soon"
+                : "Your Exospace {$planName} plan expires in {$daysLeft} days",
         );
     }
 
@@ -36,7 +39,21 @@ class PlanExpiringSoon extends Mailable implements ShouldQueue
             text: 'emails.plan-expiring-text',
             with: [
                 'unsubscribeUrl' => $this->unsubscribeUrl($this->user),
+                'expiresOn'      => $this->user->plan_expires_at?->format('M j, Y'),
+                'daysLeft'       => $this->daysLeft(),
             ],
         );
+    }
+
+    private function daysLeft(): ?int
+    {
+        $expiresAt = $this->user->plan_expires_at;
+
+        if ($expiresAt === null) {
+            return null;
+        }
+
+        // diffInDays() is fractional under Carbon 3 — users read whole days.
+        return max(1, (int) ceil(now()->diffInDays($expiresAt)));
     }
 }

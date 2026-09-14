@@ -350,6 +350,25 @@ class OperationalAlertService
     public function checkQueueWorkerHealth(): void
     {
         try {
+            // Redis-queued jobs never touch the jobs table, so the worker
+            // heartbeat is the primary liveness signal for the redis queue.
+            // No heartbeat at all (fresh container) is not evidence of death.
+            $heartbeatAge = QueueWorkerHeartbeat::ageSeconds();
+
+            if ($heartbeatAge !== null && $heartbeatAge > 600) { // >10 minutes
+                $this->alert(
+                    'Queue worker may be down',
+                    sprintf(
+                        'No queue-worker heartbeat for %.0f minutes (threshold: 10 min). Queued jobs — including queued email — are not being processed. Check the queue worker process in the container.',
+                        $heartbeatAge / 60
+                    ),
+                    'critical',
+                    'queue_worker_stale' // dedup key
+                );
+
+                return;
+            }
+
             $oldestJob = \Illuminate\Support\Facades\DB::table('jobs')
                 ->orderBy('id')
                 ->first();

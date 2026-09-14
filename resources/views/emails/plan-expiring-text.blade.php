@@ -4,8 +4,13 @@ Your {{ ucfirst($user->plan) }} plan expires soon
 
 Hi {{ $user->name }},
 
-Your {{ ucfirst($user->plan) }} plan expires on {{ $user->plan_expires_at->format('M j, Y') }}.
-That's in {{ now()->diffInDays($user->plan_expires_at) }} days.
+@php($daysLeft = $daysLeft ?? null)
+@php($expiresOn = $expiresOn ?? $user->plan_expires_at?->format('M j, Y'))
+
+Your {{ ucfirst($user->plan) }} plan expires on {{ $expiresOn }}.
+@if($daysLeft !== null)
+That's in {{ $daysLeft }} day{{ $daysLeft === 1 ? '' : 's' }}.
+@endif
 
 After your plan expires, your account will be downgraded to the Free plan (1 gallery, 10 images). Your existing galleries will remain in your account, but only your first gallery will be publicly accessible. Custom domains, logos, and audio will be removed from your galleries.
 

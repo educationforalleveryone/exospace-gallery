@@ -118,8 +118,10 @@ class PublicEventController extends Controller
         // Idempotent: unique on (schedule_event_id, email). A concurrent
         // duplicate submit loses the race on the unique index — the row then
         // already exists, which is the same outcome the visitor asked for.
+        $created = false;
+
         try {
-            \App\Models\EventRsvp::firstOrCreate(
+            $rsvp = \App\Models\EventRsvp::firstOrCreate(
                 [
                     'schedule_event_id' => $event->id,
                     'email'             => $validated['email'],
@@ -130,16 +132,20 @@ class PublicEventController extends Controller
                     'confirmed_at' => now(),
                 ]
             );
+            $created = $rsvp->wasRecentlyCreated;
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
-            //
+            $created = false;
         }
 
-        // Send curator an email notification
-        try {
-            \Illuminate\Support\Facades\Mail::to($gallery->user->email)
-                ->send(new \App\Mail\EventRsvpNotification($gallery, $event, $validated));
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Failed to send RSVP notification: ' . $e->getMessage());
+        // Notify the curator once per genuinely new RSVP — a repeat or raced
+        // submission must not re-send the "New RSVP" email.
+        if ($created) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($gallery->user->email)
+                    ->send(new \App\Mail\EventRsvpNotification($gallery, $event, $validated));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send RSVP notification: ' . $e->getMessage());
+            }
         }
 
         return back()->with('status', "You're RSVP'd for \"{$event->title}\". We'll see you there!");

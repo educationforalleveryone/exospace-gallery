@@ -27,7 +27,7 @@ class FirstGalleryCreatedEmail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Your gallery \"{$this->gallery->title}\" is ready — add your first artwork",
+            subject: email_subject_line("Your gallery \"{$this->gallery->title}\" is ready — add your first artwork"),
         );
     }
 
