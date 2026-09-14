@@ -198,6 +198,11 @@
     background: rgba(139,92,246,0.08);
     transition: all 0.2s ease;
 }
+.venue-card:focus-visible {
+    outline: 2px solid #8b5cf6;
+    outline-offset: 2px;
+    border-radius: 12px;
+}
 .venue-walkthrough:hover { background: rgba(139,92,246,0.18); color: #c4b5fd; }
 </style>
 
@@ -240,7 +245,13 @@ $venueAtmospheres = [
              data-accessible="{{ $accessible ? 'true' : 'false' }}"
              data-slug="{{ $venue->slug }}"
              data-description="{{ $venue->description }}"
-             data-accent="{{ $atm['accent'] }}">
+             data-venue-name="{{ $venue->name }}"
+             data-venue-plan="{{ ucfirst($venue->plan_required) }}"
+             data-accent="{{ $atm['accent'] }}"
+             tabindex="0"
+             role="button"
+             aria-pressed="{{ $isSelected ? 'true' : 'false' }}"
+             aria-label="{{ $venue->name }} venue, {{ ucfirst($venue->plan_required) }} plan{{ $accessible ? '' : ' — requires upgrade' }}">
 
             <div class="venue-card-inner {{ $isSelected ? 'selected' : '' }}">
 
@@ -417,11 +428,10 @@ $venueAtmospheres = [
 <script nonce="@nonce">
 
 function selectVenue(card) {
-    const accessible = card.dataset.accessible === 'true';
-    if (!accessible) {
-        window.removeEventListener('beforeunload', window._dirtyHandler);
-        window.removeEventListener('beforeunload', window._reorderHandler);
-        window.location.href = '/pricing';
+    if (card.dataset.accessible !== 'true') {
+        const name = card.dataset.venueName || 'That venue';
+        const plan = card.dataset.venuePlan || 'a higher';
+        if (window.toast) toast(name + ' is available on the ' + plan + ' plan — your venue selection has not changed.', 'warning');
         return;
     }
 
@@ -429,9 +439,13 @@ function selectVenue(card) {
     document.querySelectorAll('.venue-card-inner').forEach(el => {
         el.classList.remove('selected');
     });
+    document.querySelectorAll('.venue-card').forEach(el => {
+        el.setAttribute('aria-pressed', 'false');
+    });
 
     // Select this one
     card.querySelector('.venue-card-inner').classList.add('selected');
+    card.setAttribute('aria-pressed', 'true');
 
     // Populate hidden inputs
     document.getElementById('input_wall_texture').value      = card.dataset.wall;
@@ -457,6 +471,12 @@ function selectVenue(card) {
 
 document.querySelectorAll('.venue-card').forEach(card => {
     card.addEventListener('click', () => selectVenue(card));
+    card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectVenue(card);
+        }
+    });
 });
 
 document.querySelectorAll('[data-walkthrough-link]').forEach(a => {

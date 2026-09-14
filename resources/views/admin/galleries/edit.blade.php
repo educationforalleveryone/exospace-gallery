@@ -131,6 +131,11 @@
             transition: all 0.2s ease;
         }
         .venue-walkthrough:hover { background: rgba(139,92,246,0.18); color: #c4b5fd; }
+        .edit-venue-card:focus-visible {
+            outline: 2px solid #8b5cf6;
+            outline-offset: 2px;
+            border-radius: 0.5rem;
+        }
     /* ─── Reorder save bar (Round 4 polish) ─── */
     #reorder-save-bar {
         position: fixed;
@@ -258,7 +263,8 @@
                         <form action="{{ route('admin.galleries.publish', $gallery) }}" method="POST"
                               {{ $canPublish ? 'data-busy data-busy-label="Publishing…"' : '' }}>
                             @csrf
-                            <button type="submit" {{ $canPublish ? '' : 'disabled aria-disabled="true"' }}
+                            <button type="submit"
+                                    @unless($canPublish) disabled aria-disabled="true" @endunless
                                     title="{{ $canPublish ? 'Make this exhibition public' : 'Upload at least one artwork to publish' }}"
                                     class="btn {{ $canPublish ? 'btn-primary' : 'btn-secondary opacity-60 cursor-not-allowed' }}">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -359,7 +365,13 @@
                                      data-accessible="{{ $accessible ? 'true' : 'false' }}"
                                      data-slug="{{ $venue->slug }}"
                                      data-description="{{ $venue->description }}"
-                                     data-accent="{{ $atm['accent'] }}">
+                                     data-venue-name="{{ $venue->name }}"
+                                     data-venue-plan="{{ ucfirst($venue->plan_required) }}"
+                                     data-accent="{{ $atm['accent'] }}"
+                                     tabindex="0"
+                                     role="button"
+                                     aria-pressed="{{ $isSelected ? 'true' : 'false' }}"
+                                     aria-label="{{ $venue->name }} venue, {{ ucfirst($venue->plan_required) }} plan{{ $accessible ? '' : ' — requires upgrade' }}">
 
                                     <div class="venue-card-inner {{ $isSelected ? 'selected' : '' }}">
 
@@ -1901,15 +1913,19 @@
 
 function selectEditVenue(card) {
     if (card.dataset.accessible !== 'true') {
-        window.removeEventListener('beforeunload', window._dirtyHandler);
-        window.removeEventListener('beforeunload', window._reorderHandler);
-        window.location.href = '/pricing';
+        const name = card.dataset.venueName || 'That venue';
+        const plan = card.dataset.venuePlan || 'a higher';
+        if (window.toast) toast(name + ' is available on the ' + plan + ' plan — your venue selection has not changed.', 'warning');
         return;
     }
     document.querySelectorAll('.venue-card-inner').forEach(el => {
         el.classList.remove('selected');
     });
+    document.querySelectorAll('.edit-venue-card').forEach(el => {
+        el.setAttribute('aria-pressed', 'false');
+    });
     card.querySelector('.venue-card-inner').classList.add('selected');
+    card.setAttribute('aria-pressed', 'true');
 
     // Pause dirty tracking while we programmatically sync fields
     _pauseDirty = true;
@@ -1951,6 +1967,12 @@ function selectEditVenue(card) {
 // Venue card clicks
 document.querySelectorAll('.edit-venue-card').forEach(card => {
     card.addEventListener('click', () => selectEditVenue(card));
+    card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectEditVenue(card);
+        }
+    });
 });
 
 document.querySelectorAll('[data-walkthrough-link]').forEach(a => {

@@ -542,7 +542,7 @@
             <div class="p-7">
                 <ul class="space-y-3 mb-6 text-sm">
                     @foreach([
-                        ['tone' => 'bg-brand-500/15 border-brand-500/30 text-brand-300', 'title' => $user->max_galleries . ' galleries', 'desc' => 'on your ' . ucfirst($user->plan) . ' plan'],
+                        ['tone' => 'bg-brand-500/15 border-brand-500/30 text-brand-300', 'title' => $user->max_galleries . ' ' . str($user->max_galleries === 1 ? 'gallery' : 'galleries'), 'desc' => 'on your ' . ucfirst($user->plan) . ' plan'],
                         ['tone' => 'bg-blue-500/15 border-blue-500/30 text-blue-300', 'title' => $user->max_images . ' images', 'desc' => 'per gallery'],
                         ['tone' => 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300', 'title' => 'Immersive 3D viewer', 'desc' => 'walk through like a museum'],
                     ] as $feat)

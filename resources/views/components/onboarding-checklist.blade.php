@@ -5,14 +5,15 @@
     $hasPublished = $hasPublishedGallery;
     $allDone = $emailVerified && $hasGallery && $hasImages && $hasPublished;
 
-    $uploadTarget = $user->galleries()
+    $personalGalleries = fn () => $user->galleries()->whereNull('team_id');
+    $uploadTarget = $personalGalleries()
         ->whereDoesntHave('images')
         ->orderBy('created_at')
         ->first()
-        ?? $user->galleries()->orderBy('created_at')->first();
-    $draftTarget = $user->galleries()->where('is_active', false)
+        ?? $personalGalleries()->orderBy('created_at')->first();
+    $draftTarget = $personalGalleries()->where('is_active', false)
         ->orderBy('created_at')->first();
-    $liveTarget = $user->galleries()->where('is_active', true)
+    $liveTarget = $personalGalleries()->where('is_active', true)
         ->orderBy('created_at')->first();
 @endphp
 
@@ -104,23 +105,15 @@
                 <span class="text-gray-400 line-through">Share your gallery link</span>
             @else
                 <svg class="w-4 h-4 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-width="2"/></svg>
-                <span class="text-brand-400 hover:text-brand-300 transition cursor-pointer"
-                      data-click="copyGalleryLink" data-arg="{{ route('gallery.view', $liveTarget->slug) }}">
+                <button type="button"
+                        data-click="copyGalleryLink" data-arg="{{ route('gallery.view', $liveTarget->slug) }}"
+                        class="text-brand-400 hover:text-brand-300 transition text-left p-0 bg-transparent border-0 cursor-pointer">
                     Share your gallery link
-                </span>
+                </button>
             @endif
         </div>
         @endif
     </div>
-
-    @if($allDone)
-    <div class="mt-4 pt-3 border-t border-brand-700/20">
-        <p class="text-xs text-emerald-400 flex items-center gap-1.5">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-            All set! Your gallery is live.
-        </p>
-    </div>
-    @endif
 </div>
 
 <script nonce="@nonce">
@@ -128,7 +121,11 @@ window.copyGalleryLink = function(url) {
     if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(function() {
             if (window.toast) window.toast('Link copied', 'success');
+        }, function() {
+            window.location.href = url;
         });
+    } else {
+        window.location.href = url;
     }
 };
 </script>
