@@ -109,8 +109,9 @@ class SeoPage extends Model
 
     public static function bumpCacheVersion(): void
     {
-        $current = (int) \Illuminate\Support\Facades\Cache::get('seo:pages:version', 1);
-        \Illuminate\Support\Facades\Cache::put('seo:pages:version', $current + 1);
+        // Atomic increment — concurrent saves must not lose a bump.
+        \Illuminate\Support\Facades\Cache::add('seo:pages:version', 1);
+        \Illuminate\Support\Facades\Cache::increment('seo:pages:version');
     }
 
     public static function pathFor(string $type, string $slug): string

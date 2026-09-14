@@ -72,6 +72,21 @@ class SeoPagesTest extends TestCase
         $this->assertStringContainsString('"@type":"Article"', $html, 'Editorial pages emit Article schema.');
     }
 
+    public function test_editorial_breadcrumb_prefix_never_links_to_a_missing_hub(): void
+    {
+        $page = $this->makePage([
+            'type'   => 'editorial',
+            'slug'   => 'crumb-check',
+            'title'  => 'Breadcrumb Check',
+        ]);
+
+        $crumbs = app(\App\Services\Seo\SeoPageRenderer::class)->breadcrumbsFor($page->fresh());
+
+        $this->assertCount(3, $crumbs);
+        $this->assertSame('Resources', $crumbs[1]->label());
+        $this->assertNull($crumbs[1]->url, 'The editorial prefix has no hub route — the crumb must not link to a 404.');
+    }
+
     public function test_real_routes_always_win_over_seo_pages(): void
     {
         // A page trying to shadow an existing route slug.

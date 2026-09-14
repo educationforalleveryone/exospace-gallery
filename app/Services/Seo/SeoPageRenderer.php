@@ -88,7 +88,10 @@ class SeoPageRenderer
         $trail = [['Home', url('/')]];
 
         if ($page->type === 'editorial') {
-            $trail[] = [ucfirst((string) config('seo.pages.editorial_prefix', 'resources')), url('/' . config('seo.pages.editorial_prefix', 'resources'))];
+            // The editorial prefix has no hub route — keep the crumb visible
+            // but unlinked so it never points at a missing page (also in the
+            // BreadcrumbList structured data).
+            $trail[] = [ucfirst((string) config('seo.pages.editorial_prefix', 'resources'))];
         }
         $trail[] = [$page->title];
 

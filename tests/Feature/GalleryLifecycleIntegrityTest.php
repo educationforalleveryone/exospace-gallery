@@ -265,6 +265,32 @@ class GalleryLifecycleIntegrityTest extends TestCase
 
     // ── E. PIN protection is manageable through gallery settings ──────────
 
+    public function test_pin_protected_gallery_og_image_is_not_served(): void
+    {
+        $gallery = Gallery::factory()
+            ->pinProtected('1234')
+            ->create(['is_active' => true]);
+        GalleryImage::factory()->create(['gallery_id' => $gallery->id]);
+
+        Cache::clear();
+
+        $this->get("/gallery/{$gallery->slug}/og-image")->assertNotFound();
+        $this->get("/gallery/{$gallery->slug}/og-image?artwork=1")->assertNotFound();
+    }
+
+    public function test_og_image_reflects_publication_state_changes_immediately(): void
+    {
+        $gallery = Gallery::factory()->create(['is_active' => true]);
+        GalleryImage::factory()->create(['gallery_id' => $gallery->id]);
+
+        Cache::clear();
+        $this->get("/gallery/{$gallery->slug}/og-image")->assertOk();
+
+        // Unpublishing takes effect without waiting for cached cards to expire.
+        $gallery->forceFill(['is_active' => false])->save();
+        $this->get("/gallery/{$gallery->slug}/og-image")->assertNotFound();
+    }
+
     public function test_owner_can_set_a_pin_through_settings(): void
     {
         $user = User::factory()->create();

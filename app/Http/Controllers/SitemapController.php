@@ -305,16 +305,20 @@ class SitemapController extends Controller
     private function artworkSitemapQuery()
     {
         return GalleryImage::query()
-            ->whereHas('gallery', fn ($q) => $q->publiclyViewable())
+            ->whereHas('gallery', fn ($q) => $q->publiclyViewable()
+                ->whereDoesntHave('user', fn ($u) => $u->whereNotNull('banned_at')))
             ->where(function ($q) {
-                $q->whereNotNull('gallery_images.title')
-                    ->orWhereNotNull('gallery_images.original_name');
-            })
-            ->where(function ($q) {
-                $q->whereRaw('LENGTH(COALESCE(gallery_images.description, \'\')) >= ?', [(int) config('seo.artwork_gate.min_description_chars', 80)])
-                    ->orWhereNotNull('gallery_images.medium')
-                    ->orWhereNotNull('gallery_images.year')
-                    ->orWhereNotNull('gallery_images.artist_id');
+                // Mirrors ArtworkController::passesQualityGate() so every listed
+                // URL is actually indexable: a derivable title plus content depth.
+                $minChars = (int) config('seo.artwork_gate.min_description_chars', 80);
+
+                $q->whereRaw("TRIM(COALESCE(NULLIF(gallery_images.title, ''), gallery_images.original_name, '')) <> ''")
+                    ->where(function ($w) use ($minChars) {
+                        $w->whereRaw("CHAR_LENGTH(TRIM(COALESCE(gallery_images.description, ''))) >= ?", [$minChars])
+                            ->orWhereRaw("TRIM(COALESCE(gallery_images.medium, '')) <> ''")
+                            ->orWhereNotNull('gallery_images.year')
+                            ->orWhereNotNull('gallery_images.artist_id');
+                    });
             });
     }
 
@@ -480,6 +484,7 @@ class SitemapController extends Controller
                 ->with(['coverImage', 'user', 'venueTemplate'])
                 ->withCount('images')
                 ->has('images', '>=', 1)
+                ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
                 ->orderByDesc('updated_at')
                 ->limit($maxItems)
                 ->get(),

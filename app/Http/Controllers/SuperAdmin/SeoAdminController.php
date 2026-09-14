@@ -96,12 +96,23 @@ class SeoAdminController extends Controller
             'description_override' => $validated['description_override'] ?? null,
             'canonical_override'   => $validated['canonical_override'] ?? null,
             'robots_directive'     => $validated['robots_directive'] ?? null,
-            'sitemap_include'      => array_key_exists('sitemap_include', $validated) && $validated['sitemap_include'] !== null
-                ? (bool) $validated['sitemap_include'] : null,
-            'structured_data_enabled' => array_key_exists('structured_data', $validated) && $validated['structured_data'] !== null
-                ? (bool) $validated['structured_data'] : null,
             'updated_by' => $request->user()->id,
-        ])->save();
+        ]);
+
+        // Only forms that expose these controls may change them — saving a
+        // form without the fields leaves any forced value untouched.
+        if ($request->exists('sitemap_include')) {
+            $profile->sitemap_include = isset($validated['sitemap_include'])
+                ? (bool) $validated['sitemap_include']
+                : null;
+        }
+        if ($request->exists('structured_data')) {
+            $profile->structured_data_enabled = isset($validated['structured_data'])
+                ? (bool) $validated['structured_data']
+                : null;
+        }
+
+        $profile->save();
 
         // Entity metadata changed → refresh sitemap caches.
         \Illuminate\Support\Facades\Artisan::call('seo:rebuild');

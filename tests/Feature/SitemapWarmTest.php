@@ -80,6 +80,11 @@ class SitemapWarmTest extends TestCase
         $this->assertSame(0, Artisan::call('sitemap:warm', ['--group' => 'events']));
     }
 
+    public function test_warm_command_accepts_the_venues_group(): void
+    {
+        $this->assertSame(0, Artisan::call('sitemap:warm', ['--group' => 'venues']));
+    }
+
     public function test_warm_command_supports_single_group(): void
     {
         $this->seedPublicGallery();

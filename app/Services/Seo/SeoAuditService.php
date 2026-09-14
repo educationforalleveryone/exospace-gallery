@@ -14,10 +14,16 @@ use Illuminate\Support\Collection;
 
 class SeoAuditService
 {
+    private function publicGalleryScope($query)
+    {
+        return $query->publiclyViewable()
+            ->whereDoesntHave('user', fn ($u) => $u->whereNotNull('banned_at'));
+    }
+
     public function summary(): array
     {
         return [
-            'indexable_galleries'  => Gallery::publiclyViewable()->has('images', '>=', 1)->count(),
+            'indexable_galleries'  => $this->publicGalleryScope(Gallery::query())->has('images', '>=', 1)->count(),
             'indexable_artists'    => Artist::whereHas('images.gallery', fn ($q) => $q->publiclyViewable())->count(),
             'indexable_artworks'   => $this->indexableArtworkCount(),
             'published_seo_pages'  => \Schema::hasTable('seo_pages') ? SeoPage::published()->count() : 0,
@@ -30,7 +36,7 @@ class SeoAuditService
     {
         $issues = [];
 
-        $missingDesc = Gallery::publiclyViewable()->has('images', '>=', 1)
+        $missingDesc = $this->publicGalleryScope(Gallery::query())->has('images', '>=', 1)
             ->where(fn ($q) => $q->whereNull('description')->orWhere('description', ''))
             ->count();
         if ($missingDesc > 0) {
@@ -118,9 +124,9 @@ class SeoAuditService
         }
 
         if ($filter === 'public') {
-            $query->publiclyViewable()->has('images', '>=', 1);
+            $this->publicGalleryScope($query)->has('images', '>=', 1);
         } elseif ($filter === 'issues') {
-            $query->publiclyViewable()
+            $this->publicGalleryScope($query)
                 ->where(fn ($q) => $q->whereNull('description')->orWhere('description', ''));
         }
 
@@ -153,7 +159,8 @@ class SeoAuditService
     private function indexableGalleryImageQuery()
     {
         return GalleryImage::query()
-            ->whereHas('gallery', fn ($q) => $q->publiclyViewable())
+            ->whereHas('gallery', fn ($q) => $q->publiclyViewable()
+                ->whereDoesntHave('user', fn ($u) => $u->whereNotNull('banned_at')))
             ->where(fn ($q) => $q->whereNotNull('title')->orWhereNotNull('original_name'));
     }
 }

@@ -28,14 +28,17 @@ class OgImageController extends Controller
 
     public function show(Request $request, string $slug): Response
     {
-        $gallery = Cache::flexible("og:gallery:{$slug}", [now()->addHour(), now()->addHours(2)], function () use ($slug) {
-            return Gallery::where('slug', $slug)
-                ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
-                ->with(['coverImage', 'venueTemplate', 'user'])
-                ->firstOrFail();
-        });
+        // Loaded fresh on every request (single indexed query) so publish,
+        // pin and curator edits are reflected immediately; only the rendered
+        // PNG is cached, keyed by the gallery's last update to invalidate on
+        // content changes instead of serving hours-old cards.
+        $gallery = Gallery::where('slug', $slug)
+            ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
+            ->with(['coverImage', 'venueTemplate', 'user'])
+            ->firstOrFail();
 
-        if (! $gallery->is_active) {
+        // PIN-protected exhibitions never present publicly — no card either.
+        if (! $gallery->is_active || $gallery->hasPinProtection()) {
             abort(404);
         }
 
@@ -49,9 +52,14 @@ class OgImageController extends Controller
                 ->first();
         }
 
+        $stamp = max(
+            $gallery->updated_at?->getTimestamp() ?? 0,
+            $gallery->coverImage?->updated_at?->getTimestamp() ?? 0,
+        );
+
         $cacheKey = $artwork
-            ? "og:image:{$slug}:artwork:{$artworkId}:v1"
-            : "og:image:{$slug}:v1";
+            ? "og:image:{$slug}:artwork:{$artworkId}:{$stamp}:v1"
+            : "og:image:{$slug}:{$stamp}:v1";
 
         $pngBytes = Cache::flexible($cacheKey, [now()->addHours(6), now()->addHours(12)], function () use ($gallery, $artwork) {
             return $this->render($gallery, $artwork);

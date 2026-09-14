@@ -193,6 +193,52 @@ class SeoSitemapSystemTest extends TestCase
         $this->assertStringNotContainsString("/artwork/{$thin->id}", $xml, 'Thin artworks stay out of the sitemap.');
     }
 
+    public function test_artwork_sitemap_gate_matches_the_page_quality_gate(): void
+    {
+        $gallery = $this->makePublicGallery();
+
+        // An empty-string medium satisfies NOT NULL but the page gate treats
+        // it as no depth — the sitemap must agree.
+        $emptyMedium = $this->addArtwork($gallery, ['title' => 'Empty Medium', 'medium' => '']);
+        // Description depth counts characters, not bytes (multi-byte scripts).
+        $cjkThin = $this->addArtwork($gallery, ['title' => 'CJK Work', 'description' => str_repeat('墨', 30)]);
+
+        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 100);
+
+        $xml = $this->get('/sitemap-artworks-1.xml')->getContent();
+
+        $this->assertStringNotContainsString("/artwork/{$emptyMedium->id}", $xml, 'Empty-string medium is not content depth.');
+        $this->assertStringNotContainsString("/artwork/{$cjkThin->id}", $xml, 'Description depth is measured in characters.');
+    }
+
+    public function test_artwork_sitemap_excludes_banned_owners_galleries(): void
+    {
+        $owner = User::factory()->create();
+        $gallery = $this->makePublicGallery(['user_id' => $owner->id]);
+        $artwork = $this->addArtwork($gallery, ['title' => 'Hidden Work', 'medium' => 'Oil']);
+
+        $owner->forceFill(['banned_at' => now()])->save();
+        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 100);
+
+        $xml = $this->get('/sitemap-artworks-1.xml')->getContent();
+
+        $this->assertStringNotContainsString("/artwork/{$artwork->id}", $xml, 'Banned owners never have live artwork URLs — the sitemap must not list them.');
+    }
+
+    public function test_feed_excludes_banned_owners_galleries(): void
+    {
+        $owner = User::factory()->create();
+        $gallery = $this->makePublicGallery(['user_id' => $owner->id, 'title' => 'Banned Feed Show']);
+        $this->addArtwork($gallery, ['title' => 'Feed Work', 'medium' => 'Oil']);
+
+        $owner->forceFill(['banned_at' => now()])->save();
+        \Illuminate\Support\Facades\Cache::put('seo:sitemap:version', 100);
+
+        $xml = $this->get('/feed.xml')->getContent();
+
+        $this->assertStringNotContainsString('Banned Feed Show', $xml, 'The RSS feed must not advertise exhibitions whose pages 404.');
+    }
+
     public function test_legacy_sitemap_route_redirects_to_galleries_group(): void
     {
         $response = $this->get('/sitemap-1.xml');
@@ -225,6 +271,9 @@ class SeoSitemapSystemTest extends TestCase
         $this->assertStringContainsString('Disallow: /admin', $body);
         $this->assertStringContainsString('Disallow: /gallery/*/pin', $body);
         $this->assertStringContainsString('Disallow: /unsubscribe', $body);
+        $this->assertStringContainsString('Disallow: /mfa', $body);
+        $this->assertStringContainsString('Disallow: /reset-password', $body);
+        $this->assertStringContainsString('Disallow: /webhooks', $body);
         $this->assertStringContainsString('Disallow: /*?embed=', $body);
         $this->assertStringContainsString('Sitemap: https://exospace.gallery/sitemap.xml', $body);
     }

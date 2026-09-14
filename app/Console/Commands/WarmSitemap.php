@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 class WarmSitemap extends Command
 {
     protected $signature = 'sitemap:warm
-                            {--group= : Warm a single group (static|galleries|artists|artworks|content)}
+                            {--group= : Warm a single group (static|galleries|artists|artworks|events|content|venues)}
                             {--max-pages=25 : Safety cap on sub-sitemap pages warmed per group}';
 
     protected $description = 'Pre-populate sitemap cache keys so crawler requests never pay the cold-rebuild cost.';
@@ -20,7 +20,7 @@ class WarmSitemap extends Command
         $group = $this->option('group');
         $maxPages = max(1, (int) $this->option('max-pages'));
 
-        $validGroups = ['static', 'galleries', 'artists', 'artworks', 'events', 'content'];
+        $validGroups = ['static', 'galleries', 'artists', 'artworks', 'events', 'content', 'venues'];
 
         if ($group !== null && $group !== '' && ! in_array($group, $validGroups, true)) {
             $this->error("Unknown group '{$group}'. Valid: " . implode(', ', $validGroups) . '.');

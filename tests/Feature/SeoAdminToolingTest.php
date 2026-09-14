@@ -94,6 +94,29 @@ class SeoAdminToolingTest extends TestCase
         $this->assertStringContainsString('Counted Show', $galleries->getContent());
     }
 
+    public function test_health_counts_exclude_banned_owners_galleries(): void
+    {
+        $owner = User::factory()->create();
+        $gallery = Gallery::create([
+            'user_id' => $owner->id,
+            'title' => 'Banished Show', 'slug' => 'banished-show',
+            'description' => 'Has a description.', 'is_active' => true,
+        ]);
+        GalleryImage::create([
+            'gallery_id' => $gallery->id, 'filename' => 'a.jpg', 'original_name' => 'a.jpg',
+            'path' => 'artworks/a.jpg', 'mime_type' => 'image/jpeg', 'size' => 1,
+            'width' => 100, 'height' => 100, 'orientation' => 'landscape',
+            'title' => 'Work', 'medium' => 'Oil',
+        ]);
+
+        $owner->forceFill(['banned_at' => now()])->save();
+
+        $issues = app(\App\Services\Seo\SeoAuditService::class)->summary();
+
+        $this->assertSame(0, $issues['indexable_galleries'], 'Banned owners have no indexable galleries.');
+        $this->assertSame(0, $issues['indexable_artworks'], 'Banned owners have no indexable artworks.');
+    }
+
     public function test_health_tab_flags_missing_descriptions(): void
     {
         $gallery = Gallery::create([
@@ -136,6 +159,27 @@ class SeoAdminToolingTest extends TestCase
         $this->assertFalse((bool) $profile->sitemap_include);
         $this->assertTrue((bool) $profile->structured_data_enabled);
         $this->assertSame($this->superAdmin->id, $profile->updated_by);
+    }
+
+    public function test_saving_artist_profile_preserves_forced_sitemap_settings(): void
+    {
+        $artist = Artist::create(['name' => 'Forced Artist']);
+        $artist->seoProfileOrCreate()->forceFill([
+            'sitemap_include' => false,
+            'structured_data_enabled' => false,
+        ])->save();
+
+        // The artist form has no sitemap/structured-data controls; saving it
+        // must not reset the forced values to automatic.
+        $response = $this->actingAsMfaSuperAdmin()->post("/master-control/seo/profile/artist/{$artist->id}", [
+            'title_override' => 'Artist Manual Title',
+        ]);
+
+        $response->assertRedirect();
+        $profile = $artist->fresh()->seoProfile;
+        $this->assertSame('Artist Manual Title', $profile->title_override);
+        $this->assertFalse((bool) $profile->sitemap_include, 'Forced sitemap exclusion survives a form save that does not carry the field.');
+        $this->assertFalse((bool) $profile->structured_data_enabled);
     }
 
     public function test_profile_update_validates_robots_directive(): void
