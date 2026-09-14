@@ -33,7 +33,7 @@ class EventRsvpNotification extends Mailable implements ShouldQueue
             with: [
                 'galleryName' => $this->gallery->title,
                 'eventTitle'  => $this->event->title,
-                'eventStarts' => $this->event->starts_at,
+                'eventStarts' => $this->event->startsAtInEventTimezone(),
                 'name'        => $this->rsvp['name'],
                 'email'       => $this->rsvp['email'],
                 'galleryUrl'  => $this->gallery->public_url,

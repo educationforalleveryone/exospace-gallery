@@ -20,8 +20,8 @@ class PublicEventController extends Controller
 
     public function index(string $slug): View|\Illuminate\Http\RedirectResponse
     {
-        $gallery = Gallery::where('slug', $slug)
-            ->where('is_active', true)
+        $gallery = Gallery::publiclyAccessible()
+            ->where('slug', $slug)
             ->with(['scheduleEvents' => function ($q) {
                 $q->active()->orderBy('starts_at')->withCount('rsvps'); // eager-load rsvps_count
             }, 'venueTemplate'])
@@ -36,10 +36,20 @@ class PublicEventController extends Controller
             return redirect()->route('gallery.pin', $gallery->slug);
         }
 
-        $upcoming = $gallery->scheduleEvents->filter(fn ($e) => $e->isUpcoming());
-        $past = $gallery->scheduleEvents->filter(fn ($e) => $e->isPast())->take(5);
+        $upcoming = $gallery->scheduleEvents->filter(fn ($e) => $e->isUpcoming())->values();
+        // The eager load runs oldest-first; history reads newest-first so the
+        // most recent events are the ones the limited slice keeps.
+        $past = $gallery->scheduleEvents->filter(fn ($e) => $e->isPast())->sortByDesc('starts_at')->take(5)->values();
 
         $hasContent = $upcoming->isNotEmpty() || $past->isNotEmpty();
+
+        $robots = $hasContent ? null : 'noindex,follow';
+        // Verified visitors may see gated schedules, but crawlers always land
+        // on the PIN screen — a gated page must never present as indexable.
+        if ($gallery->hasPinProtection()) {
+            $robots = 'noindex,nofollow';
+        }
+
         $title = ($gallery->title ?: 'Exhibition') . ' — Events & Openings';
         $description = $upcoming->isNotEmpty()
             ? sprintf('Upcoming events for "%s": %s. RSVP online.', $gallery->title, $upcoming->take(3)->map(fn ($e) => $e->title)->implode(', '))
@@ -49,7 +59,7 @@ class PublicEventController extends Controller
             title: \Illuminate\Support\Str::limit($title, 60),
             description: \Illuminate\Support\Str::limit($description, 155),
             canonicalUrl: url('/gallery/' . $gallery->slug . '/events'),
-            robots: $hasContent ? null : 'noindex,follow',
+            robots: $robots,
             ogTitle: $title,
             ogDescription: \Illuminate\Support\Str::limit($description, 155),
             ogImage: url("/gallery/{$gallery->slug}/og-image"),
@@ -75,8 +85,12 @@ class PublicEventController extends Controller
 
     public function rsvp(Request $request, string $slug, GalleryScheduleEvent $event): RedirectResponse
     {
-        $gallery = Gallery::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        $gallery = Gallery::publiclyAccessible()->where('slug', $slug)->firstOrFail();
         if ($event->gallery_id !== $gallery->id) abort(404);
+
+        if ($gallery->hasClosed()) {
+            return redirect()->route('gallery.view', $gallery->slug);
+        }
 
         if ($gallery->hasPinProtection() && ! session("pin_verified_{$gallery->id}")) {
             return redirect()->route('gallery.pin', $gallery->slug);
@@ -101,18 +115,24 @@ class PublicEventController extends Controller
             return back()->with('error', 'This event has reached capacity.');
         }
 
-        // Idempotent: unique on (schedule_event_id, email)
-        \App\Models\EventRsvp::firstOrCreate(
-            [
-                'schedule_event_id' => $event->id,
-                'email'             => $validated['email'],
-            ],
-            [
-                'name'        => $validated['name'],
-                'ip_address'  => $request->ip(),
-                'confirmed_at' => now(),
-            ]
-        );
+        // Idempotent: unique on (schedule_event_id, email). A concurrent
+        // duplicate submit loses the race on the unique index — the row then
+        // already exists, which is the same outcome the visitor asked for.
+        try {
+            \App\Models\EventRsvp::firstOrCreate(
+                [
+                    'schedule_event_id' => $event->id,
+                    'email'             => $validated['email'],
+                ],
+                [
+                    'name'        => $validated['name'],
+                    'ip_address'  => $request->ip(),
+                    'confirmed_at' => now(),
+                ]
+            );
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            //
+        }
 
         // Send curator an email notification
         try {

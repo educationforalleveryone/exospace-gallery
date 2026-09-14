@@ -4,7 +4,7 @@
     <div class="bg-gradient-to-br from-gray-900 via-brand-950/30 to-gray-900 border-b border-gray-800">
             <div class="max-w-5xl mx-auto px-4 py-12">
                 <p class="text-brand-400 text-xs font-semibold tracking-widest uppercase mb-2">Events</p>
-                <h1 class="text-3xl md:text-4xl font-extrabold text-white">{{ $gallery->title }} — Events</h1>
+                <h1 class="text-3xl md:text-4xl font-extrabold text-white break-words">{{ $gallery->title }} — Events</h1>
                 <p class="text-gray-400 mt-2">Upcoming events, openings, and artist talks</p>
                 <a href="{{ $gallery->public_url }}" class="inline-flex items-center gap-2 mt-4 text-sm text-brand-400 hover:text-brand-300 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
@@ -28,24 +28,30 @@
                         <div class="flex items-start justify-between gap-4 mb-3">
                             <div>
                                 <span class="inline-block text-xs px-2 py-0.5 rounded-full bg-brand-900/40 text-brand-300 border border-brand-700/40 mb-2">{{ $event->typeLabel() }}</span>
-                                <h3 class="text-gray-100 text-xl font-bold">{{ $event->title }}</h3>
+                                <h3 class="text-gray-100 text-xl font-bold break-words">{{ $event->title }}</h3>
                             </div>
                             <div class="text-right flex-shrink-0">
-                                <div class="text-2xl font-bold text-brand-400">{{ $event->starts_at->format('j') }}</div>
-                                <div class="text-xs text-gray-500 uppercase tracking-wider">{{ $event->starts_at->format('M Y') }}</div>
+                                <div class="text-2xl font-bold text-brand-400">{{ $event->startsAtInEventTimezone()?->format('j') }}</div>
+                                <div class="text-xs text-gray-500 uppercase tracking-wider">{{ $event->startsAtInEventTimezone()?->format('M Y') }}</div>
                             </div>
                         </div>
 
-                        <p class="text-gray-400 text-sm mb-3">{{ $event->starts_at->format('l, F j \a\t g:i A') }}@if($event->ends_at) – {{ $event->ends_at->format('g:i A') }}@endif</p>
+                        <p class="text-gray-400 text-sm mb-3">{{ $event->scheduleLabel() }}</p>
 
                         @if($event->description)
-                            <p class="text-gray-300 text-sm leading-relaxed mb-3 whitespace-pre-line">{{ $event->description }}</p>
+                            <p class="text-gray-300 text-sm leading-relaxed mb-3 whitespace-pre-line break-words">{{ $event->description }}</p>
                         @endif
 
-                        @if($event->location_name)
+                        @if($event->location_name || $event->externalLocationUrl())
                             <p class="text-gray-400 text-sm mb-3 flex items-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                {{ $event->location_name }}
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                @if($event->externalLocationUrl())
+                                    <a href="{{ $event->externalLocationUrl() }}" target="_blank" rel="noopener noreferrer" class="break-words hover:text-brand-300 transition">
+                                        {{ $event->location_name ?: 'Join online' }}
+                                    </a>
+                                @else
+                                    <span class="break-words">{{ $event->location_name }}</span>
+                                @endif
                             </p>
                         @endif
 
@@ -96,12 +102,12 @@
             <div class="space-y-3">
                 @foreach($past as $event)
                     <div class="bg-gray-800/50 border border-gray-700/50 rounded-lg p-4 opacity-70">
-                        <div class="flex items-center justify-between">
-                            <div>
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
                                 <span class="text-xs px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400 mr-2">{{ $event->typeLabel() }}</span>
-                                <span class="text-gray-300 font-medium">{{ $event->title }}</span>
+                                <span class="text-gray-300 font-medium break-words">{{ $event->title }}</span>
                             </div>
-                            <span class="text-xs text-gray-500">{{ $event->starts_at->format('M j, Y') }}</span>
+                            <span class="text-xs text-gray-500 flex-shrink-0">{{ $event->startsAtInEventTimezone()?->format('M j, Y') }}</span>
                         </div>
                     </div>
                 @endforeach

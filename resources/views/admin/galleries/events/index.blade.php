@@ -26,7 +26,7 @@
                                     @endif
                                 </div>
                                 <h4 class="text-gray-100 font-semibold text-lg">{{ $event->title }}</h4>
-                                <p class="text-gray-400 text-sm mt-1">{{ $event->starts_at->format('l, F j, Y \a\t g:i A') }}@if($event->ends_at) – {{ $event->ends_at->format('g:i A') }}@endif</p>
+                                <p class="text-gray-400 text-sm mt-1">{{ $event->scheduleLabel() }}</p>
                                 @if($event->location_name)
                                     <p class="text-gray-500 text-xs mt-1">{{ $event->location_name }}</p>
                                 @endif
@@ -68,7 +68,7 @@
                     <div class="bg-gray-800/40 border border-gray-700/40 rounded-lg p-3 flex items-center justify-between opacity-75">
                         <div>
                             <span class="text-gray-300 font-medium text-sm">{{ $event->title }}</span>
-                            <span class="text-gray-500 text-xs ml-2">{{ $event->starts_at->format('M j, Y') }}</span>
+                            <span class="text-gray-500 text-xs ml-2">{{ $event->startsAtInEventTimezone()?->format('M j, Y') }}</span>
                         </div>
                         <a href="{{ route('admin.galleries.events.rsvps', [$gallery, $event]) }}" class="text-xs text-blue-400 hover:text-blue-300">{{ $event->rsvps->count() }} RSVPs →</a>
                     </div>

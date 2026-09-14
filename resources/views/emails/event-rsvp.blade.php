@@ -14,7 +14,7 @@ Someone just RSVP'd to your gallery event.
   View all RSVPs
 </x-mail::button>
 
-This RSVP was captured automatically by Exospace. The visitor will receive a confirmation email shortly.
+This RSVP was captured automatically by Exospace.
 
 <x-mail::panel>
 Curator tip: RSVPs are marketing assets. Reach out to attendees before the event to build rapport, and follow up after to convert them into newsletter subscribers or paying collectors.

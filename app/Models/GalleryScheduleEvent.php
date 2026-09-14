@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class GalleryScheduleEvent extends Model
 {
@@ -62,6 +63,96 @@ class GalleryScheduleEvent extends Model
     public function typeLabel(): string
     {
         return self::TYPES[$this->type] ?? ucfirst($this->type);
+    }
+
+    /**
+     * Resolve a declared IANA timezone name to a timezone object. Blank or
+     * unknown identifiers fall back to UTC so a malformed stored value can
+     * never break schedule rendering.
+     */
+    public static function resolveTimezone(?string $timezone): \DateTimeZone
+    {
+        if ($timezone !== null && $timezone !== '') {
+            try {
+                return new \DateTimeZone($timezone);
+            } catch (\Throwable) {
+                // Unknown identifier — resolve to UTC below.
+            }
+        }
+
+        return new \DateTimeZone('UTC');
+    }
+
+    public function eventTimezone(): \DateTimeZone
+    {
+        return self::resolveTimezone($this->timezone);
+    }
+
+    /**
+     * Interpret curator-entered wall-clock input ("2026-07-01T18:00") as local
+     * time in the event's declared timezone and normalise it to the UTC
+     * instant that storage and schedule queries operate on. Values carrying an
+     * explicit offset keep that offset.
+     */
+    public static function fromEventLocalTime(string $value, ?string $timezone): Carbon
+    {
+        return Carbon::parse($value, self::resolveTimezone($timezone))->utc();
+    }
+
+    /**
+     * Instants rendered in the event's declared timezone, so the public page,
+     * admin screens and the RSVP notification all show the wall-clock the
+     * curator scheduled regardless of the server's timezone.
+     */
+    public function startsAtInEventTimezone(): ?Carbon
+    {
+        return $this->starts_at ? (clone $this->starts_at)->setTimezone($this->eventTimezone()) : null;
+    }
+
+    public function endsAtInEventTimezone(): ?Carbon
+    {
+        return $this->ends_at ? (clone $this->ends_at)->setTimezone($this->eventTimezone()) : null;
+    }
+
+    /**
+     * Human-readable start–end line. An end on a different calendar day
+     * repeats the day so a range like 11:00 PM – 1:00 AM stays unambiguous.
+     */
+    public function scheduleLabel(): string
+    {
+        $start = $this->startsAtInEventTimezone();
+
+        if ($start === null) {
+            return '';
+        }
+
+        $end = $this->endsAtInEventTimezone();
+        $startLabel = $start->format('l, F j, Y \a\t g:i A T');
+
+        if ($end === null) {
+            return $startLabel;
+        }
+
+        if ($end->isSameDay($start)) {
+            return $startLabel . ' – ' . $end->format('g:i A T');
+        }
+
+        return $startLabel . ' – ' . $end->format('l, F j, Y \a\t g:i A T');
+    }
+
+    /**
+     * The joinable external location link. Restricted to http(s) so a stored
+     * value can never produce a javascript:/data: link on a public page.
+     */
+    public function externalLocationUrl(): ?string
+    {
+        $url = trim((string) $this->location_url);
+
+        if (str_starts_with($url, 'https://') || str_starts_with($url, 'http://')) {
+            return $url;
+        }
+
+        return null;
     }
 
     public function isUpcoming(): bool

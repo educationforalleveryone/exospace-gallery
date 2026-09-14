@@ -48,7 +48,7 @@ class GalleryEventController extends Controller
             'type'          => ['required', 'string', 'in:' . implode(',', array_keys(GalleryScheduleEvent::TYPES))],
             'starts_at'     => ['required', 'date'],
             'ends_at'       => ['nullable', 'date', 'after:starts_at'],
-            'timezone'      => ['nullable', 'string', 'max:50'],
+            'timezone'      => ['nullable', 'string', 'max:50', 'timezone'],
             'location_name' => ['nullable', 'string', 'max:255'],
             'location_url'  => ['nullable', 'string', 'max:500', 'url'],
             'capacity'      => ['nullable', 'integer', 'min:1'],
@@ -57,6 +57,8 @@ class GalleryEventController extends Controller
 
         $validated['gallery_id'] = $gallery->id;
         $validated['is_active'] = $request->boolean('is_active', true);
+
+        $this->normaliseScheduleTimes($validated, 'UTC');
 
         $event = GalleryScheduleEvent::create($validated);
 
@@ -85,7 +87,7 @@ class GalleryEventController extends Controller
             'type'          => ['required', 'string', 'in:' . implode(',', array_keys(GalleryScheduleEvent::TYPES))],
             'starts_at'     => ['required', 'date'],
             'ends_at'       => ['nullable', 'date', 'after:starts_at'],
-            'timezone'      => ['nullable', 'string', 'max:50'],
+            'timezone'      => ['nullable', 'string', 'max:50', 'timezone'],
             'location_name' => ['nullable', 'string', 'max:255'],
             'location_url'  => ['nullable', 'string', 'max:500', 'url'],
             'capacity'      => ['nullable', 'integer', 'min:1'],
@@ -93,6 +95,10 @@ class GalleryEventController extends Controller
         ]);
 
         $validated['is_active'] = $request->boolean('is_active', true);
+
+        // A blank timezone keeps the stored one so the wall-clock shown in the
+        // form keeps referring to the same instant after the save.
+        $this->normaliseScheduleTimes($validated, $event->timezone ?? 'UTC');
         $event->update($validated);
 
         return redirect()
@@ -121,5 +127,19 @@ class GalleryEventController extends Controller
         $rsvps = $event->rsvps()->latest()->get();
 
         return view('admin.galleries.events.rsvps', compact('gallery', 'event', 'rsvps'));
+    }
+
+    /**
+     * The start/end inputs are wall-clock values in the event's declared
+     * timezone; storage and schedule queries operate on UTC instants.
+     */
+    private function normaliseScheduleTimes(array &$validated, string $fallbackTimezone): void
+    {
+        $validated['timezone'] = $validated['timezone'] ?? $fallbackTimezone;
+        $validated['starts_at'] = GalleryScheduleEvent::fromEventLocalTime($validated['starts_at'], $validated['timezone']);
+
+        if (!empty($validated['ends_at'])) {
+            $validated['ends_at'] = GalleryScheduleEvent::fromEventLocalTime($validated['ends_at'], $validated['timezone']);
+        }
     }
 }

@@ -6,7 +6,7 @@
     <div class="page-shell-mid">
 
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 mb-5">
-            <p class="text-sm text-gray-400">{{ $event->starts_at->format('l, F j, Y \a\t g:i A') }}</p>
+            <p class="text-sm text-gray-400">{{ $event->scheduleLabel() }}</p>
             <div class="grid grid-cols-3 gap-4 mt-3">
                 <div>
                     <div class="text-2xl font-semibold text-gray-50 text-numeric">{{ $rsvps->count() }}</div>
