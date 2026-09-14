@@ -62,8 +62,20 @@ return Application::configure(basePath: dirname(__DIR__))
 
             'cc_access'     => \App\Http\Middleware\EnsureControlCenterAccess::class,
         ]);
+
+        // API clients that omit the Accept header must still receive machine-readable
+        // errors (401/422 JSON), never framework redirects or HTML pages.
+        $middleware->api(prepend: [
+            \App\Http\Middleware\ForceJsonResponse::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Unmatched /api/* paths never reach route middleware, so JSON rendering
+        // for them is decided here instead.
+        $exceptions->shouldRenderJsonWhen(
+            fn ($request, $e) => $request->is('api/*') || $request->expectsJson()
+        );
+
         $exceptions->report(function (\Throwable $e): void {
             try {
                 app(\App\Ops\Services\OpsExceptionReporter::class)->record($e);

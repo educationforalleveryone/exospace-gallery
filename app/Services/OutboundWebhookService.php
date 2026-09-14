@@ -66,13 +66,15 @@ class OutboundWebhookService
             $finalAttempt = $attempt;
 
             try {
+                // The HMAC is computed over $body, so the transmitted bytes must be
+                // exactly $body — never a re-encoded copy of the decoded array.
                 $response = Http::timeout(self::TIMEOUT)
                     ->withHeaders(array_filter([
                         'Content-Type'       => 'application/json',
                         'X-Exospace-Event'   => $eventType,
                         'X-Exospace-Signature' => $signature,
                     ]))
-                    ->post($url, json_decode($body, true));
+                    ->send('post', $url, ['body' => $body]);
 
                 $lastHttpStatus = $response->status();
 
@@ -176,7 +178,7 @@ class OutboundWebhookService
                                 'X-Exospace-Event'     => $this->eventType,
                                 'X-Exospace-Signature' => $this->signature,
                             ]))
-                            ->post($this->url, json_decode($this->body, true));
+                            ->send('post', $this->url, ['body' => $this->body]);
 
                         if ($response->successful()) {
                             Log::info('OutboundWebhook: dispatched successfully (async)', [

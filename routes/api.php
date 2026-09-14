@@ -21,7 +21,7 @@ Route::prefix('v1')->group(function () {
         Route::get('artists/{slug}/galleries', [ArtistApiController::class, 'galleries']);
     });
 
-    Route::middleware(['auth:sanctum', 'ability:read'])->group(function () {
+    Route::middleware(['auth:sanctum', 'ability:read', 'throttle:120,1'])->group(function () {
 
         // Authenticated user's own data
         Route::get('me',                    [ApiTokenController::class, 'me']);
@@ -31,7 +31,7 @@ Route::prefix('v1')->group(function () {
         Route::get('tokens',                [ApiTokenController::class, 'index']);
     });
 
-    Route::middleware(['auth:sanctum', 'ability:write'])->group(function () {
+    Route::middleware(['auth:sanctum', 'ability:write', 'throttle:120,1'])->group(function () {
 
         // API token management (generate/revoke tokens — write operations)
         Route::post('tokens',               [ApiTokenController::class, 'store']);

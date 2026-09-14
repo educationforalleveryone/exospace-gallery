@@ -25,11 +25,13 @@ class TurnstileService
         }
 
         try {
-            $response = Http::asForm()->post(self::VERIFY_URL, [
-                'secret'   => $secretKey,
-                'response' => $token,
-                'remoteip' => $remoteIp,
-            ]);
+            $response = Http::asForm()
+                ->timeout(5)
+                ->post(self::VERIFY_URL, [
+                    'secret'   => $secretKey,
+                    'response' => $token,
+                    'remoteip' => $remoteIp,
+                ]);
 
             $body = $response->json();
 

@@ -84,7 +84,7 @@ class QaHealth extends Command
                 [$ok, $detail] = [false, class_basename($e).': '.$e->getMessage()];
             }
 
-            $problems += $ok ? 0 : 1;
+            $this->problems += $ok ? 0 : 1;
             if (! $quiet) {
                 $this->line(sprintf('  %s %-22s %s', $ok ? '✔' : '✖', $name, mb_substr($detail, 0, 110)));
             }
@@ -101,18 +101,18 @@ class QaHealth extends Command
 
         if ((string) $this->option('format') === 'junit-json') {
             $this->line(json_encode([
-                'totals' => ['tests' => count($this->cases), 'failures' => $problems, 'errors' => 0, 'skipped' => 0, 'assertions' => count($this->cases)],
+                'totals' => ['tests' => count($this->cases), 'failures' => $this->problems, 'errors' => 0, 'skipped' => 0, 'assertions' => count($this->cases)],
                 'cases' => $this->cases, 'duration_ms' => $durationMs,
             ]));
 
-            return $problems === 0 ? self::SUCCESS : self::FAILURE;
+            return $this->problems === 0 ? self::SUCCESS : self::FAILURE;
         }
 
-        $verdict = $problems === 0 ? '<fg=green>HEALTHY</>' : "<fg=red>DEGRADED ({$problems})</>";
+        $verdict = $this->problems === 0 ? '<fg=green>HEALTHY</>' : "<fg=red>DEGRADED ({$this->problems})</>";
         $this->newLine();
         $this->line("  {$verdict} · ".count($this->cases)." checks · {$durationMs}ms");
 
-        return $problems === 0 ? self::SUCCESS : self::FAILURE;
+        return $this->problems === 0 ? self::SUCCESS : self::FAILURE;
     }
 
     /**

@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-page-header title="Outbound Webhook Subscriptions" :back="route('super.index')" backLabel="Master Control">
+        <x-page-header title="Outbound webhook subscriptions" :back="route('super.index')" backLabel="Master Control">
             <x-slot:description>
                 <div class="page-subtitle max-w-3xl">
                     Per-event subscriptions for the <code>OutboundWebhookService</code> dispatch fan-out — a security team that only wants to subscribe to

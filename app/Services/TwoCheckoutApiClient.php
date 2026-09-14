@@ -66,6 +66,8 @@ class TwoCheckoutApiClient
 
         $payloadJson = empty($payload) ? '' : json_encode($payload, JSON_UNESCAPED_SLASHES);
 
+        // The authentication hash covers the raw request payload, so the
+        // transmitted body must be exactly $payloadJson — not a re-encoded copy.
         $authHash = hash('sha1', $payloadJson . $this->secretWord);
         $authHeader = base64_encode($this->merchantCode . ':' . $authHash);
 
@@ -83,9 +85,11 @@ class TwoCheckoutApiClient
             'has_payload' => ! empty($payload),
         ]);
 
-        $response = Http::withHeaders($headers)
-            ->timeout($this->timeout)
-            ->{strtolower($method)}($url, empty($payload) ? null : $payload);
+        $client = Http::withHeaders($headers)->timeout($this->timeout);
+
+        $response = $client->send(strtolower($method), $url, $payloadJson === '' ? [] : [
+            'body' => $payloadJson,
+        ]);
 
         if (! $response->successful()) {
             Log::error('2Checkout API request failed', [

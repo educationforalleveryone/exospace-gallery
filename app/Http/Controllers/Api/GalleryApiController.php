@@ -11,7 +11,7 @@ class GalleryApiController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $perPage = min((int) $request->query('per_page', 20), 100);
+        $perPage = max(1, min((int) $request->query('per_page', 20), 100));
         $sort = $request->query('sort', 'featured');
 
         $query = Gallery::publiclyViewable()
@@ -58,7 +58,7 @@ class GalleryApiController extends Controller
 
     public function images(Request $request, string $slug): JsonResponse
     {
-        $perPage = min((int) $request->query('per_page', 50), 200);
+        $perPage = max(1, min((int) $request->query('per_page', 50), 200));
 
         $gallery = Gallery::publiclyViewable()
             ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
