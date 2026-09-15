@@ -8,6 +8,8 @@ use App\Models\AdminAuditLog;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\ArtisanCommandRunner;
+use App\Services\BackupArtifactReport;
+use App\Services\BackupArtifactVerifier;
 use App\Services\JobHeartbeatService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -49,10 +51,30 @@ class MonitoredBackupTest extends TestCase
         };
     }
 
+    private function fakeVerifier(bool $passes): BackupArtifactVerifier
+    {
+        return new class ($passes) extends BackupArtifactVerifier {
+            public function __construct(private readonly bool $passes)
+            {
+            }
+
+            public function verifyNewestOnDisk(string $diskName): BackupArtifactReport
+            {
+                return new BackupArtifactReport(
+                    disk: $diskName,
+                    file: 'Exospace Backup/fake.zip',
+                    errors: $this->passes ? [] : ['archive is not a readable zip (ZipArchive code 19)'],
+                    dbDumpEntries: 1,
+                );
+            }
+        };
+    }
+
     public function test_db_success_stamps_heartbeat(): void
     {
         $fake = $this->fakeRunner(0);
         $this->app->instance(ArtisanCommandRunner::class, $fake);
+        $this->app->instance(BackupArtifactVerifier::class, $this->fakeVerifier(true));
 
         $this->artisan('exospace:backup', ['type' => 'db'])
             ->assertExitCode(0)
@@ -74,6 +96,7 @@ class MonitoredBackupTest extends TestCase
     {
         $fake = $this->fakeRunner(0);
         $this->app->instance(ArtisanCommandRunner::class, $fake);
+        $this->app->instance(BackupArtifactVerifier::class, $this->fakeVerifier(true));
 
         $this->artisan('exospace:backup', ['type' => 'files'])->assertExitCode(0);
 
@@ -163,12 +186,52 @@ class MonitoredBackupTest extends TestCase
     {
         $fake = $this->fakeRunner(0);
         $this->app->instance(ArtisanCommandRunner::class, $fake);
+        $this->app->instance(BackupArtifactVerifier::class, $this->fakeVerifier(true));
 
         $this->artisan('exospace:backup', ['type' => 'nonsense'])
             ->assertExitCode(1)
             ->expectsOutputToContain('Unknown backup type');
 
         $this->assertSame([], $fake->calls, 'invalid type must not call the underlying command');
+    }
+
+    public function test_successful_run_with_unverifiable_artifact_alerts_and_fails(): void
+    {
+        $fake = $this->fakeRunner(0);
+        $this->app->instance(ArtisanCommandRunner::class, $fake);
+        $this->app->instance(BackupArtifactVerifier::class, $this->fakeVerifier(false));
+
+        Http::fake([self::WEBHOOK => Http::response([], 200)]);
+
+        $this->artisan('exospace:backup', ['type' => 'db'])
+            ->assertExitCode(1);
+
+        Http::assertSent(function ($request) {
+            $body = (string) $request->body();
+
+            return str_contains($body, 'unusable artifact')
+                && str_contains($body, 'not a readable zip');
+        });
+
+        $this->assertSame(
+            'missing',
+            app(JobHeartbeatService::class)->status('exospace:backup:db'),
+            'a corrupt artifact must not stamp the backup heartbeat',
+        );
+    }
+
+    public function test_clean_success_skips_artifact_verification(): void
+    {
+        $fake = $this->fakeRunner(0);
+        $this->app->instance(ArtisanCommandRunner::class, $fake);
+
+        $verifier = $this->createMock(BackupArtifactVerifier::class);
+        $verifier->expects($this->never())->method('verifyNewestOnDisk');
+        $this->app->instance(BackupArtifactVerifier::class, $verifier);
+
+        $this->artisan('exospace:backup', ['type' => 'clean'])->assertExitCode(0);
+
+        $this->assertSame('fresh', app(JobHeartbeatService::class)->status('exospace:backup:clean'));
     }
 
     public function test_backup_jobs_registered_in_monitored_jobs(): void

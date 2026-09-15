@@ -34,6 +34,7 @@ class PreflightCheck extends Command
         $this->checkVenueTemplates();
         $this->checkStorageLink();
         $this->checkRobotsAndSitemap();
+        $this->checkBackupConfiguration();
 
         $this->newLine();
         $this->info('=========================');
@@ -493,6 +494,67 @@ class PreflightCheck extends Command
     {
         $this->newLine();
         $this->line("  <fg=cyan;options=bold>{$title}</>");
+    }
+
+    private function checkBackupConfiguration(): void
+    {
+        $this->section('Backups');
+
+        $diskNames = \App\Services\BackupArtifactVerifier::destinationDiskNames();
+
+        if ($diskNames === []) {
+            $this->critical('BACKUP_DISKS resolves to an empty list — no backups will be stored.');
+
+            return;
+        }
+
+        $this->ok('Backup destination disks: ' . implode(', ', $diskNames));
+
+        if (in_array('r2', $diskNames, true)) {
+            $missingR2Keys = array_filter([
+                'R2_ENDPOINT'          => ! config('filesystems.disks.r2.endpoint'),
+                'R2_BUCKET'            => ! config('filesystems.disks.r2.bucket'),
+                'R2_ACCESS_KEY_ID'     => ! config('filesystems.disks.r2.key'),
+                'R2_SECRET_ACCESS_KEY' => ! config('filesystems.disks.r2.secret'),
+            ], fn (bool $missing) => $missing);
+
+            if ($missingR2Keys !== []) {
+                $this->critical('R2 disk is in BACKUP_DISKS but ' . implode(', ', array_keys($missingR2Keys)) . ' is missing — every backup run will fail.');
+            } else {
+                $this->ok('R2 off-site destination configured.');
+            }
+        } elseif (app()->environment('production')) {
+            $this->advisory('No off-site backup destination configured — local backups share the same volume as the application and do not survive storage loss. Set BACKUP_DISKS=local,r2.');
+        }
+
+        if (! config('backup.backup.password')) {
+            $this->advisory('BACKUP_PASSWORD is empty — backup archives are stored unencrypted.');
+        }
+
+        if (! app()->environment('production')) {
+            $this->line('  (non-production — dump-tool checks skipped)');
+
+            return;
+        }
+
+        if (config('database.default') === 'mysql' || config('database.connections.mysql') !== null) {
+            if ($this->resolveBinary('mysqldump') === null) {
+                $this->critical('mysqldump binary not found — every database backup will fail. For Nixpacks, include "mariadb" in nixpacks.toml nixPkgs.');
+            } else {
+                $this->ok('mysqldump binary available.');
+            }
+
+            if ($this->resolveBinary('mysql') === null) {
+                $this->advisory('mysql client binary not found — needed by exospace:backup:restore during disaster recovery.');
+            }
+        }
+    }
+
+    private function resolveBinary(string $name): ?string
+    {
+        $output = @shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null');
+
+        return is_string($output) && trim($output) !== '' ? trim($output) : null;
     }
 
     private function ok(string $msg): void

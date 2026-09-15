@@ -162,8 +162,8 @@ class InfrastructureTest extends TestCase
 
     public function test_dr_runbook_exists(): void
     {
-        $this->assertFileExists(base_path('docs/DR.md'),
-            'docs/DR.md must exist.');
+        $this->assertFileExists(base_path('docs/DISASTER-RECOVERY.md'),
+            'docs/DISASTER-RECOVERY.md must exist.');
     }
 
     public function test_supervisord_config_exists(): void
