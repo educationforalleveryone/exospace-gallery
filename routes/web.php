@@ -141,9 +141,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['mfa'])->group(function () {
         Route::get('/billing',                [\App\Http\Controllers\BillingController::class, 'index'])->name('billing.index');
-        Route::get('/billing/upgrade/{plan}', [\App\Http\Controllers\BillingController::class, 'upgrade'])->name('billing.upgrade')
-              ->where('plan', 'pro|studio')
-              ->middleware('throttle:10,1');
 
         // Subscription management routes
         Route::post('/billing/cancel-subscription',     [\App\Http\Controllers\BillingController::class, 'cancelSubscription'])->name('billing.cancel-subscription');
@@ -155,6 +152,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Trial period
         Route::post('/billing/start-trial/{plan}',      [\App\Http\Controllers\BillingController::class, 'startTrial'])->name('billing.start-trial')
               ->where('plan', 'pro|studio');
+
+        // Upgrade: GET only shows the confirmation (email deep-links land here);
+        // the pending upgrade row + checkout redirect happen on the CSRF-checked POST.
+        Route::get('/billing/upgrade/{plan}',           [\App\Http\Controllers\BillingController::class, 'upgrade'])->name('billing.upgrade')
+              ->where('plan', 'pro|studio')
+              ->middleware('throttle:10,1');
+        Route::post('/billing/upgrade/{plan}',          [\App\Http\Controllers\BillingController::class, 'startUpgrade'])->name('billing.upgrade.start')
+              ->where('plan', 'pro|studio')
+              ->middleware('throttle:10,1');
 
         // Invoice download
         Route::get('/billing/invoice/{invoice}',        [\App\Http\Controllers\BillingController::class, 'downloadInvoice'])->name('billing.invoice');

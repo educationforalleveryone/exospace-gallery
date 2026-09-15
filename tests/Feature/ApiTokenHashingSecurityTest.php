@@ -113,7 +113,7 @@ class ApiTokenHashingSecurityTest extends TestCase
         config(['services.2checkout.account_number' => 'ACC-001']);
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
 
-        $response = $this->actingAs($user)->get('/billing/upgrade/pro');
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro');
 
         $response->assertRedirect();
         $location = $response->headers->get('Location');

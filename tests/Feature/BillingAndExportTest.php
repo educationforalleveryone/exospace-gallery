@@ -124,11 +124,23 @@ class BillingAndExportTest extends TestCase
         config(['services.2checkout.account_number' => 'ACC-001']);
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
 
-        $response = $this->actingAs($user)->get('/billing/upgrade/pro');
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro');
 
         $response->assertRedirect();
         $this->assertStringContainsString('2checkout.com', $response->headers->get('Location'));
         $this->assertStringContainsString('external-reference=', $response->headers->get('Location'));
+    }
+
+    public function test_billing_upgrade_get_shows_confirmation_without_creating_state(): void
+    {
+        $user = User::factory()->create();
+        config(['services.2checkout.product_id_pro' => 'PRO-001']);
+
+        $response = $this->actingAs($user)->get('/billing/upgrade/pro');
+
+        $response->assertOk();
+        $response->assertSee('Continue to secure checkout');
+        $this->assertDatabaseCount('pending_upgrades', 0);
     }
 
     public function test_billing_upgrade_creates_pending_upgrade(): void
@@ -136,7 +148,7 @@ class BillingAndExportTest extends TestCase
         $user = User::factory()->create();
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
 
-        $this->actingAs($user)->get('/billing/upgrade/pro');
+        $this->actingAs($user)->post('/billing/upgrade/pro');
 
         $this->assertDatabaseHas('pending_upgrades', [
             'user_id' => $user->id,
@@ -146,6 +158,17 @@ class BillingAndExportTest extends TestCase
     }
 
     public function test_billing_upgrade_blocks_downgrade(): void
+    {
+        config(['services.2checkout.product_id_pro' => 'PRO-001']);
+        $user = User::factory()->studio()->create();
+
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro');
+
+        $response->assertRedirect('/billing');
+        $response->assertSessionHas('warning');
+    }
+
+    public function test_billing_upgrade_get_bounces_downgrade_links(): void
     {
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
         $user = User::factory()->studio()->create();
@@ -161,7 +184,7 @@ class BillingAndExportTest extends TestCase
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
         $user = User::factory()->pro()->create();
 
-        $response = $this->actingAs($user)->get('/billing/upgrade/pro');
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro');
 
         $this->assertStringContainsString(
             '2checkout.com',
@@ -176,7 +199,7 @@ class BillingAndExportTest extends TestCase
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
         config(['services.2checkout.coupon_allowlist' => 'LAUNCH20,WELCOME10']);
 
-        $response = $this->actingAs($user)->get('/billing/upgrade/pro?coupon=LAUNCH20');
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['coupon' => 'LAUNCH20']);
 
         $location = $response->headers->get('Location');
         $this->assertStringContainsString('coupon=LAUNCH20', $location);
@@ -189,7 +212,7 @@ class BillingAndExportTest extends TestCase
         // affiliate refs are validated against an allowlist too.
         config(['services.2checkout.affiliate_allowlist' => 'AFF123,PARTNER7']);
 
-        $response = $this->actingAs($user)->get('/billing/upgrade/pro?ref=AFF123');
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['ref' => 'AFF123']);
 
         $location = $response->headers->get('Location');
         $this->assertStringContainsString('affiliate=AFF123', $location);

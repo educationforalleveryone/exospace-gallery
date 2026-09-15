@@ -131,7 +131,7 @@ class BillingCancelAndRenewalTest extends TestCase
         config()->set('services.2checkout.product_id_pro', 'PRO-PRODUCT-ID');
 
         $response = $this->actingAs($user)
-            ->get(route('billing.upgrade', ['plan' => 'pro']));
+            ->post(route('billing.upgrade', ['plan' => 'pro']));
 
         // should redirect to 2Checkout (not block with "already on this plan")
         $response->assertRedirect();
@@ -158,7 +158,7 @@ class BillingCancelAndRenewalTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->get(route('billing.upgrade', ['plan' => 'pro'])); // no ?recurring=1
+            ->post(route('billing.upgrade', ['plan' => 'pro'])); // no ?recurring=1
 
         $response->assertRedirect();
         $this->assertStringStartsWith('https://www.2checkout.com/checkout/purchase', $response->headers->get('Location'));

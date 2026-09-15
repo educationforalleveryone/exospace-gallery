@@ -47,22 +47,45 @@ class BillingController extends Controller
         ]);
     }
 
-    public function upgrade(Request $request, string $plan): RedirectResponse
+    public function upgrade(Request $request, string $plan): View|RedirectResponse
+    {
+        $user = $request->user();
+
+        $isRecurring = $request->boolean('recurring');
+
+        $productId = $this->productIdFor($plan, $isRecurring);
+
+        if (! $productId) {
+            $error = $isRecurring
+                ? "Recurring product not configured for plan: {$plan}. Set TWOCHECKOUT_RECURRING_PRODUCT_ID_{$plan} in .env."
+                : "Unknown plan: {$plan}. Please contact support.";
+            return redirect()->route('billing.index')
+                ->with('error', $error);
+        }
+
+        // Same guard as the POST step so a downgrade link from an old email
+        // bounces straight back instead of showing a pointless confirmation.
+        $planRank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
+        if (($planRank[$user->plan] ?? 0) > ($planRank[$plan] ?? 0)) {
+            return redirect()->route('billing.index')
+                ->with('warning', "You're currently on the " . ucfirst($user->plan) . " plan, which is a higher tier than " . ucfirst($plan) . ". Downgrades are not available via the upgrade flow — please contact support if you need to downgrade.");
+        }
+
+        return view('billing.upgrade-confirm', [
+            'user'        => $user,
+            'plan'        => $plan,
+            'isRecurring' => $isRecurring,
+        ]);
+    }
+
+    public function startUpgrade(Request $request, string $plan): RedirectResponse
     {
         $user = $request->user();
 
         $isRecurring = $request->boolean('recurring');
 
         // Validate plan + product ID is configured
-        if ($isRecurring) {
-            $productId = $plan === 'pro'
-                ? config('services.2checkout.recurring_product_id_pro')
-                : ($plan === 'studio' ? config('services.2checkout.recurring_product_id_studio') : null);
-        } else {
-            $productId = $plan === 'pro'
-                ? config('services.2checkout.product_id_pro')
-                : ($plan === 'studio' ? config('services.2checkout.product_id_studio') : null);
-        }
+        $productId = $this->productIdFor($plan, $isRecurring);
 
         if (! $productId) {
             $error = $isRecurring
@@ -131,7 +154,7 @@ class BillingController extends Controller
                 ]);
             }
 
-            $couponCode = $request->query('coupon');
+            $couponCode = $request->input('coupon');
             if ($couponCode !== null) {
                 $allowlist = array_filter(array_map('trim', explode(
                     ',',
@@ -150,7 +173,7 @@ class BillingController extends Controller
                 $buyUrl .= '&coupon=' . urlencode($couponCode);
             }
 
-            $affiliateId = $request->query('ref');
+            $affiliateId = $request->input('ref');
             if ($affiliateId !== null) {
                 $affiliateAllowlist = array_filter(array_map('trim', explode(
                     ',',
@@ -189,6 +212,19 @@ class BillingController extends Controller
         }
 
         return $result;
+    }
+
+    private function productIdFor(string $plan, bool $isRecurring): ?string
+    {
+        if ($isRecurring) {
+            return $plan === 'pro'
+                ? config('services.2checkout.recurring_product_id_pro')
+                : ($plan === 'studio' ? config('services.2checkout.recurring_product_id_studio') : null);
+        }
+
+        return $plan === 'pro'
+            ? config('services.2checkout.product_id_pro')
+            : ($plan === 'studio' ? config('services.2checkout.product_id_studio') : null);
     }
 
     private function getProductPrice(string $plan, bool $isRecurring): ?string
