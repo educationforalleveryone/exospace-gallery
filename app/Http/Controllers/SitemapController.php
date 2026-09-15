@@ -10,9 +10,9 @@ use App\Models\GalleryImage;
 use App\Models\GalleryScheduleEvent;
 use App\Models\SeoProfile;
 use App\Models\VenueTemplate;
+use App\Support\ResilientCache;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Collection;
 
 class SitemapController extends Controller
@@ -118,7 +118,7 @@ class SitemapController extends Controller
     {
         $version = $this->version();
 
-        return (int) Cache::flexible(
+        return (int) ResilientCache::flexible(
             'sitemap:count:' . $group . ':v' . $version,
             [now()->addSeconds((int) config('seo.sitemap.cache_ttl', 1800)), now()->addSeconds((int) config('seo.sitemap.cache_ttl_stale', 3600))],
             fn () => match ($group) {
@@ -139,7 +139,7 @@ class SitemapController extends Controller
     {
         $version = $this->version();
 
-        return Cache::flexible(
+        return ResilientCache::flexible(
             'sitemap:lastmod:' . $group . ':v' . $version,
             [now()->addMinutes(10), now()->addMinutes(20)],
             function () use ($group) {
@@ -455,7 +455,7 @@ class SitemapController extends Controller
     {
         $version = $this->version();
 
-        return Cache::flexible(
+        return ResilientCache::flexible(
             "sitemap:index:v{$version}",
             [now()->addMinutes(15), now()->addMinutes(30)],
             fn () => $this->buildIndexEntries($perPage),
@@ -467,7 +467,7 @@ class SitemapController extends Controller
     {
         $version = $this->version();
 
-        return Cache::flexible(
+        return ResilientCache::flexible(
             "sitemap:group:{$group}:{$page}:v{$version}",
             [now()->addSeconds((int) config('seo.sitemap.cache_ttl', 1800)), now()->addSeconds((int) config('seo.sitemap.cache_ttl_stale', 3600))],
             fn () => $this->buildGroupEntries($group, $page, $perPage),
@@ -477,7 +477,7 @@ class SitemapController extends Controller
 
     private function cacheFeedGalleries(int $maxItems)
     {
-        return Cache::flexible(
+        return ResilientCache::flexible(
             'feed:galleries:v' . $this->version(),
             [now()->addMinutes(30), now()->addMinutes(60)],
             fn () => Gallery::publiclyViewable()
@@ -536,7 +536,7 @@ class SitemapController extends Controller
 
     private function version(): int
     {
-        return (int) Cache::get('seo:sitemap:version', 1);
+        return (int) ResilientCache::get('seo:sitemap:version', 1);
     }
 
     private function xmlResponse(string $view, array $data): Response

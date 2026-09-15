@@ -74,15 +74,19 @@ class HealthController extends Controller
             $allHealthy = false;
         }
 
-        // ── Coolify API (optional, cached 5 min) ─────────────────────
+        // ── Coolify API (optional) ────────────────────────────────────
         $coolifyConfigured = config('services.coolify.api_token')
             && config('services.coolify.api_base_url');
         if ($coolifyConfigured) {
-            $coolifyStatus = Cache::get('health:coolify', 'unknown');
-            if ($coolifyStatus === 'unknown') {
+            try {
+                // PlatformSyncService sets this key for a 2-hour window when
+                // the Coolify API stops responding and forgets it on the
+                // first successful sync — presence IS the outage signal.
+                $checks['coolify'] = [
+                    'status' => Cache::has('ops:sync:coolify-unreachable-alerted') ? 'unreachable' : 'ok',
+                ];
+            } catch (\Throwable $e) {
                 $checks['coolify'] = ['status' => 'unknown'];
-            } else {
-                $checks['coolify'] = ['status' => $coolifyStatus];
             }
         }
 

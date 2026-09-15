@@ -63,7 +63,7 @@ class DashboardController extends Controller
 
             $cacheKey = "dashboard:analytics:u{$user->id}:" . ($team ? "t{$team->id}" : 'personal');
 
-            $cached = \Illuminate\Support\Facades\Cache::flexible($cacheKey, [now()->addMinutes(5), now()->addMinutes(10)], function () use ($galleryIds, $now, $today, $day6, $day7, $day13) {
+            $cached = \App\Support\ResilientCache::flexible($cacheKey, [now()->addMinutes(5), now()->addMinutes(10)], function () use ($galleryIds, $now, $today, $day6, $day7, $day13) {
                 // Today's views from raw events (today is not yet in the rollup).
                 $viewsToday = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
                     ->where('event', 'view')

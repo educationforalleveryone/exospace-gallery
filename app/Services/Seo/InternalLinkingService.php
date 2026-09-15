@@ -7,8 +7,8 @@ namespace App\Services\Seo;
 use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
+use App\Support\ResilientCache;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 
 class InternalLinkingService
 {
@@ -20,7 +20,7 @@ class InternalLinkingService
     // these keys, and untagged entries are invisible to tag flushes.
     private function cacheKey(string $kind, int|string $id): string
     {
-        $version = (string) Cache::get(self::CACHE_VERSION_KEY, '1');
+        $version = ResilientCache::get(self::CACHE_VERSION_KEY, '1');
 
         return "seo:related:v{$version}:{$kind}:{$id}";
     }
@@ -30,7 +30,7 @@ class InternalLinkingService
         $limit ??= (int) config('seo.related.galleries_max', 6);
         $key = $this->cacheKey('galleries', $gallery->id);
 
-        return Cache::remember($key, self::CACHE_TTL, function () use ($gallery, $limit) {
+        return ResilientCache::remember($key, self::CACHE_TTL, function () use ($gallery, $limit) {
             $artistIds = $gallery->images->pluck('artist_id')->filter()->unique()->values();
 
             $query = Gallery::query()
@@ -73,7 +73,7 @@ class InternalLinkingService
         $limit ??= (int) config('seo.related.artists_max', 6);
         $key = $this->cacheKey('artists', $artist->id);
 
-        return Cache::remember($key, self::CACHE_TTL, function () use ($artist, $limit) {
+        return ResilientCache::remember($key, self::CACHE_TTL, function () use ($artist, $limit) {
             // Public galleries featuring this artist.
             $galleryIds = Gallery::query()
                 ->publiclyViewable()
@@ -107,7 +107,7 @@ class InternalLinkingService
 
         $key = $this->cacheKey('artworks', $artwork->id);
 
-        return Cache::remember($key, self::CACHE_TTL, function () use ($artwork, $limit) {
+        return ResilientCache::remember($key, self::CACHE_TTL, function () use ($artwork, $limit) {
             return GalleryImage::query()
                 ->where('artist_id', $artwork->artist_id)
                 ->where('id', '!=', $artwork->id)

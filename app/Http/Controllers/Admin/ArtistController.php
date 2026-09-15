@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
+use App\Models\Gallery;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -215,10 +216,21 @@ class ArtistController extends Controller
         $name = $artist->name;
         $portraitPath = $artist->portrait_path;
 
+        // Snapshot the owning galleries before detaching — artwork OG cards
+        // render the artist name and stamp their cache keys off these rows.
+        $galleryIds = $artist->images()->pluck('gallery_id')->unique();
+
         // Detach from all images (set artist_id to null — images stay)
         $artist->images()->update(['artist_id' => null]);
 
         $artist->delete();
+
+        // The mass detach above bypasses model events; touching the galleries
+        // rotates the stamped caches (OG artwork cards, custom-domain
+        // payloads) without waiting out their TTLs.
+        if ($galleryIds->isNotEmpty()) {
+            Gallery::whereIn('id', $galleryIds)->get()->each->touch();
+        }
 
         // Physical removal happens after the row is gone; a failed delete
         // must not leave a live artist row pointing at missing bytes.

@@ -23,16 +23,11 @@ class SeoRebuild extends Command
 
         $cleared = 0;
 
-        // Redirect map + related sets + welcome cache.
+        // Redirect map + related sets. The sitemap version bump above also
+        // rotates the welcome featured list and the SEO hub listing blocks,
+        // which stamp their keys with the same version.
         SeoRedirect::clearMapCache();
         $cleared++;
-
-        foreach ([
-            'welcome:featured-galleries',
-        ] as $key) {
-            \Illuminate\Support\Facades\Cache::forget($key);
-            $cleared++;
-        }
 
         // Rotate the related-content caches (related galleries, artists,
         // artworks) by bumping their key version; the previous generation

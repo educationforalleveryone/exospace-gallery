@@ -208,3 +208,18 @@ Schedule::command('ops:check-digest-delivery')
     ->name('ops-check-digest-delivery')
     ->withoutOverlapping(30)
     ->onOneServer();
+
+// Heartbeat for qa:health's scheduler probe. The Coolify scheduled task
+// drives `php artisan schedule:run` every minute, so this stamp is refreshed
+// on each tick; a stale or missing stamp means the external scheduler died.
+Schedule::call(function () {
+    try {
+        \Illuminate\Support\Facades\Cache::put(
+            'scheduler-last-run',
+            now()->toIso8601String(),
+            now()->addHours(3),
+        );
+    } catch (\Throwable) {
+        // Cache unavailable — the probe reports "missing" instead of lying.
+    }
+})->everyMinute()->name('scheduler-heartbeat');

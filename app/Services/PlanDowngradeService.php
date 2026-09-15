@@ -70,8 +70,6 @@ class PlanDowngradeService
             Cache::forget("custom_domain:{$normalizedHost}");
             Cache::forget("custom_domain:{$customDomain}");
 
-            Cache::forget("custom_domain_gallery:{$gallery->id}");
-
             $gallery->forceFill([
                 'custom_domain'                     => null,
                 'custom_domain_verification_token'  => null,

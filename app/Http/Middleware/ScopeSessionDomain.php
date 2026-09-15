@@ -7,7 +7,6 @@ namespace App\Http\Middleware;
 use App\Models\Gallery;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 class ScopeSessionDomain
@@ -35,7 +34,7 @@ class ScopeSessionDomain
         }
 
         $cacheKey = "custom_domain:{$host}";
-        $galleryId = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($host) {
+        $galleryId = \App\Support\ResilientCache::remember($cacheKey, now()->addMinutes(5), function () use ($host) {
             return Gallery::where('custom_domain', $host)
                 ->whereNotNull('custom_domain_verified_at')
                 ->value('id');

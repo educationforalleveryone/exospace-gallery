@@ -595,8 +595,6 @@ class GalleryController extends Controller
                 \Illuminate\Support\Facades\Cache::forget("custom_domain:{$oldDomain}");
             }
 
-            \Illuminate\Support\Facades\Cache::forget("custom_domain_gallery:{$gallery->id}");
-
             if ($domainChanged) {
                 $request->attributes->set('_pending_domain_token', \Illuminate\Support\Str::random(32));
 
@@ -758,6 +756,12 @@ class GalleryController extends Controller
         foreach ($request->order as $position => $imageId) {
             $gallery->images()->where('id', $imageId)->update(['position_order' => $position + 1]);
         }
+
+        // Mass updates bypass model events, so nothing else refreshes the
+        // caches that depend on image order: the OG card picks its cover by
+        // position, and stamped payload caches key off the gallery timestamp.
+        $gallery->touch();
+        \App\Support\SitemapVersion::bump();
 
         return response()->json(['success' => true]);
     }
@@ -1074,11 +1078,13 @@ class GalleryController extends Controller
 
     private function invalidateGalleryCaches(Gallery $gallery): void
     {
+        // Only tags that are actually written get flushed — analytics blocks
+        // are tagged via CacheTagService. Everything public (OG images, QR
+        // codes, sitemaps, SEO listings, viewer config) rides on stamped
+        // keys that rotate through SitemapVersion and row timestamps.
         app(\App\Services\CacheTagService::class)->invalidateTags([
+            'analytics',
             "analytics:gallery:{$gallery->id}",
-            "gallery:{$gallery->id}",
-            'og',
-            'sitemap',
         ]);
     }
 

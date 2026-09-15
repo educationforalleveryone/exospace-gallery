@@ -8,6 +8,8 @@ use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\VenueTemplate;
 use App\Models\SeoPage;
+use App\Support\ResilientCache;
+use App\Support\SitemapVersion;
 use App\Support\Seo\Breadcrumb;
 use App\Support\Seo\SeoData;
 use Illuminate\Support\Collection;
@@ -18,6 +20,20 @@ class SeoPageRenderer
         'hero', 'text', 'features', 'faq', 'cta',
         'exhibitions', 'artists', 'venues',
     ];
+
+    private const LISTING_TTL = 900;
+
+    /**
+     * The listings below feed public SEO hub pages. Their keys carry the
+     * sitemap content version, which SitemapCacheObserver bumps whenever a
+     * watched gallery/artist/venue/image attribute changes — so publish,
+     * unpublish and curator edits refresh these blocks instead of waiting
+     * out the TTL. The TTL stays as the safety net for missed bumps.
+     */
+    private function listingKey(string $kind): string
+    {
+        return "seo:page:{$kind}:v" . SitemapVersion::version();
+    }
 
     public function renderBlocks(SeoPage $page): string
     {
@@ -134,7 +150,7 @@ class SeoPageRenderer
 
     private function liveExhibitions(): Collection
     {
-        return \Illuminate\Support\Facades\Cache::remember('seo:page:exhibitions', 900, fn () =>
+        return ResilientCache::remember($this->listingKey('exhibitions'), self::LISTING_TTL, fn () =>
             Gallery::publiclyViewable()
                 ->with(['coverImage', 'venueTemplate'])
                 ->has('images', '>=', 1)
@@ -147,7 +163,7 @@ class SeoPageRenderer
 
     private function liveArtists(): Collection
     {
-        return \Illuminate\Support\Facades\Cache::remember('seo:page:artists', 900, fn () =>
+        return ResilientCache::remember($this->listingKey('artists'), self::LISTING_TTL, fn () =>
             Artist::query()
                 ->whereHas('images.gallery', fn ($q) => $q->publiclyViewable())
                 ->withCount(['images as public_works_count' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyViewable())])
@@ -158,7 +174,7 @@ class SeoPageRenderer
 
     private function liveVenues(): Collection
     {
-        return \Illuminate\Support\Facades\Cache::remember('seo:page:venues', 900, fn () =>
+        return ResilientCache::remember($this->listingKey('venues'), self::LISTING_TTL, fn () =>
             VenueTemplate::active()
                 ->published()
                 ->whereHas('galleries', fn ($q) => $q->publiclyViewable()->has('images', '>=', 1))

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\ResilientCache;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class TaxService
 {
@@ -136,14 +138,16 @@ class TaxService
         // EU: try VIES first, fall back to format-only on failure.
         $cacheKey = "vies:valid:{$countryCode}:{$vatNumber}";
 
-        $cached = Cache::get($cacheKey);
+        $cached = ResilientCache::get($cacheKey);
         if ($cached !== null) {
             return $cached === 'valid';
         }
 
         $viesResult = $this->callViesApi($countryCode, $vatNumber);
         if ($viesResult === null) {
-            // VIES unreachable — fall back to format-only and warn.
+            // VIES unreachable — fall back to format-only and warn. The
+            // verdict is deliberately not cached so a short VIES outage
+            // cannot stick for the whole TTL.
             Log::warning('TaxService: VIES API unreachable; falling back to format-only validation', [
                 'country'    => $countryCode,
                 'vat_number' => substr($vatNumber, 0, 4) . '...',
@@ -152,7 +156,17 @@ class TaxService
         }
 
         $isValid = $viesResult === true;
-        Cache::put($cacheKey, $isValid ? 'valid' : 'invalid', self::VIES_CACHE_TTL_SECONDS);
+
+        try {
+            Cache::put($cacheKey, $isValid ? 'valid' : 'invalid', self::VIES_CACHE_TTL_SECONDS);
+        } catch (Throwable $e) {
+            // Checkout must not fail because the cache is down.
+            Log::warning('TaxService: VIES verdict could not be cached', [
+                'country' => $countryCode,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
         return $isValid;
     }
 

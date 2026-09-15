@@ -100,11 +100,12 @@ class SitemapCacheObserver
 
     private function bump(): void
     {
-        try {
-            \Illuminate\Support\Facades\Cache::add('seo:sitemap:version', 1);
-            \Illuminate\Support\Facades\Cache::increment('seo:sitemap:version');
-        } catch (\Throwable) {
-            // Cache unavailable — sitemaps fall back to TTL-only staleness.
-        }
+        // The bump must land after the mutation commits: a bump inside an
+        // open transaction would let a concurrent rebuild cache pre-commit
+        // data under the new version. Outside a transaction this runs
+        // immediately; a rolled-back transaction discards it.
+        \Illuminate\Support\Facades\DB::afterCommit(function () {
+            \App\Support\SitemapVersion::bump();
+        });
     }
 }

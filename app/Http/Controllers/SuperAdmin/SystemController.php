@@ -22,7 +22,7 @@ class SystemController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(50);
 
-        $stats = \Illuminate\Support\Facades\Cache::flexible(
+        $stats = \App\Support\ResilientCache::flexible(
             'master-control:platform-stats',
             [now()->addMinutes(5), now()->addMinutes(10)],
             fn () => [
@@ -278,6 +278,10 @@ class SystemController extends Controller
             'remember_token' => null,
         ])->save();
 
+        // Public listings (homepage, SEO hub pages, feed) exclude banned
+        // owners — rotate their content version so the change is immediate.
+        \App\Support\SitemapVersion::bump();
+
         $sessionsPurged = false;
 
         if (config('session.driver') === 'database') {
@@ -314,6 +318,8 @@ class SystemController extends Controller
             'banned_at'  => null,
             'ban_reason' => null,
         ])->save();
+
+        \App\Support\SitemapVersion::bump();
 
         AdminAuditLog::record('user_unbanned', $user);
 

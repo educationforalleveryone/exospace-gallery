@@ -3,9 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\Gallery;
+use App\Support\ResilientCache;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 class DetectCustomDomain
@@ -29,20 +29,27 @@ class DetectCustomDomain
         }
 
         $cacheKey = "custom_domain:{$host}";
-        $galleryId = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($host) {
+        $galleryId = ResilientCache::remember($cacheKey, now()->addMinutes(5), function () use ($host) {
             return Gallery::where('custom_domain', $host)
                 ->whereNotNull('custom_domain_verified_at')
                 ->value('id');
         });
 
         if ($galleryId) {
+            // Fresh read on every request: its row stamps decide which cached
+            // payload generation is valid. The owner's ban stamp rides along
+            // so a banned user's exhibition drops off their domain without
+            // waiting out the payload TTL. banned_at has no datetime cast on
+            // the model, so the raw column value is used for the stamp.
             $g = Gallery::query()
                 ->whereKey($galleryId)
-                ->with('venueTemplate:id,updated_at')
-                ->first(['id', 'updated_at', 'venue_template_id']);
-            $stamps = $g ? (($g->venueTemplate?->updated_at?->timestamp ?? '0') . ':' . $g->updated_at?->timestamp) : 'none';
+                ->with(['venueTemplate:id,updated_at', 'user:id,banned_at'])
+                ->first(['id', 'updated_at', 'venue_template_id', 'user_id']);
+            $stamps = $g
+                ? (($g->venueTemplate?->updated_at?->timestamp ?? '0') . ':' . $g->updated_at?->timestamp . ':' . ($g->user?->getRawOriginal('banned_at') ?? '0'))
+                : 'none';
             $galleryCacheKey = "custom_domain_gallery:{$galleryId}:{$stamps}";
-            $gallery = Cache::remember($galleryCacheKey, now()->addMinutes(5), function () use ($galleryId) {
+            $gallery = ResilientCache::remember($galleryCacheKey, now()->addMinutes(5), function () use ($galleryId) {
                 return Gallery::with(['images', 'user', 'venueTemplate'])->find($galleryId);
             });
 

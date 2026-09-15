@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
+use App\Support\ResilientCache;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Cache;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
@@ -57,11 +57,18 @@ class OgImageController extends Controller
             $gallery->coverImage?->updated_at?->getTimestamp() ?? 0,
         );
 
+        // Artwork cards render the artwork's own title, description and
+        // artist, so those edit stamps must ride along — gallery and cover
+        // stamps alone would keep serving hours-old cards after an edit.
+        $artworkStamp = $artwork
+            ? max($artwork->updated_at?->getTimestamp() ?? 0, $artwork->artist?->updated_at?->getTimestamp() ?? 0)
+            : 0;
+
         $cacheKey = $artwork
-            ? "og:image:{$slug}:artwork:{$artworkId}:{$stamp}:v1"
+            ? "og:image:{$slug}:artwork:{$artworkId}:{$stamp}:a{$artworkStamp}:v1"
             : "og:image:{$slug}:{$stamp}:v1";
 
-        $pngBytes = Cache::flexible($cacheKey, [now()->addHours(6), now()->addHours(12)], function () use ($gallery, $artwork) {
+        $pngBytes = ResilientCache::flexible($cacheKey, [now()->addHours(6), now()->addHours(12)], function () use ($gallery, $artwork) {
             return $this->render($gallery, $artwork);
         });
 
@@ -81,7 +88,7 @@ class OgImageController extends Controller
             ->with(['images' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyViewable())->orderByDesc('created_at')])
             ->firstOrFail();
 
-        $pngBytes = Cache::flexible(
+        $pngBytes = ResilientCache::flexible(
             "og:image:artist:{$slug}:{$artist->updated_at?->format('YmdHis')}:v1",
             [now()->addHours(6), now()->addHours(12)],
             fn () => $this->renderArtist($artist),

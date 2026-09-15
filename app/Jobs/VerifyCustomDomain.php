@@ -62,7 +62,6 @@ class VerifyCustomDomain implements ShouldQueue
         $gallery->forceFill(['custom_domain_verified_at' => now()])->save();
 
         Cache::forget("custom_domain:{$gallery->custom_domain}");
-        Cache::forget("custom_domain_gallery:{$gallery->id}");
 
         $result = $coolify->addDomain($gallery->custom_domain);
         if (! $result['success']) {

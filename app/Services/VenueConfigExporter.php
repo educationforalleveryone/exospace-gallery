@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\VenueTemplate;
 use App\Models\Gallery;
-use Illuminate\Support\Facades\Cache;
+use App\Support\ResilientCache;
 
 class VenueConfigExporter
 {
@@ -89,7 +89,7 @@ class VenueConfigExporter
         $plan = $gallery->user()->value('plan') ?? 'free';
         $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:{$venueSig}:p{$plan}:" . self::SCHEMA;
 
-        return Cache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery) {
+        return ResilientCache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery) {
             return $this->buildConfig($gallery);
         });
     }

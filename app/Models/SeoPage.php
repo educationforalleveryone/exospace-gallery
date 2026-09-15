@@ -92,26 +92,55 @@ class SeoPage extends Model
 
     public static function cachedSlugMap(): array
     {
-        $version = (int) \Illuminate\Support\Facades\Cache::get('seo:pages:version', 1);
+        try {
+            $version = (int) \Illuminate\Support\Facades\Cache::get('seo:pages:version', 1);
 
-        return \Illuminate\Support\Facades\Cache::remember(
-            "seo:pages:slug-map:v{$version}",
-            now()->addHour(),
-            fn () => static::query()
-                ->where('status', 'published')
-                ->get(['id', 'type', 'slug'])
-                ->mapWithKeys(fn ($page) => [
-                    self::pathFor($page->type, $page->slug) => $page->id,
-                ])
-                ->all(),
-        );
+            return \Illuminate\Support\Facades\Cache::remember(
+                "seo:pages:slug-map:v{$version}",
+                now()->addHour(),
+                fn () => static::publishedSlugMap(),
+            );
+        } catch (\Throwable $e) {
+            // The fallback route runs this on every unmatched path — a cache
+            // outage must degrade to a direct query, not 500 the request.
+            \Illuminate\Support\Facades\Log::warning('SeoPage: slug map cache unavailable — querying directly', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return static::publishedSlugMap();
+        }
+    }
+
+    private static function publishedSlugMap(): array
+    {
+        return static::query()
+            ->where('status', 'published')
+            ->get(['id', 'type', 'slug'])
+            ->mapWithKeys(fn ($page) => [
+                self::pathFor($page->type, $page->slug) => $page->id,
+            ])
+            ->all();
     }
 
     public static function bumpCacheVersion(): void
     {
-        // Atomic increment — concurrent saves must not lose a bump.
-        \Illuminate\Support\Facades\Cache::add('seo:pages:version', 1);
-        \Illuminate\Support\Facades\Cache::increment('seo:pages:version');
+        $bump = function (): void {
+            try {
+                // Atomic increment — concurrent saves must not lose a bump.
+                \Illuminate\Support\Facades\Cache::add('seo:pages:version', 1);
+                \Illuminate\Support\Facades\Cache::increment('seo:pages:version');
+            } catch (\Throwable $e) {
+                // Slug-map entries carry an hourly TTL, so a failed bump
+                // degrades to TTL staleness instead of failing the save.
+                \Illuminate\Support\Facades\Log::warning('SeoPage: slug map version bump failed', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        };
+
+        // Same commit-ordering rule as the sitemap version: never rotate the
+        // slug map before the page row is actually committed.
+        \Illuminate\Support\Facades\DB::afterCommit($bump);
     }
 
     public static function pathFor(string $type, string $slug): string

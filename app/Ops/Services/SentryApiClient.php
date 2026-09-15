@@ -61,7 +61,7 @@ class SentryApiClient
 
         $result = $this->fetch(null);
 
-        Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
+        $this->cacheResult($key, $result);
 
         return $result;
     }
@@ -82,7 +82,7 @@ class SentryApiClient
 
         $result = $this->fetch($slug);
 
-        Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
+        $this->cacheResult($key, $result);
 
         return $result;
     }
@@ -102,7 +102,7 @@ class SentryApiClient
 
         $result = $this->fetchTrend(null);
 
-        Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
+        $this->cacheResult($key, $result);
 
         return $result;
     }
@@ -123,9 +123,19 @@ class SentryApiClient
 
         $result = $this->fetchTrend($slug);
 
-        Cache::put($key, $result, now()->addMinutes($this->cacheMinutes));
+        $this->cacheResult($key, $result);
 
         return $result;
+    }
+
+    private function cacheResult(string $key, array $result): void
+    {
+        // Errors get a short TTL only: a Sentry outage must not stick for the
+        // full window, but the cache should still absorb repeated requests
+        // while the API is down.
+        $minutes = isset($result['error']) ? 1 : $this->cacheMinutes;
+
+        Cache::put($key, $result, now()->addMinutes($minutes));
     }
 
     private function fetchTrend(?string $projectSlug = null): array
