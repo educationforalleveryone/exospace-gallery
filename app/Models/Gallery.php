@@ -64,6 +64,29 @@ class Gallery extends Model
                 $gallery->custom_domain = $domain;
             }
         });
+
+        // A soft-deleted gallery must not keep holding its unique custom
+        // domain — the row stays in the table, so the domain would be
+        // unusable by any other exhibition. The Coolify route and DNS
+        // verification no longer exist at that point, so the domain has to
+        // be re-claimed (and re-verified) through the normal flow.
+        static::deleting(function (self $gallery) {
+            if ($gallery->isForceDeleting()) {
+                return;
+            }
+
+            $domain = $gallery->getOriginal('custom_domain') ?? $gallery->custom_domain;
+
+            if (!empty($domain)) {
+                \Illuminate\Support\Facades\Cache::forget("custom_domain:{$domain}");
+            }
+
+            $gallery->forceFill([
+                'custom_domain'                     => null,
+                'custom_domain_verification_token'  => null,
+                'custom_domain_verified_at'         => null,
+            ])->saveQuietly();
+        });
     }
 
     public function user(): BelongsTo

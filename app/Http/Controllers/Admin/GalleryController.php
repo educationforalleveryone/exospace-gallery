@@ -131,6 +131,16 @@ class GalleryController extends Controller
                     $venueTemplateId ? VenueTemplate::find($venueTemplateId) : null
                 ),
             ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            foreach (array_filter([$audioPath, $logoPath]) as $orphan) {
+                \Storage::disk('public')->delete($orphan);
+            }
+
+            // The existence check above cannot see a domain another request
+            // (or a soft-deleted exhibition) claimed in the meantime.
+            return back()
+                ->withInput()
+                ->with('error', "The custom domain \"{$customDomain}\" is already in use.");
         } catch (\Throwable $e) {
             foreach (array_filter([$audioPath, $logoPath]) as $orphan) {
                 \Storage::disk('public')->delete($orphan);
@@ -436,7 +446,16 @@ class GalleryController extends Controller
               $validated['curtain_logo'], $validated['clear_curtain_logo'], $validated['clear_curtain_bg'],
               $validated['curtain_bg_color_text'], $validated['visual_overrides_json']);
 
-        $gallery->update($validated);
+        try {
+            $gallery->update($validated);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // The existence check in handleCustomDomain() cannot see a domain
+            // another request claimed in the meantime.
+            $domain = $validated['custom_domain'] ?? 'chosen';
+
+            return back()->withInput()
+                ->with('error', "The custom domain \"{$domain}\" is already in use.");
+        }
 
         // Post-update: set guarded custom-domain verification fields
         $this->applyPostUpdateGuardedFields($request, $gallery);
@@ -680,6 +699,8 @@ class GalleryController extends Controller
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
         $teamId = $gallery->team_id;
+        $hadCustomDomain = ! empty($gallery->custom_domain);
+        $wasDomainVerified = $hadCustomDomain && $gallery->custom_domain_verified_at !== null;
 
         if ($gallery->custom_domain) {
             $oldDomain = $gallery->custom_domain;
@@ -696,8 +717,8 @@ class GalleryController extends Controller
             'title'                 => $gallery->title,
             'slug'                  => $gallery->slug,
             'team_id'               => $teamId,
-            'had_custom_domain'     => ! empty($gallery->custom_domain),
-            'custom_domain_verified' => ! empty($gallery->custom_domain_verified_at),
+            'had_custom_domain'     => $hadCustomDomain,
+            'custom_domain_verified' => $wasDomainVerified,
         ]);
 
         return redirect()->route('admin.galleries.index', $teamId ? ['team' => $teamId] : [])

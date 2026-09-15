@@ -187,12 +187,13 @@ class TeamController extends Controller
             return back()->withErrors(['user_id' => 'That user is not a member of this team.']);
         }
 
-        $team->members()->detach($validated['user_id']);
-
-        // Reset their current_team_id if it was this team
+        // Clear the active-team pointer before dropping the membership row:
+        // current_team_id is FK-constrained to a live membership.
         \App\Models\User::where('id', $validated['user_id'])
             ->where('current_team_id', $team->id)
             ->update(['current_team_id' => null]);
+
+        $team->members()->detach($validated['user_id']);
 
         // Log team member removal.
         AdminAuditLog::record('team.member_removed', $team, [
@@ -244,11 +245,13 @@ class TeamController extends Controller
             return back()->withErrors(['team' => 'Owners cannot leave their own team. Transfer ownership or delete the team.']);
         }
 
-        $team->members()->detach($user->id);
-
+        // Clear the active-team pointer before dropping the membership row:
+        // current_team_id is FK-constrained to a live membership.
         if ($user->current_team_id === $team->id) {
             $user->forceFill(['current_team_id' => null])->save();
         }
+
+        $team->members()->detach($user->id);
 
         // Log user leaving a team.
         AdminAuditLog::record('team.left', $team);

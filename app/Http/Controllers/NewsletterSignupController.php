@@ -31,20 +31,31 @@ class NewsletterSignupController extends Controller
             ], 422);
         }
 
-        // Idempotent — unique constraint on (gallery_id, email)
-        $signup = NewsletterSignup::firstOrCreate(
-            [
-                'gallery_id' => $gallery->id,
-                'email'      => $validated['email'],
-            ],
-            [
-                'name'      => $validated['name'] ?? null,
-                'ip_address' => $request->ip(),
-                'referrer'  => $request->header('referer'),
-            ]
-        );
+        // Idempotent — unique constraint on (gallery_id, email). A concurrent
+        // duplicate submit can lose the race between the existence check and
+        // the insert; the unique index then rejects it, which maps to the
+        // same "already on the list" outcome.
+        $signup = null;
+        $isNew = false;
 
-        $isNew = $signup->wasRecentlyCreated;
+        try {
+            $signup = NewsletterSignup::firstOrCreate(
+                [
+                    'gallery_id' => $gallery->id,
+                    'email'      => $validated['email'],
+                ],
+                [
+                    'name'      => $validated['name'] ?? null,
+                    'ip_address' => $request->ip(),
+                    'referrer'  => $request->header('referer'),
+                ]
+            );
+            $isNew = $signup->wasRecentlyCreated;
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            $signup = NewsletterSignup::where('gallery_id', $gallery->id)
+                ->where('email', $validated['email'])
+                ->first();
+        }
 
         return response()->json([
             'success'  => true,

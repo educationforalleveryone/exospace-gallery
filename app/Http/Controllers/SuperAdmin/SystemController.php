@@ -429,32 +429,34 @@ class SystemController extends Controller
         $plan = $pending->plan;
         $limits = User::planLimits($plan);
 
-        $user->forceFill([
-            'plan'            => $plan,
-            'max_galleries'   => $limits['max_galleries'],
-            'max_images'      => $limits['max_images'],
-            'plan_started_at' => now(),
-            'plan_expires_at' => null, // lifetime
-        ])->save();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($user, $pending, $plan, $limits) {
+            $user->forceFill([
+                'plan'            => $plan,
+                'max_galleries'   => $limits['max_galleries'],
+                'max_images'      => $limits['max_images'],
+                'plan_started_at' => now(),
+                'plan_expires_at' => null, // lifetime
+            ])->save();
 
-        // Mark the pending upgrade as converted
-        $pending->forceFill(['status' => 'converted'])->save();
+            // Mark the pending upgrade as converted
+            $pending->forceFill(['status' => 'converted'])->save();
 
-        // Record a transaction (manual — no invoice_id from 2Checkout)
-        \DB::table('transactions')->insert([
-            'user_id'        => $user->id,
-            'invoice_id'     => 'MANUAL-' . $pending->id . '-' . time(),
-            'sale_id'        => null,
-            'product_id'     => $pending->product_id,
-            'plan'           => $plan,
-            'amount'         => 0.00,
-            'currency'       => 'USD',
-            'customer_email' => $user->email,
-            'customer_name'  => $user->name,
-            'status'         => 'manual',
-            'created_at'     => now(),
-            'updated_at'     => now(),
-        ]);
+            // Record a transaction (manual — no invoice_id from 2Checkout)
+            \DB::table('transactions')->insert([
+                'user_id'        => $user->id,
+                'invoice_id'     => 'MANUAL-' . $pending->id . '-' . time(),
+                'sale_id'        => null,
+                'product_id'     => $pending->product_id,
+                'plan'           => $plan,
+                'amount'         => 0.00,
+                'currency'       => 'USD',
+                'customer_email' => $user->email,
+                'customer_name'  => $user->name,
+                'status'         => 'manual',
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ]);
+        });
 
         AdminAuditLog::record('manual_upgrade', $user, [
             'plan'              => $plan,

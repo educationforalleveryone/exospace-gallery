@@ -71,7 +71,21 @@ class ArtistController extends Controller
                 ->store('artist-portraits', 'public');
         }
 
-        $artist = Artist::create($validated);
+        // The slug generator checks for existing slugs before saving, but a
+        // concurrent creation can claim the same slug in between; the unique
+        // index rejects the insert and regenerating the slug resolves it.
+        $attempts = 0;
+
+        while (true) {
+            try {
+                $artist = Artist::create($validated);
+                break;
+            } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                if (++$attempts >= 3) {
+                    throw $e;
+                }
+            }
+        }
 
         if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
             $profile = $artist->seoProfileOrCreate();

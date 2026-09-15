@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Console\Commands\AnonymizeTransactionPii;
 use App\Console\Commands\PruneTransactionsByPartition;
 use App\Models\AnalyticsEvent;
+use App\Models\Gallery;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Models\User;
@@ -283,5 +284,111 @@ class DatabaseIntegrityTest extends TestCase
 
         $this->assertStringContainsString('softDeletes', $migrationFile,
             'Consolidated galleries migration must include $table->softDeletes().');
+    }
+
+    public function test_subscription_ids_are_unique_across_users(): void
+    {
+        User::factory()->create(['subscription_id' => 'SUB-2CHECKOUT-1']);
+        User::factory()->create(['subscription_id' => 'SUB-2CHECKOUT-2']);
+
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        User::factory()->create(['subscription_id' => 'SUB-2CHECKOUT-1']);
+    }
+
+    public function test_null_subscription_ids_do_not_collide(): void
+    {
+        User::factory()->create(['subscription_id' => null]);
+        User::factory()->create(['subscription_id' => null]);
+
+        $this->assertSame(2, User::whereNull('subscription_id')->count());
+    }
+
+    public function test_google_provider_ids_are_unique_across_users(): void
+    {
+        User::factory()->create(['google_id' => 'google-oauth-1']);
+
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        User::factory()->create(['google_id' => 'google-oauth-1']);
+    }
+
+    public function test_github_provider_ids_are_unique_across_users(): void
+    {
+        User::factory()->create(['github_id' => 'github-oauth-1']);
+
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        User::factory()->create(['github_id' => 'github-oauth-1']);
+    }
+
+    public function test_current_team_id_membership_constraint_exists_on_mysql(): void
+    {
+        if (DB::getDriverName() !== 'mysql') {
+            $this->markTestSkipped('Membership FK is enforced on MySQL only.');
+        }
+
+        $rows = DB::select(
+            'SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME = ?
+               AND COLUMN_NAME = ?',
+            ['users', 'team_user', 'current_team_id']
+        );
+
+        $this->assertNotEmpty($rows,
+            'users.current_team_id must be FK-constrained to a live team_user membership row.');
+    }
+
+    public function test_gallery_artwork_listings_have_a_covering_composite_index(): void
+    {
+        $indexes = collect(Schema::getIndexListing('gallery_images'))->map(fn ($index) => is_object($index) ? $index->name : $index);
+
+        $this->assertTrue($indexes->contains('gallery_images_gallery_position_index'),
+            'gallery_images needs the (gallery_id, position_order) composite index for ordered artwork listings.');
+        $this->assertFalse($indexes->contains('gallery_images_position_order_index'),
+            'The standalone position_order index is superseded by the composite index.');
+    }
+
+    public function test_soft_deleted_gallery_releases_its_custom_domain(): void
+    {
+        $gallery = Gallery::factory()->withCustomDomain('released.example.com')->create();
+
+        $gallery->delete();
+
+        $this->assertDatabaseHas('galleries', ['id' => $gallery->id]);
+        $this->assertNull($gallery->fresh()->custom_domain);
+        $this->assertNull($gallery->fresh()->custom_domain_verified_at);
+    }
+
+    public function test_custom_domain_is_reclaimable_after_gallery_deletion(): void
+    {
+        $domain = 'reclaimable.example.com';
+
+        $first = Gallery::factory()->withCustomDomain($domain)->create();
+        $first->delete();
+
+        $second = Gallery::factory()->withCustomDomain($domain)->create();
+
+        $this->assertSame($domain, $second->fresh()->custom_domain);
+    }
+
+    public function test_force_deleted_gallery_keeps_no_soft_delete_marker(): void
+    {
+        $gallery = Gallery::factory()->withCustomDomain('forcegone.example.com')->create();
+        $gallery->forceDelete();
+
+        $this->assertDatabaseMissing('galleries', ['id' => $gallery->id]);
+    }
+
+    public function test_gallery_factory_values_fit_the_database_enums(): void
+    {
+        $validLayouts = ['square', 'corridor', 'l-shape', 'rotunda'];
+        $validLighting = ['bright', 'moody', 'dramatic'];
+
+        for ($i = 0; $i < 12; $i++) {
+            $attributes = Gallery::factory()->make()->getAttributes();
+
+            $this->assertContains($attributes['room_layout'], $validLayouts,
+                "Factory produced invalid room_layout '{$attributes['room_layout']}'.");
+            $this->assertContains($attributes['lighting_preset'], $validLighting,
+                "Factory produced invalid lighting_preset '{$attributes['lighting_preset']}'.");
+        }
     }
 }

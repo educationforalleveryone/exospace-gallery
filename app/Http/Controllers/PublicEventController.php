@@ -110,31 +110,43 @@ class PublicEventController extends Controller
             return back()->withErrors(['captcha' => 'Captcha verification failed. Please refresh and try again.'])->withInput();
         }
 
-        // Enforce capacity
-        if ($event->isAtCapacity()) {
+        // Enforce capacity + create the RSVP inside one transaction that
+        // serializes on the event row: the seat count must be checked against
+        // committed RSVPs, otherwise concurrent submissions can overbook.
+        $atCapacity = null;
+
+        $created = \Illuminate\Support\Facades\DB::transaction(function () use ($event, $validated, $request, &$atCapacity) {
+            \App\Models\GalleryScheduleEvent::query()
+                ->whereKey($event->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($event->isAtCapacity()) {
+                $atCapacity = true;
+                return null;
+            }
+
+            try {
+                $rsvp = \App\Models\EventRsvp::firstOrCreate(
+                    [
+                        'schedule_event_id' => $event->id,
+                        'email'             => $validated['email'],
+                    ],
+                    [
+                        'name'        => $validated['name'],
+                        'ip_address'  => $request->ip(),
+                        'confirmed_at' => now(),
+                    ]
+                );
+
+                return $rsvp->wasRecentlyCreated;
+            } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+                return false;
+            }
+        });
+
+        if ($atCapacity) {
             return back()->with('error', 'This event has reached capacity.');
-        }
-
-        // Idempotent: unique on (schedule_event_id, email). A concurrent
-        // duplicate submit loses the race on the unique index — the row then
-        // already exists, which is the same outcome the visitor asked for.
-        $created = false;
-
-        try {
-            $rsvp = \App\Models\EventRsvp::firstOrCreate(
-                [
-                    'schedule_event_id' => $event->id,
-                    'email'             => $validated['email'],
-                ],
-                [
-                    'name'        => $validated['name'],
-                    'ip_address'  => $request->ip(),
-                    'confirmed_at' => now(),
-                ]
-            );
-            $created = $rsvp->wasRecentlyCreated;
-        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
-            $created = false;
         }
 
         // Notify the curator once per genuinely new RSVP — a repeat or raced
