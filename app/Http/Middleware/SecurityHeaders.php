@@ -46,7 +46,7 @@ class SecurityHeaders
             "img-src 'self' data: blob:",
             "font-src 'self' data: https://fonts.bunny.net",
             "media-src 'self' blob:",
-            "connect-src 'self' https://fonts.bunny.net blob:",
+            "connect-src 'self' https://fonts.bunny.net blob:" . $this->sentryConnectSource(),
             "worker-src 'self' blob:",
             "frame-src 'self'",
             "object-src 'none'",
@@ -57,5 +57,20 @@ class SecurityHeaders
         $response->headers->set('Content-Security-Policy', $csp);
 
         return $response;
+    }
+
+    // Browser error reports go to the Sentry ingest host, so it must be an
+    // allowed connect destination whenever a DSN is configured.
+    private function sentryConnectSource(): string
+    {
+        $dsn = (string) config('sentry.dsn');
+        $host = parse_url($dsn, PHP_URL_HOST);
+        $scheme = parse_url($dsn, PHP_URL_SCHEME);
+
+        if (! $host || $scheme !== 'https') {
+            return '';
+        }
+
+        return ' https://' . $host;
     }
 }

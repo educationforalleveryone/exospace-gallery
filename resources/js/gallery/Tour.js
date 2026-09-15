@@ -54,7 +54,7 @@ export class GuidedTour {
         if (overlay) overlay.style.display = 'block';
 
         // Release pointer lock so we can tween the camera freely
-        if (this.scene.controls.isLocked) this.scene.controls.unlock();
+        if (this.scene.controls?.isLocked) this.scene.controls.unlock();
 
         this.scene._cameraScripted = true;
 
@@ -83,7 +83,7 @@ export class GuidedTour {
 
         // Re-lock pointer (desktop only)
         if (!this.scene.isMobile) {
-            this.scene.controls.lock?.();
+            this.scene.controls?.lock?.();
         }
 
         // The tour loops, so "complete" means the visitor has seen every
@@ -161,9 +161,10 @@ export class GuidedTour {
                     if (displayTitle.includes('.')) {
                         displayTitle = displayTitle.split('.').slice(0, -1).join('.');
                     }
-                    document.getElementById('artwork-title').textContent = displayTitle;
-                    document.getElementById('artwork-description').textContent =
-                        data.description || 'No description available.';
+                    const titleEl = document.getElementById('artwork-title');
+                    const descEl  = document.getElementById('artwork-description');
+                    if (titleEl) titleEl.textContent = displayTitle;
+                    if (descEl)  descEl.textContent = data.description || 'No description available.';
                     if (typeof window.updateArtworkMeta === 'function') {
                         window.updateArtworkMeta(data);
                     }

@@ -1,6 +1,20 @@
 import './bootstrap';
 
 import Alpine from 'alpinejs';
+import { initMonitoring } from './monitoring';
+
+initMonitoring();
+
+// localStorage/sessionStorage can throw SecurityError when storage is
+// blocked (e.g. "block all cookies"); UI state must survive that.
+window.exospaceStorage = {
+    get(key) {
+        try { return window.localStorage.getItem(key); } catch { return null; }
+    },
+    set(key, value) {
+        try { window.localStorage.setItem(key, value); } catch { /* storage unavailable */ }
+    },
+};
 
 window.Alpine = Alpine;
 

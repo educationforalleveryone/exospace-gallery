@@ -29,8 +29,8 @@ export class GalleryScene {
     constructor() {
         this.container = document.getElementById('canvas-container');
         if (!this.container) {
-            console.error('GalleryScene: #canvas-container not found in DOM');
-            return;
+            // Fatal for the viewer page — main.js surfaces the error curtain.
+            throw new Error('GalleryScene: #canvas-container not found in DOM');
         }
 
         this.loadingProgress = 0;
@@ -306,8 +306,6 @@ export class GalleryScene {
         if (this._reactive) {
             this.disposeArtworkReactive();
         }
-
-        console.log('GalleryScene: disposed all GPU resources');
     }
 
     animate() {
@@ -412,11 +410,10 @@ export class GalleryScene {
 
     hideLoader() {
         this._assetsSettledAt = performance.now();
-        const servedVersion = window.GALLERY_DATA?.venueConfig?.version;
-        if (servedVersion || this._venueSlug) {
+        if (window.EXOSPACE_DEBUG) {
+            const servedVersion = window.GALLERY_DATA?.venueConfig?.version;
             console.info(`[venue] slug="${this._venueSlug || 'unknown'}" payload_version="${servedVersion || 'n/a'}"`);
         }
-        console.log('✅ Loading complete — gallery ready');
     }
 
     applyLiveOverride(patch) {

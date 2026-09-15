@@ -49,15 +49,11 @@ function cookieBanner() {
         accept() {
             this.setCookie('exospace_cookie_consent', 'accepted', 365);
             this.show = false;
-            // Optional: Trigger any analytics or tracking initialization here
-            this.initializeTracking();
         },
-        
+
         decline() {
             this.setCookie('exospace_cookie_consent', 'declined', 365);
             this.show = false;
-            // Optional: Disable any tracking scripts here
-            this.disableTracking();
         },
         
         getCookie(name) {
@@ -82,15 +78,6 @@ function cookieBanner() {
             const secure = window.location.protocol === 'https:' ? '; Secure' : '';
             document.cookie = name + "=" + value + "; " + expires + "; path=/; SameSite=Lax" + secure;
         },
-        
-        initializeTracking() {
-            console.log('Tracking accepted - initialize analytics');
-        },
-        
-        disableTracking() {
-            // Add your tracking disable code here
-            console.log('Tracking declined - analytics disabled');
-        }
     }
 }
 </script>

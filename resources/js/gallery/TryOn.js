@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { reportException } from '../monitoring.js';
 
 const TRYON_ID = 'tryon-1';
 
@@ -31,44 +32,51 @@ export function initTryOn(scene) {
         const anchor = anchorOf();
         if (!anchor?.userData?._canvasMesh) return false;
 
-        const dataUrl = await readFileAsDataURL(file);
-        if (!dataUrl) return false;
+        try {
+            const dataUrl = await readFileAsDataURL(file);
+            if (!dataUrl) return false;
 
-        const texture = await loadTexture(dataUrl);
-        if (!texture) return false;
+            const texture = await loadTexture(dataUrl);
+            if (!texture) return false;
 
-        remove();
+            remove();
 
-        const sourceCanvas = anchor.userData._canvasMesh;
-        const sourceFrame  = anchor.userData._frameMesh;
+            const sourceCanvas = anchor.userData._canvasMesh;
+            const sourceFrame  = anchor.userData._frameMesh;
 
-        const group = anchor.clone(true);
+            const group = anchor.clone(true);
 
-        const canvasMesh = group.getObjectByName('artwork-canvas') || group.children.find(c => c.name === 'artwork-canvas');
-        const frameMesh  = group.children.find(c => c !== canvasMesh);
+            const canvasMesh = group.getObjectByName('artwork-canvas') || group.children.find(c => c.name === 'artwork-canvas');
+            const frameMesh  = group.children.find(c => c !== canvasMesh);
 
-        const material = sourceCanvas.material.clone();
-        material.map = texture;
-        material.needsUpdate = true;
-        if (canvasMesh) {
-            canvasMesh.material = material;
-            resizeToAspect(canvasMesh, texture.image);
+            const material = sourceCanvas.material.clone();
+            material.map = texture;
+            material.needsUpdate = true;
+            if (canvasMesh) {
+                canvasMesh.material = material;
+                resizeToAspect(canvasMesh, texture.image);
+            }
+
+            group.userData = {
+                ...anchor.userData,
+                type: 'artwork',
+                id: TRYON_ID,
+                title: 'Your artwork (local preview)',
+                description: 'Uploaded in your browser for this preview only — never uploaded to any server.',
+                _canvasMesh: canvasMesh,
+                _frameMesh: frameMesh,
+                _tryOn: true,
+            };
+
+            scene.add(group);
+            current = { group, texture, material, frameMesh, canvasMesh };
+            return true;
+        } catch (error) {
+            // A malformed image must not surface as an unhandled rejection.
+            reportException(error, { area: 'tryon' });
+            console.warn('[try-on] could not apply image:', error?.name || error);
+            return false;
         }
-
-        group.userData = {
-            ...anchor.userData,
-            type: 'artwork',
-            id: TRYON_ID,
-            title: 'Your artwork (local preview)',
-            description: 'Uploaded in your browser for this preview only — never uploaded to any server.',
-            _canvasMesh: canvasMesh,
-            _frameMesh: frameMesh,
-            _tryOn: true,
-        };
-
-        scene.add(group);
-        current = { group, texture, material, frameMesh, canvasMesh };
-        return true;
     };
 
     const dispose = () => {

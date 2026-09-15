@@ -24,6 +24,7 @@
 
     <x-seo :seo="$gallerySeo" />
 
+    @include('layouts.partials.monitoring-bootstrap')
     @vite(['resources/css/app.css', 'resources/js/gallery/main.js'])
 
     <style>
@@ -714,12 +715,18 @@
         window.EXOSPACE_TRACK_URL = '{{ route("gallery.track", $gallery) }}';
         window.EXOSPACE_SESSION = (function() {
             const k = 'exo_sid_{{ $gallery->id }}';
-            let s = sessionStorage.getItem(k);
-            if (!s) {
-                s = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
-                sessionStorage.setItem(k, s);
+            // sessionStorage throws SecurityError when storage is blocked —
+            // a per-page fallback id keeps the boot script alive.
+            try {
+                let s = sessionStorage.getItem(k);
+                if (!s) {
+                    s = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+                    sessionStorage.setItem(k, s);
+                }
+                return s;
+            } catch (e) {
+                return Math.random().toString(36).slice(2) + Date.now().toString(36);
             }
-            return s;
         })();
 
         // Update artwork info panel with artist + metadata

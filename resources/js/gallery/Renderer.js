@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { PostProcessing } from './PostProcessing.js';
+import { reportException } from '../monitoring.js';
 
 export function earlyLowEndCheck() {
     if (typeof window !== 'undefined' && window.__EXOSPACE_QA_TIER === 'high') return false;
@@ -49,17 +50,25 @@ export function initRenderer() {
     this.container.appendChild(this.renderer.domElement);
 
     this._contextLost = false;
+    this._contextLostReported = false;
 
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
         e.preventDefault();
         this._contextLost = true;
-        console.error('WebGL context lost — attempting recovery...');
+        console.warn('WebGL context lost — pausing render loop until the browser restores it');
+
+        if (!this._contextLostReported) {
+            this._contextLostReported = true;
+            reportException(new Error('WebGL context lost'), { area: 'viewer-webgl' });
+        }
 
         showContextLostOverlay();
     }, false);
 
+    // three.js re-uploads GPU resources for the existing scene graph after a
+    // context restore — the scene, listeners and loaded assets must stay as
+    // they are; rebuilding here duplicated the whole room and every texture.
     this.renderer.domElement.addEventListener('webglcontextrestored', () => {
-        console.log('WebGL context restored — rebuilding scene...');
         if (this._disposed) {
             this._contextLost = true;
             return;
@@ -67,14 +76,6 @@ export function initRenderer() {
         this._contextLost = false;
 
         hideContextLostOverlay();
-
-        if (this.init) {
-            try {
-                this.init();
-            } catch (e) {
-                console.error('Scene rebuild failed after context restore:', e);
-            }
-        }
     }, false);
 }
 
@@ -135,7 +136,7 @@ export function detectLowEnd() {
         if (debugInfo) {
             const rendererStr = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
             const vendorStr   = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)   || '';
-            console.log('🎮 GPU:', rendererStr, '|', vendorStr);
+            if (window.EXOSPACE_DEBUG) console.log('🎮 GPU:', rendererStr, '|', vendorStr);
 
             const isSoftware     = /Microsoft Basic Render|SwiftShader|llvmpipe|softpipe|ANGLE.*Basic/i.test(rendererStr);
             const isBudgetMobile = /Mali-[34567]|Mali-T|Adreno [23]|Adreno [45]0[0-5]|PowerVR SGX|PowerVR G6|VideoCore/i.test(rendererStr);
@@ -159,19 +160,16 @@ export function detectLowEnd() {
 
     const reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
     this.reducedMotion = reducedMotion;
-    if (reducedMotion) {
-        console.log('♿ Reduced motion: motion effects disabled (render tier unaffected)');
-    }
 
     this.isLowEnd = isLowEnd;
     if (isLowEnd) {
-        console.log('⚡ Low-end mode:', reasons.join(', '));
+        if (window.EXOSPACE_DEBUG) console.log('⚡ Low-end mode:', reasons.join(', '));
         applyLowEndSettings.call(this);
     } else if (this.isMobile) {
-        console.log('📱 Mobile tier: pixelRatio 1.25, HDRI off, 4 pooled lights');
+        if (window.EXOSPACE_DEBUG) console.log('📱 Mobile tier: pixelRatio 1.25, HDRI off, 4 pooled lights');
         applyMobileSettings.call(this);
     } else {
-        console.log('🚀 High-end mode: full quality enabled');
+        if (window.EXOSPACE_DEBUG) console.log('🚀 High-end mode: full quality enabled');
         if (this._postFx) { this._postFx.dispose(); this._postFx = null; }
         this._postFx = new PostProcessing(this.renderer, this.scene, this.camera);
     }
@@ -198,7 +196,7 @@ function _scheduleFpsBenchmark() {
         if (this._assetsSettledAt == null) {
             if (waitStart == null) waitStart = performance.now();
             if (performance.now() - waitStart > SETTLE_TIMEOUT_MS) {
-                console.warn('⚡ FPS benchmark: loader never settled — skipping');
+                if (window.EXOSPACE_DEBUG) console.warn('⚡ FPS benchmark: loader never settled — skipping');
                 return;
             }
             setTimeout(waitLoop, SETTLE_POLL_MS);
@@ -249,9 +247,9 @@ function _scheduleFpsBenchmark() {
             document.removeEventListener('visibilitychange', onVisibility);
             const measuredFps = frames / (Math.max(elapsed, 1) / 1000);
             if (measuredFps < FPS_THRESHOLD && !this.isLowEnd) {
-                console.log(`⚡ FPS benchmark: ${measuredFps.toFixed(1)} fps < ${FPS_THRESHOLD} — downgrading to low-end mode`);
+                if (window.EXOSPACE_DEBUG) console.log(`⚡ FPS benchmark: ${measuredFps.toFixed(1)} fps < ${FPS_THRESHOLD} — downgrading to low-end mode`);
                 applyLowEndSettings.call(this);
-            } else {
+            } else if (window.EXOSPACE_DEBUG) {
                 console.log(`✅ FPS benchmark: ${measuredFps.toFixed(1)} fps — high-end confirmed`);
             }
             return;

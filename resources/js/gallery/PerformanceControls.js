@@ -167,12 +167,12 @@ export class PerformanceControls {
             this._prScale = Math.max(0.6, this._prScale - 0.15);
             this._applyPixelRatio();
             this._adaptHoldUntil = now + 3000;
-            console.log(`⚡ Adaptive resolution: ${s.join('/')} fps → render scale ${this._prScale.toFixed(2)}`);
+            if (this._debugMode) console.log(`⚡ Adaptive resolution: ${s.join('/')} fps → render scale ${this._prScale.toFixed(2)}`);
         } else if (s.every(f => f > 55) && this._prScale < 1) {
             this._prScale = Math.min(1, this._prScale + 0.1);
             this._applyPixelRatio();
             this._adaptHoldUntil = now + 3000;
-            console.log(`⚡ Adaptive resolution: ${s.join('/')} fps → render scale ${this._prScale.toFixed(2)}`);
+            if (this._debugMode) console.log(`⚡ Adaptive resolution: ${s.join('/')} fps → render scale ${this._prScale.toFixed(2)}`);
         }
     }
 
@@ -248,7 +248,9 @@ export class PerformanceControls {
             this.scene.loadEnvironmentMap();
         }
 
-        console.log(`⚡ Quality set to ${quality} → pixelRatio=${cfg.pixelRatio}, bloom=${cfg.bloom}, maxLights=${cfg.maxLights}, hdri=${cfg.hdri}`);
+        if (this._debugMode) {
+            console.log(`⚡ Quality set to ${quality} → pixelRatio=${cfg.pixelRatio}, bloom=${cfg.bloom}, maxLights=${cfg.maxLights}, hdri=${cfg.hdri}`);
+        }
     }
 
     _loadSavedQuality() {

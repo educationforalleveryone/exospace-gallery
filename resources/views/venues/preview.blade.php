@@ -10,6 +10,7 @@
     <title>{{ $venue->name }} — Venue Preview | {{ config('seo.site_name', 'Exospace') }}</title>
     <meta name="description" content="Walk through a live 3D sample exhibition in the {{ $venue->name }} venue. Demonstration artworks — no signup required.">
 
+    @include('layouts.partials.monitoring-bootstrap')
     @vite(['resources/css/app.css', 'resources/js/gallery/main.js'])
 
     <style>
@@ -282,14 +283,29 @@
             </label>
             <input type="file" id="tryon-input" accept="image/*" style="display: none;"
                    aria-label="Upload a local artwork image to preview on this venue's wall (stays in your browser)">
-            <script>
+            <span id="tryon-status" class="preview-chip" style="display:none;"></span>
+            <script nonce="@nonce">
                 (function () {
                     var input = document.getElementById('tryon-input');
+                    var status = document.getElementById('tryon-status');
                     if (!input) return;
+                    var statusTimer = null;
+                    function showStatus(text) {
+                        if (!status) return;
+                        status.textContent = text;
+                        status.style.display = '';
+                        clearTimeout(statusTimer);
+                        statusTimer = setTimeout(function () { status.style.display = 'none'; }, 4000);
+                    }
                     input.addEventListener('change', function () {
                         var file = input.files && input.files[0];
                         if (file && window.exospaceTryOn) {
-                            window.exospaceTryOn.apply(file);
+                            showStatus('Rendering preview…');
+                            Promise.resolve(window.exospaceTryOn.apply(file)).then(function (ok) {
+                                showStatus(ok ? 'Previewing your artwork' : 'That image could not be shown');
+                            }).catch(function () {
+                                showStatus('That image could not be shown');
+                            });
                         }
                         // Allow re-selecting the same file later.
                         input.value = '';
@@ -513,9 +529,9 @@
         window.EXOSPACE_REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         window.EXOSPACE_DEBUG = new URLSearchParams(window.location.search).has('debug');
 
-        window.GALLERY_DATA = @json($galleryData);
+        window.GALLERY_DATA = @json($galleryData ?? []);
 
-        if (!window.GALLERY_DATA || window.GALLERY_DATA.images.length === 0) {
+        if (!Array.isArray(window.GALLERY_DATA.images) || window.GALLERY_DATA.images.length === 0) {
             console.warn("[Preview] No sample artworks — showing empty state.");
             window.GALLERY_DATA.images = [];
             window.GALLERY_DATA._isEmpty = true;

@@ -4,6 +4,9 @@ import { Analytics }    from './Analytics.js';
 import { playArrival }  from './Arrival.js';
 import { initTryOn }    from './TryOn.js';
 import { showLoadError } from './AssetLoader.js';
+import { initMonitoring } from '../monitoring.js';
+
+initMonitoring();
 
 let galleryScene = null;
 let guidedTour   = null;
@@ -41,6 +44,15 @@ window.toggleAudioMute = function toggleAudioMute() {
 window.submitNewsletterSignup = async function submitNewsletterSignup(form) {
     const msg = form.querySelector('.newsletter-msg');
     const data = new FormData(form);
+
+    if (!window.GALLERY_DATA?.newsletterUrl) {
+        if (msg) {
+            msg.textContent = 'Signup is unavailable right now.';
+            msg.style.color = '#fca5a5';
+        }
+        return false;
+    }
+
     try {
         const res  = await fetch(window.GALLERY_DATA.newsletterUrl, {
             method: 'POST',
@@ -50,7 +62,7 @@ window.submitNewsletterSignup = async function submitNewsletterSignup(form) {
             },
             body: data,
         });
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (msg) {
             msg.textContent = json.message || (json.success ? 'Subscribed — thank you.' : 'Could not subscribe.');
             msg.style.color = json.success ? '#86efac' : '#fca5a5';
@@ -191,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.__exospace = { get scene() { return galleryScene; }, get tour() { return guidedTour; } };
 
 window.addEventListener('pagehide', () => {
+    if (guidedTour?.active) guidedTour.stop();
     if (galleryScene) {
         galleryScene.dispose();
         galleryScene = null;
@@ -199,6 +212,7 @@ window.addEventListener('pagehide', () => {
 
 // Also dispose on beforeunload (fallback for older browsers)
 window.addEventListener('beforeunload', () => {
+    if (guidedTour?.active) guidedTour.stop();
     if (galleryScene) {
         galleryScene.dispose();
         galleryScene = null;

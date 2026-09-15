@@ -8,7 +8,7 @@ const _fwd = new THREE.Vector3();
 const _to  = new THREE.Vector3();
 
 export function checkArtworkFocus() {
-    if (!this.controls.isLocked && !this.isMobile) return;
+    if (!this.controls?.isLocked && !this.isMobile) return;
     if (this.arrivalActive) return; // Arrival dolly owns the camera — no crosshair noise during the reveal
     if (!this.artworks || this.artworks.length === 0) return;
 
@@ -163,9 +163,10 @@ export function toggleArtworkInfo() {
                     displayTitle = displayTitle.split('.').slice(0, -1).join('.');
                     displayTitle = displayTitle.replace(/[_-]/g, ' ');
                 }
-                document.getElementById('artwork-title').textContent = displayTitle;
-                document.getElementById('artwork-description').textContent =
-                    data.description || 'No description available.';
+                const titleEl = document.getElementById('artwork-title');
+                const descEl  = document.getElementById('artwork-description');
+                if (titleEl) titleEl.textContent = displayTitle;
+                if (descEl)  descEl.textContent = data.description || 'No description available.';
                 if (typeof window.updateArtworkMeta === 'function') {
                     window.updateArtworkMeta(data);
                 }

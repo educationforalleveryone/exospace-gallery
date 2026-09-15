@@ -18,7 +18,7 @@
 @endphp
 
 @if(! $allDone)
-<div x-data="{ dismissed: localStorage.getItem('exospace_onboarded') === '1' }"
+<div x-data="{ dismissed: window.exospaceStorage?.get('exospace_onboarded') === '1' }"
      x-show="!dismissed"
      x-cloak
      class="bg-gradient-to-br from-brand-900/30 to-brand-900/20 border border-brand-700/30 rounded-xl p-5 mb-6">
@@ -31,7 +31,7 @@
             <h3 class="text-sm font-semibold text-brand-300">Get started with Exospace</h3>
         </div>
         <button type="button"
-                @click="dismissed = true; localStorage.setItem('exospace_onboarded', '1')"
+                @click="dismissed = true; window.exospaceStorage?.set('exospace_onboarded', '1')"
                 class="flex items-center justify-center w-8 h-8 -me-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition"
                 aria-label="Dismiss onboarding checklist">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

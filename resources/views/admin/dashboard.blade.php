@@ -515,12 +515,12 @@
 
     {{-- ── First-visit welcome modal (only for brand-new users < 48h) ─────── --}}
     @if($isNewUser && !$team)
-    <div x-data="{ show: !localStorage.getItem('exospace_welcomed') }"
+    <div x-data="{ show: window.exospaceStorage?.get('exospace_welcomed') !== '1' }"
          x-show="show" x-cloak
          x-effect="document.body.classList.toggle('overflow-y-hidden', show)"
          data-focus-trap
-         @keydown.escape.window="localStorage.setItem('exospace_welcomed','1'); show=false"
-         @click.self="localStorage.setItem('exospace_welcomed','1'); show=false"
+         @keydown.escape.window="window.exospaceStorage?.set('exospace_welcomed','1'); show=false"
+         @click.self="window.exospaceStorage?.set('exospace_welcomed','1'); show=false"
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0"
          x-transition:enter-end="opacity-100"
@@ -556,11 +556,11 @@
                 </ul>
                 <div class="flex gap-3">
                     <a href="{{ route('admin.galleries.create') }}"
-                       @click="localStorage.setItem('exospace_welcomed','1'); show=false"
+                       @click="window.exospaceStorage?.set('exospace_welcomed','1'); show=false"
                        class="btn btn-primary flex-1">
                         Create First Gallery →
                     </a>
-                    <button @click="localStorage.setItem('exospace_welcomed','1'); show=false"
+                    <button @click="window.exospaceStorage?.set('exospace_welcomed','1'); show=false"
                             class="btn btn-secondary">
                         Skip
                     </button>

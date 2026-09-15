@@ -25,7 +25,7 @@ $iconPath = $icon ?? $defaultIcons[$type];
 @endphp
 
 @if($dismissKey)
-<div x-data="{ show: localStorage.getItem('{{ $dismissKey }}') !== '1' }" x-show="show" x-cloak>
+<div x-data="{ show: window.exospaceStorage?.get('{{ $dismissKey }}') !== '1' }" x-show="show" x-cloak>
 @endif
 
 <div class="flex items-center gap-3 px-4 py-3 rounded-xl border {{ $s['wrap'] }}">
@@ -41,7 +41,7 @@ $iconPath = $icon ?? $defaultIcons[$type];
         @endif
         @if($dismissKey)
             <button type="button"
-                    @click="localStorage.setItem('{{ $dismissKey }}','1'); show=false"
+                    @click="window.exospaceStorage?.set('{{ $dismissKey }}','1'); show=false"
                     class="flex items-center justify-center w-7 h-7 -me-1.5 rounded-md text-gray-600 hover:text-gray-400 hover:bg-white/[0.06] transition"
                     aria-label="Dismiss notification">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

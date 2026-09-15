@@ -10,6 +10,7 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Preview: {{ $gallery->title }}</title>
 
+    @include('layouts.partials.monitoring-bootstrap')
     @vite(['resources/css/app.css', 'resources/js/gallery/main.js'])
 
     <style>
@@ -31,8 +32,10 @@
             backdrop-filter: blur(4px);
         }
 
-        /* Hide the entrance curtain entirely — preview auto-enters */
+        /* Hide the entrance curtain entirely — preview auto-enters.
+           The viewer re-reveals it with .has-load-error when boot fails. */
         #entrance-curtain { display: none !important; }
+        #entrance-curtain.has-load-error { display: flex !important; }
 
         /* Hide visitor-only UI that doesn't make sense in preview */
         #newsletter-form, #share-btn, #events-link { display: none !important; }

@@ -7,6 +7,7 @@ import * as _RGBELoaderModule from 'three/addons/loaders/RGBELoader.js';
 const _HDRLoader = _HDRLoaderModule.HDRLoader || _HDRLoaderModule.RGBELoader || _RGBELoaderModule.RGBELoader;
 import { CONFIG } from './config.js';
 import { preloadMaterialTextures } from './Materials.js';
+import { reportException } from '../monitoring.js';
 
 // Singleton loaders (created lazily on first use)
 let _gltfLoader  = null;
@@ -118,9 +119,10 @@ export async function loadAssets() {
             });
         }
 
-        const totalImages = data.images.length;
+        const images = Array.isArray(data.images) ? data.images : [];
+        const totalImages = images.length;
 
-        this.artworkImages = data.images.map(img => ({
+        this.artworkImages = images.map(img => ({
             texture: null,      // full-quality variant — filled on arrival
             thumbTexture: null, // blur-up placeholder (desktop high-end)
             aspectRatio: img.aspectRatio || (img.width && img.height ? img.width / img.height : 1),
@@ -128,9 +130,9 @@ export async function loadAssets() {
         }));
 
         const deepLinkArtworkId = data.deepLinkArtworkId;
-        const order = data.images.map((_, i) => i);
+        const order = images.map((_, i) => i);
         if (deepLinkArtworkId) {
-            const di = order.find(i => data.images[i].id === deepLinkArtworkId);
+            const di = order.find(i => images[i].id === deepLinkArtworkId);
             if (di !== undefined && di > 0) {
                 order.splice(order.indexOf(di), 1);
                 order.unshift(di);
@@ -297,7 +299,18 @@ export function upgradeFocusedArtworkTexture(artworkGroup) {
     );
 }
 
+// One report per error object even if several failure paths converge here.
+let _lastReportedLoadError = null;
+
 export function showLoadError(error) {
+    if (error && error !== _lastReportedLoadError) {
+        _lastReportedLoadError = error;
+        reportException(error, {
+            area: 'viewer-load',
+            webgl: error?.webglUnavailable ? 'unavailable' : 'ok',
+        });
+    }
+
     // Device-level 3D failure: reloading cannot help, so prefer the page's
     // own WebGL fallback panel when the layout ships one.
     if (error?.webglUnavailable) {
@@ -337,6 +350,7 @@ export function showLoadError(error) {
     `;
 
     curtain.innerHTML = errorHtml;
+    curtain.classList.add('has-load-error');
     curtain.style.display = 'flex';
     document.getElementById('gallery-load-error-retry')
         ?.addEventListener('click', () => window.location.reload());

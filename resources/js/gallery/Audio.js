@@ -8,7 +8,7 @@ export function initAudio() {
     this.camera.add(this.listener);
 
     this._audioLoadStarted = false;
-    this._audioUrl = galleryData.audioUrl || null;
+    this._audioUrl = galleryData?.audioUrl ?? null;
 }
 
 export function loadAudioAssets() {

@@ -130,7 +130,7 @@
     </div>
 
     @featureFlag('venue_previews')
-    <script>
+    <script nonce="@nonce">
         (function () {
             var wrap = document.querySelector('[data-venue-walkthrough]');
             if (!wrap) return;

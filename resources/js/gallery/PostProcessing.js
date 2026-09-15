@@ -40,7 +40,6 @@ export class PostProcessing {
 
         const reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
         if (reducedMotion) {
-            console.log('⚡ PostProcessing: reduced-motion — bloom + vignette disabled');
             // Still create a minimal composer so render() works
             this.composer = new EffectComposer(renderer);
             this.composer.addPass(new RenderPass(scene, camera));
