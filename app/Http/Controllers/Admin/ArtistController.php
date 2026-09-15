@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Artist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -76,15 +77,27 @@ class ArtistController extends Controller
         // index rejects the insert and regenerating the slug resolves it.
         $attempts = 0;
 
-        while (true) {
-            try {
-                $artist = Artist::create($validated);
-                break;
-            } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
-                if (++$attempts >= 3) {
-                    throw $e;
+        try {
+            while (true) {
+                try {
+                    $artist = Artist::create($validated);
+                    break;
+                } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                    if (++$attempts >= 3) {
+                        throw $e;
+                    }
                 }
             }
+        } catch (\Throwable $e) {
+            // No row was created, so the uploaded portrait would be orphaned.
+            if (!empty($validated['portrait_path'])) {
+                try {
+                    Storage::disk('public')->delete($validated['portrait_path']);
+                } catch (\Throwable) {
+                    // The upload itself failed to land — nothing to clean.
+                }
+            }
+            throw $e;
         }
 
         if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
@@ -163,15 +176,32 @@ class ArtistController extends Controller
             unset($validated['seo_title'], $validated['seo_description']);
         }
 
+        $newPortraitPath = null;
+        $oldPortraitPath = $artist->portrait_path;
         if ($request->hasFile('portrait')) {
-            if ($artist->portrait_path) {
-                Storage::disk('public')->delete($artist->portrait_path);
-            }
-            $validated['portrait_path'] = $request->file('portrait')
+            // Store the replacement first; the previous portrait stays
+            // available until the row update has committed.
+            $newPortraitPath = $request->file('portrait')
                 ->store('artist-portraits', 'public');
+            $validated['portrait_path'] = $newPortraitPath;
         }
 
-        $artist->update($validated);
+        try {
+            $artist->update($validated);
+        } catch (\Throwable $e) {
+            if ($newPortraitPath !== null) {
+                try {
+                    Storage::disk('public')->delete($newPortraitPath);
+                } catch (\Throwable) {
+                    // Cleanup is best-effort; the DB failure is the real signal.
+                }
+            }
+            throw $e;
+        }
+
+        if ($newPortraitPath !== null && $oldPortraitPath) {
+            $this->deleteFileQuietly($oldPortraitPath);
+        }
 
         return redirect()
             ->route('admin.artists.index')
@@ -183,15 +213,18 @@ class ArtistController extends Controller
         $this->authorizeArtistMutation($artist);
 
         $name = $artist->name;
-
-        if ($artist->portrait_path) {
-            Storage::disk('public')->delete($artist->portrait_path);
-        }
+        $portraitPath = $artist->portrait_path;
 
         // Detach from all images (set artist_id to null — images stay)
         $artist->images()->update(['artist_id' => null]);
 
         $artist->delete();
+
+        // Physical removal happens after the row is gone; a failed delete
+        // must not leave a live artist row pointing at missing bytes.
+        if ($portraitPath) {
+            $this->deleteFileQuietly($portraitPath);
+        }
 
         return redirect()
             ->route('admin.artists.index')
@@ -217,6 +250,18 @@ class ArtistController extends Controller
             'portrait_url' => $a->portrait_url,
             'initials'     => $a->initials,
         ]));
+    }
+
+    private function deleteFileQuietly(string $path): void
+    {
+        try {
+            Storage::disk('public')->delete($path);
+        } catch (\Throwable $e) {
+            Log::warning('ArtistController: file cleanup failed', [
+                'path'  => $path,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function authorizeArtistMutation(Artist $artist): void

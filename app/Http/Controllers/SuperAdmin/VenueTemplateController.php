@@ -77,8 +77,16 @@ class VenueTemplateController extends Controller
         $data = $this->extractData($request);
 
         $venue = VenueTemplate::create($data);
-        $this->handleFileUploads($request, $venue);
-        $venue->save();
+        $uploads = $this->handleFileUploads($request, $venue);
+
+        try {
+            $venue->save();
+        } catch (\Throwable $e) {
+            $this->deleteFilesQuietly($uploads['stored']);
+            throw $e;
+        }
+
+        $this->deleteFilesQuietly($uploads['stale']);
 
         AdminAuditLog::record('venue_template.created', $venue, [
             'name' => $venue->name,
@@ -117,8 +125,18 @@ class VenueTemplateController extends Controller
         $data = $this->extractData($request, $venue);
 
         $venue->fill($data);
-        $this->handleFileUploads($request, $venue);
-        $venue->save();
+        $uploads = $this->handleFileUploads($request, $venue);
+
+        try {
+            $venue->save();
+        } catch (\Throwable $e) {
+            // The replaced assets were never committed — remove only the
+            // files this request wrote. The previous asset stays intact.
+            $this->deleteFilesQuietly($uploads['stored']);
+            throw $e;
+        }
+
+        $this->deleteFilesQuietly($uploads['stale']);
 
         AdminAuditLog::record('venue_template.updated', $venue, [
             'before' => $before,
@@ -146,8 +164,16 @@ class VenueTemplateController extends Controller
         foreach (['thumbnail_path', 'preview_model_path', 'hdri_path', 'default_audio_path'] as $field) {
             if (!empty($venue->$field) && $disk->exists($venue->$field)) {
                 $newPath = dirname($venue->$field).'/'.Str::uuid()->toString().'-'.basename($venue->$field);
-                if ($disk->copy($venue->$field, $newPath)) {
-                    $copy->$field = $newPath;
+                try {
+                    if ($disk->copy($venue->$field, $newPath)) {
+                        $copy->$field = $newPath;
+                    }
+                } catch (\Throwable $e) {
+                    \Log::warning('VenueTemplateController: clone file copy failed', [
+                        'field'    => $field,
+                        'source'   => $venue->$field,
+                        'error'    => $e->getMessage(),
+                    ]);
                 }
             }
         }
@@ -311,40 +337,67 @@ class VenueTemplateController extends Controller
         return $data;
     }
 
-    private function handleFileUploads(VenueTemplateRequest $request, VenueTemplate $venue): void
+    /**
+     * Store uploads for this request and swap them onto the venue.
+     *
+     * Returns the paths written by this request (["stored"]) and the paths
+     * they replace (["stale"]). Callers delete stale files only AFTER the
+     * venue row has been saved, so a failed save never destroys the asset
+     * that is still serving.
+     */
+    private function handleFileUploads(VenueTemplateRequest $request, VenueTemplate $venue): array
     {
-        $disk = Storage::disk('public');
+        $stored = [];
+        $stale = [];
 
         if ($request->hasFile('thumbnail_image')) {
-            if ($venue->thumbnail_path) {
-                $disk->delete($venue->thumbnail_path);
-            }
-            $venue->thumbnail_path = $request->file('thumbnail_image')
+            $stored[] = $venue->thumbnail_path = $request->file('thumbnail_image')
                 ->store('venue-thumbnails', 'public');
+            if ($venue->getOriginal('thumbnail_path')) {
+                $stale[] = $venue->getOriginal('thumbnail_path');
+            }
         }
 
         if ($request->hasFile('preview_model')) {
-            if ($venue->preview_model_path) {
-                $disk->delete($venue->preview_model_path);
-            }
-            $venue->preview_model_path = $request->file('preview_model')
+            $stored[] = $venue->preview_model_path = $request->file('preview_model')
                 ->store('venue-models', 'public');
+            if ($venue->getOriginal('preview_model_path')) {
+                $stale[] = $venue->getOriginal('preview_model_path');
+            }
         }
 
         if ($request->hasFile('hdri_file')) {
-            if ($venue->hdri_path) {
-                $disk->delete($venue->hdri_path);
-            }
-            $venue->hdri_path = $request->file('hdri_file')
+            $stored[] = $venue->hdri_path = $request->file('hdri_file')
                 ->store('venue-hdri', 'public');
+            if ($venue->getOriginal('hdri_path')) {
+                $stale[] = $venue->getOriginal('hdri_path');
+            }
         }
 
         if ($request->hasFile('default_audio')) {
-            if ($venue->default_audio_path) {
-                $disk->delete($venue->default_audio_path);
-            }
-            $venue->default_audio_path = $request->file('default_audio')
+            $stored[] = $venue->default_audio_path = $request->file('default_audio')
                 ->store('venue-audio', 'public');
+            if ($venue->getOriginal('default_audio_path')) {
+                $stale[] = $venue->getOriginal('default_audio_path');
+            }
+        }
+
+        return ['stored' => $stored, 'stale' => $stale];
+    }
+
+    private function deleteFilesQuietly(array $paths): void
+    {
+        $disk = Storage::disk('public');
+
+        foreach (array_filter($paths) as $path) {
+            try {
+                $disk->delete($path);
+            } catch (\Throwable $e) {
+                \Log::warning('VenueTemplateController: file cleanup failed', [
+                    'path'  => $path,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 }

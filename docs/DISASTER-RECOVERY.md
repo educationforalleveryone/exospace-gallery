@@ -212,6 +212,52 @@ Showing screen) and two anchored fixtures. Symptoms and their first moves:
 - Offline replay:
   `python3 scripts/validate_luxury_penthouse_media_wall_migration.py` (no PHP needed).
 
+### 3.8 Storage operations (disks, upload limits, media housekeeping)
+
+**Disk layout.** `public` → `storage/app/public` (user media, served via
+`/storage` after the per-container `storage:link`) and `local` →
+`storage/app/private` (invoices, private artifacts) are the two durable
+disks — both are Coolify persistent volumes and both run with
+`throw=true`: a failed write (disk full, permission denied) raises an
+exception instead of silently returning `false`, so an upload can never
+report success for bytes that never landed. Failures surface in Sentry +
+the ops log; controllers return their standard error responses and keep the
+previous asset intact. `r2` is the Cloudflare R2 backup destination
+(§4); the `cdn`/`s3` disks exist for a future multi-container setup and are
+unused by the single-container deployment.
+
+**Upload transport ceiling.** The largest application-validated upload is
+50 MB (venue `preview_model` / `hdri_file`). Multipart encoding adds
+boundary overhead on top of the raw bytes, so the transport ceiling must sit
+ABOVE that: `docker-start.sh` writes `upload_max_filesize = 64M`,
+`post_max_size = 64M` and patches nginx `client_max_body_size 64M`. If you
+override upload limits via Coolify env vars
+(`NIXPACKS_PHP_UPLOAD_MAX_FILESIZE`, `NIXPACKS_PHP_POST_MAX_SIZE`,
+`PHP_UPLOAD_MAX_FILESIZE`, `PHP_POST_MAX_SIZE`), keep all three layers
+(php-fpm ini, nginx body size, Laravel validation) consistent — the Laravel
+validation cap is the authority; the transport ceiling is headroom.
+
+**Media housekeeping (scheduled daily).**
+
+- `media-library:clean --delete-orphaned --force` (04:20) removes stale
+  conversion temp files and media rows whose model no longer exists.
+  Orphan detection respects soft-deleted artworks.
+- `exospace:reconcile-artwork-media --fix --limit=100` (04:45) finds
+  artworks without a Spatie media record and dispatches
+  `RegenerateImageMedia`, which re-registers media from the legacy file at
+  `galleries/{id}/{filename}`. Run it without `--fix` for a read-only
+  report. Images whose legacy file is gone are logged as unrecoverable
+  (the artwork row stays; the serving URL degrades to the legacy path
+  handling that already covers missing files).
+
+**Manual venue asset replacement.** Venue thumbnails/models/HDRI/audio and
+artist portraits are replaced store-first: the new file is written, the row
+is saved, and only then is the previous file deleted. If a replacement
+fails mid-request, the previous asset keeps serving; the uncommitted new
+file is cleaned up automatically. No manual file surgery is expected —
+if Master Control shows an artwork without media, run
+`php artisan exospace:reconcile-artwork-media` first.
+
 ## 4. What is backed up where
 
 | Asset | Cadence | Retention | Restore tool |

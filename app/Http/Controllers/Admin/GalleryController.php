@@ -132,9 +132,7 @@ class GalleryController extends Controller
                 ),
             ]);
         } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
-            foreach (array_filter([$audioPath, $logoPath]) as $orphan) {
-                \Storage::disk('public')->delete($orphan);
-            }
+            $this->deleteFilesQuietly(array_filter([$audioPath, $logoPath]));
 
             // The existence check above cannot see a domain another request
             // (or a soft-deleted exhibition) claimed in the meantime.
@@ -142,9 +140,7 @@ class GalleryController extends Controller
                 ->withInput()
                 ->with('error', "The custom domain \"{$customDomain}\" is already in use.");
         } catch (\Throwable $e) {
-            foreach (array_filter([$audioPath, $logoPath]) as $orphan) {
-                \Storage::disk('public')->delete($orphan);
-            }
+            $this->deleteFilesQuietly(array_filter([$audioPath, $logoPath]));
 
             \Log::error('Gallery::create failed', [
                 'message'  => $e->getMessage(),
@@ -398,7 +394,7 @@ class GalleryController extends Controller
         }
 
         // Delegate to extracted helpers
-        $staleFiles = $this->handleFileUploads($request, $gallery, $planHolder, $validated);
+        [$staleFiles, $uploadedFiles] = $this->handleFileUploads($request, $gallery, $planHolder, $validated);
         $this->handlePinAndSchedule($request, $validated, $planHolder);
         $this->handleVenueTemplate($validated);
 
@@ -428,6 +424,9 @@ class GalleryController extends Controller
         // Custom domain handling may return early on uniqueness conflict
         $domainResult = $this->handleCustomDomain($request, $gallery, $planHolder, $validated);
         if ($domainResult !== null) {
+            // Files stored for this request were never committed.
+            $this->deleteFilesQuietly($uploadedFiles);
+
             return $domainResult; // Redirect back with error
         }
 
@@ -450,11 +449,19 @@ class GalleryController extends Controller
             $gallery->update($validated);
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
             // The existence check in handleCustomDomain() cannot see a domain
-            // another request claimed in the meantime.
+            // another request claimed in the meantime. Files stored for this
+            // request were never committed — remove them.
+            $this->deleteFilesQuietly($uploadedFiles);
+
             $domain = $validated['custom_domain'] ?? 'chosen';
 
             return back()->withInput()
                 ->with('error', "The custom domain \"{$domain}\" is already in use.");
+        } catch (\Throwable $e) {
+            // The row update failed; the bytes this request wrote would
+            // otherwise linger with no database reference.
+            $this->deleteFilesQuietly($uploadedFiles);
+            throw $e;
         }
 
         // Post-update: set guarded custom-domain verification fields
@@ -473,24 +480,25 @@ class GalleryController extends Controller
     private function handleFileUploads(Request $request, Gallery $gallery, $planHolder, array &$validated): array
     {
         $staleFiles = [];
+        $uploadedFiles = [];
 
         // Audio (Pro+)
         if ($request->hasFile('audio') && $planHolder->isPro()) {
             if ($gallery->audio_path) $staleFiles[] = $gallery->audio_path;
-            $validated['audio_path'] = $request->file('audio')->store('audio', 'public');
+            $uploadedFiles[] = $validated['audio_path'] = $request->file('audio')->store('audio', 'public');
         }
 
         // Custom logo (Studio only)
         if ($request->hasFile('custom_logo') && $planHolder->plan === 'studio') {
             if ($gallery->custom_logo_path) $staleFiles[] = $gallery->custom_logo_path;
-            $validated['custom_logo_path'] = $request->file('custom_logo')->store('branding', 'public');
+            $uploadedFiles[] = $validated['custom_logo_path'] = $request->file('custom_logo')->store('branding', 'public');
         }
 
         // Curtain logo (Studio only) — upload or clear
         if ($planHolder->plan === 'studio') {
             if ($request->hasFile('curtain_logo')) {
                 if ($gallery->curtain_logo_path) $staleFiles[] = $gallery->curtain_logo_path;
-                $validated['curtain_logo_path'] = $request->file('curtain_logo')->store('branding', 'public');
+                $uploadedFiles[] = $validated['curtain_logo_path'] = $request->file('curtain_logo')->store('branding', 'public');
             } elseif ($request->boolean('clear_curtain_logo') && $gallery->curtain_logo_path) {
                 $staleFiles[] = $gallery->curtain_logo_path;
                 $validated['curtain_logo_path'] = null;
@@ -506,13 +514,30 @@ class GalleryController extends Controller
             }
         }
 
-        return $staleFiles;
+        return [$staleFiles, $uploadedFiles];
     }
 
     private function deleteStaleFiles(array $paths): void
     {
+        $this->deleteFilesQuietly($paths);
+    }
+
+    /**
+     * Best-effort filesystem cleanup for paths written by a request whose
+     * database change never committed. A failed unlink is logged, never
+     * fatal — the caller has already decided the response.
+     */
+    private function deleteFilesQuietly(array $paths): void
+    {
         foreach (array_filter($paths) as $path) {
-            \Storage::disk('public')->delete($path);
+            try {
+                \Storage::disk('public')->delete($path);
+            } catch (\Throwable $e) {
+                \Log::warning('GalleryController: file cleanup failed', [
+                    'path'  => $path,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 
@@ -749,7 +774,16 @@ class GalleryController extends Controller
         try {
             $audioPath = $request->file('audio')->store('audio', 'public');
             $oldPath = $gallery->audio_path;
-            $gallery->update(['audio_path' => $audioPath]);
+            try {
+                $gallery->update(['audio_path' => $audioPath]);
+            } catch (\Throwable $e) {
+                try {
+                    \Storage::disk('public')->delete($audioPath);
+                } catch (\Throwable) {
+                    // Best-effort cleanup; the DB failure is reported below.
+                }
+                throw $e;
+            }
             if ($oldPath) \Storage::disk('public')->delete($oldPath);
             return response()->json(['success' => true, 'message' => 'Background music uploaded successfully!', 'audio_url' => asset('storage/' . $audioPath), 'filename' => basename($audioPath)]);
         } catch (\Exception $e) {
@@ -770,7 +804,16 @@ class GalleryController extends Controller
         try {
             $logoPath = $request->file('custom_logo')->store('branding', 'public');
             $oldPath = $gallery->custom_logo_path;
-            $gallery->update(['custom_logo_path' => $logoPath]);
+            try {
+                $gallery->update(['custom_logo_path' => $logoPath]);
+            } catch (\Throwable $e) {
+                try {
+                    \Storage::disk('public')->delete($logoPath);
+                } catch (\Throwable) {
+                    // Best-effort cleanup; the DB failure is reported below.
+                }
+                throw $e;
+            }
             if ($oldPath) \Storage::disk('public')->delete($oldPath);
             return response()->json(['success' => true, 'message' => 'Custom logo uploaded successfully!', 'logo_url' => asset('storage/' . $logoPath), 'filename' => basename($logoPath)]);
         } catch (\Exception $e) {

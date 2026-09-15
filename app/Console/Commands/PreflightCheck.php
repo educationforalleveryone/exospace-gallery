@@ -222,7 +222,9 @@ class PreflightCheck extends Command
             $this->critical('public/storage symlink missing — run `php artisan storage:link`.');
         }
 
-        foreach (['audio', 'branding', 'gallery-images', 'venue-thumbnails', 'venue-models', 'venue-hdri', 'venue-audio'] as $sub) {
+        // Upload destination directories. Per-gallery folders
+        // (galleries/{id}) are created by ImageProcessingService on demand.
+        foreach (['audio', 'branding', 'galleries', 'artist-portraits', 'venue-thumbnails', 'venue-models', 'venue-hdri', 'venue-audio'] as $sub) {
             $path = storage_path('app/public/' . $sub);
             if (is_dir($path)) {
                 $this->ok("storage/app/public/{$sub}/ exists");

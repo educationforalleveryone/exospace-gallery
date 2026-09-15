@@ -63,6 +63,20 @@ Schedule::command('exospace:cleanup-stale')
     ->withoutOverlapping(60)
     ->onOneServer();
 
+// Remove stale media-library temp files (interrupted conversions) and media
+// rows whose model no longer exists. Orphan detection respects soft deletes.
+Schedule::command('media-library:clean --delete-orphaned --force')
+    ->dailyAt('04:20')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
+// Re-register media for artworks whose registration failed; dry-run report
+// only when dispatched without --fix.
+Schedule::command('exospace:reconcile-artwork-media --fix --limit=100')
+    ->dailyAt('04:45')
+    ->withoutOverlapping(60)
+    ->onOneServer();
+
 Schedule::command('exospace:send-dunning')
     ->dailyAt('11:00')
     ->withoutOverlapping(60)

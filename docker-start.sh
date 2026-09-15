@@ -17,8 +17,8 @@ set -e
 #     + thumbnail = ~350-450MB).
 #
 # BEHAVIOR SUMMARY:
-#   - PHP upload limits (50M)
-#   - Nginx client_max_body_size patch
+#   - PHP upload limits (64M transport ceiling, 50M max validated upload)
+#   - Nginx client_max_body_size patch (64M, kept in sync with PHP)
 #   - storage:link on every container start
 #   - migrate --force on every container start
 #   - queue:work with --tries=3 --timeout=120 --backoff=30 --max-jobs=1000 --max-time=3600
@@ -26,18 +26,29 @@ set -e
 # ──────────────────────────────────────────────────────────────────────────
 
 # 1. Configure PHP upload limits
+#
+#     64M transport ceiling vs the 50M largest validated upload (venue
+#     preview_model / hdri_file): multipart encoding adds boundary overhead
+#     on top of the raw file bytes. With post_max_size == 50M, a legitimate
+#     ~50MB file overflows the POST limit, PHP silently empties $_FILES and
+#     the user gets a confusing "file is required" error instead of a size
+#     error. The transport ceiling must sit ABOVE the largest validated
+#     upload; application-layer validation stays the authority.
+#     NIXPACKS_PHP_UPLOAD_MAX_FILESIZE / PHP_UPLOAD_MAX_FILESIZE /
+#     PHP_POST_MAX_SIZE / NIXPACKS_PHP_POST_MAX_SIZE in Coolify env must
+#     match — see docs/DISASTER-RECOVERY.md (storage operations).
 cat > /assets/php-fpm-overrides.conf << 'PHPEOF'
-upload_max_filesize = 50M
-post_max_size = 50M
+upload_max_filesize = 64M
+post_max_size = 64M
 memory_limit = 512M
 max_execution_time = 300
 PHPEOF
 
-# 2. Patch the Nginx template to allow 50MB uploads
+# 2. Patch the Nginx template to keep the transport ceiling in sync
 if grep -q "client_max_body_size" /assets/nginx.template.conf; then
-    sed -i 's/client_max_body_size [^;]*;/client_max_body_size 50M;/g' /assets/nginx.template.conf
+    sed -i 's/client_max_body_size [^;]*;/client_max_body_size 64M;/g' /assets/nginx.template.conf
 else
-    sed -i 's/server {/server {\n    client_max_body_size 50M;/g' /assets/nginx.template.conf
+    sed -i 's/server {/server {\n    client_max_body_size 64M;/g' /assets/nginx.template.conf
 fi
 
 # 2b. Static-asset caching + gzip.
@@ -257,4 +268,4 @@ if [ -n "$SCHEDULER_PID" ] || [ -n "$QUEUE_PID" ]; then
 fi
 
 # 9. Start PHP-FPM and Nginx (foreground — keeps the container alive).
-node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=50M -d post_max_size=50M -d memory_limit=512M & nginx -c /nginx.conf)
+node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=64M -d post_max_size=64M -d memory_limit=512M & nginx -c /nginx.conf)

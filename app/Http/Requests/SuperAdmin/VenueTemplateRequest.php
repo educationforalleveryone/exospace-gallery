@@ -25,7 +25,7 @@ class VenueTemplateRequest extends FormRequest
         }
 
         // Decode JSON-as-string fields submitted by the textarea editors.
-        foreach (['tags', 'visual_config', 'material_config', 'decorations', 'lighting_fixtures', 'supported_layouts', 'visual_config_advanced'] as $field) {
+        foreach (['tags', 'visual_config', 'material_config', 'decorations', 'lighting_fixtures', 'supported_layouts', 'visual_config_advanced', 'default_settings'] as $field) {
             if ($this->has($field) && is_string($this->input($field))) {
                 $raw = trim($this->input($field));
                 if ($raw === '') {
@@ -128,6 +128,11 @@ class VenueTemplateRequest extends FormRequest
             'supported_layouts'   => ['nullable', 'array'],
             'supported_layouts.*' => ['string', Rule::in(VenueTemplate::LAYOUTS)],
 
+            // Legacy per-gallery defaults JSON — submitted by the authoring
+            // form's textarea. Without this rule the field is dropped from
+            // validated() and venue creation violates the NOT NULL column.
+            'default_settings'    => ['nullable', 'array'],
+
             'visual_config_advanced' => ['nullable', 'array'],
 
             'is_active'    => ['boolean'],
@@ -138,8 +143,13 @@ class VenueTemplateRequest extends FormRequest
 
             // File uploads
             'thumbnail_image'  => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-            'preview_model'    => ['nullable', 'file', 'mimes:glb,gltf', 'max:51200'], // 50 MB
-            'hdri_file'        => ['nullable', 'file', 'mimes:hdr,exr', 'max:51200'],
+            // glTF (JSON flavor), Radiance .hdr and other model/HDRI formats are
+            // not reliably content-sniffable: finfo classifies .gltf as
+            // application/json and .hdr as text/plain, so the mimes rule would
+            // reject genuine files. These uploads are super-admin gated; the
+            // type is enforced by extension allowlist instead.
+            'preview_model'    => ['nullable', 'file', 'extensions:glb,gltf', 'max:51200'], // 50 MB
+            'hdri_file'        => ['nullable', 'file', 'extensions:hdr,exr', 'max:51200'],
             'default_audio'    => ['nullable', 'file', 'mimes:mp3,wav,m4a', 'max:10240'],
         ];
     }

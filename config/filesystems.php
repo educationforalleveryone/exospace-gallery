@@ -6,11 +6,15 @@ return [
 
     'disks' => [
 
+        // Both local disks carry durable user data (uploads, invoices).
+        // throw=true surfaces IO failures (disk full, permission denied) as
+        // exceptions instead of silent false returns from put()/store(),
+        // so callers can never report success for bytes that never landed.
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
             'serve' => true,
-            'throw' => false,
+            'throw' => true,
             'report' => false,
         ],
 
@@ -19,7 +23,7 @@ return [
             'root' => storage_path('app/public'),
             'url' => rtrim(env('APP_URL'), '/').'/storage',
             'visibility' => 'public',
-            'throw' => false,
+            'throw' => true,
             'report' => false,
         ],
 

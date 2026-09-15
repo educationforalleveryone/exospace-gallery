@@ -57,7 +57,12 @@ class RegenerateImageMedia implements ShouldQueue
             throw new \RuntimeException("RegenerateImageMedia: file not found on disk for image {$image->id}: {$fullPath}");
         }
 
+        // preservingOriginal: addMedia() unlinks the source file by default.
+        // The legacy file at $image->path is the fallback asset served when
+        // media lookups fail, so it must survive media registration — same
+        // behavior as ImageProcessingService::registerMedia().
         $image->addMedia($fullPath)
+            ->preservingOriginal()
             ->usingFileName($image->filename)
             ->toMediaCollection('original');
 
