@@ -78,7 +78,7 @@ class QueueDiagnostics implements RunsDiagnostics
                 $status = $heartbeats->status($job);
                 if ($status === 'stale') {
                     $stale[] = $job;
-                } elseif ($status === 'ok') {
+                } elseif ($status === 'fresh') {
                     $healthy[] = $job;
                 }
             }

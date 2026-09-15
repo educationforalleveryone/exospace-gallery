@@ -136,25 +136,8 @@ Schedule::command('exospace:anonymize-newsletter-pii')
     ->withoutOverlapping(120)
     ->onOneServer();
 
-Schedule::call(function () {
-    $requests = \App\Models\GdprDeletionRequest::where('status', 'pending')
-        ->where('scheduled_deletion_at', '<=', now())
-        ->get();
-
-    foreach ($requests as $request) {
-        $user = \App\Models\User::find($request->user_id);
-        if ($user) {
-            app(\App\Services\UserDeletionService::class)
-                ->deleteUser($user, 'GDPR deletion request (30-day grace period expired)');
-        }
-        $request->update([
-            'status'        => 'completed',
-            'completed_at'  => now(),
-        ]);
-    }
-})
+Schedule::command('exospace:process-gdpr-deletions')
     ->dailyAt('04:30')
-    ->name('gdpr-deletion-processing')
     ->withoutOverlapping(60)
     ->onOneServer();
 

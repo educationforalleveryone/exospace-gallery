@@ -21,7 +21,7 @@ set -e
 #   - Nginx client_max_body_size patch
 #   - storage:link on every container start
 #   - migrate --force on every container start
-#   - queue:work with --tries=3 --timeout=120 --max-jobs=1000 --max-time=3600
+#   - queue:work with --tries=3 --timeout=120 --backoff=30 --max-jobs=1000 --max-time=3600
 #   - php-fpm + nginx start
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -197,9 +197,13 @@ else
 fi
 
 # 7. Run the queue worker under a lightweight supervisor loop.
-#    Flags: --tries=3 --timeout=120 --sleep=3 --memory=512 --max-jobs=1000 --max-time=3600
+#    Flags: --tries=3 --timeout=120 --sleep=3 --backoff=30 --memory=512 --max-jobs=1000 --max-time=3600
 #    --memory=512 to match PHP-FPM and accommodate ImageProcessingService
 #    peak (50MP decode + scaleDown + thumbnail = ~350-450MB).
+#    --backoff=30 spaces out retries of jobs that do not define their own
+#    backoff (queued mailables). Without it a provider outage (e.g. Resend
+#    returning 5xx) would burn all 3 attempts within milliseconds and add
+#    zero recovery value; jobs with explicit $backoff arrays are unaffected.
 #    The 50MP cap is enforced in ImageProcessingService::process(); under GD
 #    the actual peak can be 2-3x the decode buffer due to Intervention keeping
 #    source + destination alive during scaleDown.
@@ -217,7 +221,7 @@ fi
 #    supported scaling path.
 (
     while true; do
-        php /app/artisan queue:work redis --tries=3 --timeout=120 --sleep=3 --memory=512 --max-jobs=1000 --max-time=3600
+        php /app/artisan queue:work redis --tries=3 --timeout=120 --sleep=3 --backoff=30 --memory=512 --max-jobs=1000 --max-time=3600
         echo "queue:work exited (code $?) — restarting in 5s."
         sleep 5
     done
@@ -228,8 +232,28 @@ echo "Queue worker supervisor started (PID $QUEUE_PID)."
 # 8. Trap signals to clean up child processes on container shutdown.
 #    This ensures the scheduler and queue worker don't become zombies
 #    when Coolify stops the container.
+#
+#    The queue worker itself is also SIGTERMed: queue:work then finishes
+#    its CURRENT job and exits cleanly instead of being SIGKILLed
+#    mid-execution by container teardown. Killing a job mid-run hands it
+#    back to the queue after retry_after (240s) — i.e. a duplicate
+#    execution of an email/media/webhook job on every deploy that lands
+#    during a job. The short drain sleep gives an in-flight job a chance
+#    to complete before the container's stop grace period expires; the
+#    scheduler subshell is NOT signalled beyond killing the loop shell,
+#    matching the previous behavior for in-flight schedule:run tasks.
+shutdown() {
+    echo 'Shutting down container...'
+    kill $SCHEDULER_PID $QUEUE_PID 2>/dev/null
+    if command -v pkill >/dev/null 2>&1; then
+        pkill -TERM -f 'artisan queue:work' 2>/dev/null
+    fi
+    # Grace window for the worker to finish its current job.
+    sleep 10
+    exit 0
+}
 if [ -n "$SCHEDULER_PID" ] || [ -n "$QUEUE_PID" ]; then
-    trap "echo 'Shutting down container...'; kill $SCHEDULER_PID $QUEUE_PID 2>/dev/null; exit 0" SIGTERM SIGINT
+    trap shutdown SIGTERM SIGINT
 fi
 
 # 9. Start PHP-FPM and Nginx (foreground — keeps the container alive).

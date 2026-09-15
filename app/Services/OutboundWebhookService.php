@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\DeliverOutboundWebhook;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookSubscription;
 use Illuminate\Support\Facades\Http;
@@ -160,60 +161,6 @@ class OutboundWebhookService
             ? hash_hmac('sha256', $body, $secret)
             : null;
 
-        dispatch(new class($url, $body, $signature, $eventType) {
-            public function __construct(
-                private readonly string $url,
-                private readonly string $body,
-                private readonly ?string $signature,
-                private readonly string $eventType,
-            ) {}
-
-            public function handle(): void
-            {
-                for ($attempt = 1; $attempt <= OutboundWebhookService::MAX_RETRIES; $attempt++) {
-                    try {
-                        $response = Http::timeout(OutboundWebhookService::TIMEOUT)
-                            ->withHeaders(array_filter([
-                                'Content-Type'         => 'application/json',
-                                'X-Exospace-Event'     => $this->eventType,
-                                'X-Exospace-Signature' => $this->signature,
-                            ]))
-                            ->send('post', $this->url, ['body' => $this->body]);
-
-                        if ($response->successful()) {
-                            Log::info('OutboundWebhook: dispatched successfully (async)', [
-                                'event'   => $this->eventType,
-                                'url'     => $this->url,
-                                'attempt' => $attempt,
-                            ]);
-                            return;
-                        }
-
-                        Log::warning('OutboundWebhook: non-2xx response (async)', [
-                            'event'   => $this->eventType,
-                            'url'     => $this->url,
-                            'status'  => $response->status(),
-                            'attempt' => $attempt,
-                        ]);
-                    } catch (\Throwable $e) {
-                        Log::warning('OutboundWebhook: dispatch failed (async)', [
-                            'event'   => $this->eventType,
-                            'url'     => $this->url,
-                            'attempt' => $attempt,
-                            'error'   => $e->getMessage(),
-                        ]);
-                    }
-
-                    if ($attempt < OutboundWebhookService::MAX_RETRIES) {
-                        sleep(pow(3, $attempt - 1));
-                    }
-                }
-
-                Log::error('OutboundWebhook: all retries exhausted (async)', [
-                    'event' => $this->eventType,
-                    'url'   => $this->url,
-                ]);
-            }
-        });
+        DeliverOutboundWebhook::dispatch($url, $body, $signature, $eventType);
     }
 }

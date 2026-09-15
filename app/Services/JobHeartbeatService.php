@@ -17,6 +17,8 @@ class JobHeartbeatService
         'exospace:cleanup-stale'           => 36,
         // Daily 04:30 — SEO health audit.
         'exospace:seo-audit'               => 36,
+        // Daily 04:30 — persistent-data deletion flow.
+        'exospace:process-gdpr-deletions'  => 36,
         // Weekly Monday 06:00 / 06:30 — analytics persistence + delivery.
         'exospace:cohort-retention'        => 192, // 8 days
         'exospace:onboarding-analytics'    => 192, // 8 days
