@@ -16,7 +16,13 @@ class GalleryViewIncrementJobTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function gallery_view_dispatches_increment_job_after_response(): void
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
+    public function test_gallery_view_dispatches_increment_job_after_response(): void
     {
         Queue::fake();
 
@@ -35,7 +41,7 @@ class GalleryViewIncrementJobTest extends TestCase
         });
     }
 
-    public function embed_view_does_not_dispatch_increment_job(): void
+    public function test_embed_view_does_not_dispatch_increment_job(): void
     {
         Queue::fake();
 
@@ -50,7 +56,7 @@ class GalleryViewIncrementJobTest extends TestCase
         Queue::assertNotPushed(IncrementGalleryViews::class);
     }
 
-    public function increment_job_actually_increments_view_count(): void
+    public function test_increment_job_actually_increments_view_count(): void
     {
         $gallery = Gallery::factory()->create([
             'is_active'  => true,
@@ -66,7 +72,7 @@ class GalleryViewIncrementJobTest extends TestCase
         $this->assertSame(51, (int) $venue->fresh()->view_count);
     }
 
-    public function increment_job_is_safe_for_missing_gallery(): void
+    public function test_increment_job_is_safe_for_missing_gallery(): void
     {
         // Dispatching with a non-existent gallery ID should not throw.
         IncrementGalleryViews::dispatchSync(99999999, null);
@@ -74,7 +80,7 @@ class GalleryViewIncrementJobTest extends TestCase
         $this->assertTrue(true, 'Job did not throw on missing gallery');
     }
 
-    public function increment_job_continues_if_venue_template_missing(): void
+    public function test_increment_job_continues_if_venue_template_missing(): void
     {
         $gallery = Gallery::factory()->create([
             'is_active'  => true,
@@ -97,7 +103,7 @@ class GalleryViewIncrementJobTest extends TestCase
         $this->assertStringContainsString('createFromTimestamp', $source, 'Carbon::createFromTimestamp used (not FROM_DAYS)');
     }
 
-    public function analytics_event_model_does_not_have_country_in_fillable(): void
+    public function test_analytics_event_model_does_not_have_country_in_fillable(): void
     {
         // Verify the partition-pruning guard is still in place.
         $reflection = new \ReflectionClass(\App\Models\AnalyticsEvent::class);

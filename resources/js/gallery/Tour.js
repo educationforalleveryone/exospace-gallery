@@ -13,6 +13,7 @@ export class GuidedTour {
         this._dwellMs    = 5000;
         this._dwellTimer = null;
         this._countdownRaf = null;
+        this._visited    = new Set();
         this._circumference = 2 * Math.PI * 15.9;
 
         this._reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
@@ -40,6 +41,7 @@ export class GuidedTour {
         this.active = true;
         this.paused = false;
         this.index  = atIndex;
+        this._visited = new Set();
 
         Analytics.trackTourStart();
 
@@ -84,7 +86,11 @@ export class GuidedTour {
             this.scene.controls.lock?.();
         }
 
-        Analytics.trackTourComplete();
+        // The tour loops, so "complete" means the visitor has seen every
+        // artwork; stopping earlier is not a completion.
+        if (this.artworks.length > 0 && this._visited.size >= this.artworks.length) {
+            Analytics.trackTourComplete();
+        }
     }
 
     next() {
@@ -117,6 +123,7 @@ export class GuidedTour {
     _focusCurrent() {
         if (!this.active || this.index >= this.artworks.length) return;
         const artwork = this.artworks[this.index];
+        this._visited.add(this.index);
         const title   = artwork.userData.title || 'Untitled';
 
         // Update tour HUD

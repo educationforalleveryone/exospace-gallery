@@ -106,17 +106,17 @@ class AnalyticsController extends Controller
             }
         );
 
-        // ── Last 7 days vs prior 7 days (from rollup + today) ────────────
+        // ── Last 7 days (days −6…−1 from rollup + today) vs prior 7 days ─
         $views7Rollup = DB::table('analytics_daily')
             ->where('gallery_id', $gallery->id)
-            ->whereBetween('date', [now()->subDays(7)->toDateString(), $today])
+            ->whereBetween('date', [now()->subDays(6)->toDateString(), $today])
             ->where('date', '<', $today)
             ->sum('views');
         $views7 = $views7Rollup + $todayViews;
 
         $viewsPrev7 = DB::table('analytics_daily')
             ->where('gallery_id', $gallery->id)
-            ->whereBetween('date', [now()->subDays(14)->toDateString(), now()->subDays(7)->toDateString()])
+            ->whereBetween('date', [now()->subDays(13)->toDateString(), now()->subDays(7)->toDateString()])
             ->sum('views');
         $viewsTrend = $viewsPrev7 > 0 ? round((($views7 - $viewsPrev7) / $viewsPrev7) * 100) : null;
 
@@ -131,8 +131,16 @@ class AnalyticsController extends Controller
 
     public function track(Request $request, Gallery $gallery)
     {
-        // Silently ignore if gallery doesn't exist or inactive
-        if (!$gallery->is_active) return response()->json(['ok' => true]);
+        // Mirror the public viewer's visibility rules: only exhibitions a
+        // visitor can actually open accept tracking events.
+        $pinVerified = ! $gallery->hasPinProtection() || session("pin_verified_{$gallery->id}");
+        if (! $gallery->is_active
+            || $gallery->user?->banned_at !== null
+            || $gallery->hasNotOpenedYet()
+            || $gallery->hasClosed()
+            || ! $pinVerified) {
+            return response()->json(['ok' => true]);
+        }
 
         $consent = $request->cookie('exospace_cookie_consent');
         if ($consent === 'declined') {
@@ -159,6 +167,16 @@ class AnalyticsController extends Controller
             'perf.ms'        => 'nullable|integer|min:0|max:3600000',
             'perf.partial'   => 'nullable|integer|in:0,1',
         ]);
+
+        // Ignore any keys the client sends beyond the perf beacon schema —
+        // the JSON column must only ever hold bounded, validated fields.
+        $perf = $validated['perf'] ?? null;
+        if (is_array($perf)) {
+            $perf = collect($perf)->only([
+                'tier', 'q', 'fps', 'fps_min', 'draws', 'tris', 'pr',
+                'adapt', 'n', 'heap', 'net', 'ms', 'partial',
+            ])->all();
+        }
 
         $sessionTokenHash = hash('sha256', $validated['session_token']);
 
@@ -194,7 +212,7 @@ class AnalyticsController extends Controller
                 'session_token' => $sessionTokenHash,
                 'referrer'      => $referrer,
                 // Perf beacon payload (null for every other event)
-                'perf_data'     => $validated['perf'] ?? null,
+                'perf_data'     => is_array($perf) && $perf !== [] ? $perf : null,
                 'created_at'    => now(),
             ]);
         }

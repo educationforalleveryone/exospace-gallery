@@ -57,22 +57,23 @@ class DashboardController extends Controller
         if ($galleryIds->isNotEmpty()) {
             $now    = now();
             $today  = $now->toDateString();
+            $day6   = $now->copy()->subDays(6)->toDateString();
             $day7   = $now->copy()->subDays(7)->toDateString();
-            $day14  = $now->copy()->subDays(14)->toDateString();
+            $day13  = $now->copy()->subDays(13)->toDateString();
 
             $cacheKey = "dashboard:analytics:u{$user->id}:" . ($team ? "t{$team->id}" : 'personal');
 
-            $cached = \Illuminate\Support\Facades\Cache::flexible($cacheKey, [now()->addMinutes(5), now()->addMinutes(10)], function () use ($galleryIds, $now, $today, $day7, $day14) {
+            $cached = \Illuminate\Support\Facades\Cache::flexible($cacheKey, [now()->addMinutes(5), now()->addMinutes(10)], function () use ($galleryIds, $now, $today, $day6, $day7, $day13) {
                 // Today's views from raw events (today is not yet in the rollup).
                 $viewsToday = AnalyticsEvent::whereIn('gallery_id', $galleryIds)
                     ->where('event', 'view')
                     ->whereDate('created_at', $today)
                     ->count();
 
-                // Last 7 days from rollup (days 1-6) + today from raw events.
+                // Last 7 days from rollup (days −6…−1) + today from raw events.
                 $views7Rollup = DB::table('analytics_daily')
                     ->whereIn('gallery_id', $galleryIds)
-                    ->where('date', '>=', $day7)
+                    ->where('date', '>=', $day6)
                     ->where('date', '<', $today)
                     ->sum('views');
                 $views7 = $views7Rollup + $viewsToday;
@@ -80,13 +81,13 @@ class DashboardController extends Controller
                 // Prior 7 days from rollup.
                 $viewsPrev7 = DB::table('analytics_daily')
                     ->whereIn('gallery_id', $galleryIds)
-                    ->whereBetween('date', [$day14, $day7])
+                    ->whereBetween('date', [$day13, $day7])
                     ->sum('views');
 
                 // 7-day chart: 6 days from rollup + today from raw events.
                 $rollupDays = DB::table('analytics_daily')
                     ->whereIn('gallery_id', $galleryIds)
-                    ->where('date', '>=', $now->copy()->subDays(6)->toDateString())
+                    ->where('date', '>=', $day6)
                     ->where('date', '<', $today)
                     ->selectRaw('date, SUM(views) as views')
                     ->groupBy('date')

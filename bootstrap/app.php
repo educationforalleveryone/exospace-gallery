@@ -24,6 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'unsubscribe/one-click/*',
         ]);
 
+        // The cookie banner writes the consent choice with document.cookie on
+        // the client — encryption would make the raw value unreadable server-side.
+        $middleware->encryptCookies(except: ['exospace_cookie_consent']);
+
         $middleware->prepend(\App\Http\Middleware\ScopeSessionDomain::class);
 
         // 1. Security Headers

@@ -6,12 +6,14 @@ export const Analytics = {
         const url = window.EXOSPACE_TRACK_URL;
         if (!url) return;
         if (this._csrfDead) return;
+        if (this.consentDeclined()) return;
         const body = { event, session_token: window.EXOSPACE_SESSION, ...extra };
 
         fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
             },
             body: JSON.stringify(body),
@@ -21,6 +23,10 @@ export const Analytics = {
                 this._csrfDead = true;
             }
         }).catch(() => {});
+    },
+
+    consentDeclined() {
+        return /(?:^|;\s*)exospace_cookie_consent=declined(?:;|$)/.test(document.cookie);
     },
 
     noteResponseStatus(status) {

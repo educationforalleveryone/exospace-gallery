@@ -16,20 +16,26 @@ class QueryPerformanceOptimizationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function gallery_view_eager_loads_image_media(): void
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
+    public function test_gallery_view_eager_loads_image_media(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/GalleryViewController.php'));
         $this->assertStringContainsString("'images.media'", $source, 'GalleryViewController must eager-load images.media');
     }
 
-    public function gallery_image_model_memoizes_media_resolution(): void
+    public function test_gallery_image_model_memoizes_media_resolution(): void
     {
         $source = file_get_contents(base_path('app/Models/GalleryImage.php'));
         $this->assertStringContainsString('memoizedMedia', $source, 'GalleryImage must have memoizedMedia property');
         $this->assertStringContainsString('getMemoizedMedia', $source, 'GalleryImage must have getMemoizedMedia method');
     }
 
-    public function get_srcset_does_not_requery_media_when_called_twice(): void
+    public function test_get_srcset_does_not_requery_media_when_called_twice(): void
     {
         $gallery = Gallery::factory()->create(['is_active' => true]);
         $user    = User::factory()->create();
@@ -55,7 +61,7 @@ class QueryPerformanceOptimizationTest extends TestCase
         $this->assertSame($queriesAfterFirst, $queriesAfterSecond, 'Second getSrcsetAttribute call must not issue DB queries (memoized)');
     }
 
-    public function dashboard_uses_analytics_daily_not_raw_events_for_historical(): void
+    public function test_dashboard_uses_analytics_daily_not_raw_events_for_historical(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/Admin/DashboardController.php'));
 
@@ -63,7 +69,7 @@ class QueryPerformanceOptimizationTest extends TestCase
         $this->assertStringContainsString("Cache::flexible", $source, 'DashboardController must cache the analytics result');
     }
 
-    public function dashboard_shows_correct_view_counts_with_rollup_data(): void
+    public function test_dashboard_shows_correct_view_counts_with_rollup_data(): void
     {
         $user    = User::factory()->create();
         $gallery = Gallery::factory()->create([
