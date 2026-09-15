@@ -20,7 +20,7 @@ class TeamController extends Controller
     {
         $user = Auth::user();
 
-        $ownedTeams = $user->ownedTeams()->withCount('members')->with('members')->get();
+        $ownedTeams = $user->ownedTeams()->withCount('members')->get();
         $memberTeams = $user->teams()
             ->where('owner_id', '!=', $user->id)
             ->withCount('members')

@@ -13,7 +13,7 @@ $stats = [
 
 $featuredGalleries = \App\Support\ResilientCache::remember('welcome:featured-galleries:v' . \App\Support\SitemapVersion::version(), 900, function () {
     $galleries = \App\Models\Gallery::publiclyViewable()
-        ->with(['coverImage', 'venueTemplate', 'user'])
+        ->with(['coverImage.media', 'venueTemplate', 'user'])
         ->has('images', '>=', 1)
         ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
         ->orderByDesc('is_featured')

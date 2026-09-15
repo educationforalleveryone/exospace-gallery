@@ -24,7 +24,7 @@ class GalleryViewController extends Controller
         $gallery = $request->attributes->get('resolved_gallery')
             ?? Gallery::publiclyAccessible()
                 ->where('slug', $slug)
-                ->with(['images.artist', 'images.media', 'user', 'venueTemplate'])
+                ->with(['images.artist', 'images.media', 'user', 'venueTemplate', 'seoProfile'])
                 ->firstOrFail();
 
         if ($gallery->slug !== $slug && !$request->attributes->has('resolved_gallery')) {

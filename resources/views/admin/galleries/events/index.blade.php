@@ -32,7 +32,7 @@
                                 @endif
                                 <div class="flex items-center gap-4 mt-3 text-sm">
                                     <a href="{{ route('admin.galleries.events.rsvps', [$gallery, $event]) }}" class="text-blue-400 hover:text-blue-300">
-                                        {{ $event->rsvps->count() }} RSVP{{ $event->rsvps->count() === 1 ? '' : 's' }}
+                                        {{ $event->rsvps_count }} RSVP{{ $event->rsvps_count === 1 ? '' : 's' }}
                                     </a>
                                     @if($event->capacity)
                                         <span class="text-gray-500">capacity {{ $event->capacity }}</span>
@@ -70,7 +70,7 @@
                             <span class="text-gray-300 font-medium text-sm">{{ $event->title }}</span>
                             <span class="text-gray-500 text-xs ml-2">{{ $event->startsAtInEventTimezone()?->format('M j, Y') }}</span>
                         </div>
-                        <a href="{{ route('admin.galleries.events.rsvps', [$gallery, $event]) }}" class="text-xs text-blue-400 hover:text-blue-300">{{ $event->rsvps->count() }} RSVPs →</a>
+                        <a href="{{ route('admin.galleries.events.rsvps', [$gallery, $event]) }}" class="text-xs text-blue-400 hover:text-blue-300">{{ $event->rsvps_count }} RSVPs →</a>
                     </div>
                 @endforeach
             </div>

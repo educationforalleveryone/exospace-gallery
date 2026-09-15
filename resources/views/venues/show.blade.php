@@ -105,7 +105,7 @@
                         <div class="p-4">
                             <h3 class="text-gray-100 font-semibold leading-tight mb-1 line-clamp-2 group-hover:text-brand-300 transition-colors">{{ $gallery->title }}</h3>
                             <p class="text-gray-500 text-xs flex items-center gap-3">
-                                <span>{{ $gallery->images->count() }} {{ Str::plural('artwork', $gallery->images->count()) }}</span>
+                                <span>{{ $gallery->images_count }} {{ Str::plural('artwork', $gallery->images_count) }}</span>
                                 <span>{{ number_format($gallery->view_count) }} views</span>
                             </p>
                         </div>

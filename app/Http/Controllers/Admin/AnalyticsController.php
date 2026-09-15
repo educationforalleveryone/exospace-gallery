@@ -34,13 +34,22 @@ class AnalyticsController extends Controller
             ->selectRaw('CASE WHEN SUM(views) > 0 THEN SUM(avg_dwell_seconds * views) / SUM(views) ELSE 0 END as avg_dwell')
             ->first();
 
-        // Today's totals from raw events
-        $todayStats = $gallery->events()->whereDate('created_at', $today);
-        $todayViews       = (clone $todayStats)->where('event', 'view')->count();
-        $todayUnique      = (clone $todayStats)->where('event', 'view')->distinct('session_token')->count('session_token');
-        $todayFocuses     = (clone $todayStats)->where('event', 'focus')->count();
-        $todayTours       = (clone $todayStats)->where('event', 'tour_start')->count();
-        $todayDwell       = (clone $todayStats)->where('event', 'view')->whereNotNull('dwell_seconds')->avg('dwell_seconds') ?? 0;
+        // Today's totals from raw events — one scan with conditional
+        // aggregates instead of five separate counts over the same slice.
+        $todayRow = $gallery->events()
+            ->whereDate('created_at', $today)
+            ->selectRaw("COALESCE(SUM(CASE WHEN event = 'view' THEN 1 ELSE 0 END), 0) as views")
+            ->selectRaw("COUNT(DISTINCT CASE WHEN event = 'view' THEN session_token END) as unique_visitors")
+            ->selectRaw("COALESCE(SUM(CASE WHEN event = 'focus' THEN 1 ELSE 0 END), 0) as focuses")
+            ->selectRaw("COALESCE(SUM(CASE WHEN event = 'tour_start' THEN 1 ELSE 0 END), 0) as tour_starts")
+            ->selectRaw("AVG(CASE WHEN event = 'view' AND dwell_seconds IS NOT NULL THEN dwell_seconds END) as avg_dwell")
+            ->first();
+
+        $todayViews   = (int) ($todayRow->views ?? 0);
+        $todayUnique  = (int) ($todayRow->unique_visitors ?? 0);
+        $todayFocuses = (int) ($todayRow->focuses ?? 0);
+        $todayTours   = (int) ($todayRow->tour_starts ?? 0);
+        $todayDwell   = $todayRow->avg_dwell ?? 0;
 
         // Combine rollup + today
         $totalViews     = ($rollup->total_views ?? 0) + $todayViews;

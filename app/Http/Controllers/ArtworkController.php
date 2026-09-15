@@ -28,7 +28,8 @@ class ArtworkController extends Controller
         $gallery = Gallery::query()
             ->where('slug', $slug)
             ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
-            ->with(['images' => fn ($q) => $q->orderBy('position_order'), 'images.artist', 'images.media', 'user', 'venueTemplate'])
+            ->with(['user', 'venueTemplate', 'coverImage.media', 'seoProfile'])
+            ->withCount('images')
             ->firstOrFail();
 
         // The artwork must belong to this gallery (scoped URL).
@@ -46,16 +47,23 @@ class ArtworkController extends Controller
             return redirect()->route('gallery.pin', $gallery->slug);
         }
 
+        // Resolve media/artist on the artwork itself; the route-bound model
+        // would otherwise lazy-load its media row during rendering.
+        $artwork = GalleryImage::query()
+            ->whereKey($image->getKey())
+            ->with(['artist', 'media'])
+            ->firstOrFail();
+
         $pinGated = $gallery->hasPinProtection();
 
-        $gatePassed = $this->passesQualityGate($image);
+        $gatePassed = $this->passesQualityGate($artwork);
         $robots = $pinGated ? 'noindex,nofollow' : ($gatePassed ? null : 'noindex,follow');
 
-        $seo = $this->seo->forArtwork($image, $gallery)->with(['robots' => $robots]);
+        $seo = $this->seo->forArtwork($artwork, $gallery)->with(['robots' => $robots]);
 
         if (! $pinGated) {
             $seo = $seo->with(['jsonLd' => [
-                $this->schema->visualArtwork($image, $gallery),
+                $this->schema->visualArtwork($artwork, $gallery),
             ]]);
         }
 
@@ -63,18 +71,23 @@ class ArtworkController extends Controller
             ['Home', url('/')],
             ['Discover', route('discover')],
             [$gallery->title ?: 'Exhibition', $gallery->public_url],
-            [$image->title ?: $image->original_name ?: 'Artwork'],
+            [$artwork->title ?: $artwork->original_name ?: 'Artwork'],
         ]);
 
-        // Sibling works in the same exhibition (internal linking).
-        $siblings = $gallery->images
-            ->filter(fn ($img) => $img->id !== $image->id)
-            ->take(self::SIBLINGS_SHOWN);
+        // Sibling works in the same exhibition (internal linking). Bounded
+        // query — the whole exhibition is never hydrated for eight links.
+        $siblings = GalleryImage::query()
+            ->where('gallery_id', $gallery->id)
+            ->whereKeyNot($artwork->getKey())
+            ->orderBy('position_order')
+            ->with(['artist', 'media'])
+            ->limit(self::SIBLINGS_SHOWN)
+            ->get();
 
-        $alsoByArtist = $this->linking->relatedArtworks($image);
+        $alsoByArtist = $this->linking->relatedArtworks($artwork);
 
         return view('artworks.show', [
-            'artwork'     => $image,
+            'artwork'     => $artwork,
             'gallery'     => $gallery,
             'seoData'     => $seo,
             'breadcrumbs' => $breadcrumbs,
@@ -82,7 +95,7 @@ class ArtworkController extends Controller
             'alsoByArtist' => $alsoByArtist,
             'gatePassed'  => $gatePassed,
             // Preload the LCP image (the artwork itself).
-            'preloadImage' => $image->public_url,
+            'preloadImage' => $artwork->public_url,
         ]);
     }
 

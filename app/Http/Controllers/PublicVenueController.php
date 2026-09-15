@@ -70,7 +70,8 @@ class PublicVenueController extends Controller
             ->firstOrFail();
 
         $galleries = Gallery::publiclyViewable()
-            ->with(['coverImage', 'user', 'venueTemplate'])
+            ->with(['coverImage.media', 'user', 'venueTemplate'])
+            ->withCount('images')
             ->where('venue_template_id', $venue->id)
             ->has('images', '>=', 1)
             ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))

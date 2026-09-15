@@ -35,13 +35,21 @@ class ArtistDirectoryController extends Controller
             ->withQueryString();
 
         $artistIds = $artists->getCollection()->pluck('id');
-        $covers = GalleryImage::query()
+        // Latest public work per artist: pick the max row id per artist group,
+        // then fetch exactly those rows with their media — the page-1 artists
+        // are the most prolific, so an unbounded fetch would touch the largest
+        // image sets in the database to keep one cover each.
+        $latestCoverIds = GalleryImage::query()
             ->whereIn('artist_id', $artistIds)
             ->whereHas('gallery', fn ($g) => $g->publiclyViewable())
-            ->orderByDesc('created_at')
-            ->get(['id', 'artist_id', 'path', 'filename'])
             ->groupBy('artist_id')
-            ->map(fn ($group) => $group->first());
+            ->selectRaw('MAX(id) as id')
+            ->pluck('id');
+        $covers = GalleryImage::query()
+            ->with('media')
+            ->whereIn('id', $latestCoverIds)
+            ->get(['id', 'artist_id', 'path', 'filename'])
+            ->keyBy('artist_id');
 
         $baseUrl = CanonicalUrl::path('/artists');
         $page = max(1, (int) $request->input('page', 1));

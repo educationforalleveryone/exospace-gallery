@@ -9,7 +9,7 @@
             <p class="text-sm text-gray-400">{{ $event->scheduleLabel() }}</p>
             <div class="grid grid-cols-3 gap-4 mt-3">
                 <div>
-                    <div class="text-2xl font-semibold text-gray-50 text-numeric">{{ $rsvps->count() }}</div>
+                    <div class="text-2xl font-semibold text-gray-50 text-numeric">{{ $rsvps->total() }}</div>
                     <div class="text-xs text-gray-500 uppercase tracking-wider">RSVPs</div>
                 </div>
                 <div>
@@ -17,13 +17,13 @@
                     <div class="text-xs text-gray-500 uppercase tracking-wider">Capacity</div>
                 </div>
                 <div>
-                    <div class="text-2xl font-semibold text-gray-50 text-numeric">{{ $event->capacity ? max(0, $event->capacity - $rsvps->count()) : '∞' }}</div>
+                    <div class="text-2xl font-semibold text-gray-50 text-numeric">{{ $event->capacity ? max(0, $event->capacity - $rsvps->total()) : '∞' }}</div>
                     <div class="text-xs text-gray-500 uppercase tracking-wider">Remaining</div>
                 </div>
             </div>
         </div>
 
-        @if($rsvps->count() > 0)
+        @if($rsvps->total() > 0)
             <div class="table-wrap">
                 <table class="table-base min-w-[540px]">
                     <thead class="table-head">
@@ -47,8 +47,10 @@
 
             {{-- Export helper --}}
             <div class="mt-4 flex justify-end">
-                <button data-click="copyEmails" class="btn btn-sm btn-secondary">Copy all emails</button>
+                <button data-click="copyEmails" class="btn btn-sm btn-secondary">Copy page emails</button>
             </div>
+
+            {{ $rsvps->links() }}
         @else
             <div class="empty-state bg-gray-800/50 rounded-xl border border-gray-700/50">
                 <svg class="w-10 h-10 text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>

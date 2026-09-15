@@ -43,8 +43,12 @@
 
                     @if(auth()->check() && auth()->user()->plan === 'free')
                         @php
+                            // Display-only quota hint: a plain count comparison, deliberately
+                            // not canCreateGallery() which takes a FOR UPDATE lock that belongs
+                            // to the gallery-creation flow, not page rendering. The limit scope
+                            // (personal, non-team galleries) matches canCreateGallery().
                             $navGalleryCount = auth()->user()->galleries()->count();
-                            $navAtLimit = !auth()->user()->canCreateGallery();
+                            $navAtLimit = auth()->user()->galleries()->whereNull('team_id')->count() >= auth()->user()->max_galleries;
                             $navNearLimit = auth()->user()->max_galleries > 0 && ($navGalleryCount / auth()->user()->max_galleries) >= 0.8;
                         @endphp
                         <div class="hidden lg:flex lg:items-center lg:ms-4">
@@ -195,9 +199,10 @@
                             </button>
                         </form>
 
-                        {{-- Teams --}}
+                        {{-- Teams — roles come from the hydrated pivot (owned teams are owner
+                             by definition), so the switcher never queries per team. --}}
                         @foreach($allTeams as $t)
-                        @php $tRole = auth()->user()->teamRole($t); @endphp
+                        @php $tRole = $t->owner_id === auth()->user()->id ? 'owner' : $t->pivot?->role; @endphp
                         <form action="{{ route('admin.teams.switch', $t) }}" method="POST">
                             @csrf
                             <button type="submit" class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.05] transition text-left {{ $currentTeam?->id === $t->id ? 'bg-white/[0.05]' : '' }}">

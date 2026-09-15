@@ -88,23 +88,37 @@ class DashboardController extends Controller
         $failures = $run->cases()->whereIn('status', ['failed', 'error', 'timed_out'])
             ->orderByDesc('time_ms')->limit(200)->get();
 
-        // For each failing test: last PASS overall + occurrence stats across its profile.
+        // For each failing test: last PASS overall + occurrence stats across
+        // its profile — one windowed query instead of one query per failure.
         $identifiers = $failures->pluck('test_identifier')->unique()->values();
         $history = [];
-        foreach ($identifiers as $identifier) {
-            $rows = \DB::table('qa_test_case_results as c')
-                ->join('qa_test_runs as r', 'r.id', '=', 'c.qa_test_run_id')
-                ->where('c.test_identifier', $identifier)
-                ->where('r.profile', $run->profile)
-                ->orderByDesc('r.id')->limit(30)
-                ->get(['c.status', 'r.created_at']);
 
-            $passes = $rows->where('status', 'passed')->count();
-            $history[$identifier] = [
-                'executions'     => $rows->count(),
-                'pass_rate'      => $rows->count() > 0 ? round(100 * $passes / $rows->count()) : null,
-                'previous_pass'  => optional($rows->firstWhere('status', 'passed'))->created_at,
-            ];
+        if ($identifiers->isNotEmpty()) {
+            // Windowed latest-30-rows per test identifier, executed as one
+            // query. The window function must live in a derived table — it
+            // cannot be filtered directly in a WHERE clause.
+            $idPlaceholders = implode(',', array_fill(0, $identifiers->count(), '?'));
+            $rows = collect(\DB::select(
+                "SELECT test_identifier, status, created_at FROM (
+                    SELECT c.test_identifier, c.status, r.created_at,
+                           ROW_NUMBER() OVER (PARTITION BY c.test_identifier ORDER BY r.id DESC) AS rn
+                    FROM qa_test_case_results c
+                    INNER JOIN qa_test_runs r ON r.id = c.qa_test_run_id
+                    WHERE r.profile = ? AND c.test_identifier IN ({$idPlaceholders})
+                ) w
+                WHERE w.rn <= 30",
+                [$run->profile, ...$identifiers->all()],
+            ));
+
+            foreach ($identifiers as $identifier) {
+                $testRows = $rows->where('test_identifier', $identifier)->values();
+                $passes = $testRows->where('status', 'passed')->count();
+                $history[$identifier] = [
+                    'executions'     => $testRows->count(),
+                    'pass_rate'      => $testRows->count() > 0 ? round(100 * $passes / $testRows->count()) : null,
+                    'previous_pass'  => optional($testRows->firstWhere('status', 'passed'))->created_at,
+                ];
+            }
         }
 
         return view('control-center.run-detail', [

@@ -50,7 +50,10 @@ class DetectCustomDomain
                 : 'none';
             $galleryCacheKey = "custom_domain_gallery:{$galleryId}:{$stamps}";
             $gallery = ResilientCache::remember($galleryCacheKey, now()->addMinutes(5), function () use ($galleryId) {
-                return Gallery::with(['images', 'user', 'venueTemplate'])->find($galleryId);
+                // Match the eager-load contract of the gallery-view consumer
+                // (images.artist + images.media) so a cache hit never triggers
+                // per-image lazy loads while rendering.
+                return Gallery::with(['images.artist', 'images.media', 'user', 'venueTemplate'])->find($galleryId);
             });
 
             if ($gallery && $gallery->is_active && $gallery->isCustomDomainVerified()

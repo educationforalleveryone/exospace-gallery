@@ -104,7 +104,7 @@
                                 <p class="text-gray-400 text-xs line-clamp-2 mb-3">{{ Str::limit($gallery->description, 120) }}</p>
                             @endif
                             <div class="flex items-center justify-between text-xs text-gray-500">
-                                <span>{{ $gallery->images()->count() }} artworks</span>
+                                <span>{{ $gallery->images_count }} artworks</span>
                                 <span>{{ number_format($gallery->view_count) }} views</span>
                             </div>
                         </div>

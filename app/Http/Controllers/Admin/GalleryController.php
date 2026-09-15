@@ -34,12 +34,10 @@ class GalleryController extends Controller
         $team   = $this->resolveTeamContext($user, $request->query('team'));
 
         $galleries = $team
-            ? Gallery::with(['coverImage', 'venueTemplate'])->withCount('images')->where('team_id', $team->id)->latest()->paginate(10)
-            : Gallery::with(['coverImage', 'venueTemplate'])->withCount('images')->where('user_id', $user->id)->whereNull('team_id')->latest()->paginate(10);
+            ? Gallery::with(['coverImage.media', 'venueTemplate'])->withCount('images')->where('team_id', $team->id)->latest()->paginate(10)
+            : Gallery::with(['coverImage.media', 'venueTemplate'])->withCount('images')->where('user_id', $user->id)->whereNull('team_id')->latest()->paginate(10);
 
-        $userTeams = $user->ownedTeams->merge($user->teams);
-
-        return view('admin.galleries.index', compact('galleries', 'team', 'userTeams'));
+        return view('admin.galleries.index', compact('galleries', 'team'));
     }
 
     public function create(Request $request): View|RedirectResponse

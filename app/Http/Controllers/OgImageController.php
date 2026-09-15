@@ -84,14 +84,22 @@ class OgImageController extends Controller
         // and portrait updates are reflected immediately; only the rendered
         // PNG is cached, keyed by the artist's last update to invalidate on
         // profile changes instead of serving hours-old cards.
-        $artist = Artist::where('slug', $slug)
-            ->with(['images' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyViewable())->orderByDesc('created_at')])
-            ->firstOrFail();
+        $artist = Artist::where('slug', $slug)->firstOrFail();
+
+        // Scalar lookups: the renderer needs only the newest public artwork
+        // path and the count — never the full work catalogue hydrated.
+        $latestWorkPath = $artist->images()
+            ->whereHas('gallery', fn ($g) => $g->publiclyViewable())
+            ->orderByDesc('created_at')
+            ->value('path');
+        $workCount = $artist->images()
+            ->whereHas('gallery', fn ($g) => $g->publiclyViewable())
+            ->count();
 
         $pngBytes = ResilientCache::flexible(
             "og:image:artist:{$slug}:{$artist->updated_at?->format('YmdHis')}:v1",
             [now()->addHours(6), now()->addHours(12)],
-            fn () => $this->renderArtist($artist),
+            fn () => $this->renderArtist($artist, $latestWorkPath, $workCount),
         );
 
         return response($pngBytes, 200, [
@@ -100,7 +108,7 @@ class OgImageController extends Controller
         ]);
     }
 
-    private function renderArtist(Artist $artist): string
+    private function renderArtist(Artist $artist, ?string $latestWorkPath, int $workCount): string
     {
         $canvas = $this->manager->create(1200, 630);
         $canvas->fill('#0a0a14');
@@ -115,7 +123,7 @@ class OgImageController extends Controller
         // Left half: portrait or latest artwork
         $imagePath = $artist->portrait_path
             ? storage_path('app/public/' . ltrim($artist->portrait_path, '/'))
-            : ($artist->images->first()?->path ? public_path(ltrim($artist->images->first()->path, '/')) : null);
+            : ($latestWorkPath ? public_path(ltrim($latestWorkPath, '/')) : null);
 
         if ($imagePath && file_exists($imagePath)) {
             try {
@@ -153,7 +161,6 @@ class OgImageController extends Controller
         }
 
         // Factual stats from real data
-        $workCount = $artist->images->count();
         $statsY = $nameY + 16;
         if ($workCount > 0) {
             $this->text($canvas, sprintf('%d artworks on display', $workCount), $textX, $statsY, '#a78bfa', 18, 'normal');

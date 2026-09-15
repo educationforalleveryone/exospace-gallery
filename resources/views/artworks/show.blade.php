@@ -97,7 +97,7 @@
                     <div>
                         <p class="text-gray-100 font-semibold group-hover:text-brand-300 transition leading-tight">{{ $gallery->title }}</p>
                         <p class="text-gray-500 text-xs mt-0.5">
-                            {{ $gallery->images->count() }} {{ Str::plural('artwork', $gallery->images->count()) }}
+                            {{ $gallery->images_count }} {{ Str::plural('artwork', $gallery->images_count) }}
                             @if($gallery->venueTemplate) · {{ $gallery->venueTemplate->name }} @endif
                         </p>
                         <p class="text-brand-400 text-xs mt-1">Walk the 3D exhibition →</p>

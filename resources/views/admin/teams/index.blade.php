@@ -110,7 +110,7 @@
                 <h2 class="text-lg font-semibold text-gray-200 mb-4">Teams You're In</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($memberTeams as $team)
-                    @php $role = auth()->user()->teamRole($team); @endphp
+                    @php $role = $team->pivot->role; @endphp
                     @php $isActive = auth()->user()->current_team_id === $team->id; @endphp
                     <div class="bg-gray-800 border {{ $isActive ? 'border-brand-500/50' : 'border-gray-700 hover:border-gray-600' }} rounded-xl card-pad transition relative">
                         @if($isActive)

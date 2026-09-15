@@ -83,14 +83,17 @@ class VenueConfigExporter
     }
     public function forGallery(Gallery $gallery): ?array
     {
+        // Fresh read at entry: a venue save (or owner plan change) must be
+        // visible to galleries immediately, so the cache key may never be
+        // built from a relation loaded earlier in this instance's lifetime.
         $venue = $gallery->venueTemplate()->first();
         $venueTs = $venue?->updated_at?->timestamp ?? '0';
         $venueSig = $this->venueSignature($venue);
         $plan = $gallery->user()->value('plan') ?? 'free';
         $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:{$venueSig}:p{$plan}:" . self::SCHEMA;
 
-        return ResilientCache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery) {
-            return $this->buildConfig($gallery);
+        return ResilientCache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery, $venue, $plan) {
+            return $this->buildConfig($gallery, $venue, $plan);
         });
     }
 
@@ -116,9 +119,8 @@ class VenueConfigExporter
         ])), 0, 16);
     }
 
-    private function buildConfig(Gallery $gallery): ?array
+    private function buildConfig(Gallery $gallery, ?VenueTemplate $venue, string $plan): ?array
     {
-        $venue = $gallery->venueTemplate()->first();
         if (!$venue) {
             return null;
         }
@@ -185,11 +187,10 @@ class VenueConfigExporter
             }
         }
 
-        $ownerPlan = $gallery->user->plan ?? 'free';
         $venuePlan = $venue->plan_required ?: 'free';
-        $visitorPlan = $this->planRank($venuePlan) > $this->planRank($ownerPlan)
+        $visitorPlan = $this->planRank($venuePlan) > $this->planRank($plan)
             ? $venuePlan      // grandfathered above-plan venue: render at venue tier
-            : $ownerPlan;
+            : $plan;
         $config['decorations'] = array_values(array_filter(
             $config['decorations'] ?? [],
             function ($dec) use ($visitorPlan) {

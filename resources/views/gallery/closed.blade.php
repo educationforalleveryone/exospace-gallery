@@ -154,7 +154,7 @@
                 <span class="stat-label">Total Visitors</span>
             </div>
             <div>
-                <span class="stat-num">{{ $gallery->images()->count() }}</span>
+                <span class="stat-num">{{ $gallery->images->count() }}</span>
                 <span class="stat-label">Artworks</span>
             </div>
             @if($gallery->closes_at && $gallery->opens_at)

@@ -16,6 +16,13 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable, HasApiTokens;
 
+    /**
+     * Per-instance memo for currentTeam(); false means "not resolved yet".
+     * Lives only for this model instance (one request), so authorization
+     * freshness is unchanged.
+     */
+    private Team|false|null $resolvedCurrentTeam = false;
+
     protected $fillable = [
         'name',
         'email',
@@ -192,11 +199,17 @@ class User extends Authenticatable implements MustVerifyEmail
             return $this->getRelation('currentTeam');
         }
 
+        if ($this->resolvedCurrentTeam !== false) {
+            return $this->resolvedCurrentTeam;
+        }
+
         $team = Team::find($this->current_team_id);
 
         if (! $team || ! $this->belongsToTeam($team)) {
-            return null;
+            $team = null;
         }
+
+        $this->resolvedCurrentTeam = $team;
 
         return $team;
     }
@@ -212,6 +225,7 @@ class User extends Authenticatable implements MustVerifyEmail
             return false;
         }
         $this->forceFill(['current_team_id' => $team->id])->save();
+        $this->resolvedCurrentTeam = false;
         return true;
     }
 

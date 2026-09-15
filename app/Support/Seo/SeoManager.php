@@ -219,7 +219,11 @@ class SeoManager
             return $seo;
         }
 
-        $profile = $model->seoProfile()->first();
+        // Callers that preload seoProfile skip this query entirely; other
+        // callers keep the single first() lookup.
+        $profile = $model->relationLoaded('seoProfile')
+            ? $model->getRelation('seoProfile')
+            : $model->seoProfile()->first();
 
         if (!$profile) {
             return $seo;

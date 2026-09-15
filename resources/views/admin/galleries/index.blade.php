@@ -2,7 +2,12 @@
     <x-slot name="header">
         @php
             $activeTeam = auth()->user()->currentTeam();
-            $canEdit = !$activeTeam || $activeTeam->canEdit(auth()->user());
+            // Resolve the role once; canEdit derives from it without a second pivot lookup.
+            $activeRole = $activeTeam ? auth()->user()->teamRole($activeTeam) : null;
+            $canEdit = !$activeTeam || $activeRole === 'owner' || $activeRole === 'editor';
+            // Display-only quota check (same scope as canCreateGallery) without the
+            // write lock that belongs to the creation flow.
+            $canCreate = auth()->user()->galleries()->whereNull('team_id')->count() < auth()->user()->max_galleries;
         @endphp
         <x-page-header>
             <x-slot:heading>
@@ -17,7 +22,7 @@
             </x-slot:heading>
             @if($activeTeam)
                 <x-slot:description>
-                    <span class="capitalize text-{{ $canEdit ? 'brand' : 'gray' }}-400">{{ ucfirst(auth()->user()->teamRole($activeTeam)) }}</span>
+                    <span class="capitalize text-{{ $canEdit ? 'brand' : 'gray' }}-400">{{ ucfirst($activeRole) }}</span>
                     <span class="text-gray-700">·</span>
                     <span>Team workspace</span>
                     <span class="text-gray-700">·</span>
@@ -27,7 +32,7 @@
                 <x-slot:description>Personal workspace</x-slot:description>
             @endif
             <x-slot:actions>
-                @if($canEdit && (auth()->user()->canCreateGallery() || $activeTeam))
+                @if($canEdit && ($canCreate || $activeTeam))
                     <a href="{{ route('admin.galleries.create') }}{{ $activeTeam ? '?team=' . $activeTeam->id : '' }}"
                        class="btn btn-primary shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -55,7 +60,7 @@
                 <script nonce="@nonce">document.addEventListener('DOMContentLoaded', () => openModal('upgrade-modal'));</script>
             @endif
 
-            @if(!auth()->user()->canCreateGallery() && !$activeTeam)
+            @if(!$canCreate && !$activeTeam)
             <div class="mb-6 alert alert-brand">
                 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <p class="flex-1">You're on the Free plan — 1 gallery maximum. Upgrade to Pro for {{ config('plans.limits.pro.max_galleries') }} galleries and more image slots.</p>

@@ -17,9 +17,8 @@ class GalleryEventController extends Controller
     public function index(Gallery $gallery): View
     {
         $this->authorizeGalleryAccess($gallery);
-        $gallery->load(['scheduleEvents' => fn($q) => $q->withCount('rsvps')]);
 
-        $upcoming = $gallery->scheduleEvents()->upcoming()->withCount('rsvps')->get();
+        $upcoming = $gallery->scheduleEvents()->upcoming()->withCount('rsvps')->limit(50)->get();
         $past = $gallery->scheduleEvents()->past()->limit(20)->withCount('rsvps')->get();
 
         return view('admin.galleries.events.index', compact('gallery', 'upcoming', 'past'));
@@ -124,7 +123,7 @@ class GalleryEventController extends Controller
         $this->authorizeGalleryAccess($gallery);
         if ($event->gallery_id !== $gallery->id) abort(404);
 
-        $rsvps = $event->rsvps()->latest()->get();
+        $rsvps = $event->rsvps()->latest()->paginate(100);
 
         return view('admin.galleries.events.rsvps', compact('gallery', 'event', 'rsvps'));
     }

@@ -15,6 +15,10 @@ class InternalLinkingService
     private const CACHE_TTL = 900; // 15 minutes
     private const CACHE_VERSION_KEY = 'seo:related:version';
 
+    // Candidate pool cap: ranking keeps only a bounded slice of public
+    // galleries in memory instead of hydrating the whole platform.
+    private const RELATED_CANDIDATE_POOL = 200;
+
     // Version-prefixed keys let seo:rebuild rotate every related-content
     // entry at once; cache stores without tag support can flush nothing on
     // these keys, and untagged entries are invisible to tag flushes.
@@ -31,7 +35,9 @@ class InternalLinkingService
         $key = $this->cacheKey('galleries', $gallery->id);
 
         return ResilientCache::remember($key, self::CACHE_TTL, function () use ($gallery, $limit) {
-            $artistIds = $gallery->images->pluck('artist_id')->filter()->unique()->values();
+            $artistIds = $gallery->relationLoaded('images')
+                ? $gallery->images->pluck('artist_id')->filter()->unique()->values()
+                : $gallery->images()->whereNotNull('artist_id')->distinct()->pluck('artist_id');
 
             $query = Gallery::query()
                 ->publiclyViewable()
@@ -42,13 +48,19 @@ class InternalLinkingService
                 ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'));
 
             if ($artistIds->isNotEmpty()) {
-                // Count shared artists via a correlated subquery.
+                // Count shared artists via a correlated subquery. Shared artists
+                // dominate the score, so pre-ranking on it keeps every gallery
+                // that could reach the final top-$limit slice inside the pool.
                 $query->withCount([
                     'images as shared_artists_count' => fn ($q) => $q->whereIn('artist_id', $artistIds),
-                ]);
+                ])
+                ->orderByDesc('shared_artists_count')
+                ->orderByDesc('view_count');
+            } else {
+                $query->orderByDesc('view_count');
             }
 
-            $related = $query->get();
+            $related = $query->limit(self::RELATED_CANDIDATE_POOL)->get();
 
             return $related
                 ->map(function ($g) use ($gallery) {
@@ -113,7 +125,7 @@ class InternalLinkingService
                 ->where('id', '!=', $artwork->id)
                 ->where('gallery_id', '!=', $artwork->gallery_id)
                 ->whereHas('gallery', fn ($q) => $q->publiclyViewable())
-                ->with(['gallery.venueTemplate', 'artist'])
+                ->with(['gallery.venueTemplate', 'artist', 'media'])
                 ->orderByDesc('created_at')
                 ->limit($limit)
                 ->get();

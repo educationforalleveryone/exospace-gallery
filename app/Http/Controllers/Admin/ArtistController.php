@@ -19,7 +19,6 @@ class ArtistController extends Controller
     {
         $user = Auth::user();
         $query = Artist::withCount('images')
-            ->with(['creator'])
             ->orderBy('name');
 
         if ($search = trim((string) $request->query('q', ''))) {
@@ -118,7 +117,7 @@ class ArtistController extends Controller
 
     public function show(Artist $artist): View
     {
-        $artist->load(['images.gallery.venueTemplate', 'images.gallery.user']);
+        $artist->load(['images.gallery.venueTemplate']);
 
         // Group images by gallery
         $galleries = $artist->images
@@ -229,7 +228,7 @@ class ArtistController extends Controller
         // rotates the stamped caches (OG artwork cards, custom-domain
         // payloads) without waiting out their TTLs.
         if ($galleryIds->isNotEmpty()) {
-            Gallery::whereIn('id', $galleryIds)->get()->each->touch();
+            Gallery::whereIn('id', $galleryIds)->update(['updated_at' => now()]);
         }
 
         // Physical removal happens after the row is gone; a failed delete

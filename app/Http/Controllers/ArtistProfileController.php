@@ -22,10 +22,10 @@ class ArtistProfileController extends Controller
 
     public function show(Request $request, string $slug): View
     {
-        $artist = Artist::where('slug', $slug)->firstOrFail();
+        $artist = Artist::where('slug', $slug)->with('seoProfile')->firstOrFail();
 
         $images = $artist->images()
-            ->with(['gallery.venueTemplate', 'gallery.user', 'artist', 'media'])
+            ->with(['gallery.venueTemplate', 'media'])
             ->whereHas('gallery', function ($q) {
                 $q->publiclyViewable();
             })

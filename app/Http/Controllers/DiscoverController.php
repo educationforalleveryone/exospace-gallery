@@ -20,7 +20,8 @@ class DiscoverController extends Controller
         $isFilteredView = $venueId !== '' || !in_array($sort, ['featured', ''], true);
 
         $query = Gallery::publiclyViewable()
-            ->with(['coverImage', 'venueTemplate', 'user'])
+            ->with(['coverImage.media', 'venueTemplate', 'user'])
+            ->withCount('images')
             ->has('images', '>=', 1)
             ->whereDoesntHave('user', fn($q) => $q->whereNotNull('banned_at'));
 
