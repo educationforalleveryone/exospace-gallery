@@ -152,8 +152,8 @@ class ImageController extends Controller
     public function bulkDestroy(Request $request)
     {
         $request->validate([
-            'ids'   => 'required|array|min:1',
-            'ids.*' => 'required|integer',
+            'ids'   => 'required|array|min:1|max:500',
+            'ids.*' => 'required|integer|distinct',
         ]);
 
         $count  = 0;

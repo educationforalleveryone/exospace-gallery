@@ -22,6 +22,7 @@ class ArtistController extends Controller
             ->orderBy('name');
 
         if ($search = trim((string) $request->query('q', ''))) {
+            $search = mb_substr($search, 0, 100);
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('bio', 'like', "%{$search}%")
@@ -248,6 +249,7 @@ class ArtistController extends Controller
         if (strlen($term) < 1) {
             return response()->json([]);
         }
+        $term = mb_substr($term, 0, 100);
 
         $artists = Artist::where('name', 'like', "%{$term}%")
             ->orderBy('name')

@@ -357,7 +357,7 @@ class GalleryController extends Controller
             if ($decoded !== false) {
                 $parsed = json_decode($decoded, true);
                 if (is_array($parsed)) {
-                    $runtimeOverrides = $parsed;
+                    $runtimeOverrides = VenueConfigExporter::sanitizeGalleryOverrides($parsed);
                 }
             }
         }
@@ -749,9 +749,14 @@ class GalleryController extends Controller
     public function reorderImages(Request $request, Gallery $gallery)
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
-        $request->validate(['order' => 'required|array', 'order.*' => 'integer']);
+        $request->validate([
+            'order'      => 'required|array|max:500',
+            'order.*'    => 'integer|distinct',
+        ]);
 
-        foreach ($request->order as $position => $imageId) {
+        // Reindex first: a JSON object body yields string keys, and the
+        // position math below must always run over a positional list.
+        foreach (array_values($request->order) as $position => $imageId) {
             $gallery->images()->where('id', $imageId)->update(['position_order' => $position + 1]);
         }
 
@@ -893,6 +898,10 @@ class GalleryController extends Controller
         if (!$json || trim($json) === '') return null;
         $decoded = json_decode($json, true);
         if (!is_array($decoded)) return null;
+
+        // The payload must be a flat map of scalar settings per bucket;
+        // nested or oversized structures are dropped before persistence.
+        $decoded = VenueConfigExporter::sanitizeGalleryOverrides($decoded);
 
         $clean = [
             'visual_config'   => is_array($decoded['visual_config']   ?? null) ? $decoded['visual_config']   : [],

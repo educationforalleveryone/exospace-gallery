@@ -33,7 +33,7 @@ class SeoAdminController extends Controller
             'redirects' => $this->redirectsTab(),
             'pages' => $this->pagesTab(),
             'acquisition' => ['acquisition' => $this->acquisition->report(
-                (int) $request->query('days', 90),
+                max(1, min(730, (int) $request->query('days', 90))),
             )],
             default => $this->healthTab(),
         };

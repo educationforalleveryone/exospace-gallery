@@ -50,7 +50,7 @@ class GalleryEventController extends Controller
             'timezone'      => ['nullable', 'string', 'max:50', 'timezone'],
             'location_name' => ['nullable', 'string', 'max:255'],
             'location_url'  => ['nullable', 'string', 'max:500', 'url'],
-            'capacity'      => ['nullable', 'integer', 'min:1'],
+            'capacity'      => ['nullable', 'integer', 'min:1', 'max:4294967295'],
             'is_active'     => ['boolean'],
         ]);
 
@@ -89,7 +89,7 @@ class GalleryEventController extends Controller
             'timezone'      => ['nullable', 'string', 'max:50', 'timezone'],
             'location_name' => ['nullable', 'string', 'max:255'],
             'location_url'  => ['nullable', 'string', 'max:500', 'url'],
-            'capacity'      => ['nullable', 'integer', 'min:1'],
+            'capacity'      => ['nullable', 'integer', 'min:1', 'max:4294967295'],
             'is_active'     => ['boolean'],
         ]);
 

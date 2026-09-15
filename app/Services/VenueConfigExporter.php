@@ -59,6 +59,47 @@ class VenueConfigExporter
         ];
     }
 
+    /**
+     * Per-gallery override payloads (saved JSON and ?override= runtime patches)
+     * are flat maps of scalar viewer settings. Anything deeper or oversized is
+     * dropped so arbitrary nested request data can never reach the config that
+     * ships to the viewer.
+     */
+    public const GALLERY_OVERRIDE_BUCKETS = ['visual_config', 'material_config', 'post_fx'];
+    private const GALLERY_OVERRIDE_MAX_KEYS = 40;
+    private const GALLERY_OVERRIDE_MAX_KEY_LENGTH = 64;
+    private const GALLERY_OVERRIDE_MAX_VALUE_LENGTH = 255;
+
+    public static function sanitizeGalleryOverrides(array $overrides): array
+    {
+        $clean = [];
+
+        foreach (self::GALLERY_OVERRIDE_BUCKETS as $bucket) {
+            $values = $overrides[$bucket] ?? null;
+            if (! is_array($values)) {
+                continue;
+            }
+
+            $sanitized = [];
+            foreach (array_slice($values, 0, self::GALLERY_OVERRIDE_MAX_KEYS, true) as $key => $value) {
+                if (is_int($key) || mb_strlen((string) $key) > self::GALLERY_OVERRIDE_MAX_KEY_LENGTH) {
+                    continue;
+                }
+                if (is_bool($value) || is_int($value) || is_float($value)) {
+                    $sanitized[$key] = $value;
+                } elseif (is_string($value) && mb_strlen($value) <= self::GALLERY_OVERRIDE_MAX_VALUE_LENGTH) {
+                    $sanitized[$key] = $value;
+                }
+            }
+
+            if ($sanitized !== []) {
+                $clean[$bucket] = $sanitized;
+            }
+        }
+
+        return $clean;
+    }
+
     public function presetForGallery(Gallery $gallery): string
     {
         $venuePreset = $gallery->venueTemplate?->default_settings['lighting_preset'] ?? null;
