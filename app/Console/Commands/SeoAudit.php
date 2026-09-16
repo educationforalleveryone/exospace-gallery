@@ -57,8 +57,7 @@ class SeoAudit extends Command
 
     private function maybePostToSlack(array $summary, array $issues): void
     {
-        $webhook = (string) config('services.operational_alert_webhook')
-            ?: env('OPERATIONAL_ALERT_WEBHOOK');
+        $webhook = (string) config('services.operational_alerts.webhook_url');
 
         if (!$webhook) {
             $this->line('OPERATIONAL_ALERT_WEBHOOK not set — skipping Slack notification.');
@@ -85,7 +84,11 @@ class SeoAudit extends Command
                 'text' => implode("\n", $lines),
             ]);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('SEO audit: Slack notification failed: ' . $e->getMessage());
+            // Transport errors embed the full request URL — the webhook token
+            // lives in the URL path, so it must not reach the logs.
+            \Illuminate\Support\Facades\Log::warning(
+                'SEO audit: Slack notification failed: '.app(\App\Ops\Support\LogRedactor::class)->redactString($e->getMessage())
+            );
         }
     }
 }

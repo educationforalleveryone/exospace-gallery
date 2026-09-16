@@ -30,6 +30,10 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="BACKUP_DISKS" value="local"/>
         <env name="BACKUP_PASSWORD" value="test-backup-password"/>
+        <!-- Never report test failures to the live Sentry project / Resend,
+             even when a real .env sits in the working copy. -->
+        <env name="SENTRY_LARAVEL_DSN" value=""/>
+        <env name="RESEND_API_KEY" value=""/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

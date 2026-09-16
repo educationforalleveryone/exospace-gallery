@@ -142,8 +142,11 @@ Minimum sequence to rebuild Exospace from nothing:
 
 ### 3.5 Secrets rotation
 1. Rotate the leaked value in the provider dashboard first.
-2. Update it in Coolify → Environment Variables → deploy (config is
-   `config:cache`d at boot; never edit `.env` on the container).
+2. Update it in Coolify → Environment Variables → redeploy. Config is NOT
+   `config:cache`d in this deployment (cached config would skip loading the
+   Coolify-written `.env` and bake in empty credentials) — a redeploy picks
+   up the new value with no cache step. Never run `config:cache` on the
+   container.
 3. Rotating `APP_KEY` invalidates sessions + encrypted payload columns —
    maintenance window only (the ops credentials ledger notes this per key).
 4. Record the rotation in Ops → Credentials (audit + Slack + cadence clock).

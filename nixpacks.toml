@@ -18,11 +18,11 @@ cmds = [
     "node scripts/verify-vite-manifest.js",
     "composer install --no-dev --optimize-autoloader",
     # Route/view caches are safe to build here — they don't depend on
-    # runtime secrets. Config cache must NOT be built here: DB_HOST/DB_PASSWORD/
-    # etc. are runtime-only vars in Coolify and aren't present during the
-    # Docker build, so caching config at build time bakes in empty values
-    # that no runtime env var can ever override. config:cache now runs in
-    # docker-start.sh instead, after real runtime env vars are attached.
+    # runtime secrets. Config cache must NOT be built anywhere in this
+    # pipeline (neither here nor in docker-start.sh): Coolify delivers
+    # secrets like DB_HOST/DB_PASSWORD as runtime .env values, and once
+    # config is cached Laravel skips loading .env entirely — baking in
+    # empty values that no runtime env var can ever override.
     "php artisan route:cache",
     "php artisan view:cache",
     # GUARD (2026-08-31): view:cache compiles Blade to PHP WITHOUT checking

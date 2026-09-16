@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Ops\Support\LogRedactor;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -15,6 +16,10 @@ class OperationalAlertService
         'warning'  => 7200,  // 2 hours
         'info'     => 21600, // 6 hours
     ];
+
+    public function __construct(
+        private readonly LogRedactor $redactor,
+    ) {}
 
     public function alert(string $title, string $message, string $severity = 'warning', ?string $dedupKey = null, bool $escalate = false): void
     {
@@ -60,10 +65,12 @@ class OperationalAlertService
             try {
                 Http::timeout(10)->post($webhookUrl, $payload);
             } catch (\Throwable $e) {
+                // Transport errors embed the full request URL — the webhook
+                // token lives in the URL path, so it must not reach the logs.
                 Log::critical('OperationalAlertService: failed to send webhook alert', [
                     'title'   => $title,
                     'message' => $message,
-                    'error'   => $e->getMessage(),
+                    'error'   => $this->redactor->redactString($e->getMessage()),
                 ]);
             }
         }
@@ -99,7 +106,7 @@ class OperationalAlertService
         } catch (\Throwable $e) {
             Log::critical('OperationalAlertService: failed to send ESCALATION webhook alert', [
                 'title' => (string) ($payload['title'] ?? ''),
-                'error' => $e->getMessage(),
+                'error' => $this->redactor->redactString($e->getMessage()),
             ]);
         }
     }

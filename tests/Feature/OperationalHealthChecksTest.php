@@ -200,6 +200,7 @@ class OperationalHealthChecksTest extends TestCase
     {
         $service = $this->getMockBuilder(OperationalAlertService::class)
             ->onlyMethods(['alert'])
+            ->disableOriginalConstructor()
             ->getMock();
 
         $service->expects($this->never())

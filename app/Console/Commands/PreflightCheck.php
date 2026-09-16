@@ -92,7 +92,10 @@ class PreflightCheck extends Command
             $this->critical("APP_KEY is missing or invalid — run `php artisan key:generate`.");
         }
 
-        $trustedProxies = env('TRUSTED_PROXIES', '*');
+        // Default '' (fail-closed) so an UNSET variable falls into the
+        // production-critical branch below, matching the boot-time guard in
+        // AppServiceProvider::assertTrustedProxiesConfigured().
+        $trustedProxies = env('TRUSTED_PROXIES', '');
         if ($trustedProxies === '*' || !empty($trustedProxies)) {
             if ($trustedProxies === '*') {
                 $this->advisory("TRUSTED_PROXIES=* — works but is overly permissive. For production, restrict to Coolify's Traefik subnet. Find it via: docker network inspect coolify-network | grep Subnet");
