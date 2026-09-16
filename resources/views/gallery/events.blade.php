@@ -74,7 +74,7 @@
                                     {{-- Cloudflare Turnstile captcha (invisible when enabled) --}}
                                     @if(app('App\Services\TurnstileService')->isEnabled())
                                         <div class="cf-turnstile mt-3" data-sitekey="{{ config('services.turnstile.site_key') }}"></div>
-                                        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                                        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" nonce="@nonce" async defer></script>
                                     @endif
                                     <button type="submit" class="btn btn-primary mt-3">
                                         RSVP

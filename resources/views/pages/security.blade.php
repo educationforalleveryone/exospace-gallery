@@ -65,7 +65,7 @@
             <ul class="list-disc list-inside mt-3 space-y-1 text-gray-400 ml-4">
                 <li><strong class="text-gray-300">Strict-Transport-Security (HSTS)</strong> — Forces HTTPS for all connections.</li>
                 <li><strong class="text-gray-300">X-Content-Type-Options</strong> — Prevents MIME type sniffing attacks.</li>
-                <li><strong class="text-gray-300">X-Frame-Options</strong> — Blocks clickjacking by preventing our pages from being embedded in iframes.</li>
+                <li><strong class="text-gray-300">X-Frame-Options</strong> — Blocks clickjacking by preventing our pages from being embedded in iframes, except public exhibitions that embed via the official embed code.</li>
             </ul>
         </section>
 
