@@ -154,7 +154,7 @@ class CsrfCrossOriginBoundaryTest extends TestCase
     {
         $this->withCsrfEnforced();
 
-        $response = $this->post(route('livewire.update'), []);
+        $response = $this->post(\Livewire\Mechanisms\HandleRequests\EndpointResolver::updatePath(), []);
 
         $response->assertStatus(419);
     }

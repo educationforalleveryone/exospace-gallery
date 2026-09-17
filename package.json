@@ -2,6 +2,9 @@
     "$schema": "https://www.schemastore.org/package.json",
     "private": true,
     "type": "module",
+    "engines": {
+        "node": ">=22"
+    },
     "scripts": {
         "build": "vite build",
         "dev": "vite",
@@ -9,6 +12,7 @@
         "fetch-assets": "bash scripts/download-cc0-assets.sh"
     },
     "devDependencies": {
+        "@gltf-transform/cli": "^4.0.0",
         "@tailwindcss/forms": "^0.5.2",
         "alpinejs": "^3.4.2",
         "autoprefixer": "^10.4.2",
@@ -21,10 +25,6 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
-        "@gltf-transform/cli": "^4.0.0",
-        "@gltf-transform/core": "^4.0.0",
-        "@gltf-transform/extensions": "^4.0.0",
-        "@gltf-transform/functions": "^4.0.0",
         "@hotwired/turbo": "^8.0.4",
         "@sentry/browser": "^10.74.0",
         "chart.js": "^4.5.1",

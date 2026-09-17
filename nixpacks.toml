@@ -8,7 +8,7 @@ nixPkgs = ["php", "nginx", "nodejs", "phpPackages.composer", "mariadb"]
 
 [phases.build]
 cmds = [
-    "npm install",
+    "npm ci --no-audit --no-fund",
     "npm run build",
     # GUARD (2026-08-31): fails the build if any Blade template references a
     # Vite entry the manifest does not contain (e.g. the production 500

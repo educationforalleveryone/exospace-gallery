@@ -302,3 +302,37 @@ jobs:
         env:
           APP_ENV: dusk.testing
           APP_URL: http://127.0.0.1:8000
+
+  dependency-audit:
+    # Fails CI when locked dependencies carry known security advisories or
+    # when composer.json / composer.lock / package.json / package-lock.json
+    # drift apart. Both audits read the lockfiles directly — no vendor or
+    # node_modules install is needed. Any advisory blocks the build: new
+    # advisories against production dependencies must be reviewed, not
+    # silently absorbed by a redeploy.
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Validate Composer manifest and lockfile
+        run: composer validate --strict --no-check-publish
+
+      - name: Audit Composer dependencies
+        run: composer audit --locked --no-interaction
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Audit npm dependencies
+        run: npm audit

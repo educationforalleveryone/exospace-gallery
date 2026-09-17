@@ -35,8 +35,8 @@
         "pragmarx/google2fa-qrcode": "^4.0",
         "predis/predis": "^3.0",
         "resend/resend-laravel": "^1.1",
-        "sentry/sentry-laravel": "4.13",
-        "spatie/laravel-backup": "*",
+        "sentry/sentry-laravel": "^4.13",
+        "spatie/laravel-backup": "^9.3",
         "spatie/laravel-medialibrary": "^11.17"
     },
     "require-dev": {
@@ -71,7 +71,7 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
             "@php artisan migrate --force",
-            "npm install",
+            "npm ci",
             "npm run build"
         ],
         "dev": [
@@ -120,7 +120,6 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
-            "pestphp/pest-plugin": true,
             "php-http/discovery": true
         }
     },
