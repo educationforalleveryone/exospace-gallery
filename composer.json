@@ -91,6 +91,7 @@
         "test:database": "@php artisan qa:run database",
         "qa:list": "@php artisan qa:run --list",
         "qa:doctor": "@php artisan qa:doctor",
+        "test:deps": "@composer validate --strict --no-check-publish && @composer check-platform-reqs --lock --no-dev",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
@@ -121,6 +122,9 @@
         "sort-packages": true,
         "allow-plugins": {
             "php-http/discovery": true
+        },
+        "platform": {
+            "php": "8.2.27"
         }
     },
     "minimum-stability": "stable",

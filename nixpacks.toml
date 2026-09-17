@@ -16,6 +16,17 @@ cmds = [
     # because a JS comment in analytics.blade.php contained an unescaped
     # @vite('admin-vendor.js') — Blade compiles directives inside JS comments).
     "node scripts/verify-vite-manifest.js",
+    # GUARD (2026-09-17): the lockfile is validated against the build PHP
+    # BEFORE the strict install. `composer update` run on a dev machine with
+    # a newer PHP can lock packages the production PHP cannot load (real
+    # incident: maennchen/zipstream-php 3.2.2 requires php-64bit ^8.3 while
+    # this build runs PHP 8.2.27, which aborted deploys with "Your lock file
+    # does not contain a compatible set of packages"). composer.json now
+    # pins config.platform.php = 8.2.27 so this cannot recur, and these two
+    # read-only checks fail the build with a precise message if the lock and
+    # composer.json ever drift out of sync or off the production platform.
+    "composer validate --strict --no-check-publish",
+    "composer check-platform-reqs --lock --no-dev",
     "composer install --no-dev --optimize-autoloader",
     # Route/view caches are safe to build here — they don't depend on
     # runtime secrets. Config cache must NOT be built anywhere in this
