@@ -29,7 +29,8 @@ class BillingController extends Controller
         $transactions = $user->transactions()
             ->with('invoice')
             ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         $pendingUpgrades = $user->pendingUpgrades()
             ->where('status', 'pending')

@@ -14,22 +14,6 @@
             background: rgba(139, 92, 246, 0.05) !important;
         }
 
-        /* Custom scrollbar for dark theme */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #1f2937;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #4b5563;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #6b7280;
-        }
-
         /* Smooth transitions for cards */
         .gallery-card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -283,6 +267,20 @@
             <div class="card card-pad">
                 <h3 class="text-lg font-medium text-gray-100 mb-4">Gallery Settings</h3>
 
+                @if($errors->any())
+                    <div class="mb-5 alert alert-error items-start" role="alert">
+                        <svg class="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <div class="min-w-0">
+                            <p class="font-semibold">Please fix the highlighted fields and save again</p>
+                            <ul class="list-disc list-inside mt-1 space-y-0.5 text-sm opacity-90">
+                                @foreach($errors->all() as $editError)
+                                    <li>{{ $editError }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                @endif
+
                 <form action="{{ route('admin.galleries.update', $gallery) }}" method="POST" enctype="multipart/form-data" id="gallery-settings-form">
                     @csrf
                     @method('PUT')
@@ -290,15 +288,22 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Title -->
                         <div class="mb-4 md:col-span-2">
-                            <label for="edit-title" class="label-text mb-1.5">Title</label>
-                            <input type="text" id="edit-title" name="title" value="{{ old('title', $gallery->title) }}" required
-                                class="input-base mt-1">
+                            <label for="edit-title" class="label-text mb-1.5">Title <span class="text-red-400" aria-hidden="true">*</span></label>
+                            <input type="text" id="edit-title" name="title" value="{{ old('title', $gallery->title) }}" required maxlength="255" aria-required="true"
+                                class="input-base mt-1 {{ $errors->has('title') ? 'input-error' : '' }}" @error('title') aria-invalid="true" aria-describedby="edit-title-error" @enderror>
+                            @error('title')
+                                <p id="edit-title-error" class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <!-- Description -->
                         <div class="mb-4 md:col-span-2">
                             <label for="edit-description" class="label-text mb-1.5">Description</label>
-                            <textarea name="description" id="edit-description" rows="3" class="input-base mt-1">{{ old('description', $gallery->description) }}</textarea>
+                            <textarea name="description" id="edit-description" rows="3" maxlength="1000"
+                                class="input-base mt-1 {{ $errors->has('description') ? 'input-error' : '' }}" @error('description') aria-invalid="true" aria-describedby="edit-description-error" @enderror>{{ old('description', $gallery->description) }}</textarea>
+                            @error('description')
+                                <p id="edit-description-error" class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div class="mb-4">
@@ -663,14 +668,14 @@
                                 <div>
                                     <label for="edit-opens-at" class="block text-xs font-medium text-gray-400 mb-1">Opens At</label>
                                     <input type="datetime-local" id="edit-opens-at" name="opens_at"
-                                        value="{{ $gallery->opens_at ? $gallery->opens_at->format('Y-m-d\TH:i') : old('opens_at') }}"
+                                        value="{{ old('opens_at', $gallery->opens_at?->format('Y-m-d\TH:i')) }}"
                                         class="input-base mt-1 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Your local time. Leave blank to open immediately.</p>
                                 </div>
                                 <div>
                                     <label for="edit-closes-at" class="block text-xs font-medium text-gray-400 mb-1">Closes At</label>
                                     <input type="datetime-local" id="edit-closes-at" name="closes_at"
-                                        value="{{ $gallery->closes_at ? $gallery->closes_at->format('Y-m-d\TH:i') : old('closes_at') }}"
+                                        value="{{ old('closes_at', $gallery->closes_at?->format('Y-m-d\TH:i')) }}"
                                         class="input-base mt-1 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">Optional. Leave blank for no end date.</p>
                                 </div>
@@ -946,7 +951,7 @@
                                  ]) }}'>
 
                                 <!-- 3B: Selection Checkbox -->
-                                <div class="absolute top-3 left-3 z-20 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
+                                <div class="absolute top-3 left-3 z-20 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity duration-200">
                                     <input type="checkbox" value="{{ $image->id }}"
                                            data-change="updateSelection"
                                            class="image-checkbox checkbox-base h-5 w-5 cursor-pointer">
@@ -965,16 +970,16 @@
                                 <!-- Delete Button: Pro Style -->
                                 <button data-click="deleteImage" data-arg="{{ $image->id }}"
                                         type="button"
-                                        class="btn btn-icon absolute top-3 right-3 bg-red-600/80 hover:bg-red-600 text-white shadow-lg z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
-                                        title="Delete Image" aria-label="Delete image">
+                                        class="btn btn-icon absolute top-3 right-3 bg-red-600/80 hover:bg-red-600 text-white shadow-lg z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:focus-visible:opacity-100 md:transform md:scale-90 md:group-hover:scale-100 md:focus-visible:scale-100"
+                                        title="Delete Image" aria-label="Delete image {{ $image->title ?: $image->original_name }}">
                                     <span class="text-lg font-bold leading-none">&times;</span>
                                 </button>
 
                                 <!-- Edit Details Button (artwork metadata editor) -->
                                 <button data-click="editMetadata" data-arg="{{ $image->id }}"
                                         type="button"
-                                        class="btn btn-icon absolute top-3 left-14 bg-gray-800/80 hover:bg-brand-600 text-gray-200 hover:text-white shadow-lg z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transform md:scale-90 md:group-hover:scale-100"
-                                        title="Edit artwork details (title, price, artist…)" aria-label="Edit artwork details">
+                                        class="btn btn-icon absolute top-3 left-14 bg-gray-800/80 hover:bg-brand-600 text-gray-200 hover:text-white shadow-lg z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:focus-visible:opacity-100 md:transform md:scale-90 md:group-hover:scale-100 md:focus-visible:scale-100"
+                                        title="Edit artwork details (title, price, artist…)" aria-label="Edit artwork details for {{ $image->title ?: $image->original_name }}">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </button>
 

@@ -70,8 +70,8 @@
                 </div>
             </div>
 
-            <!-- Right side: Active Team Switcher + Notifications + User Dropdown -->
-            <div class="hidden sm:flex sm:items-center sm:ms-6 gap-3">
+            <!-- Right side: Notifications (all viewports) + Team Switcher & User Dropdown (sm+) -->
+            <div class="flex items-center gap-2 sm:gap-3 sm:ms-6">
 
                 {{-- Notification bell --}}
                 @auth
@@ -149,14 +149,14 @@
                 </div>
                 @endauth
 
-                {{-- Active Team Badge / Switcher --}}
+                {{-- Active Team Badge / Switcher — sm+ only; mobile switches workspaces from the menu panel --}}
                 @auth
                 @php
                     $currentTeam = auth()->user()->currentTeam();
                     $allTeams    = auth()->user()->ownedTeams->merge(auth()->user()->teams)->unique('id');
                 @endphp
                 @if($allTeams->isNotEmpty())
-                <div x-data="{ teamOpen: false }" class="relative" @keydown.escape.window="teamOpen = false">
+                <div x-data="{ teamOpen: false }" class="relative hidden sm:block" @keydown.escape.window="teamOpen = false">
                     <button @click="teamOpen = !teamOpen"
                             class="inline-flex items-center gap-2 px-3 h-9 bg-white/[0.04] hover:bg-white/[0.08] border border-gray-700/80 rounded-lg text-sm text-gray-300 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/80"
                             id="team-dropdown-trigger"
@@ -231,7 +231,8 @@
                 @endif
                 @endauth
 
-                <!-- User Dropdown -->
+                <!-- User Dropdown (sm+; mobile panel covers these destinations) -->
+                <div class="hidden sm:block">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center gap-2 px-2.5 h-9 border border-gray-700/80 hover:border-gray-600 text-sm font-medium rounded-lg text-gray-300 bg-white/[0.03] hover:bg-white/[0.07] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/80 transition-all duration-150">
@@ -273,6 +274,7 @@
                         </div>
                     </x-slot>
                 </x-dropdown>
+                </div>
             </div>
 
             <!-- Hamburger -->
@@ -323,6 +325,47 @@
                 </x-responsive-nav-link>
             @endif
         </div>
+
+        {{-- Mobile workspace switcher — parity with the desktop team dropdown --}}
+        @auth
+        @php
+            $mobileCurrentTeam = auth()->user()->currentTeam();
+            $mobileTeams = auth()->user()->ownedTeams->merge(auth()->user()->teams)->unique('id');
+        @endphp
+        @if($mobileTeams->isNotEmpty())
+        <div class="pt-4 pb-1 border-t border-gray-700">
+            <p class="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Workspace</p>
+            <div class="mt-2 space-y-1">
+                <form action="{{ route('admin.teams.switch-personal') }}" method="POST">
+                    @csrf
+                    <button type="submit" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-left transition duration-150 {{ ! $mobileCurrentTeam ? 'text-brand-300 bg-white/[0.04]' : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]' }}">
+                        <span class="w-6 h-6 rounded-lg bg-gray-700 border border-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{{ mb_strtoupper(mb_substr(Auth::user()->name, 0, 1)) }}</span>
+                        <span class="flex-1 text-left">Personal</span>
+                        @if(! $mobileCurrentTeam) <svg class="w-3.5 h-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> @endif
+                    </button>
+                </form>
+                @foreach($mobileTeams as $mTeam)
+                @php $mRole = $mTeam->owner_id === auth()->user()->id ? 'owner' : $mTeam->pivot?->role; @endphp
+                <form action="{{ route('admin.teams.switch', $mTeam) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-left transition duration-150 {{ $mobileCurrentTeam?->id === $mTeam->id ? 'text-brand-300 bg-white/[0.04]' : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]' }}">
+                        <span class="w-6 h-6 rounded-lg bg-brand-700 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">{{ strtoupper(substr($mTeam->name, 0, 1)) }}</span>
+                        <span class="flex-1 min-w-0">
+                            <span class="block truncate">{{ $mTeam->name }}</span>
+                            <span class="block text-xs text-gray-500 capitalize font-normal">{{ $mRole }}</span>
+                        </span>
+                        @if($mobileCurrentTeam?->id === $mTeam->id) <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> @endif
+                    </button>
+                </form>
+                @endforeach
+                <a href="{{ route('admin.teams.create') }}" class="flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-brand-400 hover:text-brand-300 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    New Team
+                </a>
+            </div>
+        </div>
+        @endif
+        @endauth
 
         <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-gray-700">

@@ -148,17 +148,17 @@
                                 <label class="block text-xs font-medium text-gray-400 mb-2">Role</label>
                                 <div class="grid grid-cols-2 gap-2">
                                     <label class="cursor-pointer">
-                                        <input type="radio" name="role" value="editor" x-model="role" class="sr-only">
+                                        <input type="radio" name="role" value="editor" x-model="role" class="sr-only peer">
                                         <div :class="role === 'editor' ? 'border-blue-500 bg-blue-900/20' : 'border-gray-600 bg-gray-700/40 hover:border-gray-500'"
-                                             class="border rounded-lg p-3 transition">
+                                             class="border rounded-lg p-3 transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400/80 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-ink-900">
                                             <p class="text-sm font-medium text-gray-200 mb-0.5">Editor</p>
                                             <p class="text-xs text-gray-500">Can create and manage galleries</p>
                                         </div>
                                     </label>
                                     <label class="cursor-pointer">
-                                        <input type="radio" name="role" value="viewer" x-model="role" class="sr-only">
+                                        <input type="radio" name="role" value="viewer" x-model="role" class="sr-only peer">
                                         <div :class="role === 'viewer' ? 'border-gray-400 bg-gray-700/40' : 'border-gray-600 bg-gray-700/40 hover:border-gray-500'"
-                                             class="border rounded-lg p-3 transition">
+                                             class="border rounded-lg p-3 transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400/80 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-ink-900">
                                             <p class="text-sm font-medium text-gray-200 mb-0.5">Viewer</p>
                                             <p class="text-xs text-gray-500">Can view galleries and analytics only</p>
                                         </div>

@@ -244,6 +244,10 @@ window.openModalAnchor = function(id, e) {
     if (window.openModal) window.openModal(id);
 };
 
+// Shared alias used by data-click="closeModalById" buttons across pages.
+// Must live here (not in per-page scripts) so modals close on every screen.
+window.closeModalById = function(id) { closeModal(id); };
+
 if (!window.__exospaceModalSystemInit) {
     window.__exospaceModalSystemInit = true;
 

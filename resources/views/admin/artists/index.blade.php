@@ -13,8 +13,9 @@
     <div class="page-shell">
 
         {{-- Search --}}
-        <form method="GET" class="mb-5">
-            <input type="text" name="q" value="{{ request('q') }}"
+        <form method="GET" class="mb-5" role="search">
+            <label for="artist-search" class="sr-only">Search artists by name, bio, or location</label>
+            <input type="search" id="artist-search" name="q" value="{{ request('q') }}"
                    placeholder="Search artists by name, bio, or location…"
                    class="input-base max-w-md">
         </form>
@@ -54,15 +55,25 @@
                     </div>
                 </div>
             @empty
-                <div class="col-span-full text-center py-16">
-                    <svg class="w-16 h-16 mx-auto mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    <p class="text-gray-400 mb-1">No artists yet.</p>
-                    <p class="text-gray-600 text-sm mb-4">Create your first artist profile to attribute artworks.</p>
-                    <a href="{{ route('admin.artists.create') }}" class="btn btn-primary">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        New artist
-                    </a>
-                </div>
+                @if(trim((string) request('q')) !== '')
+                    {{-- Failed search — distinct from "no artists yet" so it never dead-ends --}}
+                    <div class="col-span-full empty-state bg-gray-800/50 border border-gray-700/50 rounded-xl">
+                        <svg class="w-12 h-12 text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                        <p class="text-gray-300 font-medium">No artists match "{{ request('q') }}"</p>
+                        <p class="text-gray-500 text-sm mt-1 mb-4">Try a different name, or clear the search to see all artists.</p>
+                        <a href="{{ route('admin.artists.index') }}" class="btn btn-secondary">Clear search</a>
+                    </div>
+                @else
+                    <div class="col-span-full text-center py-16">
+                        <svg class="w-16 h-16 mx-auto mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        <p class="text-gray-400 mb-1">No artists yet.</p>
+                        <p class="text-gray-600 text-sm mb-4">Create your first artist profile to attribute artworks.</p>
+                        <a href="{{ route('admin.artists.create') }}" class="btn btn-primary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            New artist
+                        </a>
+                    </div>
+                @endif
             @endforelse
         </div>
 

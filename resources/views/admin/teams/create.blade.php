@@ -16,14 +16,22 @@
                     </div>
                 @endif
 
-                <form action="{{ route('admin.teams.store') }}" method="POST" class="space-y-6">
+                <form action="{{ route('admin.teams.store') }}" method="POST" class="space-y-6"
+                      data-busy data-busy-label="Creating…">
                     @csrf
 
                     <div>
                         <label for="name" class="label-text mb-1.5">Team Name <span class="text-red-400" aria-hidden="true">*</span></label>
                         <input type="text" id="name" name="name" value="{{ old('name') }}" required maxlength="100" aria-required="true"
                                placeholder="e.g. Studio Collective"
-                               class="input-base">
+                               class="input-base {{ $errors->has('name') ? 'input-error' : '' }}"
+                               @error('name') aria-invalid="true" aria-describedby="name-error" @enderror>
+                        @error('name')
+                            <p id="name-error" class="text-sm text-red-400 mt-1 flex items-center gap-1" role="alert">
+                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                {{ $message }}
+                            </p>
+                        @enderror
                     </div>
 
                     <div>
@@ -42,24 +50,11 @@
                     </div>
 
                     <div class="flex gap-3 pt-2">
-                        <button type="submit" id="create-team-btn"
-                                class="btn btn-primary flex-1 disabled:opacity-60">
-                            <svg id="create-team-spinner" class="hidden animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                            <span id="create-team-label">Create Team</span>
+                        <button type="submit" class="btn btn-primary flex-1">
+                            Create Team
                         </button>
-                        <a href="{{ route('admin.teams.index') }}" class="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition font-medium">
-                            Cancel
-                        </a>
+                        <a href="{{ route('admin.teams.index') }}" class="btn btn-secondary">Cancel</a>
                     </div>
-
-                    <script nonce="@nonce">
-                    document.querySelector('form').addEventListener('submit', function() {
-                        const btn = document.getElementById('create-team-btn');
-                        btn.disabled = true;
-                        document.getElementById('create-team-spinner').classList.remove('hidden');
-                        document.getElementById('create-team-label').textContent = 'Creating…';
-                    });
-                    </script>
                 </form>
             </div>
         </div>

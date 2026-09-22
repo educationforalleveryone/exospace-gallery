@@ -75,24 +75,24 @@
                         @endforeach
                         <option value="__custom__">— Other (custom event name) —</option>
                     </select>
-                    @error('event_type') <p id=\"event_type-error\" class=\"mt-1 text-sm text-red-400\">{{ $message }}</p> @enderror
+                    @error('event_type') <p id="event_type-error" class="mt-1 text-sm text-red-400">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label for="target_url" class="label-text mb-1.5">Target URL (https://...)</label>
                     <input id="target_url" name="target_url" type="url" required placeholder="https://hooks.example.com/exospace"
                            value="{{ old('target_url') }}"
                            class="input-base font-mono {{ $errors->has('target_url') ? 'input-error' : '' }}" @error('target_url') aria-invalid="true" aria-describedby="target_url-error" @enderror>
-                    @error('target_url') <p id=\"target_url-error\" class=\"mt-1 text-sm text-red-400\">{{ $message }}</p> @enderror
+                    @error('target_url') <p id="target_url-error" class="mt-1 text-sm text-red-400">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label for="secret" class="label-text mb-1.5">
                         Per-subscription secret
-                        <span class="text-gray-600">(optional — overrides OUTBOUND_WEBHOOK_SECRET)</span>
+                        <span class="text-gray-500">(optional — overrides OUTBOUND_WEBHOOK_SECRET)</span>
                     </label>
                     <input id="secret" name="secret" type="text" autocomplete="off" placeholder="leave empty to use global secret"
                            value="{{ old('secret') }}"
                            class="input-base font-mono {{ $errors->has('secret') ? 'input-error' : '' }}" @error('secret') aria-invalid="true" aria-describedby="secret-error" @enderror>
-                    @error('secret') <p id=\"secret-error\" class=\"mt-1 text-sm text-red-400\">{{ $message }}</p> @enderror
+                    @error('secret') <p id="secret-error" class="mt-1 text-sm text-red-400">{{ $message }}</p> @enderror
                 </div>
             </div>
             <template x-if="custom">

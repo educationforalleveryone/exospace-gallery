@@ -33,6 +33,6 @@ $cls = $disabled
     </div>
     <span class="text-xs font-semibold text-gray-200 leading-tight">{{ $label }}</span>
     @if($description)
-        <span class="text-xs text-gray-600 mt-0.5 leading-tight">{{ $description }}</span>
+        <span class="text-xs text-gray-500 mt-0.5 leading-tight">{{ $description }}</span>
     @endif
 </a>

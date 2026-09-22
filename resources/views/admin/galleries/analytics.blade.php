@@ -3,47 +3,8 @@
         <x-page-header :title="'Analytics — '.$gallery->title" :back="route('admin.galleries.edit', $gallery)" backLabel="Back to gallery"/>
     </x-slot>
 
-    <div id="analytics-skeleton" class="page-shell space-y-6">
-            {{-- Skeleton stat cards (5 cards in a responsive grid) --}}
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                @for($i = 0; $i < 5; $i++)
-                    <div class="bg-gray-800 border border-gray-700 rounded-xl p-5">
-                        <div class="flex items-center gap-3 mb-3">
-                            <x-skeleton variant="avatar" />
-                            <x-skeleton variant="text" class="w-20" />
-                        </div>
-                        <x-skeleton variant="text" class="w-16 h-7" />
-                    </div>
-                @endfor
-            </div>
-            {{-- Skeleton chart --}}
-            <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
-                <x-skeleton variant="text" class="w-40 mb-5" />
-                <x-skeleton variant="chart" class="h-32" />
-            </div>
-            {{-- Skeleton bottom cards (top-artworks + traffic-sources) --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                @for($i = 0; $i < 2; $i++)
-                    <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
-                        <x-skeleton variant="text" class="w-44 mb-5" />
-                        <div class="space-y-4">
-                            @for($j = 0; $j < 4; $j++)
-                                <div class="flex items-center gap-3">
-                                    <x-skeleton variant="avatar" />
-                                    <div class="flex-1 space-y-2">
-                                        <x-skeleton variant="text" class="w-3/4" />
-                                        <x-skeleton variant="text" class="h-2 rounded-full" />
-                                    </div>
-                                </div>
-                            @endfor
-                        </div>
-                    </div>
-                @endfor
-            </div>
-    </div>
-
-    <!-- Actual content (hidden until loaded) -->
-    <div id="analytics-content" style="display:none;" class="page-shell space-y-6">
+    {{-- Data is server-rendered; no skeleton. Only the chart waits for Chart.js below. --}}
+    <div id="analytics-content" class="page-shell space-y-6">
 
 
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -68,7 +29,7 @@
                             </div>
                             <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">{{ $stat['label'] }}</span>
                         </div>
-                        <div class="text-2xl font-bold text-white">{{ $stat['value'] }}</div>
+                        <div class="text-2xl font-semibold text-gray-50 text-numeric">{{ $stat['value'] }}</div>
                         @if($stat['label'] === 'Total Views' && $viewsTrend !== null)
                             <div class="text-xs mt-1 {{ $viewsTrend >= 0 ? 'text-emerald-400' : 'text-red-400' }}">
                                 {{ $viewsTrend >= 0 ? '↑' : '↓' }} {{ abs($viewsTrend) }}% vs prev 7 days
@@ -166,11 +127,7 @@
             }
             setTimeout(function() { waitForChartThenInit(attemptsLeft - 1); }, 100);
         }
-        setTimeout(function() {
-            document.getElementById('analytics-skeleton').style.display = 'none';
-            document.getElementById('analytics-content').style.display = 'block';
-            waitForChartThenInit(30);
-        }, 1200);
+        waitForChartThenInit(30);
 
         function initChart() {
         const ctx = document.getElementById('views-chart').getContext('2d');

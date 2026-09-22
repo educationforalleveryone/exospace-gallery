@@ -68,7 +68,22 @@
             </div>
             @endif
 
-            @if($galleries->count() > 0)
+            @if($galleries->count() > 0 || $search !== '')
+                {{-- Search — matches the artists index pattern --}}
+                <form method="GET" class="mb-5 flex flex-col sm:flex-row sm:items-center gap-2" role="search">
+                    @if($activeTeam)
+                        <input type="hidden" name="team" value="{{ $activeTeam->id }}">
+                    @endif
+                    <label for="gallery-search" class="sr-only">Search galleries by title</label>
+                    <input type="search" id="gallery-search" name="q" value="{{ $search }}"
+                           placeholder="Search galleries by title…"
+                           class="input-base max-w-md">
+                    @if($search !== '')
+                        <a href="{{ $activeTeam ? '?team='.$activeTeam->id : route('admin.galleries.index') }}" class="action-link shrink-0">Clear</a>
+                    @endif
+                </form>
+
+                @if($galleries->count() > 0)
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     @foreach($galleries as $gallery)
                         @php
@@ -153,7 +168,7 @@
                                     <a href="{{ route('gallery.view', $gallery->slug) }}" target="_blank" class="btn btn-secondary">
                                         View
                                     </a>
-                                    <button data-click="shareGallery" data-args='[{{ json_encode([route('gallery.view', $gallery->slug), $gallery->title]) }}]' class="btn btn-secondary">
+                                    <button data-click="shareGallery" data-args="{{ json_encode([route('gallery.view', $gallery->slug), $gallery->title]) }}" class="btn btn-secondary">
                                         Share
                                     </button>
                                 </div>
@@ -185,7 +200,9 @@
                                         Edit
                                     </a>
                                     @if($canEdit)
-                                    <button data-click="confirmDelete" data-args='[{{ $gallery->id }}, {{ json_encode($gallery->title) }}]' class="btn btn-danger">
+                                    <button data-click="confirmDelete"
+                                            data-args="{{ json_encode([$gallery->id, $gallery->title, route('admin.galleries.destroy', $gallery)]) }}"
+                                            class="btn btn-danger">
                                         Delete
                                     </button>
                                     @endif
@@ -210,6 +227,15 @@
                 <div class="mt-6">
                     {{ $galleries->links() }}
                 </div>
+                @else
+                {{-- Search yielded nothing — distinct from "no galleries yet" so it never dead-ends --}}
+                <div class="max-w-4xl mx-auto empty-state bg-gray-800/50 border border-gray-700/50 rounded-xl">
+                    <svg class="w-12 h-12 text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                    <p class="text-gray-300 font-medium">No galleries match "{{ $search }}"</p>
+                    <p class="text-gray-500 text-sm mt-1 mb-4">Try a different title, or clear the search to see all galleries{{ $activeTeam ? ' in this workspace' : '' }}.</p>
+                    <a href="{{ $activeTeam ? '?team='.$activeTeam->id : route('admin.galleries.index') }}" class="btn btn-secondary">Clear search</a>
+                </div>
+                @endif
             @else
                 <div class="max-w-4xl mx-auto">
                     <!-- Main Hero Card -->
@@ -387,7 +413,7 @@
                 </div>
             </div>
             <p class="text-gray-300 mb-6">Are you sure you want to permanently delete <span id="delete-gallery-name" class="font-semibold text-white"></span>? All images and analytics data will be lost.</p>
-            <form id="delete-form" method="POST">
+            <form id="delete-form" method="POST" data-busy data-busy-label="Deleting…">
                 @csrf
                 @method('DELETE')
                 <div class="flex gap-3 justify-end">
@@ -407,9 +433,9 @@
     <x-upgrade-modal />
 
     <script nonce="@nonce">
-        function confirmDelete(galleryId, galleryTitle) {
+        function confirmDelete(galleryId, galleryTitle, deleteUrl) {
             document.getElementById('delete-gallery-name').textContent = galleryTitle;
-            document.getElementById('delete-form').action = '/admin/galleries/' + galleryId;
+            document.getElementById('delete-form').action = deleteUrl;
             openModal('delete-modal');
         }
 

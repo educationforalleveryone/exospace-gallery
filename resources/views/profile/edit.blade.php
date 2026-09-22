@@ -100,9 +100,8 @@
                         </x-modal>
                     @else
                         <div class="mt-4">
-                            <a href="{{ route('mfa.setup') }}"
-                               class="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            <a href="{{ route('mfa.setup') }}" class="btn btn-primary">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                 Enable MFA
                             </a>
                             <p class="mt-2 text-xs text-gray-500">Optional but recommended. You can disable it anytime.</p>
@@ -133,7 +132,9 @@
                                 </div>
                             </div>
                             @if(auth()->user()->hasOAuthProvider('google'))
-                                <form method="POST" action="{{ route('oauth.unlink', 'google') }}">
+                                <form method="POST" action="{{ route('oauth.unlink', 'google') }}"
+                                      data-confirm="Unlink your Google account? You'll sign in with your password or another connected account instead."
+                                      data-confirm-button="Unlink Google">
                                     @csrf
                                     <button type="submit" class="btn btn-sm btn-danger-ghost">Unlink</button>
                                 </form>
@@ -154,7 +155,9 @@
                                 </div>
                             </div>
                             @if(auth()->user()->hasOAuthProvider('github'))
-                                <form method="POST" action="{{ route('oauth.unlink', 'github') }}">
+                                <form method="POST" action="{{ route('oauth.unlink', 'github') }}"
+                                      data-confirm="Unlink your GitHub account? You'll sign in with your password or another connected account instead."
+                                      data-confirm-button="Unlink GitHub">
                                     @csrf
                                     <button type="submit" class="btn btn-sm btn-danger-ghost">Unlink</button>
                                 </form>

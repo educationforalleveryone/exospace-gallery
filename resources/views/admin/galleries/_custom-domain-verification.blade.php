@@ -5,9 +5,9 @@
         $txtValue = $gallery->domainVerificationTxtValue();
     @endphp
 
-    <div class="mt-4 rounded-lg border border-slate-700 bg-slate-900/50 p-4">
+    <div class="mt-4 rounded-lg border border-gray-700 bg-gray-900/50 p-4">
         <div class="flex items-center justify-between">
-            <h4 class="text-sm font-semibold text-slate-200">
+            <h4 class="text-sm font-semibold text-gray-200">
                 DNS Verification
             </h4>
             @if($isVerified)
@@ -22,33 +22,33 @@
         </div>
 
         @if($isVerified)
-            <p class="mt-2 text-xs text-slate-400">
+            <p class="mt-2 text-xs text-gray-400">
                 Your custom domain is verified and serving traffic via Coolify.
                 SSL is provisioned automatically (may take 1–5 minutes after
                 first verification).
             </p>
         @else
-            <p class="mt-2 text-xs text-slate-400">
-                To prove you own <code class="text-slate-200">{{ $gallery->custom_domain }}</code>,
+            <p class="mt-2 text-xs text-gray-400">
+                To prove you own <code class="text-gray-200">{{ $gallery->custom_domain }}</code>,
                 add the following TXT record to your DNS:
             </p>
 
             <dl class="mt-3 space-y-2 text-xs">
                 <div>
-                    <dt class="text-slate-500">Type</dt>
-                    <dd class="font-mono text-slate-200">TXT</dd>
+                    <dt class="text-gray-500">Type</dt>
+                    <dd class="font-mono text-gray-200">TXT</dd>
                 </div>
                 <div>
-                    <dt class="text-slate-500">Host / Name</dt>
-                    <dd class="font-mono text-slate-200 break-all">{{ $txtHost }}</dd>
+                    <dt class="text-gray-500">Host / Name</dt>
+                    <dd class="font-mono text-gray-200 break-all">{{ $txtHost }}</dd>
                 </div>
                 <div>
-                    <dt class="text-slate-500">Value</dt>
-                    <dd class="font-mono text-slate-200 break-all">{{ $txtValue }}</dd>
+                    <dt class="text-gray-500">Value</dt>
+                    <dd class="font-mono text-gray-200 break-all">{{ $txtValue }}</dd>
                 </div>
             </dl>
 
-            <p class="mt-3 text-xs text-slate-500">
+            <p class="mt-3 text-xs text-gray-500">
                 DNS propagation can take 5–60 minutes. We automatically retry
                 every hour, or you can click below to check now.
             </p>

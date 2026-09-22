@@ -32,12 +32,23 @@ class GalleryController extends Controller
     {
         $user   = Auth::user();
         $team   = $this->resolveTeamContext($user, $request->query('team'));
+        $search = trim((string) $request->query('q', ''));
+
+        if ($search !== '') {
+            $search = mb_substr($search, 0, 100);
+        }
 
         $galleries = $team
-            ? Gallery::with(['coverImage.media', 'venueTemplate'])->withCount('images')->where('team_id', $team->id)->latest()->paginate(10)
-            : Gallery::with(['coverImage.media', 'venueTemplate'])->withCount('images')->where('user_id', $user->id)->whereNull('team_id')->latest()->paginate(10);
+            ? Gallery::with(['coverImage.media', 'venueTemplate'])->withCount('images')->where('team_id', $team->id)
+            : Gallery::with(['coverImage.media', 'venueTemplate'])->withCount('images')->where('user_id', $user->id)->whereNull('team_id');
 
-        return view('admin.galleries.index', compact('galleries', 'team'));
+        $galleries = $galleries
+            ->when($search !== '', fn ($q) => $q->where('title', 'like', "%{$search}%"))
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.galleries.index', compact('galleries', 'team', 'search'));
     }
 
     public function create(Request $request): View|RedirectResponse

@@ -437,7 +437,7 @@
                                         </button>
                                     </form>
                                 @else
-                                    <button data-click="openBanModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}]'
+                                    <button data-click="openBanModal" data-args="{{ json_encode([$user->id, $user->name]) }}"
                                             class="btn btn-sm btn-danger-ghost">
                                         Ban
                                     </button>
@@ -467,13 +467,13 @@
                                 {{-- Toggle Super Admin --}}
                                 @if(! $user->is_super_admin)
                                     <button type="button"
-                                            data-click="openAdminModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}, "grant"]'
+                                            data-click="openAdminModal" data-args="{{ json_encode([$user->id, $user->name, 'grant']) }}"
                                             class="btn btn-sm btn-secondary">
                                         Make Admin
                                     </button>
                                 @else
                                     <button type="button"
-                                            data-click="openAdminModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}, "revoke"]'
+                                            data-click="openAdminModal" data-args="{{ json_encode([$user->id, $user->name, 'revoke']) }}"
                                             class="btn btn-sm btn-danger-ghost">
                                         Revoke Admin
                                     </button>
@@ -496,7 +496,7 @@
                                 {{-- Delete --}}
                                 @if(! $user->is_super_admin)
                                     <button type="button"
-                                            data-click="openDeleteModal" data-args='[{{ $user->id }}, {{ json_encode($user->name) }}]'
+                                            data-click="openDeleteModal" data-args="{{ json_encode([$user->id, $user->name]) }}"
                                             class="btn btn-sm btn-danger">
                                         Delete
                                     </button>

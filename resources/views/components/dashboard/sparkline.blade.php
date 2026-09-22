@@ -21,7 +21,7 @@ $trendDown = $trend !== null && $trend < 0;
         <div>
             <div class="text-sm font-medium text-gray-400 mb-0.5">{{ $label }}</div>
             <div class="flex items-baseline gap-2">
-                <span class="text-2xl font-bold text-gray-100 tabular-nums">{{ number_format($total) }}</span>
+                <span class="text-2xl font-semibold text-gray-100 text-numeric">{{ number_format($total) }}</span>
                 <span class="text-xs text-gray-500">total</span>
                 @if($today !== null)
                     <span class="text-xs text-gray-600 ml-1">·</span>

@@ -59,20 +59,20 @@
                     <!-- Title -->
                     <div class="mb-4">
                         <label for="title" class="label-text mb-1.5">Gallery Title <span class="text-red-400" aria-hidden="true">*</span></label>
-                        <input type="text" id="title" name="title" value="{{ old('title') }}" required aria-required="true"
+                        <input type="text" id="title" name="title" value="{{ old('title') }}" required aria-required="true" maxlength="255"
                             class="input-base mt-1 {{ $errors->has('title') ? 'input-error' : '' }}" @error('title') aria-invalid="true" aria-describedby="title-error" @enderror>
                         @error('title')
-                            <p class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
+                            <p id="title-error" class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <!-- Description -->
                     <div class="mb-4">
                         <label for="description" class="label-text mb-1.5">Description</label>
-                        <textarea name="description" id="description" rows="3"
+                        <textarea name="description" id="description" rows="3" maxlength="1000"
                             class="input-base mt-1 {{ $errors->has('description') ? 'input-error' : '' }}" @error('description') aria-invalid="true" aria-describedby="description-error" @enderror>{{ old('description') }}</textarea>
                         @error('description')
-                            <p class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
+                            <p id="description-error" class="text-red-400 text-sm mt-1" role="alert">{{ $message }}</p>
                         @enderror
                     </div>
 
@@ -344,11 +344,16 @@ $venueAtmospheres = [
                         
                         @if(auth()->user()->isPro())
                             <!-- Show upload field for Pro users -->
-                            <div class="space-y-3">
-                                <input type="file" 
-                                       name="audio" 
+                            <div class="space-y-3" x-data="{ fileName: '' }">
+                                <label for="gallery-audio" class="sr-only">Background music file</label>
+                                <input type="file" id="gallery-audio"
+                                       name="audio"
                                        accept=".mp3,.wav,.m4a"
+                                       @change="fileName = $event.target.files?.[0]?.name ?? ''"
                                        class="file-base cursor-pointer">
+                                <p class="text-xs text-gray-300" x-cloak x-show="fileName">
+                                    Selected: <span x-text="fileName"></span>
+                                </p>
                                 <p class="text-xs text-gray-400">Upload MP3, WAV, or M4A (Max 10MB). Music will loop in your 3D gallery.</p>
                             </div>
                         @else

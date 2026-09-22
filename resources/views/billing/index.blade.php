@@ -107,12 +107,14 @@
                 </div>
                 @endif
 
-                {{-- Upgrade CTAs --}}
+                {{-- Upgrade CTAs — prices from services config so env changes stay in sync --}}
                 @php
                     $recurringProPrice = config('services.2checkout.recurring_price_pro_monthly', '4.99');
                     $recurringStudioPrice = config('services.2checkout.recurring_price_studio_monthly', '14.99');
                     $hasRecurringPro = config('services.2checkout.recurring_product_id_pro');
                     $hasRecurringStudio = config('services.2checkout.recurring_product_id_studio');
+                    $proPrice = config('services.2checkout.price_pro', '29');
+                    $studioPrice = config('services.2checkout.price_studio', '99');
                 @endphp
                 @if($user->plan === 'free')
                 <div class="mt-6 space-y-2">
@@ -134,7 +136,7 @@
                     <form action="{{ route('billing.upgrade.start', 'pro') }}" method="POST">
                         @csrf
                         <button type="submit" class="btn btn-primary w-full">
-                            Pro — $29 one-time
+                            Pro — ${{ $proPrice }} one-time
                         </button>
                     </form>
                     @if($hasRecurringPro)
@@ -149,7 +151,7 @@
                     <form action="{{ route('billing.upgrade.start', 'studio') }}" method="POST">
                         @csrf
                         <button type="submit" class="btn btn-primary w-full">
-                            Studio — $99 one-time
+                            Studio — ${{ $studioPrice }} one-time
                         </button>
                     </form>
                     @if($hasRecurringStudio)
@@ -167,7 +169,7 @@
                     <form action="{{ route('billing.upgrade.start', 'studio') }}" method="POST">
                         @csrf
                         <button type="submit" class="btn btn-primary w-full">
-                            Upgrade to Studio — $99
+                            Upgrade to Studio — ${{ $studioPrice }}
                         </button>
                     </form>
                     @if($hasRecurringStudio)

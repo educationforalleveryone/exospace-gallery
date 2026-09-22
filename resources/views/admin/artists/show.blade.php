@@ -29,14 +29,14 @@
                     @endif
                     <div class="flex flex-wrap gap-3 mt-4 text-xs">
                         @if($artist->website)
-                            <a href="{{ $artist->website }}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
+                            <a href="{{ $artist->website }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
                                 Website
                             </a>
                         @endif
                         @if($artist->instagram)
-                            <a href="{{ $artist->instagram_url }}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
-                                @{{ $artist->instagram }}
+                            <a href="{{ $artist->instagram_url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
+                                {{ '@'.$artist->instagram }}
                             </a>
                         @endif
                         @if($artist->email)
@@ -44,7 +44,7 @@
                                 {{ $artist->email }}
                             </a>
                         @endif
-                        <a href="{{ route('artist.profile', $artist->slug) }}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-600/40 hover:bg-brand-600/60 text-brand-200 transition">
+                        <a href="{{ route('artist.profile', $artist->slug) }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-600/40 hover:bg-brand-600/60 text-brand-200 transition">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                             Public profile
                         </a>
@@ -86,7 +86,7 @@
                     @foreach($entry['images'] as $img)
                         <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-700 group relative">
                             <img src="{{ asset($img->path) }}" alt="{{ $img->title ?: $img->original_name }}" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition flex items-end p-2 opacity-0 group-hover:opacity-100">
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/60 group-focus-within:bg-black/60 transition flex items-end p-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
                                 <p class="text-white text-xs truncate">{{ $img->title ?: $img->original_name }}</p>
                             </div>
                             @if($img->for_sale)
