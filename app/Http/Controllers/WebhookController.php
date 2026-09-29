@@ -152,12 +152,23 @@ class WebhookController extends Controller
         $previousSubscriptionId = $user->subscription_id;
         $previousSubscriptionActive = $user->hasActiveSubscription() || $user->subscription_status === 'past_due';
 
-        $productMap = [
-            config('services.2checkout.product_id_pro')    => ['plan' => 'pro'],
-            config('services.2checkout.product_id_studio') => ['plan' => 'studio'],
-        ];
+        // Recurring products are sold through the same buy-link flow, so they
+        // must resolve to a plan too. Unset IDs are skipped so an empty
+        // item_id_1 can never match a null config value.
+        $productMap = [];
+        foreach ([
+            'product_id_pro'            => 'pro',
+            'recurring_product_id_pro'  => 'pro',
+            'product_id_studio'         => 'studio',
+            'recurring_product_id_studio' => 'studio',
+        ] as $configKey => $plan) {
+            $configuredId = (string) config("services.2checkout.{$configKey}");
+            if ($configuredId !== '') {
+                $productMap[$configuredId] = ['plan' => $plan];
+            }
+        }
 
-        $planConfig = $productMap[$productId] ?? null;
+        $planConfig = $productMap[(string) $productId] ?? null;
 
         if (! $planConfig) {
             Log::warning('2Checkout: Unknown product ID received', [

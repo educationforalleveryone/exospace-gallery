@@ -155,6 +155,41 @@ class WebhookBillingTest extends TestCase
         $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
     }
 
+    public function test_order_created_with_recurring_product_id_upgrades_to_matching_plan(): void
+    {
+        Config::set('services.2checkout.recurring_product_id_pro', 'PRO-RECURRING-1');
+        Config::set('services.2checkout.recurring_product_id_studio', 'STUDIO-RECURRING-1');
+
+        $proUser = User::factory()->create(['email' => 'recurring-pro@example.com']);
+        $studioUser = User::factory()->create(['email' => 'recurring-studio@example.com']);
+
+        $this->postWebhook($this->validIpnPayload([
+            'customer_email' => $proUser->email,
+            'item_id_1'      => 'PRO-RECURRING-1',
+        ]))->assertOk();
+
+        $this->postWebhook($this->validIpnPayload([
+            'customer_email' => $studioUser->email,
+            'item_id_1'      => 'STUDIO-RECURRING-1',
+        ]))->assertOk();
+
+        $this->assertEquals('pro', $proUser->fresh()->plan);
+        $this->assertEquals('studio', $studioUser->fresh()->plan);
+    }
+
+    public function test_order_created_with_empty_product_id_does_not_match_unconfigured_recurring_ids(): void
+    {
+        Config::set('services.2checkout.recurring_product_id_pro', null);
+        Config::set('services.2checkout.recurring_product_id_studio', null);
+
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+
+        $this->postWebhook($this->validIpnPayload(['item_id_1' => '']))->assertOk();
+
+        $this->assertEquals('free', $user->fresh()->plan);
+        $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
+    }
+
     public function test_order_created_for_unknown_user_returns_200(): void
     {
         $payload = $this->validIpnPayload([
