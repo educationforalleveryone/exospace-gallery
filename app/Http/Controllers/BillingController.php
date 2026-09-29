@@ -554,9 +554,12 @@ class BillingController extends Controller
         $local  = \Illuminate\Support\Facades\Storage::disk('local');
         $public = \Illuminate\Support\Facades\Storage::disk('public');
 
-        if ($local->exists($invoice->pdf_path)) {
+        // Legacy rows may carry the public URL prefix.
+        $path = \Illuminate\Support\Str::after($invoice->pdf_path, 'storage/');
+
+        if ($local->exists($path)) {
             $disk = $local;
-        } elseif ($public->exists($invoice->pdf_path)) {
+        } elseif ($public->exists($path)) {
             $disk = $public;
         } else {
             Log::warning('BillingController: invoice file missing on disk', [
@@ -574,7 +577,7 @@ class BillingController extends Controller
         };
         $filename = "{$invoice->invoice_number}.{$extension}";
 
-        return response($disk->get($invoice->pdf_path), 200, [
+        return response($disk->get($path), 200, [
             'Content-Type'        => $mimeType,
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
             'Cache-Control'       => 'private, no-cache, no-store, must-revalidate',

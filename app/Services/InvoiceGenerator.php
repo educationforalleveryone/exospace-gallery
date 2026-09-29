@@ -21,7 +21,14 @@ class InvoiceGenerator
     public function generateForTransaction(Transaction $transaction, User $user, array $overrides = []): ?Invoice
     {
         try {
-            $invoiceNumber = $this->generateInvoiceNumber();
+            $existing = Invoice::where('transaction_id', $transaction->id)->first();
+            if ($existing) {
+                if (empty($existing->pdf_path)) {
+                    $this->regeneratePdf($existing);
+                }
+
+                return $existing->refresh();
+            }
 
             $amount = (float) $transaction->amount;
 
@@ -51,10 +58,12 @@ class InvoiceGenerator
                     ? 'subscription'
                     : 'one_time');
 
-            $invoice = Invoice::create([
+            // The number lookup locks the latest row, so it must stay in the same
+            // transaction as the insert or concurrent webhooks reuse a number.
+            $invoice = DB::transaction(fn () => Invoice::create([
                 'user_id'              => $user->id,
                 'transaction_id'       => $transaction->id,
-                'invoice_number'       => $invoiceNumber,
+                'invoice_number'       => $this->generateInvoiceNumber(),
                 'amount'               => $amount,
                 'tax_amount'           => $taxAmount,
                 'tax_rate'             => $taxRate,
@@ -70,7 +79,7 @@ class InvoiceGenerator
                 'reverse_charge'       => $reverseCharge,
                 'pdf_path'             => null, // set after PDF generation
                 'issued_at'            => now(),
-            ]);
+            ]), 3);
 
             // Generate the real PDF via dompdf
             $pdfPath = $this->generatePdf($invoice);
@@ -78,7 +87,7 @@ class InvoiceGenerator
 
             Log::info('InvoiceGenerator: invoice created', [
                 'invoice_id'        => $invoice->id,
-                'invoice_number'    => $invoiceNumber,
+                'invoice_number'    => $invoice->invoice_number,
                 'transaction_id'    => $transaction->id,
                 'user_id'           => $user->id,
                 'amount'            => $amount,
@@ -98,6 +107,34 @@ class InvoiceGenerator
                 'error'          => $e->getMessage(),
             ]);
             return null;
+        }
+    }
+
+    /**
+     * A converted invoice (e.g. legacy .html) must not linger on either disk,
+     * least of all the public one where it is reachable by URL.
+     */
+    private function retireReplacedFile(?string $previousPath, string $newPath): void
+    {
+        if (empty($previousPath)) {
+            return;
+        }
+
+        $previous = Str::after($previousPath, 'storage/');
+        if ($previous === $newPath) {
+            return;
+        }
+
+        foreach (['local', 'public'] as $disk) {
+            try {
+                Storage::disk($disk)->delete($previous);
+            } catch (\Throwable $e) {
+                Log::warning('InvoiceGenerator: could not remove replaced invoice file', [
+                    'disk'  => $disk,
+                    'path'  => $previous,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 
@@ -172,8 +209,12 @@ class InvoiceGenerator
     public function regeneratePdf(Invoice $invoice): ?string
     {
         try {
+            $previousPath = $invoice->pdf_path;
+
             $pdfPath = $this->generatePdf($invoice);
             $invoice->forceFill(['pdf_path' => $pdfPath])->save();
+
+            $this->retireReplacedFile($previousPath, $pdfPath);
 
             Log::info('InvoiceGenerator: invoice PDF regenerated', [
                 'invoice_id' => $invoice->id,

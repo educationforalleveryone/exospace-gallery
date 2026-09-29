@@ -46,11 +46,10 @@ class RegenerateInvoices extends Command
                   ->orWhere('pdf_path', '');
             });
         }
-        if ($limit > 0) {
-            $query->limit($limit);
-        }
-
         $totalCount = (clone $query)->count();
+        if ($limit > 0) {
+            $totalCount = min($totalCount, $limit);
+        }
         if ($totalCount === 0) {
             $this->info('No invoices need regeneration. All invoices already have .pdf paths.');
             return 0;
@@ -69,8 +68,12 @@ class RegenerateInvoices extends Command
         $bar->start();
 
         // Process in batches to avoid memory issues
-        $query->chunkById($batchSize, function ($invoices) use ($generator, &$processed, &$succeeded, &$failed, $bar) {
+        $query->chunkById($batchSize, function ($invoices) use ($generator, $limit, &$processed, &$succeeded, &$failed, $bar) {
             foreach ($invoices as $invoice) {
+                if ($limit > 0 && $processed >= $limit) {
+                    return false;
+                }
+
                 $processed++;
                 $bar->advance();
 

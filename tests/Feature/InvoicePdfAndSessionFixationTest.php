@@ -101,6 +101,128 @@ class InvoicePdfAndSessionFixationTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_generating_twice_for_one_transaction_returns_the_same_invoice(): void
+    {
+        Storage::fake('local');
+
+        $transaction = Transaction::factory()->create(['amount' => 29.00, 'currency' => 'USD', 'plan' => 'pro']);
+        $user = User::factory()->create();
+        $generator = app(InvoiceGenerator::class);
+
+        $first = $generator->generateForTransaction($transaction, $user);
+        $second = $generator->generateForTransaction($transaction, $user);
+
+        $this->assertNotNull($first);
+        $this->assertSame($first->id, $second->id);
+        $this->assertSame(1, Invoice::where('transaction_id', $transaction->id)->count());
+    }
+
+    public function test_retry_completes_an_invoice_whose_pdf_was_never_written(): void
+    {
+        Storage::fake('local');
+
+        $transaction = Transaction::factory()->create(['amount' => 29.00, 'currency' => 'USD', 'plan' => 'pro']);
+        $user = User::factory()->create();
+        $invoice = Invoice::factory()->create([
+            'user_id'        => $user->id,
+            'transaction_id' => $transaction->id,
+            'pdf_path'       => null,
+        ]);
+
+        $result = app(InvoiceGenerator::class)->generateForTransaction($transaction, $user);
+
+        $this->assertSame($invoice->id, $result->id);
+        $this->assertNotEmpty($result->pdf_path);
+        Storage::disk('local')->assertExists($result->pdf_path);
+    }
+
+    public function test_sequential_invoices_get_distinct_increasing_numbers(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $generator = app(InvoiceGenerator::class);
+
+        $numbers = [];
+        foreach (range(1, 3) as $ignored) {
+            $transaction = Transaction::factory()->create(['amount' => 29.00, 'currency' => 'USD', 'plan' => 'pro']);
+            $numbers[] = $generator->generateForTransaction($transaction, $user)->invoice_number;
+        }
+
+        $this->assertCount(3, array_unique($numbers));
+        $sorted = $numbers;
+        sort($sorted);
+        $this->assertSame($sorted, $numbers);
+    }
+
+    public function test_regeneration_retires_the_replaced_public_file(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        $invoice = Invoice::factory()->create([
+            'user_id'  => $user->id,
+            'pdf_path' => 'invoices/2026/INV-2026-00077.html',
+        ]);
+        Storage::disk('public')->put('invoices/2026/INV-2026-00077.html', '<html>old</html>');
+
+        $newPath = app(InvoiceGenerator::class)->regeneratePdf($invoice);
+
+        $this->assertNotNull($newPath);
+        Storage::disk('local')->assertExists($newPath);
+        Storage::disk('public')->assertMissing('invoices/2026/INV-2026-00077.html');
+        $this->assertSame($newPath, $invoice->refresh()->pdf_path);
+    }
+
+    public function test_regeneration_keeps_the_file_when_the_path_is_unchanged(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $invoice = Invoice::factory()->create([
+            'user_id'        => $user->id,
+            'invoice_number' => 'INV-' . now()->year . '-00088',
+            'issued_at'      => now(),
+            'pdf_path'       => 'invoices/' . now()->year . '/INV-' . now()->year . '-00088.pdf',
+        ]);
+
+        $newPath = app(InvoiceGenerator::class)->regeneratePdf($invoice);
+
+        $this->assertSame($invoice->pdf_path, $newPath);
+        Storage::disk('local')->assertExists($newPath);
+    }
+
+    public function test_download_resolves_legacy_storage_prefixed_paths(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $invoice = Invoice::factory()->create([
+            'user_id'  => $user->id,
+            'pdf_path' => 'storage/invoices/2026/INV-2026-00099.pdf',
+        ]);
+        Storage::disk('local')->put('invoices/2026/INV-2026-00099.pdf', '%PDF-1.4 fake content');
+
+        $this->actingAs($user)
+            ->get(route('billing.invoice', ['invoice' => $invoice->id]))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_regenerate_command_honours_the_limit_option(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        Invoice::factory()->count(3)->create(['user_id' => $user->id, 'pdf_path' => null]);
+
+        $this->artisan('exospace:regenerate-invoices', ['--limit' => 2])->assertExitCode(0);
+
+        $this->assertSame(2, Invoice::whereNotNull('pdf_path')->count());
+        $this->assertSame(1, Invoice::whereNull('pdf_path')->count());
+    }
+
     public function test_2co6_regenerate_invoices_command_exists(): void
     {
         $this->assertArrayHasKey('exospace:regenerate-invoices', \Illuminate\Support\Facades\Artisan::all(),
