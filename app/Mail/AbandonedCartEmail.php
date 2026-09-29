@@ -13,6 +13,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class AbandonedCartEmail extends Mailable implements ShouldQueue
 {
@@ -23,6 +24,24 @@ class AbandonedCartEmail extends Mailable implements ShouldQueue
         public User $user,
         public PendingUpgrade $pendingUpgrade,
     ) {}
+
+    /**
+     * The email is queued, so consent, bans and purchases can change before a
+     * worker delivers it. Re-check against the fresh models at delivery.
+     */
+    public function send($mailer)
+    {
+        if (! $this->pendingUpgrade->isRecoverable()) {
+            Log::info('AbandonedCart: dropped at delivery — no longer eligible', [
+                'user_id'            => $this->user->id,
+                'pending_upgrade_id' => $this->pendingUpgrade->id,
+            ]);
+
+            return null;
+        }
+
+        return parent::send($mailer);
+    }
 
     public function envelope(): Envelope
     {

@@ -15,12 +15,14 @@ use App\Models\PendingUpgrade;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class Rfc8058UnsubscribeTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function welcome_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
@@ -38,6 +40,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertStringContainsString('signature=', $headers->text['List-Unsubscribe']);
     }
 
+    #[Test]
     public function first_gallery_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create();
@@ -50,6 +53,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
+    #[Test]
     public function inactive_nudge_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create();
@@ -61,6 +65,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
+    #[Test]
     public function abandoned_cart_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create();
@@ -73,6 +78,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
+    #[Test]
     public function plan_upgraded_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create();
@@ -84,6 +90,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
+    #[Test]
     public function plan_expiring_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create([
@@ -98,6 +105,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertSame('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
     }
 
+    #[Test]
     public function marketing_mailables_pass_unsubscribe_url_to_view(): void
     {
         $user = User::factory()->create();
@@ -111,6 +119,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertStringContainsString('/unsubscribe/one-click/', $content->with['unsubscribeUrl']);
     }
 
+    #[Test]
     public function one_click_post_endpoint_returns_200_without_csrf(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
@@ -124,6 +133,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertFalse($user->fresh()->marketing_consent, 'marketing_consent should be false after one-click unsubscribe');
     }
 
+    #[Test]
     public function one_click_post_endpoint_rejects_unsigned_url(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
@@ -135,6 +145,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertTrue($user->fresh()->marketing_consent, 'marketing_consent should be unchanged on rejected request');
     }
 
+    #[Test]
     public function one_click_get_endpoint_unsubscribes_and_shows_confirmation(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
@@ -147,6 +158,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertFalse($user->fresh()->marketing_consent, 'GET to one-click URL should also unsubscribe');
     }
 
+    #[Test]
     public function one_click_endpoint_is_idempotent(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
@@ -160,6 +172,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertFalse($user->fresh()->marketing_consent);
     }
 
+    #[Test]
     public function email_layout_renders_postal_address_when_configured(): void
     {
         config(['app.business_address' => "Exospace Gallery\n123 Main St\nSan Francisco, CA 94101"]);
@@ -175,6 +188,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertStringContainsString('San Francisco', $rendered);
     }
 
+    #[Test]
     public function email_layout_renders_unsubscribe_link_when_url_provided(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);
@@ -187,6 +201,7 @@ class Rfc8058UnsubscribeTest extends TestCase
         $this->assertStringContainsString('/unsubscribe/one-click/', $rendered);
     }
 
+    #[Test]
     public function csrf_middleware_excludes_one_click_route(): void
     {
         $middleware = $this->app->make(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);

@@ -41,7 +41,8 @@ class SendAbandonedCartEmails extends Command
         $cutoff = now()->subHours(24);
         $frequencyCutoff = now()->subDays(self::FREQUENCY_CAP_DAYS);
 
-        $pending = PendingUpgrade::where('pending_upgrades.status', 'pending')
+        $pending = PendingUpgrade::with('user')
+            ->where('pending_upgrades.status', 'pending')
             ->where('pending_upgrades.created_at', '<', $cutoff)
             ->whereNull('pending_upgrades.notified_at')
             ->where('pending_upgrades.expires_at', '>', now())
@@ -74,22 +75,33 @@ class SendAbandonedCartEmails extends Command
         $skipped = 0;
 
         foreach ($byUser as $userId => $upgrades) {
-            // Pick the most recent pending upgrade for this user.
-            $upgrade = $upgrades->sortByDesc('created_at')->first();
-            $user = $upgrade->user;
+            $user = $upgrades->first()->user;
 
             if (! $user) {
                 $skipped++;
                 continue;
             }
 
-            if (! $user->marketing_consent || ! $user->email_verified_at) {
-                Log::info('AbandonedCart: skipped — user revoked consent or unverified email', [
+            // Checkouts the user's plan already covers are closed for good, so
+            // they stop competing for the batch limit on later runs.
+            foreach ($upgrades as $u) {
+                if ($u->isCoveredByCurrentPlan()) {
+                    $u->forceFill(['status' => 'expired'])->save();
+                }
+            }
+
+            $upgrades = $upgrades->filter(fn (PendingUpgrade $u) => $u->isRecoverable());
+
+            if ($upgrades->isEmpty()) {
+                Log::info('AbandonedCart: skipped — no longer eligible', [
                     'user_id' => $user->id,
                 ]);
                 $skipped++;
                 continue;
             }
+
+            // Pick the most recent pending upgrade for this user.
+            $upgrade = $upgrades->sortByDesc('created_at')->first();
 
             try {
                 Mail::to($user->email)->send(new AbandonedCartEmail($user, $upgrade));

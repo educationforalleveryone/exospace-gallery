@@ -94,6 +94,41 @@ class PendingUpgrade extends Model
             ->update(['status' => 'expired']);
     }
 
+    /**
+     * True while this checkout still warrants a recovery email: it is open and
+     * unexpired, the customer consents to marketing, and their current plan does
+     * not already cover it.
+     */
+    public function isRecoverable(): bool
+    {
+        $user = $this->user;
+
+        return $this->status === 'pending'
+            && $this->expires_at?->isFuture() === true
+            && $user !== null
+            && $user->marketing_consent
+            && $user->email_verified_at !== null
+            && $user->banned_at === null
+            && ! $this->isCoveredByCurrentPlan();
+    }
+
+    /**
+     * A plan granted outside checkout (admin grant, another purchase) settles
+     * this checkout. A trial does not: converting trial users is the point.
+     */
+    public function isCoveredByCurrentPlan(): bool
+    {
+        $user = $this->user;
+
+        if ($user === null || $user->isInTrial()) {
+            return false;
+        }
+
+        $rank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
+
+        return ($rank[$user->plan] ?? 0) >= ($rank[$this->plan] ?? 0);
+    }
+
     public function markConverted(int $transactionId): void
     {
         $this->forceFill([
