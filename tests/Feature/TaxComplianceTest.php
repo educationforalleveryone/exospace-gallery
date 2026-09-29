@@ -13,6 +13,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class TaxComplianceTest extends TestCase
@@ -27,8 +29,10 @@ class TaxComplianceTest extends TestCase
         $this->tax = app(TaxService::class);
         Cache::flush();
         Http::preventStrayRequests();
+        config(['app.supplier_vat_number' => 'GB999999999']);
     }
 
+    #[Test]
     public function tax_service_accepts_ip_string_instead_of_request(): void
     {
         // TaxService must not depend on Illuminate\Http\Request.
@@ -45,6 +49,7 @@ class TaxComplianceTest extends TestCase
         }
     }
 
+    #[Test]
     public function eu_b2c_charges_vat_based_on_customer_country(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'DE', null);
@@ -56,6 +61,7 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['is_reverse_charge']);
     }
 
+    #[Test]
     public function eu_b2b_reverse_charge_when_vies_validates_vat_number(): void
     {
         // Mock VIES API response: valid.
@@ -75,6 +81,7 @@ class TaxComplianceTest extends TestCase
         $this->assertTrue($result['vat_number_valid']);
     }
 
+    #[Test]
     public function eu_b2b_charges_vat_when_vies_invalidates_vat_number(): void
     {
         Http::fake([
@@ -92,6 +99,7 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['vat_number_valid']);
     }
 
+    #[Test]
     public function vies_results_are_cached_for_24_hours(): void
     {
         $callCount = 0;
@@ -113,6 +121,7 @@ class TaxComplianceTest extends TestCase
         $this->assertSame(1, $callCount, 'VIES should be hit only once — subsequent validations come from cache');
     }
 
+    #[Test]
     public function vies_unreachable_falls_back_to_format_only(): void
     {
         // VIES returns 500.
@@ -130,6 +139,7 @@ class TaxComplianceTest extends TestCase
         $this->assertSame(19.0, $result2['rate']);
     }
 
+    #[Test]
     public function uk_b2c_charges_20_percent_vat(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'GB', null);
@@ -138,6 +148,7 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['is_eu']);
     }
 
+    #[Test]
     public function uk_b2b_reverse_charge_with_valid_uk_vat_format(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'GB', 'GB123456789');
@@ -146,6 +157,7 @@ class TaxComplianceTest extends TestCase
         $this->assertTrue($result['is_reverse_charge']);
     }
 
+    #[Test]
     public function uk_b2b_charges_vat_when_vat_format_invalid(): void
     {
         // UK VAT must be 9 or 12 digits.
@@ -155,6 +167,7 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['is_reverse_charge']);
     }
 
+    #[Test]
     public function australia_b2c_charges_10_percent_gst(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'AU', null);
@@ -162,18 +175,21 @@ class TaxComplianceTest extends TestCase
         $this->assertSame(10.00, $result['amount']);
     }
 
+    #[Test]
     public function singapore_b2c_charges_9_percent_gst(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'SG', null);
         $this->assertSame(9.0, $result['rate']);
     }
 
+    #[Test]
     public function india_b2c_charges_18_percent_igst(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'IN', null);
         $this->assertSame(18.0, $result['rate']);
     }
 
+    #[Test]
     public function non_vat_country_charges_zero_tax(): void
     {
         $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'US', null);
@@ -183,6 +199,7 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse($result['is_reverse_charge']);
     }
 
+    #[Test]
     public function invoice_generator_now_uses_tax_service_for_eu_customers(): void
     {
         // Invoices must carry tax computed through the tax service.
@@ -208,6 +225,7 @@ class TaxComplianceTest extends TestCase
         $this->assertFalse((bool) $invoice->reverse_charge);
     }
 
+    #[Test]
     public function invoice_generator_handles_eu_b2b_reverse_charge(): void
     {
         Storage::fake('public');
@@ -241,6 +259,7 @@ class TaxComplianceTest extends TestCase
         $this->assertSame('FR12345678901', $invoice->customer_vat_number);
     }
 
+    #[Test]
     public function invoice_supplier_vat_number_snapshot_stored_when_configured(): void
     {
         config(['app.supplier_vat_number' => 'GB999999999']);
@@ -263,6 +282,7 @@ class TaxComplianceTest extends TestCase
         $this->assertSame('GB999999999', $invoice->supplier_vat_number);
     }
 
+    #[Test]
     public function invoice_pdf_renders_vat_fields_for_b2b_eu_reverse_charge(): void
     {
         Http::fake([
@@ -294,6 +314,7 @@ class TaxComplianceTest extends TestCase
         $this->assertStringContainsString('Article 194', $rendered); // EU directive reference
     }
 
+    #[Test]
     public function invoice_pdf_renders_tax_line_for_b2c_vat_charged(): void
     {
         $invoice = Invoice::factory()->create([
@@ -312,6 +333,7 @@ class TaxComplianceTest extends TestCase
         $this->assertStringNotContainsString('Reverse charge', $rendered);
     }
 
+    #[Test]
     public function invoice_pdf_hides_tax_block_when_no_tax_and_no_reverse_charge(): void
     {
         $invoice = Invoice::factory()->create([
@@ -328,6 +350,164 @@ class TaxComplianceTest extends TestCase
         $this->assertStringNotContainsString('Reverse charge', $rendered);
     }
 
+    #[Test]
+    #[DataProvider('unregisteredSupplierValues')]
+    public function supplier_without_vat_registration_charges_no_tax(?string $configured): void
+    {
+        config(['app.supplier_vat_number' => $configured]);
+
+        $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'DE', null);
+
+        $this->assertNull(TaxService::supplierVatNumber());
+        $this->assertSame(0.0, $result['rate']);
+        $this->assertSame(0.00, $result['amount']);
+        $this->assertSame('DE', $result['country']);
+        $this->assertTrue($result['is_eu']);
+        $this->assertFalse($result['is_reverse_charge']);
+    }
+
+    public static function unregisteredSupplierValues(): array
+    {
+        return [
+            'unset'      => [null],
+            'empty'      => [''],
+            'whitespace' => ['   '],
+        ];
+    }
+
+    #[Test]
+    public function supplier_without_vat_registration_never_claims_reverse_charge(): void
+    {
+        config(['app.supplier_vat_number' => '']);
+
+        $result = $this->tax->calculateTax('1.2.3.4', 100.00, 'FR', 'FR12345678901');
+
+        $this->assertFalse($result['is_reverse_charge']);
+        $this->assertFalse($result['vat_number_valid']);
+        $this->assertSame(0.0, $result['rate']);
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function invoice_for_supplier_without_vat_registration_has_no_tax_lines(): void
+    {
+        Storage::fake('local');
+        config(['app.supplier_vat_number' => '']);
+
+        $user = User::factory()->create();
+        $transaction = Transaction::factory()->create([
+            'user_id'  => $user->id,
+            'amount'   => 99.00,
+            'currency' => 'USD',
+            'plan'     => 'studio',
+        ]);
+
+        $invoice = app(InvoiceGenerator::class)->generateForTransaction($transaction, $user, [
+            'customer_country' => 'DE',
+        ]);
+
+        $this->assertNotNull($invoice);
+        $this->assertSame(0.0, (float) $invoice->tax_rate);
+        $this->assertSame(0.0, (float) $invoice->tax_amount);
+        $this->assertFalse((bool) $invoice->reverse_charge);
+        $this->assertNull($invoice->supplier_vat_number);
+        $this->assertSame('DE', $invoice->tax_country_code);
+
+        $rendered = view('invoices.pdf', ['invoice' => $invoice])->render();
+        $this->assertStringNotContainsString('Tax (', $rendered);
+        $this->assertStringNotContainsString('Reverse charge', $rendered);
+        $this->assertStringNotContainsString('Supplier VAT', $rendered);
+    }
+
+    #[Test]
+    public function blank_default_country_config_falls_back_to_us(): void
+    {
+        config(['app.tax_default_country' => '']);
+
+        $result = $this->tax->calculateTax('1.2.3.4', 100.00, null, null);
+
+        $this->assertSame('US', $result['country']);
+        $this->assertSame(0.0, $result['rate']);
+    }
+
+    #[Test]
+    public function configured_default_country_is_used_when_customer_country_is_unknown(): void
+    {
+        config(['app.tax_default_country' => ' de ']);
+
+        $result = $this->tax->calculateTax('1.2.3.4', 100.00, null, null);
+
+        $this->assertSame('DE', $result['country']);
+        $this->assertSame(19.0, $result['rate']);
+    }
+
+    #[Test]
+    public function cloudflare_country_header_is_used_only_when_it_is_a_real_country(): void
+    {
+        config(['app.tax_default_country' => 'US']);
+
+        request()->headers->set('CF-IPCountry', 'fr');
+        $this->assertSame('FR', $this->tax->calculateTax('1.2.3.4', 100.00, null, null)['country']);
+
+        foreach (['XX', 'T1', ''] as $unusable) {
+            request()->headers->set('CF-IPCountry', $unusable);
+            $this->assertSame('US', $this->tax->calculateTax('1.2.3.4', 100.00, null, null)['country']);
+        }
+    }
+
+    #[Test]
+    #[DataProvider('malformedCustomerCountries')]
+    public function malformed_customer_country_falls_back_to_default_country(string $given): void
+    {
+        config(['app.tax_default_country' => 'US']);
+
+        $result = $this->tax->calculateTax('1.2.3.4', 100.00, $given, null);
+
+        $this->assertSame('US', $result['country']);
+        $this->assertSame(0.0, $result['rate']);
+    }
+
+    public static function malformedCustomerCountries(): array
+    {
+        return [
+            'empty'        => [''],
+            'country name' => ['GERMANY'],
+            'three-letter' => ['DEU'],
+            'digits'       => ['12'],
+        ];
+    }
+
+    #[Test]
+    public function invoice_never_stores_a_tax_country_longer_than_two_letters(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $transaction = Transaction::factory()->create([
+            'user_id' => $user->id,
+            'amount'  => 29.00,
+            'plan'    => 'pro',
+        ]);
+
+        $invoice = app(InvoiceGenerator::class)->generateForTransaction($transaction, $user, [
+            'customer_country' => 'GERMANY',
+        ]);
+
+        $this->assertNotNull($invoice);
+        $this->assertSame(2, strlen($invoice->tax_country_code));
+    }
+
+    #[Test]
+    public function supplier_country_normalizes_blank_and_lowercase_values(): void
+    {
+        config(['app.supplier_country' => '']);
+        $this->assertSame('US', TaxService::supplierCountry());
+
+        config(['app.supplier_country' => ' gb ']);
+        $this->assertSame('GB', TaxService::supplierCountry());
+    }
+
+    #[Test]
     public function invoices_table_has_vat_columns(): void
     {
         $this->assertTrue(\Schema::hasColumn('invoices', 'customer_vat_number'));

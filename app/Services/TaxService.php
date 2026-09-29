@@ -67,12 +67,15 @@ class TaxService
 
     public function calculateTax(string $ip, float $amount, ?string $countryCode = null, ?string $vatNumber = null): array
     {
-        $country = $countryCode ?? $this->detectCountry($ip);
-        $country = strtoupper($country);
+        $country = self::normalizeCountry($countryCode) ?? $this->detectCountry($ip);
         $isEu = in_array($country, self::EU_COUNTRIES, true);
         $isNonEuVat = array_key_exists($country, self::NON_EU_VAT_RATES);
 
-        if ($vatNumber && in_array($country, self::REVERSE_CHARGE_COUNTRIES, true)) {
+        // A supplier without a VAT/GST registration can neither charge nor
+        // account for tax, so every sale is issued at 0% without reverse charge.
+        $supplierRegistered = self::supplierVatNumber() !== null;
+
+        if ($supplierRegistered && $vatNumber && in_array($country, self::REVERSE_CHARGE_COUNTRIES, true)) {
             $vatValid = $this->validateVatNumber($vatNumber, $country);
             if ($vatValid) {
                 return [
@@ -93,9 +96,9 @@ class TaxService
 
         // B2C rates: EU uses EU_VAT_RATES, non-EU jurisdictions use NON_EU_VAT_RATES.
         $rate = 0.0;
-        if ($isEu) {
+        if ($supplierRegistered && $isEu) {
             $rate = self::EU_VAT_RATES[$country] ?? 0.0;
-        } elseif ($isNonEuVat) {
+        } elseif ($supplierRegistered && $isNonEuVat) {
             $rate = self::NON_EU_VAT_RATES[$country];
         }
 
@@ -114,12 +117,23 @@ class TaxService
 
     private function detectCountry(string $ip): string
     {
-        $cfCountry = request()?->header('CF-IPCountry');
-        if ($cfCountry && $cfCountry !== 'XX') {
-            return strtoupper($cfCountry);
+        $cfCountry = self::normalizeCountry(request()?->header('CF-IPCountry'));
+        if ($cfCountry !== null && $cfCountry !== 'XX') {
+            return $cfCountry;
         }
 
-        return strtoupper(config('app.tax_default_country', 'US'));
+        return self::normalizeCountry(config('app.tax_default_country')) ?? 'US';
+    }
+
+    /**
+     * Upper-cased ISO 3166-1 alpha-2 code, or null when the value is empty or
+     * not a two-letter code (blank env values, free-text country names).
+     */
+    private static function normalizeCountry(?string $code): ?string
+    {
+        $code = strtoupper(trim((string) $code));
+
+        return preg_match('/^[A-Z]{2}$/', $code) === 1 ? $code : null;
     }
 
     public function validateVatNumber(string $vatNumber, string $countryCode): bool
@@ -294,8 +308,9 @@ class TaxService
      */
     public static function supplierVatNumber(): ?string
     {
-        $val = config('app.supplier_vat_number');
-        return $val && $val !== '' ? $val : null;
+        $val = trim((string) config('app.supplier_vat_number'));
+
+        return $val !== '' ? $val : null;
     }
 
     /**
@@ -303,6 +318,6 @@ class TaxService
      */
     public static function supplierCountry(): string
     {
-        return strtoupper(config('app.supplier_country', 'US'));
+        return self::normalizeCountry(config('app.supplier_country')) ?? 'US';
     }
 }
